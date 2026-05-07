@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Lock, Save, ShieldCheck } from 'lucide-react';
+import { Activity, KeyRound, Lock, Radio, Save, ShieldCheck, Wifi } from 'lucide-react';
 import {
   clearStoredAuthToken,
   getCurrentAuth,
@@ -15,7 +15,11 @@ import { DataBlock } from '../components/DataBlock';
 import { compactJson } from '../lib/object';
 import { errorDebugValue, formatError } from '../lib/errors';
 
-export function AdminView() {
+interface AdminViewProps {
+  realtimeError?: string | null;
+}
+
+export function AdminView({ realtimeError }: AdminViewProps) {
   const queryClient = useQueryClient();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -217,6 +221,30 @@ export function AdminView() {
         <DataBlock title="Daemon Status" value={status.data} />
         <DataBlock title="Local Auth" value={localAuth.data} />
       </div>
+
+      <section className="panel">
+        <div className="panel-title">
+          <h2>Surface Runtime</h2>
+          <Activity size={18} />
+        </div>
+        <div className="runtime-grid">
+          <div>
+            <Radio size={16} />
+            <strong>3423</strong>
+            <span>Browser surface</span>
+          </div>
+          <div>
+            <Wifi size={16} />
+            <strong>3421</strong>
+            <span>Control plane</span>
+          </div>
+          <div>
+            <span className={realtimeError ? 'status-dot warning' : 'status-dot ok'} />
+            <strong>{realtimeError ? 'Degraded' : 'Listening'}</strong>
+            <span>{realtimeError || 'Realtime event stream'}</span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, Check, Copy, Mic, Paperclip, RotateCcw, Send, X } from 'lucide-react';
+import { ArrowDown, Check, Copy, Edit3, RotateCcw, Send, X } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstArray, firstString, formatRelative } from '../lib/object';
 import { queryKeys } from '../lib/queries';
-import { modelOptionsFromProvider } from '../lib/provider-models';
+import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatError } from '../lib/errors';
@@ -75,6 +75,7 @@ interface ChatViewProps {
   onActiveSessionChange: (sessionId: string) => void;
   onDraftSessionRequestedChange: (requested: boolean) => void;
   onLocalSessionCreated: (session: unknown) => void;
+  onLocalSessionUpdated: (sessionId: string, session: unknown) => void;
 }
 
 export function ChatView({
@@ -83,6 +84,7 @@ export function ChatView({
   onActiveSessionChange,
   onDraftSessionRequestedChange,
   onLocalSessionCreated,
+  onLocalSessionUpdated,
 }: ChatViewProps) {
   const queryClient = useQueryClient();
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -96,17 +98,54 @@ export function ChatView({
   const [pendingUserMessageId, setPendingUserMessageId] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState('');
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [selectedProviderId, setSelectedProviderId] = useState('');
+  const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+  const [sessionTitleDraft, setSessionTitleDraft] = useState('');
 
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
   const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current() });
 
-  const modelOptions = useMemo(
-    () => firstArray(modelCatalog.data, ['providers', 'items', 'data']).flatMap((provider) => modelOptionsFromProvider(provider)),
-    [modelCatalog.data],
-  );
-  const currentRegistryKey = firstString(asRecord(asRecord(currentModel.data).model), ['registryKey'])
+  const providerOptions = useMemo(() => providerOptionsFromResponse(modelCatalog.data), [modelCatalog.data]);
+  const currentModelRecord = asRecord(asRecord(currentModel.data).model);
+  const currentModelData = Object.keys(currentModelRecord).length ? currentModelRecord : asRecord(currentModel.data);
+  const currentRegistryKey = firstString(currentModelData, ['registryKey'])
     || firstString(asRecord(asRecord(modelCatalog.data).currentModel), ['registryKey'])
     || '';
+  const currentProviderId = firstString(currentModelData, ['provider', 'providerId', 'runtimeProviderId'])
+    || firstString(asRecord(asRecord(modelCatalog.data).currentModel), ['provider', 'providerId', 'runtimeProviderId'])
+    || '';
+  const selectedProvider = providerOptions.find((provider) => provider.id === selectedProviderId)?.value ?? providerOptions[0]?.value;
+  const providerModelOptions = useMemo(
+    () => selectedProvider ? modelOptionsFromProvider(selectedProvider) : [],
+    [selectedProvider],
+  );
+  const selectedModelRegistryKey = providerModelOptions.some((model) => model.registryKey === currentRegistryKey) ? currentRegistryKey : '';
+
+  const activeSession = useMemo(
+    () => sessionItems.find((session) => bestId(session) === activeSessionId),
+    [activeSessionId, sessionItems],
+  );
+  const activeSessionTitle = activeSessionId ? bestTitle(activeSession, activeSessionId) : 'New Chat';
+
+  useEffect(() => {
+    if (selectedProviderId) return;
+    const preferredProviderId = currentProviderId || providerOptions[0]?.id || '';
+    if (preferredProviderId) setSelectedProviderId(preferredProviderId);
+  }, [currentProviderId, providerOptions, selectedProviderId]);
+
+  useEffect(
+    () => setSessionTitleDraft(activeSessionTitle === activeSessionId ? '' : activeSessionTitle),
+    [activeSessionId, activeSessionTitle],
+  );
+
+  const renameSession = useMutation({
+    mutationFn: ({ sessionId, title }: { sessionId: string; title: string }) => sdk.chat.sessions.update(sessionId, { title }),
+    onSuccess: async (result, variables) => {
+      onLocalSessionUpdated(variables.sessionId, companionSessionFromDetail(result) || { sessionId: variables.sessionId, title: variables.title });
+      await queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
+      await queryClient.invalidateQueries({ queryKey: ['companion-chat', variables.sessionId] });
+    },
+  });
 
   const selectModel = useMutation({
     mutationFn: (registryKey: string) => sdk.operator.models.select(registryKey),
@@ -263,10 +302,11 @@ export function ChatView({
 
       const result = await sdk.chat.messages.create(sessionId, { body });
       const messageId = extractMessageId(result);
+      const localMessageId = messageId || `local-${Date.now()}`;
       setLocalMessages((current) => [
         ...current,
         {
-          id: messageId || `local-${Date.now()}`,
+          id: localMessageId,
           sessionId,
           role: 'user',
           content: body,
@@ -274,7 +314,7 @@ export function ChatView({
           deliveryState: 'sent',
         },
       ]);
-      setPendingUserMessageId(messageId);
+      setPendingUserMessageId(localMessageId);
       setDraft('');
       setLiveText('');
       setTurnState('submitted');
@@ -322,27 +362,13 @@ export function ChatView({
     }
   }, [pendingUserMessageId, renderedMessageItems, turnError]);
 
-  function selectSession(sessionId: string) {
-    if (!sessionId) {
-      onDraftSessionRequestedChange(true);
-      onActiveSessionChange('');
-      setLiveText('');
-      setTurnState('idle');
-      setTurnError('');
-      setPendingUserMessageId('');
-      return;
-    }
-    onDraftSessionRequestedChange(false);
-    onActiveSessionChange(sessionId);
-    setLiveText('');
-    setTurnState('idle');
-    setTurnError('');
-    setPendingUserMessageId('');
+  function submitDraft() {
+    sendText(draft);
   }
 
-  function submitDraft() {
-    if (send.isPending || !draft.trim()) return;
-    send.mutate(draft.trim());
+  function sendText(text: string) {
+    if (send.isPending || !text.trim()) return;
+    send.mutate(text.trim());
   }
 
   function submit(event: FormEvent) {
@@ -367,8 +393,7 @@ export function ChatView({
 
   function resendMessage(message: unknown) {
     const text = messageText(message);
-    if (!text || send.isPending) return;
-    send.mutate(text);
+    sendText(text);
   }
 
   function regenerateFrom(messageIndex: number) {
@@ -394,24 +419,54 @@ export function ChatView({
     setShowJumpToBottom(false);
   }
 
+  function finishRenamingTitle() {
+    if (!isRenamingTitle) return;
+    const nextTitle = sessionTitleDraft.trim();
+    setIsRenamingTitle(false);
+    if (!activeSessionId || !nextTitle || nextTitle === activeSessionTitle) return;
+    renameSession.mutate({ sessionId: activeSessionId, title: nextTitle });
+  }
+
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setSessionTitleDraft(activeSessionTitle === activeSessionId ? '' : activeSessionTitle);
+      setIsRenamingTitle(false);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      finishRenamingTitle();
+    }
+  }
+
   const visibleTurnState = turnState !== 'idle' && turnState !== 'completed';
 
   return (
       <section className="chat-main">
         <header className="chat-main-header">
-          <select
-            className="chat-session-select"
-            value={activeSessionId}
-            onChange={(event) => selectSession(event.target.value)}
-            disabled={!sessionItems.length}
-            aria-label="Active chat session"
-          >
-            {(!activeSessionId || !sessionItems.length) && <option value="">New chat</option>}
-            {sessionItems.map((session, index) => {
-              const id = bestId(session) || String(index);
-              return <option key={`${id}-${index}`} value={id}>{bestTitle(session, id)}</option>;
-            })}
-          </select>
+          {isRenamingTitle ? (
+            <input
+              className="chat-title-input"
+              value={sessionTitleDraft}
+              onBlur={finishRenamingTitle}
+              onChange={(event) => setSessionTitleDraft(event.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              autoFocus
+              aria-label="Rename chat session"
+            />
+          ) : (
+            <button
+              className="chat-title-button"
+              type="button"
+              disabled={!activeSessionId}
+              onClick={() => activeSessionId && setIsRenamingTitle(true)}
+              title={activeSessionId ? 'Rename chat' : 'Start a new chat'}
+            >
+              <span>{activeSessionTitle}</span>
+              {activeSessionId && <Edit3 size={14} />}
+            </button>
+          )}
           <div className="chat-status">
             {visibleTurnState && <StatusBadge value={turnState} />}
           </div>
@@ -426,42 +481,48 @@ export function ChatView({
             const timestamp = messageTimestamp(message);
             return (
               <article key={`${id}-${index}`} className={`message ${tone}`}>
-                {timestamp !== 'unknown' && (
-                  <div className="message-meta">
-                    <span>{timestamp}</span>
-                  </div>
-                )}
-                <p>{messageText(message) || JSON.stringify(asRecord(message))}</p>
+                <div className="message-bubble">
+                  {timestamp !== 'unknown' && (
+                    <div className="message-meta">
+                      <span>{timestamp}</span>
+                    </div>
+                  )}
+                  <p>{messageText(message) || JSON.stringify(asRecord(message))}</p>
+                </div>
                 <div className="message-actions">
-                  {state && (
-                    <span className={`delivery-indicator ${state}`} title={state === 'failed' ? 'Not sent' : state === 'local' ? 'Pending' : 'Sent'}>
-                      {state === 'failed' ? <X size={12} /> : <Check size={12} />}
-                    </span>
-                  )}
-                  <button type="button" title="Copy message" onClick={() => void copyMessage(message)}>
-                    <Copy size={13} />
-                  </button>
-                  {canRetry && (
-                    <button
-                      type="button"
-                      title={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
-                      disabled={send.isPending}
-                      onClick={() => (tone === 'assistant' ? regenerateFrom(index) : resendMessage(message))}
-                    >
-                      <RotateCcw size={13} />
+                  <div className="message-actions-inner">
+                    {state && (
+                      <span className={`delivery-indicator ${state}`} title={state === 'failed' ? 'Not sent' : state === 'local' ? 'Pending' : 'Sent'}>
+                        {state === 'failed' ? <X size={12} /> : <Check size={12} />}
+                      </span>
+                    )}
+                    <button type="button" title="Copy message" onClick={() => void copyMessage(message)}>
+                      <Copy size={13} />
                     </button>
-                  )}
-                  {copiedMessageId === id && <span className="message-action-label">copied</span>}
+                    {canRetry && (
+                      <button
+                        type="button"
+                        title={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
+                        disabled={send.isPending}
+                        onClick={() => (tone === 'assistant' ? regenerateFrom(index) : resendMessage(message))}
+                      >
+                        <RotateCcw size={13} />
+                      </button>
+                    )}
+                    {copiedMessageId === id && <span className="message-action-label">copied</span>}
+                  </div>
                 </div>
               </article>
             );
           })}
           {liveText && (
             <article className="message assistant streaming">
-              <div className="message-meta">
-                <span>GoodVibes is responding</span>
+              <div className="message-bubble">
+                <div className="message-meta">
+                  <span>GoodVibes is responding</span>
+                </div>
+                <p>{liveText}</p>
               </div>
-              <p>{liveText}</p>
             </article>
           )}
           {!renderedMessageItems.length && !liveText && <p className="empty-state">Start a chat with GoodVibes.</p>}
@@ -475,6 +536,8 @@ export function ChatView({
         <form className="composer" onSubmit={submit}>
           {send.error && <div className="composer-error">{formatError(send.error)}</div>}
           {turnError && <div className="composer-error">{turnError}</div>}
+          {renameSession.error && <div className="composer-error">{formatError(renameSession.error)}</div>}
+          {selectModel.error && <div className="composer-error">{formatError(selectModel.error)}</div>}
           <div className="composer-box">
             <textarea
               ref={composerRef}
@@ -486,36 +549,31 @@ export function ChatView({
               rows={1}
             />
             <div className="composer-toolbar">
-              <div className="composer-tools">
-                <button
-                  type="button"
-                  className="composer-tool"
-                  title="Chat attachments are not available in the current SDK"
-                  disabled
-                >
-                  <Paperclip size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="composer-tool"
-                  title="Voice mode is not available in this WebUI build"
-                  disabled
-                >
-                  <Mic size={16} />
-                </button>
-              </div>
               <div className="composer-route">
                 <select
-                  value={currentRegistryKey}
-                  onChange={(event) => selectModel.mutate(event.target.value)}
-                  disabled={!modelOptions.length || selectModel.isPending}
-                  aria-label="Current daemon model"
+                  value={selectedProviderId}
+                  onChange={(event) => setSelectedProviderId(event.target.value)}
+                  disabled={!providerOptions.length}
+                  aria-label="Provider"
                 >
-                  {!modelOptions.length && <option value="">Daemon model</option>}
-                  {modelOptions.map((model) => (
+                  {!providerOptions.length && <option value="">Provider</option>}
+                  {providerOptions.map((provider) => (
+                    <option key={provider.id} value={provider.id}>{provider.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedModelRegistryKey}
+                  onChange={(event) => event.target.value && selectModel.mutate(event.target.value)}
+                  disabled={!providerModelOptions.length || selectModel.isPending}
+                  aria-label="Model"
+                >
+                  <option value="">{providerModelOptions.length ? 'Model' : 'No models'}</option>
+                  {providerModelOptions.map((model) => (
                     <option key={model.registryKey} value={model.registryKey}>{model.label}</option>
                   ))}
                 </select>
+              </div>
+              <div className="composer-actions">
                 <button type="submit" className="send-button" title="Send message" disabled={send.isPending || !draft.trim()}>
                   <Send size={18} />
                 </button>

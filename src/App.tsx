@@ -6,6 +6,8 @@ import {
   KeyRound,
   LayoutDashboard,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plug,
   Radio,
   ServerCog,
@@ -48,6 +50,7 @@ export default function App() {
   const [activeChatSessionId, setActiveChatSessionId] = useState('');
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
     queryKey: ['boot'],
@@ -87,16 +90,25 @@ export default function App() {
 
   const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);
+  const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
+      <aside className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="brand">
           <div className="brand-mark">GV</div>
           <div className="brand-copy">
-            <strong>GoodVibes</strong>
+            <strong>GOODVIBES.SH</strong>
             <span>Operator Shell</span>
           </div>
+          <button
+            className="sidebar-toggle"
+            type="button"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => setSidebarCollapsed((current) => !current)}
+          >
+            <SidebarToggleIcon size={17} />
+          </button>
         </div>
 
         <nav className="nav-list" aria-label="Primary">
@@ -157,23 +169,6 @@ export default function App() {
           </section>
         )}
 
-        <div className="surface-card">
-          <div>
-            <Radio size={16} />
-            <strong>3423</strong>
-          </div>
-          <span>Browser surface</span>
-          <div>
-            <Wifi size={16} />
-            <strong>3421</strong>
-          </div>
-          <span>Control plane</span>
-        </div>
-
-        <div className="sidebar-footer">
-          <span className={realtimeError ? 'status-dot warning' : 'status-dot ok'} />
-          <span>{realtimeError ? 'Realtime degraded' : 'Realtime listening'}</span>
-        </div>
       </aside>
 
       <main className={activeView === 'chat' ? 'workspace workspace-chat' : 'workspace'}>
@@ -226,13 +221,18 @@ export default function App() {
                 companionSessionFromDetail(session),
                 ...current.filter((item) => bestId(item) !== bestId(session)),
               ])}
+              onLocalSessionUpdated={(sessionId, session) => setLocalChatSessions((current) => {
+                const normalized = companionSessionFromDetail(session);
+                const next = current.filter((item) => bestId(item) !== sessionId);
+                return [bestId(normalized) ? normalized : { id: sessionId, sessionId, title: bestTitle(session, sessionId) }, ...next];
+              })}
             />
           )}
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'work' && <WorkView />}
-          {activeView === 'admin' && <AdminView />}
+          {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>
       </main>
     </div>

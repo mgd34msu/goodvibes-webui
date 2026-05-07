@@ -4,6 +4,21 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.4] - 2026-05-07
+
+### Changed
+
+- Reworked the chat theme toward the `goodvibes.sh` terminal/vaporwave direction with neon accents, grid texture, and mono typography.
+- Added a collapsible app sidebar and moved browser/control-plane/realtime status from the sidebar into Admin.
+- Replaced the duplicate chat-session dropdown with an editable chat title backed by `sdk.chat.sessions.update`.
+- Split daemon model selection into provider and model dropdowns, with model choices filtered by the selected provider.
+- Kept chat file attachment controls out of the composer because companion chat still has no public attachment contract in SDK `0.33.9`.
+
+### Fixed
+
+- Kept user message bubbles sized to the message text while hover actions render below the bubble.
+- Fixed retry actions so user messages resend and assistant responses regenerate from the preceding user message.
+
 ## [0.1.3] - 2026-05-07
 
 ### Changed

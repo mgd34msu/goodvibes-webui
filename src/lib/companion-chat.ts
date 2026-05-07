@@ -7,6 +7,13 @@ export interface LocalCompanionMessage {
   content: string;
   createdAt: number;
   deliveryState?: 'sent' | 'failed' | 'local';
+  attachments?: readonly {
+    artifactId: string;
+    label?: string;
+    filename?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+  }[];
 }
 
 export interface LocalCompanionSession {
@@ -63,6 +70,19 @@ function comparableMessageText(message: unknown): string {
   return firstString(message, ['body', 'content', 'text', 'message']).trim();
 }
 
+function comparableMessageAttachments(message: unknown): string {
+  const attachments = readPath(message, ['attachments']);
+  if (!Array.isArray(attachments)) return '';
+  return attachments
+    .map((attachment) => (
+      firstString(attachment, ['artifactId', 'id'])
+      || firstString(attachment, ['label', 'filename', 'name'])
+    ))
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
 function comparableMessageRole(message: unknown): string {
   return firstString(message, ['role', 'author', 'kind', 'source']).toLowerCase();
 }
@@ -79,9 +99,11 @@ export function mergeCompanionMessages(
     if (fetchedIds.has(message.id)) continue;
     const localText = comparableMessageText(message);
     const localRole = comparableMessageRole(message);
+    const localAttachments = comparableMessageAttachments(message);
     const alreadyFetched = fetchedMessages.some((fetched) => (
       comparableMessageText(fetched) === localText
       && comparableMessageRole(fetched) === localRole
+      && comparableMessageAttachments(fetched) === localAttachments
     ));
     if (alreadyFetched) continue;
     rendered.push(message);

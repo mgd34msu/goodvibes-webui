@@ -4,6 +4,17 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.10] - 2026-05-07
+
+### Added
+
+- Updated `@pellux/goodvibes-sdk` to `0.33.10` and enabled real companion-chat file attachments through `sdk.artifacts.create` plus `sdk.chat.messages.create` attachment references.
+
+### Fixed
+
+- Resolved subscription-backed provider model lists so runtime providers such as `openai-subscriber` source selectable models from the catalog provider (`openai`) while still using daemon-valid registry keys.
+- Applied the same provider/model source resolution on the Providers page and chat composer.
+
 ## [0.1.9] - 2026-05-07
 
 ### Fixed

@@ -65,6 +65,48 @@ function appendUnique(target: ModelOption[], model: ModelOption | null) {
   target.push(model);
 }
 
+function appendUniqueString(target: string[], value: string) {
+  if (!value || target.includes(value)) return;
+  target.push(value);
+}
+
+const CATALOG_PROVIDER_ALIASES: Record<string, string> = {
+  'openai-subscriber': 'openai',
+  inception: 'inceptionlabs',
+  copilot: 'github-copilot',
+  'azure-openai': 'microsoft-foundry',
+  'azure-openai-responses': 'microsoft-foundry',
+  dashscope: 'qwen',
+  'volcano-engine': 'volcengine',
+  'x-ai': 'xai',
+  'z-ai': 'zai',
+  'cloudflare-gateway': 'cloudflare-ai-gateway',
+  'ai-gateway': 'vercel-ai-gateway',
+};
+
+export function providerModelSourceIds(provider: unknown): string[] {
+  const providerId = bestId(provider);
+  const ids: string[] = [];
+
+  appendUniqueString(ids, CATALOG_PROVIDER_ALIASES[providerId] ?? '');
+  appendUniqueString(ids, firstString(provider, ['catalogProviderId', 'canonicalProviderId', 'subscriptionProviderId', 'baseProviderId', 'modelProviderId']));
+  appendUniqueString(ids, firstString(readPath(provider, ['runtime']), ['catalogProviderId', 'canonicalProviderId', 'subscriptionProviderId', 'baseProviderId', 'modelProviderId']));
+  appendUniqueString(ids, firstString(readPath(provider, ['runtime', 'models']), ['providerId', 'catalogProviderId', 'canonicalProviderId']));
+
+  for (const route of firstArrayAtPath(provider, [
+    ['auth', 'routes'],
+    ['runtime', 'auth', 'routes'],
+  ])) {
+    appendUniqueString(ids, firstString(route, ['providerId', 'catalogProviderId', 'subscriptionProviderId']));
+  }
+
+  if (providerId.endsWith('-subscriber')) {
+    appendUniqueString(ids, providerId.slice(0, -'-subscriber'.length));
+  }
+
+  return ids.filter((id) => id !== providerId);
+}
+
 export function modelOptionsFromProvider(provider: unknown): ModelOption[] {
   const models: ModelOption[] = [];
   const providerId = bestId(provider);
@@ -89,4 +131,20 @@ export function modelOptionsFromProvider(provider: unknown): ModelOption[] {
   appendUnique(models, normalizeModel(providerId, record.defaultModel));
 
   return models;
+}
+
+export function modelOptionsForProvider(provider: unknown, modelCatalogProviders: unknown[] = []): ModelOption[] {
+  const aliasProviderIds = providerModelSourceIds(provider);
+  const aliasModels: ModelOption[] = [];
+
+  for (const aliasProviderId of aliasProviderIds) {
+    const catalogProvider = modelCatalogProviders.find((candidate) => bestId(candidate) === aliasProviderId);
+    if (!catalogProvider) continue;
+    for (const model of modelOptionsFromProvider(catalogProvider)) {
+      appendUnique(aliasModels, model);
+    }
+  }
+
+  if (aliasModels.length) return aliasModels;
+  return modelOptionsFromProvider(provider);
 }

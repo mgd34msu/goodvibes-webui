@@ -6,8 +6,8 @@ import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
-import { asRecord, bestId, bestTitle, firstArray, firstString, readPath } from '../lib/object';
-import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { asRecord, bestId, bestTitle, firstString, readPath } from '../lib/object';
+import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { formatError } from '../lib/errors';
 
 export function ProvidersView() {
@@ -18,12 +18,18 @@ export function ProvidersView() {
   const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current() });
   const accounts = useQuery({ queryKey: queryKeys.accounts, queryFn: () => sdk.operator.accounts.snapshot() });
 
-  const providerOptions = useMemo(() => providerOptionsFromResponse(providers.data), [providers.data]);
-  const modelProviders = useMemo(() => firstArray(modelCatalog.data, ['providers', 'items', 'data']), [modelCatalog.data]);
-  const providerList = useMemo(
-    () => modelProviders.length ? modelProviders : providerOptions.map((provider) => provider.value),
-    [modelProviders, providerOptions],
-  );
+  const catalogProviderOptions = useMemo(() => providerOptionsFromResponse(modelCatalog.data), [modelCatalog.data]);
+  const providerOptions = useMemo(() => {
+    const byId = new Map<string, ReturnType<typeof providerOptionsFromResponse>[number]>();
+    for (const provider of providerOptionsFromResponse(providers.data)) byId.set(provider.id, provider);
+    for (const provider of catalogProviderOptions) {
+      const existing = byId.get(provider.id);
+      byId.set(provider.id, existing ? { ...existing, value: { ...asRecord(existing.value), ...asRecord(provider.value) } } : provider);
+    }
+    return [...byId.values()];
+  }, [catalogProviderOptions, providers.data]);
+  const modelProviders = useMemo(() => catalogProviderOptions.map((provider) => provider.value), [catalogProviderOptions]);
+  const providerList = useMemo(() => providerOptions.map((provider) => provider.value), [providerOptions]);
   const selectedProvider = useMemo(() => {
     if (!selectedProviderId) return providerList[0];
     return providerList.find((provider) => bestId(provider) === selectedProviderId) ?? providerList[0];
@@ -51,7 +57,7 @@ export function ProvidersView() {
     || firstString(selectedProvider, ['configuredVia']).length > 0;
   const configuredVia = firstString(selectedProvider, ['configuredVia']);
   const selectedProviderDetail = providerDetail.data ?? selectedProviderSnapshot ?? selectedProvider;
-  const models = modelOptionsFromProvider(selectedProvider);
+  const models = modelOptionsForProvider(selectedProvider, modelProviders);
   const currentModelRecord = asRecord(readPath(currentModel.data, ['model']));
   const catalogCurrentModel = asRecord(readPath(modelCatalog.data, ['currentModel']));
   const currentRegistryKey = firstString(currentModelRecord, ['registryKey']) || firstString(catalogCurrentModel, ['registryKey']);

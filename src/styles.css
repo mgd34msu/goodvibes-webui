@@ -1355,6 +1355,43 @@ button:disabled {
   border-color: rgb(240 189 101 / 35%);
 }
 
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(860px, 100%);
+  margin: 0 auto;
+}
+
+.composer-attachment {
+  display: inline-flex;
+  max-width: min(260px, 100%);
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  color: #dffcff;
+  font-size: 12px;
+  background: rgb(0 255 255 / 8%);
+  border: 1px solid rgb(0 255 255 / 22%);
+  border-radius: 8px;
+}
+
+.composer-attachment button {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  color: #9beef2;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.composer-attachment button:hover {
+  color: #090717;
+  background: var(--gv-cyan);
+}
+
 .composer-box {
   display: grid;
   gap: 6px;
@@ -1584,6 +1621,43 @@ button:disabled {
 
 .chat-main .message p {
   color: inherit;
+}
+
+.message-attachments {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.message-attachment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  max-width: 320px;
+  padding: 8px 10px;
+  color: #dffcff;
+  background: rgb(0 255 255 / 7%);
+  border: 1px solid rgb(0 255 255 / 22%);
+  border-radius: 8px;
+}
+
+.message-attachment strong,
+.message-attachment span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-attachment strong {
+  font-size: 12px;
+}
+
+.message-attachment span {
+  margin-top: 2px;
+  color: #9beef2;
+  font-size: 11px;
 }
 
 .chat-main .message-actions {

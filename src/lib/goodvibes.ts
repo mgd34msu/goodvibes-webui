@@ -216,6 +216,7 @@ export const sdk = {
     },
   },
   chat: scopedSdk.chat,
+  artifacts: scopedSdk.artifacts,
   realtime: {
     viaSse: () => scopedSdk.realtime.viaSse(),
   },

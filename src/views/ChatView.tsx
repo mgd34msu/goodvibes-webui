@@ -1,10 +1,10 @@
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, Check, Copy, Edit3, Mic, Paperclip, RotateCcw, Send, X } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstArray, firstString, formatRelative } from '../lib/object';
 import { queryKeys } from '../lib/queries';
-import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatError } from '../lib/errors';
@@ -21,6 +21,46 @@ function messageText(message: unknown): string {
   if (direct) return direct;
   const parts = firstArray(message, ['parts', 'content']);
   return parts.map((part) => firstString(part, ['text', 'content', 'body'])).filter(Boolean).join('\n');
+}
+
+function messageAttachments(message: unknown): unknown[] {
+  const record = asRecord(message);
+  if (Array.isArray(record.attachments)) return record.attachments;
+  if (Array.isArray(record.artifacts)) return record.artifacts;
+  return [];
+}
+
+function attachmentLabel(attachment: unknown): string {
+  return firstString(attachment, ['label', 'filename', 'name', 'artifactId', 'id']) || 'Attachment';
+}
+
+function attachmentMeta(attachment: unknown): string {
+  const record = asRecord(attachment);
+  const mimeType = firstString(attachment, ['mimeType', 'type']);
+  const sizeBytes = Number(record.sizeBytes ?? record.size);
+  const size = Number.isFinite(sizeBytes) && sizeBytes > 0
+    ? sizeBytes > 1024 * 1024
+      ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
+    : '';
+  return [mimeType, size].filter(Boolean).join(' · ');
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
+    reader.onload = () => {
+      const value = typeof reader.result === 'string' ? reader.result : '';
+      resolve(value.includes(',') ? value.split(',').pop() ?? '' : value);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadedArtifactId(uploaded: unknown): string {
+  return firstString(asRecord(uploaded).artifact, ['id', 'artifactId'])
+    || firstString(uploaded, ['artifactId', 'id']);
 }
 
 function roleOf(message: unknown): string {
@@ -90,7 +130,9 @@ export function ChatView({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const liveTextRef = useRef('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [liveText, setLiveText] = useState('');
   const [turnState, setTurnState] = useState('idle');
   const [turnError, setTurnError] = useState('');
@@ -105,16 +147,17 @@ export function ChatView({
   const providers = useQuery({ queryKey: queryKeys.providers, queryFn: () => sdk.operator.providers.list() });
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
   const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current() });
+  const catalogProviderOptions = useMemo(() => providerOptionsFromResponse(modelCatalog.data), [modelCatalog.data]);
 
   const providerOptions = useMemo(() => {
     const byId = new Map<string, ReturnType<typeof providerOptionsFromResponse>[number]>();
     for (const provider of providerOptionsFromResponse(providers.data)) byId.set(provider.id, provider);
-    for (const provider of providerOptionsFromResponse(modelCatalog.data)) {
+    for (const provider of catalogProviderOptions) {
       const existing = byId.get(provider.id);
       byId.set(provider.id, existing ? { ...existing, value: { ...asRecord(existing.value), ...asRecord(provider.value) } } : provider);
     }
     return [...byId.values()];
-  }, [modelCatalog.data, providers.data]);
+  }, [catalogProviderOptions, providers.data]);
   const currentModelRecord = asRecord(asRecord(currentModel.data).model);
   const currentModelData = Object.keys(currentModelRecord).length ? currentModelRecord : asRecord(currentModel.data);
   const currentRegistryKey = firstString(currentModelData, ['registryKey'])
@@ -125,8 +168,8 @@ export function ChatView({
     || '';
   const selectedProvider = providerOptions.find((provider) => provider.id === selectedProviderId)?.value ?? providerOptions[0]?.value;
   const providerModelOptions = useMemo(
-    () => selectedProvider ? modelOptionsFromProvider(selectedProvider) : [],
-    [selectedProvider],
+    () => selectedProvider ? modelOptionsForProvider(selectedProvider, catalogProviderOptions.map((provider) => provider.value)) : [],
+    [catalogProviderOptions, selectedProvider],
   );
   const selectedModelRegistryKey = providerModelOptions.some((model) => model.registryKey === currentRegistryKey) ? currentRegistryKey : '';
 
@@ -283,16 +326,17 @@ export function ChatView({
   }, [activeSessionId, queryClient]);
 
   const send = useMutation({
-    mutationFn: async (body: string) => {
-      if (!body) return;
+    mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
+      if (!body && !files.length) return;
       setTurnState('sending');
       setTurnError('');
 
       let sessionId = activeSessionId;
       if (!sessionId) {
         const createdAt = Date.now();
+        const title = body.slice(0, 72) || files[0]?.name?.slice(0, 72) || 'Attachment chat';
         const created = await sdk.chat.sessions.create({
-          title: body.slice(0, 72),
+          title,
         });
         sessionId = extractSessionId(created);
         const createdSession = companionSessionFromDetail(created);
@@ -300,7 +344,7 @@ export function ChatView({
           id: sessionId,
           sessionId,
           kind: 'companion-chat',
-          title: body.slice(0, 72) || sessionId,
+          title: title || sessionId,
           status: 'active',
           createdAt,
           updatedAt: createdAt,
@@ -309,7 +353,29 @@ export function ChatView({
         onDraftSessionRequestedChange(false);
       }
 
-      const result = await sdk.chat.messages.create(sessionId, { body });
+      const attachments = await Promise.all(files.map(async (file) => {
+        const dataBase64 = await fileToBase64(file);
+        const uploaded = await sdk.artifacts.create({
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          dataBase64,
+          metadata: { surface: 'webui' },
+        });
+        const artifactId = uploadedArtifactId(uploaded);
+        if (!artifactId) throw new Error(`Artifact upload for ${file.name} did not return an artifact id.`);
+        return {
+          artifactId,
+          label: file.name,
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size,
+        };
+      }));
+
+      const result = await sdk.chat.messages.create(sessionId, {
+        body,
+        attachments: attachments.map(({ artifactId, label }) => ({ artifactId, label })),
+      });
       const messageId = extractMessageId(result);
       const localMessageId = messageId || `local-${Date.now()}`;
       setLocalMessages((current) => [
@@ -321,10 +387,12 @@ export function ChatView({
           content: body,
           createdAt: Date.now(),
           deliveryState: 'sent',
+          attachments,
         },
       ]);
       setPendingUserMessageId(localMessageId);
       setDraft('');
+      setAttachedFiles([]);
       setLiveText('');
       setTurnState('submitted');
       await invalidateChatState(sessionId);
@@ -372,12 +440,13 @@ export function ChatView({
   }, [pendingUserMessageId, renderedMessageItems, turnError]);
 
   function submitDraft() {
-    sendText(draft);
+    sendText(draft, attachedFiles);
   }
 
-  function sendText(text: string) {
-    if (send.isPending || !text.trim()) return;
-    send.mutate(text.trim());
+  function sendText(text: string, files: File[] = []) {
+    const body = text.trim();
+    if (send.isPending || (!body && !files.length)) return;
+    send.mutate({ body, files });
   }
 
   function submit(event: FormEvent) {
@@ -426,6 +495,16 @@ export function ChatView({
     if (!container) return;
     container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     setShowJumpToBottom(false);
+  }
+
+  function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length) setAttachedFiles((current) => [...current, ...files]);
+    event.target.value = '';
+  }
+
+  function removeAttachedFile(index: number) {
+    setAttachedFiles((current) => current.filter((_file, fileIndex) => fileIndex !== index));
   }
 
   function finishRenamingTitle() {
@@ -488,6 +567,8 @@ export function ChatView({
             const state = deliveryState(message);
             const canRetry = Boolean(messageText(message)) && (tone === 'user' || tone === 'assistant');
             const timestamp = messageTimestamp(message);
+            const attachments = messageAttachments(message);
+            const text = messageText(message);
             return (
               <article key={`${id}-${index}`} className={`message ${tone}`}>
                 <div className="message-bubble">
@@ -496,7 +577,21 @@ export function ChatView({
                       <span>{timestamp}</span>
                     </div>
                   )}
-                  <p>{messageText(message) || JSON.stringify(asRecord(message))}</p>
+                  {text && <p>{text}</p>}
+                  {attachments.length > 0 && (
+                    <div className="message-attachments">
+                      {attachments.map((attachment, attachmentIndex) => (
+                        <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
+                          <Paperclip size={13} />
+                          <div>
+                            <strong>{attachmentLabel(attachment)}</strong>
+                            {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
                 </div>
                 <div className="message-actions">
                   <div className="message-actions-inner">
@@ -526,13 +621,13 @@ export function ChatView({
           })}
           {liveText && (
             <article className="message assistant streaming">
-              <div className="message-bubble">
+            <div className="message-bubble">
                 <div className="message-meta">
                   <span>GoodVibes is responding</span>
                 </div>
-                <p>{liveText}</p>
-              </div>
-            </article>
+              <p>{liveText}</p>
+            </div>
+          </article>
           )}
           {!renderedMessageItems.length && !liveText && <p className="empty-state">Start a chat with GoodVibes.</p>}
         </div>
@@ -547,6 +642,19 @@ export function ChatView({
           {turnError && <div className="composer-error">{turnError}</div>}
           {renameSession.error && <div className="composer-error">{formatError(renameSession.error)}</div>}
           {selectModel.error && <div className="composer-error">{formatError(selectModel.error)}</div>}
+          {attachedFiles.length > 0 && (
+            <div className="composer-attachments">
+              {attachedFiles.map((file, index) => (
+                <span key={`${file.name}-${file.lastModified}-${index}`} className="composer-attachment">
+                  <Paperclip size={13} />
+                  {file.name}
+                  <button type="button" title={`Remove ${file.name}`} onClick={() => removeAttachedFile(index)}>
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="composer-box">
             <textarea
               ref={composerRef}
@@ -557,13 +665,15 @@ export function ChatView({
               aria-label="Message GoodVibes"
               rows={1}
             />
+            <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />
             <div className="composer-toolbar">
               <div className="composer-tools">
                 <button
                   type="button"
                   className="composer-tool"
-                  title="Chat attachments need a companion-chat attachment contract in the SDK"
-                  disabled
+                  title="Attach files"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={send.isPending}
                 >
                   <Paperclip size={16} />
                 </button>
@@ -601,7 +711,7 @@ export function ChatView({
                 </select>
               </div>
               <div className="composer-actions">
-                <button type="submit" className="send-button" title="Send message" disabled={send.isPending || !draft.trim()}>
+                <button type="submit" className="send-button" title="Send message" disabled={send.isPending || (!draft.trim() && !attachedFiles.length)}>
                   <Send size={18} />
                 </button>
               </div>

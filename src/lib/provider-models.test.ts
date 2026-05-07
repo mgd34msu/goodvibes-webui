@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  modelOptionsForProvider,
   modelOptionsFromProvider,
+  providerModelSourceIds,
   providerOptionsFromResponse,
 } from './provider-models';
 
@@ -73,5 +75,34 @@ describe('provider model extraction', () => {
     });
 
     expect(models.map((model) => model.registryKey)).toEqual(['openrouter:openai/chatgpt5.5', 'openrouter:free']);
+  });
+
+  test('maps subscription runtime providers to catalog provider models', () => {
+    const runtimeProvider = {
+      providerId: 'openai-subscriber',
+      runtime: {
+        auth: {
+          routes: [
+            { route: 'subscription-oauth', providerId: 'openai' },
+          ],
+        },
+        models: {
+          models: ['gpt-5.5'],
+        },
+      },
+    };
+    const catalogProviders = [
+      {
+        providerId: 'openai',
+        models: [
+          { id: 'gpt-5.5', registryKey: 'openai:gpt-5.5', displayName: 'GPT-5.5' },
+          { id: 'gpt-5.4', registryKey: 'openai:gpt-5.4', displayName: 'GPT-5.4' },
+        ],
+      },
+    ];
+
+    expect(providerModelSourceIds(runtimeProvider)).toContain('openai');
+    expect(modelOptionsForProvider(runtimeProvider, catalogProviders).map((model) => model.registryKey))
+      .toEqual(['openai:gpt-5.5', 'openai:gpt-5.4']);
   });
 });

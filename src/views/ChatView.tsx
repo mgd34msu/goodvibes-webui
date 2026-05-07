@@ -1,12 +1,11 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Send, XCircle } from 'lucide-react';
-import { forSession, sdk, WEBUI_SURFACE_ID, WEBUI_SURFACE_KIND } from '../lib/goodvibes';
+import { Plus, Send } from 'lucide-react';
+import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
-import { asRecord, bestId, bestStatus, bestTitle, compactJson, firstArray, firstString, readPath } from '../lib/object';
+import { asRecord, bestId, bestTitle, compactJson, firstArray, firstString, readPath } from '../lib/object';
 import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
-import { followUpDisposition } from '../lib/session-followup';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatError } from '../lib/errors';
@@ -37,18 +36,34 @@ function messageTone(message: unknown): string {
   return 'neutral';
 }
 
-function followUpSummary(result: unknown): string {
-  const mode = firstString(result, ['mode']) || 'accepted';
-  const agentId = firstString(result, ['agentId']);
-  const inputState = firstString(readPath(result, ['input']), ['state', 'status']);
-  return [mode, inputState, agentId].filter(Boolean).join(' · ');
+function messageReceiptSummary(result: unknown): string {
+  const messageId = firstString(result, ['messageId']) || firstString(readPath(result, ['message']), ['id']);
+  return messageId ? `message ${messageId}` : 'accepted';
 }
 
-function activeInput(items: unknown[]): unknown {
-  return items.find((input) => ['queued', 'submitted', 'spawned', 'running', 'pending'].includes(bestStatus(input)));
+interface CompanionRoute {
+  provider: string;
+  model: string;
 }
 
-const ACTIVE_TURN_STATES = ['sending', 'submitted', 'queued', 'running', 'streaming'];
+function companionRouteFromRegistryKey(registryKey: string): CompanionRoute | null {
+  const separator = registryKey.indexOf(':');
+  if (separator <= 0 || separator === registryKey.length - 1) return null;
+  return {
+    provider: registryKey.slice(0, separator),
+    model: registryKey.slice(separator + 1),
+  };
+}
+
+function isCompanionChatSession(session: unknown): boolean {
+  return firstString(session, ['kind']) === 'companion-chat';
+}
+
+function companionEventType(eventName: string, payload: unknown): string {
+  return firstString(payload, ['type']) || eventName.replace(/^companion-chat\./, '');
+}
+
+const ACTIVE_TURN_STATES = ['sending', 'submitted', 'running', 'streaming', 'tooling'];
 
 export function ChatView() {
   const queryClient = useQueryClient();
@@ -60,7 +75,7 @@ export function ChatView() {
   const [modelId, setModelId] = useState('');
   const [liveText, setLiveText] = useState('');
   const [turnState, setTurnState] = useState('idle');
-  const [lastFollowUp, setLastFollowUp] = useState<unknown>(null);
+  const [lastMessageReceipt, setLastMessageReceipt] = useState<unknown>(null);
   const [lastRouting, setLastRouting] = useState<unknown>(null);
 
   const sessions = useQuery({
@@ -73,7 +88,11 @@ export function ChatView() {
     queryFn: () => sdk.operator.providers.list(),
   });
 
-  const sessionItems = useMemo(() => firstArray(sessions.data, ['sessions', 'items', 'data']), [sessions.data]);
+  const allSessionItems = useMemo(() => firstArray(sessions.data, ['sessions', 'items', 'data']), [sessions.data]);
+  const sessionItems = useMemo(
+    () => allSessionItems.filter(isCompanionChatSession),
+    [allSessionItems],
+  );
   const providerOptions = useMemo(() => providerOptionsFromResponse(providers.data), [providers.data]);
   const selectedProvider = useMemo(
     () => providerOptions.find((provider) => provider.id === providerId),
@@ -88,10 +107,10 @@ export function ChatView() {
     [modelId, modelOptions],
   );
 
-  async function invalidateSessionState(sessionId: string) {
+  async function invalidateChatState(sessionId: string) {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] }),
-      queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'inputs'] }),
+      queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId, 'messages'] }),
+      queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions }),
     ]);
   }
@@ -121,16 +140,9 @@ export function ChatView() {
   }, [modelId, modelOptions, providerId]);
 
   const messages = useQuery({
-    queryKey: ['sessions', activeSessionId, 'messages'],
+    queryKey: ['companion-chat', activeSessionId, 'messages'],
     enabled: Boolean(activeSessionId),
-    queryFn: () => sdk.operator.sessions.messages.list(activeSessionId),
-    refetchInterval: ACTIVE_TURN_STATES.includes(turnState) ? 1500 : false,
-  });
-
-  const inputs = useQuery({
-    queryKey: ['sessions', activeSessionId, 'inputs'],
-    enabled: Boolean(activeSessionId),
-    queryFn: () => sdk.operator.sessions.inputs.list(activeSessionId),
+    queryFn: () => sdk.chat.messages.list(activeSessionId),
     refetchInterval: ACTIVE_TURN_STATES.includes(turnState) ? 1500 : false,
   });
 
@@ -143,51 +155,62 @@ export function ChatView() {
 
   useEffect(() => {
     if (!activeSessionId) return undefined;
-    const unsubs: Array<() => void> = [];
+    let closed = false;
+    let disconnect: (() => void) | undefined;
     setLiveText('');
 
-    try {
-      const sessionEvents = forSession(sdk.realtime.viaSse(), activeSessionId) as unknown as Record<string, {
-        onEnvelope?: (name: string, handler: (event: unknown) => void) => () => void;
-      }>;
-      const turn = sessionEvents.turn ?? {};
-      const bind = (name: string, handler: (event: unknown) => void) => {
-        const unsub = turn.onEnvelope?.(name, handler);
-        if (unsub) unsubs.push(unsub);
-      };
+    void sdk.chat.events.stream(activeSessionId, {
+      onEvent: (eventName, payload) => {
+        if (!eventName.startsWith('companion-chat.')) return;
+        if (firstString(payload, ['sessionId']) !== activeSessionId) return;
+        const type = companionEventType(eventName, payload);
 
-      bind('TURN_SUBMITTED', () => {
-        setTurnState('running');
-        void invalidateSessionState(activeSessionId);
-      });
-      bind('STREAM_DELTA', (event) => {
-        const content = firstString(readPath(event, ['payload']), ['content', 'text', 'delta']);
-        if (content) setLiveText((current) => current + content);
-        setTurnState('streaming');
-      });
-      bind('TURN_COMPLETED', () => {
-        setTurnState('completed');
-        setLiveText('');
-        void invalidateSessionState(activeSessionId);
-      });
-      bind('TURN_ERROR', (event) => {
-        setTurnState(firstString(readPath(event, ['payload']), ['error', 'reason', 'message']) || 'error');
-        void invalidateSessionState(activeSessionId);
-      });
-      bind('TURN_CANCEL', (event) => {
-        setTurnState(firstString(readPath(event, ['payload']), ['reason']) || 'cancelled');
-        void invalidateSessionState(activeSessionId);
-      });
-      bind('PREFLIGHT_FAIL', (event) => {
-        setTurnState(firstString(readPath(event, ['payload']), ['reason']) || 'preflight failed');
-        void invalidateSessionState(activeSessionId);
-      });
-    } catch (err) {
-      setTurnState(err instanceof Error ? err.message : String(err));
-    }
+        if (type === 'turn.started') {
+          setTurnState('running');
+          void invalidateChatState(activeSessionId);
+          return;
+        }
+
+        if (type === 'turn.delta') {
+          const delta = firstString(payload, ['delta']);
+          if (delta) setLiveText((current) => current + delta);
+          setTurnState('streaming');
+          return;
+        }
+
+        if (type === 'turn.tool_call' || type === 'turn.tool_result') {
+          setTurnState('tooling');
+          return;
+        }
+
+        if (type === 'turn.completed') {
+          setTurnState('completed');
+          setLiveText('');
+          void invalidateChatState(activeSessionId);
+          return;
+        }
+
+        if (type === 'turn.error') {
+          setTurnState(firstString(payload, ['error']) || 'error');
+          void invalidateChatState(activeSessionId);
+        }
+      },
+      onError: (error) => {
+        setTurnState(error instanceof Error ? error.message : String(error));
+      },
+    }).then((nextDisconnect) => {
+      if (closed) {
+        nextDisconnect();
+        return;
+      }
+      disconnect = nextDisconnect;
+    }).catch((err) => {
+      if (!closed) setTurnState(err instanceof Error ? err.message : String(err));
+    });
 
     return () => {
-      for (const unsub of unsubs) unsub();
+      closed = true;
+      disconnect?.();
     };
   }, [activeSessionId, queryClient]);
 
@@ -195,70 +218,45 @@ export function ChatView() {
     mutationFn: async (body: string) => {
       if (!body) return;
       setTurnState('sending');
-      setLastFollowUp(null);
+      setLastMessageReceipt(null);
       setLastRouting(null);
 
+      const route = companionRouteFromRegistryKey(selectedModel?.registryKey ?? '');
+      let messageRoute: CompanionRoute | null = null;
       let sessionId = activeSessionId;
       if (!sessionId) {
-        const created = await sdk.operator.sessions.create({
+        const created = await sdk.chat.sessions.create({
           title: body.slice(0, 72),
-          surfaceKind: WEBUI_SURFACE_KIND,
-          surfaceId: WEBUI_SURFACE_ID,
+          ...(route ?? {}),
         });
         sessionId = extractSessionId(created);
+        messageRoute = route;
         setActiveSessionId(sessionId);
         setDraftSessionRequested(false);
       }
 
-      const registryKey = selectedModel?.registryKey ?? '';
-      const routingProviderId = registryKey.includes(':') ? registryKey.split(':', 1)[0] : '';
-      const routing = routingProviderId && registryKey
-        ? {
-          providerId: routingProviderId,
-          modelId: registryKey,
-          providerSelection: 'concrete',
-        }
-        : undefined;
-      const payload = {
-        body,
-        surfaceKind: WEBUI_SURFACE_KIND,
-        surfaceId: WEBUI_SURFACE_ID,
-        ...(routing ? { routing } : {}),
-      };
-
-      const result = await sdk.operator.sessions.followUp({ sessionId, ...payload });
-      const disposition = followUpDisposition(result);
-      if (disposition.state === 'rejected') {
-        throw Object.assign(new Error(disposition.error || 'Session input was rejected'), { body: result });
-      }
-      setLastFollowUp(result);
-      setLastRouting(routing ?? null);
+      const result = await sdk.chat.messages.create(sessionId, { body });
+      setLastMessageReceipt(result);
+      setLastRouting(messageRoute);
       setDraft('');
       setLiveText('');
-      setTurnState(disposition.state);
-      await invalidateSessionState(sessionId);
+      setTurnState('submitted');
+      await invalidateChatState(sessionId);
     },
     onError: () => setTurnState('send failed'),
   });
 
-  const cancelInput = useMutation({
-    mutationFn: async () => {
-      const queuedInput = inputItems.find((input) => firstString(input, ['status', 'state']) === 'queued');
-      const inputId = bestId(queuedInput);
-      if (activeSessionId && inputId) await sdk.operator.sessions.inputs.cancel(activeSessionId, inputId);
-    },
-    onSuccess: () => setTurnState('cancel requested'),
-  });
-
   const messageItems = firstArray(messages.data, ['messages', 'items', 'data']);
-  const inputItems = firstArray(inputs.data, ['inputs', 'items', 'data']);
-  const queuedInput = inputItems.find((input) => firstString(input, ['status', 'state']) === 'queued');
-  const currentInput = activeInput(inputItems);
-  const followUpDebug = lastFollowUp ? {
-    followUp: lastFollowUp,
+
+  useEffect(() => {
+    if (!ACTIVE_TURN_STATES.includes(turnState) || liveText) return;
+    const lastMessage = messageItems.at(-1);
+    if (lastMessage && messageTone(lastMessage) === 'assistant') setTurnState('completed');
+  }, [liveText, messageItems, turnState]);
+
+  const messageDebug = lastMessageReceipt ? {
+    messageReceipt: lastMessageReceipt,
     routing: lastRouting,
-    currentInput,
-    inputs: inputItems,
   } : null;
 
   function startNewSession() {
@@ -266,7 +264,7 @@ export function ChatView() {
     setDraftSessionRequested(true);
     setLiveText('');
     setTurnState('idle');
-    setLastFollowUp(null);
+    setLastMessageReceipt(null);
     setLastRouting(null);
     if (typeof window !== 'undefined') window.requestAnimationFrame(() => composerRef.current?.focus());
   }
@@ -276,7 +274,7 @@ export function ChatView() {
     setActiveSessionId(sessionId);
     setLiveText('');
     setTurnState('idle');
-    setLastFollowUp(null);
+    setLastMessageReceipt(null);
     setLastRouting(null);
   }
 
@@ -305,7 +303,7 @@ export function ChatView() {
             <Plus size={17} />
           </button>
         </div>
-        <RecordList items={sessionItems} selectedId={activeSessionId} onSelect={selectSession} empty="No sessions" />
+        <RecordList items={sessionItems} selectedId={activeSessionId} onSelect={selectSession} empty="No chat sessions" />
       </aside>
 
       <section className="chat-surface">
@@ -316,15 +314,6 @@ export function ChatView() {
           </div>
           <div className="chat-status">
             <StatusBadge value={turnState} />
-            <button
-              className="icon-button"
-              type="button"
-              title="Cancel queued input"
-              disabled={!queuedInput || cancelInput.isPending}
-              onClick={() => void cancelInput.mutate()}
-            >
-              <XCircle size={17} />
-            </button>
           </div>
         </header>
 
@@ -352,14 +341,13 @@ export function ChatView() {
 
         <form className="composer" onSubmit={submit}>
           {send.error && <div className="composer-error">{formatError(send.error)}</div>}
-          {(Boolean(lastFollowUp) || Boolean(currentInput)) && (
+          {Boolean(lastMessageReceipt) && (
             <div className="turn-inspector">
-              {Boolean(lastFollowUp) && <span>follow-up {followUpSummary(lastFollowUp)}</span>}
-              {Boolean(currentInput) && <span>input {bestId(currentInput)} · {bestStatus(currentInput)}</span>}
-              {followUpDebug && (
+              <span>accepted {messageReceiptSummary(lastMessageReceipt)}</span>
+              {messageDebug && (
                 <details>
                   <summary>Daemon receipt</summary>
-                  <pre>{compactJson(followUpDebug)}</pre>
+                  <pre>{compactJson(messageDebug)}</pre>
                 </details>
               )}
             </div>
@@ -393,6 +381,9 @@ export function ChatView() {
           </div>
           {providerId && !modelOptions.length && (
             <p className="routing-note">This provider did not report selectable models. The daemon default will be used.</p>
+          )}
+          {activeSessionId && selectedModel && (
+            <p className="routing-note">Provider and model selection applies when creating a new chat session.</p>
           )}
           <div className="composer-row">
             <textarea

@@ -197,8 +197,8 @@ export const sdk = {
       create: (input: unknown) => scopedSdk.operator.invoke('sessions.create', input as never),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
-      followUp: (input: unknown) => scopedSdk.operator.invoke('sessions.followUp', input as never),
       messages: {
+        create: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.messages.create', { sessionId, ...asRecord(input) } as never),
         list: (sessionId: string) => scopedSdk.operator.invoke('sessions.messages.list', { sessionId }),
       },
       inputs: {
@@ -207,6 +207,7 @@ export const sdk = {
       },
     },
   },
+  chat: scopedSdk.chat,
   realtime: {
     viaSse: () => scopedSdk.realtime.viaSse(),
   },

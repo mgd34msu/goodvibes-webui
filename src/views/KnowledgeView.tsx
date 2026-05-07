@@ -61,7 +61,7 @@ export function KnowledgeView() {
             Search
           </button>
         </div>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Query the knowledge graph" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Query regular knowledge" />
         <button className="primary-button" type="submit" disabled={ask.isPending || !query.trim()}>
           Run
         </button>

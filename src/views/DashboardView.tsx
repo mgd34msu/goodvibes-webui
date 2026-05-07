@@ -93,7 +93,7 @@ export function DashboardView() {
           icon={knowledge.isError ? AlertTriangle : CheckCircle2}
           label="Knowledge"
           value={knowledgeStatus}
-          detail={firstString(knowledge.data, ['summary', 'message']) || 'Structured graph and wiki'}
+          detail={firstString(knowledge.data, ['summary', 'message']) || 'Regular knowledge and wiki'}
           status={knowledgeStatus}
         />
       </div>

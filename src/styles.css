@@ -770,7 +770,6 @@ button:disabled {
   padding: 0 11px;
 }
 
-.composer textarea,
 .form-grid textarea {
   min-height: 82px;
   padding: 11px;
@@ -779,6 +778,13 @@ button:disabled {
 
 .composer-row textarea {
   flex: 1;
+  height: 40px;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 9px 11px;
+  line-height: 1.35;
+  resize: vertical;
+  overflow-y: auto;
 }
 
 .routing-note {

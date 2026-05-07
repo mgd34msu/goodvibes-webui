@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PauseCircle, Plus, Send, XCircle } from 'lucide-react';
 import { forSession, sdk, WEBUI_SURFACE_ID, WEBUI_SURFACE_KIND } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { asRecord, bestId, bestTitle, firstArray, firstString, readPath } from '../lib/object';
 import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
 
@@ -180,9 +181,20 @@ export function ChatView() {
 
   const messageItems = firstArray(messages.data, ['messages', 'items', 'data']);
 
+  function submitDraft() {
+    if (send.isPending || !draft.trim()) return;
+    void send.mutate();
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    void send.mutate();
+    submitDraft();
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (!shouldSubmitComposerKey(event)) return;
+    event.preventDefault();
+    submitDraft();
   }
 
   return (
@@ -265,7 +277,14 @@ export function ChatView() {
             <p className="routing-note">This provider did not report selectable models. The daemon default will be used.</p>
           )}
           <div className="composer-row">
-            <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Message GoodVibes" />
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder="Message GoodVibes"
+              aria-label="Message GoodVibes"
+              rows={1}
+            />
             <button type="submit" className="primary-button" disabled={send.isPending || !draft.trim()}>
               {send.isPending ? <PauseCircle size={18} /> : <Send size={18} />}
               Send

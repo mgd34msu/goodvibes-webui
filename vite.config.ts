@@ -41,7 +41,17 @@ export default defineConfig({
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('@pellux/goodvibes-sdk')) return 'goodvibes-sdk';
           if (id.includes('@pellux/')) return 'goodvibes-sdk';
-          if (id.includes('react')) return 'react';
+          if (
+            id.includes('react-markdown')
+            || id.includes('remark-')
+            || id.includes('micromark')
+            || id.includes('unified')
+            || id.includes('mdast')
+            || id.includes('hast')
+            || id.includes('unist')
+            || id.includes('vfile')
+          ) return 'markdown';
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
           if (id.includes('@tanstack')) return 'query';
           if (id.includes('lucide-react')) return 'icons';
           return 'vendor';

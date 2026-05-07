@@ -7,6 +7,7 @@ import { queryKeys } from '../lib/queries';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { StatusBadge } from '../components/StatusBadge';
+import { MarkdownMessage } from '../components/MarkdownMessage';
 import { formatError } from '../lib/errors';
 import {
   companionSessionFromDetail,
@@ -577,7 +578,7 @@ export function ChatView({
                       <span>{timestamp}</span>
                     </div>
                   )}
-                  {text && <p>{text}</p>}
+                  {text && <MarkdownMessage content={text} />}
                   {attachments.length > 0 && (
                     <div className="message-attachments">
                       {attachments.map((attachment, attachmentIndex) => (
@@ -625,7 +626,7 @@ export function ChatView({
                 <div className="message-meta">
                   <span>GoodVibes is responding</span>
                 </div>
-              <p>{liveText}</p>
+              <MarkdownMessage content={liveText} />
             </div>
           </article>
           )}

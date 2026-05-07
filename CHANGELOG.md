@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.12] - 2026-05-07
+
+### Added
+
+- Rendered Markdown/GFM for chat messages, knowledge answers, wiki projection output, and string-valued data blocks.
+
+### Changed
+
+- Switched the app body, chat, navigation, controls, and content areas back to a normal legible sans-serif stack while keeping the GoodVibes sidebar brand treatment.
+
 ## [0.1.11] - 2026-05-07
 
 ### Fixed

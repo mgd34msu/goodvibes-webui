@@ -5,6 +5,7 @@ import { invokeMethod, sdk } from '../lib/goodvibes';
 import type { OperatorMethodInput } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
+import { MarkdownMessage } from '../components/MarkdownMessage';
 import { RecordList } from '../components/RecordList';
 import { bestTitle, firstArray, firstString, readPath } from '../lib/object';
 import { formatError } from '../lib/errors';
@@ -40,6 +41,29 @@ function projectionPayload(selection: ProjectionSelection, limit = 25): Operator
     ...(selection.id ? { id: selection.id } : {}),
     limit,
   };
+}
+
+function markdownTextFromValue(value: unknown): string {
+  return firstString(value, ['markdown', 'content', 'body', 'text', 'answer', 'summary', 'response'])
+    || firstString(readPath(value, ['projection']), ['markdown', 'content', 'body', 'text'])
+    || firstString(readPath(value, ['page']), ['markdown', 'content', 'body', 'text'])
+    || firstString(readPath(value, ['result']), ['markdown', 'content', 'body', 'text']);
+}
+
+function ProjectionResultBlock({ title, value }: { title: string; value: unknown }) {
+  const markdown = markdownTextFromValue(value);
+  if (!markdown) return <DataBlock title={title} value={value} />;
+
+  return (
+    <section className="data-block">
+      <header>
+        <h3>{title}</h3>
+      </header>
+      <div className="data-block-markdown">
+        <MarkdownMessage content={markdown} />
+      </div>
+    </section>
+  );
 }
 
 export function KnowledgeView() {
@@ -186,7 +210,11 @@ export function KnowledgeView() {
       {result !== undefined && result !== null && (
         <section className="answer-panel">
           <h2>{mode === 'ask' ? 'Answer' : 'Results'}</h2>
-          {answerText ? <p className="answer-text">{answerText}</p> : <DataBlock title="Response" value={result} />}
+          {answerText ? (
+            <div className="answer-text">
+              <MarkdownMessage content={answerText} />
+            </div>
+          ) : <DataBlock title="Response" value={result} />}
           <div className="metadata-grid">
             <DataBlock title="Sources" value={resultSources} />
             <DataBlock title="Facts" value={facts} />
@@ -300,8 +328,8 @@ export function KnowledgeView() {
         {renderProjection.error && <div className="banner warning">{formatError(renderProjection.error)}</div>}
         {materializeProjection.error && <div className="banner warning">{formatError(materializeProjection.error)}</div>}
         <div className="two-column projection-results">
-          <DataBlock title="Rendered Projection" value={renderProjection.data} />
-          <DataBlock title="Materialized Projection" value={materializeProjection.data} />
+          <ProjectionResultBlock title="Rendered Projection" value={renderProjection.data} />
+          <ProjectionResultBlock title="Materialized Projection" value={materializeProjection.data} />
         </div>
       </section>
 

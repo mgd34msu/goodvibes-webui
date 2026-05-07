@@ -1,4 +1,5 @@
 import { compactJson } from '../lib/object';
+import { MarkdownMessage } from './MarkdownMessage';
 
 interface DataBlockProps {
   title: string;
@@ -14,7 +15,11 @@ export function DataBlock({ title, value, empty = 'No data' }: DataBlockProps) {
       <header>
         <h3>{title}</h3>
       </header>
-      {hasValue ? <pre>{compactJson(value)}</pre> : <p className="empty-state">{empty}</p>}
+      {hasValue
+        ? typeof value === 'string'
+          ? <div className="data-block-markdown"><MarkdownMessage content={value} /></div>
+          : <pre>{compactJson(value)}</pre>
+        : <p className="empty-state">{empty}</p>}
     </section>
   );
 }

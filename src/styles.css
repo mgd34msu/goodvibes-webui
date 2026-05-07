@@ -59,6 +59,17 @@ body {
   background-size: 40px 40px, 40px 40px, auto;
 }
 
+.brand-copy strong,
+.brand-copy span,
+.markdown-message code,
+.markdown-code-label,
+.markdown-code-block code,
+.data-block pre,
+.diagnostic-block pre,
+code {
+  font-family: "Space Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
 button,
 input,
 textarea,
@@ -107,7 +118,6 @@ button:disabled {
     #0b0920;
   border-right: 1px solid rgb(0 255 255 / 22%);
   box-shadow: 18px 0 46px rgb(0 0 0 / 26%);
-  font-family: "Space Mono", monospace;
 }
 
 .sidebar.collapsed {
@@ -815,9 +825,14 @@ button:disabled {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: #2c3a42;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.78rem;
   line-height: 1.5;
+}
+
+.data-block-markdown {
+  max-height: 420px;
+  overflow: auto;
+  color: #2c3a42;
 }
 
 .empty-state {
@@ -1486,7 +1501,6 @@ button:disabled {
   background:
     radial-gradient(circle at 50% 26%, rgb(255 0 255 / 22%), transparent 18rem),
     linear-gradient(to bottom, #0f0c29 0%, #1a0b2e 46%, #08080f 100%);
-  font-family: "Space Mono", monospace;
 }
 
 .chat-main::before {
@@ -1623,6 +1637,166 @@ button:disabled {
   color: inherit;
 }
 
+.markdown-message {
+  color: inherit;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+
+.markdown-message > :first-child {
+  margin-top: 0;
+}
+
+.markdown-message > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-message p {
+  margin: 0.72em 0;
+  white-space: normal;
+}
+
+.markdown-message ul,
+.markdown-message ol {
+  display: grid;
+  gap: 0.34em;
+  margin: 0.78em 0;
+  padding-left: 1.35em;
+}
+
+.markdown-message li {
+  padding-left: 0.16em;
+}
+
+.markdown-message li > p {
+  margin: 0.18em 0;
+}
+
+.markdown-message blockquote {
+  margin: 0.92em 0;
+  padding: 0.2em 0 0.2em 0.9em;
+  color: #526670;
+  border-left: 2px solid #b8c9c7;
+}
+
+.markdown-message code {
+  padding: 0.12em 0.34em;
+  color: #183a33;
+  font-size: 0.92em;
+  background: #e8f3ef;
+  border: 1px solid #d4e5df;
+  border-radius: 5px;
+}
+
+.markdown-code-block {
+  margin: 1em 0;
+  overflow: hidden;
+  background: var(--panel-soft);
+  border: 1px solid #dce6e5;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 72%);
+}
+
+.markdown-code-label {
+  padding: 7px 11px;
+  color: #526670;
+  font-size: 11px;
+  text-transform: uppercase;
+  background: #edf4f2;
+  border-bottom: 1px solid #dce6e5;
+}
+
+.markdown-code-block pre {
+  margin: 0;
+  padding: 13px 14px;
+  overflow-x: auto;
+}
+
+.markdown-code-block code {
+  display: block;
+  min-width: max-content;
+  padding: 0;
+  color: #243238;
+  line-height: 1.6;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.markdown-message table {
+  display: block;
+  width: 100%;
+  margin: 1em 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.markdown-message th,
+.markdown-message td {
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid rgb(0 255 255 / 18%);
+}
+
+.markdown-message th {
+  color: #203239;
+  background: #edf4f2;
+}
+
+.markdown-message a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown-message hr {
+  height: 1px;
+  margin: 1.1em 0;
+  background: #dce6e5;
+  border: 0;
+}
+
+.chat-main .markdown-message blockquote {
+  color: #c9fdff;
+  border-left-color: rgb(0 255 255 / 46%);
+}
+
+.chat-main .markdown-message code {
+  color: #f8fbff;
+  background: rgb(0 255 255 / 12%);
+  border-color: rgb(0 255 255 / 18%);
+}
+
+.chat-main .markdown-code-block {
+  background: rgb(0 0 0 / 44%);
+  border-color: rgb(0 255 255 / 22%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.chat-main .markdown-code-label {
+  color: #9beef2;
+  background: rgb(0 255 255 / 8%);
+  border-bottom-color: rgb(0 255 255 / 18%);
+}
+
+.chat-main .markdown-code-block code {
+  color: #f8fbff;
+}
+
+.chat-main .markdown-message th {
+  color: #dffcff;
+  background: rgb(0 255 255 / 9%);
+}
+
+.chat-main .markdown-message a {
+  color: var(--gv-cyan);
+}
+
+.chat-main .markdown-message hr {
+  background: rgb(0 255 255 / 20%);
+}
+
 .message-attachments {
   display: grid;
   gap: 8px;
@@ -1708,10 +1882,6 @@ button:disabled {
   border-radius: 8px;
   box-shadow: 0 0 24px rgb(0 255 255 / 14%), 0 0 44px rgb(255 0 255 / 9%);
   backdrop-filter: blur(8px);
-}
-
-.composer-box textarea {
-  font-family: "Space Mono", monospace;
 }
 
 .composer-toolbar {
@@ -1874,7 +2044,6 @@ button:disabled {
   margin: 12px 0 16px;
   max-width: 920px;
   line-height: 1.62;
-  white-space: pre-wrap;
 }
 
 .metadata-grid {
@@ -1983,7 +2152,6 @@ button:disabled {
   border-radius: 7px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -2031,7 +2199,6 @@ code {
   background: #e8f3ef;
   border: 1px solid #d4e5df;
   border-radius: 5px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.9em;
 }
 

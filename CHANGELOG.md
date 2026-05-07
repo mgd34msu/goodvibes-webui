@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.8] - 2026-05-07
+
+### Fixed
+
+- Centered the GoodVibes brand icon in the collapsed sidebar state.
+
 ## [0.1.7] - 2026-05-07
 
 ### Changed

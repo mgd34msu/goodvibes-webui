@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.1] - 2026-05-07
+
+### Fixed
+
+- Fixed companion chat explicit provider/model routing to use the selected runtime provider row and raw model id.
+- Replaced the operator-session chat sidebar with a local recent companion-chat session list backed by `sdk.chat.sessions.get`.
+- Rendered submitted chat messages immediately and surfaced companion turn errors as errors instead of misleading accepted receipts.
+
 ## [0.1.0] - 2026-05-07
 
 ### Added

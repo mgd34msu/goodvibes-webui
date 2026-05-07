@@ -1,21 +1,25 @@
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Send } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
-import { asRecord, bestId, bestTitle, compactJson, firstArray, firstString, readPath } from '../lib/object';
+import { asRecord, bestId, bestTitle, compactJson, firstArray, firstString, formatRelative } from '../lib/object';
 import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatError } from '../lib/errors';
-
-function extractSessionId(value: unknown): string {
-  const direct = bestId(value);
-  if (direct) return direct;
-  return firstString(readPath(value, ['session']), ['id', 'sessionId'])
-    || firstString(readPath(value, ['data']), ['id', 'sessionId']);
-}
+import {
+  companionRouteFromModelOption,
+  companionSessionFromDetail,
+  extractMessageId,
+  extractSessionId,
+  loadRecentCompanionSessionIds,
+  LocalCompanionMessage,
+  prependRecentCompanionSessionId,
+  removeRecentCompanionSessionIds,
+  saveRecentCompanionSessionIds,
+} from '../lib/companion-chat';
 
 function messageText(message: unknown): string {
   const direct = firstString(message, ['body', 'content', 'text', 'message', 'delta']);
@@ -37,26 +41,13 @@ function messageTone(message: unknown): string {
 }
 
 function messageReceiptSummary(result: unknown): string {
-  const messageId = firstString(result, ['messageId']) || firstString(readPath(result, ['message']), ['id']);
+  const messageId = extractMessageId(result);
   return messageId ? `message ${messageId}` : 'accepted';
 }
 
-interface CompanionRoute {
-  provider: string;
-  model: string;
-}
-
-function companionRouteFromRegistryKey(registryKey: string): CompanionRoute | null {
-  const separator = registryKey.indexOf(':');
-  if (separator <= 0 || separator === registryKey.length - 1) return null;
-  return {
-    provider: registryKey.slice(0, separator),
-    model: registryKey.slice(separator + 1),
-  };
-}
-
-function isCompanionChatSession(session: unknown): boolean {
-  return firstString(session, ['kind']) === 'companion-chat';
+function messageTimestamp(message: unknown): string {
+  const record = asRecord(message);
+  return formatRelative(record.createdAt ?? record.timestamp ?? record.time);
 }
 
 function companionEventType(eventName: string, payload: unknown): string {
@@ -75,24 +66,37 @@ export function ChatView() {
   const [modelId, setModelId] = useState('');
   const [liveText, setLiveText] = useState('');
   const [turnState, setTurnState] = useState('idle');
+  const [turnError, setTurnError] = useState('');
   const [lastMessageReceipt, setLastMessageReceipt] = useState<unknown>(null);
   const [lastRouting, setLastRouting] = useState<unknown>(null);
-
-  const sessions = useQuery({
-    queryKey: queryKeys.sessions,
-    queryFn: () => sdk.operator.sessions.list(),
-  });
+  const [optimisticUserMessage, setOptimisticUserMessage] = useState<LocalCompanionMessage | null>(null);
+  const [recentSessionIds, setRecentSessionIds] = useState<string[]>(() => (
+    typeof window === 'undefined' ? [] : loadRecentCompanionSessionIds(window.localStorage)
+  ));
 
   const providers = useQuery({
     queryKey: queryKeys.providers,
     queryFn: () => sdk.operator.providers.list(),
   });
 
-  const allSessionItems = useMemo(() => firstArray(sessions.data, ['sessions', 'items', 'data']), [sessions.data]);
-  const sessionItems = useMemo(
-    () => allSessionItems.filter(isCompanionChatSession),
-    [allSessionItems],
-  );
+  const chatSessions = useQuery({
+    queryKey: ['companion-chat', 'sessions', recentSessionIds],
+    enabled: recentSessionIds.length > 0,
+    queryFn: async () => {
+      const results = await Promise.allSettled(
+        recentSessionIds.map((sessionId) => sdk.chat.sessions.get(sessionId)),
+      );
+      const missingSessionIds: string[] = [];
+      const items = results.flatMap((result, index) => {
+        if (result.status === 'fulfilled') return [companionSessionFromDetail(result.value)];
+        missingSessionIds.push(recentSessionIds[index]);
+        return [];
+      });
+      return { items, missingSessionIds };
+    },
+  });
+
+  const sessionItems = useMemo(() => chatSessions.data?.items ?? [], [chatSessions.data]);
   const providerOptions = useMemo(() => providerOptionsFromResponse(providers.data), [providers.data]);
   const selectedProvider = useMemo(
     () => providerOptions.find((provider) => provider.id === providerId),
@@ -107,13 +111,33 @@ export function ChatView() {
     [modelId, modelOptions],
   );
 
+  const rememberSession = useCallback((sessionId: string) => {
+    setRecentSessionIds((current) => {
+      const next = prependRecentCompanionSessionId(current, sessionId);
+      if (next === current) return current;
+      if (typeof window !== 'undefined') saveRecentCompanionSessionIds(window.localStorage, next);
+      return next;
+    });
+  }, []);
+
   async function invalidateChatState(sessionId: string) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId, 'messages'] }),
       queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions }),
+      queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] }),
     ]);
   }
+
+  useEffect(() => {
+    const missingSessionIds = chatSessions.data?.missingSessionIds ?? [];
+    if (!missingSessionIds.length) return;
+    setRecentSessionIds((current) => {
+      const next = removeRecentCompanionSessionIds(current, missingSessionIds);
+      if (next.length === current.length) return current;
+      if (typeof window !== 'undefined') saveRecentCompanionSessionIds(window.localStorage, next);
+      return next;
+    });
+  }, [chatSessions.data]);
 
   useEffect(() => {
     if (!activeSessionId && !draftSessionRequested && sessionItems.length) setActiveSessionId(bestId(sessionItems[0]));
@@ -158,6 +182,7 @@ export function ChatView() {
     let closed = false;
     let disconnect: (() => void) | undefined;
     setLiveText('');
+    setTurnError('');
 
     void sdk.chat.events.stream(activeSessionId, {
       onEvent: (eventName, payload) => {
@@ -191,12 +216,14 @@ export function ChatView() {
         }
 
         if (type === 'turn.error') {
-          setTurnState(firstString(payload, ['error']) || 'error');
+          setTurnState('error');
+          setTurnError(firstString(payload, ['error']) || 'Companion chat turn failed.');
           void invalidateChatState(activeSessionId);
         }
       },
       onError: (error) => {
-        setTurnState(error instanceof Error ? error.message : String(error));
+        setTurnState('stream error');
+        setTurnError(error instanceof Error ? error.message : String(error));
       },
     }).then((nextDisconnect) => {
       if (closed) {
@@ -205,7 +232,10 @@ export function ChatView() {
       }
       disconnect = nextDisconnect;
     }).catch((err) => {
-      if (!closed) setTurnState(err instanceof Error ? err.message : String(err));
+      if (!closed) {
+        setTurnState('stream error');
+        setTurnError(err instanceof Error ? err.message : String(err));
+      }
     });
 
     return () => {
@@ -218,11 +248,12 @@ export function ChatView() {
     mutationFn: async (body: string) => {
       if (!body) return;
       setTurnState('sending');
+      setTurnError('');
       setLastMessageReceipt(null);
       setLastRouting(null);
 
-      const route = companionRouteFromRegistryKey(selectedModel?.registryKey ?? '');
-      let messageRoute: CompanionRoute | null = null;
+      const route = companionRouteFromModelOption(selectedModel);
+      let messageRoute: unknown = null;
       let sessionId = activeSessionId;
       if (!sessionId) {
         const created = await sdk.chat.sessions.create({
@@ -232,10 +263,19 @@ export function ChatView() {
         sessionId = extractSessionId(created);
         messageRoute = route;
         setActiveSessionId(sessionId);
+        rememberSession(sessionId);
         setDraftSessionRequested(false);
       }
 
       const result = await sdk.chat.messages.create(sessionId, { body });
+      const messageId = extractMessageId(result);
+      setOptimisticUserMessage({
+        id: messageId || `local-${Date.now()}`,
+        sessionId,
+        role: 'user',
+        content: body,
+        createdAt: Date.now(),
+      });
       setLastMessageReceipt(result);
       setLastRouting(messageRoute);
       setDraft('');
@@ -243,16 +283,24 @@ export function ChatView() {
       setTurnState('submitted');
       await invalidateChatState(sessionId);
     },
-    onError: () => setTurnState('send failed'),
+    onError: (error) => {
+      setTurnState('send failed');
+      setTurnError(formatError(error));
+    },
   });
 
   const messageItems = firstArray(messages.data, ['messages', 'items', 'data']);
+  const renderedMessageItems = useMemo(() => {
+    if (!optimisticUserMessage || optimisticUserMessage.sessionId !== activeSessionId) return messageItems;
+    if (messageItems.some((message) => bestId(message) === optimisticUserMessage.id)) return messageItems;
+    return [...messageItems, optimisticUserMessage];
+  }, [activeSessionId, messageItems, optimisticUserMessage]);
 
   useEffect(() => {
     if (!ACTIVE_TURN_STATES.includes(turnState) || liveText) return;
-    const lastMessage = messageItems.at(-1);
+    const lastMessage = renderedMessageItems.at(-1);
     if (lastMessage && messageTone(lastMessage) === 'assistant') setTurnState('completed');
-  }, [liveText, messageItems, turnState]);
+  }, [liveText, renderedMessageItems, turnState]);
 
   const messageDebug = lastMessageReceipt ? {
     messageReceipt: lastMessageReceipt,
@@ -264,18 +312,23 @@ export function ChatView() {
     setDraftSessionRequested(true);
     setLiveText('');
     setTurnState('idle');
+    setTurnError('');
     setLastMessageReceipt(null);
     setLastRouting(null);
+    setOptimisticUserMessage(null);
     if (typeof window !== 'undefined') window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   function selectSession(sessionId: string) {
     setDraftSessionRequested(false);
     setActiveSessionId(sessionId);
+    rememberSession(sessionId);
     setLiveText('');
     setTurnState('idle');
+    setTurnError('');
     setLastMessageReceipt(null);
     setLastRouting(null);
+    setOptimisticUserMessage(null);
   }
 
   function submitDraft() {
@@ -318,11 +371,11 @@ export function ChatView() {
         </header>
 
         <div className="messages">
-          {messageItems.map((message, index) => (
+          {renderedMessageItems.map((message, index) => (
             <article key={`${bestId(message)}-${index}`} className={`message ${messageTone(message)}`}>
               <div className="message-meta">
                 <strong>{roleOf(message)}</strong>
-                <span>{firstString(message, ['createdAt', 'timestamp', 'time'])}</span>
+                <span>{messageTimestamp(message)}</span>
               </div>
               <p>{messageText(message) || JSON.stringify(asRecord(message))}</p>
             </article>
@@ -336,14 +389,15 @@ export function ChatView() {
               <p>{liveText}</p>
             </article>
           )}
-          {!messageItems.length && !liveText && <p className="empty-state">No messages</p>}
+          {!renderedMessageItems.length && !liveText && <p className="empty-state">No messages</p>}
         </div>
 
         <form className="composer" onSubmit={submit}>
           {send.error && <div className="composer-error">{formatError(send.error)}</div>}
-          {Boolean(lastMessageReceipt) && (
+          {turnError && <div className="composer-error">{turnError}</div>}
+          {Boolean(lastMessageReceipt) && !turnError && (
             <div className="turn-inspector">
-              <span>accepted {messageReceiptSummary(lastMessageReceipt)}</span>
+              <span>submitted {messageReceiptSummary(lastMessageReceipt)}</span>
               {messageDebug && (
                 <details>
                   <summary>Daemon receipt</summary>

@@ -1,0 +1,26 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+*.tsbuildinfo
+sbom.cdx.json*
+.tmp/
+
+# Local GoodVibes daemon/session state and credentials.
+.goodvibes/
+
+# Test and package scratch space.
+.test-tmp/
+temp/
+**/temp/
+
+# Defensive guard against accidental SQLite `:memory:` sentinel file leaks.
+:memory:
+
+# Review artifacts and local editor state.
+*-review.md
+*-review-*.md
+*-verification.md
+.idea/
+.vscode/

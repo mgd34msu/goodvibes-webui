@@ -82,7 +82,7 @@ export function AdminView() {
 
   const loginDiagnostics = {
     route: 'POST /login',
-    sdkCall: 'credential login without stored bearer token',
+    transport: 'raw fetch without Authorization header or cookies',
     currentAuth: auth.data,
     currentAuthError: errorDebugValue(auth.error),
     localAuth: localAuth.data,
@@ -148,7 +148,7 @@ export function AdminView() {
             <div className="banner warning">{formatError(loginMutation.error)}</div>
           )}
           <p className="form-note">
-            Uses the daemon login route without sending any stored bearer token, then stores only the returned browser session.
+            Uses a direct daemon login request without Authorization or cookies, then stores only the returned browser session.
           </p>
           <details className="diagnostic-block">
             <summary>Login diagnostics</summary>

@@ -668,13 +668,12 @@ button:disabled {
   grid-template-rows: auto minmax(460px, 1fr) auto;
   min-height: calc(100vh - 144px);
   overflow: hidden;
+  background: #fbfdfc;
 }
 
 .chat-header {
-  padding: 15px 16px;
-  background:
-    linear-gradient(90deg, rgb(10 143 115 / 9%), transparent 55%),
-    #ffffff;
+  padding: 14px 18px;
+  background: #ffffff;
   border-bottom: 1px solid var(--line);
 }
 
@@ -685,37 +684,45 @@ button:disabled {
 }
 
 .messages {
-  display: grid;
-  align-content: start;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   min-height: 0;
-  padding: 18px;
+  padding: 22px;
   overflow: auto;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 80%), rgb(247 250 249 / 88%)),
-    repeating-linear-gradient(0deg, transparent, transparent 31px, rgb(20 25 31 / 3%) 32px);
+  background: #fbfdfc;
 }
 
 .message {
-  max-width: min(880px, 94%);
-  padding: 12px 13px;
-  border-radius: var(--radius);
+  width: fit-content;
+  max-width: min(740px, 86%);
+  padding: 11px 13px;
+  border-radius: 8px;
   background: #ffffff;
   border: 1px solid #e0e8e7;
   box-shadow: var(--shadow-sm);
 }
 
 .message.user {
-  justify-self: end;
-  background: #e9f0ff;
-  border-color: #c6d3ff;
+  align-self: flex-end;
+  color: #102018;
+  background: #dff4ed;
+  border-color: #b9e1d4;
 }
 
 .message.assistant,
 .message.streaming {
-  justify-self: start;
-  background: #edf8f4;
-  border-color: #b8dccc;
+  align-self: flex-start;
+  background: #ffffff;
+  border-color: #dde7e5;
+}
+
+.message.system,
+.message.neutral {
+  align-self: center;
+  max-width: min(820px, 92%);
+  background: #f0f4f4;
+  border-color: #dce6e5;
 }
 
 .message-meta {
@@ -726,17 +733,21 @@ button:disabled {
   margin-bottom: 6px;
 }
 
+.message.user .message-meta {
+  justify-content: flex-end;
+}
+
 .message p {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.55;
+  line-height: 1.52;
 }
 
 .composer {
   display: grid;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 18px 16px;
   background: #ffffff;
   border-top: 1px solid var(--line);
 }
@@ -746,6 +757,12 @@ button:disabled {
 .knowledge-search {
   display: flex;
   gap: 10px;
+}
+
+.composer .routing-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(180px, 280px);
+  gap: 8px;
 }
 
 .routing-row select,
@@ -780,13 +797,54 @@ button:disabled {
 
 .composer-row textarea {
   flex: 1;
-  height: 40px;
-  min-height: 40px;
-  max-height: 120px;
-  padding: 9px 11px;
-  line-height: 1.35;
-  resize: vertical;
+  height: 44px;
+  min-height: 44px;
+  max-height: 140px;
+  padding: 11px 4px 9px 10px;
+  line-height: 1.45;
+  resize: none;
   overflow-y: auto;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.composer-row {
+  align-items: flex-end;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid #cbd8d8;
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.send-button {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #ffffff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 999px;
+}
+
+.send-button:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.send-button:disabled {
+  opacity: 0.42;
+}
+
+.composer-error {
+  padding: 8px 10px;
+  color: #653b07;
+  background: var(--amber-soft);
+  border: 1px solid #f0d39b;
+  border-radius: 7px;
+  font-size: 0.86rem;
 }
 
 .routing-note {

@@ -1,6 +1,6 @@
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PauseCircle, Plus, Send, XCircle } from 'lucide-react';
+import { Plus, Send, XCircle } from 'lucide-react';
 import { forSession, sdk, WEBUI_SURFACE_ID, WEBUI_SURFACE_KIND } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { asRecord, bestId, bestTitle, firstArray, firstString, readPath } from '../lib/object';
@@ -8,6 +8,7 @@ import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/pr
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
+import { formatError } from '../lib/errors';
 
 function extractSessionId(value: unknown): string {
   const direct = bestId(value);
@@ -27,8 +28,17 @@ function roleOf(message: unknown): string {
   return firstString(message, ['role', 'author', 'kind', 'source']) || 'message';
 }
 
+function messageTone(message: unknown): string {
+  const role = roleOf(message).toLowerCase();
+  if (role.includes('user')) return 'user';
+  if (role.includes('assistant') || role.includes('agent') || role.includes('model')) return 'assistant';
+  if (role.includes('system')) return 'system';
+  return 'neutral';
+}
+
 export function ChatView() {
   const queryClient = useQueryClient();
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [activeSessionId, setActiveSessionId] = useState('');
   const [draft, setDraft] = useState('');
   const [providerId, setProviderId] = useState('');
@@ -85,7 +95,15 @@ export function ChatView() {
     queryKey: ['sessions', activeSessionId, 'messages'],
     enabled: Boolean(activeSessionId),
     queryFn: () => sdk.operator.sessions.messages.list(activeSessionId),
+    refetchInterval: ['sending', 'queued', 'streaming'].includes(turnState) ? 1500 : false,
   });
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = '0px';
+    composer.style.height = `${Math.min(Math.max(composer.scrollHeight, 44), 140)}px`;
+  }, [draft]);
 
   useEffect(() => {
     if (!activeSessionId) return undefined;
@@ -133,9 +151,9 @@ export function ChatView() {
   }, [activeSessionId, queryClient]);
 
   const send = useMutation({
-    mutationFn: async () => {
-      const body = draft.trim();
+    mutationFn: async (body: string) => {
       if (!body) return;
+      setTurnState('sending');
 
       let sessionId = activeSessionId;
       if (!sessionId) {
@@ -156,10 +174,13 @@ export function ChatView() {
         ...(routing ? { routing } : {}),
       };
 
-      try {
-        await sdk.operator.invoke('sessions.followUp', { sessionId, ...payload });
-      } catch {
-        await sdk.operator.sessions.messages.create(sessionId, payload);
+      const result = await sdk.operator.sessions.followUp({ sessionId, ...payload });
+      const mode = firstString(result, ['mode']);
+      const input = readPath(result, ['input']);
+      const inputState = firstString(input, ['state']);
+      const inputError = firstString(input, ['error']);
+      if (mode === 'rejected' || inputState === 'rejected' || inputState === 'failed') {
+        throw Object.assign(new Error(inputError || `Session input was ${inputState || mode}`), { body: result });
       }
       setDraft('');
       setLiveText('');
@@ -167,6 +188,7 @@ export function ChatView() {
       await queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
     },
+    onError: () => setTurnState('send failed'),
   });
 
   const cancelInput = useMutation({
@@ -183,7 +205,7 @@ export function ChatView() {
 
   function submitDraft() {
     if (send.isPending || !draft.trim()) return;
-    void send.mutate();
+    send.mutate(draft.trim());
   }
 
   function submit(event: FormEvent) {
@@ -225,7 +247,7 @@ export function ChatView() {
 
         <div className="messages">
           {messageItems.map((message, index) => (
-            <article key={`${bestId(message)}-${index}`} className={`message ${roleOf(message)}`}>
+            <article key={`${bestId(message)}-${index}`} className={`message ${messageTone(message)}`}>
               <div className="message-meta">
                 <strong>{roleOf(message)}</strong>
                 <span>{firstString(message, ['createdAt', 'timestamp', 'time'])}</span>
@@ -246,6 +268,7 @@ export function ChatView() {
         </div>
 
         <form className="composer" onSubmit={submit}>
+          {send.error && <div className="composer-error">{formatError(send.error)}</div>}
           <div className="routing-row">
             <select
               value={providerId}
@@ -278,6 +301,7 @@ export function ChatView() {
           )}
           <div className="composer-row">
             <textarea
+              ref={composerRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}
@@ -285,9 +309,8 @@ export function ChatView() {
               aria-label="Message GoodVibes"
               rows={1}
             />
-            <button type="submit" className="primary-button" disabled={send.isPending || !draft.trim()}>
-              {send.isPending ? <PauseCircle size={18} /> : <Send size={18} />}
-              Send
+            <button type="submit" className="send-button" title="Send message" disabled={send.isPending || !draft.trim()}>
+              <Send size={18} />
             </button>
           </div>
         </form>

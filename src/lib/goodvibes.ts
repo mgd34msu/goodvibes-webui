@@ -38,13 +38,68 @@ export async function getCurrentAuth(): Promise<unknown> {
   return sdk.auth.current();
 }
 
+interface LoginResponse {
+  authenticated: boolean;
+  token: string;
+  username: string;
+  expiresAt: number;
+}
+
+function buildLoginUrl(): string {
+  return `${GOODVIBES_BASE_URL.replace(/\/+$/, '')}/login`;
+}
+
+function isLoginResponse(value: unknown): value is LoginResponse {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return record.authenticated === true
+    && typeof record.token === 'string'
+    && typeof record.username === 'string'
+    && typeof record.expiresAt === 'number';
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 export async function login(username: string, password: string): Promise<unknown> {
-  const credentialSdk = createBrowserGoodVibesSdk({
-    baseUrl: GOODVIBES_BASE_URL,
-    authToken: null,
-    autoRefresh: { autoRefresh: false },
+  const url = buildLoginUrl();
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
   });
-  const result = await credentialSdk.auth.login({ username, password }, { persistToken: false });
+
+  const body = await readJson(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(`Login failed: ${response.status} ${response.statusText}`.trim()), {
+      status: response.status,
+      url,
+      method: 'POST',
+      body,
+      category: response.status === 401 ? 'authentication' : 'unknown',
+      hint: response.status === 401 ? 'Check the username and password stored in local auth.' : undefined,
+    });
+  }
+
+  if (!isLoginResponse(body)) {
+    throw Object.assign(new Error('Login response did not include a browser session token'), {
+      status: response.status,
+      url,
+      method: 'POST',
+      body,
+      category: 'contract',
+    });
+  }
+
+  const result = body;
   await tokenStore.setTokenEntry(result.token, result.expiresAt);
   return {
     authenticated: result.authenticated,

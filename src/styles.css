@@ -752,6 +752,7 @@ button:disabled {
 .routing-row input,
 .knowledge-search input,
 .form-grid input,
+.form-grid select,
 .form-grid textarea,
 .composer textarea {
   width: 100%;
@@ -765,7 +766,8 @@ button:disabled {
 .routing-row select,
 .routing-row input,
 .knowledge-search input,
-.form-grid input {
+.form-grid input,
+.form-grid select {
   height: 40px;
   padding: 0 11px;
 }
@@ -881,6 +883,59 @@ button:disabled {
   color: #50636f;
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+.form-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.check-row {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 9px !important;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.knowledge-map-controls,
+.projection-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.knowledge-map-controls input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid #cbd8d8;
+  border-radius: 7px;
+}
+
+.projection-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.projection-actions {
+  justify-content: flex-start;
+}
+
+.projection-results {
+  margin-top: 14px;
 }
 
 .form-note {
@@ -1008,7 +1063,8 @@ code {
 
   .split-layout,
   .chat-layout,
-  .two-column {
+  .two-column,
+  .projection-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1054,14 +1110,18 @@ code {
   }
 
   .metric-grid,
-  .metadata-grid {
+  .metadata-grid,
+  .form-split {
     grid-template-columns: 1fr;
   }
 
   .routing-row,
   .composer-row,
-  .knowledge-search {
+  .knowledge-search,
+  .knowledge-map-controls,
+  .projection-actions {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .chat-surface {

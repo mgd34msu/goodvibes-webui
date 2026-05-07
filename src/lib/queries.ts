@@ -13,6 +13,8 @@ export const queryKeys = {
   knowledgeSources: ['knowledge', 'sources'] as const,
   knowledgeNodes: ['knowledge', 'nodes'] as const,
   knowledgeIssues: ['knowledge', 'issues'] as const,
+  knowledgeMap: ['knowledge', 'map'] as const,
+  knowledgeProjections: ['knowledge', 'projections'] as const,
   knowledgeRefinement: ['knowledge', 'refinement'] as const,
   methods: ['control', 'methods'] as const,
   localAuth: ['local-auth'] as const,
@@ -32,6 +34,7 @@ export async function loadBootSnapshot() {
     invokeMethod('knowledge.sources.list', { limit: 100 }),
     invokeMethod('knowledge.nodes.list', { limit: 100 }),
     invokeMethod('knowledge.issues.list', { limit: 100 }),
+    invokeMethod('knowledge.projections.list', { limit: 100 }),
     invokeMethod('knowledge.refinement.tasks.list', { limit: 100 }),
   ]);
 
@@ -48,6 +51,7 @@ export async function loadBootSnapshot() {
     'knowledgeSources',
     'knowledgeNodes',
     'knowledgeIssues',
+    'knowledgeProjections',
     'knowledgeRefinement',
   ] as const;
 

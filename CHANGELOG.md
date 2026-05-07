@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.5] - 2026-05-07
+
+### Changed
+
+- Restored attachment and voice affordance icons in the chat composer as disabled controls until companion-chat file and voice contracts exist.
+
 ## [0.1.4] - 2026-05-07
 
 ### Changed

@@ -1,6 +1,6 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, Check, Copy, Edit3, RotateCcw, Send, X } from 'lucide-react';
+import { ArrowDown, Check, Copy, Edit3, Mic, Paperclip, RotateCcw, Send, X } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstArray, firstString, formatRelative } from '../lib/object';
 import { queryKeys } from '../lib/queries';
@@ -549,6 +549,24 @@ export function ChatView({
               rows={1}
             />
             <div className="composer-toolbar">
+              <div className="composer-tools">
+                <button
+                  type="button"
+                  className="composer-tool"
+                  title="Chat attachments need a companion-chat attachment contract in the SDK"
+                  disabled
+                >
+                  <Paperclip size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="composer-tool"
+                  title="Voice mode is not available in this WebUI build"
+                  disabled
+                >
+                  <Mic size={16} />
+                </button>
+              </div>
               <div className="composer-route">
                 <select
                   value={selectedProviderId}

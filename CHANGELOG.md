@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.2] - 2026-05-07
+
+### Fixed
+
+- Kept companion chat on the daemon's current provider/model instead of sending chat-local route overrides.
+- Prevented chat turns from showing `completed` unless assistant content has rendered or synced.
+- Removed duplicated session ids, daemon receipts, and provider/model controls from the chat composer.
+- Added daemon current-model viewing and selection to the Providers page through `/api/models/current`.
+- Showed newly created chat sessions immediately while the SDK lacks companion chat session listing.
+
 ## [0.1.1] - 2026-05-07
 
 ### Fixed

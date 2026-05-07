@@ -19,7 +19,7 @@ export const GOODVIBES_BASE_URL = import.meta.env.VITE_GOODVIBES_BASE_URL
 
 export const tokenStore = createBrowserTokenStore({ key: WEBUI_TOKEN_STORE_KEY });
 
-type HttpMethod = 'GET' | 'POST' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type JsonRecord = Record<string, unknown>;
 
 interface RouteDefinition {
@@ -42,6 +42,9 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition> = {
   'approvals.list': { method: 'GET', path: '/api/approvals' },
   'config.set': { method: 'POST', path: '/config' },
   'local_auth.status': { method: 'GET', path: '/api/local-auth' },
+  'models.current': { method: 'GET', path: '/api/models/current' },
+  'models.list': { method: 'GET', path: '/api/models' },
+  'models.select': { method: 'PATCH', path: '/api/models/current' },
   'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
@@ -179,6 +182,11 @@ export const sdk = {
       list: () => scopedSdk.operator.invoke('providers.list', {}),
       get: (providerId: string) => scopedSdk.operator.invoke('providers.get', { providerId }),
       usage: (providerId: string) => scopedSdk.operator.invoke('providers.usage.get', { providerId }),
+    },
+    models: {
+      list: () => invokeOperator('models.list'),
+      current: () => invokeOperator('models.current'),
+      select: (registryKey: string) => invokeOperator('models.select', { registryKey }),
     },
     tasks: {
       list: () => invokeOperator('tasks.list'),

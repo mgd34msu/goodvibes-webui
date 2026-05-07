@@ -493,6 +493,33 @@ button:disabled {
   line-height: 1.4;
 }
 
+.current-model {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.current-model div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.current-model strong {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-model span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
 .two-column,
 .split-layout,
 .chat-layout {
@@ -585,6 +612,7 @@ button:disabled {
 }
 
 .record-row strong,
+.model-copy strong,
 .model-row strong,
 .action-row strong {
   min-width: 0;
@@ -594,10 +622,25 @@ button:disabled {
   white-space: nowrap;
 }
 
-.model-row,
 .action-row {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.model-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+
+.model-row.selected {
+  background: #edf8f4;
+  border-color: #9bd5c8;
+}
+
+.model-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
 }
 
 .row-actions {

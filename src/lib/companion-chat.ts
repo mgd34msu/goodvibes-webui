@@ -1,28 +1,24 @@
 import { asRecord, bestId, firstString, readPath } from './object';
-import type { ModelOption } from './provider-models';
 
 export const COMPANION_CHAT_RECENT_SESSIONS_KEY = 'goodvibes.webui.companionChat.sessions';
 export const COMPANION_CHAT_RECENT_SESSION_LIMIT = 24;
 
-export interface CompanionRoute {
-  provider: string;
-  model: string;
-}
-
 export interface LocalCompanionMessage {
   id: string;
   sessionId: string;
-  role: 'user';
+  role: 'user' | 'assistant';
   content: string;
   createdAt: number;
 }
 
-export function companionRouteFromModelOption(model: ModelOption | undefined): CompanionRoute | null {
-  if (!model?.providerId || !model.rawModelId) return null;
-  return {
-    provider: model.providerId,
-    model: model.rawModelId,
-  };
+export interface LocalCompanionSession {
+  id: string;
+  sessionId: string;
+  kind: 'companion-chat';
+  title: string;
+  status: 'active';
+  createdAt: number;
+  updatedAt: number;
 }
 
 export function extractSessionId(value: unknown): string {
@@ -79,4 +75,39 @@ export function prependRecentCompanionSessionId(
 export function removeRecentCompanionSessionIds(ids: string[], removedIds: string[]): string[] {
   const removed = new Set(removedIds);
   return ids.filter((id) => !removed.has(id));
+}
+
+export function mergeCompanionSessions(
+  localSessions: LocalCompanionSession[],
+  fetchedSessions: unknown[],
+  recentSessionIds: string[],
+): unknown[] {
+  const byId = new Map<string, unknown>();
+  for (const session of localSessions) byId.set(session.id, session);
+  for (const session of fetchedSessions) {
+    const id = extractSessionId(session);
+    if (id) byId.set(id, session);
+  }
+
+  const ordered = recentSessionIds
+    .map((id) => byId.get(id))
+    .filter((session): session is unknown => Boolean(session));
+  const orderedIds = new Set(ordered.map(extractSessionId));
+  const rest = [...byId.values()].filter((session) => !orderedIds.has(extractSessionId(session)));
+  return [...ordered, ...rest];
+}
+
+export function mergeCompanionMessages(
+  fetchedMessages: unknown[],
+  localMessages: LocalCompanionMessage[],
+  sessionId: string,
+): unknown[] {
+  const rendered = [...fetchedMessages];
+  const fetchedIds = new Set(fetchedMessages.map(extractMessageId).filter(Boolean));
+  for (const message of localMessages) {
+    if (message.sessionId !== sessionId) continue;
+    if (fetchedIds.has(message.id)) continue;
+    rendered.push(message);
+  }
+  return rendered;
 }

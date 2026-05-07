@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.7] - 2026-05-07
+
+### Changed
+
+- Removed the separate collapse control from the collapsed sidebar state.
+- Made the collapsed sidebar rail and GoodVibes icon expand the sidebar, while nav icons continue to navigate without expanding.
+- Simplified collapsed active-nav styling so the underline is the only active indicator.
+
 ## [0.1.6] - 2026-05-07
 
 ### Changed

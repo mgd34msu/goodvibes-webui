@@ -94,9 +94,24 @@ export default function App() {
 
   return (
     <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
-      <aside className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
+      <aside
+        className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
+        onClick={(event) => {
+          if (!sidebarCollapsed) return;
+          const target = event.target as HTMLElement;
+          if (target.closest('.nav-item')) return;
+          setSidebarCollapsed(false);
+        }}
+      >
         <div className="brand">
-          <img className="brand-mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
+          <button
+            className="brand-mark-button"
+            type="button"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'GoodVibes'}
+            onClick={() => sidebarCollapsed && setSidebarCollapsed(false)}
+          >
+            <img className="brand-mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
+          </button>
           <div className="brand-copy">
             <strong>GOODVIBES</strong>
             <span>Operator Shell</span>

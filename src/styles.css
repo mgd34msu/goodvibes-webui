@@ -847,6 +847,49 @@ button:disabled {
   font-size: 0.86rem;
 }
 
+.turn-inspector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.turn-inspector > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  max-width: 100%;
+  padding: 0 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #f3f8f7;
+  border: 1px solid #d8e7e4;
+  border-radius: 999px;
+}
+
+.turn-inspector details {
+  width: 100%;
+  color: var(--muted);
+}
+
+.turn-inspector summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.turn-inspector pre {
+  max-height: 180px;
+  margin: 6px 0 0;
+  padding: 9px;
+  overflow: auto;
+  background: #f7faf9;
+  border: 1px solid #dfe9e7;
+  border-radius: 7px;
+}
+
 .routing-note {
   margin: -2px 0 0;
   color: var(--muted);

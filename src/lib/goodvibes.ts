@@ -202,6 +202,7 @@ export const sdk = {
         list: (sessionId: string) => scopedSdk.operator.invoke('sessions.messages.list', { sessionId }),
       },
       inputs: {
+        list: (sessionId: string) => scopedSdk.operator.invoke('sessions.inputs.list', { sessionId }),
         cancel: (sessionId: string, inputId: string) => scopedSdk.operator.invoke('sessions.inputs.cancel', { sessionId, inputId }),
       },
     },

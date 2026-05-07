@@ -10,6 +10,9 @@ export interface ModelOption {
   id: string;
   label: string;
   value: unknown;
+  providerId: string;
+  rawModelId: string;
+  registryKey: string;
 }
 
 export function providerOptionsFromResponse(value: unknown): ProviderOption[] {
@@ -28,18 +31,31 @@ export function providerOptionsFromResponse(value: unknown): ProviderOption[] {
     .filter((provider): provider is ProviderOption => provider !== null);
 }
 
-function normalizeModel(model: unknown): ModelOption | null {
+function providerQualifiedKey(providerId: string, modelId: string, registryKey: string): string {
+  if (registryKey.includes(':')) return registryKey;
+  if (modelId.includes(':')) return modelId;
+  return providerId && modelId ? `${providerId}:${modelId}` : '';
+}
+
+function normalizeModel(providerId: string, model: unknown): ModelOption | null {
   if (typeof model === 'string') {
-    const id = model.trim();
-    return id ? { id, label: id, value: model } : null;
+    const rawModelId = model.trim();
+    const registryKey = providerQualifiedKey(providerId, rawModelId, '');
+    return registryKey ? { id: registryKey, label: rawModelId, value: model, providerId, rawModelId, registryKey } : null;
   }
 
-  const id = bestId(model) || firstString(model, ['model', 'modelName', 'value']);
-  if (!id) return null;
+  const explicitRegistryKey = firstString(model, ['registryKey', 'key']);
+  const rawModelId = firstString(model, ['modelId', 'id', 'model', 'modelName', 'value', 'name'])
+    || explicitRegistryKey.split(':').slice(1).join(':');
+  const registryKey = providerQualifiedKey(providerId, rawModelId, explicitRegistryKey);
+  if (!registryKey || !rawModelId) return null;
   return {
-    id,
-    label: bestTitle(model, id),
+    id: registryKey,
+    label: bestTitle(model, rawModelId),
     value: model,
+    providerId,
+    rawModelId,
+    registryKey,
   };
 }
 
@@ -51,6 +67,7 @@ function appendUnique(target: ModelOption[], model: ModelOption | null) {
 
 export function modelOptionsFromProvider(provider: unknown): ModelOption[] {
   const models: ModelOption[] = [];
+  const providerId = bestId(provider);
   for (const path of [
     ['models'],
     ['availableModels'],
@@ -61,15 +78,15 @@ export function modelOptionsFromProvider(provider: unknown): ModelOption[] {
     ['runtime', 'models', 'aliases'],
   ]) {
     for (const model of firstArrayAtPath(provider, [path])) {
-      appendUnique(models, normalizeModel(model));
+      appendUnique(models, normalizeModel(providerId, model));
     }
   }
 
   const defaultModel = readPath(provider, ['runtime', 'models', 'defaultModel']);
-  appendUnique(models, normalizeModel(defaultModel));
+  appendUnique(models, normalizeModel(providerId, defaultModel));
 
   const record = asRecord(provider);
-  appendUnique(models, normalizeModel(record.defaultModel));
+  appendUnique(models, normalizeModel(providerId, record.defaultModel));
 
   return models;
 }

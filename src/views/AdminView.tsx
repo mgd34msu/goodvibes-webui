@@ -12,8 +12,7 @@ import {
 } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
-import { compactJson, firstArray } from '../lib/object';
-import { RecordList } from '../components/RecordList';
+import { compactJson } from '../lib/object';
 import { errorDebugValue, formatError } from '../lib/errors';
 
 export function AdminView() {
@@ -27,7 +26,6 @@ export function AdminView() {
 
   const auth = useQuery({ queryKey: queryKeys.auth, queryFn: getCurrentAuth });
   const status = useQuery({ queryKey: queryKeys.status, queryFn: () => sdk.operator.control.status() });
-  const methods = useQuery({ queryKey: queryKeys.methods, queryFn: () => sdk.operator.control.methods.list() });
   const localAuth = useQuery({ queryKey: queryKeys.localAuth, queryFn: () => invokeMethod('local_auth.status') });
 
   const loginMutation = useMutation({
@@ -219,11 +217,6 @@ export function AdminView() {
         <DataBlock title="Daemon Status" value={status.data} />
         <DataBlock title="Local Auth" value={localAuth.data} />
       </div>
-
-      <section className="panel">
-        <h2>Operator Methods</h2>
-        <RecordList items={firstArray(methods.data, ['methods', 'items', 'data'])} empty="No methods returned" />
-      </section>
     </div>
   );
 }

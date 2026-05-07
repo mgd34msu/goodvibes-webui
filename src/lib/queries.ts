@@ -16,7 +16,6 @@ export const queryKeys = {
   knowledgeMap: ['knowledge', 'map'] as const,
   knowledgeProjections: ['knowledge', 'projections'] as const,
   knowledgeRefinement: ['knowledge', 'refinement'] as const,
-  methods: ['control', 'methods'] as const,
   localAuth: ['local-auth'] as const,
 };
 

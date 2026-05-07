@@ -67,6 +67,10 @@ export function ChatView() {
     () => modelOptionsFromProvider(selectedProvider?.value),
     [selectedProvider],
   );
+  const selectedModel = useMemo(
+    () => modelOptions.find((model) => model.id === modelId),
+    [modelId, modelOptions],
+  );
 
   async function invalidateSessionState(sessionId: string) {
     await Promise.all([
@@ -180,7 +184,15 @@ export function ChatView() {
         setActiveSessionId(sessionId);
       }
 
-      const routing = providerId && modelId ? { providerId, modelId } : undefined;
+      const registryKey = selectedModel?.registryKey ?? '';
+      const routingProviderId = registryKey.includes(':') ? registryKey.split(':', 1)[0] : '';
+      const routing = routingProviderId && registryKey
+        ? {
+          providerId: routingProviderId,
+          modelId: registryKey,
+          providerSelection: 'concrete',
+        }
+        : undefined;
       const payload = {
         body,
         surfaceKind: WEBUI_SURFACE_KIND,
@@ -308,7 +320,7 @@ export function ChatView() {
             >
               <option value="">{providerId ? 'Model' : 'Select provider first'}</option>
               {modelOptions.map((model) => {
-                const label = model.id === model.label ? model.label : `${model.label} (${model.id})`;
+                const label = model.registryKey === model.label ? model.label : `${model.label} (${model.registryKey})`;
                 return <option key={model.id} value={model.id}>{label}</option>;
               })}
             </select>

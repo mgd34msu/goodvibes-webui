@@ -13,10 +13,10 @@ import {
   Shield,
   Wifi,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
-import { getCurrentAuth } from './lib/goodvibes';
+import { getCurrentAuth, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
 import { DashboardView } from './views/DashboardView';
@@ -24,6 +24,8 @@ import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
 import { WorkView } from './views/WorkView';
 import { AdminView } from './views/AdminView';
+import { bestId, bestTitle, firstArrayAtPath, firstString } from './lib/object';
+import { companionSessionFromDetail, mergeCompanionSessions } from './lib/companion-chat';
 
 type ViewId = 'chat' | 'dashboard' | 'knowledge' | 'providers' | 'work' | 'admin';
 
@@ -43,6 +45,9 @@ const views: Array<{
 
 export default function App() {
   const [activeView, setActiveView] = useState<ViewId>('chat');
+  const [activeChatSessionId, setActiveChatSessionId] = useState('');
+  const [draftChatRequested, setDraftChatRequested] = useState(false);
+  const [localChatSessions, setLocalChatSessions] = useState<unknown[]>([]);
   const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
     queryKey: ['boot'],
@@ -53,6 +58,32 @@ export default function App() {
     queryFn: getCurrentAuth,
     retry: false,
   });
+  const chatSessions = useQuery({
+    queryKey: ['companion-chat', 'sessions'],
+    queryFn: () => sdk.chat.sessions.list({ limit: 100 }),
+    enabled: activeView === 'chat',
+  });
+
+  const fetchedChatSessions = useMemo(() => {
+    return firstArrayAtPath(chatSessions.data, [
+      ['sessions'],
+      ['items'],
+      ['data'],
+      ['result', 'sessions'],
+      ['result', 'items'],
+      ['result', 'data'],
+    ]).map(companionSessionFromDetail);
+  }, [chatSessions.data]);
+  const chatSessionItems = useMemo(
+    () => mergeCompanionSessions(localChatSessions, fetchedChatSessions),
+    [fetchedChatSessions, localChatSessions],
+  );
+
+  useEffect(() => {
+    if (!activeChatSessionId && !draftChatRequested && chatSessionItems.length) {
+      setActiveChatSessionId(bestId(chatSessionItems[0]));
+    }
+  }, [activeChatSessionId, chatSessionItems, draftChatRequested]);
 
   const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);
@@ -88,6 +119,44 @@ export default function App() {
           })}
         </nav>
 
+        {activeView === 'chat' && (
+          <section className="sidebar-sessions">
+            <div className="sidebar-section-title">
+              <span>Chats</span>
+              <button
+                type="button"
+                title="New chat"
+                onClick={() => {
+                  setActiveChatSessionId('');
+                  setDraftChatRequested(true);
+                }}
+              >
+                +
+              </button>
+            </div>
+            <div className="sidebar-session-list">
+              {chatSessionItems.map((session, index) => {
+                const id = bestId(session) || String(index);
+                return (
+                  <button
+                    key={`${id}-${index}`}
+                    type="button"
+                    className={activeChatSessionId === id ? 'sidebar-session active' : 'sidebar-session'}
+                    onClick={() => {
+                      setActiveChatSessionId(id);
+                      setDraftChatRequested(false);
+                    }}
+                  >
+                    <span>{bestTitle(session, id)}</span>
+                    <small>{firstString(session, ['status', 'state']) || 'active'}</small>
+                  </button>
+                );
+              })}
+              {!chatSessionItems.length && <span className="sidebar-empty">No chat sessions</span>}
+            </div>
+          </section>
+        )}
+
         <div className="surface-card">
           <div>
             <Radio size={16} />
@@ -107,7 +176,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="workspace">
+      <main className={activeView === 'chat' ? 'workspace workspace-chat' : 'workspace'}>
         <header className="topbar">
           <div className="topbar-title">
             <span className="eyebrow">{subtitle}</span>
@@ -144,7 +213,21 @@ export default function App() {
         {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
 
         <section className="view-frame">
-          {activeView === 'chat' && <ChatView />}
+          {activeView === 'chat' && (
+            <ChatView
+              activeSessionId={activeChatSessionId}
+              sessionItems={chatSessionItems}
+              onActiveSessionChange={(sessionId) => {
+                setActiveChatSessionId(sessionId);
+                setDraftChatRequested(false);
+              }}
+              onDraftSessionRequestedChange={setDraftChatRequested}
+              onLocalSessionCreated={(session) => setLocalChatSessions((current) => [
+                companionSessionFromDetail(session),
+                ...current.filter((item) => bestId(item) !== bestId(session)),
+              ])}
+            />
+          )}
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}

@@ -2,11 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import {
   extractMessageId,
   extractSessionId,
-  loadRecentCompanionSessionIds,
   mergeCompanionMessages,
   mergeCompanionSessions,
-  prependRecentCompanionSessionId,
-  removeRecentCompanionSessionIds,
 } from './companion-chat';
 
 describe('companion chat helpers', () => {
@@ -17,22 +14,10 @@ describe('companion chat helpers', () => {
     expect(extractMessageId({ message: { id: 'msg-2' } })).toBe('msg-2');
   });
 
-  test('keeps a unique most-recent-first local session list', () => {
-    expect(prependRecentCompanionSessionId(['a', 'b'], 'c')).toEqual(['c', 'a', 'b']);
-    expect(prependRecentCompanionSessionId(['a', 'b'], 'b')).toEqual(['b', 'a']);
-    expect(removeRecentCompanionSessionIds(['a', 'b', 'c'], ['b'])).toEqual(['a', 'c']);
-  });
-
-  test('loads only valid stored session ids', () => {
-    const storage = { getItem: () => JSON.stringify(['sess-1', '', 123, 'sess-2']) };
-    expect(loadRecentCompanionSessionIds(storage)).toEqual(['sess-1', 'sess-2']);
-  });
-
   test('merges local sessions before fetched session detail arrives', () => {
     expect(mergeCompanionSessions(
       [{ id: 'new', sessionId: 'new', kind: 'companion-chat', title: 'hello', status: 'active', createdAt: 1, updatedAt: 1 }],
       [{ id: 'old', title: 'existing' }],
-      ['new', 'old'],
     ).map(extractSessionId)).toEqual(['new', 'old']);
   });
 

@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.3] - 2026-05-07
+
+### Changed
+
+- Updated `@pellux/goodvibes-sdk` to `0.33.9` and switched the chat sidebar to the public `sdk.chat.sessions.list` API.
+- Removed the temporary local recent-session workaround used before SDK chat session listing existed.
+- Reworked Chat into the primary workspace with chat recents in the app sidebar, a centered conversation canvas, and an integrated composer.
+- Added subtle per-message hover actions for copy and resend plus delivery status indicators.
+- Kept attachment and voice controls disabled because companion chat has no public attachment or voice contract yet.
+
 ## [0.1.2] - 2026-05-07
 
 ### Fixed

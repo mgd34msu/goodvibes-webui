@@ -1,14 +1,12 @@
 import { asRecord, bestId, firstString, readPath } from './object';
 
-export const COMPANION_CHAT_RECENT_SESSIONS_KEY = 'goodvibes.webui.companionChat.sessions';
-export const COMPANION_CHAT_RECENT_SESSION_LIMIT = 24;
-
 export interface LocalCompanionMessage {
   id: string;
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
   createdAt: number;
+  deliveryState?: 'sent' | 'failed' | 'local';
 }
 
 export interface LocalCompanionSession {
@@ -40,61 +38,33 @@ export function companionSessionFromDetail(value: unknown): unknown {
   return Object.keys(asRecord(session)).length ? session : value;
 }
 
-export function loadRecentCompanionSessionIds(storage: Pick<Storage, 'getItem'> | undefined): string[] {
-  if (!storage) return [];
-  try {
-    const raw = storage.getItem(COMPANION_CHAT_RECENT_SESSIONS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveRecentCompanionSessionIds(storage: Pick<Storage, 'setItem'> | undefined, ids: string[]) {
-  if (!storage) return;
-  try {
-    storage.setItem(COMPANION_CHAT_RECENT_SESSIONS_KEY, JSON.stringify(ids));
-  } catch {
-    // Browsers can deny storage in private or hardened contexts; chat should still work.
-  }
-}
-
-export function prependRecentCompanionSessionId(
-  ids: string[],
-  sessionId: string,
-  limit = COMPANION_CHAT_RECENT_SESSION_LIMIT,
-): string[] {
-  const trimmed = sessionId.trim();
-  if (!trimmed) return ids;
-  return [trimmed, ...ids.filter((id) => id !== trimmed)].slice(0, limit);
-}
-
-export function removeRecentCompanionSessionIds(ids: string[], removedIds: string[]): string[] {
-  const removed = new Set(removedIds);
-  return ids.filter((id) => !removed.has(id));
-}
-
 export function mergeCompanionSessions(
-  localSessions: LocalCompanionSession[],
+  localSessions: unknown[],
   fetchedSessions: unknown[],
-  recentSessionIds: string[],
 ): unknown[] {
   const byId = new Map<string, unknown>();
-  for (const session of localSessions) byId.set(session.id, session);
+  for (const session of localSessions) {
+    const id = extractSessionId(session);
+    if (id) byId.set(id, session);
+  }
   for (const session of fetchedSessions) {
     const id = extractSessionId(session);
     if (id) byId.set(id, session);
   }
 
-  const ordered = recentSessionIds
-    .map((id) => byId.get(id))
-    .filter((session): session is unknown => Boolean(session));
-  const orderedIds = new Set(ordered.map(extractSessionId));
-  const rest = [...byId.values()].filter((session) => !orderedIds.has(extractSessionId(session)));
-  return [...ordered, ...rest];
+  return [...byId.values()].sort((left, right) => {
+    const leftUpdated = Number(asRecord(left).updatedAt ?? asRecord(left).createdAt ?? 0);
+    const rightUpdated = Number(asRecord(right).updatedAt ?? asRecord(right).createdAt ?? 0);
+    return rightUpdated - leftUpdated;
+  });
+}
+
+function comparableMessageText(message: unknown): string {
+  return firstString(message, ['body', 'content', 'text', 'message']).trim();
+}
+
+function comparableMessageRole(message: unknown): string {
+  return firstString(message, ['role', 'author', 'kind', 'source']).toLowerCase();
 }
 
 export function mergeCompanionMessages(
@@ -107,6 +77,13 @@ export function mergeCompanionMessages(
   for (const message of localMessages) {
     if (message.sessionId !== sessionId) continue;
     if (fetchedIds.has(message.id)) continue;
+    const localText = comparableMessageText(message);
+    const localRole = comparableMessageRole(message);
+    const alreadyFetched = fetchedMessages.some((fetched) => (
+      comparableMessageText(fetched) === localText
+      && comparableMessageRole(fetched) === localRole
+    ));
+    if (alreadyFetched) continue;
     rendered.push(message);
   }
   return rendered;

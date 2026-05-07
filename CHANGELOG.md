@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.13] - 2026-05-07
+
+### Changed
+
+- Extended the GoodVibes dark/neon visual system across Dashboard, Knowledge, Providers, Work, and Admin instead of leaving those pages on the old light dashboard theme.
+
 ## [0.1.12] - 2026-05-07
 
 ### Added

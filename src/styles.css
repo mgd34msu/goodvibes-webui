@@ -2237,6 +2237,351 @@ code {
   line-height: 1.48;
 }
 
+/* Unified GoodVibes dark surface for all non-chat operator pages. */
+:root {
+  color-scheme: dark;
+  color: #f8fbff;
+  background: #08080f;
+  --ink: #f8fbff;
+  --muted: #a7b7d8;
+  --quiet: #7583a4;
+  --panel: rgb(8 8 15 / 86%);
+  --panel-soft: rgb(0 255 255 / 6%);
+  --line: rgb(0 255 255 / 18%);
+  --line-strong: rgb(0 255 255 / 38%);
+  --accent: #00dede;
+  --accent-strong: #8ffcff;
+  --accent-soft: rgb(0 255 255 / 10%);
+  --blue: #8da2ff;
+  --blue-soft: rgb(141 162 255 / 14%);
+  --amber: #ffcc66;
+  --amber-soft: rgb(255 204 102 / 12%);
+  --red: #ff6ac8;
+  --red-soft: rgb(255 106 200 / 12%);
+  --violet: #ff00ff;
+  --shadow-sm: 0 0 0 1px rgb(0 255 255 / 8%), 0 18px 44px rgb(0 0 0 / 26%);
+  --shadow-md: 0 0 0 1px rgb(0 255 255 / 14%), 0 24px 68px rgb(0 0 0 / 34%);
+}
+
+body {
+  background:
+    radial-gradient(circle at 26% 14%, rgb(255 0 255 / 16%), transparent 24rem),
+    radial-gradient(circle at 78% 18%, rgb(0 255 255 / 10%), transparent 24rem),
+    linear-gradient(90deg, rgb(0 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(255 0 255 / 4%) 1px, transparent 1px),
+    linear-gradient(180deg, #12071f 0%, #0c0820 42%, #08080f 100%);
+  background-size: auto, auto, 40px 40px, 40px 40px, auto;
+}
+
+.workspace:not(.workspace-chat) {
+  min-height: 100vh;
+  color: #f8fbff;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 2%), transparent 220px),
+    linear-gradient(180deg, #12071f 0%, #0b0820 48%, #08080f 100%);
+}
+
+.workspace:not(.workspace-chat)::before {
+  position: fixed;
+  inset: 78px 0 0 276px;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgb(0 255 255 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 0 255 / 5%) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.62;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 86%);
+}
+
+.app-shell.sidebar-collapsed .workspace:not(.workspace-chat)::before {
+  left: 74px;
+}
+
+.topbar {
+  color: #f8fbff;
+  background: rgb(8 8 15 / 86%);
+  border-bottom: 1px solid rgb(0 255 255 / 20%);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 28%);
+}
+
+.eyebrow {
+  color: #8ffcff;
+}
+
+.topbar h1,
+.panel h2,
+.data-block h3,
+.answer-panel h2,
+.side-panel h2,
+.detail-header h2,
+.metric-card strong,
+.current-model strong,
+.record-row strong,
+.model-copy strong,
+.model-row strong,
+.action-row strong {
+  color: #f8fbff;
+}
+
+.status-strip span,
+.icon-button,
+.row-actions button,
+.action-banner button,
+.secondary-button {
+  color: #dffcff;
+  background: rgb(0 255 255 / 6%);
+  border: 1px solid rgb(0 255 255 / 20%);
+  box-shadow: 0 0 18px rgb(0 255 255 / 7%);
+}
+
+.status-strip span:hover,
+.icon-button:hover,
+.row-actions button:hover,
+.action-banner button:hover,
+.secondary-button:hover {
+  color: #090717;
+  background: var(--gv-cyan);
+  border-color: rgb(0 255 255 / 54%);
+  box-shadow: 0 0 20px rgb(0 255 255 / 34%);
+}
+
+.status-strip .syncing {
+  color: #f8fbff;
+  background: rgb(255 0 255 / 10%);
+  border-color: rgb(255 0 255 / 30%);
+}
+
+.banner.warning,
+.composer-error {
+  color: #ffe2a8;
+  background: rgb(82 49 8 / 50%);
+  border: 1px solid rgb(255 204 102 / 30%);
+}
+
+.metric-card,
+.panel,
+.data-block,
+.answer-panel,
+.side-panel,
+.detail-header,
+.knowledge-search,
+.auth-guidance {
+  color: #f8fbff;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 56%),
+    rgb(8 8 15 / 82%);
+  border: 1px solid rgb(0 255 255 / 18%);
+  box-shadow: 0 0 0 1px rgb(255 0 255 / 5%), 0 20px 52px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(10px);
+}
+
+.metric-card::before {
+  background: linear-gradient(90deg, var(--gv-cyan), var(--gv-pink), var(--gv-yellow));
+  box-shadow: 0 0 22px rgb(0 255 255 / 36%);
+}
+
+.metric-card:hover,
+.panel:hover,
+.answer-panel:hover,
+.side-panel:hover,
+.chat-surface:hover {
+  border-color: rgb(0 255 255 / 38%);
+  box-shadow: 0 0 0 1px rgb(0 255 255 / 12%), 0 24px 68px rgb(0 0 0 / 32%);
+}
+
+.metric-head svg,
+.panel-title svg {
+  color: var(--gv-cyan);
+  filter: drop-shadow(0 0 8px rgb(0 255 255 / 32%));
+}
+
+.metric-card span,
+.record-row span,
+.model-row span,
+.action-row span,
+.detail-header span,
+.chat-header span,
+.message-meta span,
+.current-model span,
+.form-note,
+.diagnostic-block,
+.runtime-grid span:not(.status-dot),
+.turn-inspector,
+.routing-note,
+.auth-guidance p {
+  color: #a7b7d8;
+}
+
+.metric-card p,
+.empty-state {
+  color: #91a1c7;
+}
+
+.record-row,
+.action-row,
+.model-row,
+.runtime-grid > div {
+  color: #f8fbff;
+  background: rgb(0 255 255 / 5%);
+  border: 1px solid rgb(0 255 255 / 14%);
+}
+
+.record-row.selected,
+.record-row:hover,
+.model-row.selected {
+  color: #ffffff;
+  background: rgb(0 255 255 / 10%);
+  border-color: rgb(0 255 255 / 34%);
+  box-shadow: 0 0 24px rgb(0 255 255 / 10%);
+}
+
+.badge.ok {
+  color: #a7ffd2;
+  background: rgb(56 255 139 / 12%);
+}
+
+.badge.warning {
+  color: #ffe2a8;
+  background: rgb(255 204 102 / 12%);
+}
+
+.badge.bad {
+  color: #ff9ad9;
+  background: rgb(255 106 200 / 12%);
+}
+
+.badge.neutral {
+  color: #dffcff;
+  background: rgb(0 255 255 / 10%);
+}
+
+.primary-button {
+  color: #090717;
+  background: var(--gv-cyan);
+  box-shadow: 0 0 18px rgb(0 255 255 / 28%);
+}
+
+.primary-button:hover:not(:disabled) {
+  color: #090717;
+  background: var(--gv-pink);
+  box-shadow: 0 0 22px rgb(255 0 255 / 42%);
+}
+
+.segmented {
+  background: rgb(0 0 0 / 28%);
+  border: 1px solid rgb(0 255 255 / 14%);
+}
+
+.segmented button {
+  color: #a7b7d8;
+}
+
+.segmented button.active {
+  color: #090717;
+  background: var(--gv-cyan);
+  box-shadow: 0 0 16px rgb(0 255 255 / 28%);
+}
+
+.routing-row select,
+.routing-row input,
+.knowledge-search input,
+.knowledge-map-controls input,
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.composer textarea {
+  color: #f8fbff;
+  background: rgb(0 0 0 / 34%);
+  border: 1px solid rgb(0 255 255 / 18%);
+}
+
+.routing-row select:focus,
+.routing-row input:focus,
+.knowledge-search input:focus,
+.knowledge-map-controls input:focus,
+.form-grid input:focus,
+.form-grid select:focus,
+.form-grid textarea:focus,
+.composer textarea:focus {
+  border-color: rgb(0 255 255 / 44%);
+  box-shadow: 0 0 0 3px rgb(0 255 255 / 10%);
+}
+
+.routing-row select::placeholder,
+.routing-row input::placeholder,
+.knowledge-search input::placeholder,
+.knowledge-map-controls input::placeholder,
+.form-grid input::placeholder,
+.form-grid textarea::placeholder,
+.composer textarea::placeholder {
+  color: #697897;
+}
+
+.data-block pre,
+.diagnostic-block pre,
+.turn-inspector pre {
+  color: #dffcff;
+  background: rgb(0 0 0 / 34%);
+  border: 1px solid rgb(0 255 255 / 16%);
+}
+
+.data-block-markdown {
+  color: #eaf6ff;
+}
+
+.markdown-message blockquote {
+  color: #c9fdff;
+  border-left-color: rgb(0 255 255 / 46%);
+}
+
+.markdown-message code,
+code {
+  color: #f8fbff;
+  background: rgb(0 255 255 / 12%);
+  border-color: rgb(0 255 255 / 18%);
+}
+
+.markdown-code-block {
+  background: rgb(0 0 0 / 38%);
+  border-color: rgb(0 255 255 / 20%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.markdown-code-label {
+  color: #9beef2;
+  background: rgb(0 255 255 / 8%);
+  border-bottom-color: rgb(0 255 255 / 18%);
+}
+
+.markdown-code-block code {
+  color: #f8fbff;
+}
+
+.markdown-message th {
+  color: #dffcff;
+  background: rgb(0 255 255 / 9%);
+}
+
+.markdown-message a {
+  color: var(--gv-cyan);
+}
+
+.markdown-message hr {
+  background: rgb(0 255 255 / 20%);
+}
+
+.auth-guidance {
+  background:
+    linear-gradient(90deg, rgb(0 255 255 / 10%), transparent 60%),
+    rgb(8 8 15 / 82%);
+}
+
+.auth-guidance > div:first-child {
+  color: var(--gv-cyan);
+  background: rgb(0 255 255 / 10%);
+}
+
 @media (max-width: 1280px) {
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

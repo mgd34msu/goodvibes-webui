@@ -1,3 +1,7 @@
+import {
+  createBrowserKnowledgeSdk,
+  forSession,
+} from '@pellux/goodvibes-sdk/browser/knowledge';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import type {
   OperatorMethodId,
@@ -17,16 +21,10 @@ export const tokenStore = createBrowserTokenStore({ key: WEBUI_TOKEN_STORE_KEY }
 
 type HttpMethod = 'GET' | 'POST' | 'DELETE';
 type JsonRecord = Record<string, unknown>;
-type RealtimeHandler = (event: unknown) => void;
-type Unsubscribe = () => void;
 
 interface RouteDefinition {
   method: HttpMethod;
   path: string;
-}
-
-interface RuntimeDomainClient {
-  onEnvelope(eventName: string, handler: RealtimeHandler): Unsubscribe;
 }
 
 interface RequestOptions {
@@ -36,39 +34,15 @@ interface RequestOptions {
   authenticated?: boolean;
 }
 
-const METHOD_ROUTES: Record<string, RouteDefinition> = {
-  'accounts.snapshot': { method: 'GET', path: '/api/accounts' },
+const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition> = {
   'approvals.approve': { method: 'POST', path: '/api/approvals/{approvalId}/approve' },
   'approvals.cancel': { method: 'POST', path: '/api/approvals/{approvalId}/cancel' },
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
   'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
   'approvals.list': { method: 'GET', path: '/api/approvals' },
   'config.set': { method: 'POST', path: '/config' },
-  'control.snapshot': { method: 'GET', path: '/api/control-plane' },
-  'control.status': { method: 'GET', path: '/status' },
-  'knowledge.ask': { method: 'POST', path: '/api/knowledge/ask' },
-  'knowledge.ingest.url': { method: 'POST', path: '/api/knowledge/ingest/url' },
-  'knowledge.issues.list': { method: 'GET', path: '/api/knowledge/issues' },
-  'knowledge.item.get': { method: 'GET', path: '/api/knowledge/items/{id}' },
-  'knowledge.map': { method: 'GET', path: '/api/knowledge/map' },
-  'knowledge.nodes.list': { method: 'GET', path: '/api/knowledge/nodes' },
-  'knowledge.projection.materialize': { method: 'POST', path: '/api/knowledge/projections/materialize' },
-  'knowledge.projection.render': { method: 'POST', path: '/api/knowledge/projections/render' },
-  'knowledge.projections.list': { method: 'GET', path: '/api/knowledge/projections' },
-  'knowledge.refinement.tasks.list': { method: 'GET', path: '/api/knowledge/refinement/tasks' },
-  'knowledge.search': { method: 'POST', path: '/api/knowledge/search' },
-  'knowledge.sources.list': { method: 'GET', path: '/api/knowledge/sources' },
-  'knowledge.status': { method: 'GET', path: '/api/knowledge/status' },
   'local_auth.status': { method: 'GET', path: '/api/local-auth' },
-  'providers.get': { method: 'GET', path: '/api/providers/{providerId}' },
-  'providers.list': { method: 'GET', path: '/api/providers' },
-  'providers.usage.get': { method: 'GET', path: '/api/providers/{providerId}/usage' },
   'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
-  'sessions.create': { method: 'POST', path: '/api/sessions' },
-  'sessions.followUp': { method: 'POST', path: '/api/sessions/{sessionId}/follow-up' },
-  'sessions.inputs.cancel': { method: 'POST', path: '/api/sessions/{sessionId}/inputs/{inputId}/cancel' },
-  'sessions.list': { method: 'GET', path: '/api/sessions' },
-  'sessions.messages.list': { method: 'GET', path: '/api/sessions/{sessionId}/messages' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
   'tasks.list': { method: 'GET', path: '/api/tasks' },
@@ -107,22 +81,6 @@ const RUNTIME_DOMAINS: RuntimeEventDomain[] = [
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : {};
-}
-
-function firstString(value: unknown, keys: string[]): string {
-  const record = asRecord(value);
-  for (const key of keys) {
-    const item = record[key];
-    if (typeof item === 'string' && item.trim()) return item;
-    if (typeof item === 'number') return String(item);
-  }
-  return '';
-}
-
-function readPath(value: unknown, path: string[]): unknown {
-  let current = value;
-  for (const part of path) current = asRecord(current)[part];
-  return current;
 }
 
 function buildUrl(path: string, query?: JsonRecord): string {
@@ -189,126 +147,38 @@ function interpolateRoute(route: RouteDefinition, input: unknown): { path: strin
 }
 
 async function invokeOperator(methodId: string, input?: unknown): Promise<unknown> {
-  const route = METHOD_ROUTES[methodId];
-  if (!route) throw new Error(`Operator method is not wired in WebUI: ${methodId}`);
+  const route = EXTRA_METHOD_ROUTES[methodId];
+  if (!route) return scopedSdk.operator.invoke(methodId as never, input as never);
   const { path, rest } = interpolateRoute(route, input);
   if (route.method === 'GET') return requestJson(path, { method: route.method, query: rest });
   return requestJson(path, { method: route.method, body: rest });
 }
 
-function parseSseMessage(raw: string): { eventName: string; value: unknown } | null {
-  let eventName = 'message';
-  const dataLines: string[] = [];
-  for (const line of raw.split(/\r?\n/)) {
-    if (!line || line.startsWith(':')) continue;
-    if (line.startsWith('event:')) {
-      eventName = line.slice(6).trim();
-      continue;
-    }
-    if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
-  }
-  const dataText = dataLines.join('\n').trim();
-  if (!dataText) return null;
-  let value: unknown = dataText;
-  try {
-    value = JSON.parse(dataText);
-  } catch {
-    value = { type: eventName, payload: dataText };
-  }
-  return { eventName, value };
-}
-
-function eventType(eventName: string, value: unknown): string {
-  return firstString(value, ['type', 'event', 'eventName', 'name'])
-    || firstString(readPath(value, ['envelope']), ['type', 'event', 'eventName', 'name'])
-    || eventName;
-}
-
-async function streamDomainEvents(domain: RuntimeEventDomain, eventName: string, handler: RealtimeHandler, signal: AbortSignal) {
-  const response = await fetch(buildUrl('/api/control-plane/events', { domains: domain }), {
-    headers: await authHeaders(),
-    credentials: 'include',
-    signal,
-  });
-  if (!response.ok) throw new Error(`SSE ${domain} failed: ${response.status} ${response.statusText}`.trim());
-  if (!response.body) throw new Error(`SSE ${domain} did not return a readable stream`);
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (!signal.aborted) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split(/\r?\n\r?\n/);
-    buffer = parts.pop() ?? '';
-    for (const part of parts) {
-      const parsed = parseSseMessage(part);
-      if (parsed && eventType(parsed.eventName, parsed.value) === eventName) handler(parsed.value);
-    }
-  }
-}
-
-function createDomainEvents(domain: RuntimeEventDomain): RuntimeDomainClient {
-  return {
-    onEnvelope(eventName, handler) {
-      const controller = new AbortController();
-      void streamDomainEvents(domain, eventName, handler, controller.signal).catch((error) => {
-        if (!controller.signal.aborted) console.warn(error);
-      });
-      return () => controller.abort();
-    },
-  };
-}
-
-function createRealtimeEvents(): Record<string, RuntimeDomainClient> {
-  const events: Record<string, RuntimeDomainClient> = {};
-  for (const domain of RUNTIME_DOMAINS) events[domain] = createDomainEvents(domain);
-  events.controlPlane = events['control-plane'];
-  return events;
-}
-
-function eventSessionId(event: unknown): string {
-  return firstString(event, ['sessionId'])
-    || firstString(readPath(event, ['payload']), ['sessionId'])
-    || firstString(readPath(event, ['payload', 'session']), ['id', 'sessionId'])
-    || firstString(readPath(event, ['payload', 'turn']), ['sessionId'])
-    || firstString(readPath(event, ['data']), ['sessionId']);
-}
-
-export function forSession(events: Record<string, RuntimeDomainClient>, sessionId: string): Record<string, RuntimeDomainClient> {
-  return {
-    turn: {
-      onEnvelope(eventName, handler) {
-        return events.turn.onEnvelope(eventName, (event) => {
-          const id = eventSessionId(event);
-          if (!id || id === sessionId) handler(event);
-        });
-      },
-    },
-  };
-}
+const scopedSdk = createBrowserKnowledgeSdk({
+  baseUrl: GOODVIBES_BASE_URL,
+  tokenStore,
+});
 
 export const sdk = {
   auth: {
-    current: () => requestJson('/api/control-plane/auth'),
+    current: () => scopedSdk.auth.current(),
     getToken: () => tokenStore.getToken(),
-    setToken: (token: string | null) => tokenStore.setToken(token),
-    clearToken: () => tokenStore.clearToken(),
+    setToken: (token: string | null) => scopedSdk.auth.setToken(token),
+    clearToken: () => scopedSdk.auth.clearToken(),
   },
   operator: {
     invoke: invokeOperator,
     control: {
-      status: () => invokeOperator('control.status'),
-      snapshot: () => invokeOperator('control.snapshot'),
+      status: () => scopedSdk.operator.invoke('control.status', {}),
+      snapshot: () => scopedSdk.operator.invoke('control.snapshot', {}),
     },
     accounts: {
-      snapshot: () => invokeOperator('accounts.snapshot'),
+      snapshot: () => scopedSdk.operator.invoke('accounts.snapshot', {}),
     },
     providers: {
-      list: () => invokeOperator('providers.list'),
-      get: (providerId: string) => invokeOperator('providers.get', { providerId }),
-      usage: (providerId: string) => invokeOperator('providers.usage.get', { providerId }),
+      list: () => scopedSdk.operator.invoke('providers.list', {}),
+      get: (providerId: string) => scopedSdk.operator.invoke('providers.get', { providerId }),
+      usage: (providerId: string) => scopedSdk.operator.invoke('providers.usage.get', { providerId }),
     },
     tasks: {
       list: () => invokeOperator('tasks.list'),
@@ -323,24 +193,26 @@ export const sdk = {
       deny: (approvalId: string) => invokeOperator('approvals.deny', { approvalId }),
     },
     sessions: {
-      list: () => invokeOperator('sessions.list'),
-      create: (input: unknown) => invokeOperator('sessions.create', input),
+      list: () => scopedSdk.operator.invoke('sessions.list', {}),
+      create: (input: unknown) => scopedSdk.operator.invoke('sessions.create', input as never),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
-      followUp: (input: unknown) => invokeOperator('sessions.followUp', input),
+      followUp: (input: unknown) => scopedSdk.operator.invoke('sessions.followUp', input as never),
       messages: {
-        list: (sessionId: string) => invokeOperator('sessions.messages.list', { sessionId }),
+        list: (sessionId: string) => scopedSdk.operator.invoke('sessions.messages.list', { sessionId }),
       },
       inputs: {
-        cancel: (sessionId: string, inputId: string) => invokeOperator('sessions.inputs.cancel', { sessionId, inputId }),
+        cancel: (sessionId: string, inputId: string) => scopedSdk.operator.invoke('sessions.inputs.cancel', { sessionId, inputId }),
       },
     },
   },
   realtime: {
-    viaSse: createRealtimeEvents,
+    viaSse: () => scopedSdk.realtime.viaSse(),
   },
+  knowledge: scopedSdk.knowledge,
 };
 
+export { forSession };
 export type GoodVibesClient = typeof sdk;
 export type { OperatorMethodId, OperatorMethodInput, OperatorMethodOutput, OperatorTypedMethodId, RuntimeEventDomain };
 

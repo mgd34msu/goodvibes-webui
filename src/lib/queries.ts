@@ -29,7 +29,7 @@ export async function loadBootSnapshot() {
     sdk.operator.tasks.list(),
     sdk.operator.approvals.list(),
     sdk.operator.sessions.list(),
-    invokeMethod('knowledge.status'),
+    sdk.knowledge.status(),
     invokeMethod('knowledge.sources.list', { limit: 100 }),
     invokeMethod('knowledge.nodes.list', { limit: 100 }),
     invokeMethod('knowledge.issues.list', { limit: 100 }),

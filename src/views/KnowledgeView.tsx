@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Brain, FileText, Link, Map, Search } from 'lucide-react';
-import { invokeMethod } from '../lib/goodvibes';
+import { invokeMethod, sdk } from '../lib/goodvibes';
 import type { OperatorMethodInput } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
@@ -56,7 +56,7 @@ export function KnowledgeView() {
   const [projectionKey, setProjectionKey] = useState('');
   const [selectedItemId, setSelectedItemId] = useState('');
 
-  const status = useQuery({ queryKey: queryKeys.knowledgeStatus, queryFn: () => invokeMethod('knowledge.status') });
+  const status = useQuery({ queryKey: queryKeys.knowledgeStatus, queryFn: () => sdk.knowledge.status() });
   const sources = useQuery({ queryKey: queryKeys.knowledgeSources, queryFn: () => invokeMethod('knowledge.sources.list', { limit: 100 }) });
   const nodes = useQuery({ queryKey: queryKeys.knowledgeNodes, queryFn: () => invokeMethod('knowledge.nodes.list', { limit: 100 }) });
   const issues = useQuery({ queryKey: queryKeys.knowledgeIssues, queryFn: () => invokeMethod('knowledge.issues.list', { limit: 100 }) });
@@ -64,7 +64,7 @@ export function KnowledgeView() {
   const projections = useQuery({ queryKey: queryKeys.knowledgeProjections, queryFn: () => invokeMethod('knowledge.projections.list', { limit: 100 }) });
   const knowledgeMap = useQuery({
     queryKey: [...queryKeys.knowledgeMap, mapFilter],
-    queryFn: () => invokeMethod('knowledge.map', {
+    queryFn: () => sdk.knowledge.map({
       limit: 150,
       includeSources: true,
       includeIssues: true,
@@ -86,7 +86,7 @@ export function KnowledgeView() {
 
   const ask = useMutation({
     mutationFn: () => mode === 'ask'
-      ? invokeMethod('knowledge.ask', {
+      ? sdk.knowledge.ask({
         query,
         limit: 10,
         includeSources: true,
@@ -94,7 +94,7 @@ export function KnowledgeView() {
         includeLinkedObjects: true,
         timeoutMs: 20_000,
       })
-      : invokeMethod('knowledge.search', {
+      : sdk.knowledge.search({
         query,
         limit: 25,
         includeSources: true,

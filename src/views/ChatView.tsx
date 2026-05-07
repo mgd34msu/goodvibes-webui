@@ -6,6 +6,7 @@ import { queryKeys } from '../lib/queries';
 import { asRecord, bestId, bestTitle, firstArray, firstString, readPath } from '../lib/object';
 import { modelOptionsFromProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
+import { followUpDisposition } from '../lib/session-followup';
 import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatError } from '../lib/errors';
@@ -67,6 +68,14 @@ export function ChatView() {
     [selectedProvider],
   );
 
+  async function invalidateSessionState(sessionId: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] }),
+      queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'inputs'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions }),
+    ]);
+  }
+
   useEffect(() => {
     if (!activeSessionId && sessionItems.length) setActiveSessionId(bestId(sessionItems[0]));
   }, [activeSessionId, sessionItems]);
@@ -95,7 +104,7 @@ export function ChatView() {
     queryKey: ['sessions', activeSessionId, 'messages'],
     enabled: Boolean(activeSessionId),
     queryFn: () => sdk.operator.sessions.messages.list(activeSessionId),
-    refetchInterval: ['sending', 'queued', 'streaming'].includes(turnState) ? 1500 : false,
+    refetchInterval: ['sending', 'submitted', 'queued', 'running', 'streaming'].includes(turnState) ? 1500 : false,
   });
 
   useEffect(() => {
@@ -120,6 +129,10 @@ export function ChatView() {
         if (unsub) unsubs.push(unsub);
       };
 
+      bind('TURN_SUBMITTED', () => {
+        setTurnState('running');
+        void invalidateSessionState(activeSessionId);
+      });
       bind('STREAM_DELTA', (event) => {
         const content = firstString(readPath(event, ['payload']), ['content', 'text', 'delta']);
         if (content) setLiveText((current) => current + content);
@@ -128,18 +141,19 @@ export function ChatView() {
       bind('TURN_COMPLETED', () => {
         setTurnState('completed');
         setLiveText('');
-        void queryClient.invalidateQueries({ queryKey: ['sessions', activeSessionId, 'messages'] });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+        void invalidateSessionState(activeSessionId);
       });
       bind('TURN_ERROR', (event) => {
         setTurnState(firstString(readPath(event, ['payload']), ['error', 'reason', 'message']) || 'error');
-        void queryClient.invalidateQueries({ queryKey: ['sessions', activeSessionId, 'messages'] });
+        void invalidateSessionState(activeSessionId);
       });
       bind('TURN_CANCEL', (event) => {
         setTurnState(firstString(readPath(event, ['payload']), ['reason']) || 'cancelled');
+        void invalidateSessionState(activeSessionId);
       });
       bind('PREFLIGHT_FAIL', (event) => {
         setTurnState(firstString(readPath(event, ['payload']), ['reason']) || 'preflight failed');
+        void invalidateSessionState(activeSessionId);
       });
     } catch (err) {
       setTurnState(err instanceof Error ? err.message : String(err));
@@ -175,18 +189,14 @@ export function ChatView() {
       };
 
       const result = await sdk.operator.sessions.followUp({ sessionId, ...payload });
-      const mode = firstString(result, ['mode']);
-      const input = readPath(result, ['input']);
-      const inputState = firstString(input, ['state']);
-      const inputError = firstString(input, ['error']);
-      if (mode === 'rejected' || inputState === 'rejected' || inputState === 'failed') {
-        throw Object.assign(new Error(inputError || `Session input was ${inputState || mode}`), { body: result });
+      const disposition = followUpDisposition(result);
+      if (disposition.state === 'rejected') {
+        throw Object.assign(new Error(disposition.error || 'Session input was rejected'), { body: result });
       }
       setDraft('');
       setLiveText('');
-      setTurnState('queued');
-      await queryClient.invalidateQueries({ queryKey: ['sessions', sessionId, 'messages'] });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+      setTurnState(disposition.state);
+      await invalidateSessionState(sessionId);
     },
     onError: () => setTurnState('send failed'),
   });
@@ -194,14 +204,15 @@ export function ChatView() {
   const cancelInput = useMutation({
     mutationFn: async () => {
       const inputs = firstArray(messages.data, ['inputs']);
-      const activeInput = inputs.find((input) => firstString(input, ['status', 'state']) === 'running' || firstString(input, ['status', 'state']) === 'queued');
-      const inputId = bestId(activeInput);
+      const queuedInput = inputs.find((input) => firstString(input, ['status', 'state']) === 'queued');
+      const inputId = bestId(queuedInput);
       if (activeSessionId && inputId) await sdk.operator.sessions.inputs.cancel(activeSessionId, inputId);
     },
     onSuccess: () => setTurnState('cancel requested'),
   });
 
   const messageItems = firstArray(messages.data, ['messages', 'items', 'data']);
+  const queuedInput = firstArray(messages.data, ['inputs']).find((input) => firstString(input, ['status', 'state']) === 'queued');
 
   function submitDraft() {
     if (send.isPending || !draft.trim()) return;
@@ -239,7 +250,13 @@ export function ChatView() {
           </div>
           <div className="chat-status">
             <StatusBadge value={turnState} />
-            <button className="icon-button" type="button" title="Cancel active input" onClick={() => void cancelInput.mutate()}>
+            <button
+              className="icon-button"
+              type="button"
+              title="Cancel queued input"
+              disabled={!queuedInput || cancelInput.isPending}
+              onClick={() => void cancelInput.mutate()}
+            >
               <XCircle size={17} />
             </button>
           </div>

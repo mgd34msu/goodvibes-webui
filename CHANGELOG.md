@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.11] - 2026-05-07
+
+### Fixed
+
+- Added real `/favicon.ico` plus 16px and 32px PNG icon variants so browser tab/favicon UIs can resolve the GoodVibes icon reliably.
+
 ## [0.1.10] - 2026-05-07
 
 ### Added

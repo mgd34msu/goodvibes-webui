@@ -102,10 +102,19 @@ export function ChatView({
   const [isRenamingTitle, setIsRenamingTitle] = useState(false);
   const [sessionTitleDraft, setSessionTitleDraft] = useState('');
 
+  const providers = useQuery({ queryKey: queryKeys.providers, queryFn: () => sdk.operator.providers.list() });
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
   const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current() });
 
-  const providerOptions = useMemo(() => providerOptionsFromResponse(modelCatalog.data), [modelCatalog.data]);
+  const providerOptions = useMemo(() => {
+    const byId = new Map<string, ReturnType<typeof providerOptionsFromResponse>[number]>();
+    for (const provider of providerOptionsFromResponse(providers.data)) byId.set(provider.id, provider);
+    for (const provider of providerOptionsFromResponse(modelCatalog.data)) {
+      const existing = byId.get(provider.id);
+      byId.set(provider.id, existing ? { ...existing, value: { ...asRecord(existing.value), ...asRecord(provider.value) } } : provider);
+    }
+    return [...byId.values()];
+  }, [modelCatalog.data, providers.data]);
   const currentModelRecord = asRecord(asRecord(currentModel.data).model);
   const currentModelData = Object.keys(currentModelRecord).length ? currentModelRecord : asRecord(currentModel.data);
   const currentRegistryKey = firstString(currentModelData, ['registryKey'])

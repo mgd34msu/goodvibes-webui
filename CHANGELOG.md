@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.9] - 2026-05-07
+
+### Fixed
+
+- Changed the chat composer provider dropdown to include the daemon provider registry from `/api/providers`, merged with `/api/models` for model filtering.
+
 ## [0.1.8] - 2026-05-07
 
 ### Fixed

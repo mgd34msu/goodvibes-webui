@@ -4,6 +4,15 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.6] - 2026-05-07
+
+### Changed
+
+- Added the `goodvibes.sh` favicon as the browser icon and sidebar brand mark.
+- Shortened the sidebar wordmark to `GOODVIBES`.
+- Made the sidebar collapse control visible and easier to target in the brand header.
+- Removed the grid-line texture from the sidebar background.
+
 ## [0.1.5] - 2026-05-07
 
 ### Changed

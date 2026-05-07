@@ -96,9 +96,9 @@ export default function App() {
     <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
       <aside className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="brand">
-          <div className="brand-mark">GV</div>
+          <img className="brand-mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
           <div className="brand-copy">
-            <strong>GOODVIBES.SH</strong>
+            <strong>GOODVIBES</strong>
             <span>Operator Shell</span>
           </div>
           <button

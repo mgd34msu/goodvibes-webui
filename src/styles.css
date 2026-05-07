@@ -104,9 +104,7 @@ button:disabled {
   color: #f4f7ff;
   background:
     linear-gradient(180deg, rgb(255 0 255 / 14%) 0, transparent 32%),
-    linear-gradient(90deg, rgb(0 255 255 / 8%) 1px, transparent 1px),
     #0b0920;
-  background-size: auto, 28px 28px, auto;
   border-right: 1px solid rgb(0 255 255 / 22%);
   box-shadow: 18px 0 46px rgb(0 0 0 / 26%);
   font-family: "Space Mono", monospace;
@@ -119,9 +117,10 @@ button:disabled {
 }
 
 .brand {
-  display: flex;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 36px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 8px 14px;
   border-bottom: 1px solid rgb(0 255 255 / 16%);
 }
@@ -138,12 +137,19 @@ button:disabled {
   display: block;
 }
 
+.brand-copy {
+  min-width: 0;
+}
+
 .brand-copy strong {
   color: #ffffff;
   font-family: "Press Start 2P", cursive;
-  font-size: 1.05rem;
+  font-size: clamp(0.68rem, 0.8vw, 0.86rem);
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-shadow: 2px 2px var(--gv-pink), -2px -2px var(--gv-cyan);
+  white-space: nowrap;
 }
 
 .brand-copy span {
@@ -153,36 +159,34 @@ button:disabled {
 }
 
 .brand-mark {
-  display: grid;
   width: 42px;
   height: 42px;
-  place-items: center;
-  color: #06050f;
-  background:
-    linear-gradient(135deg, var(--gv-cyan), #ff7ff7 55%, var(--gv-yellow));
+  object-fit: cover;
+  background: #08080f;
   border-radius: var(--radius);
+  border: 1px solid rgb(0 255 255 / 32%);
   box-shadow: 0 0 20px rgb(0 255 255 / 34%), 0 12px 28px rgb(0 0 0 / 24%);
-  font-family: "Press Start 2P", cursive;
-  font-size: 0.72rem;
-  font-weight: 900;
 }
 
 .sidebar-toggle {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
+  justify-self: end;
   place-items: center;
-  color: #8ffcff;
-  background: rgb(0 255 255 / 7%);
-  border: 1px solid rgb(0 255 255 / 22%);
+  color: #090717;
+  background: var(--gv-cyan);
+  border: 1px solid rgb(0 255 255 / 64%);
   border-radius: 7px;
+  box-shadow: 0 0 18px rgb(0 255 255 / 42%);
 }
 
 .sidebar-toggle:hover {
   color: #090717;
-  background: var(--gv-cyan);
-  box-shadow: 0 0 18px rgb(0 255 255 / 46%);
+  background: var(--gv-pink);
+  border-color: rgb(255 0 255 / 68%);
+  box-shadow: 0 0 22px rgb(255 0 255 / 48%);
 }
 
 .sidebar.collapsed .brand-copy,

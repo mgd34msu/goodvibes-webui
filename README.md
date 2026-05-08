@@ -26,18 +26,19 @@ http://127.0.0.1:3423/
 ```
 
 The daemon/control-plane API remains canonical on `3421`. In development, Vite
-uses the TUI web listener settings from `~/.goodvibes/tui/settings.json`
-(`web.hostMode`, `web.host`, and `web.port`) so the WebUI binds the same way the
-TUI-configured web surface does. It proxies same-origin `/api/*`, `/login`,
-`/status`, `/task`, and `/config` calls from the configured web port to the
-configured control-plane port, including WebSocket upgrade support for
-control-plane routes.
+first honors resolved launch values from TUI/daemon (`GOODVIBES_WEB_HOST`,
+`GOODVIBES_WEB_PORT`, and `GOODVIBES_DAEMON_BASE_URL`). When launched standalone,
+it asks the installed TUI CLI for the resolved browser binding with
+`goodvibes web --json`, then falls back to TUI settings only as a dev bootstrap.
+It proxies same-origin `/api/*`, `/login`, `/status`, `/task`, and `/config`
+calls from the configured web port to the configured control-plane port,
+including WebSocket upgrade support for control-plane routes.
 
 Set `VITE_GOODVIBES_BASE_URL` only when the SDK should bypass same-origin proxying
 and talk to a backend origin directly. Set `VITE_GOODVIBES_BACKEND_URL` when the
 development proxy target is not the configured local control plane. Set
 `VITE_GOODVIBES_WEBUI_HOST` or `VITE_GOODVIBES_WEBUI_PORT` only to override the
-TUI web listener settings for a one-off dev run.
+resolved TUI web listener settings for a one-off dev run.
 
 ```bash
 VITE_GOODVIBES_BACKEND_URL=http://127.0.0.1:3421 bun run dev

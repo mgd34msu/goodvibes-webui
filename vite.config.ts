@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 interface GoodVibesListenerSettings {
   hostMode?: string;
@@ -13,6 +14,15 @@ interface GoodVibesListenerSettings {
 interface GoodVibesTuiSettings {
   controlPlane?: GoodVibesListenerSettings;
   web?: GoodVibesListenerSettings;
+}
+
+interface GoodVibesWebBinding {
+  enabled?: boolean;
+  hostMode?: string;
+  configuredHost?: string;
+  host?: string;
+  port?: number;
+  url?: string;
 }
 
 function readTuiSettings(): GoodVibesTuiSettings {
@@ -26,25 +36,46 @@ function readTuiSettings(): GoodVibesTuiSettings {
   }
 }
 
+function readWebBindingFromCli(): GoodVibesWebBinding {
+  try {
+    const output = execFileSync('goodvibes', ['web', '--json'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    return JSON.parse(output) as GoodVibesWebBinding;
+  } catch {
+    return {};
+  }
+}
+
 function listenerHost(settings: GoodVibesListenerSettings | undefined, fallback: string): string {
   const configuredHost = settings?.host?.trim();
-  if (configuredHost) return configuredHost;
-  return settings?.hostMode === 'network' ? '0.0.0.0' : fallback;
+  if (settings?.hostMode === 'network') return '0.0.0.0';
+  if (settings?.hostMode === 'custom') return configuredHost || fallback;
+  if (settings?.hostMode === 'local') return '127.0.0.1';
+  return configuredHost || fallback;
 }
 
 function localhostTarget(host: string): string {
   return host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
 }
 
-const tuiSettings = readTuiSettings();
-const webHost = listenerHost(tuiSettings.web, '127.0.0.1');
-const webPort = tuiSettings.web?.port ?? 3423;
+const cliWebBinding = readWebBindingFromCli();
+const tuiSettings = cliWebBinding.host || cliWebBinding.port ? {} : readTuiSettings();
+const webHost = cliWebBinding.host ?? listenerHost(tuiSettings.web, '127.0.0.1');
+const webPort = cliWebBinding.port ?? tuiSettings.web?.port ?? 3423;
 const controlPlaneHost = listenerHost(tuiSettings.controlPlane, '127.0.0.1');
 const controlPlanePort = tuiSettings.controlPlane?.port ?? 3421;
-const daemonTarget = process.env.VITE_GOODVIBES_BACKEND_URL
+const daemonTarget = process.env.GOODVIBES_DAEMON_BASE_URL
+  ?? process.env.VITE_GOODVIBES_BACKEND_URL
   ?? `http://${localhostTarget(controlPlaneHost)}:${controlPlanePort}`;
-const devHost = process.env.VITE_GOODVIBES_WEBUI_HOST ?? webHost;
-const devPort = Number(process.env.VITE_GOODVIBES_WEBUI_PORT ?? webPort);
+const devHost = process.env.GOODVIBES_WEB_HOST
+  ?? process.env.VITE_GOODVIBES_WEBUI_HOST
+  ?? webHost;
+const devPort = Number(process.env.GOODVIBES_WEB_PORT
+  ?? process.env.VITE_GOODVIBES_WEBUI_PORT
+  ?? webPort);
 
 export default defineConfig({
   plugins: [react()],

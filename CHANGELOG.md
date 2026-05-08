@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.20] - 2026-05-08
+
+### Added
+
+- Added syntax highlighting for rendered Markdown code blocks with common LLM/code languages.
+
 ## [0.1.19] - 2026-05-08
 
 ### Added

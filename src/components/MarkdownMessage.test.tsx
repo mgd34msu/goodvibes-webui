@@ -7,7 +7,9 @@ describe('MarkdownMessage', () => {
     const html = renderToStaticMarkup(<MarkdownMessage content={'```ts\nconst answer = 42;\n```'} />);
     expect(html).toContain('markdown-code-copy');
     expect(html).toContain('Copy');
-    expect(html).toContain('const answer = 42;');
+    expect(html).toContain('hljs-keyword');
+    expect(html).toContain('answer =');
+    expect(html).toContain('hljs-number');
   });
 
   test('renders decorative line numbers when enabled', () => {
@@ -15,7 +17,8 @@ describe('MarkdownMessage', () => {
     expect(html).toContain('markdown-code-block numbered');
     expect(html).toContain('markdown-code-line-number');
     expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('bun test');
+    expect(html).toContain('bun ');
+    expect(html).toContain('hljs-built_in');
     expect(html).toContain('bun run build');
   });
 });

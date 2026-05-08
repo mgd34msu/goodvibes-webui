@@ -1691,6 +1691,54 @@ button:disabled {
   border-radius: 0;
 }
 
+.markdown-code-block .hljs-keyword,
+.markdown-code-block .hljs-selector-tag,
+.markdown-code-block .hljs-built_in,
+.markdown-code-block .hljs-name,
+.markdown-code-block .hljs-tag {
+  color: #7f5cff;
+}
+
+.markdown-code-block .hljs-string,
+.markdown-code-block .hljs-title,
+.markdown-code-block .hljs-section,
+.markdown-code-block .hljs-attribute,
+.markdown-code-block .hljs-literal,
+.markdown-code-block .hljs-template-tag,
+.markdown-code-block .hljs-template-variable,
+.markdown-code-block .hljs-type,
+.markdown-code-block .hljs-addition {
+  color: #007a5b;
+}
+
+.markdown-code-block .hljs-comment,
+.markdown-code-block .hljs-quote,
+.markdown-code-block .hljs-meta {
+  color: #6f7f87;
+  font-style: italic;
+}
+
+.markdown-code-block .hljs-number,
+.markdown-code-block .hljs-symbol,
+.markdown-code-block .hljs-bullet,
+.markdown-code-block .hljs-link,
+.markdown-code-block .hljs-variable {
+  color: #a45f00;
+}
+
+.markdown-code-block .hljs-deletion,
+.markdown-code-block .hljs-regexp {
+  color: #b4233a;
+}
+
+.markdown-code-block .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-code-block .hljs-strong {
+  font-weight: 800;
+}
+
 .markdown-code-block.numbered .markdown-code-pre {
   padding: 13px 0;
 }
@@ -1785,6 +1833,45 @@ button:disabled {
 
 .chat-main .markdown-code-block code {
   color: #f8fbff;
+}
+
+.chat-main .markdown-code-block .hljs-keyword,
+.chat-main .markdown-code-block .hljs-selector-tag,
+.chat-main .markdown-code-block .hljs-built_in,
+.chat-main .markdown-code-block .hljs-name,
+.chat-main .markdown-code-block .hljs-tag {
+  color: #ff6cf5;
+}
+
+.chat-main .markdown-code-block .hljs-string,
+.chat-main .markdown-code-block .hljs-title,
+.chat-main .markdown-code-block .hljs-section,
+.chat-main .markdown-code-block .hljs-attribute,
+.chat-main .markdown-code-block .hljs-literal,
+.chat-main .markdown-code-block .hljs-template-tag,
+.chat-main .markdown-code-block .hljs-template-variable,
+.chat-main .markdown-code-block .hljs-type,
+.chat-main .markdown-code-block .hljs-addition {
+  color: #6cffc9;
+}
+
+.chat-main .markdown-code-block .hljs-comment,
+.chat-main .markdown-code-block .hljs-quote,
+.chat-main .markdown-code-block .hljs-meta {
+  color: #8798c7;
+}
+
+.chat-main .markdown-code-block .hljs-number,
+.chat-main .markdown-code-block .hljs-symbol,
+.chat-main .markdown-code-block .hljs-bullet,
+.chat-main .markdown-code-block .hljs-link,
+.chat-main .markdown-code-block .hljs-variable {
+  color: #ffcc66;
+}
+
+.chat-main .markdown-code-block .hljs-deletion,
+.chat-main .markdown-code-block .hljs-regexp {
+  color: #ff7ab8;
 }
 
 .chat-main .markdown-code-line-number {
@@ -2557,6 +2644,45 @@ code {
 
 .markdown-code-block code {
   color: #f8fbff;
+}
+
+.markdown-code-block .hljs-keyword,
+.markdown-code-block .hljs-selector-tag,
+.markdown-code-block .hljs-built_in,
+.markdown-code-block .hljs-name,
+.markdown-code-block .hljs-tag {
+  color: #ff6cf5;
+}
+
+.markdown-code-block .hljs-string,
+.markdown-code-block .hljs-title,
+.markdown-code-block .hljs-section,
+.markdown-code-block .hljs-attribute,
+.markdown-code-block .hljs-literal,
+.markdown-code-block .hljs-template-tag,
+.markdown-code-block .hljs-template-variable,
+.markdown-code-block .hljs-type,
+.markdown-code-block .hljs-addition {
+  color: #6cffc9;
+}
+
+.markdown-code-block .hljs-comment,
+.markdown-code-block .hljs-quote,
+.markdown-code-block .hljs-meta {
+  color: #8798c7;
+}
+
+.markdown-code-block .hljs-number,
+.markdown-code-block .hljs-symbol,
+.markdown-code-block .hljs-bullet,
+.markdown-code-block .hljs-link,
+.markdown-code-block .hljs-variable {
+  color: #ffcc66;
+}
+
+.markdown-code-block .hljs-deletion,
+.markdown-code-block .hljs-regexp {
+  color: #ff7ab8;
 }
 
 .markdown-code-line-number {

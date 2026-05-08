@@ -1,13 +1,56 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-const daemonTarget = process.env.VITE_GOODVIBES_BACKEND_URL ?? 'http://127.0.0.1:3421';
+interface GoodVibesListenerSettings {
+  hostMode?: string;
+  host?: string;
+  port?: number;
+}
+
+interface GoodVibesTuiSettings {
+  controlPlane?: GoodVibesListenerSettings;
+  web?: GoodVibesListenerSettings;
+}
+
+function readTuiSettings(): GoodVibesTuiSettings {
+  const settingsPath = process.env.GOODVIBES_TUI_SETTINGS_PATH
+    ?? join(process.env.GOODVIBES_DAEMON_HOME ?? homedir(), '.goodvibes', 'tui', 'settings.json');
+  if (!existsSync(settingsPath)) return {};
+  try {
+    return JSON.parse(readFileSync(settingsPath, 'utf8')) as GoodVibesTuiSettings;
+  } catch {
+    return {};
+  }
+}
+
+function listenerHost(settings: GoodVibesListenerSettings | undefined, fallback: string): string {
+  const configuredHost = settings?.host?.trim();
+  if (configuredHost) return configuredHost;
+  return settings?.hostMode === 'network' ? '0.0.0.0' : fallback;
+}
+
+function localhostTarget(host: string): string {
+  return host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
+}
+
+const tuiSettings = readTuiSettings();
+const webHost = listenerHost(tuiSettings.web, '127.0.0.1');
+const webPort = tuiSettings.web?.port ?? 3423;
+const controlPlaneHost = listenerHost(tuiSettings.controlPlane, '127.0.0.1');
+const controlPlanePort = tuiSettings.controlPlane?.port ?? 3421;
+const daemonTarget = process.env.VITE_GOODVIBES_BACKEND_URL
+  ?? `http://${localhostTarget(controlPlaneHost)}:${controlPlanePort}`;
+const devHost = process.env.VITE_GOODVIBES_WEBUI_HOST ?? webHost;
+const devPort = Number(process.env.VITE_GOODVIBES_WEBUI_PORT ?? webPort);
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '127.0.0.1',
-    port: 3423,
+    host: devHost,
+    port: devPort,
     strictPort: true,
     proxy: {
       '/api': {

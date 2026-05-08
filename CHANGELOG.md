@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.17] - 2026-05-08
+
+### Changed
+
+- Made the Vite dev server derive its host and port from the TUI web listener settings, with environment overrides reserved for one-off dev runs.
+
 ## [0.1.16] - 2026-05-08
 
 ### Changed

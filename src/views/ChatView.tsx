@@ -392,8 +392,6 @@ export function ChatView({
         },
       ]);
       setPendingUserMessageId(localMessageId);
-      setDraft('');
-      setAttachedFiles([]);
       setLiveText('');
       setTurnState('submitted');
       await invalidateChatState(sessionId);
@@ -447,7 +445,11 @@ export function ChatView({
   function sendText(text: string, files: File[] = []) {
     const body = text.trim();
     if (send.isPending || (!body && !files.length)) return;
-    send.mutate({ body, files });
+    const filesToSend = [...files];
+    setDraft('');
+    setAttachedFiles([]);
+    composerRef.current?.focus();
+    send.mutate({ body, files: filesToSend });
   }
 
   function submit(event: FormEvent) {

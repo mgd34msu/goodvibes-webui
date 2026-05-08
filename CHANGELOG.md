@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.24] - 2026-05-08
+
+### Fixed
+
+- Cleared captured chat composer attachments immediately on submit so slow or stuck attachment sends cannot leave the selected file pinned in the input or wipe newer text typed while the upload is pending.
+
 ## [0.1.23] - 2026-05-08
 
 ### Added

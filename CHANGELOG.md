@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.22] - 2026-05-08
+
+### Fixed
+
+- Persisted companion chat sessions and the active chat session across page refreshes while still merging daemon-returned session lists when available.
+
 ## [0.1.21] - 2026-05-08
 
 ### Changed

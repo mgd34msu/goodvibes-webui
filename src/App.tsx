@@ -19,8 +19,16 @@ import { ChatView } from './views/ChatView';
 import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
-import { bestId, bestTitle, firstArrayAtPath, firstString } from './lib/object';
-import { companionSessionFromDetail, mergeCompanionSessions } from './lib/companion-chat';
+import { bestId, bestTitle, firstString } from './lib/object';
+import {
+  companionSessionFromDetail,
+  companionSessionsFromListResponse,
+  mergeCompanionSessions,
+  readStoredActiveCompanionSessionId,
+  readStoredCompanionSessions,
+  writeStoredActiveCompanionSessionId,
+  writeStoredCompanionSessions,
+} from './lib/companion-chat';
 
 type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
 
@@ -38,9 +46,9 @@ const views: Array<{
 
 export default function App() {
   const [activeView, setActiveView] = useState<ViewId>('chat');
-  const [activeChatSessionId, setActiveChatSessionId] = useState('');
+  const [activeChatSessionId, setActiveChatSessionId] = useState(() => readStoredActiveCompanionSessionId());
   const [draftChatRequested, setDraftChatRequested] = useState(false);
-  const [localChatSessions, setLocalChatSessions] = useState<unknown[]>([]);
+  const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
@@ -59,14 +67,7 @@ export default function App() {
   });
 
   const fetchedChatSessions = useMemo(() => {
-    return firstArrayAtPath(chatSessions.data, [
-      ['sessions'],
-      ['items'],
-      ['data'],
-      ['result', 'sessions'],
-      ['result', 'items'],
-      ['result', 'data'],
-    ]).map(companionSessionFromDetail);
+    return companionSessionsFromListResponse(chatSessions.data);
   }, [chatSessions.data]);
   const chatSessionItems = useMemo(
     () => mergeCompanionSessions(localChatSessions, fetchedChatSessions),
@@ -78,6 +79,14 @@ export default function App() {
       setActiveChatSessionId(bestId(chatSessionItems[0]));
     }
   }, [activeChatSessionId, chatSessionItems, draftChatRequested]);
+
+  useEffect(() => {
+    writeStoredActiveCompanionSessionId(activeChatSessionId);
+  }, [activeChatSessionId]);
+
+  useEffect(() => {
+    if (chatSessionItems.length) writeStoredCompanionSessions(chatSessionItems);
+  }, [chatSessionItems]);
 
   const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);

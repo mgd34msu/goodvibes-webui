@@ -1,5 +1,9 @@
 import { asRecord, bestId, firstString, readPath } from './object';
 
+export const STORED_COMPANION_SESSIONS_KEY = 'goodvibes.webui.companionSessions';
+export const STORED_ACTIVE_COMPANION_SESSION_KEY = 'goodvibes.webui.activeCompanionSessionId';
+const MAX_STORED_COMPANION_SESSIONS = 100;
+
 export interface LocalCompanionMessage {
   id: string;
   sessionId: string;
@@ -45,6 +49,39 @@ export function companionSessionFromDetail(value: unknown): unknown {
   return Object.keys(asRecord(session)).length ? session : value;
 }
 
+function browserStorage(): Storage | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function companionSessionsFromListResponse(value: unknown): unknown[] {
+  const candidates = [
+    value,
+    readPath(value, ['sessions']),
+    readPath(value, ['items']),
+    readPath(value, ['data']),
+    readPath(value, ['result']),
+    readPath(value, ['result', 'sessions']),
+    readPath(value, ['result', 'items']),
+    readPath(value, ['result', 'data']),
+    readPath(value, ['sessions', 'items']),
+    readPath(value, ['sessions', 'data']),
+    readPath(value, ['data', 'sessions']),
+    readPath(value, ['data', 'items']),
+    readPath(value, ['data', 'data']),
+    readPath(value, ['payload', 'sessions']),
+    readPath(value, ['payload', 'items']),
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate.map(companionSessionFromDetail);
+  }
+  return [];
+}
+
 export function mergeCompanionSessions(
   localSessions: unknown[],
   fetchedSessions: unknown[],
@@ -64,6 +101,45 @@ export function mergeCompanionSessions(
     const rightUpdated = Number(asRecord(right).updatedAt ?? asRecord(right).createdAt ?? 0);
     return rightUpdated - leftUpdated;
   });
+}
+
+export function readStoredCompanionSessions(): unknown[] {
+  const storage = browserStorage();
+  if (!storage) return [];
+  try {
+    const parsed = JSON.parse(storage.getItem(STORED_COMPANION_SESSIONS_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeStoredCompanionSessions(sessions: unknown[]) {
+  const storage = browserStorage();
+  if (!storage) return;
+  const persisted = mergeCompanionSessions([], sessions)
+    .filter((session) => Boolean(extractSessionId(session)))
+    .slice(0, MAX_STORED_COMPANION_SESSIONS);
+  try {
+    storage.setItem(STORED_COMPANION_SESSIONS_KEY, JSON.stringify(persisted));
+  } catch {
+    // Best-effort cache only; daemon session storage remains the source of truth.
+  }
+}
+
+export function readStoredActiveCompanionSessionId(): string {
+  return browserStorage()?.getItem(STORED_ACTIVE_COMPANION_SESSION_KEY) ?? '';
+}
+
+export function writeStoredActiveCompanionSessionId(sessionId: string) {
+  const storage = browserStorage();
+  if (!storage) return;
+  try {
+    if (sessionId) storage.setItem(STORED_ACTIVE_COMPANION_SESSION_KEY, sessionId);
+    else storage.removeItem(STORED_ACTIVE_COMPANION_SESSION_KEY);
+  } catch {
+    // Best-effort cache only; the current React state still owns the active view.
+  }
 }
 
 function comparableMessageText(message: unknown): string {

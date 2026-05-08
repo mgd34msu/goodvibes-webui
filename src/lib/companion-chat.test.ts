@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   extractMessageId,
   extractSessionId,
+  companionSessionsFromListResponse,
   mergeCompanionMessages,
   mergeCompanionSessions,
 } from './companion-chat';
@@ -19,6 +20,12 @@ describe('companion chat helpers', () => {
       [{ id: 'new', sessionId: 'new', kind: 'companion-chat', title: 'hello', status: 'active', createdAt: 1, updatedAt: 1 }],
       [{ id: 'old', title: 'existing' }],
     ).map(extractSessionId)).toEqual(['new', 'old']);
+  });
+
+  test('normalizes companion chat session list response shapes', () => {
+    expect(companionSessionsFromListResponse({ sessions: [{ sessionId: 'top' }] }).map(extractSessionId)).toEqual(['top']);
+    expect(companionSessionsFromListResponse({ sessions: { items: [{ sessionId: 'nested' }] } }).map(extractSessionId)).toEqual(['nested']);
+    expect(companionSessionsFromListResponse({ result: { data: [{ session: { id: 'wrapped' } }] } }).map(extractSessionId)).toEqual(['wrapped']);
   });
 
   test('merges local assistant messages until daemon messages refresh', () => {

@@ -1,21 +1,92 @@
-import { isValidElement, ReactNode } from 'react';
+import { isValidElement, ReactNode, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
+import { Check, Copy } from 'lucide-react';
+import { useWebUiPreferences } from '../lib/ui-preferences';
+
+function codeElementFromChildren(children: ReactNode) {
+  const child = Array.isArray(children) ? children[0] : children;
+  return isValidElement<{ className?: string; children?: ReactNode }>(child) ? child : null;
+}
 
 function languageFromCodeChild(children: ReactNode): string {
-  const child = Array.isArray(children) ? children[0] : children;
-  if (!isValidElement<{ className?: string }>(child)) return '';
+  const child = codeElementFromChildren(children);
+  if (!child) return '';
   const className = child.props.className ?? '';
   const match = /language-([\w-]+)/.exec(className);
   return match?.[1] ?? '';
 }
 
-interface MarkdownMessageProps {
-  content: string;
+function textFromReactNode(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textFromReactNode).join('');
+  if (isValidElement<{ children?: ReactNode }>(node)) return textFromReactNode(node.props.children);
+  return '';
 }
 
-export function MarkdownMessage({ content }: MarkdownMessageProps) {
+function codeTextFromChildren(children: ReactNode): string {
+  const child = codeElementFromChildren(children);
+  return textFromReactNode(child?.props.children ?? children);
+}
+
+interface CodeBlockProps {
+  children: ReactNode;
+  lineNumbers: boolean;
+}
+
+function CodeBlock({ children, lineNumbers }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false);
+  const language = languageFromCodeChild(children);
+  const code = codeTextFromChildren(children);
+  const visibleCode = code.endsWith('\n') ? code.slice(0, -1) : code;
+  const lines = visibleCode.split('\n');
+
+  async function copyCode() {
+    if (!code) return;
+    await navigator.clipboard?.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1300);
+  }
+
+  return (
+    <div className={lineNumbers ? 'markdown-code-block numbered' : 'markdown-code-block'}>
+      <div className="markdown-code-header">
+        <div className="markdown-code-label">{language || 'code'}</div>
+        <button className="markdown-code-copy" type="button" onClick={() => void copyCode()} title="Copy code">
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          <span>{copied ? 'Copied' : 'Copy'}</span>
+        </button>
+      </div>
+      {lineNumbers ? (
+        <pre className="markdown-code-pre">
+          <code>
+            {lines.map((line, index) => (
+              <span className="markdown-code-line" key={`${index}-${line}`}>
+                <span className="markdown-code-line-number" aria-hidden="true">{index + 1}</span>
+                <span className="markdown-code-line-content">{line || '\u00a0'}</span>
+              </span>
+            ))}
+          </code>
+        </pre>
+      ) : (
+        <pre className="markdown-code-pre">
+          <code>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+interface MarkdownMessageProps {
+  content: string;
+  lineNumbers?: boolean;
+}
+
+export function MarkdownMessage({ content, lineNumbers }: MarkdownMessageProps) {
+  const [preferences] = useWebUiPreferences();
+  const showLineNumbers = lineNumbers ?? preferences.codeBlockLineNumbers;
+
   return (
     <div className="markdown-message">
       <ReactMarkdown
@@ -27,12 +98,10 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
             </a>
           ),
           pre: ({ children }) => {
-            const language = languageFromCodeChild(children);
             return (
-              <div className="markdown-code-block">
-                {language && <div className="markdown-code-label">{language}</div>}
-                <pre>{children}</pre>
-              </div>
+              <CodeBlock lineNumbers={showLineNumbers}>
+                {children}
+              </CodeBlock>
             );
           },
         }}

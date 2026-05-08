@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, KeyRound, Lock, Radio, Save, ShieldCheck, Wifi } from 'lucide-react';
+import { Activity, Code2, KeyRound, Lock, Radio, Save, ShieldCheck, Wifi } from 'lucide-react';
 import {
   clearStoredAuthToken,
   getCurrentAuth,
@@ -14,6 +14,7 @@ import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
 import { compactJson } from '../lib/object';
 import { errorDebugValue, formatError } from '../lib/errors';
+import { useWebUiPreferences } from '../lib/ui-preferences';
 
 interface AdminViewProps {
   realtimeError?: string | null;
@@ -27,6 +28,7 @@ export function AdminView({ realtimeError }: AdminViewProps) {
   const [configKey, setConfigKey] = useState('');
   const [configValue, setConfigValue] = useState('');
   const [configError, setConfigError] = useState('');
+  const [preferences, setPreference] = useWebUiPreferences();
 
   const auth = useQuery({ queryKey: queryKeys.auth, queryFn: getCurrentAuth });
   const status = useQuery({ queryKey: queryKeys.status, queryFn: () => sdk.operator.control.status() });
@@ -216,6 +218,26 @@ export function AdminView({ realtimeError }: AdminViewProps) {
           {configError && <div className="banner warning">{configError}</div>}
         </section>
       </div>
+
+      <section className="panel">
+        <div className="panel-title">
+          <h2>Display Preferences</h2>
+          <Code2 size={18} />
+        </div>
+        <div className="form-grid">
+          <label className="check-row preference-row">
+            <input
+              type="checkbox"
+              checked={preferences.codeBlockLineNumbers}
+              onChange={(event) => setPreference('codeBlockLineNumbers', event.target.checked)}
+            />
+            <span>Show line numbers in rendered code blocks</span>
+          </label>
+        </div>
+        <p className="form-note">
+          Line numbers are decorative only. Copy buttons and whole-message copy use the raw response text without line numbers.
+        </p>
+      </section>
 
       <div className="two-column">
         <DataBlock title="Daemon Status" value={status.data} />

@@ -4,6 +4,13 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.19] - 2026-05-08
+
+### Added
+
+- Added per-code-block copy buttons to Markdown responses while preserving whole-message copy actions.
+- Added an Admin display preference for decorative code-block line numbers.
+
 ## [0.1.18] - 2026-05-08
 
 ### Removed

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -61,6 +61,32 @@ function localhostTarget(host: string): string {
   return host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
 }
 
+function hostnameFromUrl(value: string | undefined): string {
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname;
+  } catch {
+    return '';
+  }
+}
+
+function csv(value: string | undefined): string[] {
+  return value?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
+}
+
+function uniqueHosts(values: string[]): string[] {
+  const ignored = new Set(['', '0.0.0.0', '::', '127.0.0.1', 'localhost']);
+  const hosts = new Set<string>();
+  for (const value of values) {
+    const host = value.trim();
+    if (!host || ignored.has(host)) continue;
+    hosts.add(host);
+    hosts.add(host.toLowerCase());
+  }
+  return [...hosts];
+}
+
 const cliWebBinding = readWebBindingFromCli();
 const tuiSettings = cliWebBinding.host || cliWebBinding.port ? {} : readTuiSettings();
 const webHost = cliWebBinding.host ?? listenerHost(tuiSettings.web, '127.0.0.1');
@@ -76,6 +102,16 @@ const devHost = process.env.GOODVIBES_WEB_HOST
 const devPort = Number(process.env.GOODVIBES_WEB_PORT
   ?? process.env.VITE_GOODVIBES_WEBUI_PORT
   ?? webPort);
+const machineHostname = hostname();
+const devAllowedHosts = uniqueHosts([
+  ...csv(process.env.GOODVIBES_WEB_ALLOWED_HOSTS),
+  ...csv(process.env.VITE_GOODVIBES_WEBUI_ALLOWED_HOSTS),
+  hostnameFromUrl(process.env.GOODVIBES_WEB_PUBLIC_BASE_URL),
+  hostnameFromUrl(cliWebBinding.url),
+  machineHostname,
+  `${machineHostname}.local`,
+  'goodvibes.local',
+]);
 
 export default defineConfig({
   plugins: [react()],
@@ -83,6 +119,7 @@ export default defineConfig({
     host: devHost,
     port: devPort,
     strictPort: true,
+    allowedHosts: devAllowedHosts,
     proxy: {
       '/api': {
         target: daemonTarget,

@@ -9,9 +9,10 @@ import {
   Plug,
   ServerCog,
   Settings,
+  Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { getCurrentAuth, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
@@ -29,6 +30,7 @@ import {
   writeStoredActiveCompanionSessionId,
   writeStoredCompanionSessions,
 } from './lib/companion-chat';
+import { formatError } from './lib/errors';
 
 type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
 
@@ -45,10 +47,12 @@ const views: Array<{
 ];
 
 export default function App() {
+  const queryClient = useQueryClient();
   const [activeView, setActiveView] = useState<ViewId>('chat');
   const [activeChatSessionId, setActiveChatSessionId] = useState(() => readStoredActiveCompanionSessionId());
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
+  const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
@@ -69,10 +73,38 @@ export default function App() {
   const fetchedChatSessions = useMemo(() => {
     return companionSessionsFromListResponse(chatSessions.data);
   }, [chatSessions.data]);
-  const chatSessionItems = useMemo(
+  const mergedChatSessionItems = useMemo(
     () => mergeCompanionSessions(localChatSessions, fetchedChatSessions),
     [fetchedChatSessions, localChatSessions],
   );
+  const chatSessionItems = useMemo(
+    () => mergedChatSessionItems.filter((session) => !deletedChatSessionIds.has(bestId(session))),
+    [deletedChatSessionIds, mergedChatSessionItems],
+  );
+
+  const deleteChat = useMutation({
+    mutationFn: (sessionId: string) => sdk.chat.sessions.delete(sessionId),
+    onMutate: async (sessionId) => {
+      await queryClient.cancelQueries({ queryKey: ['companion-chat', 'sessions'] });
+      const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
+      setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
+      setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
+      if (activeChatSessionId === sessionId) {
+        setActiveChatSessionId(nextSessionId);
+        setDraftChatRequested(!nextSessionId);
+      }
+    },
+    onError: (_error, sessionId) => {
+      setDeletedChatSessionIds((current) => {
+        const next = new Set(current);
+        next.delete(sessionId);
+        return next;
+      });
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
+    },
+  });
 
   useEffect(() => {
     if (!activeChatSessionId && !draftChatRequested && chatSessionItems.length) {
@@ -165,18 +197,35 @@ export default function App() {
               {chatSessionItems.map((session, index) => {
                 const id = bestId(session) || String(index);
                 return (
-                  <button
+                  <div
                     key={`${id}-${index}`}
-                    type="button"
-                    className={activeChatSessionId === id ? 'sidebar-session active' : 'sidebar-session'}
-                    onClick={() => {
-                      setActiveChatSessionId(id);
-                      setDraftChatRequested(false);
-                    }}
+                    className={activeChatSessionId === id ? 'sidebar-session-row active' : 'sidebar-session-row'}
                   >
-                    <span>{bestTitle(session, id)}</span>
-                    <small>{firstString(session, ['status', 'state']) || 'active'}</small>
-                  </button>
+                    <button
+                      type="button"
+                      className="sidebar-session"
+                      onClick={() => {
+                        setActiveChatSessionId(id);
+                        setDraftChatRequested(false);
+                      }}
+                    >
+                      <span>{bestTitle(session, id)}</span>
+                      <small>{firstString(session, ['status', 'state']) || 'active'}</small>
+                    </button>
+                    <button
+                      className="sidebar-session-delete"
+                      type="button"
+                      title={`Delete ${bestTitle(session, id)}`}
+                      disabled={deleteChat.isPending}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (!window.confirm(`Delete "${bestTitle(session, id)}"?`)) return;
+                        deleteChat.mutate(id);
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 );
               })}
               {!chatSessionItems.length && <span className="sidebar-empty">No chat sessions</span>}
@@ -213,6 +262,7 @@ export default function App() {
           </div>
         )}
         {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
+        {deleteChat.error && <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>}
 
         <section className="view-frame">
           {activeView === 'chat' && (

@@ -40,6 +40,7 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition> = {
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
   'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
   'approvals.list': { method: 'GET', path: '/api/approvals' },
+  'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
   'config.set': { method: 'POST', path: '/config' },
   'local_auth.status': { method: 'GET', path: '/api/local-auth' },
   'models.current': { method: 'GET', path: '/api/models/current' },
@@ -154,6 +155,7 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
   if (!route) return scopedSdk.operator.invoke(methodId as never, input as never);
   const { path, rest } = interpolateRoute(route, input);
   if (route.method === 'GET') return requestJson(path, { method: route.method, query: rest });
+  if (route.method === 'DELETE' && !Object.keys(rest).length) return requestJson(path, { method: route.method });
   return requestJson(path, { method: route.method, body: rest });
 }
 
@@ -215,7 +217,14 @@ export const sdk = {
       },
     },
   },
-  chat: scopedSdk.chat,
+  chat: {
+    sessions: {
+      ...scopedSdk.chat.sessions,
+      delete: (sessionId: string) => invokeOperator('companion.chat.sessions.delete', { sessionId }),
+    },
+    messages: scopedSdk.chat.messages,
+    events: scopedSdk.chat.events,
+  },
   artifacts: scopedSdk.artifacts,
   realtime: {
     viaSse: () => scopedSdk.realtime.viaSse(),

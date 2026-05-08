@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.23] - 2026-05-08
+
+### Added
+
+- Added a sidebar delete action for companion chat sessions, including local cache cleanup and active-session fallback.
+
 ## [0.1.22] - 2026-05-08
 
 ### Fixed

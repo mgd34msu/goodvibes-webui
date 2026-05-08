@@ -1061,26 +1061,38 @@ button:disabled {
   overflow: auto;
 }
 
-.sidebar-session {
+.sidebar-session-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 4px;
   width: 100%;
   min-width: 0;
-  padding: 9px 10px;
+  padding: 0;
   color: #d9e8ff;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
+}
+
+.sidebar-session {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  color: inherit;
+  background: transparent;
+  border: 0;
   text-align: left;
 }
 
-.sidebar-session:hover,
-.sidebar-session.active {
+.sidebar-session-row:hover,
+.sidebar-session-row.active {
   background: rgb(0 255 255 / 8%);
   border-color: rgb(0 255 255 / 18%);
 }
 
-.sidebar-session.active {
+.sidebar-session-row.active {
   color: #ffffff;
 }
 
@@ -1100,6 +1112,38 @@ button:disabled {
 .sidebar-session small {
   color: #a5e8ee;
   font-size: 0.75rem;
+}
+
+.sidebar-session-delete {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-right: 5px;
+  color: #9b8fb5;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.sidebar-session-row:hover .sidebar-session-delete,
+.sidebar-session-row:focus-within .sidebar-session-delete,
+.sidebar-session-row.active .sidebar-session-delete {
+  opacity: 1;
+}
+
+.sidebar-session-delete:hover:not(:disabled) {
+  color: #090717;
+  background: var(--gv-pink);
+  border-color: rgb(255 0 255 / 54%);
+  box-shadow: 0 0 14px rgb(255 0 255 / 34%);
+}
+
+.sidebar-session-delete:disabled {
+  opacity: 0.4;
 }
 
 .sidebar-empty {

@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.16] - 2026-05-08
+
+### Changed
+
+- Replaced the Dashboard with a focused operator overview that carries model route, auth, provider, knowledge, task, approval, and session posture.
+- Removed the separate Work page from primary navigation and moved its task/approval/session actions into Dashboard.
+- Removed the non-clickable runtime badge strip from non-chat page headers.
+
 ## [0.1.15] - 2026-05-08
 
 ### Changed

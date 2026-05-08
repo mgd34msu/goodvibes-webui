@@ -1,7 +1,6 @@
 import {
   Activity,
   Brain,
-  CheckSquare,
   Gauge,
   KeyRound,
   LayoutDashboard,
@@ -9,11 +8,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
-  Radio,
   ServerCog,
   Settings,
-  Shield,
-  Wifi,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -24,12 +20,11 @@ import { ChatView } from './views/ChatView';
 import { DashboardView } from './views/DashboardView';
 import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
-import { WorkView } from './views/WorkView';
 import { AdminView } from './views/AdminView';
 import { bestId, bestTitle, firstArrayAtPath, firstString } from './lib/object';
 import { companionSessionFromDetail, mergeCompanionSessions } from './lib/companion-chat';
 
-type ViewId = 'chat' | 'dashboard' | 'knowledge' | 'providers' | 'work' | 'admin';
+type ViewId = 'chat' | 'dashboard' | 'knowledge' | 'providers' | 'admin';
 
 const views: Array<{
   id: ViewId;
@@ -41,7 +36,6 @@ const views: Array<{
   { id: 'dashboard', label: 'Dashboard', short: 'Posture', icon: LayoutDashboard },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
-  { id: 'work', label: 'Work', short: 'Queue', icon: CheckSquare },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
 ];
 
@@ -192,14 +186,6 @@ export default function App() {
             <span className="eyebrow">{subtitle}</span>
             <h1>{title}</h1>
           </div>
-          <div className="status-strip" aria-label="Runtime status">
-            <span><Shield size={15} /> Auth</span>
-            <span><Radio size={15} /> 3423</span>
-            <span><Wifi size={15} /> 3421</span>
-            <span className={boot.isFetching ? 'syncing' : ''}>
-              <Activity size={15} /> {boot.isFetching ? 'Syncing' : 'Current'}
-            </span>
-          </div>
           <div className="topbar-actions">
             <button className="icon-button" type="button" title="Refresh" onClick={() => void boot.refetch()}>
               <Activity size={18} />
@@ -246,7 +232,6 @@ export default function App() {
           {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}
-          {activeView === 'work' && <WorkView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>
       </main>

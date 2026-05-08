@@ -3,7 +3,6 @@ import {
   Brain,
   Gauge,
   KeyRound,
-  LayoutDashboard,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
@@ -17,14 +16,13 @@ import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { getCurrentAuth, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
-import { DashboardView } from './views/DashboardView';
 import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { bestId, bestTitle, firstArrayAtPath, firstString } from './lib/object';
 import { companionSessionFromDetail, mergeCompanionSessions } from './lib/companion-chat';
 
-type ViewId = 'chat' | 'dashboard' | 'knowledge' | 'providers' | 'admin';
+type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
 
 const views: Array<{
   id: ViewId;
@@ -33,7 +31,6 @@ const views: Array<{
   icon: typeof MessageSquare;
 }> = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
-  { id: 'dashboard', label: 'Dashboard', short: 'Posture', icon: LayoutDashboard },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
@@ -229,7 +226,6 @@ export default function App() {
               })}
             />
           )}
-          {activeView === 'dashboard' && <DashboardView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}

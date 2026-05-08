@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.18] - 2026-05-08
+
+### Removed
+
+- Removed the Dashboard page and its primary navigation item so Chat remains the main surface and secondary controls stay in Knowledge, Providers, and Admin.
+
 ## [0.1.17] - 2026-05-08
 
 ### Changed

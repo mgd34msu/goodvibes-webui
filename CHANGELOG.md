@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.15] - 2026-05-08
+
+### Changed
+
+- Updated `@pellux/goodvibes-sdk` to `0.33.16` for the upstream default Knowledge/Wiki scoping fix while keeping WebUI on regular browser knowledge routes with no Home Assistant filters or explicit scope flags.
+
 ## [0.1.14] - 2026-05-07
 
 ### Changed

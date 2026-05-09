@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.28] - 2026-05-08
+
+### Fixed
+
+- Render newly sent chat messages immediately with optimistic local state instead of waiting for the next composer update.
+- Kept freshly-created chat sessions visible while the daemon session list catches up after session creation.
+- Normalized nested companion chat message-list responses so daemon-returned messages render consistently.
+
 ## [0.1.27] - 2026-05-08
 
 ### Fixed

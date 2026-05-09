@@ -52,6 +52,7 @@ export default function App() {
   const [activeChatSessionId, setActiveChatSessionId] = useState(() => readStoredActiveCompanionSessionId());
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
+  const [createdChatSessionIds, setCreatedChatSessionIds] = useState<Set<string>>(() => new Set());
   const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const realtimeError = useRealtimeInvalidation(true);
@@ -75,10 +76,15 @@ export default function App() {
   }, [chatSessions.data]);
   const mergedChatSessionItems = useMemo(
     () => {
-      if (chatSessions.isSuccess) return mergeCompanionSessions([], fetchedChatSessions);
+      if (chatSessions.isSuccess) {
+        return mergeCompanionSessions(
+          localChatSessions.filter((session) => createdChatSessionIds.has(bestId(session))),
+          fetchedChatSessions,
+        );
+      }
       return mergeCompanionSessions(localChatSessions, fetchedChatSessions);
     },
-    [chatSessions.isSuccess, fetchedChatSessions, localChatSessions],
+    [chatSessions.isSuccess, createdChatSessionIds, fetchedChatSessions, localChatSessions],
   );
   const chatSessionItems = useMemo(
     () => mergedChatSessionItems.filter((session) => !deletedChatSessionIds.has(bestId(session))),
@@ -91,6 +97,11 @@ export default function App() {
       await queryClient.cancelQueries({ queryKey: ['companion-chat', 'sessions'] });
       const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
       setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
+      setCreatedChatSessionIds((current) => {
+        const next = new Set(current);
+        next.delete(sessionId);
+        return next;
+      });
       setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
       if (activeChatSessionId === sessionId) {
         setActiveChatSessionId(nextSessionId);
@@ -132,8 +143,22 @@ export default function App() {
     if (chatSessions.isSuccess || chatSessionItems.length) writeStoredCompanionSessions(chatSessionItems);
   }, [chatSessionItems, chatSessions.isSuccess]);
 
+  useEffect(() => {
+    if (!chatSessions.isSuccess || !createdChatSessionIds.size) return;
+    const fetchedIds = new Set(fetchedChatSessions.map(bestId).filter(Boolean));
+    setCreatedChatSessionIds((current) => {
+      const next = new Set([...current].filter((id) => !fetchedIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [chatSessions.isSuccess, createdChatSessionIds.size, fetchedChatSessions]);
+
   const handleMissingChatSession = useCallback((sessionId: string) => {
     setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
+    setCreatedChatSessionIds((current) => {
+      const next = new Set(current);
+      next.delete(sessionId);
+      return next;
+    });
     setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId] });
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId, 'messages'] });
@@ -303,10 +328,15 @@ export default function App() {
                 setDraftChatRequested(false);
               }}
               onDraftSessionRequestedChange={setDraftChatRequested}
-              onLocalSessionCreated={(session) => setLocalChatSessions((current) => [
-                companionSessionFromDetail(session),
-                ...current.filter((item) => bestId(item) !== bestId(session)),
-              ])}
+              onLocalSessionCreated={(session) => {
+                const normalized = companionSessionFromDetail(session);
+                const id = bestId(normalized);
+                if (id) setCreatedChatSessionIds((current) => new Set(current).add(id));
+                setLocalChatSessions((current) => [
+                  normalized,
+                  ...current.filter((item) => bestId(item) !== id),
+                ]);
+              }}
               onLocalSessionUpdated={(sessionId, session) => setLocalChatSessions((current) => {
                 const normalized = companionSessionFromDetail(session);
                 const next = current.filter((item) => bestId(item) !== sessionId);

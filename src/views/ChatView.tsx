@@ -11,6 +11,7 @@ import { MarkdownMessage } from '../components/MarkdownMessage';
 import { formatError, isSessionNotFoundError } from '../lib/errors';
 import {
   companionSessionFromDetail,
+  companionMessagesFromListResponse,
   extractMessageId,
   extractSessionId,
   mergeCompanionMessages,
@@ -370,31 +371,14 @@ export function ChatView({
         onDraftSessionRequestedChange(false);
       }
 
-      const attachments = await Promise.all(files.map(async (file) => {
-        const dataBase64 = await fileToBase64(file);
-        const uploaded = await sdk.artifacts.create({
-          filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          dataBase64,
-          metadata: { surface: 'webui' },
-        });
-        const artifactId = uploadedArtifactId(uploaded);
-        if (!artifactId) throw new Error(`Artifact upload for ${file.name} did not return an artifact id.`);
-        return {
-          artifactId,
-          label: file.name,
-          filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-        };
+      const localMessageId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const localAttachments = files.map((file, index) => ({
+        artifactId: `local-${localMessageId}-${index}`,
+        label: file.name,
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
       }));
-
-      const result = await sdk.chat.messages.create(sessionId, {
-        body,
-        attachments: attachments.map(({ artifactId, label }) => ({ artifactId, label })),
-      });
-      const messageId = extractMessageId(result);
-      const localMessageId = messageId || `local-${Date.now()}`;
       setLocalMessages((current) => [
         ...current,
         {
@@ -403,13 +387,65 @@ export function ChatView({
           role: 'user',
           content: body,
           createdAt: Date.now(),
-          deliveryState: 'sent',
-          attachments,
+          deliveryState: 'local',
+          attachments: localAttachments,
         },
       ]);
       setPendingUserMessageId(localMessageId);
       setLiveText('');
       setTurnState('submitted');
+
+      let attachments: typeof localAttachments = [];
+      try {
+        attachments = await Promise.all(files.map(async (file) => {
+          const dataBase64 = await fileToBase64(file);
+          const uploaded = await sdk.artifacts.create({
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            dataBase64,
+            metadata: { surface: 'webui' },
+          });
+          const artifactId = uploadedArtifactId(uploaded);
+          if (!artifactId) throw new Error(`Artifact upload for ${file.name} did not return an artifact id.`);
+          return {
+            artifactId,
+            label: file.name,
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            sizeBytes: file.size,
+          };
+        }));
+      } catch (error) {
+        setLocalMessages((current) => current.map((message) => (
+          message.id === localMessageId ? { ...message, deliveryState: 'failed' } : message
+        )));
+        throw error;
+      }
+
+      let result: unknown;
+      try {
+        result = await sdk.chat.messages.create(sessionId, {
+          body,
+          attachments: attachments.map(({ artifactId, label }) => ({ artifactId, label })),
+        });
+      } catch (error) {
+        setLocalMessages((current) => current.map((message) => (
+          message.id === localMessageId ? { ...message, deliveryState: 'failed' } : message
+        )));
+        throw error;
+      }
+      const messageId = extractMessageId(result);
+      setLocalMessages((current) => current.map((message) => (
+        message.id === localMessageId
+          ? {
+            ...message,
+            id: messageId || localMessageId,
+            deliveryState: 'sent',
+            attachments,
+          }
+          : message
+      )));
+      setPendingUserMessageId(messageId || localMessageId);
       await invalidateChatState(sessionId);
     },
     onError: (error) => {
@@ -423,7 +459,8 @@ export function ChatView({
     },
   });
 
-  const messageItems = firstArray(messages.data, ['messages', 'items', 'data']);
+  const messageItems = companionMessagesFromListResponse(messages.data);
+
   const renderedMessageItems = useMemo(
     () => mergeCompanionMessages(messageItems, localMessages, activeSessionId),
     [activeSessionId, localMessages, messageItems],

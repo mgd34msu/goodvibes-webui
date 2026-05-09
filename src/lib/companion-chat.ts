@@ -82,6 +82,30 @@ export function companionSessionsFromListResponse(value: unknown): unknown[] {
   return [];
 }
 
+export function companionMessagesFromListResponse(value: unknown): unknown[] {
+  const candidates = [
+    value,
+    readPath(value, ['messages']),
+    readPath(value, ['items']),
+    readPath(value, ['data']),
+    readPath(value, ['result']),
+    readPath(value, ['result', 'messages']),
+    readPath(value, ['result', 'items']),
+    readPath(value, ['result', 'data']),
+    readPath(value, ['messages', 'items']),
+    readPath(value, ['messages', 'data']),
+    readPath(value, ['data', 'messages']),
+    readPath(value, ['data', 'items']),
+    readPath(value, ['data', 'data']),
+    readPath(value, ['payload', 'messages']),
+    readPath(value, ['payload', 'items']),
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+  return [];
+}
+
 export function mergeCompanionSessions(
   localSessions: unknown[],
   fetchedSessions: unknown[],

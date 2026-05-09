@@ -8,7 +8,7 @@ import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/pro
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
 import { StatusBadge } from '../components/StatusBadge';
 import { MarkdownMessage } from '../components/MarkdownMessage';
-import { formatError } from '../lib/errors';
+import { formatError, isSessionNotFoundError } from '../lib/errors';
 import {
   companionSessionFromDetail,
   extractMessageId,
@@ -117,6 +117,7 @@ interface ChatViewProps {
   onDraftSessionRequestedChange: (requested: boolean) => void;
   onLocalSessionCreated: (session: unknown) => void;
   onLocalSessionUpdated: (sessionId: string, session: unknown) => void;
+  onSessionMissing: (sessionId: string) => void;
 }
 
 export function ChatView({
@@ -126,6 +127,7 @@ export function ChatView({
   onDraftSessionRequestedChange,
   onLocalSessionCreated,
   onLocalSessionUpdated,
+  onSessionMissing,
 }: ChatViewProps) {
   const queryClient = useQueryClient();
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -223,8 +225,14 @@ export function ChatView({
     queryKey: ['companion-chat', activeSessionId, 'messages'],
     enabled: Boolean(activeSessionId),
     queryFn: () => sdk.chat.messages.list(activeSessionId),
+    retry: (failureCount, error) => !isSessionNotFoundError(error) && failureCount < 2,
     refetchInterval: ACTIVE_TURN_STATES.includes(turnState) || turnState === 'syncing' ? 1000 : false,
   });
+
+  useEffect(() => {
+    if (!activeSessionId || !messages.isError || !isSessionNotFoundError(messages.error)) return;
+    onSessionMissing(activeSessionId);
+  }, [activeSessionId, messages.error, messages.isError, onSessionMissing]);
 
   useEffect(() => {
     const composer = composerRef.current;
@@ -304,6 +312,10 @@ export function ChatView({
         }
       },
       onError: (error) => {
+        if (isSessionNotFoundError(error)) {
+          onSessionMissing(activeSessionId);
+          return;
+        }
         setTurnState('stream error');
         setTurnError(error instanceof Error ? error.message : String(error));
       },
@@ -315,6 +327,10 @@ export function ChatView({
       disconnect = nextDisconnect;
     }).catch((err) => {
       if (!closed) {
+        if (isSessionNotFoundError(err)) {
+          onSessionMissing(activeSessionId);
+          return;
+        }
         setTurnState('stream error');
         setTurnError(err instanceof Error ? err.message : String(err));
       }
@@ -324,7 +340,7 @@ export function ChatView({
       closed = true;
       disconnect?.();
     };
-  }, [activeSessionId, queryClient]);
+  }, [activeSessionId, onSessionMissing, queryClient]);
 
   const send = useMutation({
     mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
@@ -397,6 +413,11 @@ export function ChatView({
       await invalidateChatState(sessionId);
     },
     onError: (error) => {
+      if (isSessionNotFoundError(error) && activeSessionId) {
+        onSessionMissing(activeSessionId);
+        setTurnError('That chat session no longer exists. Starting from the current daemon session list.');
+        return;
+      }
       setTurnState('send failed');
       setTurnError(formatError(error));
     },

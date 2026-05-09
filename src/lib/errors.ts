@@ -48,6 +48,29 @@ export function formatError(error: unknown): string {
   return details.length ? `${message} (${details.join(' · ')})` : message;
 }
 
+export function errorCode(error: unknown): string {
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const body = asRecord(serialized.body ?? transport.body);
+  return readString(serialized, 'code')
+    || readString(body, 'code')
+    || readString(asRecord(body.error), 'code')
+    || '';
+}
+
+export function isSessionNotFoundError(error: unknown): boolean {
+  if (errorCode(error) === 'SESSION_NOT_FOUND') return true;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const body = asRecord(serialized.body ?? transport.body);
+  const message = [
+    readString(serialized, 'message'),
+    readString(body, 'message'),
+    readString(body, 'error'),
+  ].join(' ').toLowerCase();
+  return message.includes('session not found');
+}
+
 export function errorDebugValue(error: unknown): unknown {
   const serialized = serializeError(error);
   return Object.keys(serialized).length ? serialized : undefined;

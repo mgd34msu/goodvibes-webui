@@ -11,7 +11,7 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { getCurrentAuth, sdk } from './lib/goodvibes';
@@ -30,7 +30,7 @@ import {
   writeStoredActiveCompanionSessionId,
   writeStoredCompanionSessions,
 } from './lib/companion-chat';
-import { formatError } from './lib/errors';
+import { formatError, isSessionNotFoundError } from './lib/errors';
 
 type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
 
@@ -74,8 +74,11 @@ export default function App() {
     return companionSessionsFromListResponse(chatSessions.data);
   }, [chatSessions.data]);
   const mergedChatSessionItems = useMemo(
-    () => mergeCompanionSessions(localChatSessions, fetchedChatSessions),
-    [fetchedChatSessions, localChatSessions],
+    () => {
+      if (chatSessions.isSuccess) return mergeCompanionSessions([], fetchedChatSessions);
+      return mergeCompanionSessions(localChatSessions, fetchedChatSessions);
+    },
+    [chatSessions.isSuccess, fetchedChatSessions, localChatSessions],
   );
   const chatSessionItems = useMemo(
     () => mergedChatSessionItems.filter((session) => !deletedChatSessionIds.has(bestId(session))),
@@ -94,7 +97,8 @@ export default function App() {
         setDraftChatRequested(!nextSessionId);
       }
     },
-    onError: (_error, sessionId) => {
+    onError: (error, sessionId) => {
+      if (isSessionNotFoundError(error)) return;
       setDeletedChatSessionIds((current) => {
         const next = new Set(current);
         next.delete(sessionId);
@@ -113,12 +117,33 @@ export default function App() {
   }, [activeChatSessionId, chatSessionItems, draftChatRequested]);
 
   useEffect(() => {
+    if (!chatSessions.isSuccess || !activeChatSessionId) return;
+    if (chatSessionItems.some((session) => bestId(session) === activeChatSessionId)) return;
+    const nextSessionId = bestId(chatSessionItems[0]);
+    setActiveChatSessionId(nextSessionId);
+    setDraftChatRequested(!nextSessionId);
+  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess]);
+
+  useEffect(() => {
     writeStoredActiveCompanionSessionId(activeChatSessionId);
   }, [activeChatSessionId]);
 
   useEffect(() => {
-    if (chatSessionItems.length) writeStoredCompanionSessions(chatSessionItems);
-  }, [chatSessionItems]);
+    if (chatSessions.isSuccess || chatSessionItems.length) writeStoredCompanionSessions(chatSessionItems);
+  }, [chatSessionItems, chatSessions.isSuccess]);
+
+  const handleMissingChatSession = useCallback((sessionId: string) => {
+    setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
+    setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
+    queryClient.removeQueries({ queryKey: ['companion-chat', sessionId] });
+    queryClient.removeQueries({ queryKey: ['companion-chat', sessionId, 'messages'] });
+    if (activeChatSessionId === sessionId) {
+      const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
+      setActiveChatSessionId(nextSessionId);
+      setDraftChatRequested(!nextSessionId);
+    }
+    void queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
+  }, [activeChatSessionId, chatSessionItems, queryClient]);
 
   const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);
@@ -262,7 +287,9 @@ export default function App() {
           </div>
         )}
         {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
-        {deleteChat.error && <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>}
+        {deleteChat.error && !isSessionNotFoundError(deleteChat.error) && (
+          <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>
+        )}
 
         <section className="view-frame">
           {activeView === 'chat' && (
@@ -283,6 +310,7 @@ export default function App() {
                 const next = current.filter((item) => bestId(item) !== sessionId);
                 return [bestId(normalized) ? normalized : { id: sessionId, sessionId, title: bestTitle(session, sessionId) }, ...next];
               })}
+              onSessionMissing={handleMissingChatSession}
             />
           )}
           {activeView === 'knowledge' && <KnowledgeView />}

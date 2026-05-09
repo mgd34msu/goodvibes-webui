@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.26] - 2026-05-08
+
+### Fixed
+
+- Pruned stale browser-cached companion chat sessions after the daemon session list loads, including selected sessions that now return `SESSION_NOT_FOUND`.
+
 ## [0.1.25] - 2026-05-08
 
 ### Changed

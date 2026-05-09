@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.29] - 2026-05-09
+
+### Changed
+
+- Updated `@pellux/goodvibes-sdk` to `0.33.19`.
+
 ## [0.1.28] - 2026-05-08
 
 ### Fixed

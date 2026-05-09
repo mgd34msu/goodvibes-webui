@@ -138,12 +138,14 @@ export default function App() {
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId] });
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId, 'messages'] });
     if (activeChatSessionId === sessionId) {
-      const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
+      const nextSessionId = chatSessions.isSuccess
+        ? chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? ''
+        : '';
       setActiveChatSessionId(nextSessionId);
       setDraftChatRequested(!nextSessionId);
     }
     void queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
-  }, [activeChatSessionId, chatSessionItems, queryClient]);
+  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, queryClient]);
 
   const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);

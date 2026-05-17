@@ -4,6 +4,15 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.36] - 2026-05-16
+
+### Added
+
+- Reworked the README into a complete project entrypoint with runtime topology,
+  auth, surfaces, verification, and release notes.
+- Added architecture, operator guide, development, SDK update checklist, and
+  troubleshooting documentation under `docs/`.
+
 ## [0.1.35] - 2026-05-11
 
 ### Changed

@@ -1,5 +1,10 @@
 # GoodVibes WebUI
 
+[![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
+![WebUI 0.1.37](https://img.shields.io/badge/WebUI-0.1.37-00d7ff)
+![SDK 0.33.30](https://img.shields.io/badge/SDK-0.33.30-8b5cf6)
+![Bun 1.3.10](https://img.shields.io/badge/Bun-1.3.10-f7a8ff)
+
 GoodVibes WebUI is the browser operator surface for the GoodVibes daemon. It is
 built for day-to-day daemon interaction: companion chat, regular Knowledge/Wiki,
 provider/model management, and admin/auth controls.
@@ -10,7 +15,7 @@ the configured WebUI origin and Vite proxy during development.
 
 ## Current Versions
 
-- WebUI: `0.1.36`
+- WebUI: `0.1.37`
 - SDK: `@pellux/goodvibes-sdk@0.33.30`
 - Runtime: Bun `1.3.10`
 
@@ -27,17 +32,38 @@ the configured WebUI origin and Vite proxy during development.
 
 ## Documentation
 
+- [Screenshot Tour](docs/screenshot-tour.md): current WebUI layout captures for
+  Chat, Knowledge, Providers, Admin, and collapsed navigation.
 - [Architecture](docs/architecture.md): runtime topology, SDK boundaries, state,
   and route ownership.
 - [Operator Guide](docs/operator-guide.md): what each WebUI surface is for and
   the expected user workflows.
 - [Development](docs/development.md): local setup, environment variables,
   network binding, validation, and repo conventions.
+- [SDK Surface Matrix](docs/sdk-surface-matrix.md): public SDK/daemon surfaces
+  the WebUI is expected to use.
 - [SDK Update Checklist](docs/sdk-update-checklist.md): exact steps for routine
   SDK bumps.
+- [Security Notes](docs/security.md): auth, network, token, and artifact
+  handling boundaries.
+- [Known Limitations](docs/known-limitations.md): intentional gaps and current
+  constraints.
 - [Troubleshooting](docs/troubleshooting.md): common auth, network, chat,
   provider/model, and Vite-cache failures.
 - [Changelog](CHANGELOG.md): semver history and release notes.
+
+## Screenshots
+
+These are captured from a running local dev server with a fresh browser profile.
+Local daemon data, auth state, and provider inventory will vary.
+
+| Chat | Knowledge |
+| --- | --- |
+| ![Chat view](docs/assets/screenshots/chat.png) | ![Knowledge view](docs/assets/screenshots/knowledge.png) |
+
+| Providers | Admin |
+| --- | --- |
+| ![Providers view](docs/assets/screenshots/providers.png) | ![Admin view](docs/assets/screenshots/admin.png) |
 
 ## Quick Start
 

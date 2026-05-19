@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.38] - 2026-05-19
+
+### Changed
+
+- Updated frontend dependencies to current releases, including Vite 8,
+  `@vitejs/plugin-react` 6, `lucide-react` 1, React 19.2.6,
+  React Query 5.100.11, and `@types/bun` 1.3.14.
+
 ## [0.1.37] - 2026-05-17
 
 ### Added

@@ -1,7 +1,7 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 0.1.38](https://img.shields.io/badge/WebUI-0.1.38-00d7ff)
+![WebUI 0.1.39](https://img.shields.io/badge/WebUI-0.1.39-00d7ff)
 ![SDK 0.33.30](https://img.shields.io/badge/SDK-0.33.30-8b5cf6)
 ![Bun 1.3.10](https://img.shields.io/badge/Bun-1.3.10-f7a8ff)
 
@@ -15,7 +15,7 @@ the configured WebUI origin and Vite proxy during development.
 
 ## Current Versions
 
-- WebUI: `0.1.38`
+- WebUI: `0.1.39`
 - SDK: `@pellux/goodvibes-sdk@0.33.30`
 - Runtime: Bun `1.3.10`
 

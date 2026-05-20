@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.1.39] - 2026-05-20
+
+### Changed
+
+- Updated `@types/react` to `19.2.15`.
+
 ## [0.1.38] - 2026-05-19
 
 ### Changed

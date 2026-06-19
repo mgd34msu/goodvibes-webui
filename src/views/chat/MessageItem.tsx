@@ -1,4 +1,5 @@
 import { Check, Copy, Paperclip, RotateCcw, X } from 'lucide-react';
+import type { ChatMessage } from './types';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { asRecord } from '../../lib/object';
 import {
@@ -13,12 +14,12 @@ import {
 } from './message-utils';
 
 interface MessageItemProps {
-  message: unknown;
+  message: ChatMessage;
   index: number;
   isSendPending: boolean;
   copiedMessageId: string;
-  onCopyMessage: (message: unknown) => void;
-  onResendMessage: (message: unknown) => void;
+  onCopyMessage: (message: ChatMessage) => void;
+  onResendMessage: (message: ChatMessage) => void;
   onRegenerateFrom: (index: number) => void;
 }
 

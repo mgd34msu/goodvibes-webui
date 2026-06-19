@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, MutableRefObject } from 'react';
+import { Dispatch, SetStateAction, useEffect, RefObject } from 'react';
 import { sdk } from '../../lib/goodvibes';
 import { firstString } from '../../lib/object';
 import { isSessionNotFoundError } from '../../lib/errors';
@@ -10,7 +10,7 @@ import {
 
 interface UseChatStreamOptions {
   activeSessionId: string;
-  liveTextRef: MutableRefObject<string>;
+  liveTextRef: RefObject<string>;
   onSessionMissing: (sessionId: string) => void;
   setTurnState: Dispatch<SetStateAction<string>>;
   setTurnError: Dispatch<SetStateAction<string>>;
@@ -111,7 +111,7 @@ export function useChatStream({
         return;
       }
       disconnect = nextDisconnect;
-    }).catch((err) => {
+    }).catch((err: unknown) => {
       if (!closed) {
         if (isSessionNotFoundError(err)) {
           onSessionMissing(activeSessionId);

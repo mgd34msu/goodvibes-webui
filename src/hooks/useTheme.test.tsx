@@ -60,7 +60,7 @@ function patchWindowEvents() {
     configurable: true,
   });
   Object.defineProperty(globalThis, 'removeEventListener', {
-    value: (type: string, listener: AnyListener, opts?: boolean | EventListenerOptions) =>
+    value: (type: string, listener: AnyListener, _opts?: boolean | EventListenerOptions) =>
       happyWin.removeEventListener(type, listener as unknown as Parameters<typeof happyWin.removeEventListener>[1]),
     writable: true,
     configurable: true,

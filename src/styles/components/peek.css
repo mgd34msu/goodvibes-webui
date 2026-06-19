@@ -1,0 +1,134 @@
+/*
+ * peek.css — Slide-over peek panel styles
+ *
+ * Uses contract tokens only (TOKEN-CONTRACT.md).
+ * Imported by src/components/peek/PeekPanel.tsx.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Backdrop
+ * ------------------------------------------------------------------------- */
+
+.peek-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.45);
+  opacity: 0;
+  pointer-events: none;
+  z-index: calc(var(--z-peek) - 1);
+  transition: opacity var(--motion-base) var(--ease-standard);
+}
+
+.peek-backdrop--open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * Panel
+ * ------------------------------------------------------------------------- */
+
+.peek-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(480px, 100vw);
+  background: var(--surface-raised);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: var(--elevation-3);
+  z-index: var(--z-peek);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition:
+    transform var(--motion-base) var(--ease-standard),
+    visibility 0ms var(--motion-base);
+  visibility: hidden;
+  outline: none;
+}
+
+.peek-panel--open {
+  transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform var(--motion-base) var(--ease-standard),
+    visibility 0ms 0ms;
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-backdrop,
+  .peek-panel {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Header
+ * ------------------------------------------------------------------------- */
+
+.peek-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  flex-shrink: 0;
+}
+
+.peek-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.peek-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--row-h);
+  height: var(--row-h);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.peek-close:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.peek-close:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Body
+ * ------------------------------------------------------------------------- */
+
+.peek-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}

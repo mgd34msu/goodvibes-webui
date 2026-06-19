@@ -12,6 +12,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import AppShell from './components/shell/AppShell';
+import { useUrlState } from './hooks/useUrlState';
+import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { getCurrentAuth, sdk } from './lib/goodvibes';
@@ -32,8 +35,6 @@ import {
 } from './lib/companion-chat';
 import { formatError, isSessionNotFoundError } from './lib/errors';
 
-type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
-
 const views: {
   id: ViewId;
   label: string;
@@ -48,8 +49,8 @@ const views: {
 
 export default function App() {
   const queryClient = useQueryClient();
-  const [activeView, setActiveView] = useState<ViewId>('chat');
-  const [activeChatSessionId, setActiveChatSessionId] = useState(() => readStoredActiveCompanionSessionId());
+  const { view, setView, session: activeChatSessionId, setSession } = useUrlState();
+  const activeView: ViewId = view;
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
   const [createdChatSessionIds, setCreatedChatSessionIds] = useState<Set<string>>(() => new Set());
@@ -68,7 +69,7 @@ export default function App() {
   const chatSessions = useQuery({
     queryKey: ['companion-chat', 'sessions'],
     queryFn: () => sdk.chat.sessions.list({ limit: 100 }),
-    enabled: activeView === 'chat',
+    enabled: view === 'chat',
   });
 
   const fetchedChatSessions = useMemo(() => {
@@ -102,9 +103,9 @@ export default function App() {
         next.delete(sessionId);
         return next;
       });
-      setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
+      setLocalChatSessions((current) => current.filter((s) => bestId(s) !== sessionId));
       if (activeChatSessionId === sessionId) {
-        setActiveChatSessionId(nextSessionId);
+        setSession(nextSessionId, { replace: true });
         setDraftChatRequested(!nextSessionId);
       }
     },
@@ -123,21 +124,30 @@ export default function App() {
 
   useEffect(() => {
     if (!activeChatSessionId && !draftChatRequested && chatSessionItems.length) {
-      setActiveChatSessionId(bestId(chatSessionItems[0]));
+      setSession(bestId(chatSessionItems[0]), { replace: true });
     }
-  }, [activeChatSessionId, chatSessionItems, draftChatRequested]);
+  }, [activeChatSessionId, chatSessionItems, draftChatRequested, setSession]);
 
   useEffect(() => {
     if (!chatSessions.isSuccess || !activeChatSessionId) return;
-    if (chatSessionItems.some((session) => bestId(session) === activeChatSessionId)) return;
+    if (chatSessionItems.some((s) => bestId(s) === activeChatSessionId)) return;
     const nextSessionId = bestId(chatSessionItems[0]);
-    setActiveChatSessionId(nextSessionId);
+    setSession(nextSessionId, { replace: true });
     setDraftChatRequested(!nextSessionId);
-  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess]);
+  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, setSession]);
 
   useEffect(() => {
     writeStoredActiveCompanionSessionId(activeChatSessionId);
   }, [activeChatSessionId]);
+
+  // Seed local session state from localStorage on first mount if URL has no session.
+  useEffect(() => {
+    if (!activeChatSessionId) {
+      const stored = readStoredActiveCompanionSessionId();
+      if (stored) setSession(stored, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (chatSessions.isSuccess || chatSessionItems.length) writeStoredCompanionSessions(chatSessionItems);
@@ -159,24 +169,25 @@ export default function App() {
       next.delete(sessionId);
       return next;
     });
-    setLocalChatSessions((current) => current.filter((session) => bestId(session) !== sessionId));
+    setLocalChatSessions((current) => current.filter((s) => bestId(s) !== sessionId));
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId] });
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId, 'messages'] });
     if (activeChatSessionId === sessionId) {
       const nextSessionId = chatSessions.isSuccess
         ? chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? ''
         : '';
-      setActiveChatSessionId(nextSessionId);
+      setSession(nextSessionId, { replace: true });
       setDraftChatRequested(!nextSessionId);
     }
     void queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
-  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, queryClient]);
+  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, queryClient, setSession]);
 
-  const title = useMemo(() => views.find((view) => view.id === activeView)?.label ?? 'GoodVibes', [activeView]);
-  const subtitle = useMemo(() => views.find((view) => view.id === activeView)?.short ?? 'Surface', [activeView]);
+  const title = useMemo(() => views.find((v) => v.id === activeView)?.label ?? 'GoodVibes', [activeView]);
+  const subtitle = useMemo(() => views.find((v) => v.id === activeView)?.short ?? 'Surface', [activeView]);
   const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
+    <AppShell view={view} onNavigate={setView}>
     <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
       <aside
         className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
@@ -211,19 +222,19 @@ export default function App() {
         </div>
 
         <nav className="nav-list" aria-label="Primary">
-          {views.map((view) => {
-            const Icon = view.icon;
+          {views.map((navItem) => {
+            const Icon = navItem.icon;
             return (
               <button
-                key={view.id}
-                className={view.id === activeView ? 'nav-item active' : 'nav-item'}
+                key={navItem.id}
+                className={navItem.id === activeView ? 'nav-item active' : 'nav-item'}
                 type="button"
-                onClick={() => setActiveView(view.id)}
+                onClick={() => setView(navItem.id)}
               >
                 <span className="nav-icon"><Icon size={18} /></span>
                 <span className="nav-copy">
-                  <strong>{view.label}</strong>
-                  <small>{view.short}</small>
+                  <strong>{navItem.label}</strong>
+                  <small>{navItem.short}</small>
                 </span>
               </button>
             );
@@ -238,7 +249,7 @@ export default function App() {
                 type="button"
                 title="New chat"
                 onClick={() => {
-                  setActiveChatSessionId('');
+                  setSession('', { replace: true });
                   setDraftChatRequested(true);
                 }}
               >
@@ -257,7 +268,7 @@ export default function App() {
                       type="button"
                       className="sidebar-session"
                       onClick={() => {
-                        setActiveChatSessionId(id);
+                        setSession(id, { replace: true });
                         setDraftChatRequested(false);
                       }}
                     >
@@ -297,10 +308,10 @@ export default function App() {
             <button className="icon-button" type="button" title="Refresh" onClick={() => void boot.refetch()}>
               <Activity size={18} />
             </button>
-            <button className="icon-button" type="button" title="Auth and settings" onClick={() => setActiveView('admin')}>
+            <button className="icon-button" type="button" title="Auth and settings" onClick={() => setView('admin')}>
               <KeyRound size={18} />
             </button>
-            <button className="icon-button" type="button" title="Admin" onClick={() => setActiveView('admin')}>
+            <button className="icon-button" type="button" title="Admin" onClick={() => setView('admin')}>
               <Settings size={18} />
             </button>
           </div>
@@ -310,7 +321,7 @@ export default function App() {
           <div className="banner warning action-banner">
             <Plug size={16} />
             <span>Sign in through daemon-owned auth before using operator APIs.</span>
-            <button type="button" onClick={() => setActiveView('admin')}>Open auth</button>
+            <button type="button" onClick={() => setView('admin')}>Open auth</button>
           </div>
         )}
         {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
@@ -324,7 +335,7 @@ export default function App() {
               activeSessionId={activeChatSessionId}
               sessionItems={chatSessionItems}
               onActiveSessionChange={(sessionId) => {
-                setActiveChatSessionId(sessionId);
+                setSession(sessionId, { replace: true });
                 setDraftChatRequested(false);
               }}
               onDraftSessionRequestedChange={setDraftChatRequested}
@@ -351,5 +362,6 @@ export default function App() {
         </section>
       </main>
     </div>
+    </AppShell>
   );
 }

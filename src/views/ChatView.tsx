@@ -5,7 +5,7 @@ import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
 import { queryKeys } from '../lib/queries';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
-import { formatError, isSessionNotFoundError } from '../lib/errors';
+import { isSessionNotFoundError } from '../lib/errors';
 import {
   companionSessionFromDetail,
   companionMessagesFromListResponse,
@@ -23,7 +23,7 @@ import {
   messageTone,
   messageText,
 } from './chat/message-utils';
-import type { ChatViewProps } from './chat/types';
+import type { ChatViewProps, ChatMessage } from './chat/types';
 
 export type { ChatViewProps };
 
@@ -103,7 +103,7 @@ export function ChatView({
   const renameSession = useMutation({
     mutationFn: ({ sessionId, title }: { sessionId: string; title: string }) => sdk.chat.sessions.update(sessionId, { title }),
     onSuccess: async (result, variables) => {
-      onLocalSessionUpdated(variables.sessionId, companionSessionFromDetail(result) || { sessionId: variables.sessionId, title: variables.title });
+      onLocalSessionUpdated(variables.sessionId, companionSessionFromDetail(result) ?? { sessionId: variables.sessionId, title: variables.title });
       await queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
       await queryClient.invalidateQueries({ queryKey: ['companion-chat', variables.sessionId] });
     },
@@ -181,7 +181,7 @@ export function ChatView({
   const messageItems = companionMessagesFromListResponse(messages.data);
 
   const renderedMessageItems = useMemo(
-    () => mergeCompanionMessages(messageItems, localMessages, activeSessionId),
+    () => mergeCompanionMessages(messageItems, localMessages, activeSessionId) as ChatMessage[],
     [activeSessionId, localMessages, messageItems],
   );
 
@@ -197,7 +197,9 @@ export function ChatView({
     if ((!ACTIVE_TURN_STATES.includes(turnState) && turnState !== 'syncing') || liveText) return;
     const lastMessage = renderedMessageItems.at(-1);
     if (lastMessage && messageTone(lastMessage) === 'assistant') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by condition; resolves syncing state after DB messages load
       setPendingUserMessageId('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by condition; resolves syncing state after DB messages load
       setTurnState('completed');
     }
   }, [liveText, renderedMessageItems, turnState]);
@@ -210,7 +212,9 @@ export function ChatView({
       messageTone(message) === 'assistant' && messageCreatedAt(message) >= pendingCreatedAt
     ));
     if (hasAssistantReply) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by hasAssistantReply; resolves pending turn when message confirmed in DB
       setPendingUserMessageId('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by hasAssistantReply; resolves pending turn when message confirmed in DB
       setTurnState('completed');
     }
   }, [pendingUserMessageId, renderedMessageItems, turnError]);

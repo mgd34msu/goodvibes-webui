@@ -3,9 +3,10 @@ import { ArrowDown } from 'lucide-react';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { MessageItem } from './MessageItem';
 import { bestId } from './message-utils';
+import type { ChatMessage } from './types';
 
 interface MessageListProps {
-  renderedMessageItems: unknown[];
+  renderedMessageItems: ChatMessage[];
   liveText: string;
   showJumpToBottom: boolean;
   isSendPending: boolean;
@@ -13,8 +14,8 @@ interface MessageListProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   onJumpToBottom: () => void;
-  onCopyMessage: (message: unknown) => void;
-  onResendMessage: (message: unknown) => void;
+  onCopyMessage: (message: ChatMessage) => void;
+  onResendMessage: (message: ChatMessage) => void;
   onRegenerateFrom: (index: number) => void;
 }
 
@@ -47,14 +48,16 @@ export function MessageList({
           />
         ))}
         {liveText && (
-          <article className="message assistant streaming">
-            <div className="message-bubble">
-              <div className="message-meta">
-                <span>GoodVibes is responding</span>
+          <div aria-live="polite" aria-atomic="false">
+            <article className="message assistant streaming">
+              <div className="message-bubble">
+                <div className="message-meta">
+                  <span>GoodVibes is responding</span>
+                </div>
+                <MarkdownMessage content={liveText} />
               </div>
-              <MarkdownMessage content={liveText} />
-            </div>
-          </article>
+            </article>
+          </div>
         )}
         {!renderedMessageItems.length && !liveText && (
           <p className="empty-state">Start a chat with GoodVibes.</p>

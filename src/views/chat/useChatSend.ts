@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
-import { bestId, firstString } from '../../lib/object';
+import { bestId } from '../../lib/object';
 import {
   companionSessionFromDetail,
   extractMessageId,

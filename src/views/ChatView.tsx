@@ -1,125 +1,31 @@
-import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, Check, Copy, Edit3, Mic, Paperclip, RotateCcw, Send, X } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
-import { asRecord, bestId, bestTitle, firstArray, firstString, formatRelative } from '../lib/object';
+import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
 import { queryKeys } from '../lib/queries';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSubmitComposerKey } from '../lib/composer-keys';
-import { StatusBadge } from '../components/StatusBadge';
-import { MarkdownMessage } from '../components/MarkdownMessage';
 import { formatError, isSessionNotFoundError } from '../lib/errors';
 import {
   companionSessionFromDetail,
   companionMessagesFromListResponse,
-  extractMessageId,
-  extractSessionId,
   mergeCompanionMessages,
   LocalCompanionMessage,
 } from '../lib/companion-chat';
+import { SessionHeader } from './chat/SessionHeader';
+import { MessageList } from './chat/MessageList';
+import { Composer } from './chat/Composer';
+import { useChatSend } from './chat/useChatSend';
+import { useChatStream } from './chat/useChatStream';
+import {
+  ACTIVE_TURN_STATES,
+  messageCreatedAt,
+  messageTone,
+  messageText,
+} from './chat/message-utils';
+import type { ChatViewProps } from './chat/types';
 
-function messageText(message: unknown): string {
-  const direct = firstString(message, ['body', 'content', 'text', 'message', 'delta']);
-  if (direct) return direct;
-  const parts = firstArray(message, ['parts', 'content']);
-  return parts.map((part) => firstString(part, ['text', 'content', 'body'])).filter(Boolean).join('\n');
-}
-
-function messageAttachments(message: unknown): unknown[] {
-  const record = asRecord(message);
-  if (Array.isArray(record.attachments)) return record.attachments;
-  if (Array.isArray(record.artifacts)) return record.artifacts;
-  return [];
-}
-
-function attachmentLabel(attachment: unknown): string {
-  return firstString(attachment, ['label', 'filename', 'name', 'artifactId', 'id']) || 'Attachment';
-}
-
-function attachmentMeta(attachment: unknown): string {
-  const record = asRecord(attachment);
-  const mimeType = firstString(attachment, ['mimeType', 'type']);
-  const sizeBytes = Number(record.sizeBytes ?? record.size);
-  const size = Number.isFinite(sizeBytes) && sizeBytes > 0
-    ? sizeBytes > 1024 * 1024
-      ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
-      : `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
-    : '';
-  return [mimeType, size].filter(Boolean).join(' · ');
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
-    reader.onload = () => {
-      const value = typeof reader.result === 'string' ? reader.result : '';
-      resolve(value.includes(',') ? value.split(',').pop() ?? '' : value);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function uploadedArtifactId(uploaded: unknown): string {
-  return firstString(asRecord(uploaded).artifact, ['id', 'artifactId'])
-    || firstString(uploaded, ['artifactId', 'id']);
-}
-
-function roleOf(message: unknown): string {
-  return firstString(message, ['role', 'author', 'kind', 'source']) || 'message';
-}
-
-function messageTone(message: unknown): string {
-  const role = roleOf(message).toLowerCase();
-  if (role.includes('user')) return 'user';
-  if (role.includes('assistant') || role.includes('agent') || role.includes('model')) return 'assistant';
-  if (role.includes('system')) return 'system';
-  return 'neutral';
-}
-
-function messageTimestamp(message: unknown): string {
-  const record = asRecord(message);
-  return formatRelative(record.createdAt ?? record.timestamp ?? record.time);
-}
-
-function messageCreatedAt(message: unknown): number {
-  const record = asRecord(message);
-  if (typeof record.createdAt === 'number') return record.createdAt;
-  if (typeof record.timestamp === 'number') return record.timestamp;
-  if (typeof record.time === 'number') return record.time;
-  return 0;
-}
-
-function assistantContentFromCompletedTurn(payload: unknown, fallback: string): string {
-  const envelope = asRecord(asRecord(payload).envelope);
-  return firstString(envelope, ['body', 'content', 'text', 'message'])
-    || firstString(payload, ['body', 'content', 'text', 'message', 'response'])
-    || fallback;
-}
-
-function companionEventType(eventName: string, payload: unknown): string {
-  return firstString(payload, ['type']) || eventName.replace(/^companion-chat\./, '');
-}
-
-const ACTIVE_TURN_STATES = ['sending', 'submitted', 'running', 'streaming', 'tooling'];
-
-function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '' {
-  const state = firstString(message, ['deliveryState', 'status', 'state']).toLowerCase();
-  if (state.includes('fail') || state.includes('error')) return 'failed';
-  if (state.includes('local') || state.includes('pending')) return 'local';
-  if (messageTone(message) === 'user') return 'sent';
-  return '';
-}
-
-interface ChatViewProps {
-  activeSessionId: string;
-  sessionItems: unknown[];
-  onActiveSessionChange: (sessionId: string) => void;
-  onDraftSessionRequestedChange: (requested: boolean) => void;
-  onLocalSessionCreated: (session: unknown) => void;
-  onLocalSessionUpdated: (sessionId: string, session: unknown) => void;
-  onSessionMissing: (sessionId: string) => void;
-}
+export type { ChatViewProps };
 
 export function ChatView({
   activeSessionId,
@@ -214,13 +120,13 @@ export function ChatView({
     },
   });
 
-  async function invalidateChatState(sessionId: string) {
+  const invalidateChatState = useCallback(async (sessionId: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId, 'messages'] }),
       queryClient.invalidateQueries({ queryKey: ['companion-chat', sessionId] }),
       queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] }),
     ]);
-  }
+  }, [queryClient]);
 
   const messages = useQuery({
     queryKey: ['companion-chat', activeSessionId, 'messages'],
@@ -246,217 +152,30 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
-  useEffect(() => {
-    if (!activeSessionId) return undefined;
-    let closed = false;
-    let disconnect: (() => void) | undefined;
-    setLiveText('');
-    liveTextRef.current = '';
-    setTurnError('');
+  useChatStream({
+    activeSessionId,
+    liveTextRef,
+    onSessionMissing,
+    setTurnState,
+    setTurnError,
+    setLiveText,
+    setLocalMessages,
+    setPendingUserMessageId,
+    invalidateChatState,
+  });
 
-    void sdk.chat.events.stream(activeSessionId, {
-      onEvent: (eventName, payload) => {
-        if (!eventName.startsWith('companion-chat.')) return;
-        if (firstString(payload, ['sessionId']) !== activeSessionId) return;
-        const type = companionEventType(eventName, payload);
-
-        if (type === 'turn.started') {
-          setTurnState('running');
-          void invalidateChatState(activeSessionId);
-          return;
-        }
-
-        if (type === 'turn.delta') {
-          const delta = firstString(payload, ['delta']);
-          if (delta) {
-            liveTextRef.current += delta;
-            setLiveText((current) => current + delta);
-          }
-          setTurnState('streaming');
-          return;
-        }
-
-        if (type === 'turn.tool_call' || type === 'turn.tool_result') {
-          setTurnState('tooling');
-          return;
-        }
-
-        if (type === 'turn.completed') {
-          const assistantContent = assistantContentFromCompletedTurn(payload, liveTextRef.current);
-          if (assistantContent) {
-            setLocalMessages((current) => [
-              ...current,
-              {
-                id: firstString(payload, ['assistantMessageId', 'messageId']) || `assistant-${firstString(payload, ['turnId']) || Date.now()}`,
-                sessionId: activeSessionId,
-                role: 'assistant',
-                content: assistantContent,
-                createdAt: Date.now(),
-                deliveryState: 'sent',
-              },
-            ]);
-            setPendingUserMessageId('');
-            setTurnState('completed');
-          } else {
-            setTurnState('syncing');
-          }
-          setLiveText('');
-          liveTextRef.current = '';
-          void invalidateChatState(activeSessionId);
-          return;
-        }
-
-        if (type === 'turn.error') {
-          setTurnState('error');
-          setTurnError(firstString(payload, ['error']) || 'Companion chat turn failed.');
-          void invalidateChatState(activeSessionId);
-        }
-      },
-      onError: (error) => {
-        if (isSessionNotFoundError(error)) {
-          onSessionMissing(activeSessionId);
-          return;
-        }
-        setTurnState('stream error');
-        setTurnError(error instanceof Error ? error.message : String(error));
-      },
-    }).then((nextDisconnect) => {
-      if (closed) {
-        nextDisconnect();
-        return;
-      }
-      disconnect = nextDisconnect;
-    }).catch((err) => {
-      if (!closed) {
-        if (isSessionNotFoundError(err)) {
-          onSessionMissing(activeSessionId);
-          return;
-        }
-        setTurnState('stream error');
-        setTurnError(err instanceof Error ? err.message : String(err));
-      }
-    });
-
-    return () => {
-      closed = true;
-      disconnect?.();
-    };
-  }, [activeSessionId, onSessionMissing, queryClient]);
-
-  const send = useMutation({
-    mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
-      if (!body && !files.length) return;
-      setTurnState('sending');
-      setTurnError('');
-
-      let sessionId = activeSessionId;
-      if (!sessionId) {
-        const createdAt = Date.now();
-        const title = body.slice(0, 72) || files[0]?.name?.slice(0, 72) || 'Attachment chat';
-        const created = await sdk.chat.sessions.create({
-          title,
-        });
-        sessionId = extractSessionId(created);
-        const createdSession = companionSessionFromDetail(created);
-        onLocalSessionCreated(bestId(createdSession) ? createdSession : {
-          id: sessionId,
-          sessionId,
-          kind: 'companion-chat',
-          title: title || sessionId,
-          status: 'active',
-          createdAt,
-          updatedAt: createdAt,
-        });
-        onActiveSessionChange(sessionId);
-        onDraftSessionRequestedChange(false);
-      }
-
-      const localMessageId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const localAttachments = files.map((file, index) => ({
-        artifactId: `local-${localMessageId}-${index}`,
-        label: file.name,
-        filename: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        sizeBytes: file.size,
-      }));
-      setLocalMessages((current) => [
-        ...current,
-        {
-          id: localMessageId,
-          sessionId,
-          role: 'user',
-          content: body,
-          createdAt: Date.now(),
-          deliveryState: 'local',
-          attachments: localAttachments,
-        },
-      ]);
-      setPendingUserMessageId(localMessageId);
-      setLiveText('');
-      setTurnState('submitted');
-
-      let attachments: typeof localAttachments = [];
-      try {
-        attachments = await Promise.all(files.map(async (file) => {
-          const dataBase64 = await fileToBase64(file);
-          const uploaded = await sdk.artifacts.create({
-            filename: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            dataBase64,
-            metadata: { surface: 'webui' },
-          });
-          const artifactId = uploadedArtifactId(uploaded);
-          if (!artifactId) throw new Error(`Artifact upload for ${file.name} did not return an artifact id.`);
-          return {
-            artifactId,
-            label: file.name,
-            filename: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            sizeBytes: file.size,
-          };
-        }));
-      } catch (error) {
-        setLocalMessages((current) => current.map((message) => (
-          message.id === localMessageId ? { ...message, deliveryState: 'failed' } : message
-        )));
-        throw error;
-      }
-
-      let result: unknown;
-      try {
-        result = await sdk.chat.messages.create(sessionId, {
-          body,
-          attachments: attachments.map(({ artifactId, label }) => ({ artifactId, label })),
-        });
-      } catch (error) {
-        setLocalMessages((current) => current.map((message) => (
-          message.id === localMessageId ? { ...message, deliveryState: 'failed' } : message
-        )));
-        throw error;
-      }
-      const messageId = extractMessageId(result);
-      setLocalMessages((current) => current.map((message) => (
-        message.id === localMessageId
-          ? {
-            ...message,
-            id: messageId || localMessageId,
-            deliveryState: 'sent',
-            attachments,
-          }
-          : message
-      )));
-      setPendingUserMessageId(messageId || localMessageId);
-      await invalidateChatState(sessionId);
-    },
-    onError: (error) => {
-      if (isSessionNotFoundError(error) && activeSessionId) {
-        onSessionMissing(activeSessionId);
-        setTurnError('That chat session no longer exists. Starting from the current daemon session list.');
-        return;
-      }
-      setTurnState('send failed');
-      setTurnError(formatError(error));
-    },
+  const send = useChatSend({
+    activeSessionId,
+    onActiveSessionChange,
+    onDraftSessionRequestedChange,
+    onLocalSessionCreated,
+    onSessionMissing,
+    setTurnState,
+    setTurnError,
+    setLiveText,
+    setLocalMessages,
+    setPendingUserMessageId,
+    invalidateChatState,
   });
 
   const messageItems = companionMessagesFromListResponse(messages.data);
@@ -592,193 +311,55 @@ export function ChatView({
   const visibleTurnState = turnState !== 'idle' && turnState !== 'completed';
 
   return (
-      <section className="chat-main">
-        <header className="chat-main-header">
-          {isRenamingTitle ? (
-            <input
-              className="chat-title-input"
-              value={sessionTitleDraft}
-              onBlur={finishRenamingTitle}
-              onChange={(event) => setSessionTitleDraft(event.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              autoFocus
-              aria-label="Rename chat session"
-            />
-          ) : (
-            <button
-              className="chat-title-button"
-              type="button"
-              disabled={!activeSessionId}
-              onClick={() => activeSessionId && setIsRenamingTitle(true)}
-              title={activeSessionId ? 'Rename chat' : 'Start a new chat'}
-            >
-              <span>{activeSessionTitle}</span>
-              {activeSessionId && <Edit3 size={14} />}
-            </button>
-          )}
-          <div className="chat-status">
-            {visibleTurnState && <StatusBadge value={turnState} />}
-          </div>
-        </header>
-
-        <div className="messages chat-conversation" ref={scrollRef} onScroll={handleMessagesScroll}>
-          {renderedMessageItems.map((message, index) => {
-            const id = bestId(message) || `${index}`;
-            const tone = messageTone(message);
-            const state = deliveryState(message);
-            const canRetry = Boolean(messageText(message)) && (tone === 'user' || tone === 'assistant');
-            const timestamp = messageTimestamp(message);
-            const attachments = messageAttachments(message);
-            const text = messageText(message);
-            return (
-              <article key={`${id}-${index}`} className={`message ${tone}`}>
-                <div className="message-bubble">
-                  {timestamp !== 'unknown' && (
-                    <div className="message-meta">
-                      <span>{timestamp}</span>
-                    </div>
-                  )}
-                  {text && <MarkdownMessage content={text} />}
-                  {attachments.length > 0 && (
-                    <div className="message-attachments">
-                      {attachments.map((attachment, attachmentIndex) => (
-                        <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
-                          <Paperclip size={13} />
-                          <div>
-                            <strong>{attachmentLabel(attachment)}</strong>
-                            {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
-                </div>
-                <div className="message-actions">
-                  <div className="message-actions-inner">
-                    {state && (
-                      <span className={`delivery-indicator ${state}`} title={state === 'failed' ? 'Not sent' : state === 'local' ? 'Pending' : 'Sent'}>
-                        {state === 'failed' ? <X size={12} /> : <Check size={12} />}
-                      </span>
-                    )}
-                    <button type="button" title="Copy message" onClick={() => void copyMessage(message)}>
-                      <Copy size={13} />
-                    </button>
-                    {canRetry && (
-                      <button
-                        type="button"
-                        title={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
-                        disabled={send.isPending}
-                        onClick={() => (tone === 'assistant' ? regenerateFrom(index) : resendMessage(message))}
-                      >
-                        <RotateCcw size={13} />
-                      </button>
-                    )}
-                    {copiedMessageId === id && <span className="message-action-label">copied</span>}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-          {liveText && (
-            <article className="message assistant streaming">
-            <div className="message-bubble">
-                <div className="message-meta">
-                  <span>GoodVibes is responding</span>
-                </div>
-              <MarkdownMessage content={liveText} />
-            </div>
-          </article>
-          )}
-          {!renderedMessageItems.length && !liveText && <p className="empty-state">Start a chat with GoodVibes.</p>}
-        </div>
-        {showJumpToBottom && (
-          <button type="button" className="jump-to-bottom" onClick={scrollMessagesToBottom} title="Jump to latest message">
-            <ArrowDown size={16} />
-          </button>
-        )}
-
-        <form className="composer" onSubmit={submit}>
-          {send.error && <div className="composer-error">{formatError(send.error)}</div>}
-          {turnError && <div className="composer-error">{turnError}</div>}
-          {renameSession.error && <div className="composer-error">{formatError(renameSession.error)}</div>}
-          {selectModel.error && <div className="composer-error">{formatError(selectModel.error)}</div>}
-          {attachedFiles.length > 0 && (
-            <div className="composer-attachments">
-              {attachedFiles.map((file, index) => (
-                <span key={`${file.name}-${file.lastModified}-${index}`} className="composer-attachment">
-                  <Paperclip size={13} />
-                  {file.name}
-                  <button type="button" title={`Remove ${file.name}`} onClick={() => removeAttachedFile(index)}>
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="composer-box">
-            <textarea
-              ref={composerRef}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              placeholder="Message GoodVibes"
-              aria-label="Message GoodVibes"
-              rows={1}
-            />
-            <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileSelection} />
-            <div className="composer-toolbar">
-              <div className="composer-tools">
-                <button
-                  type="button"
-                  className="composer-tool"
-                  title="Attach files"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={send.isPending}
-                >
-                  <Paperclip size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="composer-tool"
-                  title="Voice mode is not available in this WebUI build"
-                  disabled
-                >
-                  <Mic size={16} />
-                </button>
-              </div>
-              <div className="composer-route">
-                <select
-                  value={selectedProviderId}
-                  onChange={(event) => setSelectedProviderId(event.target.value)}
-                  disabled={!providerOptions.length}
-                  aria-label="Provider"
-                >
-                  {!providerOptions.length && <option value="">Provider</option>}
-                  {providerOptions.map((provider) => (
-                    <option key={provider.id} value={provider.id}>{provider.label}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedModelRegistryKey}
-                  onChange={(event) => event.target.value && selectModel.mutate(event.target.value)}
-                  disabled={!providerModelOptions.length || selectModel.isPending}
-                  aria-label="Model"
-                >
-                  <option value="">{providerModelOptions.length ? 'Model' : 'No models'}</option>
-                  {providerModelOptions.map((model) => (
-                    <option key={model.registryKey} value={model.registryKey}>{model.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="composer-actions">
-                <button type="submit" className="send-button" title="Send message" disabled={send.isPending || (!draft.trim() && !attachedFiles.length)}>
-                  <Send size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
-      </section>
+    <section className="chat-main">
+      <SessionHeader
+        activeSessionId={activeSessionId}
+        activeSessionTitle={activeSessionTitle}
+        isRenamingTitle={isRenamingTitle}
+        sessionTitleDraft={sessionTitleDraft}
+        visibleTurnState={visibleTurnState}
+        turnState={turnState}
+        onSetRenamingTitle={setIsRenamingTitle}
+        onSessionTitleDraftChange={setSessionTitleDraft}
+        onFinishRenamingTitle={finishRenamingTitle}
+        onTitleKeyDown={handleTitleKeyDown}
+      />
+      <MessageList
+        renderedMessageItems={renderedMessageItems}
+        liveText={liveText}
+        showJumpToBottom={showJumpToBottom}
+        isSendPending={send.isPending}
+        copiedMessageId={copiedMessageId}
+        scrollRef={scrollRef}
+        onScroll={handleMessagesScroll}
+        onJumpToBottom={scrollMessagesToBottom}
+        onCopyMessage={(message) => void copyMessage(message)}
+        onResendMessage={resendMessage}
+        onRegenerateFrom={regenerateFrom}
+      />
+      <Composer
+        draft={draft}
+        attachedFiles={attachedFiles}
+        isSendPending={send.isPending}
+        sendError={send.error}
+        turnError={turnError}
+        renameSessionError={renameSession.error}
+        selectModelError={selectModel.error}
+        providerOptions={providerOptions}
+        selectedProviderId={selectedProviderId}
+        providerModelOptions={providerModelOptions}
+        selectedModelRegistryKey={selectedModelRegistryKey}
+        selectModelPending={selectModel.isPending}
+        composerRef={composerRef}
+        fileInputRef={fileInputRef}
+        onDraftChange={setDraft}
+        onComposerKeyDown={handleComposerKeyDown}
+        onSubmit={submit}
+        onFileSelection={handleFileSelection}
+        onRemoveAttachedFile={removeAttachedFile}
+        onProviderChange={setSelectedProviderId}
+        onModelChange={(registryKey) => selectModel.mutate(registryKey)}
+      />
+    </section>
   );
 }

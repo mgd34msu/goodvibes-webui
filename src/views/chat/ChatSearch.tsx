@@ -57,8 +57,10 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
 
   // Reset active index when results change
   const prevResultsLen = useRef(results.length);
+  // eslint-disable-next-line react-hooks/refs -- documented derived-state-during-render guard, intentional
   if (results.length !== prevResultsLen.current) {
     setActiveIndex(-1);
+    // eslint-disable-next-line react-hooks/refs -- documented derived-state-during-render guard, intentional
     prevResultsLen.current = results.length;
   }
 

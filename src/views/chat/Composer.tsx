@@ -145,12 +145,8 @@ function ModelPicker({
     function handlePointerDown(event: PointerEvent) {
       const trigger = triggerRef.current;
       const popover = popoverRef.current;
-      if (
-        trigger && trigger.contains(event.target as Node)
-      ) return;
-      if (
-        popover && popover.contains(event.target as Node)
-      ) return;
+      if (trigger?.contains(event.target as Node)) return;
+      if (popover?.contains(event.target as Node)) return;
       setOpen(false);
     }
     function handleKeyDown(event: globalThis.KeyboardEvent) {
@@ -176,7 +172,7 @@ function ModelPicker({
 
   // Build a flat list of model items with stable ids for aria-activedescendant.
   // Provider rows are rendered as non-interactive group headers (not options).
-  const modelItems: Array<{ model: ModelOption; optionId: string }> = [];
+  const modelItems: { model: ModelOption; optionId: string }[] = [];
   let modelIndexCounter = 0;
   for (const provider of providerOptions) {
     if (provider.id === selectedProviderId) {
@@ -293,7 +289,7 @@ function ModelPicker({
                 {isExpanded &&
                   providerModelOptions.map((model) => {
                     const myIndex = renderModelCounter++;
-                    const { optionId } = modelItems[myIndex]!;
+                    const { optionId } = modelItems[myIndex];
                     const isActive = myIndex === activeIndex;
                     return (
                       <button

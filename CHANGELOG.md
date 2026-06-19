@@ -4,6 +4,22 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.2.1] - 2026-06-19
+
+### Fixed
+
+- **CI**: pin `setup-bun` to 1.3.14 to match the locally-verified toolchain —
+  1.3.10 produced `window is not defined` in the happy-dom +
+  `bun test --isolate` test harness. Coverage step now runs with `--isolate`
+  and the coverage annotation guards a missing summary file.
+- **Lint**: resolved all ESLint errors across the chat workspace modules
+  (dot-notation, array-type, optional-chain, redundant type conversions,
+  unused vars, invalid void type, prefer-const, unsafe return) so the lint job
+  passes (0 errors / 53 warnings). Intentional render-time derived-state guards
+  carry targeted `react-hooks/refs` disables with justification.
+- Removed `.github/dependabot.yml` (re-introduced in error during the 0.2.0
+  tooling work).
+
 ## [0.2.0] - 2026-06-19
 
 ### Added

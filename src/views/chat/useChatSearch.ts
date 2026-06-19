@@ -67,10 +67,10 @@ function extractSessionTitle(session: unknown): string {
 /** Extract the primary text content from a ChatMessage. */
 function messageText(msg: ChatMessage): string {
   const direct = msg.content ?? msg.text ?? msg.body ?? msg.message ?? msg.delta ?? '';
-  if (direct) return String(direct);
+  if (direct) return direct;
   if (Array.isArray(msg.parts)) {
     return msg.parts
-      .map((p) => p.text ?? p.content ?? p.body ?? '')
+      .map((p: { text?: string; content?: string; body?: string }) => p.text ?? p.content ?? p.body ?? '')
       .filter(Boolean)
       .join(' ');
   }
@@ -107,8 +107,11 @@ export function useChatSearch(
     .map((s) => extractSessionId(s) ?? '')
     .join(',');
   const prevSessionsKeyRef = useRef(sessionsKey);
+  // eslint-disable-next-line react-hooks/refs -- documented derived-state-during-render guard, intentional
   if (sessionsKey !== prevSessionsKeyRef.current) {
+    // eslint-disable-next-line react-hooks/refs -- documented derived-state-during-render guard, intentional
     prevSessionsKeyRef.current = sessionsKey;
+    // eslint-disable-next-line react-hooks/refs -- documented derived-state-during-render guard, intentional
     cacheRef.current = new Map();
   }
 

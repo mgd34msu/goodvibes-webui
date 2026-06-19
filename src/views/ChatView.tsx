@@ -204,7 +204,7 @@ export function ChatView({
     if (lastMessage && messageTone(lastMessage) === 'assistant') {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by condition; resolves syncing state after DB messages load
       setPendingUserMessageId('');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by condition; resolves syncing state after DB messages load
+       
       setTurnState('completed');
     }
   }, [liveText, renderedMessageItems, turnState]);
@@ -219,7 +219,7 @@ export function ChatView({
     if (hasAssistantReply) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by hasAssistantReply; resolves pending turn when message confirmed in DB
       setPendingUserMessageId('');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by hasAssistantReply; resolves pending turn when message confirmed in DB
+       
       setTurnState('completed');
     }
   }, [pendingUserMessageId, renderedMessageItems, turnError]);

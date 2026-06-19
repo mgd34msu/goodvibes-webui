@@ -28,17 +28,17 @@ import { flushSync } from 'react-dom';
  * Fake session objects used across tests. Each has `id` and `sessionId` so
  * extractSessionId() (which reads those fields) returns a stable value.
  */
-type FakeSession = { id: string; sessionId: string; title: string };
+interface FakeSession { id: string; sessionId: string; title: string }
 
 /** Control surface for the SDK list stub. */
-type ListStub = {
+interface ListStub {
   /** Messages returned per sessionId, keyed by id. */
   responses: Map<string, Record<string, unknown>[]>;
   /** Number of times list() was called, keyed by sessionId. */
   callCounts: Map<string, number>;
   /** Set to true to make all calls reject. */
   shouldFail: boolean;
-};
+}
 
 const stub: ListStub = {
   responses: new Map(),
@@ -75,10 +75,10 @@ const { useChatSearch } = await import('./useChatSearch');
 const wait = (ms: number): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, ms));
 
-type SearchState = {
+interface SearchState {
   results: { sessionId: string; messageId: string; snippet: string; sessionTitle: string; createdAt?: number }[];
   isSearching: boolean;
-};
+}
 
 /**
  * Mount useChatSearch in a component. Returns a handle for:
@@ -130,7 +130,7 @@ function mountHook(initialQuery: string, initialSessions: unknown[]) {
 }
 
 /** Build a fake session with at least one message that contains the term. */
-function makeSession(id: string, title: string, messages: Record<string, unknown>[]): FakeSession {
+function makeSession(id: string, title: string, _messages: Record<string, unknown>[]): FakeSession {
   return { id, sessionId: id, title };
 }
 

@@ -6,7 +6,7 @@
  * The mutation's network path is exercised only as a no-op stub — branch state
  * changes (the focus of these tests) are synchronous and testable in isolation.
  */
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -33,17 +33,17 @@ mock.module('../../lib/goodvibes', () => ({
 // Hook harness
 // ---------------------------------------------------------------------------
 
-type HarnessOptions = {
+interface HarnessOptions {
   localMessages?: LocalCompanionMessage[];
   activeSessionId?: string;
-};
+}
 
-type HarnessResult = {
+interface HarnessResult {
   getReturn: () => UseChatSendReturn;
   getLocalMessages: () => LocalCompanionMessage[];
   unmount: () => void;
   queryClient: QueryClient;
-};
+}
 
 function renderHook(opts: HarnessOptions = {}): HarnessResult {
   const queryClient = new QueryClient({

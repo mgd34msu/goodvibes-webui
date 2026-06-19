@@ -59,7 +59,7 @@ interface UseChatSendOptions {
 // Return type
 // ---------------------------------------------------------------------------
 
-type SendMutation = ReturnType<typeof useMutation<void, Error, { body: string; files: File[] }>>;
+type SendMutation = ReturnType<typeof useMutation<undefined, Error, { body: string; files: File[] }>>;
 
 export interface UseChatSendReturn {
   /**
@@ -142,7 +142,7 @@ export function useChatSend({
   // -------------------------------------------------------------------------
   // Core send mutation (unchanged API — still used by Composer)
   // -------------------------------------------------------------------------
-  const sendMutation = useMutation<void, Error, { body: string; files: File[] }>({
+  const sendMutation = useMutation<undefined, Error, { body: string; files: File[] }>({
     mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
       if (!body && !files.length) return;
       setTurnState('sending');
@@ -273,7 +273,7 @@ export function useChatSend({
           return current;
         }
         // Capture original for variant recording
-        originalText = (current[idx].content as string | undefined) ?? '';
+        originalText = (current[idx].content) ?? '';
         // Truncate to idx — drop the message at idx so the mutation re-adds it
         // as a fresh local message (prevents duplicate user bubble).
         return current.slice(0, idx);
@@ -304,7 +304,7 @@ export function useChatSend({
       // Walk back to find the user turn that preceded this assistant response
       let userMessage: ChatMessage | undefined;
       for (let i = assistantIdx - 1; i >= 0; i--) {
-        const role = (messages[i].role ?? messages[i].author ?? '').toString().toLowerCase();
+        const role = (messages[i].role ?? messages[i].author ?? '').toLowerCase();
         if (role.includes('user')) {
           userMessage = messages[i];
           break;
@@ -312,7 +312,7 @@ export function useChatSend({
       }
       if (!userMessage) return;
 
-      const userMsgId = (userMessage.id ?? userMessage.messageId ?? '') as string;
+      const userMsgId = (userMessage.id ?? userMessage.messageId ?? '');
       const userText = messageText(userMessage);
       if (!userText) return;
 

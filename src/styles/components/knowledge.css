@@ -101,5 +101,13 @@
 
 .knowledge-record-panel__list {
   overflow-y: auto;
-  max-height: 340px;
+  /* Fluid max: min 220px, up to 340px on desktop; shrinks on mobile */
+  max-height: clamp(220px, 40vh, 340px);
+}
+
+/* Mobile: let the list expand freely — no artificial cap */
+@media (max-width: 680px) {
+  .knowledge-record-panel__list {
+    max-height: none;
+  }
 }

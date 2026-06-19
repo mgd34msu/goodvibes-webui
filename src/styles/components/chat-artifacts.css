@@ -1,0 +1,181 @@
+/*
+ * chat-artifacts.css — Artifacts side-panel styles
+ *
+ * Uses contract tokens only (TOKEN-CONTRACT.md).
+ * Imported by src/views/chat/ArtifactsPanel.tsx.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Panel content wrapper
+ * ------------------------------------------------------------------------- */
+
+.artifacts-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.artifacts-empty {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  padding: var(--space-4) 0;
+}
+
+.artifacts-empty p {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sections (code blocks / attachments)
+ * ------------------------------------------------------------------------- */
+
+.artifacts-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.artifacts-section-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---------------------------------------------------------------------------
+ * Code blocks
+ * ------------------------------------------------------------------------- */
+
+.artifacts-code-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.artifact-code-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-base);
+}
+
+.artifact-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.artifact-code-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+
+.artifact-code-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.artifact-code-copy:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.artifact-code-copy:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.artifact-code-pre {
+  margin: 0;
+  padding: var(--space-4);
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 400px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  white-space: pre;
+  color: var(--text-primary);
+}
+
+.artifact-code-pre code {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * File attachments
+ * ------------------------------------------------------------------------- */
+
+.artifacts-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.artifact-file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+}
+
+.artifact-file-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.artifact-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.artifact-file-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artifact-file-mime {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------------
+ * Reduced motion
+ * ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .artifact-code-copy {
+    transition: none;
+  }
+}

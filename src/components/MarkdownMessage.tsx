@@ -3,113 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import { Check, Copy } from 'lucide-react';
-import hljs from 'highlight.js/lib/core';
-import bash from 'highlight.js/lib/languages/bash';
-import c from 'highlight.js/lib/languages/c';
-import cpp from 'highlight.js/lib/languages/cpp';
-import csharp from 'highlight.js/lib/languages/csharp';
-import css from 'highlight.js/lib/languages/css';
-import diff from 'highlight.js/lib/languages/diff';
-import dockerfile from 'highlight.js/lib/languages/dockerfile';
-import go from 'highlight.js/lib/languages/go';
-import ini from 'highlight.js/lib/languages/ini';
-import java from 'highlight.js/lib/languages/java';
-import javascript from 'highlight.js/lib/languages/javascript';
-import json from 'highlight.js/lib/languages/json';
-import markdown from 'highlight.js/lib/languages/markdown';
-import php from 'highlight.js/lib/languages/php';
-import plaintext from 'highlight.js/lib/languages/plaintext';
-import python from 'highlight.js/lib/languages/python';
-import ruby from 'highlight.js/lib/languages/ruby';
-import rust from 'highlight.js/lib/languages/rust';
-import shell from 'highlight.js/lib/languages/shell';
-import sql from 'highlight.js/lib/languages/sql';
-import typescript from 'highlight.js/lib/languages/typescript';
-import wasm from 'highlight.js/lib/languages/wasm';
-import xml from 'highlight.js/lib/languages/xml';
-import yaml from 'highlight.js/lib/languages/yaml';
+import { highlightCode } from '../lib/highlight';
 import { useWebUiPreferences } from '../lib/ui-preferences';
 
-hljs.registerLanguage('bash', bash);
-hljs.registerLanguage('c', c);
-hljs.registerLanguage('cpp', cpp);
-hljs.registerLanguage('csharp', csharp);
-hljs.registerLanguage('css', css);
-hljs.registerLanguage('diff', diff);
-hljs.registerLanguage('dockerfile', dockerfile);
-hljs.registerLanguage('go', go);
-hljs.registerLanguage('ini', ini);
-hljs.registerLanguage('java', java);
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('json', json);
-hljs.registerLanguage('markdown', markdown);
-hljs.registerLanguage('php', php);
-hljs.registerLanguage('plaintext', plaintext);
-hljs.registerLanguage('python', python);
-hljs.registerLanguage('ruby', ruby);
-hljs.registerLanguage('rust', rust);
-hljs.registerLanguage('shell', shell);
-hljs.registerLanguage('sql', sql);
-hljs.registerLanguage('typescript', typescript);
-hljs.registerLanguage('wasm', wasm);
-hljs.registerLanguage('xml', xml);
-hljs.registerLanguage('yaml', yaml);
 
-const LANGUAGE_ALIASES: Record<string, string> = {
-  c: 'c',
-  cc: 'cpp',
-  cjs: 'javascript',
-  cmd: 'bash',
-  cs: 'csharp',
-  docker: 'dockerfile',
-  env: 'ini',
-  htm: 'xml',
-  html: 'xml',
-  js: 'javascript',
-  jsx: 'javascript',
-  md: 'markdown',
-  mjs: 'javascript',
-  ps1: 'shell',
-  py: 'python',
-  rb: 'ruby',
-  rs: 'rust',
-  sh: 'bash',
-  svg: 'xml',
-  toml: 'ini',
-  ts: 'typescript',
-  tsx: 'typescript',
-  txt: 'plaintext',
-  xml: 'xml',
-  yml: 'yaml',
-  zsh: 'bash',
-};
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-function normalizeLanguage(language: string): string {
-  const normalized = language.trim().toLowerCase();
-  return LANGUAGE_ALIASES[normalized] ?? normalized;
-}
-
-function highlightedCode(code: string, language: string): { language: string; html: string } {
-  const normalizedLanguage = normalizeLanguage(language);
-  if (normalizedLanguage && hljs.getLanguage(normalizedLanguage)) {
-    const result = hljs.highlight(code, { language: normalizedLanguage, ignoreIllegals: true });
-    return { language: normalizedLanguage, html: result.value };
-  }
-  if (!normalizedLanguage && code.trim()) {
-    const result = hljs.highlightAuto(code);
-    return { language: result.language ?? '', html: result.value };
-  }
-  return { language: normalizedLanguage, html: escapeHtml(code) };
-}
 
 function codeElementFromChildren(children: ReactNode) {
   const child = Array.isArray(children) ? children[0] : children;
@@ -146,7 +43,7 @@ function CodeBlock({ children, lineNumbers }: CodeBlockProps) {
   const language = languageFromCodeChild(children);
   const code = codeTextFromChildren(children);
   const visibleCode = code.endsWith('\n') ? code.slice(0, -1) : code;
-  const highlighted = highlightedCode(visibleCode, language);
+  const highlighted = highlightCode(visibleCode, language);
   const highlightedLines = highlighted.html.split('\n');
   const displayLanguage = language || highlighted.language;
 

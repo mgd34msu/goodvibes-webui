@@ -298,6 +298,15 @@ export default function App() {
 
       </aside>
 
+      {/* Overlay scrim for mobile: tap-outside-to-close the sidebar.
+          CSS (.app-shell:not(.sidebar-collapsed) .sidebar-scrim) makes it
+          visible only at ≤980px when the sidebar is open. */}
+      <div
+        className="sidebar-scrim"
+        aria-hidden="true"
+        onClick={() => setSidebarCollapsed(true)}
+      />
+
       <main className={activeView === 'chat' ? 'workspace workspace-chat' : 'workspace'}>
         <header className="topbar">
           <div className="topbar-title">

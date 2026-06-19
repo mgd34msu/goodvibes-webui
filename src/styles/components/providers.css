@@ -1,0 +1,207 @@
+/**
+ * providers.css — Phase 4 ProvidersView styles.
+ * Uses token names from docs/ux-overhaul/TOKEN-CONTRACT.md exclusively.
+ * DO NOT edit src/styles.css — imported by ProvidersView.tsx.
+ */
+
+/* ============================================================
+   Provider list — keyboard nav + focus-visible
+   ============================================================ */
+
+.providers-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.providers-record-list .record-row:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+  z-index: 1;
+  position: relative;
+}
+
+/* ============================================================
+   Provider detail — loading skeleton layout
+   ============================================================ */
+
+.providers-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+}
+
+.providers-skeleton-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* ============================================================
+   Current model panel
+   ============================================================ */
+
+.providers-current-model {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.providers-current-model__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.providers-current-model__copy strong {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providers-current-model__copy span {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Model grid
+   ============================================================ */
+
+.providers-model-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.providers-model-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+
+.providers-model-row:focus-within {
+  border-color: var(--border-strong);
+}
+
+/* Non-color current indicator: thicker left border + accent background tint */
+.providers-model-row--current {
+  border-color: var(--accent);
+  border-left-width: 3px;
+  background: var(--accent-muted);
+}
+
+.providers-model-row__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.providers-model-row__copy strong {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providers-model-row__copy span {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providers-model-row__current-icon {
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+
+.providers-model-row__current-icon--hidden {
+  visibility: hidden;
+}
+
+.providers-model-row__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* focus-visible on Use button */
+.providers-model-row button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .providers-model-row {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   Live region (aria-live)
+   ============================================================ */
+
+.providers-live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================================
+   Peek trigger button on provider title
+   ============================================================ */
+
+.providers-peek-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.providers-peek-trigger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.providers-peek-trigger:hover {
+  color: var(--text-accent);
+}

@@ -63,14 +63,14 @@ export function useDaemonHealth(): DaemonHealth {
   useEffect(() => {
     setSseState('connecting');
     let mounted = true;
-    const unsubs: Array<() => void> = [];
+    const unsubs: (() => void)[] = [];
 
     try {
       const events = sdk.realtime.viaSse();
 
       // Subscribe to a lightweight domain to confirm the SSE pipe is alive.
       // The 'turn' domain fires on any agent turn event.
-      const turnDomain = (events as Record<string, unknown>)['turn'] as
+      const turnDomain = (events as Record<string, unknown>).turn as
         | { onEnvelope?: (name: string, cb: (e: unknown) => void) => () => void }
         | undefined;
 

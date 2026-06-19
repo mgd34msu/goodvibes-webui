@@ -41,6 +41,7 @@ export function resolveInitialTheme(): Theme {
       // fall through
     }
     // No stored preference: respect OS signal
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- lib.dom types matchMedia as always-present, but it can be absent at runtime in non-DOM/test/legacy environments; the optional chain is a deliberate safety fallback
     if (window.matchMedia?.('(prefers-color-scheme: light)').matches) {
       return 'light';
     }

@@ -128,8 +128,7 @@ function scoreCommand(cmd: CommandDef, q: string): number {
 
 function fuzzyMatch(haystack: string, needle: string): boolean {
   let hi = 0;
-  for (let ni = 0; ni < needle.length; ni++) {
-    const ch = needle[ni];
+  for (const ch of needle) {
     while (hi < haystack.length && haystack[hi] !== ch) hi++;
     if (hi >= haystack.length) return false;
     hi++;

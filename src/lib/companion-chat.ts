@@ -131,7 +131,7 @@ export function readStoredCompanionSessions(): unknown[] {
   const storage = browserStorage();
   if (!storage) return [];
   try {
-    const parsed = JSON.parse(storage.getItem(STORED_COMPANION_SESSIONS_KEY) ?? '[]');
+    const parsed: unknown = JSON.parse(storage.getItem(STORED_COMPANION_SESSIONS_KEY) ?? '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];

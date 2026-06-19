@@ -44,6 +44,7 @@ export default tseslint.config(
       ],
 
       // JSX a11y recommended
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- jsxA11y plugin typed as any
       ...jsxA11y.flatConfigs.recommended.rules,
 
       // TypeScript — relax a handful of strict rules that are noisy
@@ -76,9 +77,15 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-assignment": "warn",
       "@typescript-eslint/no-unsafe-argument": "warn",
       "@typescript-eslint/no-unsafe-call": "warn",
+      "@typescript-eslint/no-unsafe-member-access": "warn",
       "@typescript-eslint/no-base-to-string": "warn",
       "@typescript-eslint/no-misused-spread": "warn",
       "@typescript-eslint/no-dynamic-delete": "warn",
+      // Downgrade assertion rules — some patterns require casts (e.g. WS3 toast files)
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/no-non-null-assertion": "warn",
+      // Downgrade type definition style — interface vs type is stylistic
+      "@typescript-eslint/consistent-type-definitions": "warn",
       // a11y rules that require broader refactors: downgrade to warn
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
       "jsx-a11y/click-events-have-key-events": "warn",

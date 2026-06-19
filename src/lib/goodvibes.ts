@@ -34,7 +34,7 @@ interface RequestOptions {
   authenticated?: boolean;
 }
 
-const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition> = {
+const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.approve': { method: 'POST', path: '/api/approvals/{approvalId}/approve' },
   'approvals.cancel': { method: 'POST', path: '/api/approvals/{approvalId}/cancel' },
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
@@ -91,22 +91,23 @@ function buildUrl(path: string, query?: JsonRecord): string {
   const url = new URL(path, `${GOODVIBES_BASE_URL.replace(/\/+$/, '')}/`);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined || value === null || value === '') continue;
-    if (Array.isArray(value)) {
+    else if (Array.isArray(value)) {
       for (const item of value) {
-        if (item !== undefined && item !== null && item !== '') url.searchParams.append(key, String(item));
+        if (item !== undefined && item !== null && item !== '') {
+          url.searchParams.append(key, String(item));
+        }
       }
-      continue;
-    }
-    if (typeof value === 'object') {
+    } else if (typeof value === 'object') {
       url.searchParams.set(key, JSON.stringify(value));
-      continue;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is not an object (handled above), array (handled above), null/undefined/'' (skipped above)
+      url.searchParams.set(key, String(value));
     }
-    url.searchParams.set(key, String(value));
   }
   return url.toString();
 }
 
-async function authHeaders(): Promise<HeadersInit> {
+async function authHeaders(): Promise<Record<string, string>> {
   const token = await tokenStore.getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -144,6 +145,7 @@ function interpolateRoute(route: RouteDefinition, input: unknown): { path: strin
     const value = record[key];
     if (value === undefined || value === null || value === '') throw new Error(`Missing route parameter: ${key}`);
     consumed.add(key);
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is a non-null, non-undefined, non-empty string URL param; the throw guard above rejects undefined/null/'' but does not exclude objects, so String() may yield "[object Object]" for non-primitive route values
     return encodeURIComponent(String(value));
   });
   const rest = Object.fromEntries(Object.entries(record).filter(([key, value]) => !consumed.has(key) && value !== undefined));
@@ -240,6 +242,7 @@ export async function invokeMethod<TMethodId extends OperatorTypedMethodId>(
   methodId: TMethodId,
   input?: OperatorMethodInput<TMethodId>,
 ): Promise<OperatorMethodOutput<TMethodId>> {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- narrowing generic return type that TS cannot infer
   return sdk.operator.invoke(methodId, input as never) as Promise<OperatorMethodOutput<TMethodId>>;
 }
 

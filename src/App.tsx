@@ -34,12 +34,12 @@ import { formatError, isSessionNotFoundError } from './lib/errors';
 
 type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
 
-const views: Array<{
+const views: {
   id: ViewId;
   label: string;
   short: string;
   icon: typeof MessageSquare;
-}> = [
+}[] = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },

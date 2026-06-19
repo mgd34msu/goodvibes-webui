@@ -15,8 +15,10 @@ import {
 import { SessionHeader } from './chat/SessionHeader';
 import { MessageList } from './chat/MessageList';
 import { Composer } from './chat/Composer';
+import { ChatSearch } from './chat/ChatSearch';
 import { useChatSend } from './chat/useChatSend';
 import { useChatStream } from './chat/useChatStream';
+import '../styles/components/chat-view.css';
 import {
   ACTIVE_TURN_STATES,
   messageCreatedAt,
@@ -53,6 +55,7 @@ export function ChatView({
   const [selectedProviderId, setSelectedProviderId] = useState('');
   const [isRenamingTitle, setIsRenamingTitle] = useState(false);
   const [sessionTitleDraft, setSessionTitleDraft] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const providers = useQuery({ queryKey: queryKeys.providers, queryFn: () => sdk.operator.providers.list() });
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
@@ -152,7 +155,7 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
-  useChatStream({
+  const { isStreaming, stop } = useChatStream({
     activeSessionId,
     liveTextRef,
     onSessionMissing,
@@ -162,6 +165,7 @@ export function ChatView({
     setLocalMessages,
     setPendingUserMessageId,
     invalidateChatState,
+    turnState,
   });
 
   const send = useChatSend({
@@ -177,6 +181,7 @@ export function ChatView({
     setPendingUserMessageId,
     invalidateChatState,
   });
+  const { editAndResend, regenerateFrom: sendRegenerateFrom, branchMap, selectBranch } = send;
 
   const messageItems = companionMessagesFromListResponse(messages.data);
 
@@ -258,13 +263,12 @@ export function ChatView({
     sendText(text);
   }
 
-  function regenerateFrom(messageIndex: number) {
-    const previousUserMessage = renderedMessageItems
-      .slice(0, messageIndex)
-      .reverse()
-      .find((message) => messageTone(message) === 'user');
-    if (!previousUserMessage) return;
-    resendMessage(previousUserMessage);
+  function addAttachedFiles(files: File[]) {
+    if (files.length) setAttachedFiles((current) => [...current, ...files]);
+  }
+
+  function regenerateFrom(messageId: string) {
+    sendRegenerateFrom(messageId, renderedMessageItems);
   }
 
   function handleMessagesScroll() {
@@ -283,7 +287,7 @@ export function ChatView({
 
   function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    if (files.length) setAttachedFiles((current) => [...current, ...files]);
+    addAttachedFiles(files);
     event.target.value = '';
   }
 
@@ -314,6 +318,12 @@ export function ChatView({
 
   const visibleTurnState = turnState !== 'idle' && turnState !== 'completed';
 
+  const slashCommands = [
+    { name: 'clear', description: 'Clear the current chat' },
+    { name: 'help', description: 'Show available commands' },
+    { name: 'new', description: 'Start a new chat session' },
+  ] as const;
+
   return (
     <section className="chat-main">
       <SessionHeader
@@ -328,18 +338,44 @@ export function ChatView({
         onFinishRenamingTitle={finishRenamingTitle}
         onTitleKeyDown={handleTitleKeyDown}
       />
+      <div className="chat-toolbar">
+        <button
+          type="button"
+          className="chat-toolbar__search-toggle"
+          aria-pressed={showSearch}
+          aria-label={showSearch ? 'Close search' : 'Search messages'}
+          onClick={() => setShowSearch((v) => !v)}
+        >
+          Search
+        </button>
+      </div>
+      {showSearch && (
+        <ChatSearch
+          sessions={sessionItems}
+          onSelect={({ sessionId }) => {
+            onActiveSessionChange(sessionId);
+            setShowSearch(false);
+          }}
+          className="chat-search-panel"
+        />
+      )}
       <MessageList
         renderedMessageItems={renderedMessageItems}
         liveText={liveText}
         showJumpToBottom={showJumpToBottom}
         isSendPending={send.isPending}
+        isStreaming={isStreaming}
         copiedMessageId={copiedMessageId}
         scrollRef={scrollRef}
+        branchMap={branchMap}
         onScroll={handleMessagesScroll}
         onJumpToBottom={scrollMessagesToBottom}
         onCopyMessage={(message) => void copyMessage(message)}
         onResendMessage={resendMessage}
         onRegenerateFrom={regenerateFrom}
+        onEditMessage={editAndResend}
+        onSelectBranch={selectBranch}
+        onStop={stop}
       />
       <Composer
         draft={draft}
@@ -356,10 +392,12 @@ export function ChatView({
         selectModelPending={selectModel.isPending}
         composerRef={composerRef}
         fileInputRef={fileInputRef}
+        slashCommands={slashCommands}
         onDraftChange={setDraft}
         onComposerKeyDown={handleComposerKeyDown}
         onSubmit={submit}
         onFileSelection={handleFileSelection}
+        onFilesAdded={addAttachedFiles}
         onRemoveAttachedFile={removeAttachedFile}
         onProviderChange={setSelectedProviderId}
         onModelChange={(registryKey) => selectModel.mutate(registryKey)}

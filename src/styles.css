@@ -813,6 +813,44 @@ button:disabled {
   color: #2c3a42;
 }
 
+.data-block-pre-wrap {
+  position: relative;
+}
+
+.data-block-copy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--surface-raised, #f5f5f5);
+  color: var(--text-secondary, #666);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  z-index: 1;
+}
+
+.data-block-pre-wrap:hover .data-block-copy,
+.data-block-copy:focus-visible {
+  opacity: 1;
+}
+
+.data-block-copy:hover {
+  background: var(--accent-muted, #e8eef0);
+  color: var(--text-primary, #222);
+}
+
+.data-block-copy:focus-visible {
+  outline: 2px solid var(--border-focus, #3b82f6);
+  outline-offset: 2px;
+}
+
 .empty-state {
   margin: 12px 0;
   color: var(--quiet);
@@ -2771,6 +2809,105 @@ code {
   background: rgb(0 255 255 / 10%);
 }
 
+/* ─────────────────────────────────────────
+   DENSITY — consuming rules
+   Tokens are set in tokens.css; these rules
+   wire them to actual components.
+───────────────────────────────────────── */
+
+/* App shell: tighten sidebar gaps */
+:root[data-density="compact"] .sidebar {
+  gap: 12px;
+  padding: 12px 10px;
+}
+
+/* Nav items use the row-height token */
+.nav-item {
+  min-height: var(--row-h);
+}
+
+:root[data-density="compact"] .nav-item {
+  padding: 6px 8px;
+}
+
+/* Topbar: use space tokens for padding */
+.topbar {
+  padding: var(--space-4) var(--space-8);
+}
+
+:root[data-density="compact"] .topbar {
+  min-height: 58px;
+  padding: var(--space-3) var(--space-6);
+}
+
+/* view-frame: vertical padding tightens in compact */
+:root[data-density="compact"] .view-frame {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-6);
+}
+
+/* Panels: padding tightens in compact */
+:root[data-density="compact"] .panel,
+:root[data-density="compact"] .side-panel,
+:root[data-density="compact"] .data-block,
+:root[data-density="compact"] .answer-panel,
+:root[data-density="compact"] .detail-header {
+  padding: var(--space-3);
+}
+
+/* Stacks tighten */
+:root[data-density="compact"] .stack {
+  gap: var(--space-3);
+}
+
+:root[data-density="compact"] .two-column,
+:root[data-density="compact"] .three-column,
+:root[data-density="compact"] .split-layout {
+  gap: var(--space-3);
+}
+
+/* Record rows: min-height driven by compact row-h */
+.record-row,
+.action-row,
+.model-row {
+  min-height: var(--row-h);
+}
+
+:root[data-density="compact"] .record-row,
+:root[data-density="compact"] .action-row,
+:root[data-density="compact"] .model-row {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Sidebar sessions list: compact row heights */
+:root[data-density="compact"] .sidebar-session {
+  padding: 6px 8px;
+}
+
+/* Form inputs: compact height — use --row-h (overridden to 28px in compact by tokens.css) */
+:root[data-density="compact"] .routing-row select,
+:root[data-density="compact"] .routing-row input,
+:root[data-density="compact"] .knowledge-search input,
+:root[data-density="compact"] .knowledge-map-controls input,
+:root[data-density="compact"] .form-grid input,
+:root[data-density="compact"] .form-grid select {
+  height: var(--row-h);
+}
+
+/* ─────────────────────────────────────────
+   SIDEBAR OVERLAY SCRIM
+   Tap-outside-to-close for the mobile sidebar.
+   The .sidebar-scrim element is rendered by the
+   Phase 3b / integration workstream in App.tsx.
+   CSS is ready; DOM element is deferred.
+───────────────────────────────────────── */
+.sidebar-scrim {
+  display: none;
+}
+
+/* ─────────────────────────────────────────
+   BREAKPOINT: ≤1280px
+───────────────────────────────────────── */
 @media (max-width: 1280px) {
   .metadata-grid,
   .runtime-grid {
@@ -2779,19 +2916,59 @@ code {
 }
 
 @media (max-width: 980px) {
-  .app-shell,
+  /* ── App shell: single main column.
+     Collapsed sidebar = narrow 60px fixed rail on left.
+     Open sidebar = full-width fixed overlay on top of workspace. ── */
+
+  /* Collapsed: narrow icon-rail stays fixed on the left. */
   .app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+  }
+
+  /* Open: sidebar overlays — workspace fills full width. */
+  .app-shell:not(.sidebar-collapsed) {
     grid-template-columns: 1fr;
   }
 
-  .sidebar,
-  .sidebar.collapsed {
-    position: static;
-    align-items: stretch;
-    height: auto;
-    min-height: auto;
+  /* Sidebar: always fixed. When open it overlays workspace. */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: var(--z-nav);
+    height: 100dvh;
+    height: 100vh;
+    overflow-y: auto;
+    transition:
+      width var(--motion-base) var(--ease-standard),
+      box-shadow var(--motion-base) var(--ease-standard);
   }
 
+  /* Open: full sidebar overlays content */
+  .sidebar:not(.collapsed) {
+    width: var(--sidebar-width);
+    box-shadow: 4px 0 32px rgb(0 0 0 / 48%);
+  }
+
+  /* Collapsed: narrow icon-rail */
+  .sidebar.collapsed {
+    width: var(--sidebar-width-collapsed);
+    box-shadow: none;
+  }
+
+  /* When sidebar is open, show a scrim behind it.
+     (The .sidebar-scrim element is rendered by App.tsx future integration;
+     for now the sidebar is operable without a scrim via the toggle button.) */
+  .app-shell:not(.sidebar-collapsed) .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-nav) - 1);
+    background: rgb(0 0 0 / 48%);
+    cursor: pointer;
+  }
+
+  /* Restore collapsed-sidebar brand/nav overrides */
   .sidebar.collapsed .brand {
     flex-direction: row;
     justify-content: space-between;
@@ -2810,6 +2987,12 @@ code {
     justify-content: flex-start;
   }
 
+  /* Grid dot pattern: starts from sidebar-collapsed edge */
+  .sidebar.collapsed ~ .workspace:not(.workspace-chat)::before,
+  .app-shell.sidebar-collapsed .workspace:not(.workspace-chat)::before {
+    left: 0;
+  }
+
   .nav-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2820,15 +3003,17 @@ code {
   }
 
   .topbar {
-    position: static;
-    grid-template-columns: 1fr;
-    align-items: start;
+    position: sticky;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--space-3);
   }
 
   .topbar-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
+  /* ── Non-chat view layouts: stack on tablet ── */
   .split-layout,
   .chat-layout,
   .two-column,
@@ -2841,7 +3026,12 @@ code {
   }
 
   .three-column {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Panels inside non-chat views: allow natural height, no overflow cap */
+  .side-panel {
+    overflow: visible;
   }
 
   .workspace-chat,
@@ -2863,6 +3053,7 @@ code {
 }
 
 @media (max-width: 680px) {
+  /* Sidebar stays as fixed overlay (from 980 block); tighten padding */
   .sidebar {
     padding: 14px;
   }
@@ -2876,8 +3067,9 @@ code {
     grid-template-columns: 1fr 1fr;
   }
 
+  /* nav-item min-height: use token (--row-h = 36px default, 28px compact) */
   .nav-item {
-    min-height: 50px;
+    min-height: max(44px, var(--row-h));
   }
 
   .surface-card {
@@ -2890,14 +3082,36 @@ code {
     padding-right: 14px;
   }
 
+  .topbar {
+    /* Full-width single column on phone */
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .view-frame {
     padding-top: 16px;
+  }
+
+  /* three-column falls back to single on phone */
+  .three-column {
+    grid-template-columns: 1fr;
   }
 
   .metadata-grid,
   .runtime-grid,
   .form-split {
     grid-template-columns: 1fr;
+  }
+
+  /* Non-chat panels: allow natural scroll, no max-height cap on phone */
+  .side-panel {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .routing-row,
@@ -2943,4 +3157,39 @@ code {
   .chat-main .message.user {
     max-width: 100%;
   }
+}
+
+/* ────────────────────────────────────────
+   BREAKPOINT: ≤480px (very small phones)
+   Mirrors the per-component 480px blocks already
+   present in providers.css and peek.css.
+──────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Nav items: enforce 44px touch target minimum */
+  .nav-item {
+    min-height: max(44px, var(--row-h));
+  }
+
+  /* Topbar: single column, start-aligned actions */
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  /* Banner text: allow wrap on very narrow screens */
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  /* Form grids: always single column */
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebar-scrim: full-viewport at this size too (inherited from 980px rule) */
 }

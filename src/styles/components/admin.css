@@ -34,3 +34,27 @@
   gap: var(--space-2);
   padding: var(--space-2) 0;
 }
+
+/* ============================================================
+   Density: compact spacing in admin panels
+   ============================================================ */
+
+:root[data-density="compact"] .admin-skeleton-group {
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+}
+
+/* ============================================================
+   Responsive: admin-specific layout helpers
+   ============================================================ */
+
+/* On mobile the runtime status grid goes single column
+   (handled globally) but we want admin form fields to stay
+   readable — ensure textareas don’t overflow */
+@media (max-width: 680px) {
+  .admin-config-textarea--invalid {
+    /* Maintain the full-width behavior on narrow screens */
+    width: 100%;
+    min-width: 0;
+  }
+}

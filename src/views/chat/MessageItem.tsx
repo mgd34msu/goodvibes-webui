@@ -1,5 +1,8 @@
-import { Check, Copy, Paperclip, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Layers, Paperclip, Pencil, RotateCcw, X } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 import type { ChatMessage } from './types';
+import type { BranchRecord } from './useChatSend';
+import { useArtifactsPanel } from './ArtifactsPanel';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { asRecord } from '../../lib/object';
 import {
@@ -12,15 +15,22 @@ import {
   messageTimestamp,
   bestId,
 } from './message-utils';
+import '../../styles/components/chat-actions.css';
 
 interface MessageItemProps {
   message: ChatMessage;
   index: number;
   isSendPending: boolean;
   copiedMessageId: string;
+  /** Branch record for this message, if variants exist. */
+  branchRecord?: BranchRecord;
   onCopyMessage: (message: ChatMessage) => void;
   onResendMessage: (message: ChatMessage) => void;
-  onRegenerateFrom: (index: number) => void;
+  onRegenerateFrom: (messageId: string) => void;
+  /** Called when the user submits an edited version of a user message. */
+  onEditMessage?: (message: ChatMessage, newText: string) => void;
+  /** Called when the user selects a branch variant by index. */
+  onSelectBranch?: (rootMessageId: string, index: number) => void;
 }
 
 export function MessageItem({
@@ -28,17 +38,86 @@ export function MessageItem({
   index,
   isSendPending,
   copiedMessageId,
+  branchRecord,
   onCopyMessage,
   onResendMessage,
   onRegenerateFrom,
+  onEditMessage,
+  onSelectBranch,
 }: MessageItemProps) {
   const id = bestId(message) || `${index}`;
   const tone = messageTone(message);
   const state = deliveryState(message);
-  const canRetry = Boolean(messageText(message)) && (tone === 'user' || tone === 'assistant');
+  const rawText = messageText(message);
+  const { openArtifacts } = useArtifactsPanel();
+  // When a branch record exists and has been navigated, display the selected
+  // variant's text instead of the raw message text. Use `|| rawText` (not `??`)
+  // so an empty-string variant (e.g. a regeneration placeholder) falls back to
+  // rawText instead of rendering a blank bubble.
+  const text = branchRecord && branchRecord.variants.length > 0
+    ? (branchRecord.variants[branchRecord.currentIndex]?.text || rawText)
+    : rawText;
+  const canRetry = Boolean(rawText) && (tone === 'user' || tone === 'assistant');
   const timestamp = messageTimestamp(message);
   const attachments = messageAttachments(message);
-  const text = messageText(message);
+
+  // ---------------------------------------------------------------------------
+  // Inline edit state (user messages only)
+  // ---------------------------------------------------------------------------
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleEditStart = useCallback(() => {
+    setEditDraft(text);
+    setIsEditing(true);
+    // Focus textarea on next tick after render
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [text]);
+
+  const handleEditCancel = useCallback(() => {
+    setIsEditing(false);
+    setEditDraft('');
+  }, []);
+
+  const handleEditSubmit = useCallback(() => {
+    const trimmed = editDraft.trim();
+    if (!trimmed || isSendPending) return;
+    onEditMessage?.(message, trimmed);
+    setIsEditing(false);
+    setEditDraft('');
+  }, [editDraft, isSendPending, message, onEditMessage]);
+
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleEditSubmit();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleEditCancel();
+      }
+    },
+    [handleEditSubmit, handleEditCancel],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Branch navigation helpers
+  // ---------------------------------------------------------------------------
+  const hasBranches = branchRecord !== undefined && branchRecord.variants.length > 1;
+  const branchIndex = branchRecord?.currentIndex ?? 0;
+  const branchTotal = branchRecord?.variants.length ?? 1;
+
+  const handlePrevBranch = useCallback(() => {
+    if (!branchRecord || !onSelectBranch) return;
+    onSelectBranch(branchRecord.rootMessageId, branchIndex - 1);
+  }, [branchRecord, branchIndex, onSelectBranch]);
+
+  const handleNextBranch = useCallback(() => {
+    if (!branchRecord || !onSelectBranch) return;
+    onSelectBranch(branchRecord.rootMessageId, branchIndex + 1);
+  }, [branchRecord, branchIndex, onSelectBranch]);
 
   return (
     <article className={`message ${tone}`}>
@@ -48,24 +127,62 @@ export function MessageItem({
             <span>{timestamp}</span>
           </div>
         )}
-        {text && <MarkdownMessage content={text} />}
-        {attachments.length > 0 && (
-          <div className="message-attachments">
-            {attachments.map((attachment, attachmentIndex) => (
-              <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
-                <Paperclip size={13} />
-                <div>
-                  <strong>{attachmentLabel(attachment)}</strong>
-                  {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
-                </div>
-              </div>
-            ))}
+
+        {isEditing && tone === 'user' ? (
+          <div className="message-edit-area">
+            <textarea
+              ref={textareaRef}
+              className="message-edit-textarea"
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              aria-label="Edit message"
+              rows={3}
+            />
+            <div className="message-edit-actions">
+              <button
+                type="button"
+                className="message-edit-cancel"
+                onClick={handleEditCancel}
+                aria-label="Cancel edit"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="message-edit-submit"
+                onClick={handleEditSubmit}
+                disabled={!editDraft.trim() || isSendPending}
+                aria-label="Send edited message (Ctrl+Enter)"
+              >
+                Send
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            {text && <MarkdownMessage content={text} />}
+            {attachments.length > 0 && (
+              <div className="message-attachments">
+                {attachments.map((attachment, attachmentIndex) => (
+                  <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
+                    <Paperclip size={13} />
+                    <div>
+                      <strong>{attachmentLabel(attachment)}</strong>
+                      {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
+          </>
         )}
-        {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
       </div>
+
       <div className="message-actions">
         <div className="message-actions-inner">
+          {/* Delivery indicator */}
           {state && (
             <span
               className={`delivery-indicator ${state}`}
@@ -74,21 +191,83 @@ export function MessageItem({
               {state === 'failed' ? <X size={12} /> : <Check size={12} />}
             </span>
           )}
-          <button type="button" title="Copy message" onClick={() => onCopyMessage(message)}>
+
+          {/* Copy */}
+          <button type="button" title="Copy message" aria-label="Copy message" onClick={() => onCopyMessage(message)}>
             <Copy size={13} />
           </button>
-          {canRetry && (
+
+          {/* Edit (user messages only) — only shown when onEditMessage handler is provided */}
+          {tone === 'user' && canRetry && !isEditing && onEditMessage !== undefined && (
+            <button
+              type="button"
+              title="Edit and resend"
+              aria-label="Edit and resend message"
+              disabled={isSendPending}
+              onClick={handleEditStart}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+
+          {/* Resend / Regenerate */}
+          {canRetry && !isEditing && (
             <button
               type="button"
               title={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
+              aria-label={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
               disabled={isSendPending}
-              onClick={() => (tone === 'assistant' ? onRegenerateFrom(index) : onResendMessage(message))}
+              onClick={() => (tone === 'assistant' ? onRegenerateFrom(id) : onResendMessage(message))}
             >
               <RotateCcw size={13} />
             </button>
           )}
+
+          {/* View artifacts — shown on assistant messages that contain code blocks or attachments */}
+          {tone === 'assistant' && (text || attachments.length > 0) && (
+            <button
+              type="button"
+              title="View artifacts"
+              aria-label="View artifacts from this message"
+              className="message-action-artifacts"
+              onClick={() => openArtifacts(message)}
+            >
+              <Layers size={13} />
+            </button>
+          )}
+
+          {/* Copied label */}
           {copiedMessageId === id && <span className="message-action-label">copied</span>}
         </div>
+
+        {/* Branch navigator — shown when message has multiple variants */}
+        {hasBranches && (
+          <div className="branch-nav" role="group" aria-label="Response variants">
+            <button
+              type="button"
+              className="branch-nav__btn"
+              onClick={handlePrevBranch}
+              disabled={branchIndex === 0}
+              aria-label="Previous variant"
+              title="Previous variant"
+            >
+              <ChevronLeft size={12} />
+            </button>
+            <span className="branch-nav__label" aria-live="polite" aria-atomic="true">
+              {branchIndex + 1}/{branchTotal}
+            </span>
+            <button
+              type="button"
+              className="branch-nav__btn"
+              onClick={handleNextBranch}
+              disabled={branchIndex === branchTotal - 1}
+              aria-label="Next variant"
+              title="Next variant"
+            >
+              <ChevronRight size={12} />
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );

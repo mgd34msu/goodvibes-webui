@@ -165,6 +165,19 @@ export function useToast(): {
   return { toast: ctx.toast, dismiss: ctx.dismiss, dismissAll: ctx.dismissAll };
 }
 
+/**
+ * Safe variant — returns null when called outside a ToastProvider.
+ * Use in leaf components that may be rendered in test environments without
+ * the full provider tree.
+ */
+export function useOptionalToast(): {
+  toast: (options: ToastOptions) => string;
+} | null {
+  const ctx = useContext(ToastContext);
+  if (!ctx) return null;
+  return { toast: ctx.toast };
+}
+
 /** Internal: exposes full context for ToastViewport. */
 export function useToastContext(): ToastContextValue {
   const ctx = useContext(ToastContext);

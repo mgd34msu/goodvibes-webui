@@ -87,24 +87,24 @@ function extractFileArtifacts(message: ChatMessage): FileArtifact[] {
   if (message.artifacts) {
     for (const art of message.artifacts) {
       const id =
-        typeof art['artifactId'] === 'string'
-          ? art['artifactId']
-          : typeof art['id'] === 'string'
-            ? art['id']
+        typeof art.artifactId === 'string'
+          ? art.artifactId
+          : typeof art.id === 'string'
+            ? art.id
             : '';
       const label =
-        typeof art['label'] === 'string'
-          ? art['label']
-          : typeof art['filename'] === 'string'
-            ? art['filename']
-            : typeof art['name'] === 'string'
-              ? art['name']
+        typeof art.label === 'string'
+          ? art.label
+          : typeof art.filename === 'string'
+            ? art.filename
+            : typeof art.name === 'string'
+              ? art.name
               : 'Artifact';
       const mimeType =
-        typeof art['mimeType'] === 'string'
-          ? art['mimeType']
-          : typeof art['type'] === 'string'
-            ? art['type']
+        typeof art.mimeType === 'string'
+          ? art.mimeType
+          : typeof art.type === 'string'
+            ? art.type
             : 'application/octet-stream';
       items.push({ id, label, mimeType });
     }

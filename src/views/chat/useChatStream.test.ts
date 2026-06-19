@@ -26,10 +26,10 @@ import type { Dispatch, SetStateAction } from 'react';
 // ---------------------------------------------------------------------------
 
 type StreamDisconnect = () => void;
-type StreamOptions = {
+interface StreamOptions {
   onEvent: (eventName: string, payload: unknown) => void;
   onError: (error: unknown) => void;
-};
+}
 
 /**
  * Controls for the mock stream:
@@ -98,7 +98,7 @@ function HookOwner({ activeSessionId, turnState, setTurnState, onResult }: HookO
 
   React.useLayoutEffect(() => {
     onResult(result);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  });  
 
   return null;
 }
@@ -116,8 +116,6 @@ function renderHookHelper({
 } = {}) {
   let result!: UseChatStreamResult;
   let currentTurnState = initialTurnState;
-  let rerender!: (turnState: string) => void;
-
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -136,7 +134,7 @@ function renderHookHelper({
     });
   };
 
-  rerender = (turnState: string) => {
+  const rerender = (turnState: string) => {
     currentTurnState = turnState;
     flushSync(() => {
       root.render(

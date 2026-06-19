@@ -31,7 +31,7 @@ function makeDragEvent({
 
 /** Build a minimal fake ClipboardEvent with the given items. */
 function makeClipboardEvent(
-  items: Array<{ kind: string; type: string; file: File | null }>,
+  items: { kind: string; type: string; file: File | null }[],
 ): ClipboardEvent {
   const clipboardItems = items.map((item) => ({
     kind: item.kind,

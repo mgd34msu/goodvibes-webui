@@ -36,7 +36,7 @@ function HookOwner({
   const handlers = useAutoDismiss({ id, durationMs, onDismiss });
   React.useLayoutEffect(() => {
     onHandlers(handlers);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  });  
   return null;
 }
 

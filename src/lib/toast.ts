@@ -48,11 +48,11 @@ export const TOAST_EXIT_DURATION_MS = 180;
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
-type ToastState = {
+interface ToastState {
   toasts: ToastEntry[];
   /** IDs currently playing their exit animation — still mounted, present=false. */
   leavingIds: ReadonlySet<string>;
-};
+}
 
 type ToastAction_Dispatch =
   | { type: 'ADD'; toast: ToastEntry }
@@ -274,7 +274,7 @@ export function useAutoDismiss({ id, durationMs, onDismiss }: UseAutoDismissOpti
       if (durationMs <= 0) return;
       // relatedTarget is null when focus leaves the document, or when focus moves
       // outside this toast — resume only in the latter case.
-      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      if (e.currentTarget.contains(e.relatedTarget)) return;
       resumeSource('focus');
     },
     [durationMs, resumeSource],

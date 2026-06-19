@@ -43,7 +43,7 @@ describe('reducer: DISMISS → (leaving) → PURGE lifecycle', () => {
 
   test('DISMISS marks entry as leaving; PURGE removes it from both toasts and leavingIds', () => {
     // Drive the real toastReducer exported from toast.ts — no local copy.
-    type Entry = { id: string; title: string; durationMs: number; tone: 'info' };
+    interface Entry { id: string; title: string; durationMs: number; tone: 'info' }
 
     const entry: Entry = { id: 'test-1', title: 'Hello', durationMs: 5000, tone: 'info' };
     // Cast through unknown: toastReducer is typed against ToastEntry but the

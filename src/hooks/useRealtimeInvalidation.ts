@@ -3,12 +3,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 
-type RealtimeDomain = {
+interface RealtimeDomain {
   onEnvelope?: (eventName: string, handler: (event: unknown) => void) => () => void;
-};
+}
 
 function domain(events: unknown, name: string): RealtimeDomain {
-  return ((events as Record<string, unknown>)[name] ?? {}) as RealtimeDomain;
+  const value = (events as Record<string, unknown>)[name];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- value is unknown; cast is required even though RealtimeDomain has all-optional keys
+  return (value ?? {}) as RealtimeDomain;
 }
 
 export function useRealtimeInvalidation(enabled: boolean) {
@@ -17,7 +19,7 @@ export function useRealtimeInvalidation(enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return undefined;
-    let unsubs: Array<() => void> = [];
+    let unsubs: (() => void)[] = [];
 
     try {
       const events = sdk.realtime.viaSse();

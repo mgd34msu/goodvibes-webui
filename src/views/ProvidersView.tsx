@@ -208,6 +208,7 @@ export function ProvidersView() {
             description="No providers are registered with the daemon."
           />
         ) : (
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- keyboard nav container; role=group is ARIA grouping, arrow-key handling is intentional
           <div
             ref={providerListRef}
             className="providers-record-list"

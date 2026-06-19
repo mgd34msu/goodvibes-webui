@@ -29,7 +29,6 @@ interface AdminViewProps {
 function classifyConfigError(error: unknown): { title: string; description: string; tone: 'danger' | 'warning' } {
   const serialized = serializeError(error);
   const status = typeof serialized.status === 'number' ? serialized.status : undefined;
-  const category = typeof serialized.category === 'string' ? serialized.category : '';
   const code = errorCode(error);
   const message = formatError(error);
 

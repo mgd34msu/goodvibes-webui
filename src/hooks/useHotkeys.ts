@@ -125,6 +125,7 @@ export function eventToCombo(event: KeyboardEvent): string {
 
 export function useHotkeys(bindings: HotkeyBinding[]): void {
   const bindingsRef = useRef(bindings);
+  // eslint-disable-next-line react-hooks/refs -- intentional mutable ref pattern for stable handler closure
   bindingsRef.current = bindings;
 
   // Track the pending first key of a two-key sequence
@@ -151,9 +152,8 @@ export function useHotkeys(bindings: HotkeyBinding[]): void {
 
           // Check if we're in the second step of this sequence
           if (
-            pending &&
-            pending.key === firstKey &&
-            Date.now() - pending.ts < SEQUENCE_TIMEOUT_MS &&
+            pending?.key === firstKey &&
+            Date.now() - (pending?.ts ?? Infinity) < SEQUENCE_TIMEOUT_MS &&
             currentCombo === secondKey
           ) {
             pendingSeqRef.current = null;

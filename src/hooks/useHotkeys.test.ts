@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, expect, test, mock } from 'bun:test';
 import { normaliseCombo, eventToCombo } from './useHotkeys';
 import type { HotkeyBinding } from './useHotkeys';
 
@@ -182,15 +182,6 @@ function mkKeyEvent(
   } as unknown as KeyboardEvent;
 }
 
-/** Creates a minimal HTMLElement-like editable target stub. */
-function mkInputTarget(): EventTarget {
-  return {
-    tagName: 'INPUT',
-    isContentEditable: false,
-    // HTMLElement instanceof check would fail here — handled in harness
-  } as unknown as EventTarget;
-}
-
 /**
  * Dispatch harness: mirrors the handler logic inside useHotkeys.
  * Runs a single keydown event through a set of bindings.
@@ -198,7 +189,7 @@ function mkInputTarget(): EventTarget {
  */
 function runDispatch(
   event: KeyboardEvent,
-  bindings: Array<HotkeyBinding & { id: string }>,
+  bindings: (HotkeyBinding & { id: string })[],
   pendingSeq: { key: string; ts: number } | null = null,
   isEditable = false,
 ): { fired: string[]; newPending: { key: string; ts: number } | null } {
@@ -222,7 +213,6 @@ function runDispatch(
         Date.now() - pending.ts < SEQUENCE_TIMEOUT_MS &&
         currentCombo === secondKey
       ) {
-        pending = null;
         bindingHandler(event);
         fired.push(id);
         return { fired, newPending: null };
@@ -236,7 +226,6 @@ function runDispatch(
     }
 
     if (currentCombo === normCombo) {
-      pending = null;
       bindingHandler(event);
       fired.push(id);
       return { fired, newPending: null };
@@ -248,7 +237,7 @@ function runDispatch(
 
 describe('dispatch-level: full pipeline (event → combo → handler fires)', () => {
   // Standard bindings mirroring CommandProvider (test env: mod=Control)
-  function makeBindings(): Array<HotkeyBinding & { id: string }> {
+  function makeBindings(): (HotkeyBinding & { id: string })[] {
     return [
       { id: 'mod+k',        combo: 'mod+k',        handler: mock(() => {}), allowInInput: true },
       { id: '?',            combo: '?',            handler: mock(() => {}) },
@@ -344,12 +333,12 @@ describe('dispatch-level: end-to-end combo audit (all 7 advertised shortcuts)', 
   // These are the exact bindings from CommandProvider.
   // In test env (non-Mac): mod → Control.
 
-  const cases: Array<{
+  const cases: {
     label: string;
     combo: string;
     event: KeyboardEvent;
     expectMatch: boolean;
-  }> = [
+  }[] = [
     {
       label: 'g c (first key)',
       combo: 'g c',

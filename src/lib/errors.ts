@@ -14,7 +14,7 @@ export function serializeError(error: unknown): Record<string, unknown> {
   if (!error) return {};
   if (error instanceof Error) {
     const record = asRecord(error);
-    const json = typeof record.toJSON === 'function' ? asRecord(record.toJSON()) : {};
+    const json = typeof record.toJSON === 'function' ? asRecord((record.toJSON as () => unknown)()) : {};
     return {
       name: error.name,
       message: error.message,

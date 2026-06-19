@@ -1,3 +1,5 @@
+@import '../skeleton.css';
+
 /* =============================================================
    Toast + Motion primitives
    WS3 — uses TOKEN-CONTRACT.md tokens only; no hardcoded values
@@ -186,9 +188,7 @@
   outline-offset: 2px;
 }
 
-/* ── Skeleton shimmer ────────────────────────────── */
-/* Rules live in skeleton.css; imported here for viewport co-location. */
-@import '../skeleton.css';
+
 
 /* ── Reduced motion overrides ────────────────────────────── */
 

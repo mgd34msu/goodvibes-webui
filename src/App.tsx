@@ -182,12 +182,23 @@ export default function App() {
     void queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
   }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, queryClient, setSession]);
 
+  const handleNavigate = useCallback(
+    (nextView: ViewId, options?: { newChat?: boolean }) => {
+      setView(nextView);
+      if (options?.newChat) {
+        setSession('', { replace: true });
+        setDraftChatRequested(true);
+      }
+    },
+    [setView, setSession],
+  );
+
   const title = useMemo(() => views.find((v) => v.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((v) => v.id === activeView)?.short ?? 'Surface', [activeView]);
   const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
-    <AppShell view={view} onNavigate={setView}>
+    <AppShell view={view} onNavigate={handleNavigate}>
     <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
       <aside
         className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}

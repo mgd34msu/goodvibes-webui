@@ -50,18 +50,21 @@ export interface AppShellProps {
    */
   view: ViewId;
   /**
-   * Navigation callback. Wire to useUrlState().setView in App:
-   *   const { view, setView } = useUrlState();
-   *   <AppShell view={view} onNavigate={setView}>
+   * Navigation callback. Wire to App's navigate handler:
+   *   <AppShell view={view} onNavigate={handleNavigate}>
+   *
+   * Receives an optional options bag; when options.newChat is true the
+   * caller should start a fresh chat draft in addition to switching to
+   * the chat view.
    */
-  onNavigate: (view: ViewId) => void;
+  onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
 }
 
 // ─── Inner shell (rendered inside ThemeProvider so useTheme is available) ──
 
 interface InnerShellProps {
   children: ReactNode;
-  onNavigate: (view: ViewId) => void;
+  onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
 }
 
 function InnerShell({ children, onNavigate }: InnerShellProps) {

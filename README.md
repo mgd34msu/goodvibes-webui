@@ -1,7 +1,7 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 0.1.39](https://img.shields.io/badge/WebUI-0.1.39-00d7ff)
+![WebUI 0.2.0](https://img.shields.io/badge/WebUI-0.2.0-00d7ff)
 ![SDK 0.33.30](https://img.shields.io/badge/SDK-0.33.30-8b5cf6)
 ![Bun 1.3.10](https://img.shields.io/badge/Bun-1.3.10-f7a8ff)
 
@@ -15,7 +15,7 @@ the configured WebUI origin and Vite proxy during development.
 
 ## Current Versions
 
-- WebUI: `0.1.39`
+- WebUI: `0.2.0`
 - SDK: `@pellux/goodvibes-sdk@0.33.30`
 - Runtime: Bun `1.3.10`
 
@@ -148,6 +148,76 @@ Home Assistant Home Graph is not part of the general Knowledge/Wiki surface.
 Do not call Home Graph routes or add WebUI-side Home Graph filtering to the
 regular Knowledge page. Regular Knowledge scoping is owned upstream by the
 daemon/SDK.
+
+## Console UX
+
+Version 0.2.0 ships a best-in-class operator console UX overhaul across every
+surface. The application remains intentionally thin over the SDK; the overhaul
+adds interaction depth and polish without introducing new daemon dependencies.
+See [docs/ux-overhaul/PLAN.md](docs/ux-overhaul/PLAN.md) for the full design
+plan and phase breakdown.
+
+### Command-First Interaction
+
+- **⌘K command palette** — fuzzy-search and invoke any action from the keyboard.
+- **Global hotkeys** — pre-bound shortcuts for navigation, new chat, search, and
+  palette open.
+- **Shortcut cheatsheet** overlay listing all registered bindings.
+
+### Daemon Pulse Strip
+
+A persistent status strip anchored to the shell shows connection state,
+round-trip latency, SSE health, and active-work count at a glance. State
+transitions (connected / reconnecting / down) are immediately visible without
+navigating to Admin.
+
+### Chat Workspace
+
+- **Token streaming + stop** — assistant tokens render as they arrive; a stop
+  button cancels the in-flight turn.
+- **Edit / regenerate / branch** — edit any past user message to fork the
+  conversation, or regenerate the last assistant response.
+- **Artifacts slide-over** — structured data blocks and large outputs open in a
+  side panel without leaving the conversation.
+- **Cross-session search** — search messages across all companion chat sessions.
+- **Upgraded composer** — inline model menu, slash-command trigger, and
+  drag-and-drop / paste attachment support with optimistic send.
+
+### Spatial Model and Deep-Linking
+
+- **URL deep-linking** — chat sessions, views, and slide-over peek targets are
+  addressable by URL and survive page refresh.
+- **Slide-over peek** — open a session, artifact, or record in a non-blocking
+  overlay without losing current context.
+
+### Visual System and Theming
+
+- **Dark mode default** — the app ships dark-first with a full semantic token
+  system (`src/styles/tokens.css`) covering color, spacing, radius, typography,
+  elevation, motion, and z-index.
+- **Density modes** — compact, default, and comfortable density presets
+  persisted in the existing UI-preferences store.
+
+### Motion and Feedback
+
+- **Toast / undo notifications** — non-blocking toasts with optional undo
+  actions and auto-dismiss.
+- **Purposeful motion** — entrance, exit, and transition animations driven by
+  the token system; all animations respect `prefers-reduced-motion`.
+
+### Empty, Loading, and Error States
+
+Every view ships consistent skeleton loaders, empty-state illustrations,
+error-state messages with retry actions, and a top-level `ErrorBoundary` that
+prevents a single component failure from blanking the app.
+
+### Accessibility and Responsive Layout
+
+- Full keyboard navigation with roving focus and visible focus rings.
+- `aria-live` announcer for dynamic content changes.
+- Focus-trap for modals, palette, and slide-over.
+- Responsive breakpoints supporting mobile through wide-desktop layouts.
+- Density and motion preferences stored and applied globally.
 
 ## Verification
 

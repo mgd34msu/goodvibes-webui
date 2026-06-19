@@ -4,6 +4,63 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.2.0] - 2026-06-19
+
+### Added
+
+- **Design token system + dark-mode-default foundation** — full semantic token
+  system (`src/styles/tokens.css`) covering color (light/dark via `[data-theme]`),
+  spacing, radius, typography, elevation, motion, and z-index. App ships
+  dark-first with `prefers-color-scheme` bootstrap and `prefers-reduced-motion`
+  support throughout.
+- **Density modes** — compact, default, and comfortable density presets
+  persisted in the existing UI-preferences store and applied globally.
+- **⌘K command palette + global hotkeys** — fuzzy-search and invoke any
+  registered action from the keyboard. Pre-bound shortcuts for navigation,
+  new chat, search, and palette open. Shortcut cheatsheet overlay lists all
+  registered bindings.
+- **Daemon pulse status strip** — persistent shell strip showing connection
+  state (connected / reconnecting / down), round-trip latency, SSE health, and
+  active-work count at all times.
+- **Chat workspace overhaul** — token streaming with stop control; edit /
+  regenerate / branch on any message; artifacts slide-over panel for structured
+  data blocks and large outputs; cross-session message search; upgraded composer
+  with inline model menu, slash-command trigger, drag-and-drop / paste
+  attachments, and optimistic send.
+- **URL deep-linking + slide-over peek** — chat sessions, views, and peek
+  targets are addressable by URL and survive page refresh; non-blocking
+  slide-over overlay for sessions, artifacts, and records.
+- **Toast / undo notifications** — non-blocking toasts with optional undo
+  actions and auto-dismiss; purposeful entrance/exit animations.
+- **Feedback primitives** — consistent skeleton loaders, empty-state
+  illustrations, and error-state messages with retry actions across all views.
+  Top-level `ErrorBoundary` prevents a single component failure from blanking
+  the app.
+- **Full keyboard accessibility** — roving focus, visible focus rings,
+  `aria-live` announcer, focus-trap for modals/palette/slide-over.
+- **Responsive + mobile layout** — responsive breakpoints from mobile to
+  wide-desktop; density and motion preferences stored and applied globally.
+- **ESLint + Prettier + jsx-a11y tooling** — project-wide lint/format
+  enforcement with `eslint-plugin-jsx-a11y` for accessibility linting.
+- **happy-dom test harness** — DOM-capable unit tests via `happy-dom`.
+- **CI caching + coverage** — GitHub Actions workflow gains dependency caching
+  and test-coverage reporting.
+- **Dependabot** — automated dependency update PRs for npm and GitHub Actions.
+- **537 tests** — component, unit, and integration tests covering command
+  palette, status strip, chat stream, theme/preferences, a11y helpers, and
+  per-view logic.
+
+### Changed
+
+- `ChatView` decomposed into focused modules under `src/views/chat/` (Composer,
+  MessageList, MessageItem, SessionHeader, and stream/turn hooks) for
+  maintainability.
+- Shell (`App.tsx` / `main.tsx`) updated to mount `ThemeProvider`,
+  `ToastProvider`, `CommandPalette`, `StatusStrip`, top-level `ErrorBoundary`,
+  and URL-driven view router.
+- KnowledgeView, ProvidersView, and AdminView updated with loading/empty/error
+  states, peek integration, and full keyboard/roving-focus accessibility.
+
 ## [0.1.39] - 2026-05-20
 
 ### Changed

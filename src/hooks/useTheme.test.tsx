@@ -2,82 +2,22 @@
  * Tests for useTheme hook and ThemeProvider.
  * Uses react-dom/client + flushSync + happy-dom (bunfig.toml preload).
  *
- * happy-dom's CustomEvent/StorageEvent are incompatible with bun's native
- * EventTarget. We route window event methods to a shared happy-dom Window
- * so source-code event dispatch and listener registration work end-to-end.
+ * With @happy-dom/global-registrator (installed by test-setup.ts), `window`
+ * IS a real happy-dom Window whose dispatchEvent/addEventListener/
+ * removeEventListener are all native happy-dom methods. No event-bus patch
+ * is needed — events dispatched on `window` are received by listeners on
+ * `window` directly.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { Window } from 'happy-dom';
 import { ThemeProvider, useTheme } from './useTheme';
 import {
   THEME_PREFERENCES_EVENT,
   THEME_PREFERENCES_KEY,
   readThemePreferences,
 } from '../lib/theme';
-
-// ---------------------------------------------------------------------------
-// happy-dom event-bus patch
-// ---------------------------------------------------------------------------
-// test-setup.ts sets window = globalThis (bun's EventTarget) and installs
-// happy-dom's CustomEvent/StorageEvent. bun's native dispatchEvent rejects
-// happy-dom event instances. We route window event methods through a single
-// happy-dom Window whose event system is compatible with those constructors.
-
-const happyWin = new Window({ url: 'http://localhost/' });
-
-type AnyListener = (e: Event) => void;
-const originalDispatch = globalThis.dispatchEvent?.bind(globalThis);
-const originalAddEL = globalThis.addEventListener?.bind(globalThis);
-const originalRemoveEL = globalThis.removeEventListener?.bind(globalThis);
-
-function patchWindowEvents() {
-  Object.defineProperty(globalThis, 'dispatchEvent', {
-    value: (e: Event) => {
-      const isCustom = Object.prototype.hasOwnProperty.call(e, 'detail') ||
-        (e as CustomEvent).detail !== undefined;
-      let hdEvent: InstanceType<typeof happyWin.Event>;
-      if (isCustom) {
-        hdEvent = new happyWin.CustomEvent((e as CustomEvent).type, {
-          detail: (e as CustomEvent).detail,
-          bubbles: e.bubbles,
-          cancelable: e.cancelable,
-        });
-      } else {
-        hdEvent = new happyWin.Event(e.type, { bubbles: e.bubbles, cancelable: e.cancelable });
-      }
-      return happyWin.dispatchEvent(hdEvent);
-    },
-    writable: true,
-    configurable: true,
-  });
-  Object.defineProperty(globalThis, 'addEventListener', {
-    value: (type: string, listener: AnyListener, opts?: boolean | AddEventListenerOptions) =>
-      happyWin.addEventListener(type, listener as unknown as Parameters<typeof happyWin.addEventListener>[1], opts as boolean | undefined),
-    writable: true,
-    configurable: true,
-  });
-  Object.defineProperty(globalThis, 'removeEventListener', {
-    value: (type: string, listener: AnyListener, _opts?: boolean | EventListenerOptions) =>
-      happyWin.removeEventListener(type, listener as unknown as Parameters<typeof happyWin.removeEventListener>[1]),
-    writable: true,
-    configurable: true,
-  });
-}
-
-function restoreWindowEvents() {
-  if (originalDispatch) {
-    Object.defineProperty(globalThis, 'dispatchEvent', { value: originalDispatch, writable: true, configurable: true });
-  }
-  if (originalAddEL) {
-    Object.defineProperty(globalThis, 'addEventListener', { value: originalAddEL, writable: true, configurable: true });
-  }
-  if (originalRemoveEL) {
-    Object.defineProperty(globalThis, 'removeEventListener', { value: originalRemoveEL, writable: true, configurable: true });
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Types / render helper
@@ -129,14 +69,12 @@ function renderThemeProvider(
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  patchWindowEvents();
   window.localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
   document.documentElement.removeAttribute('data-density');
 });
 
 afterEach(() => {
-  restoreWindowEvents();
   window.localStorage.clear();
   document.documentElement.removeAttribute('data-theme');
   document.documentElement.removeAttribute('data-density');
@@ -371,8 +309,8 @@ describe('cross-tab storage event sync', () => {
 
     // Simulate another tab writing to localStorage
     window.localStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'light', density: 'default' }));
-    // Dispatch a storage event via happy-dom's window (compatible with patched addEventListener)
-    happyWin.dispatchEvent(new happyWin.StorageEvent('storage', { key: THEME_PREFERENCES_KEY }));
+    // Dispatch a storage event on the global window (happy-dom Window via GlobalRegistrator)
+    window.dispatchEvent(new StorageEvent('storage', { key: THEME_PREFERENCES_KEY }));
     // Allow React to process the state update
     await new Promise((resolve) => setTimeout(resolve, 0));
     flushSync(() => {});
@@ -387,8 +325,8 @@ describe('cross-tab storage event sync', () => {
 
     // Simulate same-tab custom event (e.g., from another ThemeProvider instance)
     window.localStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'dark', density: 'compact' }));
-    // Dispatch a custom event via happy-dom's window directly (already patched into window)
-    happyWin.dispatchEvent(new happyWin.CustomEvent(THEME_PREFERENCES_EVENT, {
+    // Dispatch a custom event directly on the global window
+    window.dispatchEvent(new CustomEvent(THEME_PREFERENCES_EVENT, {
       detail: { theme: 'dark', density: 'compact' },
     }));
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,76 +1,42 @@
 /**
  * Test environment setup for bun:test.
- * Installs happy-dom globals into globalThis so @testing-library/react
- * and DOM-dependent code work in bun test.
  *
- * Also patches React.act for react-dom internals that call it in React 19
- * production builds (where it is not exported from the main bundle).
+ * Uses @happy-dom/global-registrator to install a full happy-dom Window as
+ * the persistent global environment for the entire test process. This gives
+ * React-DOM a real window/document/event system so its scheduler never hits
+ * "window is not defined" — even when async callbacks fire between tests.
+ *
+ * We register ONCE and never unregister, so any stray scheduler tick that
+ * fires after a test's own unmount still finds a valid window binding.
  *
  * Loaded via bunfig.toml [test] preload.
  */
-import { Window } from 'happy-dom';
+import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
-const happyWindow = new Window({ url: 'http://localhost/' });
+// Register happy-dom globals once, persistently for the entire test process.
+GlobalRegistrator.register({ url: 'http://localhost/', width: 1024, height: 768 });
 
-// Install globals using Object.defineProperty to handle non-writable properties.
-function installGlobal(key: string, value: unknown): void {
-  try {
-    Object.defineProperty(globalThis, key, {
-      value,
-      writable: true,
-      configurable: true,
-      enumerable: false,
-    });
-  } catch {
-    // Property truly cannot be redefined — skip silently
-  }
-}
-
-// Core DOM globals required by react-dom and DOM-dependent code
-installGlobal('window', globalThis);
-installGlobal('document', happyWindow.document);
-installGlobal('navigator', happyWindow.navigator);
-installGlobal('location', happyWindow.location);
-installGlobal('history', happyWindow.history);
-installGlobal('localStorage', happyWindow.localStorage);
-installGlobal('sessionStorage', happyWindow.sessionStorage);
-
-// DOM constructor globals
-installGlobal('HTMLElement', happyWindow.HTMLElement);
-installGlobal('Element', happyWindow.Element);
-installGlobal('Node', happyWindow.Node);
-installGlobal('Event', happyWindow.Event);
-installGlobal('FocusEvent', happyWindow.FocusEvent);
-installGlobal('KeyboardEvent', happyWindow.KeyboardEvent);
-installGlobal('MouseEvent', happyWindow.MouseEvent);
-installGlobal('CustomEvent', happyWindow.CustomEvent);
-installGlobal('StorageEvent', happyWindow.StorageEvent);
-installGlobal('MutationObserver', happyWindow.MutationObserver);
-installGlobal('ResizeObserver', happyWindow.ResizeObserver);
-installGlobal('IntersectionObserver', happyWindow.IntersectionObserver);
-
-// Utility globals
-installGlobal('getComputedStyle', happyWindow.getComputedStyle.bind(happyWindow));
+// matchMedia is not provided by happy-dom's global registrator — stub it.
 /* eslint-disable @typescript-eslint/no-empty-function -- matchMedia stub; empty listeners intentional */
-installGlobal('matchMedia', () => ({
-  matches: false,
-  addListener: () => {},
-  removeListener: () => {},
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  dispatchEvent: () => false,
-}));
+Object.defineProperty(globalThis, 'matchMedia', {
+  value: (_query: string) => ({
+    matches: false,
+    media: _query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+  writable: true,
+  configurable: true,
+});
 /* eslint-enable @typescript-eslint/no-empty-function */
-installGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
-  happyWindow.setTimeout(() => cb(Date.now()), 0) as unknown as number,
-);
-installGlobal('cancelAnimationFrame', (id: number) =>
-  happyWindow.clearTimeout(id as unknown as ReturnType<typeof setTimeout>),
-);
 
-// Patch React.act — React 19 production bundles don’t export `act`, but
+// Patch React.act — React 19 production bundles don't export `act`, but
 // react-dom/test-utils wraps calls through React.act. We provide a minimal
-// synchronous pass-through so renders don’t blow up.
+// synchronous pass-through so renders don't blow up.
 // NOTE: tests use flushSync (react-dom) for synchronous rendering instead.
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -84,5 +50,5 @@ try {
     };
   }
 } catch {
-  // silently skip if react isn’t available
+  // silently skip if react isn't available
 }

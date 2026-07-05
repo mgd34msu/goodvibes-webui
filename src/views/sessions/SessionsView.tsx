@@ -133,6 +133,23 @@ export function SessionsView() {
           <div className="sessions-empty">No sessions in the union yet.</div>
         )}
 
+        {list.isSuccess && records.length > 0 && !filtered.length && (
+          <div className="sessions-empty">
+            No sessions match the current filters.
+            <button
+              type="button"
+              className="sessions-empty__clear"
+              onClick={() => {
+                setKindFilter('');
+                setProjectFilter('');
+                setIncludeClosed(true);
+              }}
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+
         <div className="sessions-groups">
           {groups.map(([project, bucket]) => (
             <section key={project} className="sessions-group">

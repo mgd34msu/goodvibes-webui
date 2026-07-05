@@ -15,7 +15,7 @@ import { SendHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { formatError } from '../../lib/errors';
+import { formatError, isSessionClosedError } from '../../lib/errors';
 
 export type DispatchMode = 'steer' | 'followUp';
 export type DeliveryState = 'queued' | 'delivered' | 'failed';
@@ -64,6 +64,14 @@ export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProp
       await queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
     },
     onError: (error, variables) => {
+      if (isSessionClosedError(error)) {
+        // The chrome (status badge, composer enablement) is driven by the sessions
+        // query, not by this local dispatch state — without this invalidation the
+        // session keeps reading as "active" and the user can keep firing 409s.
+        setState(variables.id, 'failed', 'This session is closed — reopen it to continue.');
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+        return;
+      }
       setState(variables.id, 'failed', formatError(error));
     },
   });

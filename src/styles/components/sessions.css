@@ -54,6 +54,18 @@
   background: var(--surface-sunken);
 }
 
+.sessions-empty__clear {
+  display: block;
+  margin-top: var(--space-1, 4px);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-accent);
+  font-size: var(--text-xs, 12px);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .sessions-groups {
   overflow-y: auto;
   min-height: 0;

@@ -2,14 +2,14 @@
  * router.ts — dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|knowledge|providers|admin
+ *   ?view=chat|sessions|knowledge|providers|admin
  *   &session=<sessionId>          (chat view only; omitted when empty)
  *   &filter[<key>]=<value>        (per-view filters; any number of pairs)
  *
  * No react-router. Uses window.history + URLSearchParams directly.
  */
 
-export type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
+export type ViewId = 'chat' | 'sessions' | 'knowledge' | 'providers' | 'admin';
 
 export interface AppUrlState {
   view: ViewId;
@@ -19,6 +19,7 @@ export interface AppUrlState {
 
 const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'chat',
+  'sessions',
   'knowledge',
   'providers',
   'admin',

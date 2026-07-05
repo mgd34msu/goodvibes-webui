@@ -9,6 +9,11 @@ export const queryKeys = {
   tasks: ['tasks'] as const,
   approvals: ['approvals'] as const,
   sessions: ['sessions'] as const,
+  // Detail + messages keys are PREFIXED with 'sessions' so that invalidating
+  // queryKeys.sessions (non-exact) refetches the list AND every open detail/messages
+  // query — the single invalidation the raw session-update stream fires.
+  sessionDetail: (sessionId: string) => ['sessions', sessionId] as const,
+  sessionMessages: (sessionId: string) => ['sessions', sessionId, 'messages'] as const,
   knowledgeStatus: ['knowledge', 'status'] as const,
   knowledgeSources: ['knowledge', 'sources'] as const,
   knowledgeNodes: ['knowledge', 'nodes'] as const,

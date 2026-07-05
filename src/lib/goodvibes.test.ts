@@ -5,6 +5,7 @@ import {
   WEBUI_SURFACE_KIND,
   WEBUI_TOKEN_STORE_KEY,
   isRuntimeDomain,
+  isExtraRoutedMethod,
 } from './goodvibes';
 
 describe('goodvibes constants', () => {
@@ -57,5 +58,37 @@ describe('isRuntimeDomain', () => {
   test('returns false for partial prefix match', () => {
     expect(isRuntimeDomain('sess')).toBe(false);
     expect(isRuntimeDomain('control')).toBe(false); // 'control-plane' is valid, 'control' is not
+  });
+});
+
+describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
+  test('sessions.get/steer/followUp resolve NATIVELY — no EXTRA row', () => {
+    // These gained native coverage in the 0.38 browser SDK (SHARED_BROWSER_ROUTES);
+    // they must fall through to scopedSdk.operator.invoke, not a hand-written route.
+    expect(isExtraRoutedMethod('sessions.get')).toBe(false);
+    expect(isExtraRoutedMethod('sessions.steer')).toBe(false);
+    expect(isExtraRoutedMethod('sessions.followUp')).toBe(false);
+  });
+
+  test('sessions.messages/inputs also resolve natively', () => {
+    expect(isExtraRoutedMethod('sessions.messages.list')).toBe(false);
+    expect(isExtraRoutedMethod('sessions.messages.create')).toBe(false);
+    expect(isExtraRoutedMethod('sessions.inputs.list')).toBe(false);
+    expect(isExtraRoutedMethod('sessions.inputs.cancel')).toBe(false);
+  });
+
+  test('sessions.close/reopen STILL require their table rows (not in 0.38 shared routes)', () => {
+    expect(isExtraRoutedMethod('sessions.close')).toBe(true);
+    expect(isExtraRoutedMethod('sessions.reopen')).toBe(true);
+  });
+
+  test('the justified survivors remain (Wave-3 SDK-coverage targets)', () => {
+    for (const method of [
+      'approvals.approve', 'approvals.list', 'models.list', 'models.current', 'models.select',
+      'tasks.list', 'tasks.cancel', 'tasks.retry', 'config.set', 'local_auth.status',
+      'companion.chat.sessions.delete',
+    ]) {
+      expect(isExtraRoutedMethod(method)).toBe(true);
+    }
   });
 });

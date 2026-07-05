@@ -44,15 +44,13 @@ afterEach(() => {
   }
 });
 
+const realOverlayActive = existsSync(join(REPO_ROOT, 'node_modules/@pellux/goodvibes-sdk/.local-sdk-overlay.json'));
+
 describe('sdk-dev', () => {
-  test('status reports clean against the real repo install and exits 0', () => {
-    // Guard: this assumes no overlay is active in the real repo while tests
-    // run, which is the expected state outside of an active `sdk:link`
-    // session. If this fails locally, run `bun scripts/sdk-dev.ts restore`.
-    const markerPath = join(REPO_ROOT, 'node_modules/@pellux/goodvibes-sdk/.local-sdk-overlay.json');
-    if (existsSync(markerPath)) {
-      throw new Error('local SDK overlay is active — run `bun scripts/sdk-dev.ts restore` before running tests');
-    }
+  // Skipped (not failed) rather than asserting a hard requirement: an active
+  // `sdk:link` session is a legitimate local dev state, not a regression.
+  // Restore (`bun scripts/sdk-dev.ts restore`) to exercise this assertion.
+  test.skipIf(realOverlayActive)('status reports clean against the real repo install and exits 0', () => {
     const { exitCode, output } = run(['status']);
     expect(exitCode).toBe(0);
     expect(output).toContain('sdk-dev: clean');

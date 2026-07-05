@@ -4,6 +4,7 @@ import {
   Gauge,
   KeyRound,
   MessageSquare,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -17,9 +18,12 @@ import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
-import { getCurrentAuth, sdk } from './lib/goodvibes';
+import { useSessionRealtime } from './hooks/useSessionRealtime';
+import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
+import { SessionsView } from './views/sessions/SessionsView';
+import { SignedOutGate } from './components/auth/SignedOutGate';
 import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
@@ -42,6 +46,7 @@ const views: {
   icon: typeof MessageSquare;
 }[] = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
+  { id: 'sessions', label: 'Sessions', short: 'Union', icon: Network },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
@@ -66,6 +71,9 @@ export default function App() {
     queryFn: getCurrentAuth,
     retry: false,
   });
+  // Session liveness: consume the raw un-domained session-update stream, but only once
+  // signed in (opening it while signed-out just 401s). It degrades honestly on failure.
+  const sessionRealtime = useSessionRealtime(auth.isSuccess);
   const chatSessions = useQuery({
     queryKey: ['companion-chat', 'sessions'],
     queryFn: () => sdk.chat.sessions.list({ limit: 100 }),
@@ -196,6 +204,33 @@ export default function App() {
   const title = useMemo(() => views.find((v) => v.id === activeView)?.label ?? 'GoodVibes', [activeView]);
   const subtitle = useMemo(() => views.find((v) => v.id === activeView)?.short ?? 'Surface', [activeView]);
   const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
+
+  // Honest login gate. Signed-out (auth.current 401 → query error) shows the front door
+  // instead of the shell. On first load with a stored token, show a neutral splash while
+  // it validates; with NO stored token, show the gate immediately (no white-screen, and
+  // no working-looking-but-401ing shell).
+  const authPending = auth.isPending;
+  const signedOut = auth.isError || (authPending && !hasStoredTokenSync());
+  const showSplash = authPending && !auth.isError && hasStoredTokenSync();
+
+  if (signedOut) {
+    return (
+      <AppShell view={view} onNavigate={handleNavigate}>
+        <SignedOutGate />
+      </AppShell>
+    );
+  }
+
+  if (showSplash) {
+    return (
+      <AppShell view={view} onNavigate={handleNavigate}>
+        <div className="app-splash" role="status" aria-live="polite">
+          <img className="app-splash__mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
+          <span>Signing in…</span>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell view={view} onNavigate={handleNavigate}>
@@ -337,14 +372,8 @@ export default function App() {
           </div>
         </header>
 
-        {auth.isError && (
-          <div className="banner warning action-banner">
-            <Plug size={16} />
-            <span>Sign in through daemon-owned auth before using operator APIs.</span>
-            <button type="button" onClick={() => setView('admin')}>Open auth</button>
-          </div>
-        )}
         {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
+        {sessionRealtime.error && <div className="banner warning"><Plug size={16} /> {sessionRealtime.error}</div>}
         {deleteChat.error && !isSessionNotFoundError(deleteChat.error) && (
           <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>
         )}
@@ -376,6 +405,7 @@ export default function App() {
               onSessionMissing={handleMissingChatSession}
             />
           )}
+          {activeView === 'sessions' && <SessionsView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}

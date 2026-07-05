@@ -1,0 +1,81 @@
+/*
+ * SignedOutGate + app splash — the honest front door.
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.signed-out-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--space-5, 24px);
+}
+
+.signed-out-card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  padding: var(--space-5, 24px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+}
+
+.signed-out-mark {
+  color: var(--text-accent);
+}
+
+.signed-out-lede {
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 13px);
+}
+
+.signed-out-help {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.signed-out-help ul {
+  margin: var(--space-2, 8px) 0 0;
+  padding-left: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.signed-out-secondary {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  padding: 0;
+}
+
+.app-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  min-height: 100%;
+  color: var(--text-secondary);
+}
+
+.app-splash__mark {
+  width: 56px;
+  height: 56px;
+  opacity: 0.85;
+}

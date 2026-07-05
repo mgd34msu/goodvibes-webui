@@ -63,6 +63,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Release gates (SDK pin/lock/install agreement + import sweep)
+        run: bun run release:gate
+
   lint:
     name: Lint (non-blocking)
     runs-on: ubuntu-latest

@@ -5,6 +5,10 @@ import {
   clampLatency,
   formatLatency,
   connectionLabel,
+  authLabel,
+  workingLabel,
+  deriveAuthState,
+  deriveWorkingState,
   sseLabel,
 } from './daemon-health';
 
@@ -275,8 +279,9 @@ describe('formatLatency', () => {
 // ---------------------------------------------------------------------------
 
 describe('connectionLabel', () => {
-  test('returns Connected for connected', () => {
-    expect(connectionLabel('connected')).toBe('Connected');
+  test('returns Reachable for connected — NEVER "Connected" (401 honesty)', () => {
+    expect(connectionLabel('connected')).toBe('Reachable');
+    expect(connectionLabel('connected')).not.toBe('Connected');
   });
 
   test('returns Reconnecting for reconnecting', () => {
@@ -285,6 +290,59 @@ describe('connectionLabel', () => {
 
   test('returns Offline for down', () => {
     expect(connectionLabel('down')).toBe('Offline');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// authLabel / workingLabel — the two new honesty axes
+// ---------------------------------------------------------------------------
+
+describe('authLabel', () => {
+  test('signed-in → "Signed in"', () => { expect(authLabel('signed-in')).toBe('Signed in'); });
+  test('signed-out → "Signed out"', () => { expect(authLabel('signed-out')).toBe('Signed out'); });
+  test('unknown → "Auth ?"', () => { expect(authLabel('unknown')).toBe('Auth ?'); });
+});
+
+describe('workingLabel', () => {
+  test('working → "Working"', () => { expect(workingLabel('working')).toBe('Working'); });
+  test('blocked → "No access"', () => { expect(workingLabel('blocked')).toBe('No access'); });
+  test('unknown → "Idle"', () => { expect(workingLabel('unknown')).toBe('Idle'); });
+});
+
+// ---------------------------------------------------------------------------
+// deriveAuthState / deriveWorkingState — the axes can disagree; 401 never = ok
+// ---------------------------------------------------------------------------
+
+describe('deriveAuthState', () => {
+  test('200 → signed-in', () => {
+    expect(deriveAuthState({ ok: true, status: 200 })).toBe('signed-in');
+  });
+  test('401 → signed-out (not unknown)', () => {
+    expect(deriveAuthState({ ok: false, status: 401 })).toBe('signed-out');
+  });
+  test('other failure (5xx/network) → unknown, not a false signed-out', () => {
+    expect(deriveAuthState({ ok: false, status: 503 })).toBe('unknown');
+    expect(deriveAuthState({ ok: false, status: null })).toBe('unknown');
+  });
+});
+
+describe('deriveWorkingState', () => {
+  test('authed read succeeds → working', () => {
+    expect(deriveWorkingState({ ok: true, status: 200 })).toBe('working');
+  });
+  test('401 on the authed read → blocked (signed-out OR missing read:sessions scope)', () => {
+    expect(deriveWorkingState({ ok: false, status: 401 })).toBe('blocked');
+  });
+  test('other failure → unknown', () => {
+    expect(deriveWorkingState({ ok: false, status: 500 })).toBe('unknown');
+    expect(deriveWorkingState({ ok: false, status: null })).toBe('unknown');
+  });
+  test('the three axes can disagree: reachable + signed-in but blocked (scope gap)', () => {
+    // A reachable daemon (connectionLabel('connected')) with a signed-in token that
+    // lacks read:sessions must NOT read as "working".
+    expect(connectionLabel('connected')).toBe('Reachable');
+    expect(deriveAuthState({ ok: true, status: 200 })).toBe('signed-in');
+    expect(deriveWorkingState({ ok: false, status: 401 })).toBe('blocked');
   });
 });
 

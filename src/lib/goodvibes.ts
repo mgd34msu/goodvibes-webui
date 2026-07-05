@@ -34,6 +34,24 @@ interface RequestOptions {
   authenticated?: boolean;
 }
 
+/**
+ * EXTRA_METHOD_ROUTES — operator methods NOT covered by the pinned 0.38 browser SDK
+ * route maps (SHARED_BROWSER_ROUTES + KNOWLEDGE_BROWSER_ROUTES). Each row is a method
+ * invokeOperator must resolve with a hand-written HTTP route because the SDK cannot.
+ *
+ * W2B retirement audit (2026-07, SDK 0.38.0): the session methods that gained native
+ * coverage in 0.38 — sessions.get / sessions.steer / sessions.followUp /
+ * sessions.messages.list / sessions.messages.create / sessions.inputs.list /
+ * sessions.inputs.cancel — are DELIBERATELY ABSENT from this table. They resolve
+ * natively via scopedSdk.operator.invoke (the fall-through at invokeOperator's
+ * no-route branch). DO NOT re-add rows for them.
+ *
+ * sessions.close / sessions.reopen genuinely REMAIN here: they are not in
+ * SHARED_BROWSER_ROUTES in 0.38, so removing their rows breaks the calls. The rest of
+ * the survivors (approvals.* / models.* / tasks.* / config.set / local_auth.status /
+ * companion.chat.sessions.delete) are the Wave-3 contract-coverage target; each pays
+ * its way today because no browser route map covers it.
+ */
 const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.approve': { method: 'POST', path: '/api/approvals/{approvalId}/approve' },
   'approvals.cancel': { method: 'POST', path: '/api/approvals/{approvalId}/cancel' },
@@ -152,6 +170,16 @@ function interpolateRoute(route: RouteDefinition, input: unknown): { path: strin
   return { path, rest };
 }
 
+/**
+ * True when a method resolves via a hand-written EXTRA_METHOD_ROUTES row rather than
+ * natively through scopedSdk.operator.invoke. Exported so the retirement contract is
+ * test-enforced: sessions.get/steer/followUp must be native (false); sessions.close /
+ * reopen must still be table-routed (true).
+ */
+export function isExtraRoutedMethod(methodId: string): boolean {
+  return Boolean(EXTRA_METHOD_ROUTES[methodId]);
+}
+
 async function invokeOperator(methodId: string, input?: unknown): Promise<unknown> {
   const route = EXTRA_METHOD_ROUTES[methodId];
   if (!route) return scopedSdk.operator.invoke(methodId as never, input as never);
@@ -161,9 +189,26 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
   return requestJson(path, { method: route.method, body: rest });
 }
 
+/**
+ * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
+ * SDK falls back to its own defaults and a dropped stream can appear "live"; with it a
+ * dropped stream reconnects with backoff and, once attempts are exhausted, degrades to
+ * the honest "SSE error/off" strip state and the 15s health-probe fallback.
+ */
+export const DEFAULT_SSE_RECONNECT = {
+  enabled: true,
+  baseDelayMs: 1_000,
+  maxDelayMs: 30_000,
+  backoffFactor: 2,
+  maxAttempts: 10,
+} as const;
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
+  realtime: {
+    sseReconnect: DEFAULT_SSE_RECONNECT,
+  },
 });
 
 export const sdk = {
@@ -206,6 +251,11 @@ export const sdk = {
     },
     sessions: {
       list: () => scopedSdk.operator.invoke('sessions.list', {}),
+      // get/steer/followUp are native in the 0.38 browser SDK (SHARED_BROWSER_ROUTES);
+      // they resolve WITHOUT an EXTRA_METHOD_ROUTES row via scopedSdk.operator.invoke.
+      get: (sessionId: string) => scopedSdk.operator.invoke('sessions.get', { sessionId }),
+      steer: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.steer', { sessionId, ...asRecord(input) } as never),
+      followUp: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.followUp', { sessionId, ...asRecord(input) } as never),
       create: (input: unknown) => scopedSdk.operator.invoke('sessions.create', input as never),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
@@ -231,8 +281,22 @@ export const sdk = {
   realtime: {
     viaSse: () => scopedSdk.realtime.viaSse(),
   },
+  // Raw event stream escape hatch. The scoped viaSse() per-domain filter DROPS the
+  // un-domained `session-update` wire event (browser-scoped.ts), so session liveness
+  // must be consumed off the raw control-plane stream instead. Kept confined to
+  // useSessionRealtime; the rest of the app uses the typed viaSse facade above.
+  streams: {
+    open: (
+      pathOrUrl: string,
+      handlers: RawStreamHandlers,
+      options?: RawStreamOptions,
+    ) => scopedSdk.streams.open(pathOrUrl, handlers, options),
+  },
   knowledge: scopedSdk.knowledge,
 };
+
+export type RawStreamHandlers = Parameters<typeof scopedSdk.streams.open>[1];
+export type RawStreamOptions = Parameters<typeof scopedSdk.streams.open>[2];
 
 export { forSession };
 export type GoodVibesClient = typeof sdk;
@@ -248,6 +312,22 @@ export async function invokeMethod<TMethodId extends OperatorTypedMethodId>(
 
 export async function getCurrentAuth(): Promise<unknown> {
   return sdk.auth.current();
+}
+
+/**
+ * Synchronous best-effort check for a stored token, used ONLY to pick the optimistic
+ * first paint (splash while a stored token is validated vs. the signed-out gate shown
+ * immediately when there is no token). The async auth.current query remains
+ * authoritative; this never asserts the token is valid, only that one is present.
+ */
+export function hasStoredTokenSync(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = window.localStorage.getItem(WEBUI_TOKEN_STORE_KEY)?.trim();
+    return Boolean(raw && raw !== 'null');
+  } catch {
+    return false;
+  }
 }
 
 interface LoginResponse {

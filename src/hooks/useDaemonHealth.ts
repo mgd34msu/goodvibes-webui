@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { sdk, GOODVIBES_BASE_URL } from '../lib/goodvibes';
+import { sdk, GOODVIBES_BASE_URL, getCurrentAuth } from '../lib/goodvibes';
 import {
   type DaemonHealth,
   type ConnectionState,
+  type AuthState,
+  type WorkingState,
   type SseState,
   DAEMON_HEALTH_DEFAULTS,
   taskCountsFromList,
   modelNameFromCurrent,
   clampLatency,
+  deriveAuthState,
+  deriveWorkingState,
 } from '../lib/daemon-health';
 
 // ---------------------------------------------------------------------------
@@ -38,6 +42,22 @@ async function probeLatency(): Promise<{ latencyMs: number | null; ok: boolean }
     return { latencyMs: elapsed, ok: res.status < 500 };
   } catch {
     return { latencyMs: null, ok: false };
+  }
+}
+
+/** Read a numeric HTTP status off a thrown error, if the caller attached one. */
+function statusOf(error: unknown): number | null {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : null;
+}
+
+/** Run an authed call and reduce it to an {ok,status} probe result (never throws). */
+async function probeCall(fn: () => Promise<unknown>): Promise<{ ok: boolean; status: number | null }> {
+  try {
+    await fn();
+    return { ok: true, status: 200 };
+  } catch (error) {
+    return { ok: false, status: statusOf(error) };
   }
 }
 
@@ -162,6 +182,31 @@ export function useDaemonHealth(): DaemonHealth {
     staleTime: HEALTH_PROBE_INTERVAL_MS / 2,
   });
 
+  // -- Signed-in axis (auth.current: 200 vs 401) ----------------------------
+  const authProbe = useQuery({
+    queryKey: ['daemon-health', 'auth'] as const,
+    queryFn: () => probeCall(getCurrentAuth),
+    refetchInterval: HEALTH_PROBE_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+    retry: 0,
+    staleTime: HEALTH_PROBE_INTERVAL_MS / 2,
+  });
+
+  // -- Working axis (an authed read that surfaces the read:sessions scope gap) --
+  // A token that is signed-in but lacks read:sessions will 401 here → 'blocked',
+  // so the strip shows reachable+signed-in but NOT working rather than a false "live".
+  const workingProbe = useQuery({
+    queryKey: ['daemon-health', 'working'] as const,
+    queryFn: () => probeCall(() => sdk.operator.sessions.list()),
+    refetchInterval: HEALTH_PROBE_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+    retry: 0,
+    staleTime: HEALTH_PROBE_INTERVAL_MS / 2,
+  });
+
+  const signedIn: AuthState = authProbe.isSuccess ? deriveAuthState(authProbe.data) : 'unknown';
+  const working: WorkingState = workingProbe.isSuccess ? deriveWorkingState(workingProbe.data) : 'unknown';
+
   // -- Current model --------------------------------------------------------
   const modelQuery = useQuery({
     queryKey: ['daemon-health', 'model'] as const,
@@ -182,6 +227,8 @@ export function useDaemonHealth(): DaemonHealth {
 
   return {
     connection: connectionState,
+    signedIn,
+    working,
     latencyMs,
     sse: sseState,
     activeTurns,

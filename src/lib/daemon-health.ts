@@ -8,13 +8,33 @@
 // Core types
 // ---------------------------------------------------------------------------
 
+/**
+ * REACHABLE axis. The daemon HTTP port answered (status < 500) — this says nothing
+ * about whether we are signed in or authorized. The literal 'connected' is retained
+ * for CSS/dot compatibility, but its LABEL is "Reachable", never "Connected": a 401
+ * still leaves the daemon reachable while everything else fails.
+ */
 export type ConnectionState = 'connected' | 'reconnecting' | 'down';
+
+/** SIGNED-IN axis. auth.current returned 200 (signed-in) vs 401 (signed-out). */
+export type AuthState = 'signed-in' | 'signed-out' | 'unknown';
+
+/**
+ * WORKING axis. An authed read (sessions.list) succeeded without 401. This is the axis
+ * that catches a token minted WITHOUT the read:sessions scope: reachable + signed-in
+ * but not working, so the strip never claims "live" when session data is silently 401ing.
+ */
+export type WorkingState = 'working' | 'blocked' | 'unknown';
 
 export type SseState = 'active' | 'connecting' | 'error' | 'disabled';
 
 export interface DaemonHealth {
-  /** Current HTTP/SSE connectivity state */
+  /** REACHABLE axis — HTTP port answered (status < 500). NOT "everything is fine". */
   connection: ConnectionState;
+  /** SIGNED-IN axis — auth.current returned 200 vs 401. */
+  signedIn: AuthState;
+  /** WORKING axis — an authed read succeeded without 401. */
+  working: WorkingState;
   /** Round-trip latency of the last health probe in ms, or null if never measured */
   latencyMs: number | null;
   /** SSE stream state */
@@ -29,6 +49,8 @@ export interface DaemonHealth {
 
 export const DAEMON_HEALTH_DEFAULTS: DaemonHealth = {
   connection: 'down',
+  signedIn: 'unknown',
+  working: 'unknown',
   latencyMs: null,
   sse: 'disabled',
   activeTurns: 0,
@@ -104,13 +126,55 @@ export function formatLatency(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-/** Map ConnectionState to a human-readable label */
+/**
+ * Map the REACHABLE axis to a human-readable label. Deliberately NOT "Connected":
+ * a reachable daemon that 401s everything is not "connected" in any useful sense.
+ */
 export function connectionLabel(state: ConnectionState): string {
   switch (state) {
-    case 'connected': return 'Connected';
+    case 'connected': return 'Reachable';
     case 'reconnecting': return 'Reconnecting';
     case 'down': return 'Offline';
   }
+}
+
+/** Map the SIGNED-IN axis to a human-readable label. */
+export function authLabel(state: AuthState): string {
+  switch (state) {
+    case 'signed-in': return 'Signed in';
+    case 'signed-out': return 'Signed out';
+    case 'unknown': return 'Auth ?';
+  }
+}
+
+/** Map the WORKING axis to a human-readable label. */
+export function workingLabel(state: WorkingState): string {
+  switch (state) {
+    case 'working': return 'Working';
+    case 'blocked': return 'No access';
+    case 'unknown': return 'Idle';
+  }
+}
+
+/**
+ * Derive the SIGNED-IN axis from an auth.current probe. A resolved call is signed-in;
+ * a 401 is signed-out; any other failure (network/5xx) is unknown, not a false negative.
+ */
+export function deriveAuthState(input: { ok: boolean; status: number | null }): AuthState {
+  if (input.ok) return 'signed-in';
+  if (input.status === 401) return 'signed-out';
+  return 'unknown';
+}
+
+/**
+ * Derive the WORKING axis from an authed read (sessions.list). Success is working; a
+ * 401 is blocked (signed-out OR a token missing the read:sessions scope — either way
+ * session data cannot be read, so we must not claim "live"); other failures are unknown.
+ */
+export function deriveWorkingState(input: { ok: boolean; status: number | null }): WorkingState {
+  if (input.ok) return 'working';
+  if (input.status === 401) return 'blocked';
+  return 'unknown';
 }
 
 /** Map SseState to a human-readable label */

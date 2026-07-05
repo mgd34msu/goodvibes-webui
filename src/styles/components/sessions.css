@@ -1,0 +1,221 @@
+/*
+ * Sessions union view — list + detail + steer composer.
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.sessions-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: var(--space-3, 12px);
+  height: 100%;
+  min-height: 0;
+}
+
+.sessions-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sessions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.sessions-toolbar select {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  font-size: var(--text-xs, 12px);
+}
+
+.sessions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.sessions-cap-note,
+.sessions-empty,
+.sessions-detail-empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.sessions-groups {
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.sessions-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1, 4px);
+}
+
+.sessions-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.sessions-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.sessions-row.active {
+  border-color: var(--border-focus);
+  background: var(--accent-muted);
+}
+
+.sessions-row__title {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.sessions-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Detail pane */
+.sessions-detail-pane {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.session-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  height: 100%;
+}
+
+.session-detail__badges,
+.session-detail__surfaces,
+.session-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.session-detail__meta small {
+  color: var(--text-tertiary);
+}
+
+.session-detail__transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.session-message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.session-message__role {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Steer composer */
+.steer-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2, 8px);
+}
+
+.steer-composer__form {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: flex-end;
+}
+
+.steer-composer__form textarea {
+  flex: 1;
+  resize: vertical;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-2, 8px);
+  font-family: inherit;
+  font-size: var(--text-sm, 13px);
+}
+
+.steer-composer__dispatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.steer-dispatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  font-size: var(--text-xs, 12px);
+}
+
+.steer-dispatch__text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.steer-dispatch__error {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 980px) {
+  .sessions-view {
+    grid-template-columns: 1fr;
+  }
+}

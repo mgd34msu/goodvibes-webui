@@ -51,9 +51,12 @@ export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProp
 
   const mutation = useMutation({
     mutationFn: ({ body }: { id: string; body: string }) => (
+      // The daemon steer/follow-up routes read the canonical `body` field only
+      // (readSharedSessionMessageBody → body.body, narrowed at SDK 0.30.0); a
+      // `{ message }` envelope 400s with "Missing shared session steer body".
       mode === 'steer'
-        ? sdk.operator.sessions.steer(sessionId, { message: body })
-        : sdk.operator.sessions.followUp(sessionId, { message: body })
+        ? sdk.operator.sessions.steer(sessionId, { body })
+        : sdk.operator.sessions.followUp(sessionId, { body })
     ),
     onSuccess: async (_data, variables) => {
       setState(variables.id, 'delivered');

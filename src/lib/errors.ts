@@ -72,6 +72,25 @@ export function isSessionNotFoundError(error: unknown): boolean {
 }
 
 /**
+ * True for the daemon's 409 SESSION_CLOSED rejection (steerMessage / followUp on a
+ * session that already closed). The wire contract is `code: 'SESSION_CLOSED'`
+ * (runtime-session-routes.ts, session-broker.ts); the message fallback covers the
+ * `Session is closed: <sessionId>` text some paths throw before that code is attached.
+ */
+export function isSessionClosedError(error: unknown): boolean {
+  if (errorCode(error) === 'SESSION_CLOSED') return true;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const body = asRecord(serialized.body ?? transport.body);
+  const message = [
+    readString(serialized, 'message'),
+    readString(body, 'message'),
+    readString(body, 'error'),
+  ].join(' ').toLowerCase();
+  return message.includes('session is closed') || message.includes('session closed');
+}
+
+/**
  * True when a thrown request error never reached the daemon — a network/connection
  * failure rather than an HTTP rejection. The SDK transport tags these with
  * `category: 'network'` and `transport.status: 0` (createNetworkTransportError), and the

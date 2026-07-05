@@ -222,18 +222,12 @@ export default function App() {
   const signedOut = (auth.isError && !daemonUnreachable) || (authPending && !hasStoredTokenSync());
   const showSplash = authPending && !auth.isError && hasStoredTokenSync();
 
-  if (daemonUnreachable) {
-    return (
-      <AppShell view={view} onNavigate={handleNavigate}>
-        <DaemonUnreachableGate
-          detail={formatError(auth.error)}
-          retrying={auth.isFetching}
-          onRetry={() => void auth.refetch()}
-        />
-      </AppShell>
-    );
-  }
-
+  // The daemon-unreachable gate promises the operator will "pick up where it left
+  // off" once the daemon comes back — that's only true if the workspace underneath
+  // stays mounted through the outage. Render it as an overlay ON TOP of the still-
+  // mounted (and inert, so it can't be typed into or clicked while hidden) workspace
+  // instead of early-returning in its place; a remount would reset the selected
+  // session and discard a half-typed steer/follow-up draft.
   if (signedOut) {
     return (
       <AppShell view={view} onNavigate={handleNavigate}>
@@ -255,7 +249,21 @@ export default function App() {
 
   return (
     <AppShell view={view} onNavigate={handleNavigate}>
-    <div className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
+    <div className="app-shell-root">
+    {daemonUnreachable && (
+      <div className="daemon-gate-overlay">
+        <DaemonUnreachableGate
+          detail={formatError(auth.error)}
+          retrying={auth.isFetching}
+          onRetry={() => void auth.refetch()}
+        />
+      </div>
+    )}
+    <div
+      className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}
+      inert={daemonUnreachable || undefined}
+      aria-hidden={daemonUnreachable || undefined}
+    >
       <aside
         className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
         onClick={(event) => {
@@ -432,6 +440,7 @@ export default function App() {
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>
       </main>
+    </div>
     </div>
     </AppShell>
   );

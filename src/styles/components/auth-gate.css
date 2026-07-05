@@ -85,6 +85,25 @@
   animation: auth-gate-spin 900ms linear infinite;
 }
 
+/*
+ * Daemon-unreachable overlay — App.tsx renders this ON TOP of the still-mounted
+ * (inert) workspace rather than replacing it, so a daemon blip mid-typing does not
+ * reset the selected session or discard a half-typed steer/follow-up draft. See
+ * App.tsx's daemonUnreachable branch.
+ */
+.app-shell-root {
+  position: relative;
+  min-height: 100vh;
+}
+
+.daemon-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  overflow-y: auto;
+  background: var(--surface-overlay);
+}
+
 @keyframes auth-gate-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

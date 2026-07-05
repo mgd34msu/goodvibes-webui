@@ -136,6 +136,48 @@ describe('SessionsView union rendering', () => {
   });
 });
 
+describe('SessionsView: filtered-empty vs true-empty honesty', () => {
+  test('a true-empty union (no sessions at all) shows the true-empty note', () => {
+    const { el, unmount } = render({ totals: { sessions: 0 }, sessions: [] });
+    expect(el.textContent).toContain('No sessions in the union yet.');
+    expect(el.textContent).not.toContain('No sessions match the current filters.');
+    unmount();
+  });
+
+  test('filtering down to zero rows shows a distinct "no match" note with a clear-filters affordance, not the true-empty copy', () => {
+    const { el, unmount } = render();
+    // The project select has no option matching a kind of 'quantum-surface' AND
+    // project 'goodvibes-tui' at once — pick a kind filter with zero matches
+    // among the TUI-project rows by combining two selects that don't co-occur.
+    const kindSelect = el.querySelector('select[aria-label="Filter by kind"]') as HTMLSelectElement;
+    const projectSelect = el.querySelector('select[aria-label="Filter by project"]') as HTMLSelectElement;
+    flushSync(() => {
+      const kindSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
+      kindSetter.call(kindSelect, 'companion-chat');
+      kindSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    flushSync(() => {
+      const projectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
+      projectSetter.call(projectSelect, 'goodvibes-tui');
+      projectSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+
+    // s-chat (companion-chat) has no project, and goodvibes-tui rows are never
+    // kind 'companion-chat' — this combination matches zero records.
+    expect(el.textContent).toContain('No sessions match the current filters.');
+    expect(el.textContent).not.toContain('No sessions in the union yet.');
+
+    const clearButton = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Clear filters');
+    expect(clearButton).toBeTruthy();
+    click(clearButton);
+
+    // Clearing restores every row.
+    expect(el.textContent).toContain('TUI coding');
+    expect(el.textContent).not.toContain('No sessions match the current filters.');
+    unmount();
+  });
+});
+
 describe('SessionsView steer branch', () => {
   test('selecting an agent-bound session offers STEER', () => {
     const { el, unmount } = render();

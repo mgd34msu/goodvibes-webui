@@ -160,4 +160,46 @@ describe('SessionsView steer branch', () => {
     expect(el.textContent).toContain('Session closed');
     unmount();
   });
+
+  async function typeAndSubmit(el: HTMLElement, value: string) {
+    const textarea = el.querySelector('.steer-composer textarea') as HTMLTextAreaElement;
+    const form = el.querySelector('.steer-composer__form') as HTMLFormElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(textarea, value);
+      textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    flushSync(() => {
+      form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    });
+    // The mutation's mutationFn runs on a microtask after mutate() is called.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  test('WIRE: submitting a steer sends the canonical `body` field, never `message`', async () => {
+    const { el, unmount } = render();
+    const agentRow = [...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Agent run'));
+    click(agentRow);
+    await typeAndSubmit(el, 'Focus on the failing test');
+
+    expect(steerCalls.length).toBe(1);
+    expect(steerCalls[0].id).toBe('s-agent');
+    expect(steerCalls[0].body).toEqual({ body: 'Focus on the failing test' });
+    expect((steerCalls[0].body as Record<string, unknown>).message).toBeUndefined();
+    expect(followUpCalls.length).toBe(0);
+    unmount();
+  });
+
+  test('WIRE: submitting a follow-up (no bound agent) also sends `body`, never `message`', async () => {
+    const { el, unmount } = render();
+    const tuiRow = [...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding'));
+    click(tuiRow);
+    await typeAndSubmit(el, 'Queue this turn');
+
+    expect(followUpCalls.length).toBe(1);
+    expect(followUpCalls[0].body).toEqual({ body: 'Queue this turn' });
+    expect((followUpCalls[0].body as Record<string, unknown>).message).toBeUndefined();
+    expect(steerCalls.length).toBe(0);
+    unmount();
+  });
 });

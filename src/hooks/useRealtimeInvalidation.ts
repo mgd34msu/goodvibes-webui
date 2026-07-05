@@ -38,8 +38,12 @@ export function useRealtimeInvalidation(enabled: boolean) {
       bind(domain(events, 'permissions'), 'APPROVAL_REQUESTED', queryKeys.approvals);
       bind(domain(events, 'permissions'), 'APPROVAL_RESOLVED', queryKeys.approvals);
       bind(domain(events, 'providers'), 'PROVIDER_UPDATED', queryKeys.providers);
-      bind(domain(events, 'session'), 'SESSION_UPDATED', queryKeys.sessions);
-      bind(domain(events, 'session'), 'SESSION_CREATED', queryKeys.sessions);
+      // NOTE: session liveness is NOT bound here. The spine publishes session lifecycle
+      // on the un-domained `session-update` wire event, which the scoped viaSse()
+      // per-domain filter drops entirely (see useSessionRealtime.ts). The old
+      // domain('session') 'SESSION_UPDATED'/'SESSION_CREATED' bindings named events that
+      // never fire and are intentionally removed; useSessionRealtime owns session
+      // invalidation off the raw control-plane stream instead.
       bind(domain(events, 'knowledge'), 'KNOWLEDGE_UPDATED', queryKeys.knowledgeStatus);
       bind(domain(events, 'knowledge'), 'KNOWLEDGE_UPDATED', queryKeys.knowledgeSources);
       bind(domain(events, 'knowledge'), 'KNOWLEDGE_REFINEMENT_UPDATED', queryKeys.knowledgeRefinement);

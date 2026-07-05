@@ -1,17 +1,45 @@
+/**
+ * useRealtimeInvalidation — refetch React Query caches off the control-plane event feed.
+ *
+ * CONNECTION BUDGET (the W-2 fix): the browser caps concurrent connections per origin
+ * (~6 on HTTP/1.1). The previous implementation used `sdk.realtime.viaSse()` and
+ * subscribed to five domains (tasks, permissions, providers, knowledge, control-plane),
+ * and viaSse opens ONE SSE connection PER domain. Together with useSessionRealtime's
+ * own session stream that reached six long-lived streams — saturating the pool so the
+ * NEXT fetch (notably SessionsView's sessions.list on navigation) had no socket and hung
+ * forever: the Sessions/Union view rendered zero rows with no error and no empty state.
+ *
+ * The daemon multiplexes every domain onto ONE stream via `?domains=a,b,c`
+ * (GET /api/control-plane/events, `event: <domain>` per frame — integration/helpers.ts).
+ * So we open a SINGLE raw multiplexed stream here and route by the frame's event name
+ * (which IS the domain), invalidating that domain's query keys. This collapses five
+ * connections to one; with useSessionRealtime that is two streams total, well under the
+ * per-origin cap. We only INVALIDATE (trigger a revalidate) off the stream, never render
+ * straight from a frame — matching useSessionRealtime.
+ */
+
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { sdk } from '../lib/goodvibes';
+import { sdk, DEFAULT_SSE_RECONNECT } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 
-interface RealtimeDomain {
-  onEnvelope?: (eventName: string, handler: (event: unknown) => void) => () => void;
-}
+/**
+ * Domain → the query keys a frame on that domain should revalidate. The raw stream
+ * delivers the DOMAIN as the event name (the daemon writes `event: <domain>`), so we
+ * invalidate at domain granularity rather than per specific event type — coarser than
+ * the old per-event binding but identical in effect (invalidation only triggers a
+ * refetch), and it drops the dead 'controlPlane' alias the old code carried.
+ */
+const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
+  tasks: [queryKeys.tasks],
+  permissions: [queryKeys.approvals],
+  providers: [queryKeys.providers],
+  knowledge: [queryKeys.knowledgeStatus, queryKeys.knowledgeSources, queryKeys.knowledgeRefinement],
+  'control-plane': [queryKeys.control],
+};
 
-function domain(events: unknown, name: string): RealtimeDomain {
-  const value = (events as Record<string, unknown>)[name];
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- value is unknown; cast is required even though RealtimeDomain has all-optional keys
-  return (value ?? {}) as RealtimeDomain;
-}
+/** The single multiplexed control-plane stream carrying every domain we invalidate on. */
+const INVALIDATION_EVENTS_PATH = `/api/control-plane/events?domains=${Object.keys(DOMAIN_INVALIDATIONS).join(',')}`;
 
 export function useRealtimeInvalidation(enabled: boolean) {
   const queryClient = useQueryClient();
@@ -19,45 +47,51 @@ export function useRealtimeInvalidation(enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return undefined;
-    let unsubs: (() => void)[] = [];
+    let disposed = false;
+    let close: (() => void) | null = null;
 
-    try {
-      const events = sdk.realtime.viaSse();
-      const invalidate = (keys: readonly unknown[]) => {
-        void queryClient.invalidateQueries({ queryKey: keys });
-      };
-
-      const bind = (target: RealtimeDomain, eventName: string, keys: readonly unknown[]) => {
-        const unsubscribe = target.onEnvelope?.(eventName, () => invalidate(keys));
-        if (unsubscribe) unsubs.push(unsubscribe);
-      };
-
-      bind(domain(events, 'tasks'), 'TASK_UPDATED', queryKeys.tasks);
-      bind(domain(events, 'tasks'), 'TASK_CREATED', queryKeys.tasks);
-      bind(domain(events, 'tasks'), 'TASK_COMPLETED', queryKeys.tasks);
-      bind(domain(events, 'permissions'), 'APPROVAL_REQUESTED', queryKeys.approvals);
-      bind(domain(events, 'permissions'), 'APPROVAL_RESOLVED', queryKeys.approvals);
-      bind(domain(events, 'providers'), 'PROVIDER_UPDATED', queryKeys.providers);
-      // NOTE: session liveness is NOT bound here. The spine publishes session lifecycle
-      // on the un-domained `session-update` wire event, which the scoped viaSse()
-      // per-domain filter drops entirely (see useSessionRealtime.ts). The old
-      // domain('session') 'SESSION_UPDATED'/'SESSION_CREATED' bindings named events that
-      // never fire and are intentionally removed; useSessionRealtime owns session
-      // invalidation off the raw control-plane stream instead.
-      bind(domain(events, 'knowledge'), 'KNOWLEDGE_UPDATED', queryKeys.knowledgeStatus);
-      bind(domain(events, 'knowledge'), 'KNOWLEDGE_UPDATED', queryKeys.knowledgeSources);
-      bind(domain(events, 'knowledge'), 'KNOWLEDGE_REFINEMENT_UPDATED', queryKeys.knowledgeRefinement);
-      bind(domain(events, 'controlPlane'), 'CONTROL_PLANE_UPDATED', queryKeys.control);
-      bind(domain(events, 'control-plane'), 'CONTROL_PLANE_UPDATED', queryKeys.control);
-
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    sdk.streams
+      .open(
+        INVALIDATION_EVENTS_PATH,
+        {
+          onReady: () => {
+            if (disposed) return;
+            setError(null);
+          },
+          onEvent: (eventName: string) => {
+            if (disposed) return;
+            const keys = DOMAIN_INVALIDATIONS[eventName];
+            if (!keys) return;
+            for (const key of keys) {
+              void queryClient.invalidateQueries({ queryKey: key });
+            }
+          },
+          onError: (err: unknown) => {
+            if (disposed) return;
+            setError(err instanceof Error ? err.message : 'Realtime event stream error');
+          },
+          onTerminate: () => {
+            if (disposed) return;
+            setError('Realtime event stream disconnected — live updates paused, falling back to periodic refresh.');
+          },
+        },
+        { reconnect: DEFAULT_SSE_RECONNECT },
+      )
+      .then((dispose) => {
+        if (disposed) {
+          dispose();
+          return;
+        }
+        close = dispose;
+      })
+      .catch((err: unknown) => {
+        if (disposed) return;
+        setError(err instanceof Error ? err.message : 'Failed to open realtime event stream');
+      });
 
     return () => {
-      for (const unsubscribe of unsubs) unsubscribe();
-      unsubs = [];
+      disposed = true;
+      if (close) close();
     };
   }, [enabled, queryClient]);
 

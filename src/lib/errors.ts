@@ -71,6 +71,24 @@ export function isSessionNotFoundError(error: unknown): boolean {
   return message.includes('session not found');
 }
 
+/**
+ * True when a thrown request error never reached the daemon — a network/connection
+ * failure rather than an HTTP rejection. The SDK transport tags these with
+ * `category: 'network'` and `transport.status: 0` (createNetworkTransportError), and the
+ * webui's own requestJson leaves `status` unset when fetch throws. This is what lets the
+ * auth gate tell "daemon unreachable" (keep the token, reconnect) apart from a genuine
+ * 401 "unauthenticated" (clear the token, show the sign-in front door).
+ */
+export function isDaemonUnreachableError(error: unknown): boolean {
+  if (!error) return false;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const category = readString(serialized, 'category') || readString(transport, 'category');
+  if (category === 'network') return true;
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 0;
+}
+
 export function errorDebugValue(error: unknown): unknown {
   const serialized = serializeError(error);
   return Object.keys(serialized).length ? serialized : undefined;

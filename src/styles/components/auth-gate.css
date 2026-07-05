@@ -79,3 +79,13 @@
   height: 56px;
   opacity: 0.85;
 }
+
+/* Reconnect spinner for the daemon-unreachable gate. */
+.signed-out-card .spin {
+  animation: auth-gate-spin 900ms linear infinite;
+}
+
+@keyframes auth-gate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

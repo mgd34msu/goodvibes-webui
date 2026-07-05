@@ -24,6 +24,7 @@ import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
 import { SessionsView } from './views/sessions/SessionsView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
+import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
@@ -37,7 +38,7 @@ import {
   writeStoredActiveCompanionSessionId,
   writeStoredCompanionSessions,
 } from './lib/companion-chat';
-import { formatError, isSessionNotFoundError } from './lib/errors';
+import { formatError, isDaemonUnreachableError, isSessionNotFoundError } from './lib/errors';
 
 const views: {
   id: ViewId;
@@ -70,6 +71,10 @@ export default function App() {
     queryKey: queryKeys.auth,
     queryFn: getCurrentAuth,
     retry: false,
+    // Auto-recovery: while the daemon is unreachable, keep re-probing so the shell
+    // reveals itself the moment the daemon answers again. A 401 (genuinely signed out)
+    // is NOT an unreachable error, so this does not busy-poll the sign-in front door.
+    refetchInterval: (query) => (isDaemonUnreachableError(query.state.error) ? 5_000 : false),
   });
   // Session liveness: consume the raw un-domained session-update stream, but only once
   // signed in (opening it while signed-out just 401s). It degrades honestly on failure.
@@ -210,8 +215,24 @@ export default function App() {
   // it validates; with NO stored token, show the gate immediately (no white-screen, and
   // no working-looking-but-401ing shell).
   const authPending = auth.isPending;
-  const signedOut = auth.isError || (authPending && !hasStoredTokenSync());
+  // A network failure with a stored token means the daemon is unreachable, NOT that the
+  // operator is signed out. Keep the token and show the honest unreachable state; the
+  // auth query re-probes on an interval and the shell recovers automatically.
+  const daemonUnreachable = auth.isError && isDaemonUnreachableError(auth.error) && hasStoredTokenSync();
+  const signedOut = (auth.isError && !daemonUnreachable) || (authPending && !hasStoredTokenSync());
   const showSplash = authPending && !auth.isError && hasStoredTokenSync();
+
+  if (daemonUnreachable) {
+    return (
+      <AppShell view={view} onNavigate={handleNavigate}>
+        <DaemonUnreachableGate
+          detail={formatError(auth.error)}
+          retrying={auth.isFetching}
+          onRetry={() => void auth.refetch()}
+        />
+      </AppShell>
+    );
+  }
 
   if (signedOut) {
     return (

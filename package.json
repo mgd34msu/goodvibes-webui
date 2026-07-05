@@ -15,7 +15,13 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "sdk:link": "bun run scripts/sdk-dev.ts link",
+    "sdk:status": "bun run scripts/sdk-dev.ts status",
+    "sdk:restore": "bun run scripts/sdk-dev.ts restore",
+    "release:gate": "bun run scripts/release-gate.ts",
+    "gate": "bun run test && bun run typecheck && bun run build && bun run release:gate",
+    "prepublishOnly": "bun run release:gate"
   },
   "dependencies": {
     "@pellux/goodvibes-sdk": "0.33.30",

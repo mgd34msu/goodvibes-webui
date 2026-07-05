@@ -1,9 +1,62 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+// Directory this config file lives in (the repo root), resolved independent
+// of process.cwd() — this config is the seam every `vite build` invocation
+// loads (bun run build, a wrapper script, CI, or a bare `vite build` in this
+// directory), so a guard planted here cannot be routed around the way a
+// guard in a wrapper script could be by calling vite directly.
+const CONFIG_DIR = fileURLToPath(new URL('.', import.meta.url));
+
+/**
+ * Refuses `vite build` while the local SDK overlay (scripts/sdk-dev.ts link)
+ * is active. The production build bakes @pellux/goodvibes-sdk into the
+ * static bundle — an overlay build (unreleased local SDK source, not the
+ * pinned npm version) must never ship. `apply: 'build'` means this never
+ * runs for `vite` (dev server) or `vite preview`, where the overlay is the
+ * intended fast-iteration workflow.
+ *
+ * Escape hatch: GOODVIBES_ALLOW_OVERLAY_BUILD=1 permits the build to proceed
+ * with a loud, repeated warning — for local-only smoke builds of in-progress
+ * SDK changes. Never set this in CI or a release build.
+ */
+function sdkOverlayGuardPlugin(): Plugin {
+  return {
+    name: 'goodvibes-sdk-overlay-guard',
+    apply: 'build',
+    enforce: 'pre',
+    buildStart() {
+      const markerPath = join(CONFIG_DIR, 'node_modules/@pellux/goodvibes-sdk/.local-sdk-overlay.json');
+      if (!existsSync(markerPath)) return;
+
+      const marker = JSON.parse(readFileSync(markerPath, 'utf8')) as { sdkGit?: string; sourcePath?: string };
+      const allowOverlay = process.env.GOODVIBES_ALLOW_OVERLAY_BUILD === '1';
+
+      if (!allowOverlay) {
+        this.error(
+          'production build refused: local SDK overlay is active ' +
+          `(${marker.sdkGit ?? 'unknown'}).\n` +
+          '  The build bakes @pellux/goodvibes-sdk into the bundle — an overlay build must never ship.\n' +
+          '  Run `bun scripts/sdk-dev.ts restore` to return to the pinned npm version, then rebuild.\n' +
+          '  (Local-only dev builds may bypass this with GOODVIBES_ALLOW_OVERLAY_BUILD=1 — NEVER for release.)',
+        );
+        return;
+      }
+
+      const banner = '!'.repeat(78);
+      console.warn(`\n${banner}`);
+      console.warn('!! GOODVIBES_ALLOW_OVERLAY_BUILD=1 — building with the LOCAL SDK OVERLAY active.');
+      console.warn(`!! Source: ${marker.sdkGit ?? 'unknown'} (${marker.sourcePath ?? 'unknown'})`);
+      console.warn('!! This bundle bakes in an unreleased SDK build. It must NEVER be published or deployed.');
+      console.warn(`${banner}\n`);
+    },
+  };
+}
 
 interface GoodVibesListenerSettings {
   hostMode?: string;
@@ -114,7 +167,7 @@ const devAllowedHosts = uniqueHosts([
 ]);
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), sdkOverlayGuardPlugin()],
   server: {
     host: devHost,
     port: devPort,

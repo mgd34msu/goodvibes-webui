@@ -20,6 +20,8 @@ import type { DaemonHealth } from '../../lib/daemon-health';
 
 let _mockHealth: DaemonHealth = {
   connection: 'connected',
+  signedIn: 'signed-in',
+  working: 'working',
   latencyMs: 42,
   sse: 'active',
   activeTurns: 0,
@@ -67,6 +69,8 @@ let cleanup: (() => void) | null = null;
 beforeEach(() => {
   _mockHealth = {
     connection: 'connected',
+    signedIn: 'signed-in',
+    working: 'working',
     latencyMs: 42,
     sse: 'active',
     activeTurns: 0,
@@ -130,18 +134,22 @@ describe('StatusStrip', () => {
   // Connection states — label + dot (non-color cue)
   // -------------------------------------------------------------------------
   describe('connection state: connected', () => {
-    test('shows "Connected" label in connection segment', () => {
+    test('shows "Reachable" label in connection segment (never "Connected")', () => {
       const { el, unmount } = renderStrip();
       cleanup = unmount;
       const connectionSeg = el.querySelector('.status-strip__segment--connection');
-      expect(connectionSeg?.textContent).toContain('Connected');
+      expect(connectionSeg?.textContent).toContain('Reachable');
+      expect(connectionSeg?.textContent).not.toContain('Connected');
     });
 
-    test('live region contains "Connected" text', () => {
+    test('live region reports all three axes, never a bare "Connected"', () => {
       const { el, unmount } = renderStrip();
       cleanup = unmount;
       const liveRegion = el.querySelector('[aria-live="polite"]');
-      expect(liveRegion?.textContent).toBe('Connected');
+      expect(liveRegion?.textContent).toContain('Reachable');
+      expect(liveRegion?.textContent).toContain('Signed in');
+      expect(liveRegion?.textContent).toContain('Working');
+      expect(liveRegion?.textContent).not.toBe('Connected');
     });
 
     test('ConnectionDot has dot--connected class (non-color visual cue)', () => {
@@ -173,7 +181,7 @@ describe('StatusStrip', () => {
       const { el, unmount } = renderStrip();
       cleanup = unmount;
       const liveRegion = el.querySelector('[aria-live="polite"]');
-      expect(liveRegion?.textContent).toBe('Reconnecting');
+      expect(liveRegion?.textContent).toContain('Reconnecting');
     });
 
     test('dot has dot--reconnecting class', () => {
@@ -198,7 +206,7 @@ describe('StatusStrip', () => {
       const { el, unmount } = renderStrip();
       cleanup = unmount;
       const liveRegion = el.querySelector('[aria-live="polite"]');
-      expect(liveRegion?.textContent).toBe('Offline');
+      expect(liveRegion?.textContent).toContain('Offline');
     });
 
     test('dot has dot--down class', () => {

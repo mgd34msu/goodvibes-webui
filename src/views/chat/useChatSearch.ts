@@ -1,13 +1,37 @@
 /**
- * useChatSearch — cross-session message search hook.
+ * useChatSearch — companion-history search hook (W5-W6, first consumer of
+ * sessions.search).
  *
- * Search mechanism: client-side. No dedicated search endpoint exists in the SDK.
- * Sessions are passed in by the caller (already fetched via TanStack Query).
- * Messages are fetched lazily per-session on first query, then cached in a ref
- * Map to avoid redundant network requests. The cache is keyed by sessionId and
- * reset whenever the sessions list identity changes (new sessions or count).
+ * TWO DISTINCT STAGES, kept separate rather than merged (see decision record
+ * in the Wave-5 brief for W5-W6):
  *
- * Returns ranked results ordered by createdAt descending (most recent first).
+ *   1. SESSION search (`sessionResults`) — backend-side, via
+ *      `sdk.operator.sessions.search({ query, kind: 'companion-chat', ... })`.
+ *      Matches session id/title/project only (not message bodies) but reaches
+ *      FULL history, not just the ~100 most-recently-fetched sessions the
+ *      caller passed in. This is the new capability sessions.search unlocks.
+ *
+ *   2. MESSAGE-content search (`results`) — unchanged from before: client-side,
+ *      substring-matches message bodies, but only within the `sessions` the
+ *      caller already fetched (capped upstream at ~100, see App.tsx). Kept
+ *      because sessions.search cannot see inside message bodies — dropping
+ *      this stage would silently narrow what a user can find.
+ *
+ * THE includeClosed DIVERGENCE (load-bearing, name it wherever this is read):
+ * sessions.search defaults `includeClosed` to FALSE — the OPPOSITE of
+ * SharedSessionBroker.listSessions' own default (session-search.ts's handler
+ * comment on the SDK side calls this out explicitly; sessions-union.ts's
+ * consumer, SessionsView, defaults its own includeClosed toggle to TRUE for
+ * exactly the same reason it should NOT be true here). A search surface
+ * hides dead sessions by default; a full list surface shows them. Do not
+ * "fix" this hook to match SessionsView's default — they are intentionally
+ * different truths for different surfaces. `includeClosed` is exposed here
+ * as an explicit, off-by-default toggle so the user can opt in.
+ *
+ * Session-search failures degrade honestly: a route-absent/NOT_INVOKABLE
+ * response (the daemon does not serve sessions.search) surfaces as the
+ * `'unavailable'` state, never a silent empty list indistinguishable from a
+ * genuine zero-result search.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,7 +41,9 @@ import {
   extractMessageId,
   extractSessionId,
 } from '../../lib/companion-chat';
+import { errorCode } from '../../lib/errors';
 import { firstString } from '../../lib/object';
+import type { SessionsSearchSessionSummary } from '../../lib/contract-bridge-types';
 import type { ChatMessage } from './types';
 
 /** A single search result referencing a specific message. */
@@ -32,12 +58,51 @@ export interface ChatSearchResult {
   createdAt?: number;
 }
 
+/** A single session-level search result (title/id match, not a specific message). */
+export interface ChatSessionSearchResult {
+  sessionId: string;
+  sessionTitle: string;
+  /** Rendered honestly — a closed session is never relabeled as active. */
+  status: 'active' | 'closed';
+  project?: string;
+  /** Most recent activity timestamp (epoch ms), if known. */
+  updatedAt?: number;
+}
+
+/**
+ * Lifecycle of the backend session-search stage.
+ *   'idle'        — no query typed yet.
+ *   'searching'   — request in flight (debounced).
+ *   'ready'       — a response landed (sessionResults reflects it, may be empty).
+ *   'unavailable' — the daemon does not serve sessions.search (NOT_INVOKABLE /
+ *                   route-absent) — distinct from a genuine empty result.
+ *   'error'       — some other request failure (network, 5xx, etc).
+ */
+export type SessionSearchState = 'idle' | 'searching' | 'ready' | 'unavailable' | 'error';
+
 /** The value returned from useChatSearch. */
 export interface UseChatSearchReturn {
-  /** Filtered, ranked results for the current query. */
+  /** Filtered, ranked message-content results for the current query. */
   results: ChatSearchResult[];
   /** True while messages are being fetched for an active query. */
   isSearching: boolean;
+  /** Session-discovery results from sessions.search (title/id match, full history). */
+  sessionResults: ChatSessionSearchResult[];
+  /** Lifecycle of the session-search stage — see SessionSearchState. */
+  sessionSearchState: SessionSearchState;
+  /**
+   * Whether closed/reaped sessions are included in the session-search stage.
+   * Defaults to false, matching sessions.search's own default (NOT
+   * sessions.list's) — see the module doc comment above.
+   */
+  includeClosed: boolean;
+  setIncludeClosed: (value: boolean) => void;
+  /** True when a further page of session results exists (nextCursor present). */
+  hasMoreSessions: boolean;
+  /** True while a load-more request for session results is in flight. */
+  isLoadingMoreSessions: boolean;
+  /** Fetch the next page of session results and append them. */
+  loadMoreSessions: () => void;
 }
 
 /** Messages keyed by sessionId. */
@@ -84,6 +149,59 @@ async function fetchMessages(sessionId: string): Promise<ChatMessage[]> {
   return items.map((item) => item as ChatMessage);
 }
 
+const SESSION_SEARCH_LIMIT = 20;
+
+/**
+ * Kind filter for sessions.search — scopes the backend session-discovery
+ * stage to companion chat sessions (this hook's domain), matching one of the
+ * six KNOWN_SESSION_KINDS in sessions-union.ts. Not imported from there: that
+ * module exports the full list for the cross-surface union view, not a single
+ * literal for one consumer.
+ */
+const COMPANION_CHAT_KIND = 'companion-chat';
+
+/** Map a wire session-search summary onto this hook's honest result shape. */
+function toSessionSearchResult(summary: SessionsSearchSessionSummary): ChatSessionSearchResult {
+  return {
+    sessionId: summary.id,
+    sessionTitle: summary.title || 'Untitled session',
+    status: summary.status === 'closed' ? 'closed' : 'active',
+    project: summary.project,
+    updatedAt: summary.lastActivityAt ?? summary.updatedAt,
+  };
+}
+
+/** True when `error` is the daemon's honest "this method is not served" rejection. */
+function isNotInvokableError(error: unknown): boolean {
+  return errorCode(error) === 'NOT_INVOKABLE';
+}
+
+/**
+ * Fetch one page of the backend session-search stage.
+ *
+ * `includeClosed` defaults to false at the call site below to match
+ * sessions.search's own default — see the module doc comment for why this is
+ * intentionally different from the union session list's default.
+ */
+async function fetchSessionSearchPage(
+  query: string,
+  includeClosed: boolean,
+  cursor?: string,
+): Promise<{ sessions: ChatSessionSearchResult[]; nextCursor?: string; hasMore: boolean }> {
+  const page = await sdk.operator.sessions.search({
+    query,
+    kind: COMPANION_CHAT_KIND,
+    includeClosed,
+    limit: SESSION_SEARCH_LIMIT,
+    ...(cursor ? { cursor } : {}),
+  });
+  return {
+    sessions: page.sessions.map(toSessionSearchResult),
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+  };
+}
+
 /**
  * Hook that searches across all companion chat sessions/messages.
  *
@@ -96,6 +214,21 @@ export function useChatSearch(
 ): UseChatSearchReturn {
   const [results, setResults] = useState<ChatSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Session-search stage (sessions.search) — a separate concern from the
+  // message-content stage above: different backend, different default
+  // (includeClosed=false), its own pagination and lifecycle state.
+  const [sessionResults, setSessionResults] = useState<ChatSessionSearchResult[]>([]);
+  const [sessionSearchState, setSessionSearchState] = useState<SessionSearchState>('idle');
+  const [includeClosed, setIncludeClosed] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
+  const [hasMoreSessions, setHasMoreSessions] = useState(false);
+  const [isLoadingMoreSessions, setIsLoadingMoreSessions] = useState(false);
+  const sessionSearchAbortRef = useRef<AbortController | null>(null);
+  // Tracks the query/includeClosed pair the currently-visible sessionResults were
+  // fetched for, so a slow load-more response that lands after the user has
+  // already changed the query/toggle is discarded rather than silently applied.
+  const activeSessionParamsRef = useRef({ query: '', includeClosed });
 
   // Persistent message cache — keyed by sessionId, reset when sessions identity changes.
   const cacheRef = useRef<MessageCache>(new Map());
@@ -203,5 +336,109 @@ export function useChatSearch(
     };
   }, [query, runSearch]);
 
-  return { results, isSearching };
+  // ── Session-search stage (sessions.search, first consumer — W5-W6) ────────
+  //
+  // Debounced independently of the message-content stage above: it has no
+  // dependency on the caller's `sessions` prop (it searches full history via
+  // the backend, not the client-provided corpus), and it re-runs on
+  // `includeClosed` toggling in addition to `query` changes.
+  const runSessionSearch = useCallback(
+    async (term: string, closed: boolean, signal: AbortSignal): Promise<void> => {
+      if (!term.trim()) {
+        setSessionResults([]);
+        setSessionSearchState('idle');
+        setNextCursor(undefined);
+        setHasMoreSessions(false);
+        return;
+      }
+
+      setSessionSearchState('searching');
+      try {
+        const page = await fetchSessionSearchPage(term, closed);
+        if (signal.aborted) return;
+        setSessionResults(page.sessions);
+        setNextCursor(page.nextCursor);
+        setHasMoreSessions(page.hasMore);
+        setSessionSearchState('ready');
+      } catch (error) {
+        if (signal.aborted) return;
+        setSessionResults([]);
+        setNextCursor(undefined);
+        setHasMoreSessions(false);
+        setSessionSearchState(isNotInvokableError(error) ? 'unavailable' : 'error');
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    activeSessionParamsRef.current = { query, includeClosed };
+  }, [query, includeClosed]);
+
+  useEffect(() => {
+    sessionSearchAbortRef.current?.abort();
+
+    if (!query.trim()) {
+      setSessionResults([]);
+      setSessionSearchState('idle');
+      setNextCursor(undefined);
+      setHasMoreSessions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    sessionSearchAbortRef.current = controller;
+
+    const timer = window.setTimeout(() => {
+      void runSessionSearch(query, includeClosed, controller.signal);
+    }, DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+      sessionSearchAbortRef.current = null;
+    };
+  }, [query, includeClosed, runSessionSearch]);
+
+  const loadMoreSessions = useCallback(() => {
+    if (isLoadingMoreSessions || !hasMoreSessions || !nextCursor) return;
+    const requestedParams = activeSessionParamsRef.current;
+
+    setIsLoadingMoreSessions(true);
+    void (async () => {
+      try {
+        const page = await fetchSessionSearchPage(requestedParams.query, requestedParams.includeClosed, nextCursor);
+        // Discard if the query/toggle changed while this page was in flight —
+        // applying it would silently mix results from two different searches.
+        if (
+          activeSessionParamsRef.current.query !== requestedParams.query
+          || activeSessionParamsRef.current.includeClosed !== requestedParams.includeClosed
+        ) {
+          return;
+        }
+        setSessionResults((prev) => [...prev, ...page.sessions]);
+        setNextCursor(page.nextCursor);
+        setHasMoreSessions(page.hasMore);
+      } catch (error) {
+        if (isNotInvokableError(error)) setSessionSearchState('unavailable');
+        // Otherwise: leave the existing page's results in place. A failed
+        // load-more is not a failed search — do not blow away what already
+        // rendered successfully.
+      } finally {
+        setIsLoadingMoreSessions(false);
+      }
+    })();
+  }, [hasMoreSessions, nextCursor, isLoadingMoreSessions]);
+
+  return {
+    results,
+    isSearching,
+    sessionResults,
+    sessionSearchState,
+    includeClosed,
+    setIncludeClosed,
+    hasMoreSessions,
+    isLoadingMoreSessions,
+    loadMoreSessions,
+  };
 }

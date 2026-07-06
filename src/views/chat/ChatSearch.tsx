@@ -1,20 +1,31 @@
 /**
- * ChatSearch — cross-session message search panel.
+ * ChatSearch — companion-history search panel (W5-W6).
+ *
+ * Two distinct result sections, never merged (see useChatSearch's module doc
+ * for why): a SESSIONS section (backend sessions.search — id/title match,
+ * full history, honors the includeClosed toggle) and a MESSAGES section
+ * (client-side content match, within the caller's already-fetched sessions).
+ * Selecting a session-level result opens that session with no specific
+ * message to scroll to (`messageId: ''`); selecting a message result opens
+ * the session and scrolls to that message.
  *
  * Exposes an `onSelect` callback: ({ sessionId, messageId }) => void.
  * Integration: wire this to setSession + scroll in the ChatView/parent;
  * this component does NOT mutate URL state directly.
  *
  * Keyboard navigation:
- *   ArrowDown / ArrowUp — move selection
+ *   ArrowDown / ArrowUp — move selection within the Messages list
  *   Enter               — activate selected result
  *   Escape              — clear query (caller can use to close the panel)
+ * Session results and the "load more" control are reached by Tab, each
+ * individually activatable via Enter/Space — a separate, secondary
+ * navigation zone from the message combobox above.
  */
 
 import { type ChangeEvent, type KeyboardEvent, useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
-import type { ChatSearchResult } from './useChatSearch';
+import type { ChatSearchResult, ChatSessionSearchResult } from './useChatSearch';
 import { useChatSearch } from './useChatSearch';
 import '../../styles/components/chat-search.css';
 
@@ -53,7 +64,17 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
   const inputId = useId();
   const listId = useId();
 
-  const { results, isSearching } = useChatSearch(query, sessions);
+  const {
+    results,
+    isSearching,
+    sessionResults,
+    sessionSearchState,
+    includeClosed,
+    setIncludeClosed,
+    hasMoreSessions,
+    isLoadingMoreSessions,
+    loadMoreSessions,
+  } = useChatSearch(query, sessions);
 
   // Reset active index when results change
   const prevResultsLen = useRef(results.length);
@@ -71,6 +92,14 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
   const handleSelect = useCallback(
     (result: ChatSearchResult) => {
       onSelect({ sessionId: result.sessionId, messageId: result.messageId });
+    },
+    [onSelect],
+  );
+
+  // Session-level result: no specific message to scroll to — open the session.
+  const handleSelectSession = useCallback(
+    (result: ChatSessionSearchResult) => {
+      onSelect({ sessionId: result.sessionId, messageId: '' });
     },
     [onSelect],
   );
@@ -107,9 +136,16 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
     }
   }, [activeIndex]);
 
+  const hasQuery = query.trim().length > 0;
   const showSkeleton = isSearching && results.length === 0;
-  const showEmpty = !isSearching && query.trim().length > 0 && results.length === 0;
+  const showEmpty = !isSearching && hasQuery && results.length === 0;
   const showResults = results.length > 0;
+
+  const showSessionSkeleton = sessionSearchState === 'searching' && sessionResults.length === 0;
+  const showSessionUnavailable = sessionSearchState === 'unavailable';
+  const showSessionError = sessionSearchState === 'error';
+  const showSessionEmpty = sessionSearchState === 'ready' && hasQuery && sessionResults.length === 0;
+  const showSessionResults = sessionResults.length > 0;
 
   return (
     <div
@@ -119,7 +155,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
     >
       <div className="chat-search__input-row">
         <label htmlFor={inputId} className="chat-search__label">
-          Search messages
+          Search chat history
         </label>
         <input
           ref={inputRef}
@@ -140,10 +176,104 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
           aria-autocomplete="list"
           aria-expanded={showResults || showSkeleton}
         />
-        {isSearching && (
+        {(isSearching || sessionSearchState === 'searching') && (
           <span className="chat-search__spinner" aria-label="Searching…" role="status" />
         )}
       </div>
+
+      {hasQuery && (
+        <section className="chat-search__section" aria-label="Sessions matching your search">
+          <div className="chat-search__section-header">
+            <h3 className="chat-search__section-title">Sessions</h3>
+            <label className="chat-search__closed-toggle">
+              <input
+                type="checkbox"
+                checked={includeClosed}
+                onChange={(e) => setIncludeClosed(e.target.checked)}
+              />
+              Include closed sessions
+            </label>
+          </div>
+
+          {showSessionSkeleton && (
+            <div className="chat-search__skeleton" aria-busy="true" aria-label="Searching sessions">
+              <SkeletonBlock variant="text" lines={2} />
+            </div>
+          )}
+
+          {showSessionUnavailable && (
+            <EmptyState
+              title="Search unavailable"
+              description="The daemon did not serve session search — try again later."
+              className="chat-search__empty"
+            />
+          )}
+
+          {showSessionError && (
+            <EmptyState
+              title="Session search failed"
+              description="Something went wrong searching sessions — try again."
+              className="chat-search__empty"
+            />
+          )}
+
+          {showSessionEmpty && (
+            <EmptyState
+              title="No sessions match"
+              description={
+                includeClosed
+                  ? `No sessions match “${query}”, including closed ones.`
+                  : `No sessions match “${query}”. Closed sessions are hidden — include them?`
+              }
+              action={includeClosed ? undefined : { label: 'Include closed sessions', onClick: () => setIncludeClosed(true) }}
+              className="chat-search__empty"
+            />
+          )}
+
+          {showSessionResults && (
+            <ul className="chat-search__session-results" role="listbox" aria-label="Matching sessions">
+              {sessionResults.map((result) => {
+                const time = relativeTime(result.updatedAt);
+                return (
+                  <li
+                    key={result.sessionId}
+                    role="option"
+                    aria-selected={false}
+                    className="chat-search__session-result"
+                    onClick={() => handleSelectSession(result)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectSession(result);
+                      }
+                    }}
+                    tabIndex={0}
+                  >
+                    <span className="chat-search__session-result-title">{result.sessionTitle}</span>
+                    <span className="chat-search__session-result-meta">
+                      {result.status === 'closed' && <span className="badge neutral">closed</span>}
+                      {time && <span className="chat-search__result-time">{time}</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {hasMoreSessions && (
+            <button
+              type="button"
+              className="chat-search__load-more"
+              onClick={loadMoreSessions}
+              disabled={isLoadingMoreSessions}
+            >
+              {isLoadingMoreSessions ? 'Loading…' : 'Load more sessions'}
+            </button>
+          )}
+        </section>
+      )}
+
+      {hasQuery && <h3 className="chat-search__section-title chat-search__section-title--messages">Messages</h3>}
 
       {showSkeleton && (
         <div className="chat-search__skeleton" aria-busy="true" aria-label="Loading results">
@@ -153,8 +283,8 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
 
       {showEmpty && (
         <EmptyState
-          title="No results"
-          description={`No messages match “${query}”`}
+          title="No text matches"
+          description={`No messages match “${query}” in the loaded sessions.`}
           className="chat-search__empty"
         />
       )}

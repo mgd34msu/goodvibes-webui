@@ -1,12 +1,23 @@
 /**
  * Tests for useChatSearch hook.
  *
- * Covers:
+ * Covers the message-content stage (unchanged from before W5-W6):
  *   - debounce timing (300 ms)
  *   - abort on rapid retype (no stale results)
  *   - cache hit — second query with same sessions does NOT re-fetch
  *   - cache invalidation when sessions identity changes
  *   - recency ranking (most recent createdAt first)
+ *
+ * And the session-search stage (sessions.search, W5-W6):
+ *   - includeClosed defaults to false on every fresh query (the documented
+ *     divergence from sessions.list's own default)
+ *   - toggling includeClosed re-queries with includeClosed:true and renders a
+ *     closed session honestly (status never relabeled as active)
+ *   - a NOT_INVOKABLE rejection surfaces as sessionSearchState 'unavailable',
+ *     never a silently-empty result indistinguishable from a real zero-match
+ *   - pagination: hasMore/nextCursor drive loadMoreSessions, which appends
+ *     rather than replaces, and is a no-op with no cursor/while not hasMore
+ *   - the kind filter scopes to 'companion-chat' (this hook's domain)
  *
  * Uses real timers via bun:test. DOM render via createRoot + flushSync
  * (happy-dom is installed by bunfig.toml preload).
@@ -46,6 +57,30 @@ const stub: ListStub = {
   shouldFail: false,
 };
 
+/** A single recorded sessions.search call's input. */
+interface SessionSearchCall {
+  query?: string;
+  kind?: string;
+  includeClosed?: boolean;
+  limit?: number;
+  cursor?: string;
+}
+
+/** Control surface for the sessions.search stub. */
+interface SessionSearchStub {
+  calls: SessionSearchCall[];
+  /** Response returned on the NEXT call (or every call, if `sticky`). */
+  response: { sessions: Record<string, unknown>[]; nextCursor?: string; hasMore: boolean };
+  /** 'none' | 'not-invokable' | 'generic' */
+  failMode: 'none' | 'not-invokable' | 'generic';
+}
+
+const sessionSearchStub: SessionSearchStub = {
+  calls: [],
+  response: { sessions: [], nextCursor: undefined, hasMore: false },
+  failMode: 'none',
+};
+
 // Mock the SDK before any import of useChatSearch.
 mock.module('../../lib/goodvibes', () => ({
   sdk: {
@@ -59,6 +94,20 @@ mock.module('../../lib/goodvibes', () => ({
             // companionMessagesFromListResponse reads .items on the response
             return { items: msgs };
           },
+        },
+        search: async (input: SessionSearchCall): Promise<unknown> => {
+          sessionSearchStub.calls.push(input);
+          if (sessionSearchStub.failMode === 'not-invokable') {
+            throw Object.assign(new Error('Method sessions.search is not invokable from this surface'), {
+              status: 400,
+              category: 'service',
+              body: { error: 'Method sessions.search is not invokable from this surface', code: 'NOT_INVOKABLE' },
+            });
+          }
+          if (sessionSearchStub.failMode === 'generic') {
+            throw Object.assign(new Error('internal error'), { status: 500, category: 'service', body: { code: 'INTERNAL' } });
+          }
+          return sessionSearchStub.response;
         },
       },
     },
@@ -75,19 +124,29 @@ const { useChatSearch } = await import('./useChatSearch');
 const wait = (ms: number): Promise<void> =>
   new Promise<void>((r) => setTimeout(r, ms));
 
-interface SearchState {
-  results: { sessionId: string; messageId: string; snippet: string; sessionTitle: string; createdAt?: number }[];
-  isSearching: boolean;
-}
+type SearchState = ReturnType<typeof useChatSearch>;
+
+const EMPTY_STATE: SearchState = {
+  results: [],
+  isSearching: false,
+  sessionResults: [],
+  sessionSearchState: 'idle',
+  includeClosed: false,
+  setIncludeClosed: () => {},
+  hasMoreSessions: false,
+  isLoadingMoreSessions: false,
+  loadMoreSessions: () => {},
+};
 
 /**
  * Mount useChatSearch in a component. Returns a handle for:
  *   - reading the latest state snapshot
  *   - updating query / sessions props by re-rendering
+ *   - driving the returned setIncludeClosed/loadMoreSessions callbacks
  *   - unmounting
  */
 function mountHook(initialQuery: string, initialSessions: unknown[]) {
-  let snapshot: SearchState = { results: [], isSearching: false };
+  let snapshot: SearchState = EMPTY_STATE;
 
   let currentQuery = initialQuery;
   let currentSessions = initialSessions;
@@ -122,6 +181,12 @@ function mountHook(initialQuery: string, initialSessions: unknown[]) {
       currentSessions = s;
       flushSync(() => { root.render(React.createElement(HookOwner)); });
     },
+    setIncludeClosed(value: boolean) {
+      flushSync(() => { snapshot.setIncludeClosed(value); });
+    },
+    loadMoreSessions() {
+      flushSync(() => { snapshot.loadMoreSessions(); });
+    },
     unmount() {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -143,16 +208,24 @@ function seedMessages(sessionId: string, messages: Record<string, unknown>[]) {
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
+function resetSessionSearchStub() {
+  sessionSearchStub.calls = [];
+  sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
+  sessionSearchStub.failMode = 'none';
+}
+
 beforeEach(() => {
   stub.responses = new Map();
   stub.callCounts = new Map();
   stub.shouldFail = false;
+  resetSessionSearchStub();
 });
 
 afterEach(() => {
   stub.responses = new Map();
   stub.callCounts = new Map();
   stub.shouldFail = false;
+  resetSessionSearchStub();
 });
 
 // ---------------------------------------------------------------------------
@@ -371,6 +444,174 @@ describe('useChatSearch — recency ranking', () => {
     expect(results.length).toBe(2);
     expect(results[0]?.createdAt).toBe(9_000);
     expect(results[1]?.createdAt).toBe(1_000);
+
+    handle.unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session-search stage (sessions.search — W5-W6, first consumer)
+// ---------------------------------------------------------------------------
+
+describe('useChatSearch — session search (sessions.search) includeClosed default', () => {
+  test('defaults includeClosed to false on a fresh query — the documented divergence from sessions.list', async () => {
+    sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
+    const handle = mountHook('', []);
+
+    handle.setQuery('deploy');
+    await wait(450);
+
+    expect(sessionSearchStub.calls.length).toBeGreaterThan(0);
+    expect(sessionSearchStub.calls[sessionSearchStub.calls.length - 1]?.includeClosed).toBe(false);
+    expect(handle.state.includeClosed).toBe(false);
+
+    handle.unmount();
+  });
+
+  test('scopes the search to kind: companion-chat (this hook\'s domain)', async () => {
+    const handle = mountHook('', []);
+    handle.setQuery('deploy');
+    await wait(450);
+
+    expect(sessionSearchStub.calls[sessionSearchStub.calls.length - 1]?.kind).toBe('companion-chat');
+
+    handle.unmount();
+  });
+
+  test('toggling includeClosed re-queries with includeClosed:true and renders a closed session honestly', async () => {
+    sessionSearchStub.response = {
+      sessions: [
+        { id: 'sc1', kind: 'companion-chat', title: 'Closed session', status: 'closed', createdAt: 1, updatedAt: 1, lastActivityAt: 1, messageCount: 3, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} },
+      ],
+      nextCursor: undefined,
+      hasMore: false,
+    };
+
+    const handle = mountHook('', []);
+    handle.setQuery('closed');
+    await wait(450);
+
+    // Default (includeClosed:false) — the stub still returns the fixture (a
+    // stub does not enforce filtering), but the hook's own default is what
+    // this test asserts: the CALL carries includeClosed:false.
+    expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(false);
+
+    handle.setIncludeClosed(true);
+    await wait(450);
+
+    expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(true);
+    expect(handle.state.includeClosed).toBe(true);
+    // The returned session is rendered with its real status — never relabeled.
+    expect(handle.state.sessionResults).toHaveLength(1);
+    expect(handle.state.sessionResults[0]?.status).toBe('closed');
+
+    handle.unmount();
+  });
+});
+
+describe('useChatSearch — session search honest degraded states', () => {
+  test('a NOT_INVOKABLE rejection surfaces as sessionSearchState "unavailable", not a silent empty result', async () => {
+    sessionSearchStub.failMode = 'not-invokable';
+    const handle = mountHook('', []);
+
+    handle.setQuery('deploy');
+    await wait(450);
+
+    expect(handle.state.sessionSearchState).toBe('unavailable');
+    expect(handle.state.sessionResults).toHaveLength(0);
+
+    handle.unmount();
+  });
+
+  test('a generic failure surfaces as sessionSearchState "error", distinct from "unavailable"', async () => {
+    sessionSearchStub.failMode = 'generic';
+    const handle = mountHook('', []);
+
+    handle.setQuery('deploy');
+    await wait(450);
+
+    expect(handle.state.sessionSearchState).toBe('error');
+
+    handle.unmount();
+  });
+
+  test('a genuine empty result is "ready" with zero sessionResults, distinct from "unavailable"/"error"', async () => {
+    sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
+    const handle = mountHook('', []);
+
+    handle.setQuery('nomatch');
+    await wait(450);
+
+    expect(handle.state.sessionSearchState).toBe('ready');
+    expect(handle.state.sessionResults).toHaveLength(0);
+
+    handle.unmount();
+  });
+
+  test('empty query clears session results and resets state to idle', async () => {
+    sessionSearchStub.response = {
+      sessions: [{ id: 's1', kind: 'companion-chat', title: 'A', status: 'active', createdAt: 1, updatedAt: 1, lastActivityAt: 1, messageCount: 1, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} }],
+      nextCursor: undefined,
+      hasMore: false,
+    };
+    const handle = mountHook('', []);
+    handle.setQuery('deploy');
+    await wait(450);
+    expect(handle.state.sessionResults.length).toBeGreaterThan(0);
+
+    handle.setQuery('');
+    await wait(10);
+    expect(handle.state.sessionResults).toHaveLength(0);
+    expect(handle.state.sessionSearchState).toBe('idle');
+
+    handle.unmount();
+  });
+});
+
+describe('useChatSearch — session search pagination', () => {
+  test('hasMoreSessions/nextCursor from the first page drive loadMoreSessions, which APPENDS results', async () => {
+    sessionSearchStub.response = {
+      sessions: [{ id: 'p1', kind: 'companion-chat', title: 'Page 1', status: 'active', createdAt: 1, updatedAt: 1, lastActivityAt: 1, messageCount: 1, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} }],
+      nextCursor: 'cursor-2',
+      hasMore: true,
+    };
+
+    const handle = mountHook('', []);
+    handle.setQuery('page');
+    await wait(450);
+
+    expect(handle.state.hasMoreSessions).toBe(true);
+    expect(handle.state.sessionResults).toHaveLength(1);
+
+    // Next page: a different fixture and hasMore:false (end of results).
+    sessionSearchStub.response = {
+      sessions: [{ id: 'p2', kind: 'companion-chat', title: 'Page 2', status: 'active', createdAt: 2, updatedAt: 2, lastActivityAt: 2, messageCount: 1, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} }],
+      nextCursor: undefined,
+      hasMore: false,
+    };
+    handle.loadMoreSessions();
+    await wait(50);
+
+    expect(handle.state.sessionResults).toHaveLength(2);
+    expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['p1', 'p2']);
+    expect(handle.state.hasMoreSessions).toBe(false);
+    // The load-more call passed the previous page's cursor.
+    expect(sessionSearchStub.calls.at(-1)?.cursor).toBe('cursor-2');
+
+    handle.unmount();
+  });
+
+  test('loadMoreSessions is a no-op when hasMoreSessions is false', async () => {
+    sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
+    const handle = mountHook('', []);
+    handle.setQuery('nomore');
+    await wait(450);
+
+    const callsBefore = sessionSearchStub.calls.length;
+    handle.loadMoreSessions();
+    await wait(50);
+
+    expect(sessionSearchStub.calls.length).toBe(callsBefore);
 
     handle.unmount();
   });

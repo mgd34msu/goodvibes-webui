@@ -95,23 +95,16 @@ interface HookOwnerProps {
 
 function HookOwner({ activeSessionId, turnState, setTurnState, setTurnError, onAuthExpired, onResult }: HookOwnerProps): null {
   // Stable across re-renders — matching the real caller (ChatView), where these are
-  // useState setters / useCallback / a useRef and therefore identity-stable. Creating
-  // fresh mocks per render would make them change every render and spuriously re-run
-  // the connect effect (a new SSE stream on every setTurnState), which is NOT how the
-  // hook behaves in production and would mask the epoch/handshake behaviour under test.
-  const stable = React.useRef<{
-    liveTextRef: React.RefObject<string>;
-    setLiveText: Dispatch<SetStateAction<string>>;
-    setLocalMessages: Dispatch<SetStateAction<LocalCompanionMessage[]>>;
-    setPendingUserMessageId: Dispatch<SetStateAction<string>>;
-    invalidateChatState: (sessionId: string) => Promise<void>;
-    onSessionMissing: (sessionId: string) => void;
-  } | null>(null);
-  if (stable.current === null) {
+  // useState setters / useCallback / a ref and therefore identity-stable. Creating fresh
+  // mocks per render would make them change every render and spuriously re-run the
+  // connect effect (a new SSE stream on every setTurnState), which is NOT how the hook
+  // behaves in production and would mask the epoch/handshake behaviour under test.
+  // Built via useMemo (not useRef) so nothing reads a hook ref's `.current` during render.
+  const stable = React.useMemo(() => {
     const liveTextRef = createRef<string>() as React.RefObject<string>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (liveTextRef as any).current = '';
-    stable.current = {
+    return {
       liveTextRef,
       setLiveText: mock(() => {}),
       setLocalMessages: mock((_fn: SetStateAction<LocalCompanionMessage[]>) => {}),
@@ -119,19 +112,19 @@ function HookOwner({ activeSessionId, turnState, setTurnState, setTurnError, onA
       invalidateChatState: mock(() => Promise.resolve()),
       onSessionMissing: mock(() => {}),
     };
-  }
+  }, []);
 
   const result = useChatStream({
     activeSessionId,
-    liveTextRef: stable.current.liveTextRef,
+    liveTextRef: stable.liveTextRef,
     turnState,
     setTurnState,
     setTurnError,
-    setLiveText: stable.current.setLiveText,
-    setLocalMessages: stable.current.setLocalMessages,
-    setPendingUserMessageId: stable.current.setPendingUserMessageId,
-    invalidateChatState: stable.current.invalidateChatState,
-    onSessionMissing: stable.current.onSessionMissing,
+    setLiveText: stable.setLiveText,
+    setLocalMessages: stable.setLocalMessages,
+    setPendingUserMessageId: stable.setPendingUserMessageId,
+    invalidateChatState: stable.invalidateChatState,
+    onSessionMissing: stable.onSessionMissing,
     onAuthExpired,
   });
 

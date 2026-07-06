@@ -1,30 +1,38 @@
 /**
- * sdk-dev.test.ts — fast-path lifecycle checks for scripts/sdk-dev.ts.
+ * sdk-dev.test.ts — checks for the sdk-dev ALIAS (scripts/sdk-dev.ts).
  *
- * These cover the parts of link/status/restore that don't require building
- * the actual ~large local SDK checkout (no CI machine has one, and doing a
- * full SDK build per test run would be far too slow). They verify:
- *   - status() correctly reports "clean" against this repo's real install
- *     and exits 0; and reports "OVERLAY ACTIVE" + exit 2 when a marker
- *     fixture is planted.
- *   - link() fails fast and loud when GOODVIBES_SDK_PATH doesn't exist.
- *   - restore() is a no-op (exit 0) when no overlay is active.
+ * scripts/sdk-dev.ts is now a thin alias (consolidated by W6-DEV, Wave 6):
+ * the overlay lifecycle logic (status states, the pin reader, the restore
+ * version-agreement check, workspace-package enumeration incl. contracts)
+ * moved to the SDK checkout's own scripts/sdk-dev.ts and is unit-tested
+ * there (goodvibes-sdk/test/sdk-dev-tool.test.ts) — that is now the ONE
+ * place this logic is tested, closing the drift the three independently-
+ * maintained copies (this one included, which never picked up the
+ * all-siblings/contracts fix) had fallen into.
  *
- * The full link -> build -> overlay -> status -> restore cycle, including a
- * real production build against the overlay's browser dist paths and a
- * verification that the overlay never corrupts bun's shared global install
- * cache, was run manually end-to-end against an isolated detached worktree
- * of the local SDK checkout as part of WO-0B (see engineer report). That
- * full cycle is not automated here because it requires a local SDK checkout
- * this repo's CI does not have.
+ * This file covers what's left in webui's copy: the alias's own guard
+ * clauses (missing checkout, checkout present but stale/missing the tool
+ * script) and that a present checkout is actually forwarded to. The
+ * forwarding assertions are skipped when no local SDK checkout exists at the
+ * resolved default path (no CI machine has one — the same precedent this
+ * suite already used pre-consolidation for its "real overlay active" case).
+ *
+ * The full link -> build -> overlay(9 pkgs incl. contracts) -> status ->
+ * restore cycle is proven once against a real checkout in the SDK's own
+ * suite / the W6-DEV manual proof, not duplicated here.
  */
-import { describe, test, expect, afterEach } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { describe, test, expect } from 'bun:test';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const SCRIPT_PATH = resolve(import.meta.dir, 'sdk-dev.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');
+const DEFAULT_SDK_ROOT = resolve(process.env.GOODVIBES_SDK_PATH ?? resolve(homedir(), 'Projects/goodvibes-sdk'));
+// Forwarding only succeeds once the checkout HAS the canonical tool (this
+// brief's own deliverable) — a checkout dir existing without it (e.g. an SDK
+// main that hasn't landed W6-DEV yet) must gate the same as "no checkout".
+const SDK_TOOL_AVAILABLE = existsSync(join(DEFAULT_SDK_ROOT, 'scripts/sdk-dev.ts'));
 
 function run(args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}): { exitCode: number; output: string } {
   const result = Bun.spawnSync(['bun', SCRIPT_PATH, ...args], {
@@ -36,68 +44,42 @@ function run(args: string[], opts: { cwd?: string; env?: Record<string, string> 
   return { exitCode: result.exitCode, output: result.stdout.toString() + result.stderr.toString() };
 }
 
-const fixtureDirs: string[] = [];
-afterEach(() => {
-  while (fixtureDirs.length > 0) {
-    const dir = fixtureDirs.pop();
-    if (dir) rmSync(dir, { recursive: true, force: true });
-  }
-});
+describe('sdk-dev alias', () => {
+  test('fails fast and names the missing checkout when GOODVIBES_SDK_PATH does not exist', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
+    try {
+      const missingPath = join(dir, 'does-not-exist');
+      const { exitCode, output } = run(['status'], { env: { GOODVIBES_SDK_PATH: missingPath } });
+      expect(exitCode).toBe(1);
+      expect(output).toContain('local SDK checkout not found');
+      expect(output).toContain(missingPath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
-const realOverlayActive = existsSync(join(REPO_ROOT, 'node_modules/@pellux/goodvibes-sdk/.local-sdk-overlay.json'));
+  test('fails with a distinct message when the checkout exists but has no scripts/sdk-dev.ts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
+    try {
+      mkdirSync(join(dir, 'scripts'), { recursive: true }); // no sdk-dev.ts inside
+      const { exitCode, output } = run(['status'], { env: { GOODVIBES_SDK_PATH: dir } });
+      expect(exitCode).toBe(1);
+      expect(output).toContain('has no scripts/sdk-dev.ts');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
-describe('sdk-dev', () => {
-  // Skipped (not failed) rather than asserting a hard requirement: an active
-  // `sdk:link` session is a legitimate local dev state, not a regression.
-  // Restore (`bun scripts/sdk-dev.ts restore`) to exercise this assertion.
-  test.skipIf(realOverlayActive)('status reports clean against the real repo install and exits 0', () => {
+  // Skipped (not failed) rather than asserting a hard requirement: no local
+  // SDK checkout is a legitimate CI/sandbox state, not a regression.
+  test.skipIf(!SDK_TOOL_AVAILABLE)('forwards to the canonical SDK tool and reports this repo\'s clean/overlay state', () => {
     const { exitCode, output } = run(['status']);
-    expect(exitCode).toBe(0);
-    expect(output).toContain('sdk-dev: clean');
-  });
-
-  test('status reports OVERLAY ACTIVE and exits 2 when a marker fixture is present', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
-    fixtureDirs.push(dir);
-    const pkgDir = join(dir, 'node_modules', '@pellux', 'goodvibes-sdk');
-    mkdirSync(pkgDir, { recursive: true });
-    writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({ name: '@pellux/goodvibes-sdk', version: '9.9.9' }));
-    writeFileSync(join(pkgDir, '.local-sdk-overlay.json'), JSON.stringify({
-      sourcePath: '/fixture/goodvibes-sdk',
-      sdkGit: 'main@fixture (clean)',
-      overlaidAt: new Date().toISOString(),
-    }));
-
-    const { exitCode, output } = run(['status'], { cwd: dir });
-    expect(exitCode).toBe(2);
-    expect(output).toContain('OVERLAY ACTIVE');
-  });
-
-  test('restore is a no-op and exits 0 when no overlay is active', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
-    fixtureDirs.push(dir);
-    const pkgDir = join(dir, 'node_modules', '@pellux', 'goodvibes-sdk');
-    mkdirSync(pkgDir, { recursive: true });
-    writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({ name: '@pellux/goodvibes-sdk', version: '0.33.30' }));
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { '@pellux/goodvibes-sdk': '0.33.30' } }));
-
-    const { exitCode, output } = run(['restore'], { cwd: dir });
-    expect(exitCode).toBe(0);
-    expect(output).toContain('no overlay active; nothing to restore');
-  });
-
-  test('link fails fast and names the missing checkout when GOODVIBES_SDK_PATH does not exist', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
-    fixtureDirs.push(dir);
-    const missingPath = join(dir, 'does-not-exist');
-
-    const { exitCode, output } = run(['link'], { cwd: dir, env: { GOODVIBES_SDK_PATH: missingPath } });
-    expect(exitCode).toBe(1);
-    expect(output).toContain('local SDK checkout not found');
-    expect(output).toContain(missingPath);
+    expect([0, 2]).toContain(exitCode);
+    expect(output).toMatch(/sdk-dev: (clean|OVERLAY ACTIVE)/);
   });
 
   test('usage message is printed and exit is non-zero for an unknown command', () => {
+    if (!SDK_TOOL_AVAILABLE) return;
     const { exitCode, output } = run(['bogus']);
     expect(exitCode).toBe(1);
     expect(output).toContain('usage: bun scripts/sdk-dev.ts');

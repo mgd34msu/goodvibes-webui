@@ -4,7 +4,32 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
-## [0.2.2] - 2026-07-06
+## [1.0.0] - 2026-07-06
+
+First stable release of the GoodVibes WebUI — the browser surface of the
+one-platform ecosystem, running on the typed `@pellux/goodvibes-sdk` 1.0.0
+operator contracts. It reaches the same daemon as the TUI and the agent, so a
+session, provider, or checkpoint is visible across every surface.
+
+### Milestone arc
+
+- **Sessions union view** — every surface's sessions in one list, with the
+  honest `idle-reaped` badge + tooltip and reopen-on-heartbeat semantics.
+- **Fleet, checkpoints, per-hunk approvals, tasks, and workstream views** — the
+  operator process tree, checkpoint list/diff/restore, per-hunk approve/reject,
+  task lifecycle, and workstream/phase composition rendered from the wire.
+- **Chat resilience** — steer/follow-up over the daemon, capability probes that
+  degrade honestly by machine code (not prose) when a method is unavailable, and
+  a search surface that says "unavailable" rather than lying.
+- **Delete-means-delete** — companion chat hard-delete wired to the spine
+  `sessions.delete` verb; a deleted session never resurrects.
+- **Provider pills, knowledge map, browser-history search**, and the
+  **mobile steer-from-phone hero** at 390×844 with the hermetic Playwright e2e
+  harness (mock daemon; never touches a real port).
+- **Typed operator client** — `src/lib/contract-bridge-types.ts` is now sourced
+  directly from the 1.0.0 `OperatorMethodInput`/`OperatorMethodOutput` maps
+  (the `// SWAP:` seam), so a contract rename fails the `bridge-matches-schema`
+  test loudly instead of drifting.
 
 ### Changed
 

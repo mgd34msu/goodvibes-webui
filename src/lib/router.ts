@@ -2,14 +2,30 @@
  * router.ts — dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|sessions|knowledge|providers|admin
+ *   ?view=chat|sessions|knowledge|providers|admin|fleet|checkpoints|approvals-tasks|workstream
  *   &session=<sessionId>          (chat view only; omitted when empty)
  *   &filter[<key>]=<value>        (per-view filters; any number of pairs)
  *
  * No react-router. Uses window.history + URLSearchParams directly.
+ *
+ * Wave-3 scaffolding (W3-W1): 'fleet' and 'checkpoints' are wired end-to-end
+ * (App.tsx nav + render switch, src/views/fleet, src/views/checkpoints).
+ * 'approvals-tasks' and 'workstream' are registered here as valid ViewIds
+ * (so the URL round-trips and never falls back to 'chat') ahead of W2, which
+ * lands the ApprovalsTasksView/WorkstreamView components and their App.tsx
+ * nav/render-switch entries — see the W3-W2 marker comment in App.tsx.
  */
 
-export type ViewId = 'chat' | 'sessions' | 'knowledge' | 'providers' | 'admin';
+export type ViewId =
+  | 'chat'
+  | 'sessions'
+  | 'knowledge'
+  | 'providers'
+  | 'admin'
+  | 'fleet'
+  | 'checkpoints'
+  | 'approvals-tasks'
+  | 'workstream';
 
 export interface AppUrlState {
   view: ViewId;
@@ -23,6 +39,10 @@ const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'knowledge',
   'providers',
   'admin',
+  'fleet',
+  'checkpoints',
+  'approvals-tasks',
+  'workstream',
 ]);
 
 const DEFAULT_STATE: AppUrlState = {

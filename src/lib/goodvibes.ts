@@ -190,6 +190,170 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
 }
 
 /**
+ * invokeGatewayMethod — direct call to the generic invoke-by-id endpoint
+ * (POST /api/control-plane/methods/{methodId}/invoke), mirroring the SDK's
+ * own `invokeVerb` test helper (test/w3-s2-fleet-checkpoints-search.test.ts).
+ *
+ * WHY THIS EXISTS (W3-W1): fleet.* and checkpoints.* (W3-S2) are registered
+ * with `transport: ['ws']` and NO `http` route binding
+ * (method-catalog-fleet.ts) — they are reachable ONLY through this generic
+ * invoke mechanism, not through scopedSdk.operator.invoke (which resolves
+ * against the fixed SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES tables
+ * baked into the browser SDK build and has no entries for these verbs) and
+ * not through EXTRA_METHOD_ROUTES (built for REST-shaped path-param routes,
+ * which these verbs don't have). Confirmed against the 0.39.0-dev SDK
+ * overlay: @pellux/goodvibes-contracts (a separate workspace package the
+ * overlay does not rebuild) still reports no fleet.x / checkpoints.x typed
+ * methods, so this bypasses the typed OperatorTypedMethodId surface
+ * entirely and posts the envelope `{ body }` the daemon's
+ * invokeGatewayMethodCall expects, reusing requestJson for auth headers.
+ */
+async function invokeGatewayMethod<T = unknown>(methodId: string, body?: unknown): Promise<T> {
+  return requestJson<T>(`/api/control-plane/methods/${methodId}/invoke`, {
+    method: 'POST',
+    body: { body: body ?? {} },
+  });
+}
+
+// ─── Fleet (W3-S2 fleet.*) ──────────────────────────────────────────────────
+
+export interface FleetProcessUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens: number;
+  readonly cacheWriteTokens: number;
+  readonly reasoningTokens?: number;
+  readonly llmCallCount: number;
+  readonly turnCount: number;
+  readonly toolCallCount: number;
+}
+
+export interface FleetProcessActivity {
+  readonly kind: string;
+  readonly text: string;
+  readonly toolName?: string;
+  readonly at: number;
+}
+
+export interface FleetProcessCapabilities {
+  readonly interruptible: boolean;
+  readonly killable: boolean;
+  readonly pausable: boolean;
+  readonly resumable: boolean;
+  readonly steerable: boolean;
+}
+
+export interface FleetProcessNode {
+  readonly id: string;
+  readonly kind: string;
+  readonly parentId?: string;
+  readonly label: string;
+  readonly task?: string;
+  readonly state: string;
+  readonly startedAt?: number;
+  readonly completedAt?: number;
+  readonly elapsedMs: number;
+  readonly usage?: FleetProcessUsage;
+  readonly model?: string;
+  readonly provider?: string;
+  readonly costUsd: number | null;
+  readonly costState: string;
+  readonly currentActivity?: FleetProcessActivity;
+  readonly capabilities: FleetProcessCapabilities;
+  readonly sessionRef?: { readonly sessionId?: string; readonly agentId?: string };
+}
+
+export interface FleetSnapshotResult {
+  readonly capturedAt: number;
+  readonly nodes: FleetProcessNode[];
+  readonly truncated: boolean;
+  readonly totalCount: number;
+}
+
+export interface FleetListInput {
+  readonly kinds?: readonly string[];
+  readonly states?: readonly string[];
+  readonly limit?: number;
+  readonly cursor?: string;
+}
+
+export interface FleetListResult {
+  readonly items: FleetProcessNode[];
+  readonly nextCursor?: string;
+  readonly hasMore: boolean;
+  readonly capturedAt: number;
+}
+
+// ─── Checkpoints (W3-S2 checkpoints.*) ──────────────────────────────────────
+
+export interface WorkspaceCheckpoint {
+  readonly id: string;
+  readonly kind: string;
+  readonly label: string;
+  readonly createdAt: number;
+  readonly parentId: string | null;
+  readonly turnId?: string;
+  readonly agentId?: string;
+  readonly retentionClass: string;
+  readonly commit: string;
+  readonly sizeBytes: number;
+}
+
+export interface CheckpointsListInput {
+  readonly kind?: string;
+  readonly since?: number;
+  readonly limit?: number;
+}
+
+export interface CheckpointsListResult {
+  readonly checkpoints: WorkspaceCheckpoint[];
+}
+
+export interface CheckpointsCreateInput {
+  readonly kind: 'turn' | 'agent-run' | 'manual';
+  readonly label?: string;
+  readonly retentionClass?: string;
+  readonly turnId?: string;
+  readonly agentId?: string;
+  readonly paths?: readonly string[];
+}
+
+export interface CheckpointsCreateResult {
+  readonly checkpoint: WorkspaceCheckpoint | null;
+  readonly noop: boolean;
+}
+
+export interface CheckpointsDiffInput {
+  readonly a: string;
+  readonly b?: string;
+}
+
+export interface CheckpointsDiffResult {
+  readonly diff: {
+    readonly from: string;
+    readonly to: string;
+    readonly files: readonly string[];
+    readonly unifiedDiff: string;
+    readonly stat: string;
+  };
+}
+
+export interface CheckpointsRestoreInput {
+  readonly id: string;
+  readonly paths?: readonly string[];
+  readonly safetyCheckpoint?: boolean;
+}
+
+export interface CheckpointsRestoreResult {
+  readonly result: {
+    readonly checkpointId: string;
+    readonly safetyCheckpointId: string | null;
+    readonly restoredFiles: readonly string[];
+    readonly removedFiles: readonly string[];
+  };
+}
+
+/**
  * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
  * SDK falls back to its own defaults and a dropped stream can appear "live"; with it a
  * dropped stream reconnects with backoff and, once attempts are exhausted, degrades to
@@ -248,6 +412,17 @@ export const sdk = {
       cancel: (approvalId: string) => invokeOperator('approvals.cancel', { approvalId }),
       claim: (approvalId: string) => invokeOperator('approvals.claim', { approvalId }),
       deny: (approvalId: string) => invokeOperator('approvals.deny', { approvalId }),
+    },
+    // W3-S2 verbs — generic-invoke-only (see invokeGatewayMethod above).
+    fleet: {
+      snapshot: () => invokeGatewayMethod<FleetSnapshotResult>('fleet.snapshot', {}),
+      list: (input?: FleetListInput) => invokeGatewayMethod<FleetListResult>('fleet.list', input ?? {}),
+    },
+    checkpoints: {
+      list: (input?: CheckpointsListInput) => invokeGatewayMethod<CheckpointsListResult>('checkpoints.list', input ?? {}),
+      create: (input: CheckpointsCreateInput) => invokeGatewayMethod<CheckpointsCreateResult>('checkpoints.create', input),
+      diff: (input: CheckpointsDiffInput) => invokeGatewayMethod<CheckpointsDiffResult>('checkpoints.diff', input),
+      restore: (input: CheckpointsRestoreInput) => invokeGatewayMethod<CheckpointsRestoreResult>('checkpoints.restore', input),
     },
     sessions: {
       list: () => scopedSdk.operator.invoke('sessions.list', {}),

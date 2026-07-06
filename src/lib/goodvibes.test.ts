@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import {
   GOODVIBES_BASE_URL,
   WEBUI_SURFACE_ID,
@@ -6,6 +6,7 @@ import {
   WEBUI_TOKEN_STORE_KEY,
   isRuntimeDomain,
   isExtraRoutedMethod,
+  sdk,
 } from './goodvibes';
 
 describe('goodvibes constants', () => {
@@ -90,5 +91,67 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     ]) {
       expect(isExtraRoutedMethod(method)).toBe(true);
     }
+  });
+
+  test('fleet.*/checkpoints.* are NOT extra-routed — they ride the generic invoke path, not EXTRA_METHOD_ROUTES', () => {
+    for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore']) {
+      expect(isExtraRoutedMethod(method)).toBe(false);
+    }
+  });
+});
+
+describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id (W3-S2)', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('fleet.snapshot POSTs to the generic invoke endpoint with an empty body envelope', async () => {
+    stubFetch({ capturedAt: 1, nodes: [], truncated: false, totalCount: 0 });
+    await sdk.operator.fleet.snapshot();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/api/control-plane/methods/fleet.snapshot/invoke');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ body: {} });
+  });
+
+  test('fleet.list forwards its filter input inside the body envelope', async () => {
+    stubFetch({ items: [], hasMore: false, capturedAt: 1 });
+    await sdk.operator.fleet.list({ kinds: ['agent'], limit: 10 });
+    expect(calls[0].url).toContain('/api/control-plane/methods/fleet.list/invoke');
+    expect(calls[0].body).toEqual({ body: { kinds: ['agent'], limit: 10 } });
+  });
+
+  test('checkpoints.create forwards kind/label inside the body envelope', async () => {
+    stubFetch({ checkpoint: null, noop: true });
+    await sdk.operator.checkpoints.create({ kind: 'manual', label: 'test' });
+    expect(calls[0].url).toContain('/api/control-plane/methods/checkpoints.create/invoke');
+    expect(calls[0].body).toEqual({ body: { kind: 'manual', label: 'test' } });
+  });
+
+  test('checkpoints.restore of an unknown id surfaces the daemon\'s honest 404/NOT_FOUND as a thrown error', async () => {
+    stubFetch({ error: 'Checkpoint not found: wcp_ghost', code: 'NOT_FOUND' }, 404);
+    let caught: unknown;
+    try {
+      await sdk.operator.checkpoints.restore({ id: 'wcp_ghost' });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as { status?: number }).status).toBe(404);
   });
 });

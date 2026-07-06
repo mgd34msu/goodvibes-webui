@@ -9,6 +9,18 @@ export const queryKeys = {
   tasks: ['tasks'] as const,
   approvals: ['approvals'] as const,
   sessions: ['sessions'] as const,
+  // Wave-3 (W3-W1): fleet.*/checkpoints.* (W3-S2, SDK 0.39.0-dev). Neither verb
+  // family emits a wire event yet (pinned by the SDK's own
+  // w3-s2-fleet-checkpoints-search.test.ts — "none of the W3-S2 verbs declares
+  // a wire event"), so these are NOT wired into useRealtimeInvalidation's
+  // DOMAIN_INVALIDATIONS map; FleetView/CheckpointsView poll on an interval
+  // and expose a manual refresh instead. Revisit once a fleet-update event
+  // (mentioned as a later-wave possibility in the SDK's W3-S2 brief) lands.
+  fleet: ['fleet'] as const,
+  checkpoints: ['checkpoints'] as const,
+  // Stub for W3-W2 (Workstream view, rides fleet.* filtered to
+  // orchestration/workstream rows) — fill the body, do not restructure the key.
+  workstream: ['workstream'] as const,
   // Detail + messages keys are PREFIXED with 'sessions' so that invalidating
   // queryKeys.sessions (non-exact) refetches the list AND every open detail/messages
   // query — the single invalidation the raw session-update stream fires.

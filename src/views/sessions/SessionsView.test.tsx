@@ -39,6 +39,10 @@ let unionReopenCalls: string[] = [];
 let unionDeleteCalls: string[] = [];
 let unionDeleteReallyRemoves = true;
 let methodInfoAvailable = true;
+// When true, the capability probe fails with a TRANSIENT (non-404) error — a network/
+// 5xx blip, NOT the daemon's honest "Unknown gateway method" absence. The view must
+// treat this as "couldn't check", never as "delete unavailable".
+let methodInfoTransientError = false;
 
 function resetUnionMutationFixtures() {
   unionListFixture = FIXTURE_UNION;
@@ -47,6 +51,7 @@ function resetUnionMutationFixtures() {
   unionDeleteCalls = [];
   unionDeleteReallyRemoves = true;
   methodInfoAvailable = true;
+  methodInfoTransientError = false;
 }
 
 mock.module('../../lib/goodvibes', () => ({
@@ -56,6 +61,9 @@ mock.module('../../lib/goodvibes', () => ({
     operator: {
       control: {
         methodInfo: (methodId: string) => {
+          if (methodId === 'sessions.delete' && methodInfoTransientError) {
+            return Promise.reject(Object.assign(new Error('Bad gateway'), { status: 502, body: { error: 'Bad gateway' } }));
+          }
           if (methodId === 'sessions.delete' && !methodInfoAvailable) {
             return Promise.reject(Object.assign(new Error('Unknown gateway method'), { status: 404, body: { error: 'Unknown gateway method' } }));
           }
@@ -375,12 +383,41 @@ describe('SessionsView: close/reopen/delete (W5-W2, delete-means-delete)', () =>
     const actions = el.querySelector('.session-detail__actions');
     const deleteButton = [...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete');
     expect(deleteButton).toBeUndefined();
-    expect(actions?.textContent).toContain('Permanent delete not available for tui sessions yet');
+    // Daemon-scoped wording, not per-kind (delete availability is a daemon capability,
+    // never a property of the session's kind).
+    expect(actions?.textContent).toContain("Permanent delete isn't available on this daemon yet");
+    expect(actions?.textContent).not.toContain('tui sessions');
 
     window.confirm = () => true;
     click([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Close'));
     await flushMicrotasks();
     expect(unionCloseCalls).toEqual(['s-tui']);
+
+    unmount();
+  });
+
+  test('a TRANSIENT probe failure (5xx/network, not a 404) shows a neutral "couldn\'t check" with a Retry — never a false "unavailable"', async () => {
+    methodInfoTransientError = true;
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    // No Delete button (we can't confirm the verb), but crucially NOT the false
+    // "isn't available on this daemon" message a bare isSuccess gate would have shown.
+    expect([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete')).toBeUndefined();
+    expect(actions?.textContent).toContain("Couldn't check whether permanent delete is available");
+    expect(actions?.textContent).not.toContain("isn't available on this daemon");
+
+    // The recovery path: once the daemon answers, Retry surfaces the real capability.
+    const retry = [...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Retry');
+    expect(retry).toBeTruthy();
+    methodInfoTransientError = false;
+    click(retry);
+    await flushMicrotasks();
+    const actionsAfter = el.querySelector('.session-detail__actions');
+    expect([...(actionsAfter?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete')).toBeTruthy();
 
     unmount();
   });

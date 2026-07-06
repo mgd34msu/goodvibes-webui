@@ -15,7 +15,7 @@
  * paginated union list is a Wave-3 contract item (sessions.search).
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
@@ -36,7 +36,7 @@ import {
 } from '../../lib/sessions-union';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { firstString, formatRelative } from '../../lib/object';
-import { formatError, isSessionNotFoundError } from '../../lib/errors';
+import { formatError, isMethodUnavailableError, isSessionNotFoundError } from '../../lib/errors';
 import { SteerComposer } from './SteerComposer';
 import '../../styles/components/sessions.css';
 
@@ -100,15 +100,47 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
   // it is still in flight there (uncommitted) and is NOT in the webui's installed
   // contracts package — an un-upgraded daemon genuinely does not have this route.
   // control.methods.get 404s with "Unknown gateway method" for an unregistered id
-  // (verified live), which isMethodUnavailableError recognizes. Only once this
-  // succeeds does SessionDetail offer "Delete" at all; until then (or if it fails) it
-  // offers only "Close" — never a Delete button that would fail every time it's clicked.
+  // (verified live), which isMethodUnavailableError recognizes.
+  //
+  // staleTime is CAPPED (not Infinity): the probe answer can change under us — a daemon
+  // upgrade adds the verb, or the first probe failed transiently — so a forever-cached
+  // result would be dishonest. It is also re-probed on reconnect (see the effect below).
   const deleteCapability = useQuery({
     queryKey: ['capability', 'sessions.delete'],
     queryFn: () => sdk.operator.control.methodInfo('sessions.delete'),
-    staleTime: Infinity,
+    staleTime: 5 * 60_000,
     retry: false,
   });
+
+  // Honest tri/quad-state — the probe's success ISN'T the only signal that matters, and
+  // a bare `isSuccess` gate conflated a transient failure with a genuine absence:
+  //   'available'   — the probe succeeded → offer Delete.
+  //   'unavailable' — the probe returned the daemon's "Unknown gateway method" 404
+  //                   (isMethodUnavailableError specifically) → this daemon really lacks
+  //                   the verb. NOT any error: a 500/network blip is not an absence.
+  //   'uncertain'   — the probe failed for some OTHER reason (network/5xx) → we can't
+  //                   say; show a neutral "couldn't check" with a retry, never a false
+  //                   "delete isn't available".
+  //   'checking'    — first probe still in flight.
+  const deleteCapabilityState: 'available' | 'unavailable' | 'uncertain' | 'checking' =
+    deleteCapability.isSuccess
+      ? 'available'
+      : deleteCapability.isError
+        ? (isMethodUnavailableError(deleteCapability.error) ? 'unavailable' : 'uncertain')
+        : 'checking';
+
+  // Re-probe on reconnect: streamPaused is the threaded live-stream health signal (it
+  // clears when the session-update SSE reconnects). A true→false transition means the
+  // daemon is reachable again — the moment to re-run a capability probe that may have
+  // failed transiently, or that a daemon upgrade has since changed.
+  const { refetch: refetchDeleteCapability } = deleteCapability;
+  const prevStreamPausedRef = useRef(streamPaused);
+  useEffect(() => {
+    if (prevStreamPausedRef.current && !streamPaused) {
+      void refetchDeleteCapability();
+    }
+    prevStreamPausedRef.current = streamPaused;
+  }, [streamPaused, refetchDeleteCapability]);
 
   const records = useMemo(() => sortUnionSessions(unionSessionsFromListResponse(list.data)), [list.data]);
   const total = useMemo(() => unionSessionsTotal(list.data), [list.data]);
@@ -237,8 +269,8 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
         {selected ? (
           <SessionDetail
             record={selected}
-            deleteAvailable={deleteCapability.isSuccess}
-            deleteCapabilityPending={deleteCapability.isPending}
+            deleteCapabilityState={deleteCapabilityState}
+            onRetryDeleteCapability={() => void refetchDeleteCapability()}
             streamPaused={streamPaused}
             onBack={() => setSelectedId('')}
           />
@@ -252,14 +284,14 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
 
 function SessionDetail({
   record,
-  deleteAvailable,
-  deleteCapabilityPending,
+  deleteCapabilityState,
+  onRetryDeleteCapability,
   streamPaused,
   onBack,
 }: {
   record: UnionSessionRecord;
-  deleteAvailable: boolean;
-  deleteCapabilityPending: boolean;
+  deleteCapabilityState: 'available' | 'unavailable' | 'uncertain' | 'checking';
+  onRetryDeleteCapability: () => void;
   streamPaused: boolean;
   onBack: () => void;
 }) {
@@ -374,8 +406,10 @@ function SessionDetail({
               {reopenSession.isPending ? 'Reopening…' : 'Reopen'}
             </button>
           )}
-          {deleteCapabilityPending && <small className="session-detail__action-note">Checking delete availability…</small>}
-          {!deleteCapabilityPending && deleteAvailable && (
+          {deleteCapabilityState === 'checking' && (
+            <small className="session-detail__action-note">Checking delete availability…</small>
+          )}
+          {deleteCapabilityState === 'available' && (
             <button
               type="button"
               className="session-detail__action danger"
@@ -391,10 +425,23 @@ function SessionDetail({
               {deleteSession.isPending ? 'Deleting…' : 'Delete'}
             </button>
           )}
-          {!deleteCapabilityPending && !deleteAvailable && (
+          {deleteCapabilityState === 'unavailable' && (
             <small className="session-detail__action-note">
-              Permanent delete not available for {kindLabel(record.kind)} sessions yet — close is the only removal available.
+              Permanent delete isn&apos;t available on this daemon yet — close is the only removal available.
             </small>
+          )}
+          {deleteCapabilityState === 'uncertain' && (
+            <span className="session-detail__action-note">
+              Couldn&apos;t check whether permanent delete is available.
+              {' '}
+              <button
+                type="button"
+                className="session-detail__action-retry"
+                onClick={onRetryDeleteCapability}
+              >
+                Retry
+              </button>
+            </span>
           )}
         </div>
         {actionError && (

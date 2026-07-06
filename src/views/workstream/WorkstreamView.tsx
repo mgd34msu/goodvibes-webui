@@ -1,9 +1,8 @@
 /**
- * WorkstreamView — orchestration workstream/phase/work-item rows over fleet.*
- * (W3-W2). Per the W3-W2 decision record, this rides fleet.snapshot() (S2)
- * filtered client-side to the 'workstream' | 'phase' | 'work-item' kinds —
- * no new SDK contract landed for this wave (the alternative the brief allows
- * when a dedicated fleet filter param does not exist yet).
+ * WorkstreamView — orchestration workstream/phase/work-item rows over fleet.*.
+ * By design, this rides fleet.snapshot() filtered client-side to the
+ * 'workstream' | 'phase' | 'work-item' kinds — no new SDK contract landed for
+ * this, since a dedicated fleet filter param does not exist yet.
  *
  * VERIFIED data shape (packages/sdk/src/platform/runtime/fleet/adapters/
  * orchestration.ts adaptWorkstream/adaptPhase/adaptWorkItem): a workstream is
@@ -15,7 +14,7 @@
  * (lib/fleet.ts, generic over any parentId-linked subset) renders it exactly
  * like FleetView's process tree, just scoped to these three kinds.
  *
- * No wire event exists for fleet.* yet (same W3-S2 gap FleetView documents) —
+ * No wire event exists for fleet.* yet (same gap FleetView documents) —
  * poll + manual refresh, not realtime invalidation.
  */
 

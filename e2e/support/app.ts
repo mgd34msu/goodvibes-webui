@@ -1,5 +1,5 @@
 /**
- * Shared e2e helpers (W5-M).
+ * Shared e2e helpers.
  */
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 

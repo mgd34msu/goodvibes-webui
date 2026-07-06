@@ -1,5 +1,5 @@
 /**
- * Touch-target audit (W5-M): every interactive control on the phone hero journey
+ * Touch-target audit: every interactive control on the phone hero journey
  * clears a 44px floor, measured from the RENDERED box (not the source). The session
  * delete is reachable without hover.
  */

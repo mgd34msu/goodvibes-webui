@@ -27,7 +27,7 @@ const FIXTURE_UNION = {
   ],
 };
 
-// DELETE-MEANS-DELETE (W5-W2) fixtures/state. `unionListFixture` starts as
+// DELETE-MEANS-DELETE fixtures/state. `unionListFixture` starts as
 // FIXTURE_UNION but individual describe blocks reassign it (via resetUnionFixtures)
 // so close/delete mutations have a live store to mutate and the proof-of-gone
 // reconcile has something real to check against. `methodInfoAvailable` toggles the
@@ -342,7 +342,7 @@ async function flushMicrotasks(times = 8) {
   }
 }
 
-describe('SessionsView: close/reopen/delete (W5-W2, delete-means-delete)', () => {
+describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
   const originalConfirm = window.confirm;
 
   afterEach(() => {

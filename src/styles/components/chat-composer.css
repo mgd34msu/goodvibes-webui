@@ -503,7 +503,7 @@
   }
 }
 
-/* Touch-target floor at phone width (W5-M): the send button (34px) and the composer
+/* Touch-target floor at phone width: the send button (34px) and the composer
    tool icons (32px) drive the phone chat composer via the --send-btn-size /
    --icon-btn-size vars; raise both to 44px so a thumb can hit them. */
 @media (max-width: 680px) {

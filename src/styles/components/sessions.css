@@ -140,7 +140,7 @@
    theme). A transparent header therefore rendered the title dark-on-dark in light
    theme (F2). --surface-raised resolves per theme (tokens.css: a dark card in dark,
    #fff in light), so this ONE declaration is correct in both — the cascade-immune
-   token pattern from W5-W4, no light/dark literal pair that could win by source order. */
+   token pattern, no light/dark literal pair that could win by source order. */
 .session-detail__header {
   display: flex;
   flex-direction: column;
@@ -193,9 +193,9 @@
   color: var(--text-tertiary);
 }
 
-/* Close/Reopen/Delete (W5-W2, delete-means-delete) — distinct actions, never one
+/* Close/Reopen/Delete (delete-means-delete) — distinct actions, never one
    button conflating them. Touch-target sizing/placement in the sidebar's own delete
-   button is W5-M's; this is the session-detail pane, not shared with it. */
+   button belongs to it; this is the session-detail pane, not shared with it. */
 .session-detail__actions {
   display: flex;
   flex-wrap: wrap;
@@ -298,7 +298,7 @@
   font-size: var(--text-sm, 13px);
 }
 
-/* Enter-to-send hint + the paused-stream honesty note (W5-M / reflects W5-W1). */
+/* Enter-to-send hint + the paused-stream honesty note. */
 .steer-composer__hint {
   margin: 0;
   font-size: var(--text-xs, 12px);
@@ -353,7 +353,7 @@
 }
 
 @media (max-width: 980px) {
-  /* Master-detail on a phone (W5-M): one pane at a time. The list and a full detail
+  /* Master-detail on a phone: one pane at a time. The list and a full detail
      transcript can't share a single narrow column usefully, so selecting a session
      swaps the list out for the detail, and "Back to sessions" swaps it back. Never
      the old dead-end stack where the detail piled up under a list you couldn't

@@ -1,5 +1,5 @@
 /**
- * Visual proofs (W5-M) — retro-covers the deferred screenshots the wave pointed at
+ * Visual proofs — retro-covers screenshots deferred earlier for
  * this harness: provider pills, the knowledge map, chat degraded states (mocked stream
  * drop), the delete affordance, and both themes for the white-band surfaces. Runs on
  * BOTH the phone and desktop projects; filenames carry the project name. Artifacts land

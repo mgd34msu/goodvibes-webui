@@ -168,7 +168,7 @@ export function providerHeaderLabel(status: ProviderStatus): string {
 }
 
 // ---------------------------------------------------------------------------
-// W6-C1: shared credential-status consumption (secret-free, honest-degrade)
+// Shared credential-status consumption (secret-free, honest-degrade)
 // ---------------------------------------------------------------------------
 
 /** One credential's status metadata from the daemon's shared store — never bytes. */
@@ -186,9 +186,10 @@ export type CredentialAvailability =
 
 /**
  * Fold a `credentials.get` outcome into an honest availability value. The
- * degrade contract (W6-C1 landing report): a 503 `CREDENTIAL_STORE_UNAVAILABLE`,
- * a `METHOD_NOT_FOUND` from an older daemon, or any transport failure yields
- * `available: false` with a plain reason — NEVER a fabricated "configured".
+ * degrade contract (see the 1.0.1 cross-surface credential status entry in
+ * CHANGELOG.md): a 503 `CREDENTIAL_STORE_UNAVAILABLE`, a `METHOD_NOT_FOUND`
+ * from an older daemon, or any transport failure yields `available: false`
+ * with a plain reason — NEVER a fabricated "configured".
  */
 export function deriveCredentialAvailability(outcome: { ok: true; value: unknown } | { ok: false; error: unknown }): CredentialAvailability {
   if (!outcome.ok) {

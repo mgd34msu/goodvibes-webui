@@ -438,7 +438,7 @@ describe('useChatStream — stop() correctness', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Resilience: reconnecting / stream paused / session expired / retry (W5-W1)
+// Resilience: reconnecting / stream paused / session expired / retry
 // ---------------------------------------------------------------------------
 
 describe('useChatStream — reconnect passed to the SDK', () => {

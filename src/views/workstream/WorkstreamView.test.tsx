@@ -36,7 +36,7 @@ const FIXTURE_SNAPSHOT = {
   totalCount: 4,
   nodes: [
     {
-      id: 'workstream:ws-1', kind: 'workstream', label: 'Wave 3 rollout', state: 'executing-tool', elapsedMs: 5000,
+      id: 'workstream:ws-1', kind: 'workstream', label: 'Stage 3 rollout', state: 'executing-tool', elapsedMs: 5000,
       startedAt: 100, costUsd: 1.2, costState: 'priced',
       capabilities: { interruptible: false, killable: true, pausable: false, resumable: false, steerable: false },
       usage: { inputTokens: 100, outputTokens: 200, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 4, turnCount: 4, toolCallCount: 2 },
@@ -118,7 +118,7 @@ describe('WorkstreamView rendering', () => {
   test('renders the workstream/phase/work-item rows but excludes an unrelated fleet agent', () => {
     const { el, unmount } = render();
     const text = el.textContent ?? '';
-    expect(text).toContain('Wave 3 rollout');
+    expect(text).toContain('Stage 3 rollout');
     expect(text).toContain('engineer (implementer)');
     expect(text).toContain('Ship the fleet view');
     expect(text).not.toContain('Unrelated agent');
@@ -128,7 +128,7 @@ describe('WorkstreamView rendering', () => {
   test('workstream renders before its phase, phase before its work item (tree order)', () => {
     const { el, unmount } = render();
     const text = el.textContent ?? '';
-    expect(text.indexOf('Wave 3 rollout')).toBeLessThan(text.indexOf('engineer (implementer)'));
+    expect(text.indexOf('Stage 3 rollout')).toBeLessThan(text.indexOf('engineer (implementer)'));
     expect(text.indexOf('engineer (implementer)')).toBeLessThan(text.indexOf('Ship the fleet view'));
     unmount();
   });
@@ -184,7 +184,7 @@ describe('WorkstreamView honest states', () => {
     const retry = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Retry');
     expect(retry).toBeTruthy();
     click(retry);
-    await waitFor(() => (el.textContent ?? '').includes('Wave 3 rollout'));
+    await waitFor(() => (el.textContent ?? '').includes('Stage 3 rollout'));
     unmount();
   });
 });

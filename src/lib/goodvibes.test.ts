@@ -107,7 +107,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     expect(isExtraRoutedMethod('sessions.reopen')).toBe(true);
   });
 
-  test('the justified survivors remain (Wave-3 SDK-coverage targets)', () => {
+  test('the justified survivors remain (SDK-coverage targets)', () => {
     for (const method of [
       'approvals.approve', 'approvals.list', 'models.list', 'models.current', 'models.select',
       'tasks.list', 'tasks.cancel', 'tasks.retry', 'config.set', 'local_auth.status',
@@ -117,7 +117,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     }
   });
 
-  test('sessions.delete / companion.chat.sessions.close / control.methods.get are table-routed (W5-W2, delete-means-delete)', () => {
+  test('sessions.delete / companion.chat.sessions.close / control.methods.get are table-routed (delete-means-delete)', () => {
     // None of these three ids are in the installed 0.38 OperatorMethodId union
     // (sessions.delete, companion.chat.sessions.close) or have a browser-SDK REST
     // binding (control.methods.get) — every one needs its own EXTRA_METHOD_ROUTES row.
@@ -133,7 +133,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   });
 });
 
-describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id (W3-S2)', () => {
+describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; method: string; body: unknown }[];
 
@@ -188,7 +188,7 @@ describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id
     expect((caught as { status?: number }).status).toBe(404);
   });
 
-  test('sessions.search (W5-TC scaffold) POSTs to the generic invoke endpoint with its filter input', async () => {
+  test('sessions.search (typed-client scaffold) POSTs to the generic invoke endpoint with its filter input', async () => {
     stubFetch({ sessions: [], hasMore: false });
     await sdk.operator.sessions.search({ query: 'deploy', includeClosed: true });
     expect(calls[0].url).toContain('/api/control-plane/methods/sessions.search/invoke');
@@ -212,7 +212,7 @@ describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id
   });
 });
 
-describe('delete-means-delete (W5-W2): sessions.delete / chat.sessions.close / control.methods.get wire calls', () => {
+describe('delete-means-delete: sessions.delete / chat.sessions.close / control.methods.get wire calls', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; method: string; body: unknown }[];
 
@@ -283,7 +283,7 @@ describe('delete-means-delete (W5-W2): sessions.delete / chat.sessions.close / c
   });
 });
 
-describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast (W5-TC)', () => {
+describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
   // itself fails the build if the line does NOT actually error — "Unused '@ts-expect-
@@ -317,11 +317,11 @@ describe('typed client — wrong-typed input is a COMPILE error, not a runtime c
   });
 });
 
-describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
+describe('sdk facade shape — byte-compatible surface', () => {
   // Guards the ~15 view/hook files that import `sdk` structurally (never by destructuring
   // its own type) against an accidental rename/removal in this refactor. `search` is the
-  // one intentional addition this brief scaffolds for W5-W6; everything else must be the
-  // exact pre-existing surface.
+  // one intentional addition this scaffolds for the session-search feature; everything
+  // else must be the exact pre-existing surface.
   test('sdk top-level keys are unchanged', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
@@ -332,7 +332,7 @@ describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
     );
   });
 
-  test('sdk.operator.sessions keys gain exactly two methods: search (W5-TC) and delete (W5-W2, delete-means-delete)', () => {
+  test('sdk.operator.sessions keys gain exactly two methods: search and delete (delete-means-delete)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
       ['close', 'create', 'delete', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
     );
@@ -345,7 +345,7 @@ describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
     expect(Object.keys(sdk.operator.tasks).sort()).toEqual(['cancel', 'create', 'list', 'retry'].sort());
   });
 
-  test('sdk.chat.sessions.delete still points at the companion delete verb (W5-S1 lands the honest hard-delete behind the same id)', () => {
+  test('sdk.chat.sessions.delete still points at the companion delete verb (the honest hard-delete behind the same id)', () => {
     expect(isExtraRoutedMethod('companion.chat.sessions.delete')).toBe(true);
     expect(typeof sdk.chat.sessions.delete).toBe('function');
   });
@@ -547,7 +547,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   }
 });
 
-// W5-R (token honesty): the daemon's control-plane/auth is a STATUS endpoint — it
+// Token honesty: the daemon's control-plane/auth is a STATUS endpoint — it
 // answers 200 even for an invalid/expired token, carrying the verdict in the
 // `authenticated` boolean (verified against both real daemons and an isolated
 // bootDaemon). getCurrentAuth must REJECT on authenticated!==true so the signed-in

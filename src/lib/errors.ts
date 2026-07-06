@@ -92,7 +92,7 @@ export function isSessionClosedError(error: unknown): boolean {
 
 /**
  * True for the daemon's 409 SESSION_ACTIVE rejection (deleting a shared/companion
- * session that is still active — W5-S1's delete verb requires close-first). The wire
+ * session that is still active — the delete verb requires close-first). The wire
  * contract is `code: 'SESSION_ACTIVE'` (companion-chat-manager.ts / session-broker.ts /
  * runtime-session-lifecycle-routes.ts); the message fallback covers the
  * "Session is active — close it, then delete." text some paths throw before the code
@@ -116,7 +116,8 @@ export function isSessionActiveError(error: unknown): boolean {
  * honest "capability not available yet" signal (as opposed to a normal 404 on a known
  * resource, e.g. SESSION_NOT_FOUND).
  *
- * W6-C4: the daemon now carries a machine `code: 'METHOD_NOT_FOUND'` on this 404
+ * Since the 1.0.0 delete-means-delete change, the daemon carries a machine
+ * `code: 'METHOD_NOT_FOUND'` on this 404
  * (SDKErrorCodes.METHOD_NOT_FOUND — daemon-sdk's control-routes.ts getGatewayMethod /
  * invokeGatewayMethod, and the SDK's own invokeGatewayMethodCall /
  * GatewayMethodCatalog.invoke()), so this checks the CODE first, the same code-first

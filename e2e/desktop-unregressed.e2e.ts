@@ -1,5 +1,5 @@
 /**
- * Desktop unregressed (W5-M): the responsive changes are phone-scoped. At 1280px the
+ * Desktop unregressed: the responsive changes are phone-scoped. At 1280px the
  * drawer defaults OPEN, the Sessions list and detail sit side-by-side (no master-detail
  * collapse, no phone back button), and the steer still sends.
  */

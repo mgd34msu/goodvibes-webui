@@ -1,14 +1,14 @@
 /**
  * Tests for useChatSearch hook.
  *
- * Covers the message-content stage (unchanged from before W5-W6):
+ * Covers the message-content stage (unchanged from before session search):
  *   - debounce timing (300 ms)
  *   - abort on rapid retype (no stale results)
  *   - cache hit — second query with same sessions does NOT re-fetch
  *   - cache invalidation when sessions identity changes
  *   - recency ranking (most recent createdAt first)
  *
- * And the session-search stage (sessions.search, W5-W6):
+ * And the session-search stage (sessions.search):
  *   - includeClosed defaults to false on every fresh query (the documented
  *     divergence from sessions.list's own default)
  *   - toggling includeClosed re-queries with includeClosed:true and renders a
@@ -461,7 +461,7 @@ describe('useChatSearch — recency ranking', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Session-search stage (sessions.search — W5-W6, first consumer)
+// Session-search stage (sessions.search — first consumer)
 // ---------------------------------------------------------------------------
 
 describe('useChatSearch — session search (sessions.search) includeClosed default', () => {

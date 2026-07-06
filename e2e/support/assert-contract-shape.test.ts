@@ -1,5 +1,5 @@
 /**
- * assert-contract-shape.test.ts (W6-E1) — proves the e2e fixtures actually conform to
+ * assert-contract-shape.test.ts — proves the e2e fixtures actually conform to
  * the SDK's operator-contract.json, and proves the assertion is not a rubber stamp: a
  * deliberately-drifted fixture (a renamed/dropped required field, exactly the shape of
  * the provider-pills incident this closes — see seed.ts's providersResponse() header)
@@ -23,7 +23,7 @@ import {
 } from './seed';
 import { dispatchOutcome, methodInfoResponse } from './mock-daemon';
 
-describe('e2e fixtures conform to the SDK operator contract (W6-E1)', () => {
+describe('e2e fixtures conform to the SDK operator contract', () => {
   test('providers.list: providersResponse() conforms', () => {
     expect(() => assertFixtureMatchesOperatorContract('providers.list', providersResponse())).not.toThrow();
   });

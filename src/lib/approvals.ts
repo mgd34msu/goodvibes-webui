@@ -1,6 +1,6 @@
 /**
  * approvals.ts — tolerant readers + display helpers for approvals.* (existing
- * verb family; per-hunk selection is W3-S3, packages/sdk/src/platform/
+ * verb family; per-hunk selection lives in packages/sdk/src/platform/
  * control-plane/approval-hunk-apply.ts).
  *
  * Edit hunks are read DEFENSIVELY off `request.args.edits` — mirrors the SDK's

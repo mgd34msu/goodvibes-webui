@@ -1,5 +1,5 @@
 /**
- * SteerComposer — SESSION_CLOSED honesty (Wave-2 F1).
+ * SteerComposer — SESSION_CLOSED honesty.
  *
  * Before this fix, a steer/follow-up that raced a session close got a 409
  * SESSION_CLOSED reply that only marked the local dispatch entry "failed" — the

@@ -1,9 +1,9 @@
 /**
- * useChatSearch — companion-history search hook (W5-W6, first consumer of
+ * useChatSearch — companion-history search hook (first consumer of
  * sessions.search).
  *
- * TWO DISTINCT STAGES, kept separate rather than merged (see decision record
- * in the Wave-5 brief for W5-W6):
+ * TWO DISTINCT STAGES, kept separate rather than merged (a deliberate design
+ * decision, not an oversight):
  *
  *   1. SESSION search (`sessionResults`) — backend-side, via
  *      `sdk.operator.sessions.search({ query, kind: 'companion-chat', ... })`.
@@ -343,7 +343,7 @@ export function useChatSearch(
     };
   }, [query, runSearch]);
 
-  // ── Session-search stage (sessions.search, first consumer — W5-W6) ────────
+  // ── Session-search stage (sessions.search, first consumer) ────────
   //
   // Debounced independently of the message-content stage above: it has no
   // dependency on the caller's `sessions` prop (it searches full history via

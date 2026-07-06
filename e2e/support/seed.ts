@@ -1,5 +1,5 @@
 /**
- * Seeded daemon state for the hermetic Playwright harness (W5-M).
+ * Seeded daemon state for the hermetic Playwright harness.
  *
  * This is a deterministic, in-memory fixture — NOT a real daemon. The harness never
  * talks to a real GoodVibes daemon (never 3421/4444, never any port): every /api
@@ -7,7 +7,7 @@
  * and answered from these fixtures. That keeps the phone-viewport proofs reproducible
  * and offline, with no port coordination and zero risk of touching a live process.
  *
- * CONTRACT-BOUND (W6-E1): sessionRecord()/messagesResponse()/unionListResponse()
+ * CONTRACT-BOUND: sessionRecord()/messagesResponse()/unionListResponse()
  * shapes are asserted, in e2e/support/assert-contract-shape.test.ts, against the SDK's
  * generated operator-contract.json (sessions.list / sessions.get /
  * sessions.messages.list all share this session-record shape). A field rename or a
@@ -208,7 +208,7 @@ export function messagesResponse(sessionId: string) {
  * expiring / expired / unconfigured / status-unavailable (routes genuinely absent) —
  * one per provider, so the pills screenshot proves each state.
  *
- * SECOND DRIFT CAUGHT BY W6-E1's shape assertion: the top-level `models` field is
+ * SECOND DRIFT CAUGHT BY the contract-shape assertion: the top-level `models` field is
  * priced model SUMMARIES (`{id, registryKey, displayName, selectable, contextWindow,
  * pricing?}`), per operator-contract.json — NOT the plain model-id strings this
  * fixture used to put there (it reused the same string list for both the top-level

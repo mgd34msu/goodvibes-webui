@@ -1,5 +1,5 @@
 /**
- * Cascade-order-independence guard for the W7 white-band fix (W5-W4).
+ * Cascade-order-independence guard for the topbar/dark-surface white-band fix.
  *
  * The bug this test exists to prevent: .topbar (and the sibling
  * .chat-surface/.chat-header/.detail-header/.knowledge-search surfaces) used
@@ -50,7 +50,7 @@ function findRuleBlocks(selectorRe: RegExp): string[] {
   return blocks;
 }
 
-describe('styles.css — .topbar / dark-surface cascade region (W5-W4)', () => {
+describe('styles.css — .topbar / dark-surface cascade region', () => {
   test('.topbar declares `background` exactly once — no unscoped duplicate to reorder', () => {
     // Matches a selector block whose selector list is EXACTLY `.topbar` (not
     // `.topbar h1`, `.topbar-actions`, etc. — those are unrelated declarations

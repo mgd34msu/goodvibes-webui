@@ -510,8 +510,19 @@ export default function App() {
           </div>
         </header>
 
-        {realtimeError && <div className="banner warning"><Plug size={16} /> {realtimeError}</div>}
-        {sessionRealtime.error && <div className="banner warning"><Plug size={16} /> {sessionRealtime.error}</div>}
+        {/* Two SSE feeds back this app (the domained invalidation stream and the raw
+            session-update stream). A daemon drop trips BOTH, which used to stack two
+            near-identical "live updates paused" warnings. Collapse to ONE banner: a
+            unified line when both are down, otherwise the specific message. (F7e) */}
+        {(realtimeError ?? sessionRealtime.error) && (
+          <div className="banner warning">
+            <Plug size={16} />
+            {' '}
+            {realtimeError && sessionRealtime.error
+              ? 'Live updates paused — reconnecting. Views fall back to periodic refresh until the stream returns.'
+              : (realtimeError ?? sessionRealtime.error)}
+          </div>
+        )}
         {deleteChat.error && !isSessionNotFoundError(deleteChat.error) && (
           <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>
         )}

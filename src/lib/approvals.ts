@@ -15,7 +15,7 @@
  * doc and the ApprovalsTasksView component, which sends indices only.
  */
 
-import type { ApprovalEditHunk, ApprovalRecord, ApprovalStatus } from './goodvibes';
+import type { ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalStatus } from './goodvibes';
 
 /** APPROVAL_STATUS_SCHEMA (operator-contract-schemas-runtime.ts) at time of writing. */
 export const KNOWN_APPROVAL_STATUSES: readonly ApprovalStatus[] = [
@@ -133,4 +133,22 @@ export function sortApprovalsNewestFirst(approvals: readonly ApprovalRecord[]): 
 export function hunkSummary(hunk: ApprovalEditHunk): string {
   const find = hunk.find.length > 60 ? `${hunk.find.slice(0, 60)}…` : hunk.find;
   return `${hunk.path}: "${find}"`;
+}
+
+/**
+ * The full decision trail, oldest first (the wire already appends in
+ * chronological order — see approval-broker.ts's `buildAudit` call sites —
+ * but this never assumes ordering it does not itself guarantee). `audit` is
+ * absent, never null, on a mixed-version or pre-audit record — never inferred
+ * as "no history", just "not reported here".
+ */
+export function auditTrail(record: ApprovalRecord): readonly ApprovalAuditRecord[] {
+  return record.audit ?? [];
+}
+
+/** One-line, human summary of a single decision-trail entry for the detail card. */
+export function auditEntryLabel(entry: ApprovalAuditRecord): string {
+  const surface = entry.actorSurface ? ` (${entry.actorSurface})` : '';
+  const note = entry.note ? `: ${entry.note}` : '';
+  return `${entry.action} by ${entry.actor}${surface}${note}`;
 }

@@ -30,6 +30,7 @@ import {
   projectLabel,
   statusLabel,
   isClosedStatus,
+  isReapedStatus,
   canSteer,
   retentionLabel,
 } from '../../lib/sessions-union';
@@ -49,6 +50,28 @@ function KindBadge({ kind }: { kind: string }) {
       title={known ? undefined : 'Kind not known to this client — shown verbatim'}
     >
       {kindLabel(kind)}
+    </span>
+  );
+}
+
+/**
+ * Reaped-as-reaped (D-TUI/#B1): an idle-reaped closed session auto-reopens on
+ * the next heartbeat from any surface — a GC housekeeping event, not a
+ * deliberate close — so it gets its own tone/wording rather than folding into
+ * "closed · history". Tolerant of records without `closeReason` (pre-feature
+ * builds render exactly as before).
+ */
+function StatusBadge({ record }: { record: Pick<UnionSessionRecord, 'status' | 'closeReason'> }) {
+  const reaped = isReapedStatus(record);
+  const closed = isClosedStatus(record.status);
+  const tone = reaped ? 'info' : closed ? 'neutral' : 'ok';
+  const label = reaped ? 'reaped' : closed ? 'closed · history' : statusLabel(record.status);
+  return (
+    <span
+      className={`badge ${tone}`}
+      title={reaped ? 'Closed by the idle-session sweep — reopens automatically on the next activity' : undefined}
+    >
+      {label}
     </span>
   );
 }
@@ -170,9 +193,7 @@ export function SessionsView() {
                         <span className="sessions-row__title">{record.title}</span>
                         <span className="sessions-row__badges">
                           <KindBadge kind={record.kind} />
-                          <span className={`badge ${isClosedStatus(record.status) ? 'neutral' : 'ok'}`}>
-                            {isClosedStatus(record.status) ? 'closed · history' : statusLabel(record.status)}
-                          </span>
+                          <StatusBadge record={record} />
                           {retention && <span className="badge warning" title="Older message bodies were dropped from retention">{retention}</span>}
                         </span>
                       </button>
@@ -212,9 +233,7 @@ function SessionDetail({ record }: { record: UnionSessionRecord }) {
         <div className="session-detail__badges">
           <KindBadge kind={record.kind} />
           <span className="badge neutral">{projectLabel(record.project)}</span>
-          <span className={`badge ${closed ? 'neutral' : 'ok'}`}>
-            {closed ? 'closed · history' : statusLabel(record.status)}
-          </span>
+          <StatusBadge record={record} />
           <span className="badge neutral">{record.messageCount} msgs</span>
           {retention && <span className="badge warning">{retention}</span>}
         </div>

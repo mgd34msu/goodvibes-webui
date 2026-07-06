@@ -21,6 +21,7 @@ import AppShell from './components/shell/AppShell';
 import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDaemonHealth } from './hooks/useDaemonHealth';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
@@ -91,6 +92,13 @@ export default function App() {
     // is NOT an unreachable error, so this does not busy-poll the sign-in front door.
     refetchInterval: (query) => (isDaemonUnreachableError(query.state.error) ? 5_000 : false),
   });
+  // D-WEBUI-3: auth.current only re-probes once it has ALREADY errored (see
+  // refetchInterval above) — while healthy it never re-runs on its own, so a daemon
+  // death during an idle session would otherwise surface nothing until the user does
+  // something that happens to trigger a query. The health poll already re-probes the
+  // daemon unconditionally every 15s (useDaemonHealth), so it is the signal that
+  // catches an outage while auth.current is sitting on stale "everything is fine" data.
+  const health = useDaemonHealth();
   // Session liveness: consume the raw un-domained session-update stream, but only once
   // signed in (opening it while signed-out just 401s). It degrades honestly on failure.
   const sessionRealtime = useSessionRealtime(auth.isSuccess);
@@ -230,12 +238,32 @@ export default function App() {
   // it validates; with NO stored token, show the gate immediately (no white-screen, and
   // no working-looking-but-401ing shell).
   const authPending = auth.isPending;
-  // A network failure with a stored token means the daemon is unreachable, NOT that the
-  // operator is signed out. Keep the token and show the honest unreachable state; the
-  // auth query re-probes on an interval and the shell recovers automatically.
-  const daemonUnreachable = auth.isError && isDaemonUnreachableError(auth.error) && hasStoredTokenSync();
-  const signedOut = (auth.isError && !daemonUnreachable) || (authPending && !hasStoredTokenSync());
-  const showSplash = authPending && !auth.isError && hasStoredTokenSync();
+  const hasToken = hasStoredTokenSync();
+  // A genuine 401 (not a network failure) is the ONLY thing that means "signed out" —
+  // this classification must win over everything else below, including a health-poll
+  // outage that happens to be in flight at the same moment: a bad token always routes
+  // to sign-in, never the unreachable overlay.
+  const authIsUnauthorized = auth.isError && !isDaemonUnreachableError(auth.error);
+  // D-WEBUI-3: the daemon is "unreachable" either because auth.current itself just
+  // failed with a network error, OR because the independent health poll has declared
+  // the connection 'down' (2+ consecutive probe failures) — the latter is what catches
+  // a daemon that dies mid-session while auth.current was sitting on old success data
+  // and had no reason to re-fire. A network failure/health-down state with a stored
+  // token means the daemon is unreachable, NOT that the operator is signed out: keep
+  // the token and show the honest unreachable state. Recovery is driven by whichever
+  // probe flips back first — auth.current's own 5s re-probe once IT has errored, or the
+  // health poll's next successful 15s cycle.
+  const healthUnreachable = health.connection === 'down';
+  const daemonUnreachable = !authIsUnauthorized
+    && ((auth.isError && isDaemonUnreachableError(auth.error)) || healthUnreachable)
+    && hasToken;
+  // D-WEBUI-2: no stored token means signed-out, full stop — this must NOT wait on
+  // auth.current's pending/cached state. Gating this on `authPending` let a stale
+  // cached success from a previously-cleared token leak through as a flash of the
+  // full authenticated shell (401 banners and all) before the query re-settled; a
+  // missing token is knowable synchronously, so show the gate immediately.
+  const signedOut = !hasToken || authIsUnauthorized;
+  const showSplash = hasToken && authPending && !auth.isError;
 
   // The daemon-unreachable gate promises the operator will "pick up where it left
   // off" once the daemon comes back — that's only true if the workspace underneath

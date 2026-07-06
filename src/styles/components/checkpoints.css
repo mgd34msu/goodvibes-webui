@@ -170,6 +170,26 @@
   gap: var(--space-2, 8px);
 }
 
+.checkpoint-detail__diff-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.checkpoint-detail__compare {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.checkpoint-detail__compare select {
+  font-size: var(--text-xs, 12px);
+}
+
 .checkpoint-detail__diff-files {
   font-size: var(--text-xs, 12px);
   color: var(--text-secondary);

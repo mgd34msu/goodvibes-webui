@@ -14,6 +14,7 @@ import { ToastProvider } from '../../lib/toast';
 
 const restoreCalls: unknown[] = [];
 const createCalls: unknown[] = [];
+const diffCalls: unknown[] = [];
 let createImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ checkpoint: null, noop: true });
 let diffImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({
   diff: { from: 'wcp_1', to: 'WORKING', files: ['a.txt'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed' },
@@ -27,7 +28,7 @@ mock.module('../../lib/goodvibes', () => ({
       checkpoints: {
         list: () => Promise.resolve(FIXTURE_LIST),
         create: (input: unknown) => { createCalls.push(input); return createImpl(input); },
-        diff: (input: unknown) => diffImpl(input),
+        diff: (input: unknown) => { diffCalls.push(input); return diffImpl(input); },
         restore: (input: unknown) => { restoreCalls.push(input); return Promise.resolve({ result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.txt'], removedFiles: [] } }); },
       },
     },
@@ -86,6 +87,7 @@ let originalConfirm: typeof window.confirm;
 afterEach(() => {
   restoreCalls.length = 0;
   createCalls.length = 0;
+  diffCalls.length = 0;
   createImpl = () => Promise.resolve({ checkpoint: null, noop: true });
   diffImpl = () => Promise.resolve({
     diff: { from: 'wcp_1', to: 'WORKING', files: ['a.txt'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed' },
@@ -123,6 +125,75 @@ describe('CheckpointsView rendering', () => {
     const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
     click(row);
     await waitFor(() => (el.textContent ?? '').includes('No file differences'));
+    unmount();
+  });
+});
+
+describe('CheckpointsView compare-target selector (D-WEBUI-1)', () => {
+  test('defaults to diffing against the working tree with no b param', async () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
+    click(row);
+    await waitFor(() => diffCalls.length > 0);
+    expect(diffCalls[0]).toMatchObject({ a: 'wcp_1' });
+    expect((diffCalls[0] as { b?: string }).b).toBeUndefined();
+    expect(el.textContent).toContain('Diff vs. the working tree');
+    unmount();
+  });
+
+  test('picking another checkpoint from the compare selector requests a checkpoint-to-checkpoint diff', async () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
+    click(row);
+    await waitFor(() => diffCalls.length > 0);
+
+    const select = el.querySelector('select[aria-label="Compare checkpoint to"]') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
+      setter.call(select, 'wcp_2');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await waitFor(() => diffCalls.length > 1);
+    expect(diffCalls[diffCalls.length - 1]).toMatchObject({ a: 'wcp_1', b: 'wcp_2' });
+    unmount();
+  });
+
+  test('an empty diff between two checkpoints reads "between these checkpoints", distinct from the working-tree wording', async () => {
+    diffImpl = () => Promise.resolve({ diff: { from: 'wcp_1', to: 'wcp_2', files: [], unifiedDiff: '', stat: '' } });
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
+    click(row);
+    const select = el.querySelector('select[aria-label="Compare checkpoint to"]') as HTMLSelectElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
+      setter.call(select, 'wcp_2');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await waitFor(() => (el.textContent ?? '').includes('No file differences'));
+    expect(el.textContent).toContain('No file differences between these checkpoints.');
+    unmount();
+  });
+
+  test('selecting a different checkpoint row resets the compare target back to the working tree', async () => {
+    const { el, unmount } = render();
+    const row1 = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
+    click(row1);
+    await waitFor(() => diffCalls.length > 0);
+    const select = el.querySelector('select[aria-label="Compare checkpoint to"]') as HTMLSelectElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
+      setter.call(select, 'wcp_2');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await waitFor(() => diffCalls.length > 1);
+
+    const row2 = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('wcp_2'));
+    click(row2);
+    await waitFor(() => diffCalls.length > 2);
+    expect(diffCalls[diffCalls.length - 1]).toMatchObject({ a: 'wcp_2' });
+    expect((diffCalls[diffCalls.length - 1] as { b?: string }).b).toBeUndefined();
+    expect(el.textContent).toContain('Diff vs. the working tree');
     unmount();
   });
 });

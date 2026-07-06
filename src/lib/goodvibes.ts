@@ -259,7 +259,7 @@ export interface FleetProcessNode {
   readonly usage?: FleetProcessUsage;
   readonly model?: string;
   readonly provider?: string;
-  readonly costUsd: number | null;
+  readonly costUsd?: number | null;
   readonly costState: string;
   readonly currentActivity?: FleetProcessActivity;
   readonly capabilities: FleetProcessCapabilities;

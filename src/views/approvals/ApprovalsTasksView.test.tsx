@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
+import { ToastViewport } from '../../components/toast/ToastViewport';
 
 const approveCalls: unknown[] = [];
 const denyCalls: unknown[] = [];
@@ -91,6 +92,11 @@ const APPROVALS_FIXTURE = {
       id: 'appr-done', callId: 'call-4', status: 'approved', resolvedAt: 120, resolvedBy: 'operator', createdAt: 100, updatedAt: 120, metadata: {},
       request: { callId: 'call-4', tool: 'exec', args: {}, category: 'execute', analysis: analysis() },
     },
+    {
+      id: 'appr-edit-partial', callId: 'call-5', status: 'approved', resolvedAt: 130, resolvedBy: 'operator', createdAt: 100, updatedAt: 130, metadata: {},
+      request: { callId: 'call-5', tool: 'edit', args: { edits: EDIT_HUNKS }, category: 'write', analysis: analysis() },
+      decision: { approved: true, modifiedArgs: { edits: [EDIT_HUNKS[0]] } },
+    },
   ],
 };
 
@@ -115,7 +121,12 @@ function render(): { el: HTMLElement; unmount: () => void } {
     root.render(React.createElement(
       QueryClientProvider,
       { client },
-      React.createElement(ToastProvider, null, React.createElement(ApprovalsTasksView)),
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(ApprovalsTasksView),
+        React.createElement(ToastViewport),
+      ),
     ));
   });
   return {
@@ -170,9 +181,26 @@ describe('ApprovalsTasksView — approvals rendering', () => {
   test('a resolved approval renders as history with no action buttons', () => {
     const { el, unmount } = render();
     const cards = [...el.querySelectorAll('.approval-card')];
-    const resolved = cards.find((c) => c.textContent?.includes('operator') && c.textContent?.includes('approved'));
+    const resolved = cards.find((c) => c.textContent?.includes('operator') && c.textContent?.includes('approved') && !c.textContent?.includes('partial'));
     expect(resolved).toBeTruthy();
     expect(resolved?.querySelectorAll('.approval-card__actions').length).toBe(0);
+    unmount();
+  });
+
+  test('a resolved whole-request approval (no modifiedArgs subset) never shows a "partial" note', () => {
+    const { el, unmount } = render();
+    const cards = [...el.querySelectorAll('.approval-card')];
+    const resolved = cards.find((c) => c.querySelector('.approval-card__tool')?.textContent === 'exec' && c.textContent?.includes('operator'));
+    expect(resolved).toBeTruthy();
+    expect(resolved?.textContent).not.toContain('partial');
+    unmount();
+  });
+
+  test('a resolved edit approval whose decision.modifiedArgs covers fewer hunks than the request shows a partial note', () => {
+    const { el, unmount } = render();
+    const cards = [...el.querySelectorAll('.approval-card')];
+    const partial = cards.find((c) => c.querySelectorAll('.hunk-row').length === 0 && c.textContent?.includes('approved') && c.textContent?.includes('partial'));
+    expect(partial?.textContent).toContain('partial (1/3 hunks)');
     unmount();
   });
 });
@@ -228,6 +256,45 @@ describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () 
     click(deny);
     await waitFor(() => denyCalls.length > 0);
     expect(denyCalls[0]).toBe('appr-cmd');
+    unmount();
+  });
+});
+
+describe('ApprovalsTasksView — approve toast carries a subset count', () => {
+  test('approving 2 of 3 hunks shows "Approved 2 of 3 hunks", not the generic toast', async () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.querySelectorAll('.hunk-row').length === 3)!;
+    const checkboxes = [...card.querySelectorAll('input[type="checkbox"]')];
+    click(checkboxes[0]);
+    click(checkboxes[2]);
+    const approveSelected = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Approve selected'));
+    click(approveSelected);
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => el.textContent?.includes('Approved 2 of 3 hunks') ?? false);
+    expect(el.textContent).toContain('Approved 2 of 3 hunks');
+    unmount();
+  });
+
+  test('"Approve all" on a hunked edit approval shows the plain "Approved" toast, not a fake "3 of 3"', async () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.querySelectorAll('.hunk-row').length === 3)!;
+    const approveAll = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Approve all'));
+    click(approveAll);
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => [...el.querySelectorAll('.toast__title')].some((t) => t.textContent === 'Approved'));
+    expect([...el.querySelectorAll('.toast__title')].some((t) => t.textContent === 'Approved')).toBe(true);
+    expect(el.textContent).not.toContain('of 3 hunks');
+    unmount();
+  });
+
+  test('approving a non-edit (no-hunks) request shows the plain "Approved" toast', async () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('run a shell command'))!;
+    const approve = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Approve'));
+    click(approve);
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => [...el.querySelectorAll('.toast__title')].some((t) => t.textContent === 'Approved'));
+    expect([...el.querySelectorAll('.toast__title')].some((t) => t.textContent === 'Approved')).toBe(true);
     unmount();
   });
 });

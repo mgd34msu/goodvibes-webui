@@ -111,3 +111,106 @@
     max-height: none;
   }
 }
+
+/* ============================================================
+   Knowledge map render — the pre-rendered SVG replacing the raw
+   JSON dump (W8), plus the demoted "view raw" toggle.
+   ============================================================ */
+.knowledge-map-render {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.knowledge-map-render__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.knowledge-map-render__total {
+  color: var(--text-tertiary);
+}
+
+.knowledge-map-render__canvas {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  overflow: auto;
+  max-height: 420px;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.knowledge-map-render__canvas img {
+  max-width: 100%;
+  height: auto;
+}
+
+.knowledge-map-render__toggle {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.knowledge-map-render__toggle:hover {
+  color: var(--text-accent);
+  border-color: var(--accent);
+}
+
+.knowledge-map-render__toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Knowledge jobs peek — the "View jobs" activity detail (W8).
+   ============================================================ */
+.knowledge-jobs-peek__summary {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-3);
+}
+
+.knowledge-jobs-peek__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.knowledge-jobs-peek__row {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.knowledge-jobs-peek__row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.knowledge-jobs-peek__meta {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+.knowledge-jobs-peek__error {
+  font-size: var(--text-xs);
+  color: var(--status-danger);
+  margin: var(--space-1) 0 0;
+}

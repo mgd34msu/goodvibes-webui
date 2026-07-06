@@ -33,6 +33,9 @@ export const queryKeys = {
   knowledgeMap: ['knowledge', 'map'] as const,
   knowledgeProjections: ['knowledge', 'projections'] as const,
   knowledgeRefinement: ['knowledge', 'refinement'] as const,
+  // W8 activity honesty (W5-W5): the never-called knowledge.jobs.list /
+  // knowledge.job-runs.list, read from the map/nodes "View jobs" link.
+  knowledgeJobs: ['knowledge', 'jobs'] as const,
   localAuth: ['local-auth'] as const,
 };
 

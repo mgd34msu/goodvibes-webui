@@ -12,8 +12,17 @@ import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React, { createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Composer, ComposerProps } from './Composer';
 import { ProviderOption, ModelOption } from '../../lib/provider-models';
+
+// The composer now hosts the voice controls (mic + voice settings), which read
+// voice.status/config.get through react-query — exactly as the real app does under its
+// app-wide QueryClientProvider. Wrap renders in a throwaway client (no retry/refetch) so
+// these ModelPicker/SlashMenu tests exercise the composer with its real dependency tree.
+function makeTestQueryClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -86,14 +95,23 @@ function mountComposer(props: ComposerProps) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
+  const client = makeTestQueryClient();
   flushSync(() => {
-    root.render(<Composer {...props} />);
+    root.render(
+      <QueryClientProvider client={client}>
+        <Composer {...props} />
+      </QueryClientProvider>,
+    );
   });
   return {
     container,
     rerender(nextProps: ComposerProps) {
       flushSync(() => {
-        root.render(<Composer {...nextProps} />);
+        root.render(
+          <QueryClientProvider client={client}>
+            <Composer {...nextProps} />
+          </QueryClientProvider>,
+        );
       });
     },
     unmount() {

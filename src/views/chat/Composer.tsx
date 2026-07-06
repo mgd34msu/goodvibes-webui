@@ -11,11 +11,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ChevronDown, Check, Mic, Paperclip, Send, X } from 'lucide-react';
+import { ChevronDown, Check, Paperclip, Send, X } from 'lucide-react';
 import { formatError } from '../../lib/errors';
 import { ModelOption, ProviderOption } from '../../lib/provider-models';
 import { dragHasFiles, filesFromDrop, imageFilesFromPaste, isImageFile, previewUrl } from './composer-attachments';
+import { MicButton } from '../../components/voice/MicButton';
+import { VoiceSettings } from '../../components/voice/VoiceSettings';
 import '../../styles/components/chat-composer.css';
+import '../../styles/components/voice.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -530,6 +533,17 @@ export function Composer({
     composerRef.current?.focus();
   }
 
+  // Dictated transcript lands in the draft for REVIEW BEFORE SENDING — appended after any
+  // text already typed, never auto-sent.
+  const handleTranscript = useCallback(
+    (text: string) => {
+      if (!text) return;
+      onDraftChange(draft.trim() ? `${draft.trimEnd()} ${text}` : text);
+      composerRef.current?.focus();
+    },
+    [draft, onDraftChange, composerRef],
+  );
+
   const activeSlashOptionId =
     showSlashMenu && filteredSlashCommands.length > 0 && slashActiveIndex >= 0
       ? `${slashOptionIdPrefix}-${slashActiveIndex}`
@@ -599,15 +613,8 @@ export function Composer({
             >
               <Paperclip size={16} aria-hidden />
             </button>
-            <button
-              type="button"
-              className="composer-tool"
-              title="Voice mode is not available in this WebUI build"
-              aria-label="Voice mode (unavailable)"
-              disabled
-            >
-              <Mic size={16} aria-hidden />
-            </button>
+            <MicButton onTranscript={handleTranscript} disabled={isSendPending} />
+            <VoiceSettings />
           </div>
 
           <ModelPicker

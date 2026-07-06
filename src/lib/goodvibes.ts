@@ -134,6 +134,12 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'companion.chat.messages.retry': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/retry' },
   'companion.chat.sessions.close': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/close' },
   'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
+  // config.get (GET /config) — the resolved config snapshot. The browser reads it to
+  // learn the SHARED spoken-voice defaults (tts.provider / tts.voice) so playback uses
+  // the same voice the TUI and agent do. The typed snapshot declares domain sections
+  // (ui/web/...) with additionalProperties:true, so the `tts` section rides in as an
+  // extra property — read it defensively (src/lib/voice/voice-config.ts).
+  'config.get': { method: 'GET', path: '/config' },
   'config.set': { method: 'POST', path: '/config' },
   'control.methods.get': { method: 'GET', path: '/api/control-plane/methods/{methodId}' },
   'credentials.get': { method: 'GET', path: '/config/credentials' },
@@ -185,6 +191,16 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   // fleet registry) and NOT over the operator wire today — see lib/fleet.ts's
   // `wireStopUnavailableReason` for the honest per-kind accounting.
   'watchers.stop': { method: 'POST', path: '/api/watchers/{watcherId}/stop' },
+  // Voice verbs (SDK 1.1.0). All are in the installed OperatorMethodId union with real
+  // generated I/O maps, but the pinned browser SDK route maps do not cover them, so they
+  // resolve here as hand-written REST rows. voice.tts.stream is DELIBERATELY ABSENT: its
+  // response body is streamed audio bytes, not JSON, so it cannot ride requestJson — the
+  // player fetches it raw via sdk.operator.voice.ttsStream (requestStream below).
+  'voice.providers.list': { method: 'GET', path: '/api/voice/providers' },
+  'voice.status': { method: 'GET', path: '/api/voice' },
+  'voice.stt': { method: 'POST', path: '/api/voice/stt' },
+  'voice.tts': { method: 'POST', path: '/api/voice/tts' },
+  'voice.voices.list': { method: 'GET', path: '/api/voice/voices' },
 };
 
 const RUNTIME_DOMAINS: RuntimeEventDomain[] = [
@@ -270,6 +286,37 @@ async function requestJson<T = unknown>(path: string, options: RequestOptions = 
     });
   }
   return body as T;
+}
+
+/**
+ * requestStream — a POST whose SUCCESS body is raw bytes, not JSON (voice.tts.stream
+ * returns streamed audio). Returns the live Response so the caller can read
+ * arrayBuffer()/body without this helper eagerly draining it. On a non-2xx it drains and
+ * throws the SAME error shape requestJson does (status/category), so the TTS request
+ * policy's transient-429 detection (src/lib/voice/request-policy.ts keys off `status`)
+ * works identically on both paths.
+ */
+async function requestStream(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+  const headers: HeadersInit = { ...(await authHeaders()), 'Content-Type': 'application/json' };
+  const url = buildUrl(path);
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.ok) {
+    const errBody = await readJson(response).catch(() => null);
+    throw Object.assign(new Error(`POST ${path} failed: ${response.status} ${response.statusText}`.trim()), {
+      status: response.status,
+      url,
+      method: 'POST' as HttpMethod,
+      body: errBody,
+      category: response.status === 401 ? 'authentication' : 'service',
+    });
+  }
+  return response;
 }
 
 function interpolateRoute(route: RouteDefinition, input: unknown): { path: string; rest: JsonRecord } {
@@ -814,6 +861,27 @@ export const sdk = {
       // CHANGELOG.md). The browser reaches the shared store only over the
       // daemon. Status only — never bytes.
       get: () => invokeOperator('credentials.get'),
+    },
+    // config.get — the resolved config snapshot (admin-scoped, like credentials.get).
+    // The voice surface reads it for the SHARED tts.provider/tts.voice defaults so the
+    // browser speaks in the same voice as the TUI and agent. Read-only here; writes go
+    // through the existing invokeMethod('config.set', ...) path (AdminView / voice config).
+    config: {
+      get: () => invokeOperator('config.get', {}),
+    },
+    // Voice (SDK 1.1.0). status/providers/voices are read:voice; stt/tts are write:voice.
+    // ttsStream returns the RAW streamed-audio Response (not JSON) — the Web Audio player
+    // reads its bytes. All resolve through EXTRA_METHOD_ROUTES (except ttsStream, which is
+    // a raw fetch) and carry the real generated I/O types.
+    voice: {
+      status: () => invokeOperator('voice.status', {}),
+      providers: () => invokeOperator('voice.providers.list', {}),
+      voices: (providerId?: string) =>
+        invokeOperator('voice.voices.list', providerId ? { providerId } : {}),
+      stt: (input: OperatorMethodInput<'voice.stt'>) => invokeOperator('voice.stt', input),
+      tts: (input: OperatorMethodInput<'voice.tts'>) => invokeOperator('voice.tts', input),
+      ttsStream: (input: OperatorMethodInput<'voice.tts.stream'>, signal?: AbortSignal) =>
+        requestStream('/api/voice/tts/stream', input, signal),
     },
     // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
     // comment) — the untyped overload is the honest, permanent shape here.

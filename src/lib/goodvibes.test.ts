@@ -329,15 +329,21 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain exactly two additions: memory (WEBUI-MEMORY-VIEW), watchers (WEBUI-FLEET-DEPTH)', () => {
+  test('sdk.operator keys gain memory, watchers, and the voice + config reads', () => {
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'watchers'].sort(),
+      ['accounts', 'approvals', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
   test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs', () => {
     expect(Object.keys(sdk.operator.memory).sort()).toEqual(
       ['add', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
+    );
+  });
+
+  test('sdk.operator.voice exposes the wire voice verbs', () => {
+    expect(Object.keys(sdk.operator.voice).sort()).toEqual(
+      ['providers', 'status', 'stt', 'tts', 'ttsStream', 'voices'].sort(),
     );
   });
 

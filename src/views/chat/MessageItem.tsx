@@ -5,6 +5,7 @@ import type { SupersededReason } from './lineage';
 import { MessageLineage, messageIsEdited } from './MessageLineage';
 import { useArtifactsPanel } from './ArtifactsPanel';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
+import { SpeakButton } from '../../components/voice/SpeakButton';
 import { asRecord } from '../../lib/object';
 import {
   attachmentLabel,
@@ -207,6 +208,11 @@ export function MessageItem({
             >
               <RotateCcw size={13} />
             </button>
+          )}
+
+          {/* Read aloud — spoken output for assistant replies (honest states inside) */}
+          {tone === 'assistant' && text && (
+            <SpeakButton messageId={id} text={text} />
           )}
 
           {/* View artifacts — shown on assistant messages that contain code blocks or attachments */}

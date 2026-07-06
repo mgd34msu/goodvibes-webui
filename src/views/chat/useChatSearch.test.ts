@@ -73,12 +73,16 @@ interface SessionSearchStub {
   response: { sessions: Record<string, unknown>[]; nextCursor?: string; hasMore: boolean };
   /** 'none' | 'not-invokable' | 'generic' */
   failMode: 'none' | 'not-invokable' | 'generic';
+  /** Delay (ms) applied ONLY to load-more calls (those carrying a cursor) — lets a test
+   *  hold a load-more in flight while a fresh search completes and supersedes it. */
+  loadMoreDelayMs: number;
 }
 
 const sessionSearchStub: SessionSearchStub = {
   calls: [],
   response: { sessions: [], nextCursor: undefined, hasMore: false },
   failMode: 'none',
+  loadMoreDelayMs: 0,
 };
 
 // Mock the SDK before any import of useChatSearch.
@@ -107,7 +111,13 @@ mock.module('../../lib/goodvibes', () => ({
           if (sessionSearchStub.failMode === 'generic') {
             throw Object.assign(new Error('internal error'), { status: 500, category: 'service', body: { code: 'INTERNAL' } });
           }
-          return sessionSearchStub.response;
+          // Snapshot the response at CALL time so a test can reassign it for the fresh
+          // search while a delayed load-more is still resolving with the old page.
+          const snapshot = sessionSearchStub.response;
+          if (input.cursor && sessionSearchStub.loadMoreDelayMs > 0) {
+            await new Promise((r) => setTimeout(r, sessionSearchStub.loadMoreDelayMs));
+          }
+          return snapshot;
         },
       },
     },
@@ -212,6 +222,7 @@ function resetSessionSearchStub() {
   sessionSearchStub.calls = [];
   sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
   sessionSearchStub.failMode = 'none';
+  sessionSearchStub.loadMoreDelayMs = 0;
 }
 
 beforeEach(() => {
@@ -612,6 +623,52 @@ describe('useChatSearch — session search pagination', () => {
     await wait(50);
 
     expect(sessionSearchStub.calls.length).toBe(callsBefore);
+
+    handle.unmount();
+  });
+
+  test('a stale load-more page does NOT append onto a fresh same-params search (generation guard, F7d)', async () => {
+    const summary = (id: string, cursor?: string, hasMore = false) => ({
+      response: {
+        sessions: [{
+          id, kind: 'companion-chat', title: id, status: 'active',
+          createdAt: 1, updatedAt: 1, lastActivityAt: 1, messageCount: 1,
+          pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {},
+        }],
+        nextCursor: cursor,
+        hasMore,
+      },
+    });
+
+    // First search for "paginate" → page 1 (has more, cursor c1). This is generation 1.
+    sessionSearchStub.response = summary('p1', 'c1', true).response;
+    const handle = mountHook('', []);
+    handle.setQuery('paginate');
+    await wait(450);
+    expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['p1']);
+    expect(handle.state.hasMoreSessions).toBe(true);
+
+    // Launch a load-more, but hold its response in flight (500ms). It carries cursor c1
+    // and would resolve to a STALE page — set that as the response it snapshots now.
+    sessionSearchStub.loadMoreDelayMs = 500;
+    sessionSearchStub.response = summary('stale-page-2').response;
+    handle.loadMoreSessions();
+    await wait(20); // let the load-more call fire and snapshot the stale response
+
+    // While it hangs, the user retypes to the SAME query (via a detour) — a FRESH search,
+    // generation 2, replacing the list with a new first page (different backend cursor).
+    sessionSearchStub.loadMoreDelayMs = 0; // the fresh call carries no cursor anyway
+    sessionSearchStub.response = summary('fresh-p1').response;
+    handle.setQuery('paginat');
+    handle.setQuery('paginate');
+    await wait(450); // fresh search debounces + completes → gen bumps, results replaced
+    expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
+
+    // Now the delayed stale load-more resolves. Its generation (1) is stale, so it must
+    // be discarded — never appended onto the fresh (gen 2) results.
+    await wait(200);
+    expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
+    expect(handle.state.sessionResults.some((r) => r.sessionId === 'stale-page-2')).toBe(false);
 
     handle.unmount();
   });

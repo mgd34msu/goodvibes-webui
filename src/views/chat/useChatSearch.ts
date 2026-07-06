@@ -229,6 +229,13 @@ export function useChatSearch(
   // fetched for, so a slow load-more response that lands after the user has
   // already changed the query/toggle is discarded rather than silently applied.
   const activeSessionParamsRef = useRef({ query: '', includeClosed });
+  // Monotonic generation counter — bumped every time a FRESH search begins (see
+  // runSessionSearch). The param check above can't catch the query-changed-then-changed-
+  // BACK case: a load-more launched against generation N, whose page lands after the user
+  // retyped the SAME query (a new fresh search, generation N+1, with its own backend
+  // cursor), would pass the param equality test and append a stale page onto fresh
+  // results. Comparing the generation captured at load-more time closes that hole.
+  const searchGenerationRef = useRef(0);
 
   // Persistent message cache — keyed by sessionId, reset when sessions identity changes.
   const cacheRef = useRef<MessageCache>(new Map());
@@ -344,6 +351,8 @@ export function useChatSearch(
   // `includeClosed` toggling in addition to `query` changes.
   const runSessionSearch = useCallback(
     async (term: string, closed: boolean, signal: AbortSignal): Promise<void> => {
+      // A fresh search supersedes any in-flight load-more from a prior generation.
+      searchGenerationRef.current += 1;
       if (!term.trim()) {
         setSessionResults([]);
         setSessionSearchState('idle');
@@ -403,13 +412,20 @@ export function useChatSearch(
   const loadMoreSessions = useCallback(() => {
     if (isLoadingMoreSessions || !hasMoreSessions || !nextCursor) return;
     const requestedParams = activeSessionParamsRef.current;
+    const requestedGeneration = searchGenerationRef.current;
 
     setIsLoadingMoreSessions(true);
     void (async () => {
       try {
         const page = await fetchSessionSearchPage(requestedParams.query, requestedParams.includeClosed, nextCursor);
-        // Discard if the query/toggle changed while this page was in flight —
-        // applying it would silently mix results from two different searches.
+        // Discard if a FRESH search has begun since this page was requested — even if its
+        // params happen to match (query changed away and back), it is a different search
+        // with a different backend cursor, so appending this page would mix generations.
+        if (searchGenerationRef.current !== requestedGeneration) {
+          return;
+        }
+        // Belt-and-braces: also discard on a bare param change (a fresh search may not
+        // have STARTED yet — e.g. still debouncing — but the toggle already moved).
         if (
           activeSessionParamsRef.current.query !== requestedParams.query
           || activeSessionParamsRef.current.includeClosed !== requestedParams.includeClosed

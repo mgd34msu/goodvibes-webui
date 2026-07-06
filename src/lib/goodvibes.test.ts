@@ -328,7 +328,7 @@ describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
 
   test('sdk.operator keys are unchanged', () => {
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'checkpoints', 'control', 'fleet', 'invoke', 'models', 'providers', 'sessions', 'tasks'].sort(),
+      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'models', 'providers', 'sessions', 'tasks'].sort(),
     );
   });
 

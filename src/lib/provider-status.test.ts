@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { deriveProviderStatus, providerHeaderLabel, providerStatusLabel } from './provider-status';
+import { deriveProviderStatus, providerHeaderLabel, providerStatusLabel, deriveCredentialAvailability } from './provider-status';
 import { bestStatus } from './object';
 
 describe('deriveProviderStatus — worst-wins freshness roll-up', () => {
@@ -157,5 +157,47 @@ describe('bestStatus is unchanged for non-provider consumers (no regression)', (
     expect(bestStatus({ status: 'running' })).toBe('running');
     expect(bestStatus({ state: 'blocked' })).toBe('blocked');
     expect(bestStatus({})).toBe('unknown');
+  });
+});
+
+describe('deriveCredentialAvailability (W6-C1 honest degrade)', () => {
+
+  test('a healthy credentials.get result yields status metadata, never bytes', () => {
+    const out = deriveCredentialAvailability({
+      ok: true,
+      value: {
+        available: true,
+        credentials: [
+          { key: 'SHARED_CHANNEL_TOKEN', configured: true, usable: true, source: 'store', secure: true },
+          { key: 'BROKEN_REF', configured: true, usable: false, source: 'env-ref' },
+        ],
+      },
+    });
+    expect(out.available).toBe(true);
+    if (out.available) {
+      expect(out.credentials).toHaveLength(2);
+      expect(out.credentials[0]).toEqual({ key: 'SHARED_CHANNEL_TOKEN', configured: true, usable: true, source: 'store', secure: true });
+      // The type carries no value field — statically true; pin it dynamically too.
+      for (const c of out.credentials) expect('value' in c).toBe(false);
+    }
+  });
+
+  test('503 CREDENTIAL_STORE_UNAVAILABLE degrades honestly, never fabricated-configured', () => {
+    const out = deriveCredentialAvailability({ ok: false, error: { code: 'CREDENTIAL_STORE_UNAVAILABLE', status: 503 } });
+    expect(out.available).toBe(false);
+    if (!out.available) expect(out.reason).toBe('The daemon has no shared credential store wired.');
+  });
+
+  test('METHOD_NOT_FOUND from an older daemon degrades with the not-served reason', () => {
+    const out = deriveCredentialAvailability({ ok: false, error: { code: 'METHOD_NOT_FOUND', status: 404 } });
+    expect(out.available).toBe(false);
+    if (!out.available) expect(out.reason).toBe('This daemon does not serve credential status yet.');
+  });
+
+  test('a transport failure degrades generically; a malformed body degrades too', () => {
+    const failed = deriveCredentialAvailability({ ok: false, error: new Error('fetch failed') });
+    expect(failed.available).toBe(false);
+    const malformed = deriveCredentialAvailability({ ok: true, value: { credentials: 'nope' } });
+    expect(malformed.available).toBe(false);
   });
 });

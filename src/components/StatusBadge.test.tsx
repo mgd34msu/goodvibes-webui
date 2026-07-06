@@ -19,7 +19,7 @@ describe('StatusBadge', () => {
     expect(html).toContain('badge bad');
   });
 
-  // Provider auth-freshness vocabulary (src/lib/provider-status.ts, W5-W3).
+  // Provider auth-freshness vocabulary (src/lib/provider-status.ts).
   test('maps expired to bad tone — dead credentials are a fault', () => {
     const html = renderToStaticMarkup(<StatusBadge value="expired" />);
     expect(html).toContain('badge bad');

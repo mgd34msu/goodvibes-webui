@@ -1,5 +1,5 @@
 /**
- * assert-contract-shape.ts (W6-E1) — binds the e2e fixtures (seed.ts / mock-daemon.ts)
+ * assert-contract-shape.ts — binds the e2e fixtures (seed.ts / mock-daemon.ts)
  * to the SDK's generated operator-contract.json, the SAME artifact
  * src/lib/goodvibes.test.ts's `bridge-matches-schema` suite (L354, assertConforms)
  * walks. The e2e harness is hermetic by design (never hits a port — see

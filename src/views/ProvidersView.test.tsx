@@ -1,5 +1,5 @@
 /**
- * ProvidersView — real provider status pills (W5-W3).
+ * ProvidersView — real provider status pills.
  *
  * Proves the pill is derived from the actual per-route freshness the wire
  * returns (ProviderAuthRouteDescriptor.freshness), never a decorative

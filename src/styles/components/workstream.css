@@ -1,6 +1,6 @@
 /*
  * Workstream view — orchestration workstream/phase/work-item tree, filtered
- * client-side from fleet.snapshot (W3-W2). Uses contract tokens from
+ * client-side from fleet.snapshot. Uses contract tokens from
  * src/styles/tokens.css exclusively — mirrors fleet.css's structure.
  */
 

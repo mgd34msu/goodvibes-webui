@@ -1,5 +1,5 @@
 /**
- * installMockDaemon — the hermetic seam for the Playwright harness (W5-M).
+ * installMockDaemon — the hermetic seam for the Playwright harness.
  *
  * Intercepts every `/api/**` request in the browser and answers it from the in-memory
  * seed (support/seed.ts). NO real daemon is ever contacted — not 3421, not 4444, not
@@ -10,7 +10,7 @@
  * Streams (Accept: text/event-stream) are, by default, left hanging (a "connecting"
  * EventSource that never errors) so the live-updates layer reports neither connected
  * nor paused — a clean baseline. Pass `dropStreams: true` to instead close them
- * immediately, which drives the W5-W1 reconnect/paused honesty (used by the chat
+ * immediately, which drives the reconnect/paused honesty (used by the chat
  * degraded-state proof).
  */
 
@@ -78,7 +78,7 @@ export function methodInfoResponse(methodId: string) {
  * different from what this mock used to invent ({ delivered, inputId }). The app
  * (SteerComposer) never reads the resolved body (it only reacts to resolve vs.
  * reject), so this reshape is behavior-neutral for every existing spec while closing
- * the gap a contract change here would otherwise sail through unnoticed (W6-E1).
+ * the gap a contract change here would otherwise sail through unnoticed.
  * Exported so assert-contract-shape.test.ts can bind it without a Page.
  */
 export function dispatchOutcome(session: SeedSession | undefined, intent: 'steer' | 'follow-up', body: string, inputId: string) {
@@ -141,7 +141,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     if (accept.includes('text/event-stream') || path.includes('/events')) {
       if (dropStreams) {
         // Immediately-closed stream → the client sees a terminated feed and enters
-        // the reconnect/paused honesty path (W5-W1).
+        // the reconnect/paused honesty path.
         return route.fulfill({
           status: 200,
           contentType: 'text/event-stream',

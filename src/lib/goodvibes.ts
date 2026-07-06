@@ -89,14 +89,14 @@ interface RequestOptions {
  * sessions.close / sessions.reopen genuinely REMAIN here: they are not in
  * SHARED_BROWSER_ROUTES in 0.38, so removing their rows breaks the calls. The rest of
  * the survivors (approvals.* / models.* / tasks.* / config.set / local_auth.status /
- * companion.chat.sessions.delete) are the Wave-3 contract-coverage target; each pays
+ * companion.chat.sessions.delete) are contract-coverage targets; each pays
  * its way today because no browser route map covers it.
  *
- * sessions.delete / companion.chat.sessions.close (W5-W2, delete-means-delete): these
+ * sessions.delete / companion.chat.sessions.close (delete-means-delete): these
  * two rows are forward-looking — verified against the SDK repo's OWN source at the time
  * of writing (method-catalog-control-core.ts / method-catalog-control-companion.ts /
  * runtime-session-lifecycle-routes.ts / companion-chat-routes.ts), where the real
- * hard-delete work (W5-S1) is in flight but NOT YET COMMITTED there and not yet in the
+ * hard-delete work is in flight but NOT YET COMMITTED there and not yet in the
  * installed 0.38 contracts package — so neither id is in the installed `OperatorMethodId`
  * union today (unlike sessions.close/reopen above, which ARE). Calls through these rows
  * therefore use invokeOperator's untyped overload (see the sdk.operator.sessions.delete
@@ -257,7 +257,7 @@ export function isExtraRoutedMethod(methodId: string): boolean {
  * shape (see the Approvals/Tasks section comments above) pass explicit TInput/TOutput
  * overrides instead of the defaults.
  *
- * Overload 2 is the honest fallback for models.* — CORRECTED (2026-07, W5-TC): the W1
+ * Overload 2 is the honest fallback for models.* — CORRECTED (2026-07): the earlier
  * gap-note this replaced claimed the pinned 0.38 contracts package had no typed method
  * ids for verbs like these; that was true for fleet.* and checkpoints.* at the time but was
  * NEVER true for models.* — models.current/list/select are not in the OperatorMethodId
@@ -303,7 +303,7 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
  * (POST /api/control-plane/methods/{methodId}/invoke), mirroring the SDK's
  * own `invokeVerb` test helper (test/w3-s2-fleet-checkpoints-search.test.ts).
  *
- * WHY THIS EXISTS (W3-W1): fleet.*, checkpoints.*, and sessions.search (W3-S2, W5-TC) are
+ * WHY THIS EXISTS: fleet.*, checkpoints.*, and sessions.search are
  * registered with `transport: ['ws']` and NO `http` route binding
  * (method-catalog-fleet.ts / session-search.ts) — they are reachable ONLY through this
  * generic invoke mechanism, not through scopedSdk.operator.invoke (which resolves
@@ -333,7 +333,7 @@ async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput =
   });
 }
 
-// ─── Approvals (approvals.*, W3-S3 per-hunk selection) ─────────────────────
+// ─── Approvals (approvals.*, per-hunk selection) ─────────────────────
 //
 // UNLIKE fleet.*/checkpoints.* (contract-bridge-types.ts), approvals.* HAS real,
 // generated OperatorMethodInputMap/OutputMap coverage today (foundation-client-
@@ -349,7 +349,7 @@ async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput =
 //     a mixed-version/pre-audit record may genuinely omit it; approvals.test.ts
 //     pins a fixture that omits `audit` on purpose.
 //   - `ApprovalDecision.modifiedArgs` and `ApprovalApproveInput.selectedHunks` are
-//     real W3-S3 per-hunk-apply wire fields the generated 0.38 maps do not cover.
+//     real per-hunk-apply wire fields the generated 0.38 maps do not cover.
 // Because of these deliberate divergences, invokeOperator's approvals.* calls
 // below pass explicit TOutput/TInput overrides rather than the contract defaults.
 
@@ -452,7 +452,7 @@ export interface ApprovalActionResult {
 }
 
 /**
- * Optional per-hunk selection for `approvals.approve` (W3-S3). Omitting
+ * Optional per-hunk selection for `approvals.approve`. Omitting
  * `selectedHunks` approves the whole request (back-compat); when present the
  * DAEMON filters the approval's own edit list to those indices server-side
  * (approval-hunk-apply.ts) so every surface (TUI, webui) produces identical
@@ -510,7 +510,7 @@ export type TaskCreateInput = OperatorMethodInput<'tasks.create'>;
 export type TaskCreateResult = OperatorMethodOutput<'tasks.create'>;
 
 /**
- * SessionDeleteResult (W5-W2) — the honest hard-delete outcome shape shared by
+ * SessionDeleteResult — the honest hard-delete outcome shape shared by
  * `operator.sessions.delete` and `chat.sessions.delete`: `deleted: true` means the
  * record and its messages/inputs were actually removed, not merely closed. Neither
  * `sessions.delete` (union) nor a truly-deleting `companion.chat.sessions.delete` has a
@@ -556,7 +556,7 @@ export const sdk = {
     control: {
       status: () => scopedSdk.operator.invoke('control.status', {}),
       snapshot: () => scopedSdk.operator.invoke('control.snapshot', {}),
-      // methodInfo (W5-W2): an honest, read-only capability probe. 'control.methods.get'
+      // methodInfo: an honest, read-only capability probe. 'control.methods.get'
       // IS in the installed 0.38 OperatorMethodId union with a real generated I/O map
       // (foundation-client-types.ts), so this is a normal typed invokeOperator call, not
       // a bridge — the METHOD BEING CHECKED (its `methodId` argument) can be any string,
@@ -575,8 +575,9 @@ export const sdk = {
       usage: (providerId: string) => scopedSdk.operator.invoke('providers.usage.get', { providerId }),
     },
     credentials: {
-      // Cross-surface secret-free credential status (W6-C1/E7). The browser
-      // reaches the shared store only over the daemon. Status only — never bytes.
+      // Cross-surface secret-free credential status (see the 1.0.1 entry in
+      // CHANGELOG.md). The browser reaches the shared store only over the
+      // daemon. Status only — never bytes.
       get: () => invokeOperator('credentials.get'),
     },
     // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
@@ -599,7 +600,7 @@ export const sdk = {
       // (open strings, optional audit — see the Approvals section comment) — explicit
       // overrides throughout this group.
       list: () => invokeOperator<'approvals.list', OperatorMethodInput<'approvals.list'>, ApprovalSnapshotResult>('approvals.list'),
-      // selectedHunks (W3-S3): an index array into the pending approval's own
+      // selectedHunks: an index array into the pending approval's own
       // edit list. Omit it to approve the whole request. The daemon computes
       // modifiedArgs server-side — this call never carries a computed diff.
       // selectedHunks is not in OperatorMethodInputMap['approvals.approve'] yet — a
@@ -651,7 +652,7 @@ export const sdk = {
       create: (input: OperatorMethodInput<'sessions.create'>) => invokeOperator('sessions.create', input),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
-      // delete (W5-W2, delete-means-delete): NOT in the installed 0.38 OperatorMethodId
+      // delete (delete-means-delete): NOT in the installed 0.38 OperatorMethodId
       // union (unlike close/reopen above) — see the EXTRA_METHOD_ROUTES header comment.
       // Untyped call site, like models.* — SessionDeleteResult is this module's own
       // honest local shape (`{sessionId, deleted}`), cross-checked against the SDK
@@ -662,9 +663,10 @@ export const sdk = {
       // a proof-of-gone reconcile — never assume a 200 means the record is truly gone
       // on every daemon build.
       delete: (sessionId: string) => invokeOperator('sessions.delete', { sessionId }) as Promise<SessionDeleteResult>,
-      // sessions.search (W5-TC scaffold for W5-W6): in the OperatorMethodId union but
-      // routeless (no browser/EXTRA_METHOD_ROUTES entry) — generic-invoke-only, typed
-      // via the contract-bridge-types.ts bridge until W5-S2 lands real I/O shapes.
+      // sessions.search (typed-client scaffold, first consumer of the search facade):
+      // in the OperatorMethodId union but routeless (no browser/EXTRA_METHOD_ROUTES
+      // entry) — generic-invoke-only, typed via the contract-bridge-types.ts bridge
+      // until real I/O shapes land upstream.
       search: (input?: SessionsSearchInput) => invokeGatewayMethod<'sessions.search', SessionsSearchResult>('sessions.search', input ?? {}),
       messages: {
         create: (sessionId: string, input: OperatorMethodInput<'sessions.messages.create'>) =>
@@ -680,18 +682,19 @@ export const sdk = {
   chat: {
     sessions: {
       ...scopedSdk.chat.sessions,
-      // delete-means-delete (W5-W2): this call site itself is UNCHANGED — the route
+      // delete-means-delete: this call site itself is UNCHANGED — the route
       // (DELETE /api/companion/chat/sessions/{sessionId}) already resolves through
-      // EXTRA_METHOD_ROUTES either way. What changes is the daemon behind it (W5-S1):
-      // pre-S1 it soft-closes (`{sessionId, status:'closed'}`, file retained); post-S1
-      // it hard-removes (`{sessionId, deleted:true}`, file gone). The static return type
+      // EXTRA_METHOD_ROUTES either way. What changes is the daemon behind it: an older
+      // daemon soft-closes (`{sessionId, status:'closed'}`, file retained); an upgraded
+      // one hard-removes (`{sessionId, deleted:true}`, file gone). The static return type
       // here still reflects the installed 0.38 OperatorMethodOutputMap entry
-      // (`{sessionId, status}`) — the generated contract has not caught up to S1's real
-      // wire shape yet, so callers must NOT trust this call's return value as proof the
-      // record is gone. App.tsx's delete flow never reads this response's fields for
-      // that; it reconciles against a real re-fetch (includeClosed:true) instead.
+      // (`{sessionId, status}`) — the generated contract has not caught up to the
+      // hard-delete work's real wire shape yet, so callers must NOT trust this call's
+      // return value as proof the record is gone. App.tsx's delete flow never reads
+      // this response's fields for that; it reconciles against a real re-fetch
+      // (includeClosed:true) instead.
       delete: (sessionId: string) => invokeOperator('companion.chat.sessions.delete', { sessionId }),
-      // close (W5-W2): a genuinely NEW, distinct soft-close verb for companion chat
+      // close: a genuinely NEW, distinct soft-close verb for companion chat
       // (companion.chat.sessions.close), separate from delete — see the
       // EXTRA_METHOD_ROUTES header comment for its capability-availability caveat on an
       // older daemon. Companion delete now requires the session to already be closed

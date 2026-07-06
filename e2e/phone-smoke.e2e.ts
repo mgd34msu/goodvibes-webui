@@ -1,5 +1,5 @@
 /**
- * Phone smoke (W5-M): every stage-2 view renders at 390x844 with no horizontal
+ * Phone smoke: every view renders at 390x844 with no horizontal
  * overflow and a tappable key affordance. Honest bar — a view that can only show an
  * empty/degraded state still must not scroll sideways or hide its primary control.
  */

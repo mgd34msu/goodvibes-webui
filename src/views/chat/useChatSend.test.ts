@@ -417,7 +417,7 @@ describe('selectBranch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Send-while-reconnecting honesty (W5-W1)
+// Send-while-reconnecting honesty
 // ---------------------------------------------------------------------------
 
 describe('send while the stream is degraded', () => {
@@ -473,7 +473,7 @@ describe('send while the stream is degraded', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Auth-expiry handoff on send (W5-W1)
+// Auth-expiry handoff on send
 // ---------------------------------------------------------------------------
 
 describe('a 401 mid-send hands off to sign-in, not a dead-end error', () => {

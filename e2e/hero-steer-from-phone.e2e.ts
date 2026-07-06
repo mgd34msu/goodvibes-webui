@@ -1,5 +1,5 @@
 /**
- * THE HERO — steer from your phone (W5-M).
+ * THE HERO — steer from your phone.
  *
  * The flagship journey at 390x844: boot signed-in with the workspace visible (drawer
  * collapsed), find a session, read its transcript, STEER it from the soft keyboard

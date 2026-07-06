@@ -40,7 +40,7 @@ describe('error formatting', () => {
     expect(isAuthExpiredError(undefined)).toBe(false);
   });
 
-  test('detects the honest 409 SESSION_ACTIVE delete-rejection (W5-W2, delete-means-delete)', () => {
+  test('detects the honest 409 SESSION_ACTIVE delete-rejection (delete-means-delete)', () => {
     expect(isSessionActiveError({ body: { code: 'SESSION_ACTIVE', error: 'Session is active — close it, then delete.' } })).toBe(true);
     expect(isSessionActiveError(new Error('Session is active — close it, then delete.'))).toBe(true);
     expect(isSessionActiveError({ body: { code: 'SESSION_NOT_FOUND' } })).toBe(false);
@@ -59,8 +59,9 @@ describe('error formatting', () => {
     expect(isMethodUnavailableError(undefined)).toBe(false);
   });
 
-  // W6-C4: the daemon now carries code: 'METHOD_NOT_FOUND' on this 404 (SDKErrorCodes.
-  // METHOD_NOT_FOUND). Code-first, message-fallback — the same pattern as
+  // Since the 1.0.0 delete-means-delete change, the daemon carries
+  // code: 'METHOD_NOT_FOUND' on this 404 (SDKErrorCodes.METHOD_NOT_FOUND).
+  // Code-first, message-fallback — the same pattern as
   // isSessionClosedError/isSessionActiveError above.
   test('recognizes the machine code METHOD_NOT_FOUND (an upgraded daemon), no message-sniff needed', () => {
     expect(isMethodUnavailableError({
@@ -73,7 +74,7 @@ describe('error formatting', () => {
     }))).toBe(true);
   });
 
-  test('back-compat: an un-upgraded daemon (pre-W6-C4, npm 0.38) with no code field still falls back to the message match', () => {
+  test('back-compat: an un-upgraded daemon (pre-1.0.0, npm 0.38) with no code field still falls back to the message match', () => {
     expect(isMethodUnavailableError({
       status: 404,
       body: { error: 'Unknown gateway method: sessions.delete' },

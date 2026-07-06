@@ -9,17 +9,17 @@ export const queryKeys = {
   tasks: ['tasks'] as const,
   approvals: ['approvals'] as const,
   sessions: ['sessions'] as const,
-  // Wave-3 (W3-W1): fleet.*/checkpoints.* (W3-S2, SDK 0.39.0-dev). Neither verb
-  // family emits a wire event yet (pinned by the SDK's own
-  // w3-s2-fleet-checkpoints-search.test.ts — "none of the W3-S2 verbs declares
-  // a wire event"), so these are NOT wired into useRealtimeInvalidation's
-  // DOMAIN_INVALIDATIONS map; FleetView/CheckpointsView poll on an interval
-  // and expose a manual refresh instead. Revisit once a fleet-update event
-  // (mentioned as a later-wave possibility in the SDK's W3-S2 brief) lands.
+  // fleet.*/checkpoints.* (SDK 0.39.0-dev). Neither verb family emits a wire
+  // event yet (pinned by the SDK's own fleet/checkpoints search test suite —
+  // "none of these verbs declares a wire event"), so these are NOT wired into
+  // useRealtimeInvalidation's DOMAIN_INVALIDATIONS map; FleetView/CheckpointsView
+  // poll on an interval and expose a manual refresh instead. Revisit once a
+  // fleet-update event (mentioned as a possibility in the SDK's fleet/checkpoints
+  // design notes) lands.
   fleet: ['fleet'] as const,
   checkpoints: ['checkpoints'] as const,
-  // Stub for W3-W2 (Workstream view, rides fleet.* filtered to
-  // orchestration/workstream rows) — fill the body, do not restructure the key.
+  // Workstream view rides fleet.* filtered to orchestration/workstream rows —
+  // fill the body, do not restructure the key.
   workstream: ['workstream'] as const,
   // Detail + messages keys are PREFIXED with 'sessions' so that invalidating
   // queryKeys.sessions (non-exact) refetches the list AND every open detail/messages
@@ -33,7 +33,7 @@ export const queryKeys = {
   knowledgeMap: ['knowledge', 'map'] as const,
   knowledgeProjections: ['knowledge', 'projections'] as const,
   knowledgeRefinement: ['knowledge', 'refinement'] as const,
-  // W8 activity honesty (W5-W5): the never-called knowledge.jobs.list /
+  // Activity honesty: the never-called knowledge.jobs.list /
   // knowledge.job-runs.list, read from the map/nodes "View jobs" link.
   knowledgeJobs: ['knowledge', 'jobs'] as const,
   localAuth: ['local-auth'] as const,

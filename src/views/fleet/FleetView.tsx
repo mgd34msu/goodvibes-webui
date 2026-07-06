@@ -1,10 +1,10 @@
 /**
- * FleetView — the live process/session tree over fleet.* (W3-S2).
+ * FleetView — the live process/session tree over fleet.*.
  *
  * Renders sdk.operator.fleet.snapshot() (a flat, parentId-linked node list,
  * daemon-capped at 2000 nodes) as a master/detail browser mirroring
  * SessionsView.tsx's list+detail pattern. fleet.* emits NO wire event yet
- * (pinned by the SDK's own W3-S2 test suite), so freshness comes from a
+ * (pinned by the SDK's own fleet test suite), so freshness comes from a
  * background poll + a manual refresh button, not realtime invalidation —
  * see the comment on queryKeys.fleet (lib/queries.ts).
  *

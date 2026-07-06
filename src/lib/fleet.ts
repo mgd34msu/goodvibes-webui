@@ -1,6 +1,6 @@
 /**
  * fleet.ts — tolerant readers + display helpers for fleet.snapshot / fleet.list
- * (W3-S2, packages/sdk/src/platform/control-plane/method-catalog-fleet.ts).
+ * (packages/sdk/src/platform/control-plane/method-catalog-fleet.ts).
  *
  * Mirrors the sessions-union.ts pattern: kind/state are read as OPEN STRINGS
  * even though the wire enum (PROCESS_KIND_SCHEMA / PROCESS_STATE_SCHEMA,

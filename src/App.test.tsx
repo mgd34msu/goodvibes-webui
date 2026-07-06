@@ -1,5 +1,5 @@
 /**
- * App — daemon-unreachable gate recovery (Wave-2 F3).
+ * App — daemon-unreachable gate recovery.
  *
  * DaemonUnreachableGate's copy promises the operator will "pick up where it left
  * off" once the daemon comes back. Before this fix, App.tsx early-returned the gate
@@ -63,11 +63,11 @@ const SESSIONS_FIXTURE = {
   ],
 };
 
-// DELETE-MEANS-DELETE (W5-W2) fixtures/state — a small in-memory companion-chat
+// DELETE-MEANS-DELETE fixtures/state — a small in-memory companion-chat
 // session store the mocked sdk.chat.sessions.* methods read/write, so a test can
-// simulate BOTH an honest post-S1 daemon (delete really removes the record) and a
-// still-soft-close pre-S1 daemon (delete only closes it, file retained) by flipping
-// `chatDeleteReallyRemoves`.
+// simulate BOTH an honest daemon that hard-deletes (delete really removes the record)
+// and an older daemon that only soft-closes (delete only closes it, file retained) by
+// flipping `chatDeleteReallyRemoves`.
 let chatSessionsFixture: { id: string; title: string; status: string }[] = [];
 let chatCloseCalls: string[] = [];
 let chatDeleteCalls: string[] = [];
@@ -382,7 +382,7 @@ describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash
   });
 });
 
-describe('App: delete-means-delete (W5-W2) — companion chat sidebar delete', () => {
+describe('App: delete-means-delete — companion chat sidebar delete', () => {
   const originalConfirm = window.confirm;
 
   afterEach(() => {

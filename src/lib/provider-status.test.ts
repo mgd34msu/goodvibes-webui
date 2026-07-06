@@ -160,7 +160,7 @@ describe('bestStatus is unchanged for non-provider consumers (no regression)', (
   });
 });
 
-describe('deriveCredentialAvailability (W6-C1 honest degrade)', () => {
+describe('deriveCredentialAvailability (honest degrade)', () => {
 
   test('a healthy credentials.get result yields status metadata, never bytes', () => {
     const out = deriveCredentialAvailability({

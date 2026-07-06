@@ -2,8 +2,8 @@
  * contract-bridge-types.ts — contract-typed bridges for the operator method families the
  * webui facade calls (fleet.*, checkpoints.*, sessions.search).
  *
- * As of the SDK 1.0.0 pin-bump (W6-REL), the SDK's generated
- * `OperatorMethodInputMap`/`OperatorMethodOutputMap` (foundation-client-types.ts, W5-S2)
+ * As of the SDK 1.0.0 pin-bump (see CHANGELOG.md), the SDK's generated
+ * `OperatorMethodInputMap`/`OperatorMethodOutputMap` (foundation-client-types.ts)
  * carry real entries for every id below, so each bridge type now flows straight from
  * `OperatorMethodInput<M>`/`OperatorMethodOutput<M>`. This is the `// SWAP:` seam the
  * pre-1.0.0 header described, now applied: the hand-authored interfaces that stood in for

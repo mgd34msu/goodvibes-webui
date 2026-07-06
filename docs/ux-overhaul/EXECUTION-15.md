@@ -25,7 +25,7 @@ independent units remain, immediately launch the next so in-flight count stays
 12-15. Never idle a slot while non-conflicting work exists. File-ownership is the
 only constraint: two agents never write the same file.
 
-## Wave 1 — Phase-1 closeout + integration prep (~8-10 concurrent)
+## Batch 1 — Phase-1 closeout + integration prep (~8-10 concurrent)
 
 Running/closing: WS3 fix->review->commit, WS4 tests->review->commit,
 WS5 review->commit, lint+CI commit (bundled w/ WS5 package.json).
@@ -39,7 +39,7 @@ Launch in parallel (new files, no conflicts):
 - F: test backfill — `src/lib/theme.ts` (theme resolution) via DOM harness.
 - G: test backfill — `src/lib/provider-models.ts` gaps / `src/lib/ui-preferences.ts`.
 
-## Wave 2 — Integration + features wide (target 15 concurrent)
+## Batch 2 — Integration + features wide (target 15 concurrent)
 
 - 1 serial: App.tsx/main.tsx wire to <AppShell> + useUrlState view switching (small).
 - Phase 3b chat features (5, mostly new chat/* files; serialize edits to ChatView.tsx
@@ -55,7 +55,7 @@ Launch in parallel (new files, no conflicts):
   a11y sweep (focus mgmt + aria-live wiring using WS5 helpers).
 - Test backfill (remaining, parallel): per new feature/view as it lands.
 
-## Wave 3 — Review/fix batch + final gate
+## Batch 3 — Review/fix batch + final gate
 
 - One reviewer per completed unit, spawned as units land (parallel, not serial).
 - Batch ALL resulting fixes in parallel (disjoint files).

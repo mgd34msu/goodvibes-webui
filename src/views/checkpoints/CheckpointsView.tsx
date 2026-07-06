@@ -1,21 +1,21 @@
 /**
- * CheckpointsView — the workspace checkpoints browser over checkpoints.* (W3-S2).
+ * CheckpointsView — the workspace checkpoints browser over checkpoints.*.
  *
  * Master/detail: list checkpoints (checkpoints.list), select one to see its
  * diff against the live working tree (checkpoints.diff), create a new
  * checkpoint, and restore a selected one (checkpoints.restore).
  *
  * checkpoints.restore is DESTRUCTIVE (a git-backed workspace rewrite) and the
- * wire verb executes with NO server-side confirmation by design (S2 ruling —
- * the calling surface owns the confirm UX). This view gates every restore
+ * wire verb executes with NO server-side confirmation by design (the
+ * calling surface owns the confirm UX). This view gates every restore
  * behind an explicit window.confirm() naming exactly what gets overwritten,
  * matching the confirm pattern App.tsx already uses for destructive chat
  * session deletes. checkpoints.create's honest noop:true result ("tree
  * unchanged") is rendered as an info toast, never as an error and never as a
  * fabricated checkpoint.
  *
- * checkpoints.* emits NO wire event yet (pinned by the SDK's own W3-S2 test
- * suite) — freshness comes from mutation-driven invalidation (create/restore
+ * checkpoints.* emits NO wire event yet (pinned by the SDK's own checkpoints
+ * test suite) — freshness comes from mutation-driven invalidation (create/restore
  * refetch the list) plus a manual refresh, not realtime invalidation.
  */
 

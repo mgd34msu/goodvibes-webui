@@ -1,5 +1,5 @@
 /**
- * ChatSearch — companion-history search panel (W5-W6).
+ * ChatSearch — companion-history search panel.
  *
  * Two distinct result sections, never merged (see useChatSearch's module doc
  * for why): a SESSIONS section (backend sessions.search — id/title match,

@@ -37,7 +37,7 @@ interface SteerComposerProps {
   closed: boolean;
   /**
    * True when the live session-update stream is currently paused/reconnecting
-   * (W5-W1's honesty, threaded down from App). A steer still sends over HTTP while
+   * (threaded down from App). A steer still sends over HTTP while
    * the stream is down — but the delivered/failed confirmation, which is reconciled
    * off the stream-driven refetch, may lag. The composer says so rather than looking
    * silently stuck.
@@ -96,7 +96,7 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
     mutation.mutate({ id, body });
   }
 
-  // THE SOFT-KEYBOARD HERO FIX (W5-M): the steer used to submit ONLY on
+  // THE SOFT-KEYBOARD HERO FIX: the steer used to submit ONLY on
   // Cmd/Ctrl+Enter — a key combination no phone soft keyboard can produce, which
   // made the flagship "steer from your phone" action literally impossible. Adopt the
   // companion composer's exact semantics (shouldSubmitComposerKey): plain Enter sends,

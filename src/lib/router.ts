@@ -8,12 +8,12 @@
  *
  * No react-router. Uses window.history + URLSearchParams directly.
  *
- * Wave-3 scaffolding (W3-W1): 'fleet' and 'checkpoints' are wired end-to-end
- * (App.tsx nav + render switch, src/views/fleet, src/views/checkpoints).
- * 'approvals-tasks' and 'workstream' are registered here as valid ViewIds
- * (so the URL round-trips and never falls back to 'chat') ahead of W2, which
- * lands the ApprovalsTasksView/WorkstreamView components and their App.tsx
- * nav/render-switch entries — see the W3-W2 marker comment in App.tsx.
+ * 'fleet' and 'checkpoints' are wired end-to-end (App.tsx nav + render
+ * switch, src/views/fleet, src/views/checkpoints). 'approvals-tasks' and
+ * 'workstream' are registered here as valid ViewIds (so the URL round-trips
+ * and never falls back to 'chat') ahead of the ApprovalsTasksView/
+ * WorkstreamView components landing, which add their own App.tsx
+ * nav/render-switch entries — see the nav-entries comment in App.tsx.
  */
 
 export type ViewId =

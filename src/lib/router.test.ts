@@ -114,11 +114,11 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=chat').view).toBe('chat');
   });
 
-  // Wave-3 (W3-W1): fleet/checkpoints are wired end-to-end (App.tsx);
-  // approvals-tasks/workstream are registered ahead of W2 (see the
-  // W3-W2 marker comment in App.tsx) — all four must round-trip now so
-  // neither silently falls back to 'chat'.
-  test('decodes the Wave-3 view ids (fleet/checkpoints/approvals-tasks/workstream)', () => {
+  // fleet/checkpoints are wired end-to-end (App.tsx); approvals-tasks/workstream
+  // are registered ahead of their own views landing (see the nav-entries comment
+  // in App.tsx) — all four must round-trip now so neither silently falls back
+  // to 'chat'.
+  test('decodes the fleet/checkpoints/approvals-tasks/workstream view ids', () => {
     expect(decodeUrlState('?view=fleet').view).toBe('fleet');
     expect(decodeUrlState('?view=checkpoints').view).toBe('checkpoints');
     expect(decodeUrlState('?view=approvals-tasks').view).toBe('approvals-tasks');
@@ -215,7 +215,7 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
     }
   });
 
-  test('round-trips the Wave-3 view ids', () => {
+  test('round-trips the fleet/checkpoints/approvals-tasks/workstream view ids', () => {
     for (const view of ['fleet', 'checkpoints', 'approvals-tasks', 'workstream'] as const) {
       const encoded = encodeUrlState(makeState({ view }));
       expect(decodeUrlState(`?${encoded}`).view).toBe(view);

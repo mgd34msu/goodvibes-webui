@@ -453,7 +453,7 @@ button:disabled {
   /* Token-driven, not a light/dark literal pair fighting over cascade order:
      --surface-raised itself resolves per theme (tokens.css), so this single
      declaration is correct in both themes regardless of source order — see
-     the W7 white-band fix (W5-W4). */
+     the topbar/dark-surface white-band fix. */
   background: var(--surface-raised);
   border-bottom: 1px solid var(--line);
   box-shadow: var(--elevation-2);
@@ -3040,7 +3040,7 @@ code {
   /* The sidebar is position:fixed here (out of grid flow), so the workspace — the only
      in-flow child — would auto-place into the FIRST (60px rail) track and end up
      underneath the fixed rail. Pin it to the second track so it sits to the RIGHT of
-     the rail, its content fully visible and clickable (W5-M: the phone default is the
+     the rail, its content fully visible and clickable (the phone default is the
      collapsed rail, so this path is now the common case, not a rare one). */
   .app-shell.sidebar-collapsed .workspace {
     grid-column: 2;
@@ -3089,7 +3089,7 @@ code {
     cursor: pointer;
   }
 
-  /* Collapsed = a clean icon rail (W5-M): the phone default. Keep the copy HIDDEN so
+  /* Collapsed = a clean icon rail: the phone default. Keep the copy HIDDEN so
      the 60px rail shows only icons — the workspace is visible first, and the brand
      mark (or tapping the rail) opens the full drawer. Centering the items keeps the
      icons on the rail's axis. */
@@ -3114,7 +3114,7 @@ code {
     left: 0;
   }
 
-  /* Single-column nav at ≤980 (W5-M): the old 3-column grid packed nav items into
+  /* Single-column nav at ≤980: the old 3-column grid packed nav items into
      ~80px cells, which forced every label ("Checkpoints", "Workstream"…) to
      ellipsis-truncate mid-word. One column per row lets the full label render — both
      in the open 264px overlay and stacked as icons in the collapsed rail. */
@@ -3196,7 +3196,7 @@ code {
     padding-right: 0;
   }
 
-  /* Single column stays single (W5-M) — inherited from the ≤980 block; restated for
+  /* Single column stays single — inherited from the ≤980 block; restated for
      clarity now that the drawer is a full-width overlay at phone widths. */
   .nav-list {
     grid-template-columns: 1fr;
@@ -3330,7 +3330,7 @@ code {
 }
 
 /* ────────────────────────────────────────
-   TOUCH-TARGET FLOOR (W5-M, the mobile-first pass)
+   TOUCH-TARGET FLOOR (the mobile-first pass)
    Every interactive control on the phone journey clears a 44px minimum — the
    sub-44px desktop sizes (36px icon buttons, 34px nav icons, 40px primary
    buttons, the 28px hover-only session delete) are raised at phone width so a

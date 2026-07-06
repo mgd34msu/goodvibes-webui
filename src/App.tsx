@@ -62,9 +62,9 @@ const views: {
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
-  // W3-W2: nav entries for the two views this wave adds, riding W1's
-  // pre-scaffolded ViewIds/query keys/realtime domains — no edits needed to
-  // router.ts, queries.ts, or useRealtimeInvalidation.ts.
+  // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
+  // ViewIds/query keys/realtime domains — no edits needed to router.ts,
+  // queries.ts, or useRealtimeInvalidation.ts.
   { id: 'approvals-tasks', label: 'Approvals', short: 'Decisions', icon: ClipboardCheck },
   { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
 ];
@@ -77,7 +77,7 @@ export default function App() {
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
   const [createdChatSessionIds, setCreatedChatSessionIds] = useState<Set<string>>(() => new Set());
   const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
-  // Drawer default is VIEWPORT-AWARE (W5-M). On a phone (≤980px) the sidebar overlays
+  // Drawer default is VIEWPORT-AWARE. On a phone (≤980px) the sidebar overlays
   // the whole workspace, so defaulting it OPEN would cover the content on every single
   // load — you'd tap it away before you could do anything. Initialize it COLLAPSED at
   // phone width (a narrow icon rail; the workspace is visible first) and OPEN on the
@@ -143,8 +143,8 @@ export default function App() {
     [deletedChatSessionIds, mergedChatSessionItems],
   );
 
-  // DELETE-MEANS-DELETE (W5-W2). "Delete" now names a real hard-delete distinct from
-  // "close": companion.chat.sessions.delete (W5-S1) permanently removes the on-disk
+  // DELETE-MEANS-DELETE. "Delete" now names a real hard-delete distinct from
+  // "close": companion.chat.sessions.delete permanently removes the on-disk
   // record but requires the session to already be closed (409 SESSION_ACTIVE
   // otherwise), so this always closes first — a no-op if the daemon has no separate
   // close route yet (isMethodUnavailableError) or the session is already closed

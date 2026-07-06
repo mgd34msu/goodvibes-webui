@@ -12,7 +12,7 @@
  *
  * Honest limits: GET /api/sessions ignores ?limit/?cursor and is capped at 50 by the
  * daemon, so the view shows "50 most recent" rather than faking completeness. A
- * paginated union list is a Wave-3 contract item (sessions.search).
+ * paginated union list is a planned contract item (sessions.search).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -78,7 +78,7 @@ function StatusBadge({ record }: { record: Pick<UnionSessionRecord, 'status' | '
 
 interface SessionsViewProps {
   /**
-   * True when the live session-update stream is paused/reconnecting (W5-W1). Threaded
+   * True when the live session-update stream is paused/reconnecting. Threaded
    * straight through to the SteerComposer so a steer sent during an outage says so.
    */
   streamPaused?: boolean;
@@ -95,7 +95,7 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
     queryFn: () => sdk.operator.sessions.list(),
   });
 
-  // DELETE-MEANS-DELETE (W5-W2): an honest, read-only capability probe, not a guess.
+  // DELETE-MEANS-DELETE: an honest, read-only capability probe, not a guess.
   // sessions.delete is a real verb in the SDK's own source at the time of writing, but
   // it is still in flight there (uncommitted) and is NOT in the webui's installed
   // contracts package — an un-upgraded daemon genuinely does not have this route.

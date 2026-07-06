@@ -1,8 +1,8 @@
 /**
- * ApprovalsTasksView — Approvals + Tasks (W3-W2).
+ * ApprovalsTasksView — Approvals + Tasks.
  *
  * Approvals: lists pending/claimed/historical approvals (approvals.list). The
- * hero interaction is per-hunk edit approval (W3-S3): a pending `edit` tool
+ * hero interaction is per-hunk edit approval: a pending `edit` tool
  * approval's `request.args.edits` are rendered as individually selectable
  * hunks. "Approve selected" sends `approvals.approve({ selectedHunks })` — an
  * INDEX ARRAY ONLY. This view never computes the modified edit itself; the

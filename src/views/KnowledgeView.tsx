@@ -7,12 +7,14 @@ import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
 import { MarkdownMessage } from '../components/MarkdownMessage';
 import { RecordList } from '../components/RecordList';
-import { bestTitle, firstArray, firstString, readPath } from '../lib/object';
+import { bestTitle, countFrom, firstArray, firstString, readPath } from '../lib/object';
 import { EmptyState } from '../components/feedback/EmptyState';
 import { ErrorState } from '../components/feedback/ErrorState';
 import { SkeletonBlock } from '../components/feedback/SkeletonBlock';
 import ErrorBoundary from '../components/feedback/ErrorBoundary';
 import { usePeek } from '../components/peek/PeekPanel';
+import { KnowledgeMap } from './knowledge/KnowledgeMap';
+import { KnowledgeJobsPeekBody } from './knowledge/KnowledgeJobsPeek';
 import '../styles/components/knowledge.css';
 
 type UrlSourceType = NonNullable<OperatorMethodInput<'knowledge.ingest.url'>['sourceType']>;
@@ -261,6 +263,21 @@ export function KnowledgeView() {
     });
   }, [peek]);
 
+  const openJobsPeek = useCallback(() => {
+    peek.open({
+      title: 'Knowledge Job Activity',
+      content: <KnowledgeJobsPeekBody />,
+    });
+  }, [peek]);
+
+  // W8 activity honesty: jobRunCount/nodeCount live side by side on knowledge.status
+  // but were never contrasted (a '766 jobs ran / 0 nodes' state read as a blank map).
+  // null signals "the status query hasn't resolved yet" so the Map/Nodes panels don't
+  // flash a false "empty" reading before the real numbers arrive.
+  const statusKnown = !status.isPending && !status.error;
+  const statusJobRunCount = statusKnown ? countFrom(status.data, ['jobRunCount']) : null;
+  const statusNodeCount = statusKnown ? countFrom(status.data, ['nodeCount']) : null;
+
   function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (query.trim()) ask.mutate();
@@ -459,22 +476,19 @@ export function KnowledgeView() {
               </button>
             </div>
             <div aria-live="polite" aria-atomic="true">
-              {knowledgeMap.isPending && (
-                <div className="knowledge-skeleton-group">
-                  <SkeletonBlock width="100%" height={16} />
-                  <SkeletonBlock width="85%" height={16} />
-                  <SkeletonBlock width="70%" height={16} />
-                </div>
-              )}
-              {knowledgeMap.error && (
-                <ErrorState
-                  error={knowledgeMap.error}
-                  onRetry={() => void knowledgeMap.refetch()}
-                  title="Map failed to load"
-                />
-              )}
+              <KnowledgeMap
+                isPending={knowledgeMap.isPending}
+                error={knowledgeMap.error}
+                data={knowledgeMap.data}
+                onRetry={() => void knowledgeMap.refetch()}
+                hasFilter={Boolean(mapFilter.trim())}
+                onClearFilter={() => setMapFilter('')}
+                onViewJobs={openJobsPeek}
+                jobRunCount={statusJobRunCount}
+                overallNodeCount={statusNodeCount}
+                statusPending={status.isPending}
+              />
             </div>
-            <DataBlock title="Map" value={knowledgeMap.data} />
           </section>
         </div>
 
@@ -711,11 +725,20 @@ export function KnowledgeView() {
                   title="Failed to load nodes"
                 />
               ) : nodeItems.length === 0 ? (
-                <EmptyState
-                  icon={<GitBranch size={24} />}
-                  title="No nodes"
-                  description="Nodes appear after processing sources."
-                />
+                statusJobRunCount && statusJobRunCount > 0 ? (
+                  <EmptyState
+                    icon={<AlertCircle size={24} />}
+                    title={`${statusJobRunCount} indexing job${statusJobRunCount === 1 ? '' : 's'} ran, 0 nodes`}
+                    description="Indexing may still be in progress, filtered out everything, or be failing to produce nodes."
+                    action={{ label: 'View jobs', onClick: openJobsPeek }}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={<GitBranch size={24} />}
+                    title="No nodes yet"
+                    description="Nodes appear after processing sources."
+                  />
+                )
               ) : (
                 <div className="knowledge-record-panel__list">
                   <RecordList

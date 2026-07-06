@@ -133,6 +133,32 @@
   height: 100%;
 }
 
+/* Hero header — a themed surface CARD, not bare text on the workspace backdrop.
+   The non-chat workspace keeps a dark canvas even in light theme (styles.css:
+   `.workspace:not(.workspace-chat)` paints a literal dark gradient with no light
+   override), and the title inherits the token-driven --text-primary (dark in light
+   theme). A transparent header therefore rendered the title dark-on-dark in light
+   theme (F2). --surface-raised resolves per theme (tokens.css: a dark card in dark,
+   #fff in light), so this ONE declaration is correct in both — the cascade-immune
+   token pattern from W5-W4, no light/dark literal pair that could win by source order. */
+.session-detail__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--elevation-1);
+}
+
+.session-detail__header h2 {
+  margin: 0;
+  font-size: var(--text-lg, 17px);
+  line-height: var(--leading-tight, 1.2);
+}
+
 /* "Back to sessions" — the master-detail escape hatch on a phone. Hidden on desktop
    (both panes are visible side-by-side there); the ≤980 block below reveals it. */
 .session-detail__back {

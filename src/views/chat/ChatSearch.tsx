@@ -184,8 +184,14 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
       {hasQuery && (
         <section className="chat-search__section" aria-label="Sessions matching your search">
           <div className="chat-search__section-header">
-            <h3 className="chat-search__section-title">Sessions</h3>
-            <label className="chat-search__closed-toggle">
+            <div className="chat-search__section-heading">
+              <h3 className="chat-search__section-title">Sessions</h3>
+              <p className="chat-search__section-caption">Session titles, across all history.</p>
+            </div>
+            <label
+              className="chat-search__closed-toggle"
+              title="Also search closed and idle-reaped sessions — hidden by default"
+            >
               <input
                 type="checkbox"
                 checked={includeClosed}
@@ -273,7 +279,12 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
         </section>
       )}
 
-      {hasQuery && <h3 className="chat-search__section-title chat-search__section-title--messages">Messages</h3>}
+      {hasQuery && (
+        <div className="chat-search__section-heading chat-search__section-heading--messages">
+          <h3 className="chat-search__section-title chat-search__section-title--messages">Messages</h3>
+          <p className="chat-search__section-caption">Message text, in your loaded sessions.</p>
+        </div>
+      )}
 
       {showSkeleton && (
         <div className="chat-search__skeleton" aria-busy="true" aria-label="Loading results">

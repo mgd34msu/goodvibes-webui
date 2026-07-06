@@ -19,7 +19,7 @@
  * refetch the list) plus a manual refresh, not realtime invalidation.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Camera, History, RefreshCw, RotateCcw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
@@ -49,6 +49,11 @@ export function CheckpointsView() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState('');
+  // Compare target for the detail-pane diff: '' means "working tree" (the long-standing
+  // default); a non-empty value is another checkpoint's id, giving checkpoint-to-checkpoint
+  // diff over checkpoints.diff's already-existing `b` input (CheckpointsDiffInput.b in
+  // lib/goodvibes.ts) — the wire has always supported this, the view just never exposed it.
+  const [compareToId, setCompareToId] = useState('');
   const [labelDraft, setLabelDraft] = useState('');
 
   const list = useQuery({
@@ -61,10 +66,30 @@ export function CheckpointsView() {
     [list.data],
   );
   const selected = useMemo(() => checkpoints.find((c) => c.id === selectedId) ?? null, [checkpoints, selectedId]);
+  const compareOptions = useMemo(
+    () => checkpoints.filter((c) => c.id !== selectedId),
+    [checkpoints, selectedId],
+  );
+
+  // If the checkpoint currently picked as the compare target disappears from the list
+  // (e.g. garbage-collected, or the list refetches after a restore), fall back to the
+  // working-tree default rather than keep querying a dangling id.
+  useEffect(() => {
+    if (compareToId && !checkpoints.some((c) => c.id === compareToId)) {
+      setCompareToId('');
+    }
+  }, [checkpoints, compareToId]);
+
+  function selectCheckpoint(id: string): void {
+    setSelectedId(id);
+    setCompareToId('');
+  }
 
   const diff = useQuery({
-    queryKey: [...queryKeys.checkpoints, selectedId, 'diff'],
-    queryFn: () => sdk.operator.checkpoints.diff({ a: selectedId }),
+    queryKey: [...queryKeys.checkpoints, selectedId, 'diff', compareToId || 'working-tree'],
+    queryFn: () => sdk.operator.checkpoints.diff(
+      compareToId ? { a: selectedId, b: compareToId } : { a: selectedId },
+    ),
     enabled: Boolean(selectedId),
   });
 
@@ -168,7 +193,7 @@ export function CheckpointsView() {
                 <button
                   type="button"
                   className={`checkpoints-row${checkpoint.id === selectedId ? ' active' : ''}`}
-                  onClick={() => setSelectedId(checkpoint.id)}
+                  onClick={() => selectCheckpoint(checkpoint.id)}
                 >
                   <span className="checkpoints-row__title">{checkpoint.label || checkpoint.id}</span>
                   <span className="checkpoints-row__badges">
@@ -187,6 +212,9 @@ export function CheckpointsView() {
         {selected ? (
           <CheckpointDetail
             checkpoint={selected}
+            compareOptions={compareOptions}
+            compareToId={compareToId}
+            onCompareToChange={setCompareToId}
             diff={diff.data ?? null}
             diffPending={diff.isPending}
             diffError={diff.isError ? diff.error : null}
@@ -204,6 +232,9 @@ export function CheckpointsView() {
 
 function CheckpointDetail({
   checkpoint,
+  compareOptions,
+  compareToId,
+  onCompareToChange,
   diff,
   diffPending,
   diffError,
@@ -212,6 +243,9 @@ function CheckpointDetail({
   restoring,
 }: {
   checkpoint: WorkspaceCheckpoint;
+  compareOptions: readonly WorkspaceCheckpoint[];
+  compareToId: string;
+  onCompareToChange: (id: string) => void;
   diff: { diff: { from: string; to: string; files: readonly string[]; unifiedDiff: string; stat: string } } | null;
   diffPending: boolean;
   diffError: unknown;
@@ -219,6 +253,9 @@ function CheckpointDetail({
   onRestore: () => void;
   restoring: boolean;
 }) {
+  const compareTarget = compareToId ? compareOptions.find((c) => c.id === compareToId) ?? null : null;
+  const compareTargetLabel: string = compareTarget ? compareTarget.label : '';
+  const compareLabel = compareToId ? (compareTargetLabel || compareToId) : 'the working tree';
   return (
     <div className="checkpoint-detail">
       <header className="checkpoint-detail__header">
@@ -245,7 +282,22 @@ function CheckpointDetail({
       </header>
 
       <div className="checkpoint-detail__diff">
-        <strong>Diff vs. working tree</strong>
+        <div className="checkpoint-detail__diff-header">
+          <strong>Diff vs. {compareLabel}</strong>
+          <label className="checkpoint-detail__compare">
+            Compare to
+            <select
+              value={compareToId}
+              onChange={(e) => onCompareToChange(e.target.value)}
+              aria-label="Compare checkpoint to"
+            >
+              <option value="">Working tree</option>
+              {compareOptions.map((c) => (
+                <option key={c.id} value={c.id}>{c.label || c.id}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         {diffPending && <SkeletonBlock variant="text" lines={6} />}
         {diffError ? (
           isNotFound(diffError)
@@ -255,7 +307,9 @@ function CheckpointDetail({
         {diff && !diffError && (
           <>
             {diff.diff.files.length === 0 ? (
-              <div className="checkpoints-empty" role="note">No file differences from the working tree.</div>
+              <div className="checkpoints-empty" role="note">
+                {compareToId ? 'No file differences between these checkpoints.' : 'No file differences from the working tree.'}
+              </div>
             ) : (
               <p className="checkpoint-detail__diff-files">{diff.diff.files.length} file{diff.diff.files.length === 1 ? '' : 's'} changed: {diff.diff.files.join(', ')}</p>
             )}

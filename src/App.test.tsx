@@ -19,13 +19,32 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-type AuthMode = 'ok' | 'unreachable';
+type AuthMode = 'ok' | 'unreachable' | 'unauthorized';
 let authMode: AuthMode = 'ok';
+let hasStoredToken = true;
 
 function unreachableError() {
   // Matches isDaemonUnreachableError's contract (errors.ts): category 'network'
   // (or status 0) marks a connection failure, distinct from a genuine 401.
   return Object.assign(new Error('fetch failed'), { category: 'network', status: 0 });
+}
+
+function unauthorizedError() {
+  return Object.assign(new Error('Unauthorized'), { status: 401 });
+}
+
+// D-WEBUI-3: the health poll (useDaemonHealth) is a SEPARATE, independently-firing
+// signal from auth.current — it re-probes every 15s unconditionally, unlike
+// auth.current which only re-probes once it has already errored. Modeled here as an
+// external store so a test can flip `connection` to 'down' with NO auth-query
+// interaction at all, mirroring "the health poll's own timer fired, nothing the user
+// did" — then flip it back to prove recovery.
+type HealthConnection = 'connected' | 'reconnecting' | 'down';
+let healthConnection: HealthConnection = 'connected';
+const healthListeners = new Set<() => void>();
+function setHealthConnection(next: HealthConnection) {
+  healthConnection = next;
+  for (const listener of healthListeners) listener();
 }
 
 const SESSIONS_FIXTURE = {
@@ -53,26 +72,37 @@ const SESSIONS_FIXTURE = {
 // stubbed above). Neither matters to this test, so mock the whole hook the same way
 // StatusStrip.test.tsx does — avoids real-network noise and an unstubbed method call.
 mock.module('./hooks/useDaemonHealth', () => ({
-  useDaemonHealth: () => ({
-    connection: 'connected',
-    signedIn: 'signed-in',
-    working: 'working',
-    latencyMs: 10,
-    sse: 'active',
-    activeTurns: 0,
-    queuedTasks: 0,
-    modelName: null,
-  }),
+  useDaemonHealth: () => {
+    React.useSyncExternalStore(
+      (listener) => {
+        healthListeners.add(listener);
+        return () => healthListeners.delete(listener);
+      },
+      () => healthConnection,
+    );
+    return {
+      connection: healthConnection,
+      signedIn: 'signed-in',
+      working: 'working',
+      latencyMs: 10,
+      sse: 'active',
+      activeTurns: 0,
+      queuedTasks: 0,
+      modelName: null,
+    };
+  },
 }));
 
 mock.module('./lib/goodvibes', () => ({
   WEBUI_TOKEN_STORE_KEY: 'test-token-key',
   GOODVIBES_BASE_URL: 'http://localhost/test',
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 1 },
-  hasStoredTokenSync: () => true,
-  getCurrentAuth: () => (
-    authMode === 'unreachable' ? Promise.reject(unreachableError()) : Promise.resolve({ ok: true })
-  ),
+  hasStoredTokenSync: () => hasStoredToken,
+  getCurrentAuth: () => {
+    if (authMode === 'unreachable') return Promise.reject(unreachableError());
+    if (authMode === 'unauthorized') return Promise.reject(unauthorizedError());
+    return Promise.resolve({ ok: true });
+  },
   login: () => Promise.resolve({}),
   setExplicitAuthToken: () => Promise.resolve({}),
   clearStoredAuthToken: () => Promise.resolve(undefined),
@@ -127,6 +157,9 @@ async function flushMicrotasks(times = 8) {
 
 afterEach(() => {
   authMode = 'ok';
+  hasStoredToken = true;
+  healthConnection = 'connected';
+  window.history.pushState({}, '', '/');
 });
 
 describe('App: daemon-unreachable gate preserves in-progress work', () => {
@@ -187,6 +220,99 @@ describe('App: daemon-unreachable gate preserves in-progress work', () => {
     expect(textareaAfterRecovery).toBe(textarea);
     expect(textareaAfterRecovery.value).toBe('half-typed steer draft');
     expect(container.textContent).toContain('Session One');
+
+    unmount();
+  });
+});
+
+describe('App: D-WEBUI-3 — the health poll drives the unreachable overlay on its own', () => {
+  test('a daemon death mid-idle-session (health poll alone flips to down) surfaces the overlay with no user action, then clears on recovery', async () => {
+    window.history.pushState({}, '', '/?view=sessions');
+    const { container, unmount } = render();
+    await flushMicrotasks();
+
+    // Healthy: no overlay, and the auth query has not errored either.
+    expect(container.querySelector('.daemon-gate-overlay')).toBeNull();
+    expect(container.textContent).toContain('Session One');
+
+    // The daemon dies while the session sits idle. auth.current never re-fires on its
+    // own (it only re-probes once it has ALREADY errored) — nothing in this test ever
+    // touches the auth query or the query client. Only the independently-polling
+    // health hook (useDaemonHealth, mocked here as an external store) reports the
+    // outage, exactly as its real 15s timer would.
+    flushSync(() => {
+      setHealthConnection('down');
+    });
+    await flushMicrotasks();
+
+    expect(container.querySelector('.daemon-gate-overlay')).toBeTruthy();
+    expect(container.textContent).toContain('reach the daemon');
+    // Underlying workspace stays mounted and inert, same as the auth-driven path.
+    expect(container.querySelector('.app-shell')?.hasAttribute('inert')).toBe(true);
+
+    // The daemon comes back; the health poll's next cycle reports it reachable again.
+    flushSync(() => {
+      setHealthConnection('connected');
+    });
+    await flushMicrotasks();
+
+    expect(container.querySelector('.daemon-gate-overlay')).toBeNull();
+    expect(container.querySelector('.app-shell')?.hasAttribute('inert')).toBe(false);
+    expect(container.textContent).toContain('Session One');
+
+    unmount();
+  });
+
+  test('a 401 while the health poll is still reporting healthy routes to the sign-out gate, never the overlay', async () => {
+    window.history.pushState({}, '', '/?view=sessions');
+    const { container, client, unmount } = render();
+    await flushMicrotasks();
+    expect(container.querySelector('.daemon-gate-overlay')).toBeNull();
+
+    // A genuinely bad/expired token: auth.current rejects with a real 401, and the
+    // health poll (a separate probe entirely) is still reporting the daemon reachable.
+    authMode = 'unauthorized';
+    flushSync(() => {
+      void client.refetchQueries({ queryKey: queryKeys.auth });
+    });
+    await flushMicrotasks();
+
+    expect(container.querySelector('.daemon-gate-overlay')).toBeNull();
+    expect(container.textContent).toContain('Sign in to GoodVibes');
+    expect(container.textContent).not.toContain('reach the daemon');
+
+    unmount();
+  });
+});
+
+describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash', () => {
+  test('with no stored token, the very first render shows the sign-out gate, never the 401-bannered shell', () => {
+    hasStoredToken = false;
+    window.history.pushState({}, '', '/?view=sessions');
+    const { container, unmount } = render();
+
+    // No flushMicrotasks() here on purpose: this asserts on the FIRST synchronous
+    // render, before the (never-to-resolve-in-this-test) auth query has any chance to
+    // settle. hasStoredTokenSync() is a synchronous localStorage check, so "no token"
+    // must be enough on its own to show the gate — no probe required.
+    expect(container.textContent).toContain('Sign in to GoodVibes');
+    expect(container.querySelector('.app-shell')).toBeNull();
+    expect(container.querySelector('.sessions-row')).toBeNull();
+
+    unmount();
+  });
+
+  test('the gate does not flicker into the shell as the auth query later settles', async () => {
+    hasStoredToken = false;
+    window.history.pushState({}, '', '/?view=sessions');
+    const { container, unmount } = render();
+    expect(container.textContent).toContain('Sign in to GoodVibes');
+
+    // Let the (successful, in this mock) auth query settle in the background — with no
+    // stored token, that must not flip the view to the authenticated shell.
+    await flushMicrotasks();
+    expect(container.textContent).toContain('Sign in to GoodVibes');
+    expect(container.querySelector('.app-shell')).toBeNull();
 
     unmount();
   });

@@ -98,6 +98,15 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     }
   });
 
+  test('sessions.delete / companion.chat.sessions.close / control.methods.get are table-routed (W5-W2, delete-means-delete)', () => {
+    // None of these three ids are in the installed 0.38 OperatorMethodId union
+    // (sessions.delete, companion.chat.sessions.close) or have a browser-SDK REST
+    // binding (control.methods.get) — every one needs its own EXTRA_METHOD_ROUTES row.
+    expect(isExtraRoutedMethod('sessions.delete')).toBe(true);
+    expect(isExtraRoutedMethod('companion.chat.sessions.close')).toBe(true);
+    expect(isExtraRoutedMethod('control.methods.get')).toBe(true);
+  });
+
   test('fleet.*/checkpoints.* are NOT extra-routed — they ride the generic invoke path, not EXTRA_METHOD_ROUTES', () => {
     for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore']) {
       expect(isExtraRoutedMethod(method)).toBe(false);
@@ -184,6 +193,77 @@ describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id
   });
 });
 
+describe('delete-means-delete (W5-W2): sessions.delete / chat.sessions.close / control.methods.get wire calls', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('operator.sessions.delete DELETEs /api/sessions/{sessionId} with no body', async () => {
+    stubFetch({ sessionId: 'sess-1', deleted: true });
+    const result = await sdk.operator.sessions.delete('sess-1');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/api/sessions/sess-1');
+    expect(calls[0].method).toBe('DELETE');
+    expect(result).toEqual({ sessionId: 'sess-1', deleted: true });
+  });
+
+  test('operator.sessions.delete surfaces a 409 SESSION_ACTIVE honestly (never a silent success)', async () => {
+    stubFetch({ error: 'Session is active — close it, then delete.', code: 'SESSION_ACTIVE' }, 409);
+    let caught: unknown;
+    try {
+      await sdk.operator.sessions.delete('sess-1');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as { status?: number }).status).toBe(409);
+  });
+
+  test('chat.sessions.close POSTs /api/companion/chat/sessions/{sessionId}/close', async () => {
+    stubFetch({ sessionId: 'chat-1', status: 'closed' });
+    await sdk.chat.sessions.close('chat-1');
+    expect(calls[0].url).toContain('/api/companion/chat/sessions/chat-1/close');
+    expect(calls[0].method).toBe('POST');
+  });
+
+  test('operator.control.methodInfo GETs /api/control-plane/methods/{methodId}', async () => {
+    stubFetch({ method: { id: 'sessions.delete', invokable: true } });
+    const result = await sdk.operator.control.methodInfo('sessions.delete');
+    expect(calls[0].url).toContain('/api/control-plane/methods/sessions.delete');
+    expect(calls[0].method).toBe('GET');
+    expect(result.method.id).toBe('sessions.delete');
+    expect(result.method.invokable).toBe(true);
+  });
+
+  test('operator.control.methodInfo of an unregistered id surfaces the honest "Unknown gateway method" 404, never a fake success', async () => {
+    stubFetch({ error: 'Unknown gateway method', status: 404 }, 404);
+    let caught: unknown;
+    try {
+      await sdk.operator.control.methodInfo('totally-not-a-real-method');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as { status?: number }).status).toBe(404);
+    expect((caught as { body?: unknown }).body).toEqual({ error: 'Unknown gateway method', status: 404 });
+  });
+});
+
 describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast (W5-TC)', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
@@ -233,9 +313,9 @@ describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
     );
   });
 
-  test('sdk.operator.sessions keys gain exactly one method: search', () => {
+  test('sdk.operator.sessions keys gain exactly two methods: search (W5-TC) and delete (W5-W2, delete-means-delete)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['close', 'create', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
+      ['close', 'create', 'delete', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
     );
   });
 

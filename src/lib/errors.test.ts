@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { formatError, isSessionNotFoundError, isAuthExpiredError } from './errors';
+import { formatError, isAuthExpiredError, isMethodUnavailableError, isSessionActiveError, isSessionNotFoundError } from './errors';
 
 describe('error formatting', () => {
   test('includes transport status and hint when present', () => {
@@ -38,5 +38,24 @@ describe('error formatting', () => {
     expect(isAuthExpiredError(Object.assign(new Error('boom'), { status: 500 }))).toBe(false);
     expect(isAuthExpiredError(null)).toBe(false);
     expect(isAuthExpiredError(undefined)).toBe(false);
+  });
+
+  test('detects the honest 409 SESSION_ACTIVE delete-rejection (W5-W2, delete-means-delete)', () => {
+    expect(isSessionActiveError({ body: { code: 'SESSION_ACTIVE', error: 'Session is active — close it, then delete.' } })).toBe(true);
+    expect(isSessionActiveError(new Error('Session is active — close it, then delete.'))).toBe(true);
+    expect(isSessionActiveError({ body: { code: 'SESSION_NOT_FOUND' } })).toBe(false);
+  });
+
+  test('distinguishes "method not registered on this daemon" from a normal 404 on a known resource', () => {
+    expect(isMethodUnavailableError({
+      status: 404,
+      body: { error: 'Unknown gateway method' },
+    })).toBe(true);
+    // A genuine SESSION_NOT_FOUND is ALSO a 404 but is a different honest signal
+    // (the resource doesn't exist, not "this daemon has never heard of this verb") —
+    // isMethodUnavailableError must not conflate the two.
+    expect(isMethodUnavailableError({ status: 404, body: { code: 'SESSION_NOT_FOUND', error: 'Session not found' } })).toBe(false);
+    expect(isMethodUnavailableError({ status: 500, body: { error: 'Unknown gateway method' } })).toBe(false);
+    expect(isMethodUnavailableError(undefined)).toBe(false);
   });
 });

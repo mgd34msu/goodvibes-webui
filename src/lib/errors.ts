@@ -91,6 +91,52 @@ export function isSessionClosedError(error: unknown): boolean {
 }
 
 /**
+ * True for the daemon's 409 SESSION_ACTIVE rejection (deleting a shared/companion
+ * session that is still active — W5-S1's delete verb requires close-first). The wire
+ * contract is `code: 'SESSION_ACTIVE'` (companion-chat-manager.ts / session-broker.ts /
+ * runtime-session-lifecycle-routes.ts); the message fallback covers the
+ * "Session is active — close it, then delete." text some paths throw before the code
+ * is attached.
+ */
+export function isSessionActiveError(error: unknown): boolean {
+  if (errorCode(error) === 'SESSION_ACTIVE') return true;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const body = asRecord(serialized.body ?? transport.body);
+  const message = [
+    readString(serialized, 'message'),
+    readString(body, 'message'),
+    readString(body, 'error'),
+  ].join(' ').toLowerCase();
+  return message.includes('session is active');
+}
+
+/**
+ * True when a gateway method id is not registered on the connected daemon at all — the
+ * honest "capability not available yet" signal (as opposed to a normal 404 on a known
+ * resource, e.g. SESSION_NOT_FOUND). The wire shape is a 404 with
+ * `{error: 'Unknown gateway method'}` (verified live against a bootDaemon instance
+ * calling GET /api/control-plane/methods/{methodId} and POST
+ * /api/control-plane/methods/{methodId}/invoke for an id the daemon build has never
+ * heard of). Used to distinguish "this daemon doesn't serve this verb yet" (render an
+ * honest degraded affordance) from "this session doesn't exist" (SESSION_NOT_FOUND) or
+ * a genuine server error.
+ */
+export function isMethodUnavailableError(error: unknown): boolean {
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  if (status !== 404) return false;
+  const body = asRecord(serialized.body ?? transport.body);
+  const message = [
+    readString(serialized, 'message'),
+    readString(body, 'message'),
+    readString(body, 'error'),
+  ].join(' ').toLowerCase();
+  return message.includes('unknown gateway method');
+}
+
+/**
  * True when a thrown request error never reached the daemon — a network/connection
  * failure rather than an HTTP rejection. The SDK transport tags these with
  * `category: 'network'` and `transport.status: 0` (createNetworkTransportError), and the

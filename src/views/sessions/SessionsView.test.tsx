@@ -13,23 +13,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const steerCalls: { id: string; body: unknown }[] = [];
 const followUpCalls: { id: string; body: unknown }[] = [];
 
-mock.module('../../lib/goodvibes', () => ({
-  getCurrentAuth: () => Promise.resolve({}),
-  invokeMethod: () => Promise.resolve({}),
-  sdk: {
-    operator: {
-      sessions: {
-        list: () => Promise.resolve(FIXTURE_UNION),
-        messages: { list: () => Promise.resolve({ messages: [] }) },
-        steer: (id: string, body: unknown) => { steerCalls.push({ id, body }); return Promise.resolve({}); },
-        followUp: (id: string, body: unknown) => { followUpCalls.push({ id, body }); return Promise.resolve({}); },
-      },
-    },
-  },
-}));
-
-const { SessionsView } = await import('./SessionsView');
-
 const FIXTURE_UNION = {
   totals: { sessions: 137 },
   sessions: [
@@ -43,6 +26,83 @@ const FIXTURE_UNION = {
     { id: 's-reaped', kind: 'tui', project: 'goodvibes-tui', title: 'Reaped session', status: 'closed', updatedAt: 5, messageCount: 4, metadata: { closeReason: 'idle-reaped' } },
   ],
 };
+
+// DELETE-MEANS-DELETE (W5-W2) fixtures/state. `unionListFixture` starts as
+// FIXTURE_UNION but individual describe blocks reassign it (via resetUnionFixtures)
+// so close/delete mutations have a live store to mutate and the proof-of-gone
+// reconcile has something real to check against. `methodInfoAvailable` toggles the
+// honest capability probe (control.methods.get) between "sessions.delete exists on
+// this daemon" and "unknown gateway method" (an older, un-upgraded daemon).
+let unionListFixture: typeof FIXTURE_UNION = FIXTURE_UNION;
+let unionCloseCalls: string[] = [];
+let unionReopenCalls: string[] = [];
+let unionDeleteCalls: string[] = [];
+let unionDeleteReallyRemoves = true;
+let methodInfoAvailable = true;
+
+function resetUnionMutationFixtures() {
+  unionListFixture = FIXTURE_UNION;
+  unionCloseCalls = [];
+  unionReopenCalls = [];
+  unionDeleteCalls = [];
+  unionDeleteReallyRemoves = true;
+  methodInfoAvailable = true;
+}
+
+mock.module('../../lib/goodvibes', () => ({
+  getCurrentAuth: () => Promise.resolve({}),
+  invokeMethod: () => Promise.resolve({}),
+  sdk: {
+    operator: {
+      control: {
+        methodInfo: (methodId: string) => {
+          if (methodId === 'sessions.delete' && !methodInfoAvailable) {
+            return Promise.reject(Object.assign(new Error('Unknown gateway method'), { status: 404, body: { error: 'Unknown gateway method' } }));
+          }
+          return Promise.resolve({ method: { id: methodId, invokable: true } });
+        },
+      },
+      sessions: {
+        list: () => Promise.resolve(unionListFixture),
+        messages: { list: () => Promise.resolve({ messages: [] }) },
+        steer: (id: string, body: unknown) => { steerCalls.push({ id, body }); return Promise.resolve({}); },
+        followUp: (id: string, body: unknown) => { followUpCalls.push({ id, body }); return Promise.resolve({}); },
+        close: (sessionId: string) => {
+          unionCloseCalls.push(sessionId);
+          unionListFixture = {
+            ...unionListFixture,
+            sessions: unionListFixture.sessions.map((s) => (s.id === sessionId ? { ...s, status: 'closed' } : s)),
+          };
+          return Promise.resolve({ session: unionListFixture.sessions.find((s) => s.id === sessionId) });
+        },
+        reopen: (sessionId: string) => {
+          unionReopenCalls.push(sessionId);
+          unionListFixture = {
+            ...unionListFixture,
+            sessions: unionListFixture.sessions.map((s) => (s.id === sessionId ? { ...s, status: 'active' } : s)),
+          };
+          return Promise.resolve({ session: unionListFixture.sessions.find((s) => s.id === sessionId) });
+        },
+        delete: (sessionId: string) => {
+          unionDeleteCalls.push(sessionId);
+          if (unionDeleteReallyRemoves) {
+            unionListFixture = {
+              ...unionListFixture,
+              sessions: unionListFixture.sessions.filter((s) => s.id !== sessionId),
+            };
+            return Promise.resolve({ sessionId, deleted: true });
+          }
+          // A daemon whose delete lies (resolves success without actually removing
+          // the record) — the proof-of-gone reconcile below must catch this, not the
+          // resolved value here.
+          return Promise.resolve({ sessionId, deleted: true });
+        },
+      },
+    },
+  },
+}));
+
+const { SessionsView } = await import('./SessionsView');
 
 function render(seed?: unknown): { el: HTMLElement; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -71,6 +131,7 @@ function click(el: Element | null | undefined) {
 afterEach(() => {
   steerCalls.length = 0;
   followUpCalls.length = 0;
+  resetUnionMutationFixtures();
 });
 
 describe('SessionsView union rendering', () => {
@@ -263,6 +324,122 @@ describe('SessionsView steer branch', () => {
     expect(followUpCalls[0].body).toEqual({ body: 'Queue this turn' });
     expect((followUpCalls[0].body as Record<string, unknown>).message).toBeUndefined();
     expect(steerCalls.length).toBe(0);
+    unmount();
+  });
+});
+
+async function flushMicrotasks(times = 8) {
+  for (let i = 0; i < times; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+describe('SessionsView: close/reopen/delete (W5-W2, delete-means-delete)', () => {
+  const originalConfirm = window.confirm;
+
+  afterEach(() => {
+    window.confirm = originalConfirm;
+  });
+
+  test('an active session offers Close, never Reopen or a conflated Delete-that-closes', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    expect(actions?.textContent).toContain('Close');
+    expect(actions?.textContent).not.toContain('Reopen');
+    unmount();
+  });
+
+  test('a closed session offers Reopen instead of Close', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Old session')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    expect(actions?.textContent).toContain('Reopen');
+    expect(actions?.textContent).not.toContain('>Close<');
+    unmount();
+  });
+
+  test('capability check unavailable (an older daemon): no Delete button renders, an honest note explains why, Close still works', async () => {
+    methodInfoAvailable = false;
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    const deleteButton = [...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete');
+    expect(deleteButton).toBeUndefined();
+    expect(actions?.textContent).toContain('Permanent delete not available for tui sessions yet');
+
+    window.confirm = () => true;
+    click([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Close'));
+    await flushMicrotasks();
+    expect(unionCloseCalls).toEqual(['s-tui']);
+
+    unmount();
+  });
+
+  test('capability available: the confirm gate blocks delete until accepted', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Old session')));
+    await flushMicrotasks();
+
+    window.confirm = () => false;
+    const actions = el.querySelector('.session-detail__actions');
+    click([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete'));
+    await flushMicrotasks();
+
+    expect(unionCloseCalls).toEqual([]);
+    expect(unionDeleteCalls).toEqual([]);
+    unmount();
+  });
+
+  test('a genuine delete: closes first, then removes — proof-of-gone confirms real absence, session detail clears', async () => {
+    window.confirm = () => true;
+    unionDeleteReallyRemoves = true;
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Old session')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    click([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete'));
+    await flushMicrotasks();
+
+    expect(unionCloseCalls).toEqual(['s-closed']);
+    expect(unionDeleteCalls).toEqual(['s-closed']);
+    expect(unionListFixture.sessions.some((s) => s.id === 's-closed')).toBe(false);
+    // The record is genuinely gone — the union list no longer renders it, and the
+    // detail pane falls back to the empty "select a session" state.
+    expect(el.textContent).not.toContain('Old session');
+    expect(el.textContent).toContain('Select a session to view and steer it.');
+    unmount();
+  });
+
+  test('a daemon whose delete lies (200 but the record is not actually gone): the reconcile catches it and surfaces an honest failure', async () => {
+    window.confirm = () => true;
+    unionDeleteReallyRemoves = false;
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Old session')));
+    await flushMicrotasks();
+
+    const actions = el.querySelector('.session-detail__actions');
+    click([...(actions?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Delete'));
+    await flushMicrotasks();
+
+    expect(unionDeleteCalls).toEqual(['s-closed']);
+    // The mocked delete() resolved {deleted:true} without touching unionListFixture —
+    // the reconcile (a fresh sessions.list()) must catch this lie rather than trust it.
+    expect(el.textContent).toContain('Old session');
+    expect(el.textContent).toContain('Delete did not complete');
     unmount();
   });
 });

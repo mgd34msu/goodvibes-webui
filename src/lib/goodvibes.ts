@@ -91,6 +91,24 @@ interface RequestOptions {
  * the survivors (approvals.* / models.* / tasks.* / config.set / local_auth.status /
  * companion.chat.sessions.delete) are the Wave-3 contract-coverage target; each pays
  * its way today because no browser route map covers it.
+ *
+ * sessions.delete / companion.chat.sessions.close (W5-W2, delete-means-delete): these
+ * two rows are forward-looking — verified against the SDK repo's OWN source at the time
+ * of writing (method-catalog-control-core.ts / method-catalog-control-companion.ts /
+ * runtime-session-lifecycle-routes.ts / companion-chat-routes.ts), where the real
+ * hard-delete work (W5-S1) is in flight but NOT YET COMMITTED there and not yet in the
+ * installed 0.38 contracts package — so neither id is in the installed `OperatorMethodId`
+ * union today (unlike sessions.close/reopen above, which ARE). Calls through these rows
+ * therefore use invokeOperator's untyped overload (see the sdk.operator.sessions.delete
+ * and sdk.chat.sessions.close call sites below), exactly like the models.* rows. This is
+ * NOT a bridge-type situation (no I/O shape gap to swap later) — it is a
+ * capability-availability gap: an older daemon simply does not have these routes yet,
+ * which is why every call site is paired with an honest capability check
+ * (control.methods.get, also added below) or a proof-of-gone reconcile rather than
+ * trusting a 200 at face value. control.methods.get('sessions.delete'/
+ * 'companion.chat.sessions.close') on such a daemon 404s with `{error: 'Unknown gateway
+ * method'}` (verified live against a bootDaemon instance) — the signal
+ * isMethodUnavailableError (lib/errors.ts) recognizes.
  */
 const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.approve': { method: 'POST', path: '/api/approvals/{approvalId}/approve' },
@@ -98,13 +116,16 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
   'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
   'approvals.list': { method: 'GET', path: '/api/approvals' },
+  'companion.chat.sessions.close': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/close' },
   'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
   'config.set': { method: 'POST', path: '/config' },
+  'control.methods.get': { method: 'GET', path: '/api/control-plane/methods/{methodId}' },
   'local_auth.status': { method: 'GET', path: '/api/local-auth' },
   'models.current': { method: 'GET', path: '/api/models/current' },
   'models.list': { method: 'GET', path: '/api/models' },
   'models.select': { method: 'PATCH', path: '/api/models/current' },
   'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
+  'sessions.delete': { method: 'DELETE', path: '/api/sessions/{sessionId}' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
   // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
@@ -488,6 +509,19 @@ export type TaskCreateInput = OperatorMethodInput<'tasks.create'>;
 export type TaskCreateResult = OperatorMethodOutput<'tasks.create'>;
 
 /**
+ * SessionDeleteResult (W5-W2) — the honest hard-delete outcome shape shared by
+ * `operator.sessions.delete` and `chat.sessions.delete`: `deleted: true` means the
+ * record and its messages/inputs were actually removed, not merely closed. Neither
+ * `sessions.delete` (union) nor a truly-deleting `companion.chat.sessions.delete` has a
+ * generated OperatorMethodOutputMap entry in the installed 0.38 contracts yet, so this
+ * is a hand-authored local shape, not a contract re-export.
+ */
+export interface SessionDeleteResult {
+  readonly sessionId: string;
+  readonly deleted: boolean;
+}
+
+/**
  * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
  * SDK falls back to its own defaults and a dropped stream can appear "live"; with it a
  * dropped stream reconnects with backoff and, once attempts are exhausted, degrades to
@@ -521,6 +555,15 @@ export const sdk = {
     control: {
       status: () => scopedSdk.operator.invoke('control.status', {}),
       snapshot: () => scopedSdk.operator.invoke('control.snapshot', {}),
+      // methodInfo (W5-W2): an honest, read-only capability probe. 'control.methods.get'
+      // IS in the installed 0.38 OperatorMethodId union with a real generated I/O map
+      // (foundation-client-types.ts), so this is a normal typed invokeOperator call, not
+      // a bridge — the METHOD BEING CHECKED (its `methodId` argument) can be any string,
+      // including one this daemon build has never heard of, which is the whole point:
+      // an unregistered id 404s with `{error: 'Unknown gateway method'}` rather than
+      // pretending. Callers use this to decide whether to offer a not-yet-available
+      // capability (e.g. sessions.delete) rather than rendering it and letting it fail.
+      methodInfo: (methodId: string) => invokeOperator('control.methods.get', { methodId }),
     },
     accounts: {
       snapshot: () => scopedSdk.operator.invoke('accounts.snapshot', {}),
@@ -602,6 +645,17 @@ export const sdk = {
       create: (input: OperatorMethodInput<'sessions.create'>) => invokeOperator('sessions.create', input),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
+      // delete (W5-W2, delete-means-delete): NOT in the installed 0.38 OperatorMethodId
+      // union (unlike close/reopen above) — see the EXTRA_METHOD_ROUTES header comment.
+      // Untyped call site, like models.* — SessionDeleteResult is this module's own
+      // honest local shape (`{sessionId, deleted}`), cross-checked against the SDK
+      // repo's method-catalog-control-core.ts 'sessions.delete' outputSchema at the time
+      // of writing. Requires the session to already be closed (409 SESSION_ACTIVE
+      // otherwise) — callers close first (see App.tsx / SessionsView.tsx call sites).
+      // Callers MUST pair this with a capability check (operator.control.methodInfo) or
+      // a proof-of-gone reconcile — never assume a 200 means the record is truly gone
+      // on every daemon build.
+      delete: (sessionId: string) => invokeOperator('sessions.delete', { sessionId }) as Promise<SessionDeleteResult>,
       // sessions.search (W5-TC scaffold for W5-W6): in the OperatorMethodId union but
       // routeless (no browser/EXTRA_METHOD_ROUTES entry) — generic-invoke-only, typed
       // via the contract-bridge-types.ts bridge until W5-S2 lands real I/O shapes.
@@ -620,7 +674,26 @@ export const sdk = {
   chat: {
     sessions: {
       ...scopedSdk.chat.sessions,
+      // delete-means-delete (W5-W2): this call site itself is UNCHANGED — the route
+      // (DELETE /api/companion/chat/sessions/{sessionId}) already resolves through
+      // EXTRA_METHOD_ROUTES either way. What changes is the daemon behind it (W5-S1):
+      // pre-S1 it soft-closes (`{sessionId, status:'closed'}`, file retained); post-S1
+      // it hard-removes (`{sessionId, deleted:true}`, file gone). The static return type
+      // here still reflects the installed 0.38 OperatorMethodOutputMap entry
+      // (`{sessionId, status}`) — the generated contract has not caught up to S1's real
+      // wire shape yet, so callers must NOT trust this call's return value as proof the
+      // record is gone. App.tsx's delete flow never reads this response's fields for
+      // that; it reconciles against a real re-fetch (includeClosed:true) instead.
       delete: (sessionId: string) => invokeOperator('companion.chat.sessions.delete', { sessionId }),
+      // close (W5-W2): a genuinely NEW, distinct soft-close verb for companion chat
+      // (companion.chat.sessions.close), separate from delete — see the
+      // EXTRA_METHOD_ROUTES header comment for its capability-availability caveat on an
+      // older daemon. Companion delete now requires the session to already be closed
+      // (409 SESSION_ACTIVE otherwise), so App.tsx's delete flow calls this first,
+      // tolerating a "not available yet" failure (isMethodUnavailableError) rather than
+      // treating it as fatal — an older daemon's delete route still works exactly as it
+      // always did (soft-close-only), which the reconcile step then honestly reports.
+      close: (sessionId: string) => invokeOperator('companion.chat.sessions.close', { sessionId }),
     },
     messages: scopedSdk.chat.messages,
     events: scopedSdk.chat.events,

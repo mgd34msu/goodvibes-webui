@@ -63,6 +63,26 @@ const SESSIONS_FIXTURE = {
   ],
 };
 
+// DELETE-MEANS-DELETE (W5-W2) fixtures/state — a small in-memory companion-chat
+// session store the mocked sdk.chat.sessions.* methods read/write, so a test can
+// simulate BOTH an honest post-S1 daemon (delete really removes the record) and a
+// still-soft-close pre-S1 daemon (delete only closes it, file retained) by flipping
+// `chatDeleteReallyRemoves`.
+let chatSessionsFixture: { id: string; title: string; status: string }[] = [];
+let chatCloseCalls: string[] = [];
+let chatDeleteCalls: string[] = [];
+let chatDeleteReallyRemoves = true;
+let chatCloseAvailable = true;
+
+function resetChatDeleteFixtures() {
+  chatSessionsFixture = [{ id: 'c1', title: 'Chat One', status: 'active' }];
+  chatCloseCalls = [];
+  chatDeleteCalls = [];
+  chatDeleteReallyRemoves = true;
+  chatCloseAvailable = true;
+}
+resetChatDeleteFixtures();
+
 // Full replacement of src/lib/goodvibes.ts — App.tsx's whole reachable import graph
 // (queries.ts, useSessionRealtime, useRealtimeInvalidation, SessionsView,
 // SteerComposer, and the statically-imported-but-not-rendered other views) resolves
@@ -123,7 +143,50 @@ mock.module('./lib/goodvibes', () => ({
     },
     knowledge: { status: () => Promise.resolve({}) },
     streams: { open: () => Promise.resolve(() => {}) },
-    chat: { sessions: { list: () => Promise.resolve({}), delete: () => Promise.resolve({}) } },
+    artifacts: { create: () => Promise.resolve({}) },
+    chat: {
+      messages: {
+        list: () => Promise.resolve({ messages: [] }),
+        create: () => Promise.resolve({}),
+      },
+      events: {
+        // useChatStream awaits this and stores the resolved value directly as its
+        // disconnect callback — a no-op stream is enough for the sidebar-delete flow
+        // this describe block exercises; it never asserts on live streaming behavior.
+        stream: () => Promise.resolve(() => {}),
+      },
+      sessions: {
+        list: () => Promise.resolve({ sessions: chatSessionsFixture, totals: { sessions: chatSessionsFixture.length } }),
+        update: (sessionId: string, input: { title?: string }) => {
+          const session = chatSessionsFixture.find((s) => s.id === sessionId);
+          if (session && input.title) session.title = input.title;
+          return Promise.resolve({ session });
+        },
+        create: () => Promise.resolve({ session: { id: 'new', title: 'New chat', status: 'active' } }),
+        close: (sessionId: string) => {
+          chatCloseCalls.push(sessionId);
+          if (!chatCloseAvailable) {
+            return Promise.reject(Object.assign(new Error('Unknown gateway method'), { status: 404, body: { error: 'Unknown gateway method' } }));
+          }
+          const session = chatSessionsFixture.find((s) => s.id === sessionId);
+          if (session) session.status = 'closed';
+          return Promise.resolve({ sessionId, status: 'closed' });
+        },
+        delete: (sessionId: string) => {
+          chatDeleteCalls.push(sessionId);
+          if (chatDeleteReallyRemoves) {
+            chatSessionsFixture = chatSessionsFixture.filter((s) => s.id !== sessionId);
+            return Promise.resolve({ sessionId, deleted: true });
+          }
+          // Pre-S1 daemon behavior: delete only soft-closes — the record NEVER
+          // actually leaves chatSessionsFixture, matching the real dishonest verb
+          // this brief replaces (companion-chat-manager.ts's old handleDeleteSession).
+          const session = chatSessionsFixture.find((s) => s.id === sessionId);
+          if (session) session.status = 'closed';
+          return Promise.resolve({ sessionId, status: 'closed' });
+        },
+      },
+    },
   },
 }));
 
@@ -160,6 +223,7 @@ afterEach(() => {
   hasStoredToken = true;
   healthConnection = 'connected';
   window.history.pushState({}, '', '/');
+  resetChatDeleteFixtures();
 });
 
 describe('App: daemon-unreachable gate preserves in-progress work', () => {
@@ -313,6 +377,111 @@ describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash
     await flushMicrotasks();
     expect(container.textContent).toContain('Sign in to GoodVibes');
     expect(container.querySelector('.app-shell')).toBeNull();
+
+    unmount();
+  });
+});
+
+describe('App: delete-means-delete (W5-W2) — companion chat sidebar delete', () => {
+  const originalConfirm = window.confirm;
+
+  afterEach(() => {
+    window.confirm = originalConfirm;
+  });
+
+  function deleteButtonFor(container: HTMLElement, title: string): HTMLButtonElement {
+    const row = [...container.querySelectorAll('.sidebar-session-row')]
+      .find((r) => r.textContent?.includes(title));
+    const button = row?.querySelector('.sidebar-session-delete') as HTMLButtonElement | null;
+    expect(button).toBeTruthy();
+    return button!;
+  }
+
+  test('the confirm gate fires before any destructive call — declining leaves close/delete uncalled', async () => {
+    window.history.pushState({}, '', '/?view=chat');
+    window.confirm = () => false;
+    const { container, unmount } = render();
+    await flushMicrotasks();
+    expect(container.textContent).toContain('Chat One');
+
+    flushSync(() => {
+      deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushMicrotasks();
+
+    expect(chatCloseCalls).toEqual([]);
+    expect(chatDeleteCalls).toEqual([]);
+    expect(container.textContent).toContain('Chat One');
+
+    unmount();
+  });
+
+  test('an honest post-S1 daemon: delete closes first, then really removes — proof-of-gone confirms absence, no false banner', async () => {
+    window.history.pushState({}, '', '/?view=chat');
+    window.confirm = () => true;
+    chatDeleteReallyRemoves = true;
+    const { container, unmount } = render();
+    await flushMicrotasks();
+    expect(container.textContent).toContain('Chat One');
+
+    flushSync(() => {
+      deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushMicrotasks();
+
+    // Close-then-delete, in that order, honoring the "delete requires closed" verb.
+    expect(chatCloseCalls).toEqual(['c1']);
+    expect(chatDeleteCalls).toEqual(['c1']);
+    // Proof-of-gone: the reconcile re-fetch (includeClosed:true) found it truly absent.
+    expect(chatSessionsFixture.some((s) => s.id === 'c1')).toBe(false);
+    expect(container.textContent).not.toContain('Chat One');
+    expect(container.textContent).not.toContain('Delete did not complete');
+
+    unmount();
+  });
+
+  test('a still-soft-closing pre-S1 daemon: delete does NOT make the row vanish silently — it comes back with an honest "did not complete" banner', async () => {
+    window.history.pushState({}, '', '/?view=chat');
+    window.confirm = () => true;
+    chatDeleteReallyRemoves = false;
+    const { container, unmount } = render();
+    await flushMicrotasks();
+    expect(container.textContent).toContain('Chat One');
+
+    flushSync(() => {
+      deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushMicrotasks();
+
+    expect(chatDeleteCalls).toEqual(['c1']);
+    // The record was only soft-closed server-side (chatDeleteReallyRemoves=false), so
+    // the proof-of-gone reconcile finds it still present — the anti-pattern this brief
+    // removes is trusting the optimistic hide as "deleted" here; instead the row must
+    // come back and the failure must be visible.
+    expect(chatSessionsFixture.some((s) => s.id === 'c1')).toBe(true);
+    expect(container.textContent).toContain('Chat One');
+    expect(container.textContent).toContain('Delete did not complete');
+
+    unmount();
+  });
+
+  test('an older daemon with no close route yet: close 404s honestly but delete still proceeds (and the reconcile still catches the still-soft-close outcome)', async () => {
+    window.history.pushState({}, '', '/?view=chat');
+    window.confirm = () => true;
+    chatCloseAvailable = false;
+    chatDeleteReallyRemoves = false;
+    const { container, unmount } = render();
+    await flushMicrotasks();
+
+    flushSync(() => {
+      deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await flushMicrotasks();
+
+    // close was attempted (and honestly failed as unavailable) but did not block delete.
+    expect(chatCloseCalls).toEqual(['c1']);
+    expect(chatDeleteCalls).toEqual(['c1']);
+    expect(container.textContent).toContain('Delete did not complete');
 
     unmount();
   });

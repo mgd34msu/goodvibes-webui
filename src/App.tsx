@@ -47,7 +47,7 @@ import {
   writeStoredActiveCompanionSessionId,
   writeStoredCompanionSessions,
 } from './lib/companion-chat';
-import { formatError, isDaemonUnreachableError, isSessionNotFoundError } from './lib/errors';
+import { formatError, isDaemonUnreachableError, isMethodUnavailableError, isSessionNotFoundError } from './lib/errors';
 
 const views: {
   id: ViewId;
@@ -128,8 +128,40 @@ export default function App() {
     [deletedChatSessionIds, mergedChatSessionItems],
   );
 
+  // DELETE-MEANS-DELETE (W5-W2). "Delete" now names a real hard-delete distinct from
+  // "close": companion.chat.sessions.delete (W5-S1) permanently removes the on-disk
+  // record but requires the session to already be closed (409 SESSION_ACTIVE
+  // otherwise), so this always closes first — a no-op if the daemon has no separate
+  // close route yet (isMethodUnavailableError) or the session is already closed
+  // (SESSION_NOT_FOUND from a double-close race). The mutation never trusts the
+  // delete call's 200 at face value: it reconciles against a real re-fetch with
+  // includeClosed:true and only reports success once the record is genuinely absent —
+  // the exact anti-pattern this replaces was trusting the client-side filter
+  // (deletedChatSessionIds) as proof, which just hides a soft-closed record whose file
+  // never left disk. A daemon that still only soft-closes (pre-S1) is caught here and
+  // surfaces "Delete did not complete" rather than a false "Deleted".
   const deleteChat = useMutation({
-    mutationFn: (sessionId: string) => sdk.chat.sessions.delete(sessionId),
+    mutationFn: async (sessionId: string) => {
+      try {
+        await sdk.chat.sessions.close(sessionId);
+      } catch (error) {
+        if (!isMethodUnavailableError(error) && !isSessionNotFoundError(error)) throw error;
+      }
+      try {
+        await sdk.chat.sessions.delete(sessionId);
+      } catch (error) {
+        if (!isSessionNotFoundError(error)) throw error;
+      }
+      const reconciled = await sdk.chat.sessions.list({ includeClosed: true, limit: 100 });
+      const stillPresent = companionSessionsFromListResponse(reconciled)
+        .some((session) => bestId(session) === sessionId);
+      if (stillPresent) {
+        throw Object.assign(
+          new Error('Delete did not complete — the record still exists'),
+          { code: 'DELETE_INCOMPLETE' },
+        );
+      }
+    },
     onMutate: async (sessionId) => {
       await queryClient.cancelQueries({ queryKey: ['companion-chat', 'sessions'] });
       const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
@@ -146,6 +178,11 @@ export default function App() {
       }
     },
     onError: (error, sessionId) => {
+      // A 404 here means the target is already gone (e.g. a double-delete race) —
+      // the outcome the user wanted is already true, so leave it hidden. Every OTHER
+      // failure — including DELETE_INCOMPLETE from the proof-of-gone reconcile above —
+      // restores visibility rather than leaving a false "it's deleted" impression: the
+      // optimistic hide was a guess, and this says plainly that the guess was wrong.
       if (isSessionNotFoundError(error)) return;
       setDeletedChatSessionIds((current) => {
         const next = new Set(current);
@@ -396,11 +433,19 @@ export default function App() {
                     <button
                       className="sidebar-session-delete"
                       type="button"
-                      title={`Delete ${bestTitle(session, id)}`}
+                      title={
+                        deleteChat.isPending && deleteChat.variables === id
+                          ? 'Deleting…'
+                          : `Delete ${bestTitle(session, id)} permanently — this removes the record, it cannot be reopened`
+                      }
                       disabled={deleteChat.isPending}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (!window.confirm(`Delete "${bestTitle(session, id)}"?`)) return;
+                        // Truthful confirm text: this is a hard delete, not the close-
+                        // in-disguise it used to be — see the deleteChat mutation above.
+                        if (!window.confirm(
+                          `Delete "${bestTitle(session, id)}" permanently?\n\nThis removes the chat record — it cannot be reopened.`,
+                        )) return;
                         deleteChat.mutate(id);
                       }}
                     >

@@ -2,6 +2,7 @@ import {
   Activity,
   Boxes,
   Brain,
+  CalendarDays,
   ClipboardCheck,
   Database,
   Gauge,
@@ -37,6 +38,7 @@ import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
 import { MemoryView } from './views/memory/MemoryView';
+import { CalendarView } from './views/calendar/CalendarView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { bestId, bestTitle, firstString } from './lib/object';
@@ -63,6 +65,7 @@ const views: {
   { id: 'checkpoints', label: 'Checkpoints', short: 'Snapshots', icon: History },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'memory', label: 'Memory', short: 'Recall', icon: Database },
+  { id: 'calendar', label: 'Calendar', short: 'Events', icon: CalendarDays },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
   // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
@@ -564,6 +567,7 @@ export default function App() {
           {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
+          {activeView === 'calendar' && <CalendarView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>

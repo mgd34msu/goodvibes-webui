@@ -36,6 +36,9 @@ export const queryKeys = {
   // Activity honesty: the never-called knowledge.jobs.list /
   // knowledge.job-runs.list, read from the map/nodes "View jobs" link.
   knowledgeJobs: ['knowledge', 'jobs'] as const,
+  // Consolidation candidates (knowledge.candidates.list/.candidate.get/.decide) — a
+  // never-called-before surface (like knowledgeJobs above) this brief adopts.
+  knowledgeCandidates: ['knowledge', 'candidates'] as const,
   localAuth: ['local-auth'] as const,
   // Memory (memory.records.* / memory.review-queue, SDK 1.1.0). No wire event exists
   // for this domain yet, so MemoryView polls/refetches manually rather than riding
@@ -43,6 +46,11 @@ export const queryKeys = {
   memoryList: ['memory', 'list'] as const,
   memoryPersonas: ['memory', 'personas'] as const,
   memoryReviewQueue: ['memory', 'review-queue'] as const,
+  // Calendar events are windowed by [from, to) — keyed on the range plus an optional
+  // logical calendarId filter so switching ranges/calendars refetches honestly rather
+  // than serving a stale window from cache.
+  calendarEvents: (from: string, to: string, calendarId: string) =>
+    ['calendar', 'events', from, to, calendarId] as const,
 };
 
 export async function loadBootSnapshot() {

@@ -182,6 +182,47 @@ export function isAuthExpiredError(error: unknown): boolean {
   return status === 401;
 }
 
+/**
+ * True for the daemon's honest 412 refusals on the calendar surface —
+ * CALENDAR_NOT_CONFIGURED (no CalDAV URL/user set: `surfaces.calendar.caldavUrl` /
+ * `surfaces.calendar.caldavUser`) or CALENDAR_CREDENTIALS_MISSING (the CalDAV
+ * password is not in the credential store). Both mean the operator has not yet
+ * brought their own CalDAV endpoint — a self-hosted-calendar analogue of an
+ * unconfigured provider, not a fault. Distinguished from a genuine error so the
+ * calendar view can point at setup instead of rendering a scary failure.
+ */
+export function isCalendarUnconfiguredError(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === 'CALENDAR_NOT_CONFIGURED' || code === 'CALENDAR_CREDENTIALS_MISSING';
+}
+
+/**
+ * True for the daemon's CALENDAR_AUTH_FAILED code — the configured CalDAV
+ * endpoint rejected the stored credentials (401/403 from the CalDAV server
+ * itself). Distinct from `isCalendarUnconfiguredError`: here the operator DID
+ * configure a CalDAV endpoint, but the credentials it holds no longer work.
+ */
+export function isCalendarAuthFailedError(error: unknown): boolean {
+  return errorCode(error) === 'CALENDAR_AUTH_FAILED';
+}
+
+/**
+ * True for a 501 "Gateway method is cataloged but not invokable through method
+ * dispatch" refusal (control-plane.ts) — a method the daemon's contract knows
+ * about but has no live handler wired for on this build. Distinct from
+ * `isMethodUnavailableError` (404, the daemon has never heard of the id at
+ * all): 501 means the id IS in the catalog, just not wired to a handler yet.
+ * Calendar is the first surface where this matters — the SDK ships the
+ * `calendar.*` contract with `invokable: false` by default; a daemon build
+ * that has not registered a real CalDAV handler answers this way.
+ */
+export function isMethodNotInvokableError(error: unknown): boolean {
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 501;
+}
+
 export function errorDebugValue(error: unknown): unknown {
   const serialized = serializeError(error);
   return Object.keys(serialized).length ? serialized : undefined;

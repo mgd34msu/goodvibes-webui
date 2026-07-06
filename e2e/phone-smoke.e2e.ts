@@ -21,6 +21,7 @@ const VIEWS: { view: string; label: string }[] = [
   { view: 'workstream', label: 'Workstream' },
   { view: 'knowledge', label: 'Knowledge' },
   { view: 'providers', label: 'Providers' },
+  { view: 'calendar', label: 'Calendar' },
 ];
 
 for (const { view, label } of VIEWS) {

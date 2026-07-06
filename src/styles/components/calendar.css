@@ -1,0 +1,166 @@
+/**
+ * calendar.css — CalendarView styles.
+ * Uses token names from src/styles/tokens.css exclusively (read-only —
+ * owned by the presentation-bridge brief). DO NOT edit tokens.css or
+ * styles.css from here.
+ */
+
+/* ============================================================
+   Range controls — from/to/calendar filter row
+   ============================================================ */
+.calendar-range-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.calendar-range-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.calendar-status-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ============================================================
+   Event list
+   ============================================================ */
+.calendar-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: clamp(240px, 40vh, 420px);
+  overflow-y: auto;
+}
+
+.calendar-event-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-event-row:hover {
+  border-color: var(--accent);
+}
+
+.calendar-event-row:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.calendar-event-row__time {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.calendar-event-row__title {
+  flex: 1 1 auto;
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event-row__location {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
+   ICS export / import
+   ============================================================ */
+.calendar-ics-export {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.calendar-ics-import textarea {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+}
+
+.calendar-export-success,
+.calendar-create-success {
+  font-size: var(--text-sm);
+  color: var(--status-success);
+  margin: 0;
+}
+
+.calendar-import-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.calendar-import-result__errors {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--status-danger);
+}
+
+/* ============================================================
+   Peek detail body
+   ============================================================ */
+.calendar-peek-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.calendar-peek-body__range {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.calendar-peek-body__description {
+  white-space: pre-wrap;
+}
+
+.calendar-peek-body__uid {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.calendar-peek-loading {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Phone: let the event list expand freely, and stack range controls. */
+@media (max-width: 680px) {
+  .calendar-event-list {
+    max-height: none;
+  }
+  .calendar-range-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

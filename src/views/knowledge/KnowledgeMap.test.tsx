@@ -199,4 +199,19 @@ describe('KnowledgeMap — "view raw" is demoted, never the primary surface', ()
     expect(el.textContent).toContain('"nodeCount"');
     unmount();
   });
+
+  test('an svg that passes the well-formedness gate but fails to decode in the browser flips to "Map unavailable" (F7c)', () => {
+    const { el, unmount } = render({
+      jobRunCount: 12,
+      overallNodeCount: 5,
+      data: { nodeCount: 5, edgeCount: 4, svg: SAMPLE_SVG },
+    });
+    const img = el.querySelector('.knowledge-map-render__canvas img') as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    // The browser could not decode the data: URL — React's onError fires.
+    flushSync(() => { img?.dispatchEvent(new window.Event('error')); });
+    expect(el.textContent).toContain('Map unavailable');
+    expect(el.querySelector('.knowledge-map-render__canvas img')).toBeNull();
+    unmount();
+  });
 });

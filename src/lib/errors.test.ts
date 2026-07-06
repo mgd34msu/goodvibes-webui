@@ -58,4 +58,25 @@ describe('error formatting', () => {
     expect(isMethodUnavailableError({ status: 500, body: { error: 'Unknown gateway method' } })).toBe(false);
     expect(isMethodUnavailableError(undefined)).toBe(false);
   });
+
+  // W6-C4: the daemon now carries code: 'METHOD_NOT_FOUND' on this 404 (SDKErrorCodes.
+  // METHOD_NOT_FOUND). Code-first, message-fallback — the same pattern as
+  // isSessionClosedError/isSessionActiveError above.
+  test('recognizes the machine code METHOD_NOT_FOUND (an upgraded daemon), no message-sniff needed', () => {
+    expect(isMethodUnavailableError({
+      status: 404,
+      body: { code: 'METHOD_NOT_FOUND', error: 'Unknown gateway method: sessions.delete' },
+    })).toBe(true);
+    // Wire shape via transport (the SDK client's real error envelope), not a bare body.
+    expect(isMethodUnavailableError(Object.assign(new Error('Request failed'), {
+      transport: { status: 404, body: { code: 'METHOD_NOT_FOUND' } },
+    }))).toBe(true);
+  });
+
+  test('back-compat: an un-upgraded daemon (pre-W6-C4, npm 0.38) with no code field still falls back to the message match', () => {
+    expect(isMethodUnavailableError({
+      status: 404,
+      body: { error: 'Unknown gateway method: sessions.delete' },
+    })).toBe(true);
+  });
 });

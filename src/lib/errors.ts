@@ -114,11 +114,20 @@ export function isSessionActiveError(error: unknown): boolean {
 /**
  * True when a gateway method id is not registered on the connected daemon at all — the
  * honest "capability not available yet" signal (as opposed to a normal 404 on a known
- * resource, e.g. SESSION_NOT_FOUND). The wire shape is a 404 with
- * `{error: 'Unknown gateway method'}` (verified live against a bootDaemon instance
- * calling GET /api/control-plane/methods/{methodId} and POST
+ * resource, e.g. SESSION_NOT_FOUND).
+ *
+ * W6-C4: the daemon now carries a machine `code: 'METHOD_NOT_FOUND'` on this 404
+ * (SDKErrorCodes.METHOD_NOT_FOUND — daemon-sdk's control-routes.ts getGatewayMethod /
+ * invokeGatewayMethod, and the SDK's own invokeGatewayMethodCall /
+ * GatewayMethodCatalog.invoke()), so this checks the CODE first, the same code-first
+ * pattern as `isSessionClosedError`/`isSessionActiveError` above. The message-sniff
+ * (`'unknown gateway method'`, still the wire shape's human text either way) stays as
+ * a fallback so this keeps working unchanged against an un-upgraded daemon (npm 0.38
+ * and earlier) that predates the code and only ever sent
+ * `{error: 'Unknown gateway method'}` with no `code` field — verified live against a
+ * bootDaemon instance calling GET /api/control-plane/methods/{methodId} and POST
  * /api/control-plane/methods/{methodId}/invoke for an id the daemon build has never
- * heard of). Used to distinguish "this daemon doesn't serve this verb yet" (render an
+ * heard of. Used to distinguish "this daemon doesn't serve this verb yet" (render an
  * honest degraded affordance) from "this session doesn't exist" (SESSION_NOT_FOUND) or
  * a genuine server error.
  */
@@ -127,6 +136,7 @@ export function isMethodUnavailableError(error: unknown): boolean {
   const transport = asRecord(serialized.transport);
   const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
   if (status !== 404) return false;
+  if (errorCode(error) === 'METHOD_NOT_FOUND') return true;
   const body = asRecord(serialized.body ?? transport.body);
   const message = [
     readString(serialized, 'message'),

@@ -92,6 +92,45 @@ describe('deriveProviderStatus — unconfigured vs status-unavailable (different
   });
 });
 
+describe('deriveProviderStatus — unknown/future freshness on a configured route (F7f forward-compat ruling)', () => {
+  test('an unrecognized freshness value on a CONFIGURED route is never read as healthy — it surfaces as "status unavailable"', () => {
+    const status = deriveProviderStatus({
+      routes: [{ route: 'api-key', configured: true, freshness: 'quantum-degraded' }],
+    });
+    expect(status.freshness).toBe('status unavailable');
+    // The per-route normalization must have caught the unknown value, not passed it through.
+    expect(status.routes[0].freshness).toBe('status unavailable');
+  });
+
+  test('an unrecognized freshness on an UNCONFIGURED route stays "unconfigured" (not a fault)', () => {
+    const status = deriveProviderStatus({
+      routes: [{ route: 'api-key', configured: false, freshness: 'quantum-degraded' }],
+    });
+    expect(status.freshness).toBe('unconfigured');
+  });
+
+  test('a configured-but-unknown route is SURFACED, not hidden behind a healthy sibling', () => {
+    const status = deriveProviderStatus({
+      routes: [
+        { route: 'api-key', configured: true, freshness: 'healthy' },
+        { route: 'service-oauth', configured: true, freshness: 'from-a-future-daemon' },
+      ],
+    });
+    // Without the ruling this rolled up to 'healthy', hiding the route we can't vouch for.
+    expect(status.freshness).toBe('status unavailable');
+  });
+
+  test('a KNOWN degraded state still dominates an unknown one (a real fault is more severe/actionable)', () => {
+    const rollup = (a: string, b: string) =>
+      deriveProviderStatus({ routes: [{ configured: true, freshness: a }, { configured: true, freshness: b }] }).freshness;
+    expect(rollup('expired', 'from-the-future')).toBe('expired');
+    expect(rollup('expiring', 'from-the-future')).toBe('expiring');
+    // …but the unknown state outranks the benign ones (we can't vouch for it).
+    expect(rollup('healthy', 'from-the-future')).toBe('status unavailable');
+    expect(rollup('pending', 'from-the-future')).toBe('status unavailable');
+  });
+});
+
 describe('deriveProviderStatus — per-route detail', () => {
   test('carries freshness, detail, and repairHints per route for the expanded view', () => {
     const status = deriveProviderStatus({

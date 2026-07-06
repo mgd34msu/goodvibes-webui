@@ -10,11 +10,12 @@
  * the session-update stream triggers.
  */
 
-import { useState, type SyntheticEvent } from 'react';
+import { useState, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { SendHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
+import { shouldSubmitComposerKey } from '../../lib/composer-keys';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 
 export type DispatchMode = 'steer' | 'followUp';
@@ -34,11 +35,19 @@ interface SteerComposerProps {
   canSteer: boolean;
   /** True when the session is closed — dispatch is disabled with an honest note. */
   closed: boolean;
+  /**
+   * True when the live session-update stream is currently paused/reconnecting
+   * (W5-W1's honesty, threaded down from App). A steer still sends over HTTP while
+   * the stream is down — but the delivered/failed confirmation, which is reconciled
+   * off the stream-driven refetch, may lag. The composer says so rather than looking
+   * silently stuck.
+   */
+  streamPaused?: boolean;
 }
 
 let dispatchSeq = 0;
 
-export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProps) {
+export function SteerComposer({ sessionId, canSteer, closed, streamPaused = false }: SteerComposerProps) {
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
   const [dispatches, setDispatches] = useState<LocalDispatch[]>([]);
@@ -87,6 +96,19 @@ export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProp
     mutation.mutate({ id, body });
   }
 
+  // THE SOFT-KEYBOARD HERO FIX (W5-M): the steer used to submit ONLY on
+  // Cmd/Ctrl+Enter — a key combination no phone soft keyboard can produce, which
+  // made the flagship "steer from your phone" action literally impossible. Adopt the
+  // companion composer's exact semantics (shouldSubmitComposerKey): plain Enter sends,
+  // Shift+Enter inserts a newline, and an in-progress IME composition is never
+  // hijacked. A visible >=44px Send button (below) covers the same action for anyone
+  // who would rather tap.
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (!shouldSubmitComposerKey(event)) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
   return (
     <div className="steer-composer">
       <div className="steer-composer__mode">
@@ -99,8 +121,16 @@ export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProp
         )}
       </div>
 
+      {streamPaused && !closed && (
+        <p className="steer-composer__stream-note" role="status">
+          Live updates paused — your {mode === 'steer' ? 'steer' : 'follow-up'} will still
+          send; the delivered/failed result may take a moment to appear.
+        </p>
+      )}
+
       <form className="steer-composer__form" onSubmit={submit}>
         <textarea
+          className="steer-composer__input"
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder={closed
@@ -110,18 +140,25 @@ export function SteerComposer({ sessionId, canSteer, closed }: SteerComposerProp
               : 'Queue a follow-up turn…'}
           rows={2}
           disabled={closed}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
+          aria-label={mode === 'steer' ? 'Steer message' : 'Follow-up message'}
+          aria-keyshortcuts="Enter"
+          onKeyDown={handleKeyDown}
         />
-        <button className="primary-button" type="submit" disabled={closed || !text.trim()}>
-          <SendHorizontal size={15} aria-hidden="true" />
+        <button
+          className="primary-button steer-composer__send"
+          type="submit"
+          disabled={closed || !text.trim()}
+          aria-label={mode === 'steer' ? 'Send steer' : 'Queue follow-up'}
+        >
+          <SendHorizontal size={16} aria-hidden="true" />
           {mode === 'steer' ? 'Steer' : 'Queue'}
         </button>
       </form>
+      {!closed && (
+        <p className="steer-composer__hint">
+          <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
+        </p>
+      )}
 
       {dispatches.length > 0 && (
         <ul className="steer-composer__dispatches" aria-label="Recent dispatches">

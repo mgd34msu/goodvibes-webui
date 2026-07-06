@@ -17,7 +17,7 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { ChevronLeft, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
@@ -76,7 +76,15 @@ function StatusBadge({ record }: { record: Pick<UnionSessionRecord, 'status' | '
   );
 }
 
-export function SessionsView() {
+interface SessionsViewProps {
+  /**
+   * True when the live session-update stream is paused/reconnecting (W5-W1). Threaded
+   * straight through to the SteerComposer so a steer sent during an outage says so.
+   */
+  streamPaused?: boolean;
+}
+
+export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
   const [selectedId, setSelectedId] = useState('');
   const [kindFilter, setKindFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
@@ -134,8 +142,12 @@ export function SessionsView() {
 
   const atCap = records.length >= SNAPSHOT_CAP;
 
+  // Master-detail on a phone (≤980px, styled in sessions.css): the list and the detail
+  // can't both fit side-by-side, so the stylesheet shows ONE at a time. Selecting a
+  // session flips to the detail; the "Back to sessions" affordance below flips back —
+  // never a dead-end single-column stack you can't climb out of.
   return (
-    <div className="sessions-view">
+    <div className={selected ? 'sessions-view has-selection' : 'sessions-view'}>
       <div className="sessions-list-pane">
         <div className="sessions-toolbar">
           <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} aria-label="Filter by kind">
@@ -227,6 +239,8 @@ export function SessionsView() {
             record={selected}
             deleteAvailable={deleteCapability.isSuccess}
             deleteCapabilityPending={deleteCapability.isPending}
+            streamPaused={streamPaused}
+            onBack={() => setSelectedId('')}
           />
         ) : (
           <div className="sessions-detail-empty">Select a session to view and steer it.</div>
@@ -240,10 +254,14 @@ function SessionDetail({
   record,
   deleteAvailable,
   deleteCapabilityPending,
+  streamPaused,
+  onBack,
 }: {
   record: UnionSessionRecord;
   deleteAvailable: boolean;
   deleteCapabilityPending: boolean;
+  streamPaused: boolean;
+  onBack: () => void;
 }) {
   const queryClient = useQueryClient();
   const messages = useQuery({
@@ -306,6 +324,10 @@ function SessionDetail({
 
   return (
     <div className="session-detail">
+      <button type="button" className="session-detail__back" onClick={onBack}>
+        <ChevronLeft size={16} aria-hidden="true" />
+        Back to sessions
+      </button>
       <header className="session-detail__header">
         <h2>{record.title}</h2>
         <div className="session-detail__badges">
@@ -394,7 +416,7 @@ function SessionDetail({
         ))}
       </div>
 
-      <SteerComposer sessionId={record.id} canSteer={canSteer(record)} closed={closed} />
+      <SteerComposer sessionId={record.id} canSteer={canSteer(record)} closed={closed} streamPaused={streamPaused} />
     </div>
   );
 }

@@ -77,7 +77,22 @@ export default function App() {
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
   const [createdChatSessionIds, setCreatedChatSessionIds] = useState<Set<string>>(() => new Set());
   const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Drawer default is VIEWPORT-AWARE (W5-M). On a phone (≤980px) the sidebar overlays
+  // the whole workspace, so defaulting it OPEN would cover the content on every single
+  // load — you'd tap it away before you could do anything. Initialize it COLLAPSED at
+  // phone width (a narrow icon rail; the workspace is visible first) and OPEN on the
+  // desktop it was designed for. The scrim + tap-away and the toggle stay as they were,
+  // so opening the drawer is always one explicit tap. matchMedia is read once at mount
+  // via a lazy initializer (no re-cover on resize/re-render); in the test env the
+  // matchMedia stub reports matches:false, so the desktop-open default is preserved.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    try {
+      return window.matchMedia('(max-width: 980px)').matches;
+    } catch {
+      return false;
+    }
+  });
   const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
     queryKey: ['boot'],
@@ -384,6 +399,12 @@ export default function App() {
                 key={navItem.id}
                 className={navItem.id === activeView ? 'nav-item active' : 'nav-item'}
                 type="button"
+                // Accessible name is REQUIRED here: at phone width the drawer collapses
+                // to an icon-only rail (.nav-copy is display:none), so the visible label
+                // text leaves the accessibility tree. aria-label keeps every nav target
+                // named for a screen reader — and reachable by name for a tap/test.
+                aria-label={navItem.label}
+                aria-current={navItem.id === activeView ? 'page' : undefined}
                 onClick={() => setView(navItem.id)}
               >
                 <span className="nav-icon"><Icon size={18} /></span>
@@ -522,7 +543,7 @@ export default function App() {
               onSessionMissing={handleMissingChatSession}
             />
           )}
-          {activeView === 'sessions' && <SessionsView />}
+          {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
           {activeView === 'fleet' && <FleetView />}
           {activeView === 'checkpoints' && <CheckpointsView />}
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}

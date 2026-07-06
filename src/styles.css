@@ -2995,6 +2995,15 @@ code {
     grid-template-columns: var(--sidebar-width-collapsed) 1fr;
   }
 
+  /* The sidebar is position:fixed here (out of grid flow), so the workspace — the only
+     in-flow child — would auto-place into the FIRST (60px rail) track and end up
+     underneath the fixed rail. Pin it to the second track so it sits to the RIGHT of
+     the rail, its content fully visible and clickable (W5-M: the phone default is the
+     collapsed rail, so this path is now the common case, not a rare one). */
+  .app-shell.sidebar-collapsed .workspace {
+    grid-column: 2;
+  }
+
   /* Open: sidebar overlays — workspace fills full width. */
   .app-shell:not(.sidebar-collapsed) {
     grid-template-columns: 1fr;
@@ -3038,23 +3047,23 @@ code {
     cursor: pointer;
   }
 
-  /* Restore collapsed-sidebar brand/nav overrides */
+  /* Collapsed = a clean icon rail (W5-M): the phone default. Keep the copy HIDDEN so
+     the 60px rail shows only icons — the workspace is visible first, and the brand
+     mark (or tapping the rail) opens the full drawer. Centering the items keeps the
+     icons on the rail's axis. */
   .sidebar.collapsed .brand {
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
   }
 
   .sidebar.collapsed .brand-copy,
-  .sidebar.collapsed .nav-copy {
-    display: grid;
-  }
-
+  .sidebar.collapsed .nav-copy,
   .sidebar.collapsed .sidebar-sessions {
-    display: grid;
+    display: none;
   }
 
   .sidebar.collapsed .nav-item {
-    justify-content: flex-start;
+    justify-content: center;
   }
 
   /* Grid dot pattern: starts from sidebar-collapsed edge */
@@ -3063,8 +3072,20 @@ code {
     left: 0;
   }
 
+  /* Single-column nav at ≤980 (W5-M): the old 3-column grid packed nav items into
+     ~80px cells, which forced every label ("Checkpoints", "Workstream"…) to
+     ellipsis-truncate mid-word. One column per row lets the full label render — both
+     in the open 264px overlay and stacked as icons in the collapsed rail. */
   .nav-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  /* Labels wrap legibly instead of truncating (belt-and-suspenders with the single
+     column above — a full-word wrap, never a mid-word ellipsis clip). */
+  .sidebar:not(.collapsed) .nav-copy strong {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
   }
 
   .surface-card {
@@ -3133,8 +3154,10 @@ code {
     padding-right: 0;
   }
 
+  /* Single column stays single (W5-M) — inherited from the ≤980 block; restated for
+     clarity now that the drawer is a full-width overlay at phone widths. */
   .nav-list {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   /* nav-item min-height: use token (--row-h = 36px default, 28px compact) */
@@ -3262,4 +3285,71 @@ code {
   }
 
   /* Sidebar-scrim: full-viewport at this size too (inherited from 980px rule) */
+}
+
+/* ────────────────────────────────────────
+   TOUCH-TARGET FLOOR (W5-M, the mobile-first pass)
+   Every interactive control on the phone journey clears a 44px minimum — the
+   sub-44px desktop sizes (36px icon buttons, 34px nav icons, 40px primary
+   buttons, the 28px hover-only session delete) are raised at phone width so a
+   thumb can hit them. Scoped to ≤680px so desktop density is untouched.
+──────────────────────────────────────── */
+@media (max-width: 680px) {
+  .icon-button,
+  .row-actions button,
+  .sidebar-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-mark-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Collapsed icon rail: trim its padding so the full-width nav buttons inside the
+     60px rail still clear a 44px tap target (14px padding would leave only ~32px). */
+  .sidebar.collapsed {
+    padding: 8px;
+  }
+
+  .sidebar.collapsed .nav-item {
+    min-height: 46px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 44px;
+  }
+
+  /* The sidebar's chat-delete: was 28px and revealed only on hover — unreachable on
+     a touch screen. At phone width it is a persistent 44px target. */
+  .sidebar-session-delete {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
+
+  /* The steer send button is the hero's final tap — make it unmistakably tappable. */
+  .steer-composer__send {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* The companion chat send button carries a hard 38px size from the chat theme layer
+     (.chat-main .send-button) that out-specifies the --send-btn-size var — raise it
+     directly at phone width so the thumb target clears 44px. */
+  .chat-main .send-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* A coarse pointer (touch) with no hover has NO way to reveal a hover-only control,
+   at ANY viewport width (a tablet is >680px but still touch). Reveal the sidebar
+   chat-delete for every coarse pointer, not just narrow ones. */
+@media (pointer: coarse) {
+  .sidebar-session-delete {
+    opacity: 1;
+  }
 }

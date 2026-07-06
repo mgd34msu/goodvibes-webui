@@ -345,6 +345,12 @@ function TasksSection() {
         </button>
       </form>
 
+      {/* Phone-only honest note (view-only tier): submitting, cancelling, and
+          retrying a task defer to a wider screen; the queue stays readable here. */}
+      <p className="tasks-phone-note" role="note">
+        Submitting, cancelling, and retrying tasks happens on a wider screen. The task queue stays readable here.
+      </p>
+
       {tasks.isPending && <SkeletonBlock variant="text" lines={4} />}
 
       {tasks.isError && (

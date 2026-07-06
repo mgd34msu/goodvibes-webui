@@ -195,6 +195,23 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   let memoryRecords = SEED_MEMORY_RECORDS.map(memoryRecordWire);
   let memoryIdCounter = 0;
 
+  // Checkpoints (checkpoints.*, MOBILE-ADAPT): one seeded checkpoint so the
+  // phone-tier CSS (checkpoints-create-row / checkpoint-detail__restore hidden,
+  // an honest note shown) has real selected-detail content to prove against,
+  // not just the true-empty state phone-smoke already covers.
+  let checkpointsList = [
+    { id: 'wcp_e2e_1', kind: 'manual', label: 'Before the mobile pass', createdAt: 1_700_000_000_000, parentId: null as string | null, retentionClass: 'standard', commit: 'aaaaaaaaaaaa1111', sizeBytes: 4096 },
+  ];
+
+  // Runtime tasks (tasks.*, MOBILE-ADAPT): one cancellable, one retryable — the
+  // pair TaskRow's two mutation buttons key off (task.cancellable / a
+  // failed/cancelled status), so the phone-tier hiding of both has something
+  // to hide.
+  let taskList = [
+    { id: 'task_e2e_1', kind: 'shell', title: 'Run the release checklist', status: 'running', owner: 'operator', cancellable: true, queuedAt: 1_700_000_000_000 },
+    { id: 'task_e2e_2', kind: 'shell', title: 'Rebuild the search index', status: 'failed', owner: 'operator', cancellable: false, queuedAt: 1_700_000_000_000, error: 'index build timed out' },
+  ];
+
   function methodNotFound(route: Route) {
     return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
   }
@@ -575,6 +592,30 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'sessions.search') return json(route, unionListResponse());
       if (methodId === 'fleet.snapshot') return json(route, FLEET_SNAPSHOT);
       if (methodId === 'fleet.list') return json(route, { items: FLEET_SNAPSHOT.nodes, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
+      if (methodId === 'checkpoints.list') return json(route, { checkpoints: checkpointsList });
+      if (methodId === 'checkpoints.create') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { label?: string };
+        const created = {
+          id: `wcp_e2e_${checkpointsList.length + 1}`,
+          kind: 'manual',
+          label: body.label ?? '',
+          createdAt: Date.now(),
+          parentId: checkpointsList[0]?.id ?? null,
+          retentionClass: 'standard',
+          commit: 'ffffff000000',
+          sizeBytes: 1024,
+        };
+        checkpointsList = [created, ...checkpointsList];
+        return json(route, { checkpoint: created, noop: false });
+      }
+      if (methodId === 'checkpoints.diff') {
+        return json(route, {
+          diff: { from: 'wcp_e2e_1', to: 'WORKING', files: ['src/example.ts'], unifiedDiff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1 +1 @@\n-old\n+new\n', stat: '1 file changed' },
+        });
+      }
+      if (methodId === 'checkpoints.restore') {
+        return json(route, { result: { checkpointId: 'wcp_e2e_1', safetyCheckpointId: null, restoredFiles: ['src/example.ts'], removedFiles: [] } });
+      }
       return json(route, {});
     }
 
@@ -662,6 +703,62 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { imported: 1, eventIds: ['ev-imported'], errors: [] });
     }
     return json(route, {});
+  });
+
+  // ── Tasks (tasks.*, MOBILE-ADAPT) — plain REST paths (EXTRA_METHOD_ROUTES in
+  //    src/lib/goodvibes.ts), not the `/api/control-plane/methods/{id}/invoke`
+  //    tunnel, so they need their own registration like calendar/knowledge above.
+  //    tasks.create posts to the legacy `/task` path with no `/api` segment.
+  await page.route('**/task', async (route) => {
+    if (route.request().method() !== 'POST') return json(route, {});
+    const body = (route.request().postDataJSON?.() ?? {}) as { task?: string };
+    const created = {
+      id: `task_e2e_${taskList.length + 1}`,
+      kind: 'shell',
+      title: body.task ?? '',
+      status: 'queued',
+      owner: 'operator',
+      cancellable: true,
+      queuedAt: Date.now(),
+    };
+    taskList = [...taskList, created];
+    return json(route, { task: created });
+  });
+
+  await page.route('**/api/tasks/**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+    const cancelMatch = path.match(/^\/api\/tasks\/([^/]+)\/cancel$/);
+    if (method === 'POST' && cancelMatch) {
+      const id = decodeURIComponent(cancelMatch[1]);
+      taskList = taskList.map((t) => (t.id === id ? { ...t, status: 'cancelled', cancellable: false } : t));
+      return json(route, { taskId: id, status: 'cancelled' });
+    }
+    const retryMatch = path.match(/^\/api\/tasks\/([^/]+)\/retry$/);
+    if (method === 'POST' && retryMatch) {
+      const id = decodeURIComponent(retryMatch[1]);
+      taskList = taskList.map((t) => (t.id === id ? { ...t, status: 'queued', error: undefined } : t));
+      return json(route, { taskId: id, status: 'queued' });
+    }
+    return json(route, {});
+  });
+
+  await page.route('**/api/tasks', async (route) => {
+    if (route.request().method() !== 'GET') return json(route, {});
+    const totals = {
+      created: taskList.length,
+      completed: taskList.filter((t) => t.status === 'completed').length,
+      failed: taskList.filter((t) => t.status === 'failed').length,
+      cancelled: taskList.filter((t) => t.status === 'cancelled').length,
+    };
+    return json(route, {
+      queued: taskList.filter((t) => t.status === 'queued').length,
+      running: taskList.filter((t) => t.status === 'running').length,
+      blocked: taskList.filter((t) => t.status === 'blocked').length,
+      totals,
+      tasks: taskList,
+    });
   });
 
   return daemon;

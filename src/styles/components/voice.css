@@ -113,6 +113,25 @@
   gap: 8px;
 }
 
+.voice-settings-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.voice-settings-close:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
 .voice-settings-title {
   font-weight: var(--weight-medium);
 }
@@ -180,5 +199,34 @@
 @media (prefers-reduced-motion: reduce) {
   .voice-spin {
     animation: none;
+  }
+}
+
+/* Phone: the voice-settings popover becomes a near-fullscreen sheet instead of a
+   small anchored card — the same breakpoint and near-fullscreen shape the shared
+   Modal component uses (styles/components/modal.css), so a configuration surface
+   reads the same whether it opens as a Modal or (here) an anchored popover. */
+@media (max-width: 480px) {
+  .voice-settings-popover {
+    position: fixed;
+    /* inset: 0 alone (no explicit width/height) stretches the box to fill the
+       viewport — an explicit width/height percentage alongside inset triggers an
+       over-constrained-box edge case in at least one tested Chromium build, so
+       this deliberately mirrors modal.css's fixed-wrapper sizing approach, which
+       also relies on inset alone rather than inset + width/height together. */
+    inset: 0;
+    /* Viewport units, not a bare percentage: this popover is nested many levels
+       deep inside the composer's grid/flex layout, and at least one tested
+       browser build resolves a percentage width/height on a deeply-nested fixed
+       descendant against the wrong containing block. vw/vh always resolve
+       against the actual viewport regardless of ancestry, sidestepping that. */
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    z-index: var(--z-overlay);
+    justify-content: flex-start;
+    padding: var(--space-4, 16px);
   }
 }

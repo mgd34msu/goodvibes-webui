@@ -6,12 +6,31 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { expectNoHorizontalScroll } from './support/app';
+import { expectNoHorizontalScroll, only, PHONE } from './support/app';
 
 test.beforeEach(async ({ page }) => {
   await installMockDaemon(page);
   await page.goto('/?view=providers');
   await expect(page.locator('.split-layout')).toBeVisible();
+});
+
+test.describe('phone: the modal is a near-fullscreen sheet (MOBILE-ADAPT)', () => {
+  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+
+  test('the panel fills the viewport instead of floating as a centered card', async ({ page }) => {
+    await page.getByRole('button', { name: 'Browse Models' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
+    await expect(dialog).toBeVisible();
+    const box = await dialog.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    if (box && viewport) {
+      expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2);
+      expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);
+    }
+    await expectNoHorizontalScroll(page);
+  });
 });
 
 test('opens from the "Browse Models" launcher and shows all five TUI-parity targets', async ({ page }) => {

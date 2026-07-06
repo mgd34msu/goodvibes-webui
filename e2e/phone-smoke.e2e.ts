@@ -20,8 +20,10 @@ const VIEWS: { view: string; label: string }[] = [
   { view: 'approvals-tasks', label: 'Approvals' },
   { view: 'workstream', label: 'Workstream' },
   { view: 'knowledge', label: 'Knowledge' },
+  { view: 'memory', label: 'Memory' },
   { view: 'providers', label: 'Providers' },
   { view: 'calendar', label: 'Calendar' },
+  { view: 'admin', label: 'Admin' },
 ];
 
 for (const { view, label } of VIEWS) {

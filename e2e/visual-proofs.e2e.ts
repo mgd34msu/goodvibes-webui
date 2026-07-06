@@ -33,6 +33,15 @@ test('provider status pills', async ({ page }, testInfo) => {
   await installMockDaemon(page);
   await page.goto('/?view=providers');
   await expect(page.locator('.view-frame')).toBeVisible();
+  // F5: the fixture now carries the real runtime.auth.routes[].freshness wire shape, so
+  // deriveProviderStatus lights up the whole ladder rather than defaulting every pill to
+  // 'status unavailable'. Prove each rung actually renders in the provider list.
+  const list = page.locator('.providers-record-list');
+  await expect(list.getByText('healthy', { exact: true }).first()).toBeVisible();
+  await expect(list.getByText('expiring', { exact: true }).first()).toBeVisible();
+  await expect(list.getByText('expired', { exact: true }).first()).toBeVisible();
+  await expect(list.getByText('unconfigured', { exact: true }).first()).toBeVisible();
+  await expect(list.getByText('status unavailable', { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'provider-pills'), fullPage: true });
 });
 

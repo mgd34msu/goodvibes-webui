@@ -42,6 +42,8 @@ import { sdk } from '../../lib/goodvibes';
 import type { ApprovalRecord, RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
+  auditEntryLabel,
+  auditTrail,
   hunkSummary,
   isActionableApproval,
   isTerminalApprovalStatus,
@@ -213,6 +215,7 @@ function ApprovalCard({
   const actionable = isActionableApproval(record);
   const terminal = isTerminalApprovalStatus(record.status);
   const partialLabel = useMemo(() => partialApprovalLabel(record), [record]);
+  const auditEntries = useMemo(() => auditTrail(record), [record]);
 
   return (
     <li className="approval-card">
@@ -238,6 +241,23 @@ function ApprovalCard({
           {record.resolvedBy ? ` by ${record.resolvedBy}` : ''}
           {partialLabel ? ` — ${partialLabel}` : ''}
         </p>
+      )}
+
+      {terminal && (
+        <details className="approval-card__audit">
+          <summary>Decision trail</summary>
+          {auditEntries.length > 0 ? (
+            <ul>
+              {auditEntries.map((entry) => (
+                <li key={entry.id}>
+                  {auditEntryLabel(entry)} — {formatRelative(entry.createdAt)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="approval-card__audit-empty">No decision trail recorded.</p>
+          )}
+        </details>
       )}
 
       {actionable && hunks && (

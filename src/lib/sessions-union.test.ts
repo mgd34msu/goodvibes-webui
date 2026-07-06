@@ -12,6 +12,7 @@ import {
   projectLabel,
   statusLabel,
   isClosedStatus,
+  isReapedStatus,
   canSteer,
   retentionLabel,
   sortUnionSessions,
@@ -127,6 +128,50 @@ describe('badge labels', () => {
     expect(isClosedStatus('closed')).toBe(true);
     expect(isClosedStatus('CLOSED')).toBe(true);
     expect(isClosedStatus('active')).toBe(false);
+  });
+});
+
+// B1: closed cross-surface sessions carry an optional, honest reason for WHY
+// they closed under metadata.closeReason (SDK's SharedSessionCloseReason).
+// An 'idle-reaped' close auto-reopens on the next heartbeat and must render
+// distinctly from a deliberate close — never folded into "closed · history".
+describe('reaped-as-reaped (closeReason)', () => {
+  test('extracts metadata.closeReason from the raw wire record', () => {
+    const record = unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'idle-reaped' } });
+    expect(record.closeReason).toBe('idle-reaped');
+  });
+
+  test('closeReason defaults to empty string when metadata is absent (pre-feature build)', () => {
+    const record = unionSessionFromRecord({ id: 'r', status: 'closed' });
+    expect(record.closeReason).toBe('');
+  });
+
+  test('closeReason defaults to empty string when metadata is present but has no closeReason', () => {
+    const record = unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { other: 'value' } });
+    expect(record.closeReason).toBe('');
+  });
+
+  test('isReapedStatus: true only when closed AND closeReason is idle-reaped', () => {
+    expect(isReapedStatus(unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'idle-reaped' } }))).toBe(true);
+  });
+
+  test('isReapedStatus: false for a deliberate user/surface close', () => {
+    expect(isReapedStatus(unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'user' } }))).toBe(false);
+    expect(isReapedStatus(unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'surface' } }))).toBe(false);
+  });
+
+  test('isReapedStatus: false for a closed record with no closeReason at all (tolerant default)', () => {
+    expect(isReapedStatus(unionSessionFromRecord({ id: 'r', status: 'closed' }))).toBe(false);
+  });
+
+  test('isReapedStatus: false for an active session even if closeReason were somehow present', () => {
+    expect(isReapedStatus(unionSessionFromRecord({ id: 'r', status: 'active', metadata: { closeReason: 'idle-reaped' } }))).toBe(false);
+  });
+
+  test('an unrecognized closeReason value is preserved verbatim, not dropped', () => {
+    const record = unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'future-reason' } });
+    expect(record.closeReason).toBe('future-reason');
+    expect(isReapedStatus(record)).toBe(false);
   });
 });
 

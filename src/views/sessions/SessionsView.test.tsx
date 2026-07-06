@@ -40,6 +40,7 @@ const FIXTURE_UNION = {
     { id: 's-chat', kind: 'companion-chat', project: '', title: 'Phone chat', status: 'active', updatedAt: 60, messageCount: 2 },
     { id: 's-closed', kind: 'tui', project: 'goodvibes-tui', title: 'Old session', status: 'closed', updatedAt: 10, messageCount: 300, retainedMessageCount: 50 },
     { id: 's-future', kind: 'quantum-surface', project: 'lab', title: 'Future kind', status: 'active', updatedAt: 70, messageCount: 1 },
+    { id: 's-reaped', kind: 'tui', project: 'goodvibes-tui', title: 'Reaped session', status: 'closed', updatedAt: 5, messageCount: 4, metadata: { closeReason: 'idle-reaped' } },
   ],
 };
 
@@ -95,6 +96,26 @@ describe('SessionsView union rendering', () => {
   test('closed session renders "closed · history"', () => {
     const { el, unmount } = render();
     expect(el.textContent).toContain('closed · history');
+    unmount();
+  });
+
+  test('reaped-as-reaped (B1): an idle-reaped closed session badges "reaped", not "closed · history"', () => {
+    const { el, unmount } = render();
+    const reapedRow = [...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Reaped session'));
+    expect(reapedRow).toBeTruthy();
+    expect(reapedRow?.textContent).toContain('reaped');
+    expect(reapedRow?.textContent).not.toContain('closed · history');
+    const reapedBadge = [...(reapedRow?.querySelectorAll('.badge') ?? [])].find((b) => b.textContent === 'reaped');
+    expect(reapedBadge?.className).toContain('info');
+    unmount();
+  });
+
+  test('a deliberately-closed session still badges "closed · history" alongside a reaped one (both present)', () => {
+    const { el, unmount } = render();
+    const closedRow = [...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Old session'));
+    expect(closedRow?.textContent).toContain('closed · history');
+    const closedBadge = [...(closedRow?.querySelectorAll('.badge') ?? [])].find((b) => b.textContent === 'closed · history');
+    expect(closedBadge?.className).toContain('neutral');
     unmount();
   });
 

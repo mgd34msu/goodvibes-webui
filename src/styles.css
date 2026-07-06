@@ -788,6 +788,13 @@ button:disabled {
   background: #edf2f3;
 }
 
+/* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
+   distinct from a deliberate close, which stays .badge.neutral. */
+:root[data-theme="light"] .badge.info {
+  color: #1d3a99;
+  background: var(--blue-soft);
+}
+
 .data-block {
   min-width: 0;
 }
@@ -2625,6 +2632,13 @@ code {
 .badge.neutral {
   color: #dffcff;
   background: rgb(0 255 255 / 10%);
+}
+
+/* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
+   distinct from a deliberate close, which stays .badge.neutral. */
+.badge.info {
+  color: var(--blue);
+  background: var(--blue-soft);
 }
 
 .primary-button {

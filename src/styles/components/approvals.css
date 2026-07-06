@@ -186,6 +186,29 @@
   cursor: pointer;
 }
 
+/* Decision trail (B2): the resolved approval card's audit provenance. */
+.approval-card__audit {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.approval-card__audit summary {
+  cursor: pointer;
+}
+
+.approval-card__audit ul {
+  margin: var(--space-1, 4px) 0 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-card__audit-empty {
+  margin: var(--space-1, 4px) 0 0;
+  font-style: italic;
+}
+
 /* Tasks */
 .tasks-create {
   display: flex;

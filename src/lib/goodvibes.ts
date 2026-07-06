@@ -401,6 +401,22 @@ export interface ApprovalDecision {
 
 export type ApprovalStatus = 'pending' | 'claimed' | 'approved' | 'denied' | 'cancelled' | 'expired';
 
+/**
+ * One entry in an approval's decision trail — the SDK's SharedApprovalAuditRecord
+ * (packages/sdk/src/platform/control-plane/approval-broker.ts). Appended on every
+ * lifecycle transition (created/claimed/approved/denied/cancelled/expired/updated),
+ * so a resolved approval's `audit` array is the honest provenance of who did what,
+ * from where, and when — not just the final `decision`/`resolvedBy` snapshot.
+ */
+export interface ApprovalAuditRecord {
+  readonly id: string;
+  readonly action: 'created' | 'claimed' | 'approved' | 'denied' | 'cancelled' | 'expired' | 'updated';
+  readonly actor: string;
+  readonly actorSurface?: string;
+  readonly createdAt: number;
+  readonly note?: string;
+}
+
 export interface ApprovalRecord {
   readonly id: string;
   readonly callId: string;
@@ -416,6 +432,14 @@ export interface ApprovalRecord {
   readonly resolvedBy?: string;
   readonly decision?: ApprovalDecision;
   readonly metadata: Record<string, unknown>;
+  /**
+   * The full decision trail. Optional in this client-side type (rather than
+   * mirroring the SDK's required field) because this client reads the wire
+   * response as-is with no runtime schema validation (see `invokeOperator`
+   * below) — a mixed-version or pre-audit daemon record may genuinely omit
+   * it. Treat absence as "no trail recorded", never as an error.
+   */
+  readonly audit?: readonly ApprovalAuditRecord[];
 }
 
 export interface ApprovalSnapshotResult {

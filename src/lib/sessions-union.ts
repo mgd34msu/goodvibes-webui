@@ -10,7 +10,7 @@
  * than crash or drop it (no zod on this path — see src/lib/object.ts).
  */
 
-import { asArray, firstString } from './object';
+import { asArray, firstString, readPath } from './object';
 import { companionSessionsFromListResponse } from './companion-chat';
 
 /** The six kinds the 0.38 wire enum declares (SHARED_SESSION_KINDS). */
@@ -81,6 +81,16 @@ export interface UnionSessionRecord {
   surfaceKinds: string[];
   activeAgentId: string;
   lastError: string;
+  /**
+   * Why a closed session closed, when the daemon reported one — the SDK's
+   * SharedSessionCloseReason ('idle-reaped' | 'user' | 'surface'), carried on
+   * the wire under `metadata.closeReason` (see the SDK's
+   * platform/control-plane/session-broker-sessions.ts, SESSION_CLOSE_REASON_METADATA_KEY).
+   * Empty string when absent — a build that predates this field, or a session
+   * that was never closed. Read tolerantly (not validated against the known
+   * enum) so an unrecognized value is still preserved rather than dropped.
+   */
+  closeReason: string;
   raw: unknown;
 }
 
@@ -96,6 +106,11 @@ function optionalNumberField(record: Record<string, unknown>, key: string): numb
 
 function stringArrayField(record: Record<string, unknown>, key: string): string[] {
   return asArray(record[key]).filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+function stringAtPath(record: Record<string, unknown>, path: string[]): string {
+  const value = readPath(record, path);
+  return typeof value === 'string' ? value : '';
 }
 
 /** Normalize one raw record (already unwrapped from any envelope) into a UnionSessionRecord. */
@@ -118,6 +133,7 @@ export function unionSessionFromRecord(value: unknown): UnionSessionRecord {
     surfaceKinds: stringArrayField(record, 'surfaceKinds'),
     activeAgentId: firstString(record, ['activeAgentId']),
     lastError: firstString(record, ['lastError']),
+    closeReason: stringAtPath(record, ['metadata', 'closeReason']),
     raw: value,
   };
 }
@@ -165,6 +181,16 @@ export function isClosedStatus(status: string): boolean {
 /** Display label for a status badge. Empty status renders as 'active' (wire always sends one). */
 export function statusLabel(status: string): string {
   return status.trim() || 'active';
+}
+
+/**
+ * An idle-reaped closed session AUTO-REOPENS on the next heartbeat from any
+ * participant — it is not the same event as a deliberate user/surface close,
+ * so it must not render under the same "closed · history" badge. Tolerant of
+ * records without `closeReason` (pre-feature builds, or a deliberate close).
+ */
+export function isReapedStatus(record: Pick<UnionSessionRecord, 'status' | 'closeReason'>): boolean {
+  return isClosedStatus(record.status) && record.closeReason === 'idle-reaped';
 }
 
 /**

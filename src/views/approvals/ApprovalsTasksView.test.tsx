@@ -97,6 +97,15 @@ const APPROVALS_FIXTURE = {
       request: { callId: 'call-5', tool: 'edit', args: { edits: EDIT_HUNKS }, category: 'write', analysis: analysis() },
       decision: { approved: true, modifiedArgs: { edits: [EDIT_HUNKS[0]] } },
     },
+    {
+      id: 'appr-audited', callId: 'call-6', status: 'denied', resolvedAt: 220, resolvedBy: 'operator', createdAt: 200, updatedAt: 220, metadata: {},
+      request: { callId: 'call-6', tool: 'exec', args: { command: 'rm -rf /tmp/x' }, category: 'execute', analysis: analysis({ summary: 'delete a temp path' }) },
+      audit: [
+        { id: 'aud-1', action: 'created', actor: 'agent-1', actorSurface: 'agent', createdAt: 200 },
+        { id: 'aud-2', action: 'claimed', actor: 'operator', actorSurface: 'webui', createdAt: 210 },
+        { id: 'aud-3', action: 'denied', actor: 'operator', actorSurface: 'webui', createdAt: 220, note: 'too risky' },
+      ],
+    },
   ],
 };
 
@@ -201,6 +210,36 @@ describe('ApprovalsTasksView — approvals rendering', () => {
     const cards = [...el.querySelectorAll('.approval-card')];
     const partial = cards.find((c) => c.querySelectorAll('.hunk-row').length === 0 && c.textContent?.includes('approved') && c.textContent?.includes('partial'));
     expect(partial?.textContent).toContain('partial (1/3 hunks)');
+    unmount();
+  });
+
+  // B2: the SDK's approval audit trail (SharedApprovalAuditRecord) rides the
+  // wire as `audit` — the webui's ApprovalRecord type previously omitted it
+  // entirely. It belongs on the resolved card's detail as decision provenance.
+  test('a resolved approval with an audit trail renders every entry (action, actor, surface, note)', () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('delete a temp path'));
+    expect(card).toBeTruthy();
+    const trail = card?.querySelector('.approval-card__audit');
+    expect(trail?.textContent).toContain('created by agent-1 (agent)');
+    expect(trail?.textContent).toContain('claimed by operator (webui)');
+    expect(trail?.textContent).toContain('denied by operator (webui): too risky');
+    unmount();
+  });
+
+  test('a resolved approval with no audit field shows the honest empty state, not a fabricated trail', () => {
+    const { el, unmount } = render();
+    const cards = [...el.querySelectorAll('.approval-card')];
+    const resolved = cards.find((c) => c.textContent?.includes('operator') && c.textContent?.includes('approved') && !c.textContent?.includes('partial'));
+    const trail = resolved?.querySelector('.approval-card__audit');
+    expect(trail?.textContent).toContain('No decision trail recorded.');
+    unmount();
+  });
+
+  test('a pending (non-terminal) approval renders no decision-trail section at all', () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('run a shell command'));
+    expect(card?.querySelector('.approval-card__audit')).toBeFalsy();
     unmount();
   });
 });

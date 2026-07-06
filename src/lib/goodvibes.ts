@@ -2,6 +2,7 @@ import {
   createBrowserKnowledgeSdk,
   forSession,
 } from '@pellux/goodvibes-sdk/browser/knowledge';
+import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/knowledge';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import type {
   OperatorMethodId,
@@ -10,6 +11,45 @@ import type {
   OperatorTypedMethodId,
   RuntimeEventDomain,
 } from '@pellux/goodvibes-sdk/contracts';
+import type {
+  CheckpointsCreateInput,
+  CheckpointsCreateResult,
+  CheckpointsDiffInput,
+  CheckpointsDiffResult,
+  CheckpointsListInput,
+  CheckpointsListResult,
+  CheckpointsRestoreInput,
+  CheckpointsRestoreResult,
+  FleetListInput,
+  FleetListResult,
+  FleetProcessNode,
+  FleetSnapshotResult,
+  SessionsSearchInput,
+  SessionsSearchResult,
+  WorkspaceCheckpoint,
+} from './contract-bridge-types';
+
+// Re-exported so existing consumers (lib/fleet.ts, lib/checkpoints.ts, FleetView.tsx,
+// WorkstreamView.tsx, CheckpointsView.tsx, ...) keep importing these names from
+// './goodvibes' unchanged — the byte-compatible facade covers types, not just the `sdk`
+// object. Definitions live in contract-bridge-types.ts (the pin-bump swap seam).
+export type {
+  CheckpointsCreateInput,
+  CheckpointsCreateResult,
+  CheckpointsDiffInput,
+  CheckpointsDiffResult,
+  CheckpointsListInput,
+  CheckpointsListResult,
+  CheckpointsRestoreInput,
+  CheckpointsRestoreResult,
+  FleetListInput,
+  FleetListResult,
+  FleetProcessNode,
+  FleetSnapshotResult,
+  SessionsSearchInput,
+  SessionsSearchResult,
+  WorkspaceCheckpoint,
+};
 
 export const WEBUI_SURFACE_KIND = 'webui';
 export const WEBUI_SURFACE_ID = 'goodvibes-webui';
@@ -183,9 +223,53 @@ export function isExtraRoutedMethod(methodId: string): boolean {
   return Boolean(EXTRA_METHOD_ROUTES[methodId]);
 }
 
+/**
+ * invokeOperator — the single dispatcher for every operator method id, contract-typed.
+ *
+ * Overload 1 covers every id in the installed `OperatorMethodId` union (every row in
+ * EXTRA_METHOD_ROUTES except models.* — see overload 2 — plus every sessions.* id that
+ * falls through to scopedSdk.operator.invoke below): TInput/TOutput default to
+ * `OperatorMethodInput/OperatorMethodOutput<TMethodId>`, so a caller gets the REAL
+ * generated shape for free and a wrong-shaped input is a compile error, with no `as
+ * never` at the call site. Callers with a known, tested divergence from the generated
+ * shape (see the Approvals/Tasks section comments above) pass explicit TInput/TOutput
+ * overrides instead of the defaults.
+ *
+ * Overload 2 is the honest fallback for models.* — CORRECTED (2026-07, W5-TC): the W1
+ * gap-note this replaced claimed the pinned 0.38 contracts package had no typed method
+ * ids for verbs like these; that was true for fleet.* and checkpoints.* at the time but was
+ * NEVER true for models.* — models.current/list/select are not in the OperatorMethodId
+ * union AT ALL (operator-method-ids.ts has no "models.*" entries), so there is no
+ * OperatorMethodInput/Output to type them against, unlike fleet.* and checkpoints.*
+ * (contract-bridge-types.ts) which DO have ids today and are only missing I/O shapes.
+ * This is a standing gap, not a pin-bump-pending one — flag it again if a future
+ * contracts generation adds models.* ids.
+ */
+/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters -- TInput is
+   deliberately independent of TMethodId: call sites with a known, tested divergence
+   from OperatorMethodInput<TMethodId> (see the Approvals section above) override it
+   explicitly (e.g. `{ approvalId: string } & ApprovalApproveInput`) without needing to
+   widen TMethodId itself. */
+async function invokeOperator<
+  TMethodId extends OperatorMethodId,
+  TInput = OperatorMethodInput<TMethodId>,
+  TOutput = OperatorMethodOutput<TMethodId>,
+>(methodId: TMethodId, input?: TInput): Promise<TOutput>;
+/* eslint-enable @typescript-eslint/no-unnecessary-type-parameters */
+async function invokeOperator(methodId: string, input?: unknown): Promise<unknown>;
 async function invokeOperator(methodId: string, input?: unknown): Promise<unknown> {
   const route = EXTRA_METHOD_ROUTES[methodId];
-  if (!route) return scopedSdk.operator.invoke(methodId as never, input as never);
+  if (!route) {
+    // The one unavoidable escape hatch: every methodId that reaches this branch (no
+    // EXTRA_METHOD_ROUTES row) is, by construction, a member of BrowserKnowledgeMethodId
+    // (SHARED_BROWSER_ROUTES ∪ KNOWLEDGE_BROWSER_ROUTES) — a runtime invariant the type
+    // system cannot see through a string-keyed table lookup. isExtraRoutedMethod's test
+    // coverage below is what actually enforces it, not this cast.
+    return scopedSdk.operator.invoke(
+      methodId as BrowserKnowledgeMethodId,
+      input as OperatorMethodInput<BrowserKnowledgeMethodId>,
+    );
+  }
   const { path, rest } = interpolateRoute(route, input);
   if (route.method === 'GET') return requestJson(path, { method: route.method, query: rest });
   if (route.method === 'DELETE' && !Object.keys(rest).length) return requestJson(path, { method: route.method });
@@ -193,170 +277,59 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
 }
 
 /**
- * invokeGatewayMethod — direct call to the generic invoke-by-id endpoint
+ * invokeGatewayMethod — typed direct call to the generic invoke-by-id endpoint
  * (POST /api/control-plane/methods/{methodId}/invoke), mirroring the SDK's
  * own `invokeVerb` test helper (test/w3-s2-fleet-checkpoints-search.test.ts).
  *
- * WHY THIS EXISTS (W3-W1): fleet.* and checkpoints.* (W3-S2) are registered
- * with `transport: ['ws']` and NO `http` route binding
- * (method-catalog-fleet.ts) — they are reachable ONLY through this generic
- * invoke mechanism, not through scopedSdk.operator.invoke (which resolves
- * against the fixed SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES tables
- * baked into the browser SDK build and has no entries for these verbs) and
- * not through EXTRA_METHOD_ROUTES (built for REST-shaped path-param routes,
- * which these verbs don't have). Confirmed against the 0.39.0-dev SDK
- * overlay: @pellux/goodvibes-contracts (a separate workspace package the
- * overlay does not rebuild) still reports no fleet.x / checkpoints.x typed
- * methods, so this bypasses the typed OperatorTypedMethodId surface
- * entirely and posts the envelope `{ body }` the daemon's
- * invokeGatewayMethodCall expects, reusing requestJson for auth headers.
+ * WHY THIS EXISTS (W3-W1): fleet.*, checkpoints.*, and sessions.search (W3-S2, W5-TC) are
+ * registered with `transport: ['ws']` and NO `http` route binding
+ * (method-catalog-fleet.ts / session-search.ts) — they are reachable ONLY through this
+ * generic invoke mechanism, not through scopedSdk.operator.invoke (which resolves
+ * against the fixed SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES tables baked into the
+ * browser SDK build and has no entries for these verbs) and not through
+ * EXTRA_METHOD_ROUTES (built for REST-shaped path-param routes, which these verbs don't
+ * have).
+ *
+ * TYPED BY THE CONTRACT ID: `methodId: TMethodId extends OperatorMethodId` — these ids
+ * ARE in the installed 0.38 union (verified: operator-method-ids.ts lists fleet.*,
+ * checkpoints.*, sessions.search, sessions.detach). `body` is constrained to
+ * `OperatorMethodInput<TMethodId>`, which today resolves to the generic
+ * `{ [k: string]: unknown }` fallback for this family (no `OperatorMethodInputMap` entry
+ * yet) — every bridge input type in contract-bridge-types.ts is a plain object with an
+ * optional-properties shape, which IS assignable to that index signature, so no cast is
+ * needed at any call site below. TOutput has no useful default (`OperatorMethodOutput<M>`
+ * is plain `unknown` for this family today) — every call site supplies the real
+ * contract-bridge-types.ts shape explicitly.
  */
-async function invokeGatewayMethod<T = unknown>(methodId: string, body?: unknown): Promise<T> {
-  return requestJson<T>(`/api/control-plane/methods/${methodId}/invoke`, {
+async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput = OperatorMethodOutput<TMethodId>>(
+  methodId: TMethodId,
+  body?: OperatorMethodInput<TMethodId>,
+): Promise<TOutput> {
+  return requestJson<TOutput>(`/api/control-plane/methods/${methodId}/invoke`, {
     method: 'POST',
     body: { body: body ?? {} },
   });
 }
 
-// ─── Fleet (W3-S2 fleet.*) ──────────────────────────────────────────────────
-
-export interface FleetProcessUsage {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
-  readonly reasoningTokens?: number;
-  readonly llmCallCount: number;
-  readonly turnCount: number;
-  readonly toolCallCount: number;
-}
-
-export interface FleetProcessActivity {
-  readonly kind: string;
-  readonly text: string;
-  readonly toolName?: string;
-  readonly at: number;
-}
-
-export interface FleetProcessCapabilities {
-  readonly interruptible: boolean;
-  readonly killable: boolean;
-  readonly pausable: boolean;
-  readonly resumable: boolean;
-  readonly steerable: boolean;
-}
-
-export interface FleetProcessNode {
-  readonly id: string;
-  readonly kind: string;
-  readonly parentId?: string;
-  readonly label: string;
-  readonly task?: string;
-  readonly state: string;
-  readonly startedAt?: number;
-  readonly completedAt?: number;
-  readonly elapsedMs: number;
-  readonly usage?: FleetProcessUsage;
-  readonly model?: string;
-  readonly provider?: string;
-  readonly costUsd?: number | null;
-  readonly costState: string;
-  readonly currentActivity?: FleetProcessActivity;
-  readonly capabilities: FleetProcessCapabilities;
-  readonly sessionRef?: { readonly sessionId?: string; readonly agentId?: string };
-}
-
-export interface FleetSnapshotResult {
-  readonly capturedAt: number;
-  readonly nodes: FleetProcessNode[];
-  readonly truncated: boolean;
-  readonly totalCount: number;
-}
-
-export interface FleetListInput {
-  readonly kinds?: readonly string[];
-  readonly states?: readonly string[];
-  readonly limit?: number;
-  readonly cursor?: string;
-}
-
-export interface FleetListResult {
-  readonly items: FleetProcessNode[];
-  readonly nextCursor?: string;
-  readonly hasMore: boolean;
-  readonly capturedAt: number;
-}
-
-// ─── Checkpoints (W3-S2 checkpoints.*) ──────────────────────────────────────
-
-export interface WorkspaceCheckpoint {
-  readonly id: string;
-  readonly kind: string;
-  readonly label: string;
-  readonly createdAt: number;
-  readonly parentId: string | null;
-  readonly turnId?: string;
-  readonly agentId?: string;
-  readonly retentionClass: string;
-  readonly commit: string;
-  readonly sizeBytes: number;
-}
-
-export interface CheckpointsListInput {
-  readonly kind?: string;
-  readonly since?: number;
-  readonly limit?: number;
-}
-
-export interface CheckpointsListResult {
-  readonly checkpoints: WorkspaceCheckpoint[];
-}
-
-export interface CheckpointsCreateInput {
-  readonly kind: 'turn' | 'agent-run' | 'manual';
-  readonly label?: string;
-  readonly retentionClass?: string;
-  readonly turnId?: string;
-  readonly agentId?: string;
-  readonly paths?: readonly string[];
-}
-
-export interface CheckpointsCreateResult {
-  readonly checkpoint: WorkspaceCheckpoint | null;
-  readonly noop: boolean;
-}
-
-export interface CheckpointsDiffInput {
-  readonly a: string;
-  readonly b?: string;
-}
-
-export interface CheckpointsDiffResult {
-  readonly diff: {
-    readonly from: string;
-    readonly to: string;
-    readonly files: readonly string[];
-    readonly unifiedDiff: string;
-    readonly stat: string;
-  };
-}
-
-export interface CheckpointsRestoreInput {
-  readonly id: string;
-  readonly paths?: readonly string[];
-  readonly safetyCheckpoint?: boolean;
-}
-
-export interface CheckpointsRestoreResult {
-  readonly result: {
-    readonly checkpointId: string;
-    readonly safetyCheckpointId: string | null;
-    readonly restoredFiles: readonly string[];
-    readonly removedFiles: readonly string[];
-  };
-}
-
 // ─── Approvals (approvals.*, W3-S3 per-hunk selection) ─────────────────────
+//
+// UNLIKE fleet.*/checkpoints.* (contract-bridge-types.ts), approvals.* HAS real,
+// generated OperatorMethodInputMap/OutputMap coverage today (foundation-client-
+// types.ts) — every interface below was cross-checked field-by-field against
+// OperatorMethodOutputMap['approvals.list'/'approvals.approve'] and is a safe
+// SUPERSET or an intentional, permanent (not pin-bump-pending) divergence from it:
+//   - `status`/`request.category`/etc. are kept as open `string`s here rather than
+//     the contract's closed literal unions — the same defensive-parsing stance
+//     lib/fleet.ts documents for kind/state ("a daemon newer than this client may
+//     introduce a value we have never seen. Render it verbatim, never drop it").
+//   - `ApprovalRecord.audit` stays OPTIONAL here (the contract requires it) — this
+//     client never runtime-validates the wire response (see `invokeOperator`), so
+//     a mixed-version/pre-audit record may genuinely omit it; approvals.test.ts
+//     pins a fixture that omits `audit` on purpose.
+//   - `ApprovalDecision.modifiedArgs` and `ApprovalApproveInput.selectedHunks` are
+//     real W3-S3 per-hunk-apply wire fields the generated 0.38 maps do not cover.
+// Because of these deliberate divergences, invokeOperator's approvals.* calls
+// below pass explicit TOutput/TInput overrides rather than the contract defaults.
 
 /**
  * One edit hunk of an `edit`-tool approval's `request.args.edits` array.
@@ -470,6 +443,15 @@ export interface ApprovalApproveInput {
 }
 
 // ─── Tasks (tasks.*) ─────────────────────────────────────────────────────────
+//
+// tasks.create/cancel/retry have no known divergence from the generated contract
+// (ApprovalsTasksView.test.tsx exercises them without relying on any field the
+// contract omits), so their input/output alias OperatorMethodInput/Output directly.
+// tasks.list's item shape needs one addition the generated map does not carry —
+// `cancellable` (ApprovalsTasksView.tsx reads it to gate the Cancel button; the
+// contract's tasks.list item omits it even though tasks.cancel/get's richer task
+// shape does not carry it either) — so RuntimeTaskSummary/TaskSnapshotResult stay
+// local, with the divergence named here rather than silently re-added.
 
 export interface RuntimeTaskSummary {
   readonly id: string;
@@ -477,6 +459,9 @@ export interface RuntimeTaskSummary {
   readonly title: string;
   readonly status: string;
   readonly owner: string;
+  /** Not in OperatorMethodOutputMap['tasks.list']'s item shape — a known, tested
+   * client-side addition (ApprovalsTasksView.test.tsx: "cancel is offered only for
+   * a cancellable task"). */
   readonly cancellable?: boolean;
   readonly parentTaskId?: string;
   readonly queuedAt: number;
@@ -498,27 +483,9 @@ export interface TaskSnapshotResult {
   readonly tasks: readonly RuntimeTaskSummary[];
 }
 
-export interface TaskActionResult {
-  readonly retried?: boolean;
-  readonly task: { readonly id: string; readonly status: string; readonly title?: string };
-}
-
-export interface TaskCreateInput {
-  readonly task: string;
-  readonly model?: string;
-  readonly tools?: readonly string[];
-  readonly provider?: string;
-  readonly title?: string;
-}
-
-export interface TaskCreateResult {
-  readonly acknowledged: boolean;
-  readonly mode?: string;
-  readonly sessionId?: string | null;
-  readonly agentId?: string | null;
-  readonly status?: string;
-  readonly task?: string;
-}
+export type TaskActionResult = OperatorMethodOutput<'tasks.cancel'>;
+export type TaskCreateInput = OperatorMethodInput<'tasks.create'>;
+export type TaskCreateResult = OperatorMethodOutput<'tasks.create'>;
 
 /**
  * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
@@ -563,57 +530,90 @@ export const sdk = {
       get: (providerId: string) => scopedSdk.operator.invoke('providers.get', { providerId }),
       usage: (providerId: string) => scopedSdk.operator.invoke('providers.usage.get', { providerId }),
     },
+    // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
+    // comment) — the untyped overload is the honest, permanent shape here.
     models: {
       list: () => invokeOperator('models.list'),
       current: () => invokeOperator('models.current'),
       select: (registryKey: string) => invokeOperator('models.select', { registryKey }),
     },
     tasks: {
-      list: () => invokeOperator('tasks.list') as Promise<TaskSnapshotResult>,
-      create: (input: TaskCreateInput) => invokeOperator('tasks.create', input) as Promise<TaskCreateResult>,
-      cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }) as Promise<TaskActionResult>,
-      retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }) as Promise<TaskActionResult>,
+      // Local TaskSnapshotResult diverges from OperatorMethodOutput<'tasks.list'> only
+      // by adding `cancellable` (see the Tasks section comment) — explicit override.
+      list: () => invokeOperator<'tasks.list', OperatorMethodInput<'tasks.list'>, TaskSnapshotResult>('tasks.list'),
+      create: (input: TaskCreateInput) => invokeOperator('tasks.create', input),
+      cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }),
+      retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }),
     },
     approvals: {
-      list: () => invokeOperator('approvals.list') as Promise<ApprovalSnapshotResult>,
+      // Local ApprovalSnapshotResult/ApprovalRecord diverge from the generated contract
+      // (open strings, optional audit — see the Approvals section comment) — explicit
+      // overrides throughout this group.
+      list: () => invokeOperator<'approvals.list', OperatorMethodInput<'approvals.list'>, ApprovalSnapshotResult>('approvals.list'),
       // selectedHunks (W3-S3): an index array into the pending approval's own
       // edit list. Omit it to approve the whole request. The daemon computes
       // modifiedArgs server-side — this call never carries a computed diff.
+      // selectedHunks is not in OperatorMethodInputMap['approvals.approve'] yet — a
+      // real, tested wire field the generated 0.38 map does not cover.
       approve: (approvalId: string, input?: ApprovalApproveInput) =>
-        invokeOperator('approvals.approve', { approvalId, ...input }) as Promise<ApprovalActionResult>,
-      cancel: (approvalId: string) => invokeOperator('approvals.cancel', { approvalId }) as Promise<ApprovalActionResult>,
-      claim: (approvalId: string) => invokeOperator('approvals.claim', { approvalId }) as Promise<ApprovalActionResult>,
+        invokeOperator<'approvals.approve', { approvalId: string } & ApprovalApproveInput, ApprovalActionResult>(
+          'approvals.approve',
+          { approvalId, ...input },
+        ),
+      cancel: (approvalId: string) =>
+        invokeOperator<'approvals.cancel', OperatorMethodInput<'approvals.cancel'>, ApprovalActionResult>('approvals.cancel', { approvalId }),
+      claim: (approvalId: string) =>
+        invokeOperator<'approvals.claim', OperatorMethodInput<'approvals.claim'>, ApprovalActionResult>('approvals.claim', { approvalId }),
       deny: (approvalId: string, note?: string) =>
-        invokeOperator('approvals.deny', { approvalId, ...(note ? { note } : {}) }) as Promise<ApprovalActionResult>,
+        invokeOperator<'approvals.deny', OperatorMethodInput<'approvals.deny'>, ApprovalActionResult>(
+          'approvals.deny',
+          { approvalId, ...(note ? { note } : {}) },
+        ),
     },
-    // W3-S2 verbs — generic-invoke-only (see invokeGatewayMethod above).
+    // fleet.*/checkpoints.*/sessions.search — generic-invoke-only (see
+    // invokeGatewayMethod above); I/O shapes are the contract-bridge-types.ts bridge
+    // (real ids, generic generated I/O today — see that module's header for the swap).
     fleet: {
-      snapshot: () => invokeGatewayMethod<FleetSnapshotResult>('fleet.snapshot', {}),
-      list: (input?: FleetListInput) => invokeGatewayMethod<FleetListResult>('fleet.list', input ?? {}),
+      snapshot: () => invokeGatewayMethod<'fleet.snapshot', FleetSnapshotResult>('fleet.snapshot', {}),
+      list: (input?: FleetListInput) => invokeGatewayMethod<'fleet.list', FleetListResult>('fleet.list', input ?? {}),
     },
     checkpoints: {
-      list: (input?: CheckpointsListInput) => invokeGatewayMethod<CheckpointsListResult>('checkpoints.list', input ?? {}),
-      create: (input: CheckpointsCreateInput) => invokeGatewayMethod<CheckpointsCreateResult>('checkpoints.create', input),
-      diff: (input: CheckpointsDiffInput) => invokeGatewayMethod<CheckpointsDiffResult>('checkpoints.diff', input),
-      restore: (input: CheckpointsRestoreInput) => invokeGatewayMethod<CheckpointsRestoreResult>('checkpoints.restore', input),
+      list: (input?: CheckpointsListInput) => invokeGatewayMethod<'checkpoints.list', CheckpointsListResult>('checkpoints.list', input ?? {}),
+      create: (input: CheckpointsCreateInput) => invokeGatewayMethod<'checkpoints.create', CheckpointsCreateResult>('checkpoints.create', input),
+      diff: (input: CheckpointsDiffInput) => invokeGatewayMethod<'checkpoints.diff', CheckpointsDiffResult>('checkpoints.diff', input),
+      restore: (input: CheckpointsRestoreInput) =>
+        invokeGatewayMethod<'checkpoints.restore', CheckpointsRestoreResult>('checkpoints.restore', input),
     },
     sessions: {
-      list: () => scopedSdk.operator.invoke('sessions.list', {}),
-      // get/steer/followUp are native in the 0.38 browser SDK (SHARED_BROWSER_ROUTES);
-      // they resolve WITHOUT an EXTRA_METHOD_ROUTES row via scopedSdk.operator.invoke.
-      get: (sessionId: string) => scopedSdk.operator.invoke('sessions.get', { sessionId }),
-      steer: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.steer', { sessionId, ...asRecord(input) } as never),
-      followUp: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.followUp', { sessionId, ...asRecord(input) } as never),
-      create: (input: unknown) => scopedSdk.operator.invoke('sessions.create', input as never),
+      list: () => invokeOperator('sessions.list', {}),
+      // get/steer/followUp/create/messages.*/inputs.* are native in the 0.38 browser SDK
+      // (SHARED_BROWSER_ROUTES) — they resolve WITHOUT an EXTRA_METHOD_ROUTES row,
+      // through invokeOperator's scopedSdk.operator.invoke fall-through. Routing them
+      // through the same typed invokeOperator used everywhere else (rather than calling
+      // scopedSdk.operator.invoke directly) means their input/output flow through the
+      // REAL generated OperatorMethodInput/Output types with no `as never` cast at any
+      // of these call sites — TypeScript rejects a wrong-shaped `input` here at compile
+      // time (see goodvibes.test.ts's "wrong-typed steer input is a compile error" case).
+      get: (sessionId: string) => invokeOperator('sessions.get', { sessionId }),
+      steer: (sessionId: string, input: OperatorMethodInput<'sessions.steer'>) =>
+        invokeOperator('sessions.steer', { sessionId, ...input }),
+      followUp: (sessionId: string, input: OperatorMethodInput<'sessions.followUp'>) =>
+        invokeOperator('sessions.followUp', { sessionId, ...input }),
+      create: (input: OperatorMethodInput<'sessions.create'>) => invokeOperator('sessions.create', input),
       close: (sessionId: string) => invokeOperator('sessions.close', { sessionId }),
       reopen: (sessionId: string) => invokeOperator('sessions.reopen', { sessionId }),
+      // sessions.search (W5-TC scaffold for W5-W6): in the OperatorMethodId union but
+      // routeless (no browser/EXTRA_METHOD_ROUTES entry) — generic-invoke-only, typed
+      // via the contract-bridge-types.ts bridge until W5-S2 lands real I/O shapes.
+      search: (input?: SessionsSearchInput) => invokeGatewayMethod<'sessions.search', SessionsSearchResult>('sessions.search', input ?? {}),
       messages: {
-        create: (sessionId: string, input: unknown) => scopedSdk.operator.invoke('sessions.messages.create', { sessionId, ...asRecord(input) } as never),
-        list: (sessionId: string) => scopedSdk.operator.invoke('sessions.messages.list', { sessionId }),
+        create: (sessionId: string, input: OperatorMethodInput<'sessions.messages.create'>) =>
+          invokeOperator('sessions.messages.create', { sessionId, ...input }),
+        list: (sessionId: string) => invokeOperator('sessions.messages.list', { sessionId }),
       },
       inputs: {
-        list: (sessionId: string) => scopedSdk.operator.invoke('sessions.inputs.list', { sessionId }),
-        cancel: (sessionId: string, inputId: string) => scopedSdk.operator.invoke('sessions.inputs.cancel', { sessionId, inputId }),
+        list: (sessionId: string) => invokeOperator('sessions.inputs.list', { sessionId }),
+        cancel: (sessionId: string, inputId: string) => invokeOperator('sessions.inputs.cancel', { sessionId, inputId }),
       },
     },
   },
@@ -654,8 +654,7 @@ export async function invokeMethod<TMethodId extends OperatorTypedMethodId>(
   methodId: TMethodId,
   input?: OperatorMethodInput<TMethodId>,
 ): Promise<OperatorMethodOutput<TMethodId>> {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- narrowing generic return type that TS cannot infer
-  return sdk.operator.invoke(methodId, input as never) as Promise<OperatorMethodOutput<TMethodId>>;
+  return sdk.operator.invoke(methodId, input);
 }
 
 export async function getCurrentAuth(): Promise<unknown> {

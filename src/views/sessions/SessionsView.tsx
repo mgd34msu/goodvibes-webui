@@ -16,7 +16,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -36,7 +36,7 @@ import {
 } from '../../lib/sessions-union';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { firstString, formatRelative } from '../../lib/object';
-import { formatError } from '../../lib/errors';
+import { formatError, isSessionNotFoundError } from '../../lib/errors';
 import { SteerComposer } from './SteerComposer';
 import '../../styles/components/sessions.css';
 
@@ -85,6 +85,21 @@ export function SessionsView() {
   const list = useQuery({
     queryKey: queryKeys.sessions,
     queryFn: () => sdk.operator.sessions.list(),
+  });
+
+  // DELETE-MEANS-DELETE (W5-W2): an honest, read-only capability probe, not a guess.
+  // sessions.delete is a real verb in the SDK's own source at the time of writing, but
+  // it is still in flight there (uncommitted) and is NOT in the webui's installed
+  // contracts package — an un-upgraded daemon genuinely does not have this route.
+  // control.methods.get 404s with "Unknown gateway method" for an unregistered id
+  // (verified live), which isMethodUnavailableError recognizes. Only once this
+  // succeeds does SessionDetail offer "Delete" at all; until then (or if it fails) it
+  // offers only "Close" — never a Delete button that would fail every time it's clicked.
+  const deleteCapability = useQuery({
+    queryKey: ['capability', 'sessions.delete'],
+    queryFn: () => sdk.operator.control.methodInfo('sessions.delete'),
+    staleTime: Infinity,
+    retry: false,
   });
 
   const records = useMemo(() => sortUnionSessions(unionSessionsFromListResponse(list.data)), [list.data]);
@@ -207,7 +222,13 @@ export function SessionsView() {
       </div>
 
       <div className="sessions-detail-pane">
-        {selected ? <SessionDetail record={selected} /> : (
+        {selected ? (
+          <SessionDetail
+            record={selected}
+            deleteAvailable={deleteCapability.isSuccess}
+            deleteCapabilityPending={deleteCapability.isPending}
+          />
+        ) : (
           <div className="sessions-detail-empty">Select a session to view and steer it.</div>
         )}
       </div>
@@ -215,7 +236,16 @@ export function SessionsView() {
   );
 }
 
-function SessionDetail({ record }: { record: UnionSessionRecord }) {
+function SessionDetail({
+  record,
+  deleteAvailable,
+  deleteCapabilityPending,
+}: {
+  record: UnionSessionRecord;
+  deleteAvailable: boolean;
+  deleteCapabilityPending: boolean;
+}) {
+  const queryClient = useQueryClient();
   const messages = useQuery({
     queryKey: queryKeys.sessionMessages(record.id),
     queryFn: () => sdk.operator.sessions.messages.list(record.id),
@@ -225,6 +255,54 @@ function SessionDetail({ record }: { record: UnionSessionRecord }) {
   const items = useMemo(() => companionMessagesFromListResponse(messages.data), [messages.data]);
   const retention = retentionLabel(record);
   const closed = isClosedStatus(record.status);
+
+  const invalidateSessions = () => queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+
+  // Close/Reopen: DISTINCT, reversible, history-preserving actions — sessions.close /
+  // sessions.reopen have been in the facade since before this brief and are idempotent
+  // on the daemon (closing an already-closed session, or reopening an already-open
+  // one, is a no-op success), so no extra guarding is needed here.
+  const closeSession = useMutation({
+    mutationFn: (sessionId: string) => sdk.operator.sessions.close(sessionId),
+    onSuccess: invalidateSessions,
+  });
+  const reopenSession = useMutation({
+    mutationFn: (sessionId: string) => sdk.operator.sessions.reopen(sessionId),
+    onSuccess: invalidateSessions,
+  });
+
+  // Delete: a real hard-delete (sessions.delete), PERMANENT and distinct from close.
+  // The verb requires the session to already be closed (409 SESSION_ACTIVE otherwise),
+  // so this closes first (idempotent, per above) and never trusts the delete call's
+  // 200 at face value — it reconciles against a fresh sessions.list() (which already
+  // includes closed sessions with no separate includeClosed param — see the view's own
+  // header comment on GET /api/sessions) and only succeeds once the record is
+  // genuinely absent from it.
+  const deleteSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      try {
+        await sdk.operator.sessions.close(sessionId);
+      } catch (error) {
+        if (!isSessionNotFoundError(error)) throw error;
+      }
+      try {
+        await sdk.operator.sessions.delete(sessionId);
+      } catch (error) {
+        if (!isSessionNotFoundError(error)) throw error;
+      }
+      const reconciled = await sdk.operator.sessions.list();
+      const stillPresent = unionSessionsFromListResponse(reconciled).some((r) => r.id === sessionId);
+      if (stillPresent) {
+        throw Object.assign(
+          new Error('Delete did not complete — the record still exists'),
+          { code: 'DELETE_INCOMPLETE' },
+        );
+      }
+    },
+    onSuccess: invalidateSessions,
+  });
+
+  const actionError = closeSession.error ?? reopenSession.error ?? deleteSession.error;
 
   return (
     <div className="session-detail">
@@ -248,6 +326,58 @@ function SessionDetail({ record }: { record: UnionSessionRecord }) {
           {record.activeAgentId && <small>· agent {record.activeAgentId}</small>}
           {record.pendingInputCount > 0 && <small>· {record.pendingInputCount} pending</small>}
         </div>
+        <div className="session-detail__actions">
+          {!closed && (
+            <button
+              type="button"
+              className="session-detail__action"
+              disabled={closeSession.isPending}
+              title="Close — keeps history, reopenable"
+              onClick={() => {
+                if (!window.confirm(`Close "${record.title}"? It stays visible in history and can be reopened.`)) return;
+                closeSession.mutate(record.id);
+              }}
+            >
+              {closeSession.isPending ? 'Closing…' : 'Close'}
+            </button>
+          )}
+          {closed && (
+            <button
+              type="button"
+              className="session-detail__action"
+              disabled={reopenSession.isPending}
+              title="Reopen this session"
+              onClick={() => reopenSession.mutate(record.id)}
+            >
+              {reopenSession.isPending ? 'Reopening…' : 'Reopen'}
+            </button>
+          )}
+          {deleteCapabilityPending && <small className="session-detail__action-note">Checking delete availability…</small>}
+          {!deleteCapabilityPending && deleteAvailable && (
+            <button
+              type="button"
+              className="session-detail__action danger"
+              disabled={deleteSession.isPending}
+              title={`Delete "${record.title}" permanently — this removes the record, it cannot be reopened`}
+              onClick={() => {
+                if (!window.confirm(
+                  `Delete "${record.title}" permanently?\n\nThis removes the session record — it cannot be reopened.`,
+                )) return;
+                deleteSession.mutate(record.id);
+              }}
+            >
+              {deleteSession.isPending ? 'Deleting…' : 'Delete'}
+            </button>
+          )}
+          {!deleteCapabilityPending && !deleteAvailable && (
+            <small className="session-detail__action-note">
+              Permanent delete not available for {kindLabel(record.kind)} sessions yet — close is the only removal available.
+            </small>
+          )}
+        </div>
+        {actionError && (
+          <div className="banner warning" role="alert">{formatError(actionError)}</div>
+        )}
         {record.lastError && (
           <div className="banner warning" role="alert">Last error: {record.lastError}</div>
         )}

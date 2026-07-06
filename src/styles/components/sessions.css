@@ -146,6 +146,44 @@
   color: var(--text-tertiary);
 }
 
+/* Close/Reopen/Delete (W5-W2, delete-means-delete) — distinct actions, never one
+   button conflating them. Touch-target sizing/placement in the sidebar's own delete
+   button is W5-M's; this is the session-detail pane, not shared with it. */
+.session-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.session-detail__action {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  font-size: var(--text-xs, 12px);
+  cursor: pointer;
+}
+
+.session-detail__action:hover:not(:disabled) {
+  background: var(--surface-hover, var(--surface-sunken));
+}
+
+.session-detail__action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.session-detail__action.danger {
+  border-color: var(--status-danger, var(--red));
+  color: var(--status-danger, var(--red));
+}
+
+.session-detail__action-note {
+  color: var(--text-tertiary);
+}
+
 .session-detail__transcript {
   flex: 1;
   min-height: 0;

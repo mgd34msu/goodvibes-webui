@@ -247,3 +247,37 @@
 :root[data-density="compact"] .providers-current-model {
   padding: var(--space-2) 0;
 }
+
+/* ============================================================
+   Credential status panel — honest degraded/refused states.
+   The available-credentials list reuses .providers-model-grid /
+   .providers-model-row above (identical row shape); these two rules cover
+   the two non-list outcomes (see CredentialStatusPanel.tsx).
+   ============================================================ */
+
+.credential-status__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.credential-status__degraded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.credential-status__degraded strong {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.credential-status__degraded span {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}

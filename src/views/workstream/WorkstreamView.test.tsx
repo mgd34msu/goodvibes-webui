@@ -164,6 +164,38 @@ describe('WorkstreamView rendering', () => {
     expect(el.textContent).toContain('report no usage/cost');
     unmount();
   });
+
+  test('a killable work-item (no wire verb for its kind) gets an honest unbackedCapabilityNote, never a fabricated control (WEBUI-FLEET-DEPTH)', () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.workstream-row')].find((r) => r.textContent?.includes('Ship the fleet view'));
+    click(row);
+    expect(el.textContent).toContain("no control verb for 'work-item' processes yet");
+    unmount();
+  });
+
+  test('a workstream node (only killable=true) gets the same honest note', () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.workstream-row')].find((r) => r.textContent?.includes('Stage 3 rollout'));
+    click(row);
+    expect(el.textContent).toContain("no control verb for 'workstream' processes yet");
+    unmount();
+  });
+
+  test('a phase node (every capability false) gets no unbacked note — nothing to be honest about', () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.workstream-row')].find((r) => r.textContent?.includes('engineer (implementer)'));
+    click(row);
+    expect(el.textContent).not.toContain('no control verb for');
+    unmount();
+  });
+
+  test('selecting a node shows a Back-to-workstreams affordance in the DOM (phone master/detail)', () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.workstream-row')].find((r) => r.textContent?.includes('Stage 3 rollout'));
+    click(row);
+    expect(el.querySelector('.workstream-detail__back')).toBeTruthy();
+    unmount();
+  });
 });
 
 describe('WorkstreamView honest states', () => {

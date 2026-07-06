@@ -16,6 +16,14 @@
  *
  * No wire event exists for fleet.* yet (same gap FleetView documents) —
  * poll + manual refresh, not realtime invalidation.
+ *
+ * WEBUI-FLEET-DEPTH: the detail pane also surfaces unbackedCapabilityNote (the same
+ * honest "this process reports itself killable/interruptible but the browser has no
+ * control verb for it yet" accounting FleetView shows) — a work-item's active agent
+ * genuinely IS interruptible/killable in the daemon's own registry, but its fleet node
+ * carries only `sessionRef.agentId` (no `sessionId` — see adaptWorkItem,
+ * packages/sdk/.../fleet/adapters/orchestration.ts), so neither steer nor detach is
+ * offered here: there is no sessionId to address either verb with.
  */
 
 import { useMemo, useState } from 'react';
@@ -33,6 +41,7 @@ import {
   isStalledState,
   isTerminalState,
   stateLabel,
+  unbackedCapabilityNote,
 } from '../../lib/fleet';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
@@ -78,7 +87,7 @@ export function WorkstreamView() {
   const stalledCount = useMemo(() => nodes.filter((n) => isStalledState(n.state)).length, [nodes]);
 
   return (
-    <div className="workstream-view">
+    <div className={selected ? 'workstream-view has-selection' : 'workstream-view'}>
       <div className="workstream-list-pane">
         <div className="workstream-toolbar">
           <span className="workstream-toolbar__summary">
@@ -137,7 +146,7 @@ export function WorkstreamView() {
       </div>
 
       <div className="workstream-detail-pane">
-        {selected ? <WorkstreamDetail node={selected} /> : (
+        {selected ? <WorkstreamDetail node={selected} onBack={() => setSelectedId('')} /> : (
           <div className="workstream-detail-empty">Select a workstream, phase, or work item to view its detail.</div>
         )}
       </div>
@@ -145,9 +154,13 @@ export function WorkstreamView() {
   );
 }
 
-function WorkstreamDetail({ node }: { node: FleetProcessNode }) {
+function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: () => void }) {
+  const unbackedNote = useMemo(() => unbackedCapabilityNote(node), [node]);
   return (
     <div className="workstream-detail">
+      <button type="button" className="workstream-detail__back" onClick={onBack}>
+        Back to workstreams
+      </button>
       <header className="workstream-detail__header">
         <h2>{node.label || node.id}</h2>
         <div className="workstream-detail__badges">
@@ -161,6 +174,10 @@ function WorkstreamDetail({ node }: { node: FleetProcessNode }) {
           {typeof node.startedAt === 'number' && <small>· started {formatRelative(node.startedAt)}</small>}
         </div>
       </header>
+
+      {unbackedNote && (
+        <p className="workstream-detail__unbacked-note" role="note">{unbackedNote}</p>
+      )}
 
       {node.currentActivity && (
         <div className="workstream-detail__activity">

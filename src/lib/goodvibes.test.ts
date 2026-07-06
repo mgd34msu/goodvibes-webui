@@ -31,6 +31,8 @@ import {
   type SessionsSearchInput,
   type SessionsSearchResult,
   type SessionsSearchSessionSummary,
+  type SessionsDetachInput,
+  type SessionsDetachResult,
 } from './contract-bridge-types';
 
 describe('goodvibes constants', () => {
@@ -326,16 +328,20 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys are unchanged', () => {
+  test('sdk.operator keys are unchanged plus watchers (WEBUI-FLEET-DEPTH)', () => {
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'models', 'providers', 'sessions', 'tasks'].sort(),
+      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'models', 'providers', 'sessions', 'tasks', 'watchers'].sort(),
     );
   });
 
-  test('sdk.operator.sessions keys gain exactly two methods: search and delete (delete-means-delete)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), and detach (WEBUI-FLEET-DEPTH)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['close', 'create', 'delete', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
+      ['close', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
     );
+  });
+
+  test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH — fleet is a reader, not a watcher-authoring surface)', () => {
+    expect(Object.keys(sdk.operator.watchers).sort()).toEqual(['stop']);
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
@@ -502,6 +508,15 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
       result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.ts'], removedFiles: [] },
     } satisfies CheckpointsRestoreResult,
     'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
+    'sessions.detach': {
+      session: {
+        id: 's-1', kind: 'companion-chat', title: 'Deploy chat', status: 'active',
+        createdAt: 1, updatedAt: 2, lastActivityAt: 2, messageCount: 4, pendingInputCount: 0,
+        routeIds: ['r-1'], surfaceKinds: ['webui'],
+        participants: [{ surfaceKind: 'tui', surfaceId: 't-1', lastSeenAt: 2 }],
+        metadata: {},
+      },
+    } satisfies SessionsDetachResult,
   };
 
   // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
@@ -519,6 +534,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
       query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
       status: 'active', includeClosed: true, limit: 20, cursor: 'c1',
     } satisfies SessionsSearchInput,
+    'sessions.detach': { sessionId: 's-1', surfaceId: 'goodvibes-webui' } satisfies SessionsDetachInput,
   };
 
   test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {

@@ -16,8 +16,10 @@
 
 import type { Page, Route } from '@playwright/test';
 import {
+  FLEET_SNAPSHOT,
   knowledgeMapResponse,
   messagesResponse,
+  PENDING_APPROVAL,
   providersResponse,
   sessionRecord,
   SEED_SESSIONS,
@@ -47,6 +49,12 @@ export interface MockDaemon {
   steerRequests: { sessionId: string; body: unknown }[];
   /** Every follow-up POST captured. */
   followUpRequests: { sessionId: string; body: unknown }[];
+  /** Every sessions.detach POST captured: { sessionId, surfaceId }. */
+  detachRequests: { sessionId: string; surfaceId: string }[];
+  /** Every watchers.stop POST captured, by watcherId. */
+  watcherStopRequests: string[];
+  /** Every approvals.{approve,deny,claim,cancel} POST captured, in order. */
+  approvalActions: { approvalId: string; action: 'approve' | 'deny' | 'claim' | 'cancel'; body: unknown }[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -123,7 +131,17 @@ export function dispatchOutcome(session: SeedSession | undefined, intent: 'steer
 
 export async function installMockDaemon(page: Page, options: MockDaemonOptions = {}): Promise<MockDaemon> {
   const { signedIn = true, dropStreams = false, deleteAvailable = true, credentials = 'available' } = options;
-  const daemon: MockDaemon = { steerRequests: [], followUpRequests: [] };
+  const daemon: MockDaemon = {
+    steerRequests: [],
+    followUpRequests: [],
+    detachRequests: [],
+    watcherStopRequests: [],
+    approvalActions: [],
+  };
+  // Mutable so approve/deny/claim/cancel genuinely change what a subsequent
+  // approvals.list() sees (WEBUI-FLEET-DEPTH) — a fresh copy per installMockDaemon
+  // call so tests never leak state into each other.
+  const approvals = [{ ...PENDING_APPROVAL }];
 
   if (signedIn) {
     await page.addInitScript(
@@ -219,6 +237,17 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         : '';
       return json(route, dispatchOutcome(session, 'steer', dispatchedBody, `in-${daemon.steerRequests.length}`));
     }
+    // sessions.detach (WEBUI-FLEET-DEPTH) — remove one participant surfaceId from a
+    // session WITHOUT closing/killing it. Idempotent success regardless of whether the
+    // surface was actually attached, matching the real verb's own idempotency contract.
+    const detachMatch = path.match(/^\/api\/sessions\/([^/]+)\/detach$/);
+    if (method === 'POST' && detachMatch) {
+      const sessionId = decodeURIComponent(detachMatch[1]);
+      const requestBody = (request.postDataJSON?.() ?? {}) as { surfaceId?: string };
+      daemon.detachRequests.push({ sessionId, surfaceId: requestBody.surfaceId ?? '' });
+      const session = SEED_SESSIONS.find((s) => s.id === sessionId);
+      return json(route, { session: session ? sessionRecord(session) : { id: sessionId } });
+    }
     const followUpMatch = path.match(/^\/api\/sessions\/([^/]+)\/follow-up$/);
     if (method === 'POST' && followUpMatch) {
       const sessionId = decodeURIComponent(followUpMatch[1]);
@@ -268,6 +297,39 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, knowledgeMapResponse());
     }
 
+    // ── Watchers (WEBUI-FLEET-DEPTH — the one fleet-node kind with a real stop verb) ──
+    const watcherStopMatch = path.match(/^\/api\/watchers\/([^/]+)\/stop$/);
+    if (method === 'POST' && watcherStopMatch) {
+      const watcherId = decodeURIComponent(watcherStopMatch[1]);
+      daemon.watcherStopRequests.push(watcherId);
+      return json(route, { id: watcherId, kind: 'watcher', label: 'Docs watcher', state: 'killed' });
+    }
+
+    // ── Approvals (WEBUI-FLEET-DEPTH — approve/deny/claim/cancel, "approve from the
+    //    tree" AND the standalone Approvals view share this same mutable list). ──
+    if (method === 'GET' && path === '/api/approvals') {
+      const pending = approvals.filter((a) => a.status === 'pending').length;
+      return json(route, {
+        awaitingDecision: pending > 0, mode: 'manual', approvalCount: 0, denialCount: 0,
+        cachedChecks: 0, totalChecks: 0, approvals,
+      });
+    }
+    const approvalActionMatch = path.match(/^\/api\/approvals\/([^/]+)\/(approve|deny|claim|cancel)$/);
+    if (method === 'POST' && approvalActionMatch) {
+      const approvalId = decodeURIComponent(approvalActionMatch[1]);
+      const action = approvalActionMatch[2] as 'approve' | 'deny' | 'claim' | 'cancel';
+      const requestBody = request.postDataJSON?.() ?? {};
+      daemon.approvalActions.push({ approvalId, action, body: requestBody });
+      const record = approvals.find((a) => a.id === approvalId);
+      if (record) {
+        if (action === 'approve') Object.assign(record, { status: 'approved', resolvedAt: Date.now(), resolvedBy: 'operator' });
+        else if (action === 'deny') Object.assign(record, { status: 'denied', resolvedAt: Date.now(), resolvedBy: 'operator' });
+        else if (action === 'cancel') Object.assign(record, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: 'operator' });
+        else if (action === 'claim') Object.assign(record, { status: 'claimed', claimedBy: 'operator', claimedAt: Date.now() });
+      }
+      return json(route, { approval: record ?? {} });
+    }
+
     // ── Generic control-plane invoke (POST .../methods/{id}/invoke) ─────────
     const invokeMatch = path.match(/^\/api\/control-plane\/methods\/([^/]+)\/invoke$/);
     if (method === 'POST' && invokeMatch) {
@@ -275,6 +337,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'control.status') return json(route, { ok: true, status: 'running' });
       if (methodId.includes('knowledge')) return json(route, knowledgeMapResponse());
       if (methodId === 'sessions.search') return json(route, unionListResponse());
+      if (methodId === 'fleet.snapshot') return json(route, FLEET_SNAPSHOT);
+      if (methodId === 'fleet.list') return json(route, { items: FLEET_SNAPSHOT.nodes, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
       return json(route, {});
     }
 

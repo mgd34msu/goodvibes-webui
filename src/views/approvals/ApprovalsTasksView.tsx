@@ -14,6 +14,11 @@
  * resolved (approved/denied/cancelled/expired) approval renders as history,
  * never with action buttons.
  *
+ * Claim locks a pending approval (still not actionable-by-self afterward — see
+ * ApprovalCard.tsx); Cancel withdraws a pending approval without deciding it.
+ * ApprovalClassMatrix (above the list) breaks the loaded set down by category ×
+ * risk level (WEBUI-FLEET-DEPTH).
+ *
  * Tasks: list/create/cancel/retry over the existing tasks.* verbs
  * (method-catalog-control-core.ts). Statuses are rendered verbatim — no
  * invented "in progress" percentage, no synthesized ETA. Cancel is offered
@@ -29,8 +34,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Ban,
-  Check,
   ClipboardCheck,
   ListTodo,
   PlusCircle,
@@ -39,26 +42,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { ApprovalRecord, RuntimeTaskSummary } from '../../lib/goodvibes';
+import type { RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import {
-  auditEntryLabel,
-  auditTrail,
-  hunkSummary,
-  isActionableApproval,
-  isTerminalApprovalStatus,
-  partialApprovalLabel,
-  readApprovalEditHunks,
-  riskTone,
-  sortApprovalsNewestFirst,
-  statusLabel,
-  statusTone,
-} from '../../lib/approvals';
+import { readApprovalEditHunks, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
+import { ApprovalCard } from './ApprovalCard';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import { formatError, isSessionClosedError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/approvals.css';
 
@@ -144,6 +135,32 @@ function ApprovalsSection() {
     },
   });
 
+  // Claim/cancel (WEBUI-FLEET-DEPTH — approvals depth): both operate on 'pending'
+  // approvals only, same as approve/deny. Claim does NOT unlock further action here —
+  // see ApprovalCard's header comment on why "claimed by me" can't be told apart from
+  // "claimed by another surface sharing the same token".
+  const claim = useMutation({
+    mutationFn: (id: string) => sdk.operator.approvals.claim(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      toast({ title: 'Claimed', tone: 'info' });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Claim failed', description: friendlyError(error), tone: 'danger' });
+    },
+  });
+
+  const cancel = useMutation({
+    mutationFn: (id: string) => sdk.operator.approvals.cancel(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      toast({ title: 'Cancelled', tone: 'info' });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Cancel failed', description: friendlyError(error), tone: 'danger' });
+    },
+  });
+
   return (
     <section className="approvals-section">
       <div className="approvals-toolbar">
@@ -155,6 +172,8 @@ function ApprovalsSection() {
           <RefreshCw size={15} className={approvals.isFetching ? 'spin' : undefined} />
         </button>
       </div>
+
+      {approvals.isSuccess && rows.length > 0 && <ApprovalClassMatrix rows={rows} />}
 
       {approvals.isPending && <SkeletonBlock variant="text" lines={4} />}
 
@@ -184,8 +203,12 @@ function ApprovalsSection() {
                 totalHunks: readApprovalEditHunks(record)?.length,
               })}
               onDeny={() => deny.mutate(record.id)}
+              onClaim={() => claim.mutate(record.id)}
+              onCancel={() => cancel.mutate(record.id)}
               approving={approve.isPending && approve.variables?.id === record.id}
               denying={deny.isPending && deny.variables === record.id}
+              claiming={claim.isPending && claim.variables === record.id}
+              cancelling={cancel.isPending && cancel.variables === record.id}
             />
           ))}
         </ul>
@@ -194,136 +217,50 @@ function ApprovalsSection() {
   );
 }
 
-function ApprovalCard({
-  record,
-  selected,
-  onToggleHunk,
-  onApprove,
-  onDeny,
-  approving,
-  denying,
-}: {
-  record: ApprovalRecord;
-  selected: ReadonlySet<number>;
-  onToggleHunk: (index: number) => void;
-  onApprove: (selectedHunks?: readonly number[]) => void;
-  onDeny: () => void;
-  approving: boolean;
-  denying: boolean;
-}) {
-  const hunks = useMemo(() => readApprovalEditHunks(record), [record]);
-  const actionable = isActionableApproval(record);
-  const terminal = isTerminalApprovalStatus(record.status);
-  const partialLabel = useMemo(() => partialApprovalLabel(record), [record]);
-  const auditEntries = useMemo(() => auditTrail(record), [record]);
+/**
+ * ApprovalClassMatrix — an at-a-glance category × risk breakdown of the approvals
+ * currently loaded, the "approval-class matrix" parity depth the TUI's fleet
+ * mega-panel offers. Grounded entirely in fields already on ApprovalRecord
+ * (request.category, request.analysis.riskLevel) — no new wire call. Both are open
+ * strings (a daemon-defined vocabulary this client renders verbatim, never drops an
+ * unrecognized value), so the matrix groups by whatever strings are actually present
+ * rather than a fixed enum.
+ */
+function ApprovalClassMatrix({ rows }: { rows: readonly import('../../lib/goodvibes').ApprovalRecord[] }) {
+  const matrix = useMemo(() => {
+    const byCategory = new Map<string, Map<string, number>>();
+    for (const record of rows) {
+      const category = record.request.category || 'uncategorized';
+      const risk = record.request.analysis.riskLevel || 'unknown';
+      const byRisk = byCategory.get(category) ?? new Map<string, number>();
+      byRisk.set(risk, (byRisk.get(risk) ?? 0) + 1);
+      byCategory.set(category, byRisk);
+    }
+    return [...byCategory.entries()]
+      .map(([category, byRisk]) => ({
+        category,
+        total: [...byRisk.values()].reduce((sum, n) => sum + n, 0),
+        byRisk: [...byRisk.entries()].sort((a, b) => b[1] - a[1]),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  if (matrix.length === 0) return null;
 
   return (
-    <li className="approval-card">
-      <header className="approval-card__header">
-        <span className="approval-card__tool">{record.request.tool}</span>
-        <span className="approval-card__badges">
-          <span className={`badge ${riskTone(record.request.analysis.riskLevel)}`}>{record.request.analysis.riskLevel}</span>
-          <span className={`badge ${statusTone(record.status)}`}>{statusLabel(record.status)}</span>
-        </span>
-      </header>
-      <p className="approval-card__summary">{record.request.analysis.summary}</p>
-
-      {record.status === 'claimed' && (
-        <p className="approval-card__note" role="note">
-          Claimed by {record.claimedBy ?? 'another surface'} — not actionable here.
-        </p>
-      )}
-
-      {terminal && (
-        <p className="approval-card__note" role="note">
-          {statusLabel(record.status)}
-          {record.resolvedAt ? ` ${formatRelative(record.resolvedAt)}` : ''}
-          {record.resolvedBy ? ` by ${record.resolvedBy}` : ''}
-          {partialLabel ? ` — ${partialLabel}` : ''}
-        </p>
-      )}
-
-      {terminal && (
-        <details className="approval-card__audit">
-          <summary>Decision trail</summary>
-          {auditEntries.length > 0 ? (
-            <ul>
-              {auditEntries.map((entry) => (
-                <li key={entry.id}>
-                  {auditEntryLabel(entry)} — {formatRelative(entry.createdAt)}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="approval-card__audit-empty">No decision trail recorded.</p>
-          )}
-        </details>
-      )}
-
-      {actionable && hunks && (
-        <div className="approval-card__hunks">
-          <ul className="hunk-rows">
-            {hunks.map((hunk, index) => (
-              <li key={hunk.id ?? index} className="hunk-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(index)}
-                    onChange={() => onToggleHunk(index)}
-                  />
-                  <span className="hunk-row__summary">{hunkSummary(hunk)}</span>
-                </label>
-              </li>
+    <div className="approval-class-matrix" role="table" aria-label="Approvals by category and risk">
+      {matrix.map(({ category, total, byRisk }) => (
+        <div key={category} className="approval-class-matrix__row" role="row">
+          <span className="approval-class-matrix__category" role="cell">{category}</span>
+          <span className="approval-class-matrix__total badge neutral" role="cell">{total}</span>
+          <span className="approval-class-matrix__risks" role="cell">
+            {byRisk.map(([risk, count]) => (
+              <span key={risk} className={`badge ${riskTone(risk)}`}>{risk} × {count}</span>
             ))}
-          </ul>
-          <div className="approval-card__actions">
-            <button
-              type="button"
-              className="approval-card__approve-selected"
-              disabled={selected.size === 0 || approving || denying}
-              onClick={() => onApprove([...selected])}
-              title="Approve only the checked hunks — the daemon computes the modified edit"
-            >
-              <Check size={14} /> Approve selected ({selected.size})
-            </button>
-            <button
-              type="button"
-              className="approval-card__approve-all"
-              disabled={approving || denying}
-              onClick={() => onApprove(undefined)}
-            >
-              <Check size={14} /> Approve all
-            </button>
-            <button
-              type="button"
-              className="approval-card__deny"
-              disabled={approving || denying}
-              onClick={onDeny}
-            >
-              <Ban size={14} /> Deny
-            </button>
-          </div>
+          </span>
         </div>
-      )}
-
-      {actionable && !hunks && (
-        <div className="approval-card__actions">
-          <button type="button" className="approval-card__approve-all" disabled={approving || denying} onClick={() => onApprove(undefined)}>
-            <Check size={14} /> Approve
-          </button>
-          <button type="button" className="approval-card__deny" disabled={approving || denying} onClick={onDeny}>
-            <Ban size={14} /> Deny
-          </button>
-        </div>
-      )}
-
-      <details className="approval-card__reasons">
-        <summary>Why</summary>
-        <ul>
-          {record.request.analysis.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
-        </ul>
-      </details>
-    </li>
+      ))}
+    </div>
   );
 }
 

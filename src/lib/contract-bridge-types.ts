@@ -31,6 +31,7 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'checkpoints.diff',
   'checkpoints.restore',
   'sessions.search',
+  'sessions.detach',
 ] as const;
 
 // ─── Fleet (fleet.*) ─────────────────────────────────────────────────────────
@@ -60,3 +61,54 @@ export type WorkspaceCheckpoint = CheckpointsListResult['checkpoints'][number];
 export type SessionsSearchInput = OperatorMethodInput<'sessions.search'>;
 export type SessionsSearchResult = OperatorMethodOutput<'sessions.search'>;
 export type SessionsSearchSessionSummary = SessionsSearchResult['sessions'][number];
+
+// ─── Sessions detach (sessions.detach) ────────────────────────────────────────
+// NOT YET SWAPPED: unlike fleet.*/checkpoints.*/sessions.search above, sessions.detach
+// has no OperatorMethodInputMap/OutputMap entry in the installed contracts package yet
+// (verified: 'sessions.detach' is absent from foundation-client-types.d.ts even though
+// it IS a real id in the installed OperatorMethodId union — operator-method-ids.ts
+// lists it). Hand-authored directly against the wire schema
+// (operator-contract.json 'sessions.detach', input `{sessionId, surfaceId}` both
+// required; output `{session}`) — the same pre-SWAP shape the fleet.*/checkpoints.*
+// types above used before 1.0.0 added real map entries for them. Flag this again (a
+// `// SWAP:` seam) if a future contracts generation adds a sessions.detach entry.
+//
+// `session` mirrors every top-level `required` field of operator-contract.json's
+// sessions.detach outputSchema (verified against the installed 1.1.0 artifact) — not
+// just the fields this module's own consumers read — so the bridge-matches-schema test
+// below can walk the full required set without a cast. Optional wire fields this
+// client never reads (project/lastMessageAt/closedAt/routeIds' route detail/
+// activeAgentId/lastAgentId/lastError) are intentionally omitted, matching this file's
+// existing stance of typing only what a caller uses.
+export interface SessionsDetachInput {
+  readonly sessionId: string;
+  readonly surfaceId: string;
+}
+
+export interface SessionParticipant {
+  readonly surfaceKind: string;
+  readonly surfaceId: string;
+  readonly externalId?: string;
+  readonly userId?: string;
+  readonly displayName?: string;
+  readonly routeId?: string;
+  readonly lastSeenAt: number;
+}
+
+export interface SessionsDetachResult {
+  readonly session: {
+    readonly id: string;
+    readonly kind: string;
+    readonly title: string;
+    readonly status: string;
+    readonly createdAt: number;
+    readonly updatedAt: number;
+    readonly lastActivityAt: number;
+    readonly messageCount: number;
+    readonly pendingInputCount: number;
+    readonly routeIds: readonly string[];
+    readonly surfaceKinds: readonly string[];
+    readonly participants: readonly SessionParticipant[];
+    readonly metadata: Record<string, unknown>;
+  };
+}

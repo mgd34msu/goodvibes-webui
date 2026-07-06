@@ -166,3 +166,57 @@ export function providerHeaderLabel(status: ProviderStatus): string {
   if (!status.configured) return 'not configured';
   return status.configuredVia ? `configured via ${status.configuredVia}` : 'configured';
 }
+
+// ---------------------------------------------------------------------------
+// W6-C1: shared credential-status consumption (secret-free, honest-degrade)
+// ---------------------------------------------------------------------------
+
+/** One credential's status metadata from the daemon's shared store — never bytes. */
+export interface CredentialStatusEntry {
+  readonly key: string;
+  readonly configured: boolean;
+  readonly usable: boolean;
+  readonly source?: string;
+  readonly secure?: boolean;
+}
+
+export type CredentialAvailability =
+  | { readonly available: true; readonly credentials: readonly CredentialStatusEntry[] }
+  | { readonly available: false; readonly reason: string };
+
+/**
+ * Fold a `credentials.get` outcome into an honest availability value. The
+ * degrade contract (W6-C1 landing report): a 503 `CREDENTIAL_STORE_UNAVAILABLE`,
+ * a `METHOD_NOT_FOUND` from an older daemon, or any transport failure yields
+ * `available: false` with a plain reason — NEVER a fabricated "configured".
+ */
+export function deriveCredentialAvailability(outcome: { ok: true; value: unknown } | { ok: false; error: unknown }): CredentialAvailability {
+  if (!outcome.ok) {
+    const err = asRecord(outcome.error);
+    const code = err ? firstString(err, ['code']) : '';
+    if (code === 'CREDENTIAL_STORE_UNAVAILABLE') {
+      return { available: false, reason: 'The daemon has no shared credential store wired.' };
+    }
+    if (code === 'METHOD_NOT_FOUND' || code === 'NOT_INVOKABLE') {
+      return { available: false, reason: 'This daemon does not serve credential status yet.' };
+    }
+    return { available: false, reason: 'Credential status unavailable right now.' };
+  }
+  const value = asRecord(outcome.value);
+  const raw = value?.credentials;
+  if (!Array.isArray(raw)) return { available: false, reason: 'Credential status unavailable right now.' };
+  const credentials: CredentialStatusEntry[] = [];
+  for (const item of raw) {
+    const rec = asRecord(item);
+    const key = rec ? firstString(rec, ['key']) : '';
+    if (!rec || !key) continue;
+    credentials.push({
+      key,
+      configured: rec.configured === true,
+      usable: rec.usable === true,
+      source: firstString(rec, ['source']) || undefined,
+      secure: rec.secure === true ? true : rec.secure === false ? false : undefined,
+    });
+  }
+  return { available: true, credentials };
+}

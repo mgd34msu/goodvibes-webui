@@ -4,6 +4,18 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.0.1] - 2026-07-06
+
+### Added
+
+- **Cross-surface credential status (W6-C1/E7)** — the typed `sdk.operator.credentials.get`
+  facade over the daemon's admin-scoped, secret-free credential-status read, plus
+  `deriveCredentialAvailability`: a `503 CREDENTIAL_STORE_UNAVAILABLE`, a
+  `METHOD_NOT_FOUND` from an older daemon, or any transport failure degrades to an
+  honest unavailable state with a plain reason — never a fabricated "configured",
+  and never a credential byte in the browser. Completes the W6-C1 adoption the
+  1.0.0 notes wrongly listed as deferred.
+
 ## [1.0.0] - 2026-07-06
 
 First stable release of the GoodVibes WebUI — the browser surface of the

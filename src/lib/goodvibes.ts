@@ -120,6 +120,7 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
   'config.set': { method: 'POST', path: '/config' },
   'control.methods.get': { method: 'GET', path: '/api/control-plane/methods/{methodId}' },
+  'credentials.get': { method: 'GET', path: '/config/credentials' },
   'local_auth.status': { method: 'GET', path: '/api/local-auth' },
   'models.current': { method: 'GET', path: '/api/models/current' },
   'models.list': { method: 'GET', path: '/api/models' },
@@ -572,6 +573,11 @@ export const sdk = {
       list: () => scopedSdk.operator.invoke('providers.list', {}),
       get: (providerId: string) => scopedSdk.operator.invoke('providers.get', { providerId }),
       usage: (providerId: string) => scopedSdk.operator.invoke('providers.usage.get', { providerId }),
+    },
+    credentials: {
+      // Cross-surface secret-free credential status (W6-C1/E7). The browser
+      // reaches the shared store only over the daemon. Status only — never bytes.
+      get: () => invokeOperator('credentials.get'),
     },
     // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
     // comment) — the untyped overload is the honest, permanent shape here.

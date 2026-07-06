@@ -323,14 +323,21 @@ describe('sdk facade shape — byte-compatible surface', () => {
   // Guards the ~15 view/hook files that import `sdk` structurally (never by destructuring
   // its own type) against an accidental rename/removal in this refactor. `search` is the
   // one intentional addition this scaffolds for the session-search feature; everything
-  // else must be the exact pre-existing surface.
+  // else must be the exact pre-existing surface. `memory` is WEBUI-MEMORY-VIEW's own
+  // intentional addition (memory.records.* / memory.review-queue).
   test('sdk top-level keys are unchanged', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys are unchanged plus watchers (WEBUI-FLEET-DEPTH)', () => {
+  test('sdk.operator keys gain exactly two additions: memory (WEBUI-MEMORY-VIEW), watchers (WEBUI-FLEET-DEPTH)', () => {
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'models', 'providers', 'sessions', 'tasks', 'watchers'].sort(),
+      ['accounts', 'approvals', 'checkpoints', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'watchers'].sort(),
+    );
+  });
+
+  test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs', () => {
+    expect(Object.keys(sdk.operator.memory).sort()).toEqual(
+      ['add', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
     );
   });
 

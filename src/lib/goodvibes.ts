@@ -151,6 +151,26 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   // interpolateRoute from the path).
   'sessions.detach': { method: 'POST', path: '/api/sessions/{sessionId}/detach' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
+  // memory.records.* / memory.review-queue (WEBUI-MEMORY-VIEW, SDK 1.1.0's just-landed
+  // canonical memory store): all six ids ARE in the installed OperatorMethodId union
+  // (operator-method-ids.d.ts lists memory.records.add/search/get/update-review/delete
+  // and memory.review-queue), but — like fleet.*/checkpoints.* before them — neither the
+  // generated I/O maps (foundation-client-types.d.ts only covers memory.doctor/
+  // vector.stats/vector.rebuild/embeddings.default.set, none of these six) nor the
+  // browser SDK's route tables (browser-scoped.js / browser-knowledge.js: zero
+  // memory.* entries) cover them yet. UNLIKE fleet.*/checkpoints.* (ws-only, generic
+  // invoke), these six DO have real REST http bindings (method-catalog-runtime.js), so
+  // EXTRA_METHOD_ROUTES — not invokeGatewayMethod — is the correct mechanism, the same
+  // path sessions.close/reopen already take. Wire shapes (MemoryRecord, the honest
+  // search envelope, the delete-means-delete boolean) are hand-authored below from the
+  // daemon's own schemas (operator-contract-schemas-runtime.js), the same
+  // cross-checked-against-source approach the Approvals/Tasks sections above use.
+  'memory.records.add': { method: 'POST', path: '/api/memory/records' },
+  'memory.records.search': { method: 'POST', path: '/api/memory/records/search' },
+  'memory.records.get': { method: 'GET', path: '/api/memory/records/{id}' },
+  'memory.records.update-review': { method: 'POST', path: '/api/memory/records/{id}/review' },
+  'memory.records.delete': { method: 'DELETE', path: '/api/memory/records/{id}' },
+  'memory.review-queue': { method: 'GET', path: '/api/memory/review-queue' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
   // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
   // whole body is the task submission), predating the `/api/tasks` REST family.
@@ -621,6 +641,136 @@ export const DEFAULT_SSE_RECONNECT = {
   maxAttempts: 10,
 } as const;
 
+// ─── Memory (memory.records.*, memory.review-queue) ───────────────────────────
+//
+// The canonical, daemon-owned cross-surface memory store's wire shapes — hand-authored
+// because none of these six ids has a generated OperatorMethodInputMap/OutputMap entry
+// yet (see the EXTRA_METHOD_ROUTES comment above). Every field name and requiredness
+// below is cross-checked against the daemon's own schema definitions
+// (operator-contract-schemas-runtime.js: MEMORY_RECORD_SCHEMA,
+// MEMORY_RECORD_SEARCH_OUTPUT_SCHEMA, MEMORY_RECORD_DELETE_OUTPUT_SCHEMA), not guessed.
+
+export type MemoryScope = 'session' | 'project' | 'team';
+export type MemoryClass =
+  | 'decision' | 'constraint' | 'incident' | 'pattern' | 'fact' | 'risk' | 'runbook' | 'architecture' | 'ownership';
+export type MemoryReviewState = 'fresh' | 'reviewed' | 'stale' | 'contradicted';
+export type MemoryProvenanceKind = 'session' | 'turn' | 'task' | 'event' | 'file';
+
+/** VIBE.md persona/preference lines are constraint records tagged with this — see the
+ * SDK's vibe-projection.ts (VIBE_PERSONA_TAG). There is no `memory.fold`/projection verb
+ * on the wire ("fold is NOT on the wire" — the brief this view was built from), so this
+ * client replicates the same cls+tag test locally rather than deep-importing an
+ * internal, non-exported SDK module path. See memory-helpers.ts's isPersonaRecord. */
+export const VIBE_PERSONA_TAG = 'vibe';
+
+export interface MemoryProvenanceLink {
+  readonly kind: MemoryProvenanceKind;
+  readonly ref: string;
+  readonly label?: string;
+}
+
+export interface MemoryRecord {
+  readonly id: string;
+  readonly scope: MemoryScope;
+  readonly cls: MemoryClass;
+  readonly summary: string;
+  readonly detail?: string;
+  readonly tags: readonly string[];
+  readonly provenance: readonly MemoryProvenanceLink[];
+  readonly reviewState: MemoryReviewState;
+  readonly confidence: number;
+  readonly reviewedAt?: number;
+  readonly reviewedBy?: string;
+  readonly staleReason?: string;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+}
+
+export interface MemoryRecordEntityResult {
+  readonly record: MemoryRecord;
+}
+
+/**
+ * The honest search envelope (memory-recall-contract.ts's HonestMemorySearchResult,
+ * promoted onto the wire verbatim by memory.records.search). `mode` is the path that
+ * ACTUALLY ran ('literal' even when semantic was requested but the index could not be
+ * consulted); `indexUnavailableReason` is non-null only in that fallback case and MUST
+ * be shown verbatim — never swallowed into a silent empty result. `caveat` is the
+ * softer "ran on the hashed-only fallback provider" note. `recallFiltered` /
+ * `excludedFlaggedCount` / `excludedBelowFloorCount` / `totalBeforeRecallFilter` are the
+ * honesty receipt for the 60%-floor recall-injection contract (only populated when the
+ * caller opted into `recall: true`).
+ */
+export interface MemorySearchResult {
+  readonly records: readonly MemoryRecord[];
+  readonly mode: 'literal' | 'semantic';
+  readonly requestedSemantic: boolean;
+  readonly indexUnavailableReason: string | null;
+  readonly caveat: string | null;
+  readonly recallFiltered: boolean;
+  readonly excludedFlaggedCount: number;
+  readonly excludedBelowFloorCount: number;
+  readonly totalBeforeRecallFilter: number;
+}
+
+/** Delete-means-delete: an honest boolean, never a 200 that pretends a phantom row was
+ * removed (MEMORY_RECORD_DELETE_OUTPUT_SCHEMA — `deleted: false` when nothing existed). */
+export interface MemoryRecordDeleteResult {
+  readonly id: string;
+  readonly deleted: boolean;
+}
+
+export interface MemoryReviewQueueResult {
+  readonly records: readonly MemoryRecord[];
+}
+
+export interface MemorySearchInput {
+  readonly scope?: MemoryScope;
+  readonly cls?: MemoryClass;
+  readonly tags?: readonly string[];
+  readonly query?: string;
+  readonly semantic?: boolean;
+  readonly since?: number;
+  readonly reviewState?: readonly MemoryReviewState[];
+  readonly minConfidence?: number;
+  readonly provenanceKinds?: readonly MemoryProvenanceKind[];
+  readonly staleOnly?: boolean;
+  readonly limit?: number;
+  /** Apply the recall-injection contract server-side (exclude flagged records outright,
+   * drop sub-floor records, count every exclusion). Off by default — a browse/review
+   * caller wants to SEE flagged and low-confidence records too. */
+  readonly recall?: boolean;
+}
+
+export interface MemoryAddReviewInput {
+  readonly state?: MemoryReviewState;
+  readonly confidence?: number;
+  readonly reviewedBy?: string;
+  readonly staleReason?: string;
+}
+
+export interface MemoryAddInput {
+  readonly cls: MemoryClass;
+  readonly summary: string;
+  readonly scope?: MemoryScope;
+  readonly detail?: string;
+  readonly tags?: readonly string[];
+  readonly provenance?: readonly MemoryProvenanceLink[];
+  readonly review?: MemoryAddReviewInput;
+}
+
+export interface MemoryUpdateReviewInput {
+  readonly state?: MemoryReviewState;
+  readonly confidence?: number;
+  readonly reviewedBy?: string;
+  readonly staleReason?: string;
+}
+
+export interface MemoryReviewQueueInput {
+  readonly limit?: number;
+  readonly scope?: MemoryScope;
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -703,6 +853,34 @@ export const sdk = {
         invokeOperator<'approvals.deny', OperatorMethodInput<'approvals.deny'>, ApprovalActionResult>(
           'approvals.deny',
           { approvalId, ...(note ? { note } : {}) },
+        ),
+    },
+    // memory.records.* / memory.review-queue — table-routed via EXTRA_METHOD_ROUTES
+    // (real REST bindings, see that table's comment); every I/O shape here is the
+    // hand-authored local type above, cross-checked against the daemon's own schema
+    // source rather than the (nonexistent, for these six ids) generated maps —
+    // explicit TInput/TOutput overrides throughout, same pattern as Approvals/Tasks.
+    memory: {
+      search: (input?: MemorySearchInput) =>
+        invokeOperator<'memory.records.search', MemorySearchInput, MemorySearchResult>(
+          'memory.records.search',
+          input ?? {},
+        ),
+      add: (input: MemoryAddInput) =>
+        invokeOperator<'memory.records.add', MemoryAddInput, MemoryRecordEntityResult>('memory.records.add', input),
+      get: (id: string) =>
+        invokeOperator<'memory.records.get', { id: string }, MemoryRecordEntityResult>('memory.records.get', { id }),
+      updateReview: (id: string, input: MemoryUpdateReviewInput) =>
+        invokeOperator<'memory.records.update-review', { id: string } & MemoryUpdateReviewInput, MemoryRecordEntityResult>(
+          'memory.records.update-review',
+          { id, ...input },
+        ),
+      delete: (id: string) =>
+        invokeOperator<'memory.records.delete', { id: string }, MemoryRecordDeleteResult>('memory.records.delete', { id }),
+      reviewQueue: (input?: MemoryReviewQueueInput) =>
+        invokeOperator<'memory.review-queue', MemoryReviewQueueInput, MemoryReviewQueueResult>(
+          'memory.review-queue',
+          input ?? {},
         ),
     },
     // fleet.*/checkpoints.*/sessions.search — generic-invoke-only (see

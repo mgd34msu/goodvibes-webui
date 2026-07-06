@@ -118,6 +118,10 @@ mock.module('./lib/goodvibes', () => ({
   WEBUI_SURFACE_ID: 'goodvibes-webui',
   WEBUI_SURFACE_KIND: 'webui',
   GOODVIBES_BASE_URL: 'http://localhost/test',
+  // MemoryView (mounted unconditionally by App.tsx's render switch) imports this
+  // named value at module load time — a plain re-export of the SDK's constant, not
+  // exercised by any test in this file.
+  VIBE_PERSONA_TAG: 'vibe',
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 1 },
   hasStoredTokenSync: () => hasStoredToken,
   getCurrentAuth: () => {
@@ -147,6 +151,27 @@ mock.module('./lib/goodvibes', () => ({
         list: () => Promise.resolve({ items: [], hasMore: false, capturedAt: 0 }),
       },
       watchers: { stop: () => Promise.resolve({}) },
+      // MemoryView is not exercised by this file's tests, but App.tsx mounts it
+      // unconditionally in the render switch — a stub keeps that reachable without
+      // any test here depending on its shape.
+      memory: {
+        search: () => Promise.resolve({
+          records: [],
+          mode: 'literal',
+          requestedSemantic: false,
+          indexUnavailableReason: null,
+          caveat: null,
+          recallFiltered: false,
+          excludedFlaggedCount: 0,
+          excludedBelowFloorCount: 0,
+          totalBeforeRecallFilter: 0,
+        }),
+        add: () => Promise.resolve({}),
+        get: () => Promise.resolve({}),
+        updateReview: () => Promise.resolve({}),
+        delete: () => Promise.resolve({ id: '', deleted: false }),
+        reviewQueue: () => Promise.resolve({ records: [] }),
+      },
       sessions: {
         list: () => Promise.resolve(SESSIONS_FIXTURE),
         messages: { list: () => Promise.resolve({ messages: [] }) },

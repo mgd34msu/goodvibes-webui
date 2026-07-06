@@ -1,0 +1,364 @@
+/**
+ * memory.css — MemoryView styles (memory.records.* / memory.review-queue).
+ * Uses token names from src/styles/tokens.css exclusively.
+ * DO NOT edit src/styles.css or another view's owned CSS file — this file is owned
+ * exclusively by MemoryView and its subcomponents (src/views/memory/*).
+ */
+
+/* ============================================================
+   Root layout guard
+   ============================================================ */
+/* .stack (src/styles.css) has no explicit grid-template-columns, so its single
+   implicit column defaults to content-based ("auto") sizing — normally harmless, but
+   this view's native <select>s (long option lists) and record-row badge clusters can
+   contribute a wide min-content that inflates the WHOLE column (every row shares it),
+   pushing every sibling wider than the viewport on a phone even though each row's own
+   CSS asks for 100%/wrapping. `minmax(0, 1fr)` on the column, plus `min-width: 0` on
+   every direct row, ignores that content-based floor: rows fill the actual available
+   width and wrap/scroll internally instead of growing the shared track. Scoped to this
+   view only (a class added alongside `.stack`, not an edit to the shared file).
+*/
+.memory-view-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.memory-view-stack > * {
+  min-width: 0;
+}
+
+/* ============================================================
+   Search bar
+   ============================================================ */
+.memory-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* Direct-child combinator (not a [type] selector split): the only input NOT meant to
+   take this styling — the "Semantic"/"What the agent would recall" checkboxes — is
+   nested a level deeper inside a .check-row label, so it is never a direct child of
+   .memory-search and never matched here. This also keeps this rule's specificity
+   identical to its phone override below, so source order (not a specificity fight)
+   decides which wins at narrow widths. */
+.memory-search > input,
+.memory-search > select {
+  flex: 1 1 160px;
+  min-width: 120px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.memory-search .check-row {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Skeleton group — reused loading placeholder pattern
+   ============================================================ */
+.memory-skeleton-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+}
+
+/* ============================================================
+   Honesty note — the recall-honesty contract, surfaced verbatim
+   ============================================================ */
+.memory-honesty-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.memory-honesty-note__banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+/* Degraded (index unavailable): the semantic path could not be consulted at all — a
+   hard fact the operator must not miss, so this uses the warning tone, not a neutral
+   note. */
+.memory-honesty-note__banner--degraded {
+  color: var(--status-warning);
+  background: var(--status-warning-soft);
+  border: 1px solid var(--status-warning);
+}
+
+/* Soft caveat (hashed-only embedding fallback): still a real search, just a weaker
+   ranking signal than a modeled provider — the info tone, not a warning. */
+.memory-honesty-note__banner--caveat {
+  color: var(--status-info);
+  background: var(--status-info-soft);
+  border: 1px solid var(--status-info);
+}
+
+.memory-honesty-note__recall-stats {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   Record rows (Records / Personas panels)
+   ============================================================ */
+.memory-record-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.memory-record-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: 0;
+}
+
+.memory-record-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* NOT flex-start: an unstretched flex item hugs its content's max-content width
+     (button text refusing to wrap) rather than the container's available width — see
+     the .memory-view-stack comment above for the same underlying gotcha. stretch
+     (the flex default) lets long summaries wrap instead of forcing the row wide. */
+  align-items: stretch;
+  gap: 4px;
+  padding: var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Even with align-items:stretch above, a flex item's default min-width:auto still
+   floors it at its own unwrapped content width — the summary <strong> and the meta
+   <span> are themselves flex items of .memory-record-row__main and need the same
+   min-width:0 override to actually wrap/shrink into the stretched box. */
+.memory-record-row__main > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.memory-record-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.memory-record-row__delete {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: var(--space-2);
+  color: var(--status-danger);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.memory-record-row__delete:hover:not(:disabled) {
+  background: var(--status-danger-soft);
+  border-color: var(--status-danger);
+}
+
+.memory-record-row__delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Coarse pointers (touch): guarantee a >=44px hit target even though the visual
+   chrome is compact — same convention as .chat-status__retry / .sidebar-session-delete. */
+@media (pointer: coarse) {
+  .memory-record-row__delete {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.memory-tag-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: var(--text-xs);
+  color: var(--text-accent);
+  background: var(--accent-muted);
+  border-radius: var(--radius-full);
+}
+
+/* ============================================================
+   Review queue
+   ============================================================ */
+.memory-review-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.memory-review-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.memory-review-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.memory-review-row__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.memory-review-row__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.memory-review-row__form select,
+.memory-review-row__form input {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  font-size: var(--text-sm);
+}
+
+.memory-review-row__form input[type='number'] {
+  width: 72px;
+}
+
+.memory-review-row__stale-reason {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+
+/* ============================================================
+   Record detail (peek body)
+   ============================================================ */
+.memory-record-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memory-record-detail__section h3,
+.memory-record-detail__section h4 {
+  margin: 0 0 var(--space-1);
+}
+
+.memory-record-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.memory-record-detail__facts dt {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.memory-record-detail__facts dd {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+
+.memory-record-detail__stale-reason {
+  padding: var(--space-2);
+  background: var(--status-warning-soft);
+  border: 1px solid var(--status-warning);
+  border-radius: var(--radius-sm);
+}
+
+.memory-record-detail__detail {
+  white-space: pre-wrap;
+}
+
+.memory-record-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.memory-record-detail__provenance {
+  margin: 0;
+  padding-left: var(--space-4, 18px);
+  font-size: var(--text-sm);
+}
+
+/* ============================================================
+   Phone (<=680px) — same stacking convention as .knowledge-search
+   ============================================================ */
+@media (max-width: 680px) {
+  .memory-search {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .memory-search > input,
+  .memory-search > select {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .memory-review-row__form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .memory-review-row__form input[type='number'] {
+    width: 100%;
+  }
+}
+

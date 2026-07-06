@@ -731,7 +731,26 @@ export async function invokeMethod<TMethodId extends OperatorTypedMethodId>(
 }
 
 export async function getCurrentAuth(): Promise<unknown> {
-  return sdk.auth.current();
+  // The daemon's control-plane/auth is a STATUS endpoint: it answers 200 even when
+  // the presented token is invalid/expired, carrying the real verdict in the
+  // `authenticated` boolean (authMode 'invalid'/'anonymous'). Verified against both
+  // real daemons AND an isolated bootDaemon. The signed-in gate (App.tsx) and the
+  // health signed-in axis (useDaemonHealth) both key off this call THROWING to detect
+  // "signed out" — a resolved call is taken as signed-in. So a corrupt/expired token
+  // used to leave the operator in the full shell while every data endpoint 401'd,
+  // instead of the honest one-shot handoff to sign-in. Reject on `authenticated !==
+  // true` with a 401/authentication error (NOT network/status-0, so it is treated as
+  // unauthorized — sign-in front door — not as a daemon-unreachable outage).
+  const snapshot = await sdk.auth.current();
+  const record = asRecord(snapshot);
+  if ('authenticated' in record && record.authenticated !== true) {
+    throw Object.assign(new Error('Operator token rejected — the daemon reports the session is not authenticated.'), {
+      status: 401,
+      category: 'authentication',
+      authMode: record.authMode,
+    });
+  }
+  return snapshot;
 }
 
 /**

@@ -95,8 +95,20 @@ export default tseslint.config(
   },
 
   {
-    // Files that don't need type-aware linting (test/config files)
-    files: ["**/*.test.ts", "**/*.test.tsx", "vite.config.ts"],
+    // Files that don't need type-aware linting (test/config/tooling files).
+    // The e2e Playwright harness, playwright.config.ts, and the scripts/* tooling
+    // live OUTSIDE tsconfig.json's include (["src", "vite.config.ts"]), so the
+    // type-aware projectService cannot resolve them and errors with "not found by
+    // the project service". They are not app source; lint them without type info.
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "vite.config.ts",
+      "**/*.e2e.ts",
+      "e2e/**/*.ts",
+      "playwright.config.ts",
+      "scripts/**/*.ts",
+    ],
     ...tseslint.configs.disableTypeChecked,
   },
 

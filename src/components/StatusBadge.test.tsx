@@ -18,4 +18,27 @@ describe('StatusBadge', () => {
     const html = renderToStaticMarkup(<StatusBadge value="task failed" />);
     expect(html).toContain('badge bad');
   });
+
+  // Provider auth-freshness vocabulary (src/lib/provider-status.ts, W5-W3).
+  test('maps expired to bad tone — dead credentials are a fault', () => {
+    const html = renderToStaticMarkup(<StatusBadge value="expired" />);
+    expect(html).toContain('badge bad');
+    expect(html).toContain('expired');
+  });
+
+  test('maps expiring to warning tone — still working, needs attention', () => {
+    const html = renderToStaticMarkup(<StatusBadge value="expiring" />);
+    expect(html).toContain('badge warning');
+    expect(html).toContain('expiring');
+  });
+
+  test('maps unconfigured to neutral tone — not set up is not a fault', () => {
+    const html = renderToStaticMarkup(<StatusBadge value="unconfigured" />);
+    expect(html).toContain('badge neutral');
+  });
+
+  test('maps "status unavailable" to neutral tone — absent health is not a fault', () => {
+    const html = renderToStaticMarkup(<StatusBadge value="status unavailable" />);
+    expect(html).toContain('badge neutral');
+  });
 });

@@ -19,7 +19,10 @@ import {
   knowledgeMapResponse,
   messagesResponse,
   providersResponse,
+  sessionRecord,
+  SEED_SESSIONS,
   unionListResponse,
+  type SeedSession,
 } from './seed';
 
 export interface MockDaemonOptions {
@@ -47,6 +50,67 @@ function json(route: Route, body: unknown, status = 200) {
     headers: { 'access-control-allow-origin': '*' },
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * control.methods.get's 200 shape (the daemon's real gateway-method descriptor,
+ * `{ method: {...} }`) — a hermetic stand-in, not a real registry lookup. Exported so
+ * assert-contract-shape.test.ts can bind it to the operator contract without a Page.
+ */
+export function methodInfoResponse(methodId: string) {
+  return {
+    method: {
+      id: methodId,
+      title: methodId,
+      description: 'Hermetic e2e mock method descriptor — not a real gateway registry entry.',
+      category: methodId.split('.')[0] ?? 'misc',
+      source: 'builtin',
+      access: 'authenticated',
+      transport: ['http'],
+      scopes: [],
+    },
+  };
+}
+
+/**
+ * sessions.steer / sessions.followUp share this output envelope on the real contract
+ * ({ session, message, input, mode, agentId }, all required) — a shape wholly
+ * different from what this mock used to invent ({ delivered, inputId }). The app
+ * (SteerComposer) never reads the resolved body (it only reacts to resolve vs.
+ * reject), so this reshape is behavior-neutral for every existing spec while closing
+ * the gap a contract change here would otherwise sail through unnoticed (W6-E1).
+ * Exported so assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function dispatchOutcome(session: SeedSession | undefined, intent: 'steer' | 'follow-up', body: string, inputId: string) {
+  const now = Date.now();
+  const canSteer = Boolean(session?.activeAgentId);
+  const mode = intent === 'steer'
+    ? (canSteer ? 'continued-live' : 'rejected')
+    : 'queued-follow-up';
+  return {
+    session: session ? sessionRecord(session) : null,
+    message: {
+      id: `${inputId}-msg`,
+      sessionId: session?.id ?? 'unknown',
+      role: 'user' as const,
+      body,
+      createdAt: now,
+      metadata: {},
+    },
+    input: {
+      id: inputId,
+      sessionId: session?.id ?? 'unknown',
+      intent,
+      state: intent === 'steer' ? 'delivered' : 'queued',
+      correlationId: inputId,
+      body,
+      createdAt: now,
+      updatedAt: now,
+      metadata: {},
+    },
+    mode,
+    agentId: session?.activeAgentId ?? null,
+  };
 }
 
 export async function installMockDaemon(page: Page, options: MockDaemonOptions = {}): Promise<MockDaemon> {
@@ -104,7 +168,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'sessions.delete' && !deleteAvailable) {
         return json(route, { error: 'Unknown gateway method' }, 404);
       }
-      return json(route, { id: methodId, available: true });
+      return json(route, methodInfoResponse(methodId));
     }
 
     // ── Sessions union ─────────────────────────────────────────────────────
@@ -117,24 +181,30 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     const steerMatch = path.match(/^\/api\/sessions\/([^/]+)\/steer$/);
     if (method === 'POST' && steerMatch) {
-      daemon.steerRequests.push({
-        sessionId: decodeURIComponent(steerMatch[1]),
-        body: request.postDataJSON?.() ?? request.postData(),
-      });
-      return json(route, { delivered: true, inputId: `in-${daemon.steerRequests.length}` });
+      const sessionId = decodeURIComponent(steerMatch[1]);
+      const requestBody = request.postDataJSON?.() ?? request.postData();
+      daemon.steerRequests.push({ sessionId, body: requestBody });
+      const session = SEED_SESSIONS.find((s) => s.id === sessionId);
+      const dispatchedBody = typeof requestBody === 'object' && requestBody !== null && 'body' in requestBody
+        ? String((requestBody as { body?: unknown }).body ?? '')
+        : '';
+      return json(route, dispatchOutcome(session, 'steer', dispatchedBody, `in-${daemon.steerRequests.length}`));
     }
     const followUpMatch = path.match(/^\/api\/sessions\/([^/]+)\/follow-up$/);
     if (method === 'POST' && followUpMatch) {
-      daemon.followUpRequests.push({
-        sessionId: decodeURIComponent(followUpMatch[1]),
-        body: request.postDataJSON?.() ?? request.postData(),
-      });
-      return json(route, { queued: true, inputId: `fu-${daemon.followUpRequests.length}` });
+      const sessionId = decodeURIComponent(followUpMatch[1]);
+      const requestBody = request.postDataJSON?.() ?? request.postData();
+      daemon.followUpRequests.push({ sessionId, body: requestBody });
+      const session = SEED_SESSIONS.find((s) => s.id === sessionId);
+      const dispatchedBody = typeof requestBody === 'object' && requestBody !== null && 'body' in requestBody
+        ? String((requestBody as { body?: unknown }).body ?? '')
+        : '';
+      return json(route, dispatchOutcome(session, 'follow-up', dispatchedBody, `fu-${daemon.followUpRequests.length}`));
     }
     const sessionGetMatch = path.match(/^\/api\/sessions\/([^/]+)$/);
     if (method === 'GET' && sessionGetMatch) {
       const id = decodeURIComponent(sessionGetMatch[1]);
-      return json(route, { id, ...messagesResponse(id) });
+      return json(route, messagesResponse(id));
     }
 
     // ── Companion chat sessions (carry the sidebar per-row delete control) ──

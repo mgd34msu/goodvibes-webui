@@ -1,7 +1,8 @@
 /**
  * sdk-dev.test.ts — checks for the sdk-dev ALIAS (scripts/sdk-dev.ts).
  *
- * scripts/sdk-dev.ts is now a thin alias (consolidated by W6-DEV, Wave 6):
+ * scripts/sdk-dev.ts is now a thin alias (the overlay tool was consolidated
+ * into the SDK checkout):
  * the overlay lifecycle logic (status states, the pin reader, the restore
  * version-agreement check, workspace-package enumeration incl. contracts)
  * moved to the SDK checkout's own scripts/sdk-dev.ts and is unit-tested
@@ -19,7 +20,7 @@
  *
  * The full link -> build -> overlay(9 pkgs incl. contracts) -> status ->
  * restore cycle is proven once against a real checkout in the SDK's own
- * suite / the W6-DEV manual proof, not duplicated here.
+ * suite / its manual consolidation proof, not duplicated here.
  */
 import { describe, test, expect } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -31,7 +32,7 @@ const REPO_ROOT = resolve(import.meta.dir, '..');
 const DEFAULT_SDK_ROOT = resolve(process.env.GOODVIBES_SDK_PATH ?? resolve(homedir(), 'Projects/goodvibes-sdk'));
 // Forwarding only succeeds once the checkout HAS the canonical tool (this
 // brief's own deliverable) — a checkout dir existing without it (e.g. an SDK
-// main that hasn't landed W6-DEV yet) must gate the same as "no checkout".
+// main that predates the consolidated tool) must gate the same as "no checkout".
 const SDK_TOOL_AVAILABLE = existsSync(join(DEFAULT_SDK_ROOT, 'scripts/sdk-dev.ts'));
 
 function run(args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}): { exitCode: number; output: string } {

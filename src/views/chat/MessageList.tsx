@@ -3,13 +3,13 @@ import { ArrowDown } from 'lucide-react';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { useReducedMotion } from '../../components/motion/useReducedMotion';
 import { MessageItem } from './MessageItem';
-import { bestId } from './message-utils';
-import type { BranchRecord } from './useChatSend';
+import { lineageNodeKey, type LineageNode } from './lineage';
 import type { ChatMessage } from './types';
 import '../../styles/components/chat-stream.css';
 
 interface MessageListProps {
-  renderedMessageItems: ChatMessage[];
+  /** Honest-lineage render nodes: active messages with any retained history attached. */
+  nodes: LineageNode[];
   liveText: string;
   showJumpToBottom: boolean;
   isSendPending: boolean;
@@ -17,8 +17,6 @@ interface MessageListProps {
   isStreaming?: boolean;
   copiedMessageId: string;
   scrollRef: RefObject<HTMLDivElement | null>;
-  /** Branch map keyed by root message id — forwarded to each MessageItem. */
-  branchMap?: ReadonlyMap<string, BranchRecord>;
   onScroll: () => void;
   onJumpToBottom: () => void;
   onCopyMessage: (message: ChatMessage) => void;
@@ -26,28 +24,24 @@ interface MessageListProps {
   onRegenerateFrom: (messageId: string) => void;
   /** Called when the user submits an edited version of a user message. */
   onEditMessage?: (messageId: string, newText: string) => void;
-  /** Called when the user selects a branch variant. */
-  onSelectBranch?: (rootMessageId: string, index: number) => void;
   /** Called when the user clicks the Stop button during an active stream. */
   onStop?: () => void;
 }
 
 export function MessageList({
-  renderedMessageItems,
+  nodes,
   liveText,
   showJumpToBottom,
   isSendPending,
   isStreaming = false,
   copiedMessageId,
   scrollRef,
-  branchMap,
   onScroll,
   onJumpToBottom,
   onCopyMessage,
   onResendMessage,
   onRegenerateFrom,
   onEditMessage,
-  onSelectBranch,
   onStop,
 }: MessageListProps) {
   const reducedMotion = useReducedMotion();
@@ -56,19 +50,20 @@ export function MessageList({
   return (
     <>
       <div className="messages chat-conversation" ref={scrollRef} onScroll={onScroll}>
-        {renderedMessageItems.map((message, index) => (
+        {nodes.map((node, index) => (
           <MessageItem
-            key={`${bestId(message) || index}-${index}`}
-            message={message}
+            key={lineageNodeKey(node, index)}
+            message={node.message}
             index={index}
             isSendPending={isSendPending}
             copiedMessageId={copiedMessageId}
-            branchRecord={branchMap?.get(bestId(message))}
+            priorMessages={node.priorMessages}
+            reason={node.reason}
+            revisionOf={node.revisionOf}
             onCopyMessage={onCopyMessage}
             onResendMessage={onResendMessage}
             onRegenerateFrom={onRegenerateFrom}
-            onEditMessage={onEditMessage ? (msg, newText) => onEditMessage(bestId(msg), newText) : undefined}
-            onSelectBranch={onSelectBranch}
+            onEditMessage={onEditMessage ? (_msg, newText) => onEditMessage(node.message.id ?? node.message.messageId ?? '', newText) : undefined}
           />
         ))}
         {liveText && (
@@ -101,7 +96,7 @@ export function MessageList({
             </article>
           </div>
         )}
-        {!renderedMessageItems.length && !liveText && (
+        {!nodes.length && !liveText && (
           <p className="empty-state">Start a chat with GoodVibes.</p>
         )}
       </div>

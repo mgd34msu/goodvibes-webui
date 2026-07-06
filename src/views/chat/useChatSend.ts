@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useCallback, useState } from 'react';
+import { Dispatch, SetStateAction, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
 import { bestId } from '../../lib/object';
@@ -8,34 +8,14 @@ import {
   extractSessionId,
   LocalCompanionMessage,
 } from '../../lib/companion-chat';
-import { isSessionNotFoundError, isAuthExpiredError, formatError } from '../../lib/errors';
-import { fileToBase64, uploadedArtifactId, messageText } from './message-utils';
+import {
+  isSessionNotFoundError,
+  isSessionClosedError,
+  isAuthExpiredError,
+  formatError,
+} from '../../lib/errors';
+import { fileToBase64, uploadedArtifactId } from './message-utils';
 import type { ChatMessage } from './types';
-
-// ---------------------------------------------------------------------------
-// Branch tracking types
-// ---------------------------------------------------------------------------
-
-/** A single stored variant for a given message position. */
-export interface MessageVariant {
-  /** Stable message id from the server (or local id if not yet resolved). */
-  messageId: string;
-  /** The text content of this variant. */
-  text: string;
-}
-
-/**
- * Branch record keyed by "root" message id — the user message that was
- * edited/re-sent. Each resend or regenerate appends a new variant.
- */
-export interface BranchRecord {
-  /** The user message id this branch originates from. */
-  rootMessageId: string;
-  /** All variants generated from this root (oldest first). */
-  variants: MessageVariant[];
-  /** Index of the currently displayed variant (0-based). */
-  currentIndex: number;
-}
 
 // ---------------------------------------------------------------------------
 // Hook options
@@ -88,22 +68,41 @@ export interface UseChatSendReturn {
   /** The underlying mutation object for callers that need the full shape. */
   sendMutation: SendMutation;
   /**
-   * Replace `messageId`'s text with `newText`, re-send from that point.
-   * Records the new variant in `branchMap`.
+   * Edit a user message and branch the conversation from it — the honest-lineage
+   * edit verb (companion.chat.messages.edit). The original message and everything
+   * after it are SUPERSEDED on the server (retained as viewable history, never
+   * deleted) and a fresh turn answers the edited message. Falls back to a plain
+   * resend only when the target has no server id yet (an un-persisted optimistic
+   * message cannot be branched — a new send is the honest action there).
    */
   editAndResend: (messageId: string, newText: string) => void;
   /**
-   * Trigger a fresh assistant response from `messageId` (assistant message).
-   * Records the new response as an additional variant.
+   * Regenerate an assistant response — the honest-lineage regenerate verb
+   * (companion.chat.messages.retry). The prior response (and any turns after it)
+   * is SUPERSEDED on the server (retained as viewable history, never deleted) and
+   * a fresh turn re-runs from the preceding user message.
    */
   regenerateFrom: (messageId: string, messages: ChatMessage[]) => void;
-  /** Current branch state keyed by root message id. */
-  branchMap: ReadonlyMap<string, BranchRecord>;
-  /**
-   * Select a specific variant index for a root message id.
-   * Updates `branchMap.currentIndex` so MessageItem can render the navigator.
-   */
-  selectBranch: (rootMessageId: string, index: number) => void;
+  /** True while a regenerate or edit-and-branch request is in flight. */
+  isLineagePending: boolean;
+  /** The last regenerate/edit error, if any. */
+  lineageError: Error | null;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * True when an id is a real server message id rather than a client-synthesized
+ * optimistic id. The regenerate/edit verbs act on persisted messages; a local id
+ * (`local-…` user echo, `assistant-…` streamed placeholder) has no server row to
+ * branch from, so the caller either omits it (regenerate → "latest") or falls back
+ * to a plain send (edit).
+ */
+function isServerMessageId(id: string): boolean {
+  if (!id) return false;
+  return !id.startsWith('local-') && !id.startsWith('assistant-') && !id.startsWith('user-');
 }
 
 // ---------------------------------------------------------------------------
@@ -125,37 +124,6 @@ export function useChatSend({
   turnState,
   onAuthExpired,
 }: UseChatSendOptions): UseChatSendReturn {
-  // Branch tracking state: rootMessageId -> BranchRecord
-  const [branchMap, setBranchMap] = useState<Map<string, BranchRecord>>(() => new Map());
-
-  // -------------------------------------------------------------------------
-  // Internal helper: record a variant in the branch map
-  // -------------------------------------------------------------------------
-  const recordVariant = useCallback(
-    (rootMessageId: string, newVariant: MessageVariant) => {
-      setBranchMap((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(rootMessageId);
-        if (existing) {
-          const variants = [...existing.variants, newVariant];
-          next.set(rootMessageId, {
-            ...existing,
-            variants,
-            currentIndex: variants.length - 1,
-          });
-        } else {
-          next.set(rootMessageId, {
-            rootMessageId,
-            variants: [newVariant],
-            currentIndex: 0,
-          });
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
   // -------------------------------------------------------------------------
   // Core send mutation (unchanged API — still used by Composer)
   // -------------------------------------------------------------------------
@@ -296,102 +264,103 @@ export function useChatSend({
   });
 
   // -------------------------------------------------------------------------
-  // editAndResend: replace a user message's text and resend from that point
+  // Shared honest handling for the two lineage-forking verbs (regenerate/edit):
+  // set the turn in flight, hand server truth the wheel (drop this session's local
+  // optimistic echoes so the refetched list — carrying the supersededAt flags — is
+  // the single source), and map failures to honest states.
+  // -------------------------------------------------------------------------
+  const beginLineageTurn = useCallback(() => {
+    // Drop this session's optimistic locals: after a fork the authoritative list
+    // (with retained/superseded history) is the truth, and the new turn streams back
+    // over SSE. The cached server list keeps rendering, so this does not blank the view.
+    setLocalMessages((current) => current.filter((message) => message.sessionId !== activeSessionId));
+    setLiveText('');
+    setPendingUserMessageId('');
+    setTurnError('');
+    setTurnState('submitted');
+  }, [activeSessionId, setLocalMessages, setLiveText, setPendingUserMessageId, setTurnError, setTurnState]);
+
+  const handleLineageError = useCallback((error: unknown) => {
+    if (isSessionNotFoundError(error) && activeSessionId) {
+      onSessionMissing(activeSessionId);
+      setTurnState('idle');
+      setTurnError('That chat session no longer exists. Starting from the current daemon session list.');
+      return;
+    }
+    if (isAuthExpiredError(error)) {
+      onAuthExpired();
+      setTurnState('session expired');
+      setTurnError('Your session expired — sign in again to continue.');
+      return;
+    }
+    if (isSessionClosedError(error)) {
+      setTurnState('idle');
+      setTurnError('This chat is closed — reopen or start a new chat to keep going.');
+      return;
+    }
+    setTurnState('error');
+    setTurnError(formatError(error));
+  }, [activeSessionId, onAuthExpired, onSessionMissing, setTurnError, setTurnState]);
+
+  // regenerate (companion.chat.messages.retry)
+  const regenerateMutation = useMutation<CompanionRegenerateVars, Error, CompanionRegenerateVars>({
+    mutationFn: async (vars) => {
+      beginLineageTurn();
+      await sdk.chat.messages.retry(
+        vars.sessionId,
+        vars.messageId ? { messageId: vars.messageId } : undefined,
+      );
+      await invalidateChatState(vars.sessionId);
+      return vars;
+    },
+    onError: handleLineageError,
+  });
+
+  // edit-and-branch (companion.chat.messages.edit)
+  const editMutation = useMutation<CompanionEditVars, Error, CompanionEditVars>({
+    mutationFn: async (vars) => {
+      beginLineageTurn();
+      await sdk.chat.messages.edit(vars.sessionId, vars.messageId, { content: vars.content });
+      await invalidateChatState(vars.sessionId);
+      return vars;
+    },
+    onError: handleLineageError,
+  });
+
+  // -------------------------------------------------------------------------
+  // editAndResend: edit a user message and branch (honest server lineage)
   // -------------------------------------------------------------------------
   const editAndResend = useCallback(
     (messageId: string, newText: string) => {
-      if (!newText.trim()) return;
-
-      // Capture the original text BEFORE truncating so we can record variant 0.
-      // We need it synchronously here; extract it from the functional updater.
-      let originalText = '';
-      setLocalMessages((current) => {
-        const idx = current.findIndex((m) => m.id === messageId);
-        if (idx === -1) {
-          // Message not in local state — nothing to truncate; fall through to send
-          return current;
-        }
-        // Capture original for variant recording
-        originalText = (current[idx].content) ?? '';
-        // Truncate to idx — drop the message at idx so the mutation re-adds it
-        // as a fresh local message (prevents duplicate user bubble).
-        return current.slice(0, idx);
-      });
-
-      // Record the original text as variant 0 (if not already tracked), then
-      // the new text as the next variant. Both keyed to messageId.
-      recordVariant(messageId, { messageId, text: originalText });
-      recordVariant(messageId, { messageId, text: newText });
-
-      // Trigger the actual send — the mutation appends the single new user message.
-      sendMutation.mutate({ body: newText, files: [] });
+      const content = newText.trim();
+      if (!content || !activeSessionId) return;
+      if (isServerMessageId(messageId)) {
+        editMutation.mutate({ sessionId: activeSessionId, messageId, content });
+        return;
+      }
+      // No server id yet (an un-persisted optimistic message) — a branch has nothing
+      // to fork from, so send the edited text as a fresh message instead of faking a
+      // branch. Honest: it is a new turn, not a rewrite of history that never persisted.
+      sendMutation.mutate({ body: content, files: [] });
     },
-    [sendMutation, setLocalMessages, recordVariant],
+    [activeSessionId, editMutation, sendMutation],
   );
 
   // -------------------------------------------------------------------------
-  // regenerateFrom: request a fresh assistant response for the given message
+  // regenerateFrom: re-run an assistant response (honest server lineage)
   // -------------------------------------------------------------------------
   const regenerateFrom = useCallback(
-    (messageId: string, messages: ChatMessage[]) => {
-      // Find the last user message at or before the given assistant message
-      const assistantIdx = messages.findIndex(
-        (m) => (m.id === messageId || m.messageId === messageId),
-      );
-      if (assistantIdx === -1) return;
-
-      // Walk back to find the user turn that preceded this assistant response
-      let userMessage: ChatMessage | undefined;
-      for (let i = assistantIdx - 1; i >= 0; i--) {
-        const role = (messages[i].role ?? messages[i].author ?? '').toLowerCase();
-        if (role.includes('user')) {
-          userMessage = messages[i];
-          break;
-        }
-      }
-      if (!userMessage) return;
-
-      const userMsgId = (userMessage.id ?? userMessage.messageId ?? '');
-      const userText = messageText(userMessage);
-      if (!userText) return;
-
-      // Capture the original assistant text so we can record it as variant 0.
-      const assistantOriginalText = messageText(messages[assistantIdx]);
-
-      // Truncate local messages to drop the user message and everything after
-      // so the mutation re-adds the user message and a fresh assistant response
-      // (prevents duplicate user bubble).
-      setLocalMessages((current) => {
-        const keepUntil = current.findIndex((m) => m.id === userMsgId);
-        // keepUntil === -1 means the user message isn't in local state — leave as-is
-        return keepUntil === -1 ? current : current.slice(0, keepUntil);
-      });
-
-      // Record original assistant text as variant 0, placeholder for variant 1.
-      recordVariant(messageId, { messageId, text: assistantOriginalText });
-      recordVariant(messageId, { messageId, text: '' });
-
-      // Re-send the user message text to produce a new assistant response.
-      sendMutation.mutate({ body: userText, files: [] });
-    },
-    [sendMutation, setLocalMessages, recordVariant],
-  );
-
-  // -------------------------------------------------------------------------
-  // selectBranch: update currentIndex for a root message's branch
-  // -------------------------------------------------------------------------
-  const selectBranch = useCallback(
-    (rootMessageId: string, index: number) => {
-      setBranchMap((prev) => {
-        const record = prev.get(rootMessageId);
-        if (!record) return prev;
-        if (index < 0 || index >= record.variants.length) return prev;
-        const next = new Map(prev);
-        next.set(rootMessageId, { ...record, currentIndex: index });
-        return next;
+    (messageId: string, _messages: ChatMessage[]) => {
+      if (!activeSessionId) return;
+      // Target a specific assistant message only when it has a server id; otherwise
+      // omit it and let the daemon regenerate the latest assistant response — the
+      // honest default when the clicked message is still a streamed optimistic echo.
+      regenerateMutation.mutate({
+        sessionId: activeSessionId,
+        messageId: isServerMessageId(messageId) ? messageId : undefined,
       });
     },
-    [],
+    [activeSessionId, regenerateMutation],
   );
 
   return {
@@ -401,10 +370,21 @@ export function useChatSend({
     error: sendMutation.error,
     // Full mutation object for callers that need it
     sendMutation,
-    // New branch-aware handlers
+    // Honest-lineage handlers (server verbs)
     editAndResend,
     regenerateFrom,
-    branchMap,
-    selectBranch,
+    isLineagePending: regenerateMutation.isPending || editMutation.isPending,
+    lineageError: regenerateMutation.error ?? editMutation.error,
   };
+}
+
+interface CompanionRegenerateVars {
+  sessionId: string;
+  messageId?: string;
+}
+
+interface CompanionEditVars {
+  sessionId: string;
+  messageId: string;
+  content: string;
 }

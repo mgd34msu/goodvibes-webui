@@ -116,6 +116,16 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
   'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
   'approvals.list': { method: 'GET', path: '/api/approvals' },
+  // Honest-lineage chat verbs (SDK 1.1.0). Both have real REST routes on the daemon
+  // and are in the installed OperatorMethodId union, but the pinned browser SDK route
+  // maps (SHARED/KNOWLEDGE_BROWSER_ROUTES) do NOT cover them, so they resolve here as
+  // hand-written REST rows. The route reads the body FLAT ({ messageId, content,
+  // attachments }) — interpolateRoute consumes `sessionId` from the path and posts the
+  // rest as-is (see the chat.messages.retry/.edit call sites below). Neither has a
+  // generated OperatorMethodInput/OutputMap entry, so both are invoked through the
+  // untyped path with a hand-authored result shape (Companion{Regenerate,Edit}Result).
+  'companion.chat.messages.edit': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/edit' },
+  'companion.chat.messages.retry': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/retry' },
   'companion.chat.sessions.close': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/close' },
   'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
   'config.set': { method: 'POST', path: '/config' },
@@ -523,6 +533,45 @@ export interface SessionDeleteResult {
 }
 
 /**
+ * The honest-lineage result of `chat.messages.retry` (regenerate). The prior assistant
+ * response, and any turns after it, are SUPERSEDED — retained in the message list and on
+ * disk, flagged with `supersededAt`/`supersededReason`, never deleted — and a fresh turn
+ * re-runs from the preceding user message. `supersededMessageIds` is the retained-history
+ * set the UI surfaces as viewable prior versions; `turnStarted` says whether a new turn
+ * is now streaming back. Hand-authored: companion.chat.messages.retry has no generated
+ * OperatorMethodOutputMap entry in the installed contracts (its id IS in the union, but
+ * the I/O map is not), cross-checked against the SDK's method-catalog-control-companion.
+ */
+export interface CompanionRegenerateResult {
+  readonly sessionId: string;
+  readonly regeneratedFrom: string;
+  readonly supersededMessageIds: readonly string[];
+  readonly turnStarted: boolean;
+}
+
+/**
+ * The honest-lineage result of `chat.messages.edit` (edit-and-branch). The edited user
+ * message, and everything after it, are SUPERSEDED (retained history), and a NEW user
+ * message carrying `revisionOf` back to the original is appended before a fresh turn
+ * answers it. `editedFrom` is the original id (now retained history); `messageId` is the
+ * new active user message. Same generated-map gap as CompanionRegenerateResult.
+ */
+export interface CompanionEditResult {
+  readonly sessionId: string;
+  readonly editedFrom: string;
+  readonly messageId: string;
+  readonly supersededMessageIds: readonly string[];
+  readonly turnStarted: boolean;
+}
+
+/** Input for `chat.messages.edit` — the user message to edit plus its replacement text. */
+export interface CompanionEditInput {
+  readonly content: string;
+  readonly attachments?: readonly { artifactId: string; label?: string }[];
+  readonly metadata?: Record<string, unknown>;
+}
+
+/**
  * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
  * SDK falls back to its own defaults and a dropped stream can appear "live"; with it a
  * dropped stream reconnects with backoff and, once attempts are exhausted, degrades to
@@ -704,7 +753,31 @@ export const sdk = {
       // always did (soft-close-only), which the reconcile step then honestly reports.
       close: (sessionId: string) => invokeOperator('companion.chat.sessions.close', { sessionId }),
     },
-    messages: scopedSdk.chat.messages,
+    messages: {
+      ...scopedSdk.chat.messages,
+      // regenerate (companion.chat.messages.retry): re-run an assistant response
+      // honestly. Omit messageId to regenerate the latest assistant reply. The prior
+      // response is superseded (retained, flagged), never deleted, and a fresh turn
+      // streams back over the same SSE channel. Untyped route (no generated I/O map) —
+      // CompanionRegenerateResult is this module's hand-authored shape.
+      retry: (sessionId: string, input?: { messageId?: string }) =>
+        invokeOperator('companion.chat.messages.retry', {
+          sessionId,
+          ...(input?.messageId ? { messageId: input.messageId } : {}),
+        }) as Promise<CompanionRegenerateResult>,
+      // edit-and-branch (companion.chat.messages.edit): edit a user message and branch
+      // the conversation from it. The original (and everything after) is superseded
+      // (retained, flagged); a new user message carrying `revisionOf` is appended and a
+      // fresh turn answers it. The daemon route reads the edited text from `content`.
+      edit: (sessionId: string, messageId: string, input: CompanionEditInput) =>
+        invokeOperator('companion.chat.messages.edit', {
+          sessionId,
+          messageId,
+          content: input.content,
+          ...(input.attachments?.length ? { attachments: input.attachments } : {}),
+          ...(input.metadata ? { metadata: input.metadata } : {}),
+        }) as Promise<CompanionEditResult>,
+    },
     events: scopedSdk.chat.events,
   },
   artifacts: scopedSdk.artifacts,

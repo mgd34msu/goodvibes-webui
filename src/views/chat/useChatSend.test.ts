@@ -23,15 +23,34 @@ import type { LocalCompanionMessage } from '../../lib/companion-chat';
 // mock.module locks in the module shape once, but not what the inner fn does.
 let createMessageImpl: () => Promise<unknown> = async () => ({ messageId: 'msg-test' });
 
+// Spies for the honest-lineage verbs — reset in afterEach.
+const retryCalls: { sessionId: string; input?: { messageId?: string } }[] = [];
+const editCalls: { sessionId: string; messageId: string; input: { content: string } }[] = [];
+
 mock.module('../../lib/goodvibes', () => ({
   sdk: {
     chat: {
       sessions: { create: async () => ({ sessionId: 'sess-test' }) },
-      messages: { create: async () => createMessageImpl() },
+      messages: {
+        create: async () => createMessageImpl(),
+        retry: async (sessionId: string, input?: { messageId?: string }) => {
+          retryCalls.push({ sessionId, input });
+          return { sessionId, regeneratedFrom: input?.messageId ?? 'latest', supersededMessageIds: [], turnStarted: true };
+        },
+        edit: async (sessionId: string, messageId: string, input: { content: string }) => {
+          editCalls.push({ sessionId, messageId, input });
+          return { sessionId, editedFrom: messageId, messageId: `${messageId}-rev`, supersededMessageIds: [messageId], turnStarted: true };
+        },
+      },
     },
     artifacts: { create: async () => ({ artifactId: 'art-test' }) },
   },
 }));
+
+/** Let queued microtasks (the fire-and-forget lineage mutations) settle. */
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 // ---------------------------------------------------------------------------
 // Hook harness
@@ -154,165 +173,67 @@ afterEach(() => {
     harness = null;
   }
   createMessageImpl = async () => ({ messageId: 'msg-test' });
+  retryCalls.length = 0;
+  editCalls.length = 0;
 });
 
 // ---------------------------------------------------------------------------
-// editAndResend
+// editAndResend — the honest server edit-and-branch verb
 // ---------------------------------------------------------------------------
 
 describe('editAndResend', () => {
-  test('truncates local messages to before the edited message (no duplicate user bubble)', () => {
-    const msgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Hello'),
-      makeUserMessage('u2', 'World'), // this is the one we will "edit"
-    ];
-    harness = renderHook({ localMessages: msgs });
+  test('edits via the server edit verb when the message has a server id', async () => {
+    harness = renderHook({ localMessages: [makeUserMessage('u1', 'Original text')] });
     const { editAndResend } = harness.getReturn();
-
-    flushSync(() => {
-      editAndResend('u2', 'World edited');
-    });
-
-    // setLocalMessages should have been called with a truncation to idx=1,
-    // which means the slice is [...msgs.slice(0, 1)] = [u1]. The mutation
-    // will re-add a new user message but we inspect ONLY the synchronous
-    // truncation here (before the async mutation fires).
-    const local = harness.getLocalMessages();
-    // After synchronous truncation: only messages BEFORE index 1 remain.
-    expect(local.length).toBe(1);
-    expect(local[0].id).toBe('u1');
-  });
-
-  test('records original text as variant 0 before the new text as variant 1', () => {
-    const msgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Original text'),
-    ];
-    harness = renderHook({ localMessages: msgs });
-    const { editAndResend, branchMap } = harness.getReturn();
 
     flushSync(() => {
       editAndResend('u1', 'Edited text');
     });
+    await flushMicrotasks();
 
-    const record = harness.getReturn().branchMap.get('u1');
-    expect(record).toBeDefined();
-    if (!record) return;
-
-    expect(record.variants.length).toBe(2);
-    expect(record.variants[0].text).toBe('Original text');
-    expect(record.variants[1].text).toBe('Edited text');
-    // After recording, currentIndex should point to the latest variant
-    expect(record.currentIndex).toBe(1);
-    void branchMap; // suppress unused-var lint
+    expect(editCalls.length).toBe(1);
+    expect(editCalls[0].sessionId).toBe('sess-1');
+    expect(editCalls[0].messageId).toBe('u1');
+    expect(editCalls[0].input.content).toBe('Edited text');
   });
 
-  test('does nothing when newText is empty or whitespace', () => {
-    const msgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Hello'),
-    ];
-    harness = renderHook({ localMessages: msgs });
+  test('does nothing when newText is empty or whitespace', async () => {
+    harness = renderHook({ localMessages: [makeUserMessage('u1', 'Hello')] });
     const { editAndResend } = harness.getReturn();
 
     flushSync(() => {
       editAndResend('u1', '   ');
     });
+    await flushMicrotasks();
 
-    // No local message mutation and no variant recorded
-    const local = harness.getLocalMessages();
-    expect(local.length).toBe(1);
-    expect(harness.getReturn().branchMap.get('u1')).toBeUndefined();
+    expect(editCalls.length).toBe(0);
   });
 
-  test('does not mutate local messages when messageId is not found', () => {
-    const msgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Hello'),
-    ];
-    harness = renderHook({ localMessages: msgs });
+  test('falls back to a plain send for a client-only optimistic id (nothing to branch)', async () => {
+    harness = renderHook({ localMessages: [], activeSessionId: 'sess-1' });
     const { editAndResend } = harness.getReturn();
 
     flushSync(() => {
-      editAndResend('unknown-id', 'Edited text');
+      editAndResend('local-abc', 'Edited text');
     });
+    await flushMicrotasks();
 
-    // Local messages unchanged (idx === -1 guard)
-    const local = harness.getLocalMessages();
-    expect(local.length).toBe(1);
-    // Variant IS recorded even when message not in local state (keyed by id)
-    const record = harness.getReturn().branchMap.get('unknown-id');
-    expect(record).toBeDefined();
+    // No branch verb (there is no persisted message to fork), but the edit is not
+    // dropped — it goes out as a fresh send.
+    expect(editCalls.length).toBe(0);
+    expect(harness.getTurnStates()).toContain('sending');
   });
 });
 
 // ---------------------------------------------------------------------------
-// regenerateFrom
+// regenerateFrom — the honest server regenerate verb
 // ---------------------------------------------------------------------------
 
 describe('regenerateFrom', () => {
-  test('records original assistant text as variant 0 (not empty string)', () => {
-    const userMsg = makeChatMessage('u1', 'user', 'Tell me a joke');
-    const assistantMsg = makeChatMessage('a1', 'assistant', 'Why did the chicken cross the road?');
-    const messages: ChatMessage[] = [userMsg, assistantMsg];
-
-    // Local state mirrors the messages
-    const localMsgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Tell me a joke'),
-    ];
-    harness = renderHook({ localMessages: localMsgs });
-    const { regenerateFrom } = harness.getReturn();
-
-    flushSync(() => {
-      regenerateFrom('a1', messages);
-    });
-
-    const record = harness.getReturn().branchMap.get('a1');
-    expect(record).toBeDefined();
-    if (!record) return;
-
-    // variant 0 must have the original assistant text, not empty string
-    expect(record.variants.length).toBe(2);
-    expect(record.variants[0].text).toBe('Why did the chicken cross the road?');
-    // variant 1 is the regeneration placeholder (empty until streaming completes)
-    expect(record.variants[1].text).toBe('');
-  });
-
-  test('truncates local messages to before the user message (no duplicate user bubble)', () => {
-    const userMsg = makeChatMessage('u1', 'user', 'Tell me a joke');
-    const assistantMsg = makeChatMessage('a1', 'assistant', 'Why did the chicken cross the road?');
-    const messages: ChatMessage[] = [userMsg, assistantMsg];
-
-    const localMsgs: LocalCompanionMessage[] = [
-      makeUserMessage('u1', 'Tell me a joke'),
-    ];
-    harness = renderHook({ localMessages: localMsgs });
-    const { regenerateFrom } = harness.getReturn();
-
-    flushSync(() => {
-      regenerateFrom('a1', messages);
-    });
-
-    // After truncation: local messages should be empty because we drop the
-    // user message at keepUntil=0 using slice(0, 0). The mutation re-adds it.
-    const local = harness.getLocalMessages();
-    expect(local.length).toBe(0);
-  });
-
-  test('does nothing when assistant message is not found', () => {
+  test('regenerates via the server retry verb, targeting the assistant server id', async () => {
     const messages: ChatMessage[] = [
-      makeChatMessage('u1', 'user', 'Hello'),
-    ];
-    harness = renderHook({});
-    const { regenerateFrom } = harness.getReturn();
-
-    flushSync(() => {
-      regenerateFrom('unknown-id', messages);
-    });
-
-    expect(harness.getReturn().branchMap.size).toBe(0);
-  });
-
-  test('does nothing when no preceding user message is found', () => {
-    const messages: ChatMessage[] = [
-      makeChatMessage('a1', 'assistant', 'I appear alone'),
+      makeChatMessage('u1', 'user', 'Tell me a joke'),
+      makeChatMessage('a1', 'assistant', 'Why did the chicken cross the road?'),
     ];
     harness = renderHook({});
     const { regenerateFrom } = harness.getReturn();
@@ -320,99 +241,41 @@ describe('regenerateFrom', () => {
     flushSync(() => {
       regenerateFrom('a1', messages);
     });
+    await flushMicrotasks();
 
-    expect(harness.getReturn().branchMap.size).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// selectBranch
-// ---------------------------------------------------------------------------
-
-describe('selectBranch', () => {
-  test('clamps index at lower bound (no-op for index < 0)', () => {
-    harness = renderHook({});
-    const { editAndResend, selectBranch } = harness.getReturn();
-
-    // Seed two variants via editAndResend
-    flushSync(() => {
-      editAndResend('u1', 'First');
-    });
-
-    // At this point currentIndex === 1 (pointing to 'First' variant)
-    const before = harness.getReturn().branchMap.get('u1')?.currentIndex;
-    expect(before).toBe(1);
-
-    flushSync(() => {
-      selectBranch('u1', -1);
-    });
-
-    // Index out of range — should not change
-    const after = harness.getReturn().branchMap.get('u1')?.currentIndex;
-    expect(after).toBe(1);
+    expect(retryCalls.length).toBe(1);
+    expect(retryCalls[0].sessionId).toBe('sess-1');
+    expect(retryCalls[0].input?.messageId).toBe('a1');
   });
 
-  test('clamps index at upper bound (no-op for index >= variants.length)', () => {
+  test('omits the message id for a client-only optimistic assistant id (regenerate latest)', async () => {
+    const messages: ChatMessage[] = [
+      makeChatMessage('u1', 'user', 'Tell me a joke'),
+      makeChatMessage('assistant-xyz', 'assistant', 'streamed placeholder'),
+    ];
     harness = renderHook({});
-    const { editAndResend, selectBranch } = harness.getReturn();
+    const { regenerateFrom } = harness.getReturn();
 
     flushSync(() => {
-      editAndResend('u1', 'First');
+      regenerateFrom('assistant-xyz', messages);
     });
+    await flushMicrotasks();
 
-    // variants.length is 2 (original + edited); valid range is 0..1
-    flushSync(() => {
-      selectBranch('u1', 2);
-    });
-
-    const after = harness.getReturn().branchMap.get('u1')?.currentIndex;
-    expect(after).toBe(1);
+    expect(retryCalls.length).toBe(1);
+    // Undefined input → the daemon regenerates the latest assistant response.
+    expect(retryCalls[0].input).toBeUndefined();
   });
 
-  test('updates currentIndex to selected variant', () => {
-    harness = renderHook({});
-    const { editAndResend, selectBranch } = harness.getReturn();
+  test('does nothing without an active session', async () => {
+    harness = renderHook({ activeSessionId: '' });
+    const { regenerateFrom } = harness.getReturn();
 
     flushSync(() => {
-      editAndResend('u1', 'First');
+      regenerateFrom('a1', [makeChatMessage('a1', 'assistant', 'alone')]);
     });
+    await flushMicrotasks();
 
-    // Navigate back to variant 0 (original)
-    flushSync(() => {
-      selectBranch('u1', 0);
-    });
-
-    const record = harness.getReturn().branchMap.get('u1');
-    expect(record?.currentIndex).toBe(0);
-  });
-
-  test('content swap: branchRecord.variants[currentIndex].text reflects selected variant', () => {
-    harness = renderHook({});
-    const { editAndResend, selectBranch } = harness.getReturn();
-
-    flushSync(() => {
-      editAndResend('u1', 'Edited text');
-    });
-
-    // Navigate to variant 0 — should see original text
-    flushSync(() => {
-      selectBranch('u1', 0);
-    });
-
-    const record = harness.getReturn().branchMap.get('u1');
-    expect(record?.variants[record.currentIndex].text).toBe('');
-  });
-
-  test('does nothing for unknown rootMessageId', () => {
-    harness = renderHook({});
-    const { selectBranch } = harness.getReturn();
-
-    // Should not throw, and branchMap stays empty
-    flushSync(() => {
-      selectBranch('nonexistent', 0);
-    });
-
-    expect(harness.getReturn().branchMap.size).toBe(0);
+    expect(retryCalls.length).toBe(0);
   });
 });
 

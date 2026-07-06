@@ -103,6 +103,25 @@ export const ACTIVE_TURN_STATES = [
   'sending while reconnecting',
 ];
 
+/**
+ * Derive a concise, human chat title from the first user message — the client-side
+ * auto-title (there is deliberately no server auto-title verb; the daemon exposes only
+ * companion.chat.sessions.update, which this feeds). Takes the first non-empty line,
+ * collapses whitespace, caps the length on a word boundary, and strips trailing
+ * punctuation. Returns '' when there is nothing meaningful to title from, so the caller
+ * can leave the existing title untouched rather than write an empty one.
+ */
+export function deriveChatTitle(text: string, maxLength = 52): string {
+  const firstLine = text.split('\n').map((line) => line.trim()).find((line) => line.length > 0) ?? '';
+  const collapsed = firstLine.replace(/\s+/g, ' ').trim();
+  if (!collapsed) return '';
+  if (collapsed.length <= maxLength) return collapsed.replace(/[\s.,;:!?-]+$/, '');
+  const clipped = collapsed.slice(0, maxLength);
+  const lastSpace = clipped.lastIndexOf(' ');
+  const onWordBoundary = lastSpace > maxLength * 0.5 ? clipped.slice(0, lastSpace) : clipped;
+  return `${onWordBoundary.replace(/[\s.,;:!?-]+$/, '')}…`;
+}
+
 export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '' {
   const state = firstString(message, ['deliveryState', 'status', 'state']).toLowerCase();
   if (state.includes('fail') || state.includes('error')) return 'failed';

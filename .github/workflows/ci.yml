@@ -85,3 +85,62 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+  e2e:
+    # RULING (docs/decisions/2026-07-07-e2e-ci-in-ci.md): the Playwright suite
+    # goes in as a separate, initially non-blocking job while specs stabilize,
+    # then flips blocking once its promotion criterion is met — 10
+    # consecutive green scheduled/main-branch runs with zero flake reruns.
+    # Track that count by hand against this job's run history; once satisfied,
+    # remove `continue-on-error: true` below (and drop this comment block) in
+    # one small follow-up change. Do not add e2e to the SDK or agent repos'
+    # release trains — this is webui-first only.
+    name: E2E (Playwright, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+          cache: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(jq -r .version node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browser binaries
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright Chromium + OS deps (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Install Playwright OS deps only (cache hit, binaries already cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      - name: Run e2e suite (phone + desktop, mock daemon, hermetic)
+        run: bun run e2e
+
+      - name: Upload traces/report/screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/.artifacts/report
+            e2e/.artifacts/test-output
+          retention-days: 14
+          if-no-files-found: ignore

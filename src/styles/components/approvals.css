@@ -1,0 +1,263 @@
+/*
+ * Approvals + Tasks view (W3-W2). Uses contract tokens from
+ * src/styles/tokens.css exclusively, matching fleet.css/checkpoints.css.
+ */
+
+.approvals-tasks-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.approvals-section,
+.tasks-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  min-height: 0;
+}
+
+.approvals-toolbar,
+.tasks-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.approvals-toolbar__summary,
+.tasks-toolbar__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.approvals-rows,
+.tasks-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+/* Approval card */
+.approval-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.approval-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.approval-card__tool {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+}
+
+.approval-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.approval-card__summary {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.approval-card__note {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.approval-card__hunks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.hunk-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.hunk-row label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.hunk-row__summary {
+  font-family: var(--font-mono, monospace);
+  word-break: break-word;
+}
+
+.approval-card__actions,
+.task-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.approval-card__approve-selected,
+.approval-card__approve-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.approval-card__deny,
+.task-row__cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+  border: 1px solid var(--status-danger);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.task-row__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--surface-raised, var(--surface-sunken));
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.approval-card__actions button:disabled,
+.task-row__actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.approval-card__reasons {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.approval-card__reasons summary {
+  cursor: pointer;
+}
+
+/* Tasks */
+.tasks-create {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.tasks-create__input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  font-size: var(--text-xs, 12px);
+}
+
+.tasks-create__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.tasks-create__button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.task-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.task-row__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.task-row__title {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-primary);
+}
+
+.task-row__badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-row__meta {
+  display: flex;
+  gap: 4px;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.task-row__error {
+  color: var(--status-danger);
+}

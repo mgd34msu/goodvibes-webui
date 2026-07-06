@@ -2,6 +2,7 @@ import {
   Activity,
   Boxes,
   Brain,
+  ClipboardCheck,
   Gauge,
   History,
   KeyRound,
@@ -13,6 +14,7 @@ import {
   ServerCog,
   Settings,
   Trash2,
+  Workflow,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppShell from './components/shell/AppShell';
@@ -27,6 +29,8 @@ import { ChatView } from './views/ChatView';
 import { SessionsView } from './views/sessions/SessionsView';
 import { FleetView } from './views/fleet/FleetView';
 import { CheckpointsView } from './views/checkpoints/CheckpointsView';
+import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
+import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
@@ -57,14 +61,11 @@ const views: {
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
-  // W3-W2 (Approvals+Tasks / Workstream): 'approvals-tasks' and 'workstream'
-  // are already valid ViewIds (router.ts) so URLs never fall back to 'chat'
-  // for them, but no nav entry/render-switch case is added here yet — that
-  // would be a nav button with no destination. W2 adds both here (a nav row
-  // + a render-switch case below) alongside its new view component files;
-  // it does not need to touch router.ts, queries.ts (fleet/checkpoints keys
-  // already exist; a workstream key stub is in queries.ts too), or
-  // useRealtimeInvalidation.ts.
+  // W3-W2: nav entries for the two views this wave adds, riding W1's
+  // pre-scaffolded ViewIds/query keys/realtime domains — no edits needed to
+  // router.ts, queries.ts, or useRealtimeInvalidation.ts.
+  { id: 'approvals-tasks', label: 'Approvals', short: 'Decisions', icon: ClipboardCheck },
+  { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
 ];
 
 export default function App() {
@@ -451,6 +452,8 @@ export default function App() {
           {activeView === 'sessions' && <SessionsView />}
           {activeView === 'fleet' && <FleetView />}
           {activeView === 'checkpoints' && <CheckpointsView />}
+          {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
+          {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}

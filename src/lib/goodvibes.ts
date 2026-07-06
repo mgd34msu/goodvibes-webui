@@ -67,6 +67,9 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
+  // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
+  // whole body is the task submission), predating the `/api/tasks` REST family.
+  'tasks.create': { method: 'POST', path: '/task' },
   'tasks.list': { method: 'GET', path: '/api/tasks' },
   'tasks.retry': { method: 'POST', path: '/api/tasks/{taskId}/retry' },
 };
@@ -353,6 +356,146 @@ export interface CheckpointsRestoreResult {
   };
 }
 
+// ─── Approvals (approvals.*, W3-S3 per-hunk selection) ─────────────────────
+
+/**
+ * One edit hunk of an `edit`-tool approval's `request.args.edits` array.
+ * Mirrors the SDK's EditHunkLike (approval-hunk-apply.ts) — path/find/replace
+ * plus an optional stable id. Read defensively (see lib/approvals.ts): a
+ * request whose args are not edit-shaped simply has no hunks to render.
+ */
+export interface ApprovalEditHunk {
+  readonly path: string;
+  readonly find: string;
+  readonly replace: string;
+  readonly id?: string;
+}
+
+export interface ApprovalAnalysis {
+  readonly classification: string;
+  readonly riskLevel: string;
+  readonly summary: string;
+  readonly reasons: readonly string[];
+  readonly target?: string;
+  readonly targetKind?: string;
+  readonly surface?: string;
+  readonly blastRadius?: string;
+  readonly sideEffects?: readonly string[];
+  readonly host?: string;
+}
+
+export interface ApprovalRequest {
+  readonly callId: string;
+  readonly tool: string;
+  readonly args: Record<string, unknown>;
+  readonly category: string;
+  readonly analysis: ApprovalAnalysis;
+  readonly workingDirectory?: string;
+}
+
+export interface ApprovalDecision {
+  readonly approved: boolean;
+  readonly remember?: boolean;
+  readonly modifiedArgs?: Record<string, unknown>;
+}
+
+export type ApprovalStatus = 'pending' | 'claimed' | 'approved' | 'denied' | 'cancelled' | 'expired';
+
+export interface ApprovalRecord {
+  readonly id: string;
+  readonly callId: string;
+  readonly sessionId?: string;
+  readonly routeId?: string;
+  readonly status: ApprovalStatus;
+  readonly request: ApprovalRequest;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly claimedBy?: string;
+  readonly claimedAt?: number;
+  readonly resolvedAt?: number;
+  readonly resolvedBy?: string;
+  readonly decision?: ApprovalDecision;
+  readonly metadata: Record<string, unknown>;
+}
+
+export interface ApprovalSnapshotResult {
+  readonly awaitingDecision: boolean;
+  readonly mode: string;
+  readonly approvalCount: number;
+  readonly denialCount: number;
+  readonly cachedChecks: number;
+  readonly totalChecks: number;
+  readonly approvals: readonly ApprovalRecord[];
+}
+
+export interface ApprovalActionResult {
+  readonly approval: ApprovalRecord;
+}
+
+/**
+ * Optional per-hunk selection for `approvals.approve` (W3-S3). Omitting
+ * `selectedHunks` approves the whole request (back-compat); when present the
+ * DAEMON filters the approval's own edit list to those indices server-side
+ * (approval-hunk-apply.ts) so every surface (TUI, webui) produces identical
+ * modified-edit args — the webui only ever sends indices, never a computed diff.
+ */
+export interface ApprovalApproveInput {
+  readonly selectedHunks?: readonly number[];
+  readonly note?: string;
+  readonly remember?: boolean;
+}
+
+// ─── Tasks (tasks.*) ─────────────────────────────────────────────────────────
+
+export interface RuntimeTaskSummary {
+  readonly id: string;
+  readonly kind: string;
+  readonly title: string;
+  readonly status: string;
+  readonly owner: string;
+  readonly cancellable?: boolean;
+  readonly parentTaskId?: string;
+  readonly queuedAt: number;
+  readonly startedAt?: number;
+  readonly endedAt?: number;
+  readonly error?: string;
+}
+
+export interface TaskSnapshotResult {
+  readonly queued: number;
+  readonly running: number;
+  readonly blocked: number;
+  readonly totals: {
+    readonly created: number;
+    readonly completed: number;
+    readonly failed: number;
+    readonly cancelled: number;
+  };
+  readonly tasks: readonly RuntimeTaskSummary[];
+}
+
+export interface TaskActionResult {
+  readonly retried?: boolean;
+  readonly task: { readonly id: string; readonly status: string; readonly title?: string };
+}
+
+export interface TaskCreateInput {
+  readonly task: string;
+  readonly model?: string;
+  readonly tools?: readonly string[];
+  readonly provider?: string;
+  readonly title?: string;
+}
+
+export interface TaskCreateResult {
+  readonly acknowledged: boolean;
+  readonly mode?: string;
+  readonly sessionId?: string | null;
+  readonly agentId?: string | null;
+  readonly status?: string;
+  readonly task?: string;
+}
+
 /**
  * Explicit capped-exponential reconnect policy for every SSE consumer. Without it the
  * SDK falls back to its own defaults and a dropped stream can appear "live"; with it a
@@ -402,16 +545,22 @@ export const sdk = {
       select: (registryKey: string) => invokeOperator('models.select', { registryKey }),
     },
     tasks: {
-      list: () => invokeOperator('tasks.list'),
-      cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }),
-      retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }),
+      list: () => invokeOperator('tasks.list') as Promise<TaskSnapshotResult>,
+      create: (input: TaskCreateInput) => invokeOperator('tasks.create', input) as Promise<TaskCreateResult>,
+      cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }) as Promise<TaskActionResult>,
+      retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }) as Promise<TaskActionResult>,
     },
     approvals: {
-      list: () => invokeOperator('approvals.list'),
-      approve: (approvalId: string) => invokeOperator('approvals.approve', { approvalId }),
-      cancel: (approvalId: string) => invokeOperator('approvals.cancel', { approvalId }),
-      claim: (approvalId: string) => invokeOperator('approvals.claim', { approvalId }),
-      deny: (approvalId: string) => invokeOperator('approvals.deny', { approvalId }),
+      list: () => invokeOperator('approvals.list') as Promise<ApprovalSnapshotResult>,
+      // selectedHunks (W3-S3): an index array into the pending approval's own
+      // edit list. Omit it to approve the whole request. The daemon computes
+      // modifiedArgs server-side — this call never carries a computed diff.
+      approve: (approvalId: string, input?: ApprovalApproveInput) =>
+        invokeOperator('approvals.approve', { approvalId, ...input }) as Promise<ApprovalActionResult>,
+      cancel: (approvalId: string) => invokeOperator('approvals.cancel', { approvalId }) as Promise<ApprovalActionResult>,
+      claim: (approvalId: string) => invokeOperator('approvals.claim', { approvalId }) as Promise<ApprovalActionResult>,
+      deny: (approvalId: string, note?: string) =>
+        invokeOperator('approvals.deny', { approvalId, ...(note ? { note } : {}) }) as Promise<ApprovalActionResult>,
     },
     // W3-S2 verbs — generic-invoke-only (see invokeGatewayMethod above).
     fleet: {

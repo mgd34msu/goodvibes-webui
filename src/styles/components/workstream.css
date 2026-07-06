@@ -1,0 +1,179 @@
+/*
+ * Workstream view — orchestration workstream/phase/work-item tree, filtered
+ * client-side from fleet.snapshot (W3-W2). Uses contract tokens from
+ * src/styles/tokens.css exclusively — mirrors fleet.css's structure.
+ */
+
+.workstream-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: var(--space-3, 12px);
+  height: 100%;
+  min-height: 0;
+}
+
+.workstream-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workstream-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.workstream-toolbar__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+@keyframes workstream-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.workstream-toolbar .spin {
+  animation: workstream-refresh-spin 900ms linear infinite;
+}
+
+.workstream-loading {
+  padding: var(--space-2, 8px);
+}
+
+.workstream-cap-note {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.workstream-detail-empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+}
+
+.workstream-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.workstream-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.workstream-row.active {
+  border-color: var(--border-focus);
+  background: var(--accent-muted);
+}
+
+.workstream-row__title {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.workstream-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Detail pane */
+.workstream-detail-pane {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.workstream-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.workstream-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.workstream-detail__task {
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 13px);
+}
+
+.workstream-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+}
+
+.workstream-detail__meta small {
+  color: var(--text-tertiary);
+}
+
+.workstream-detail__activity,
+.workstream-detail__usage,
+.workstream-detail__session {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 13px);
+}
+
+.workstream-detail__usage-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.workstream-detail__note {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.workstream-detail__raw summary {
+  cursor: pointer;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.workstream-detail__raw pre {
+  font-size: var(--text-xs, 11px);
+  overflow-x: auto;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-2, 8px);
+}

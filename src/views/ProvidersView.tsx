@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Cpu, ExternalLink, Route } from 'lucide-react';
+import { Check, Cpu, ExternalLink, KeyRound, Route } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
-import { RecordList } from '../components/RecordList';
 import { StatusBadge } from '../components/StatusBadge';
 import { asRecord, bestId, bestTitle, firstString, readPath } from '../lib/object';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { deriveProviderStatus, providerHeaderLabel } from '../lib/provider-status';
 import { formatError } from '../lib/errors';
 import { EmptyState } from '../components/feedback/EmptyState';
 import { ErrorState } from '../components/feedback/ErrorState';
@@ -16,6 +16,50 @@ import ErrorBoundary from '../components/feedback/ErrorBoundary';
 import { useToast } from '../lib/toast';
 import { usePeek } from '../components/peek/PeekPanel';
 import '../styles/components/providers.css';
+
+/**
+ * A provider-aware sibling of RecordList (src/components/RecordList.tsx).
+ * RecordList's pill is bestStatus(item) — a generic status/state/phase/
+ * health/authFreshness/kind fallback that decorative-defaults to "unknown"
+ * for provider records (they carry none of those keys at top level; the
+ * real per-route freshness is nested). This renders the identical markup
+ * (.record-list/.record-row, so keyboard nav + CSS keep working) but reads
+ * the pill from deriveProviderStatus(item) instead. RecordList itself stays
+ * untouched — other consumers keep bestStatus unchanged.
+ */
+function ProviderRecordList({
+  items,
+  selectedId,
+  onSelect,
+}: {
+  items: unknown[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
+  if (!items.length) return <p className="empty-state">No providers</p>;
+
+  return (
+    <div className="record-list">
+      {items.map((item, index) => {
+        const id = bestId(item) || String(index);
+        const selected = selectedId === id;
+        const status = deriveProviderStatus(item);
+        return (
+          <button
+            key={`${id}-${index}`}
+            type="button"
+            className={selected ? 'record-row selected' : 'record-row'}
+            onClick={() => onSelect(id)}
+          >
+            <strong>{bestTitle(item, id)}</strong>
+            <span>{id}</span>
+            <StatusBadge value={status.freshness} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ProvidersView() {
   const queryClient = useQueryClient();
@@ -91,12 +135,26 @@ export function ProvidersView() {
     queryFn: () => sdk.operator.providers.usage(selectedId),
   });
 
-  const selectedProviderRecord = asRecord(selectedProvider);
-  const selectedProviderConfigured =
-    selectedProviderRecord.configured === true ||
-    firstString(selectedProvider, ['configuredVia']).length > 0;
-  const configuredVia = firstString(selectedProvider, ['configuredVia']);
   const selectedProviderDetail = providerDetail.data ?? selectedProviderSnapshot ?? selectedProvider;
+  // Status is derived from BOTH the merged list record (selectedProvider —
+  // carries the catalog's flat `configured`/`configuredVia`/`routes` for
+  // providers.list, since the merge shallow-spreads catalog on top) and the
+  // freshest single-provider snapshot (selectedProviderDetail, from
+  // providers.get — carries the current runtime.auth.routes/configured but
+  // NEVER a `configuredVia`, since ProviderRuntimeMetadata has no such
+  // field). Neither source alone is honest: the list record can be stale
+  // once providers.get resolves, and the raw snapshot alone loses
+  // `configuredVia` for the header. The two object shapes don't share key
+  // names for configured/configuredVia/routes, so this shallow merge can't
+  // clobber one with the other's absence.
+  const selectedProviderCombined = useMemo(
+    () => ({ ...asRecord(selectedProvider), ...asRecord(selectedProviderDetail) }),
+    [selectedProvider, selectedProviderDetail],
+  );
+  const selectedProviderStatus = useMemo(
+    () => deriveProviderStatus(selectedProviderCombined),
+    [selectedProviderCombined],
+  );
   const models = modelOptionsForProvider(selectedProvider, modelProviders);
   const currentModelRecord = asRecord(readPath(currentModel.data, ['model']));
   const catalogCurrentModel = asRecord(readPath(modelCatalog.data, ['currentModel']));
@@ -216,11 +274,10 @@ export function ProvidersView() {
             aria-label="Providers"
             onKeyDown={handleProviderKeyDown}
           >
-            <RecordList
+            <ProviderRecordList
               items={providerList}
               selectedId={selectedId}
               onSelect={setSelectedProviderId}
-              empty="No providers"
             />
           </div>
         )}
@@ -252,9 +309,7 @@ export function ProvidersView() {
               </button>
               <span>{selectedId || 'No provider selected'}</span>
             </div>
-            <StatusBadge
-              value={selectedProviderConfigured ? (configuredVia || 'configured') : 'not configured'}
-            />
+            <StatusBadge value={providerHeaderLabel(selectedProviderStatus)} />
           </div>
 
           {/* Current model panel */}
@@ -381,6 +436,46 @@ export function ProvidersView() {
                     </article>
                   );
                 })}
+              </div>
+            )}
+          </section>
+
+          {/* Auth routes panel — per-route freshness, honestly, never rolled up away */}
+          <section className="panel" aria-label="Authentication routes for selected provider">
+            <div className="panel-title">
+              <h2>Auth Routes</h2>
+              <KeyRound size={18} aria-hidden="true" />
+            </div>
+
+            {selectedProviderStatus.routes.length === 0 ? (
+              <EmptyState
+                icon={<KeyRound size={24} aria-hidden="true" />}
+                title="No route detail"
+                description="No authentication route detail reported for this provider."
+              />
+            ) : (
+              <div className="providers-model-grid" role="list" aria-label="Authentication routes">
+                {selectedProviderStatus.routes.map((route, index) => (
+                  <article
+                    key={`${route.route}-${index}`}
+                    className="providers-model-row"
+                    role="listitem"
+                    aria-label={`${route.label}, ${route.freshness}`}
+                  >
+                    <div className="providers-model-row__copy">
+                      <strong>{route.label}</strong>
+                      <span>{route.detail ?? route.route}</span>
+                      {route.repairHints.length > 0 && (
+                        <ul>
+                          {route.repairHints.map((hint) => (
+                            <li key={hint}>{hint}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <StatusBadge value={route.freshness} />
+                  </article>
+                ))}
               </div>
             )}
           </section>

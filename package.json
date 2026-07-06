@@ -7,8 +7,10 @@
   "description": "Browser operator surface for the GoodVibes daemon.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "bun run presentation:check && tsc --noEmit && vite build",
     "ci": "bun run test && bun run typecheck && bun run build",
+    "presentation:generate": "bun run scripts/generate-presentation-tokens.ts",
+    "presentation:check": "bun run scripts/generate-presentation-tokens.ts --check",
     "preview": "vite preview --host 127.0.0.1 --port 3423 --strictPort",
     "test": "bun test --isolate",
     "test:e2e": "playwright test",

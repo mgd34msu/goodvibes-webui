@@ -7,6 +7,7 @@ import {
   formatLatency,
   sseLabel,
 } from '../../lib/daemon-health';
+import { contractGlyphForConnection } from '../../lib/presentation-bridge';
 import { ConnectionDot } from './ConnectionDot';
 import '../../styles/components/status.css';
 
@@ -41,10 +42,21 @@ export function StatusStrip() {
         {`${connectionLabel(connection)}, ${authLabel(signedIn)}, ${workingLabel(working)}`}
       </span>
 
-      {/* REACHABLE axis */}
+      {/* REACHABLE axis. The `data-contract-glyph` attribute is painted via a
+          `.status-strip__label::before` CSS rule (status.css) — sourced from
+          the SDK presentation contract (src/lib/presentation-bridge.ts), the
+          same good/warn/bad glyph vocabulary the TUI/agent render through for
+          a genuinely corresponding severity. It is an attribute, not a child
+          text node, so `.textContent` still reports exactly the label text
+          ("Reachable", never "Connected" — that wording stays webui's own). */}
       <div className="status-strip__segment status-strip__segment--connection">
         <ConnectionDot state={connection} />
-        <span className="status-strip__label">{connectionLabel(connection)}</span>
+        <span
+          className="status-strip__label"
+          data-contract-glyph={contractGlyphForConnection(connection)}
+        >
+          {connectionLabel(connection)}
+        </span>
       </div>
 
       {/* SIGNED-IN axis */}

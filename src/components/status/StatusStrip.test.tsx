@@ -13,6 +13,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import type { DaemonHealth } from '../../lib/daemon-health';
+import { CONTRACT_STATE_GLYPHS } from '../../lib/generated/presentation-tokens';
 
 // ---------------------------------------------------------------------------
 // Module mock — must be called before any import that transitively requires it
@@ -165,6 +166,21 @@ describe('StatusStrip', () => {
       const dot = el.querySelector('.status-strip__dot');
       expect(dot?.getAttribute('aria-hidden')).toBe('true');
     });
+
+    // Component-level assertion (WEBUI-PRESENTATION-BRIDGE): the connection
+    // segment's leading glyph is the SDK presentation contract's own glyph
+    // for the 'good' severity bucket (CONTRACT_STATE_GLYPHS.good), sourced
+    // via src/lib/presentation-bridge.ts — not a hardcoded literal.
+    test('connection segment carries the contract glyph for "good" (connected)', () => {
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const connectionSeg = el.querySelector('.status-strip__segment--connection');
+      const label = connectionSeg?.querySelector('.status-strip__label');
+      expect(label?.getAttribute('data-contract-glyph')).toBe(CONTRACT_STATE_GLYPHS.good);
+      // Attribute-driven (CSS ::before content), not a child text node — the
+      // accessible label text is unaffected.
+      expect(label?.textContent).toBe('Reachable');
+    });
   });
 
   describe('connection state: reconnecting', () => {
@@ -190,6 +206,15 @@ describe('StatusStrip', () => {
       const dot = el.querySelector('.status-strip__dot');
       expect(dot?.className).toContain('status-strip__dot--reconnecting');
     });
+
+    test('connection segment carries the contract glyph for "warn" (reconnecting)', () => {
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const connectionSeg = el.querySelector('.status-strip__segment--connection');
+      const label = connectionSeg?.querySelector('.status-strip__label');
+      expect(label?.getAttribute('data-contract-glyph')).toBe(CONTRACT_STATE_GLYPHS.warn);
+      expect(label?.textContent).toBe('Reconnecting');
+    });
   });
 
   describe('connection state: down', () => {
@@ -214,6 +239,15 @@ describe('StatusStrip', () => {
       cleanup = unmount;
       const dot = el.querySelector('.status-strip__dot');
       expect(dot?.className).toContain('status-strip__dot--down');
+    });
+
+    test('connection segment carries the contract glyph for "bad" (down)', () => {
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const connectionSeg = el.querySelector('.status-strip__segment--connection');
+      const label = connectionSeg?.querySelector('.status-strip__label');
+      expect(label?.getAttribute('data-contract-glyph')).toBe(CONTRACT_STATE_GLYPHS.bad);
+      expect(label?.textContent).toBe('Offline');
     });
   });
 

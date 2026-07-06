@@ -52,6 +52,10 @@ interface StreamControl {
 }
 
 let activeStreamControl: StreamControl | null = null;
+// Every stream() opened this test, in order — the epoch/handshake-race tests need to
+// hold BOTH the superseded stream and its successor at once (activeStreamControl only
+// tracks the most recent).
+let allStreamControls: StreamControl[] = [];
 let streamCallCount = 0;
 
 // Mock the SDK module
@@ -66,6 +70,7 @@ mock.module('../../lib/goodvibes', () => ({
             const disconnect = mock(() => {});
             const promise = new Promise<StreamDisconnect>((resolve, reject) => {
               activeStreamControl = { resolveFn: resolve, rejectFn: reject, disconnect, options, openOptions };
+              allStreamControls.push(activeStreamControl);
             });
             return promise;
           },
@@ -89,23 +94,44 @@ interface HookOwnerProps {
 }
 
 function HookOwner({ activeSessionId, turnState, setTurnState, setTurnError, onAuthExpired, onResult }: HookOwnerProps): null {
-  const liveTextRef = createRef<string>() as React.RefObject<string>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (liveTextRef as any).current = '';
+  // Stable across re-renders — matching the real caller (ChatView), where these are
+  // useState setters / useCallback / a useRef and therefore identity-stable. Creating
+  // fresh mocks per render would make them change every render and spuriously re-run
+  // the connect effect (a new SSE stream on every setTurnState), which is NOT how the
+  // hook behaves in production and would mask the epoch/handshake behaviour under test.
+  const stable = React.useRef<{
+    liveTextRef: React.RefObject<string>;
+    setLiveText: Dispatch<SetStateAction<string>>;
+    setLocalMessages: Dispatch<SetStateAction<LocalCompanionMessage[]>>;
+    setPendingUserMessageId: Dispatch<SetStateAction<string>>;
+    invalidateChatState: (sessionId: string) => Promise<void>;
+    onSessionMissing: (sessionId: string) => void;
+  } | null>(null);
+  if (stable.current === null) {
+    const liveTextRef = createRef<string>() as React.RefObject<string>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (liveTextRef as any).current = '';
+    stable.current = {
+      liveTextRef,
+      setLiveText: mock(() => {}),
+      setLocalMessages: mock((_fn: SetStateAction<LocalCompanionMessage[]>) => {}),
+      setPendingUserMessageId: mock(() => {}),
+      invalidateChatState: mock(() => Promise.resolve()),
+      onSessionMissing: mock(() => {}),
+    };
+  }
 
   const result = useChatStream({
     activeSessionId,
-    liveTextRef,
+    liveTextRef: stable.current.liveTextRef,
     turnState,
     setTurnState,
     setTurnError,
-    setLiveText: mock(() => {}),
-    setLocalMessages: mock(
-      (_fn: SetStateAction<LocalCompanionMessage[]>) => {},
-    ),
-    setPendingUserMessageId: mock(() => {}),
-    invalidateChatState: mock(() => Promise.resolve()),
-    onSessionMissing: mock(() => {}),
+    setLiveText: stable.current.setLiveText,
+    setLocalMessages: stable.current.setLocalMessages,
+    setPendingUserMessageId: stable.current.setPendingUserMessageId,
+    invalidateChatState: stable.current.invalidateChatState,
+    onSessionMissing: stable.current.onSessionMissing,
     onAuthExpired,
   });
 
@@ -209,11 +235,13 @@ function renderHookHelper({
 
 beforeEach(() => {
   activeStreamControl = null;
+  allStreamControls = [];
   streamCallCount = 0;
 });
 
 afterEach(() => {
   activeStreamControl = null;
+  allStreamControls = [];
 });
 
 // ---------------------------------------------------------------------------
@@ -597,6 +625,128 @@ describe('useChatStream — retryStream() re-opens after "stream paused"', () =>
 
     flushSync(() => { ctx.result.retryStream(); });
     expect(streamCallCount).toBe(2);
+
+    ctx.unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-effect epoch: a switch/retry DURING the handshake window (the SDK stream()
+// promise only yields its disconnect handle post-handshake) must not let the OLD
+// stream's late callbacks or late-resolving handle touch the NEW session (F1).
+// ---------------------------------------------------------------------------
+
+describe('useChatStream — session switch / retry mid-handshake is inert (epoch guard)', () => {
+  /** Non-reactive render harness that can swap activeSessionId without nested flushSync. */
+  function renderForSwitch(initialSessionId: string) {
+    let result!: UseChatStreamResult;
+    const turnStates: string[] = [];
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    const setTurnState = mock((next: SetStateAction<string>) => {
+      turnStates.push(typeof next === 'function' ? next('streaming') : next);
+    });
+    const setTurnError = mock((_next: SetStateAction<string>) => {});
+
+    function renderWith(sessionId: string) {
+      flushSync(() => {
+        root.render(
+          React.createElement(HookOwner, {
+            activeSessionId: sessionId,
+            turnState: 'streaming',
+            setTurnState,
+            setTurnError,
+            onAuthExpired: mock(() => {}),
+            onResult: (r: UseChatStreamResult) => { result = r; },
+          }),
+        );
+      });
+    }
+
+    renderWith(initialSessionId);
+
+    return {
+      get result() { return result; },
+      renderWith,
+      get turnStates() { return turnStates; },
+      unmount: () => {
+        flushSync(() => { root.unmount(); });
+        if (container.parentNode) container.parentNode.removeChild(container);
+      },
+    };
+  }
+
+  test('switching sessions mid-handshake: the old stream is inert, its late handle is disconnected and never stored, the new session is untouched', async () => {
+    const h = renderForSwitch('session-A');
+    const ctrlA = allStreamControls[0];
+    expect(ctrlA).toBeDefined();
+    // ctrlA has NOT resolved — we are inside its handshake window.
+
+    // Switch to session B while A is still handshaking.
+    h.renderWith('session-B');
+    const ctrlB = allStreamControls[1];
+    expect(ctrlB).toBeDefined();
+    expect(ctrlB).not.toBe(ctrlA);
+
+    // Every late callback from the stale stream A must be a no-op now.
+    const writesBefore = h.turnStates.length;
+    ctrlA!.options.onReconnect?.({ attempt: 1, delayMs: 1000 });
+    ctrlA!.options.onEvent('companion-chat.turn.delta', { sessionId: 'session-A', type: 'turn.delta', delta: 'stale' });
+    ctrlA!.options.onError(new Error('late error from A'));
+    ctrlA!.options.onTerminate?.({ error: new Error('late terminate from A'), reconnectAttempts: 3 });
+    expect(h.turnStates.length).toBe(writesBefore);
+    expect(h.turnStates).not.toContain('reconnecting');
+    expect(h.turnStates).not.toContain('stream paused');
+
+    // New stream B resolves first → its handle is the live one.
+    ctrlB!.resolveFn(ctrlB!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Stale stream A resolves LATE → its handle must be disconnected immediately and
+    // NEVER stored into the shared disconnectRef.
+    ctrlA!.resolveFn(ctrlA!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
+
+    // Proof the live handle is B's, not A's: stop() disconnects B (A stays at 1).
+    h.result.stop();
+    expect(ctrlB!.disconnect).toHaveBeenCalledTimes(1);
+    expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
+
+    h.unmount();
+  });
+
+  test('retryStream mid-handshake: the superseded stream is inert and its late handle is discarded', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-retry-race' });
+    const ctrlA = allStreamControls[0];
+    expect(streamCallCount).toBe(1);
+
+    // Retry BEFORE ctrlA resolves — a fresh connect supersedes it mid-handshake.
+    flushSync(() => { ctx.result.retryStream(); });
+    expect(streamCallCount).toBe(2);
+    const ctrlB = allStreamControls[1];
+    expect(ctrlB).not.toBe(ctrlA);
+
+    // The superseded stream A must not move turn state.
+    ctrlA!.options.onReconnect?.({ attempt: 1, delayMs: 1000 });
+    expect(ctx.turnState).not.toBe('reconnecting');
+
+    // B resolves and becomes live; A resolves late and is discarded + disconnected.
+    ctrlB!.resolveFn(ctrlB!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+    ctrlA!.resolveFn(ctrlA!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
+
+    ctx.result.stop();
+    expect(ctrlB!.disconnect).toHaveBeenCalledTimes(1);
+    expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
 
     ctx.unmount();
   });

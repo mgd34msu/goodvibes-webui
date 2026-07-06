@@ -302,3 +302,65 @@ export function knowledgeMapResponse() {
     jobs: [],
   };
 }
+
+// ─── Fleet / approvals / watchers (WEBUI-FLEET-DEPTH) ─────────────────────────
+//
+// fleet.snapshot's node ids/kinds mirror the SDK's real fleet.snapshot shape
+// (see src/lib/goodvibes.ts's FleetProcessNode). FLEET_AGENT_NODE.sessionRef.sessionId
+// deliberately equals STEERABLE_SESSION.id so the steer/detach/"approve from the tree"
+// proofs exercise the SAME seeded session the hero journey
+// (hero-steer-from-phone.e2e.ts) already steers, and PENDING_APPROVAL.sessionId
+// matches it too, so lib/fleet.ts's approvalsForNode correlation fires for real.
+
+export const FLEET_AGENT_NODE = {
+  id: 'agent-42',
+  kind: 'agent',
+  label: 'Refactor the session spine',
+  state: 'executing-tool',
+  elapsedMs: 12_000,
+  startedAt: 100,
+  costUsd: 0.08,
+  costState: 'priced',
+  capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: true },
+  usage: { inputTokens: 200, outputTokens: 400, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 3, turnCount: 2, toolCallCount: 4 },
+  sessionRef: { sessionId: STEERABLE_SESSION.id, agentId: 'agent-42' },
+};
+
+export const FLEET_WATCHER_NODE = {
+  id: 'watcher-docs',
+  kind: 'watcher',
+  label: 'Docs watcher',
+  state: 'idle',
+  elapsedMs: 0,
+  costState: 'unpriced',
+  capabilities: { interruptible: false, killable: true, pausable: false, resumable: false, steerable: false },
+};
+
+export const FLEET_SNAPSHOT = {
+  capturedAt: 1000,
+  truncated: false,
+  totalCount: 2,
+  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE],
+};
+
+export const PENDING_APPROVAL = {
+  id: 'appr-e2e-1',
+  callId: 'call-e2e-1',
+  sessionId: STEERABLE_SESSION.id,
+  status: 'pending',
+  request: {
+    callId: 'call-e2e-1',
+    tool: 'bash',
+    args: {},
+    category: 'shell',
+    analysis: {
+      classification: 'command',
+      riskLevel: 'medium',
+      summary: 'Run the full test suite before merging',
+      reasons: ['Modifies test fixtures'],
+    },
+  },
+  createdAt: 500,
+  updatedAt: 500,
+  metadata: {},
+};

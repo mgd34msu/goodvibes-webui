@@ -158,7 +158,9 @@
   cursor: pointer;
 }
 
-.task-row__retry {
+.task-row__retry,
+.approval-card__claim,
+.approval-card__cancel {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -169,6 +171,36 @@
   border-radius: var(--radius-sm, 6px);
   padding: 4px 10px;
   cursor: pointer;
+}
+
+/* Approval-class matrix: category × risk breakdown of the currently loaded set. */
+.approval-class-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.approval-class-matrix__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  font-size: var(--text-xs, 12px);
+}
+
+.approval-class-matrix__category {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.approval-class-matrix__risks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .approval-card__actions button:disabled,

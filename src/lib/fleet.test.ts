@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import type { FleetProcessNode } from './goodvibes';
+import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
 import {
   activeCount,
+  approvalsForNode,
   buildFleetRows,
   costLabel,
   formatDurationMs,
@@ -12,6 +13,8 @@ import {
   isTerminalState,
   kindLabel,
   stateLabel,
+  unbackedCapabilityNote,
+  wireBackedActions,
 } from './fleet';
 
 function node(overrides: Partial<FleetProcessNode> & { id: string }): FleetProcessNode {
@@ -190,5 +193,130 @@ describe('buildFleetRows', () => {
     const rows = buildFleetRows(nodes);
     expect(rows).toHaveLength(nodes.length);
     expect(new Set(rows.map((r) => r.node.id)).size).toBe(nodes.length);
+  });
+});
+
+describe('wireBackedActions (WEBUI-FLEET-DEPTH)', () => {
+  test('an agent node with a live sessionRef and steerable=true gets steer + detach', () => {
+    const n = node({ id: 'a1', kind: 'agent', sessionRef: { sessionId: 's-1', agentId: 'a1' } });
+    const actions = wireBackedActions(n);
+    expect(actions.has('steer')).toBe(true);
+    expect(actions.has('detach')).toBe(true);
+    expect(actions.has('stop')).toBe(false);
+  });
+
+  test('an agent node with steerable=false (no messageBus) gets detach only, never a fabricated steer', () => {
+    const n = node({
+      id: 'a1', kind: 'agent', sessionRef: { sessionId: 's-1', agentId: 'a1' },
+      capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+    });
+    const actions = wireBackedActions(n);
+    expect(actions.has('steer')).toBe(false);
+    expect(actions.has('detach')).toBe(true);
+  });
+
+  test('an agent node with NO sessionRef gets neither steer nor detach', () => {
+    const n = node({ id: 'a1', kind: 'agent' });
+    const actions = wireBackedActions(n);
+    expect(actions.has('steer')).toBe(false);
+    expect(actions.has('detach')).toBe(false);
+  });
+
+  test('a watcher node with killable=true gets stop, never steer/detach', () => {
+    const n = node({
+      id: 'w1', kind: 'watcher',
+      capabilities: { interruptible: false, killable: true, pausable: false, resumable: false, steerable: false },
+    });
+    const actions = wireBackedActions(n);
+    expect(actions.has('stop')).toBe(true);
+    expect(actions.has('steer')).toBe(false);
+    expect(actions.has('detach')).toBe(false);
+  });
+
+  test('a non-watcher killable node (e.g. wrfc-chain) never gets stop — no wire verb for it', () => {
+    const n = node({
+      id: 'c1', kind: 'wrfc-chain',
+      capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+    });
+    expect(wireBackedActions(n).has('stop')).toBe(false);
+  });
+});
+
+describe('unbackedCapabilityNote (WEBUI-FLEET-DEPTH)', () => {
+  test('a watcher whose only true capability (killable) IS wire-backed gets no note', () => {
+    const n = node({
+      id: 'w1', kind: 'watcher',
+      capabilities: { interruptible: false, killable: true, pausable: false, resumable: false, steerable: false },
+    });
+    expect(unbackedCapabilityNote(n)).toBeNull();
+  });
+
+  test('an agent (killable/interruptible, no wire verb for either) gets an honest note naming its kind', () => {
+    const n = node({ id: 'a1', kind: 'agent' });
+    const note = unbackedCapabilityNote(n);
+    expect(note).not.toBeNull();
+    expect(note).toContain("no control verb for 'agent' processes yet");
+  });
+
+  test('a trigger (pausable/resumable, no wire verb) gets an honest note', () => {
+    const n = node({
+      id: 't1', kind: 'trigger',
+      capabilities: { interruptible: false, killable: false, pausable: true, resumable: false, steerable: false },
+    });
+    expect(unbackedCapabilityNote(n)).toContain("no control verb for 'trigger' processes yet");
+  });
+
+  test('a phase (every capability false) gets no note — nothing to be honest about', () => {
+    const n = node({
+      id: 'p1', kind: 'phase',
+      capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+    });
+    expect(unbackedCapabilityNote(n)).toBeNull();
+  });
+});
+
+describe('approvalsForNode (WEBUI-FLEET-DEPTH — "approve from the tree")', () => {
+  function approval(overrides: Partial<ApprovalRecord> & { id: string }): ApprovalRecord {
+    return {
+      callId: `call-${overrides.id}`,
+      status: 'pending',
+      request: {
+        callId: `call-${overrides.id}`,
+        tool: 'bash',
+        args: {},
+        category: 'shell',
+        analysis: { classification: 'x', riskLevel: 'medium', summary: 'x', reasons: [] },
+      },
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: {},
+      ...overrides,
+    };
+  }
+
+  test('matches by sessionId when the node has a live sessionRef', () => {
+    const n = node({ id: 'a1', kind: 'agent', sessionRef: { sessionId: 's-1', agentId: 'a1' } });
+    const matching = approval({ id: 'appr-1', sessionId: 's-1' });
+    const other = approval({ id: 'appr-2', sessionId: 's-2' });
+    expect(approvalsForNode(n, [matching, other])).toEqual([matching]);
+  });
+
+  test('matches an agent-kind node by metadata.agentId when sessionId is absent on both sides', () => {
+    const n = node({ id: 'agent-42', kind: 'agent' });
+    const matching = approval({ id: 'appr-1', metadata: { agentId: 'agent-42' } });
+    const other = approval({ id: 'appr-2', metadata: { agentId: 'someone-else' } });
+    expect(approvalsForNode(n, [matching, other])).toEqual([matching]);
+  });
+
+  test('a non-agent node (e.g. work-item) never matches via metadata.agentId, even if the id happens to collide', () => {
+    const n = node({ id: 'agent-42', kind: 'work-item' });
+    const wouldMatchIfAgent = approval({ id: 'appr-1', metadata: { agentId: 'agent-42' } });
+    expect(approvalsForNode(n, [wouldMatchIfAgent])).toEqual([]);
+  });
+
+  test('no match returns an empty array, never throws', () => {
+    const n = node({ id: 'a1', kind: 'agent' });
+    expect(approvalsForNode(n, [approval({ id: 'appr-1', sessionId: 's-unrelated' })])).toEqual([]);
+    expect(approvalsForNode(n, [])).toEqual([]);
   });
 });

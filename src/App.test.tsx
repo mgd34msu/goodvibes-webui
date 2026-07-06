@@ -115,6 +115,8 @@ mock.module('./hooks/useDaemonHealth', () => ({
 
 mock.module('./lib/goodvibes', () => ({
   WEBUI_TOKEN_STORE_KEY: 'test-token-key',
+  WEBUI_SURFACE_ID: 'goodvibes-webui',
+  WEBUI_SURFACE_KIND: 'webui',
   GOODVIBES_BASE_URL: 'http://localhost/test',
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 1 },
   hasStoredTokenSync: () => hasStoredToken,
@@ -133,12 +135,24 @@ mock.module('./lib/goodvibes', () => ({
       accounts: { snapshot: () => Promise.resolve({}) },
       providers: { list: () => Promise.resolve({}) },
       tasks: { list: () => Promise.resolve({}) },
-      approvals: { list: () => Promise.resolve({}) },
+      approvals: {
+        list: () => Promise.resolve({}),
+        approve: () => Promise.resolve({}),
+        deny: () => Promise.resolve({}),
+        claim: () => Promise.resolve({}),
+        cancel: () => Promise.resolve({}),
+      },
+      fleet: {
+        snapshot: () => Promise.resolve({ capturedAt: 0, nodes: [], truncated: false, totalCount: 0 }),
+        list: () => Promise.resolve({ items: [], hasMore: false, capturedAt: 0 }),
+      },
+      watchers: { stop: () => Promise.resolve({}) },
       sessions: {
         list: () => Promise.resolve(SESSIONS_FIXTURE),
         messages: { list: () => Promise.resolve({ messages: [] }) },
         steer: () => Promise.resolve({}),
         followUp: () => Promise.resolve({}),
+        detach: () => Promise.resolve({}),
       },
     },
     knowledge: { status: () => Promise.resolve({}) },

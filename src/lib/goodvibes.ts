@@ -24,6 +24,9 @@ import type {
   FleetListResult,
   FleetProcessNode,
   FleetSnapshotResult,
+  SessionParticipant,
+  SessionsDetachInput,
+  SessionsDetachResult,
   SessionsSearchInput,
   SessionsSearchResult,
   WorkspaceCheckpoint,
@@ -46,6 +49,9 @@ export type {
   FleetListResult,
   FleetProcessNode,
   FleetSnapshotResult,
+  SessionParticipant,
+  SessionsDetachInput,
+  SessionsDetachResult,
   SessionsSearchInput,
   SessionsSearchResult,
   WorkspaceCheckpoint,
@@ -137,6 +143,13 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'models.select': { method: 'PATCH', path: '/api/models/current' },
   'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
   'sessions.delete': { method: 'DELETE', path: '/api/sessions/{sessionId}' },
+  // sessions.detach: remove ONE participant (surfaceId) from a shared session's
+  // participant list without closing/killing it (detach != close != kill — see the
+  // wire description on sdk.operator.sessions.detach below). Real REST route, in the
+  // installed OperatorMethodId union, same EXTRA_METHOD_ROUTES pattern as
+  // close/reopen above; body carries `surfaceId` (sessionId is consumed by
+  // interpolateRoute from the path).
+  'sessions.detach': { method: 'POST', path: '/api/sessions/{sessionId}/detach' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
   // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
@@ -144,6 +157,14 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'tasks.create': { method: 'POST', path: '/task' },
   'tasks.list': { method: 'GET', path: '/api/tasks' },
   'tasks.retry': { method: 'POST', path: '/api/tasks/{taskId}/retry' },
+  // watchers.stop: the one fleet-adjacent kill action this client can back with a
+  // real wire verb (WEBUI-FLEET-DEPTH) — WatcherRecord.id IS the fleet node id for
+  // kind:'watcher' (adaptWatcher, packages/sdk/.../fleet/adapters/watcher.ts sets
+  // `id: record.id` with no namespacing), unlike agent/wrfc-chain/workflow/trigger/
+  // schedule kills, which the daemon only exposes to same-process callers (the TUI's
+  // fleet registry) and NOT over the operator wire today — see lib/fleet.ts's
+  // `wireStopUnavailableReason` for the honest per-kind accounting.
+  'watchers.stop': { method: 'POST', path: '/api/watchers/{watcherId}/stop' },
 };
 
 const RUNTIME_DOMAINS: RuntimeEventDomain[] = [
@@ -519,6 +540,21 @@ export type TaskActionResult = OperatorMethodOutput<'tasks.cancel'>;
 export type TaskCreateInput = OperatorMethodInput<'tasks.create'>;
 export type TaskCreateResult = OperatorMethodOutput<'tasks.create'>;
 
+// ─── Watchers (watchers.stop only — WEBUI-FLEET-DEPTH) ────────────────────────
+// watchers.stop has no OperatorMethodInputMap/OutputMap entry in the installed
+// contracts package (same pre-SWAP situation as sessions.detach in
+// contract-bridge-types.ts), so this is hand-authored against the wire schema. `kind`/
+// `state` are open strings, matching lib/fleet.ts's defensive-parsing stance for the
+// same reason (a daemon newer than this client may report a state this client has
+// never seen — render it verbatim, never drop it). Only the fields FleetView actually
+// reads are typed; the real response carries far more (source, metadata, timestamps).
+export interface WatcherActionResult {
+  readonly id: string;
+  readonly kind: string;
+  readonly label: string;
+  readonly state: string;
+}
+
 /**
  * SessionDeleteResult — the honest hard-delete outcome shape shared by
  * `operator.sessions.delete` and `chat.sessions.delete`: `deleted: true` means the
@@ -726,6 +762,24 @@ export const sdk = {
         list: (sessionId: string) => invokeOperator('sessions.inputs.list', { sessionId }),
         cancel: (sessionId: string, inputId: string) => invokeOperator('sessions.inputs.cancel', { sessionId, inputId }),
       },
+      // detach (WEBUI-FLEET-DEPTH): remove ONE participant (surfaceId) from a shared
+      // session, WITHOUT closing or killing it — detach != close != kill. Idempotent:
+      // detaching an already-detached surface, or detaching from a closed session, is a
+      // no-op success (verified against the SDK's own sessions.detach description). Used
+      // by FleetView's "detach this browser" action on a session-backed fleet node: stop
+      // receiving live updates for a process you're done watching without touching the
+      // process itself or any other surface attached to it (e.g. the TUI).
+      detach: (sessionId: string, surfaceId: string) =>
+        invokeOperator<'sessions.detach', SessionsDetachInput, SessionsDetachResult>('sessions.detach', { sessionId, surfaceId }),
+    },
+    // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely
+    // backed by a real operator wire verb — see the EXTRA_METHOD_ROUTES comment above.
+    // Only `stop` is exposed here; watchers.create/delete/update/run/start are out of
+    // scope for the fleet depth this brief asks for (fleet is a live-process READER,
+    // not a watcher-authoring surface).
+    watchers: {
+      stop: (watcherId: string) =>
+        invokeOperator<'watchers.stop', { watcherId: string }, WatcherActionResult>('watchers.stop', { watcherId }),
     },
   },
   chat: {

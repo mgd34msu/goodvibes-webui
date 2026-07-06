@@ -17,6 +17,8 @@ import { ToastViewport } from '../../components/toast/ToastViewport';
 
 const approveCalls: unknown[] = [];
 const denyCalls: unknown[] = [];
+const claimCalls: string[] = [];
+const cancelCalls: string[] = [];
 const taskCreateCalls: unknown[] = [];
 const taskCancelCalls: string[] = [];
 const taskRetryCalls: string[] = [];
@@ -38,6 +40,14 @@ mock.module('../../lib/goodvibes', () => ({
         deny: (approvalId: string) => {
           denyCalls.push(approvalId);
           return Promise.resolve({ approval: { id: approvalId, status: 'denied' } });
+        },
+        claim: (approvalId: string) => {
+          claimCalls.push(approvalId);
+          return Promise.resolve({ approval: { id: approvalId, status: 'claimed', claimedBy: 'operator' } });
+        },
+        cancel: (approvalId: string) => {
+          cancelCalls.push(approvalId);
+          return Promise.resolve({ approval: { id: approvalId, status: 'cancelled' } });
         },
       },
       tasks: {
@@ -165,6 +175,8 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 afterEach(() => {
   approveCalls.length = 0;
   denyCalls.length = 0;
+  claimCalls.length = 0;
+  cancelCalls.length = 0;
   taskCreateCalls.length = 0;
   taskCancelCalls.length = 0;
   taskRetryCalls.length = 0;
@@ -296,6 +308,70 @@ describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () 
     await waitFor(() => denyCalls.length > 0);
     expect(denyCalls[0]).toBe('appr-cmd');
     unmount();
+  });
+
+  test('claim calls approvals.claim with the approval id (WEBUI-FLEET-DEPTH)', async () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('run a shell command'))!;
+    const claim = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Claim'));
+    click(claim);
+    await waitFor(() => claimCalls.length > 0);
+    expect(claimCalls[0]).toBe('appr-cmd');
+    unmount();
+  });
+
+  test('cancel calls approvals.cancel with the approval id, distinct from deny (WEBUI-FLEET-DEPTH)', async () => {
+    const { el, unmount } = render();
+    const card = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('run a shell command'))!;
+    const cancel = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Cancel'));
+    click(cancel);
+    await waitFor(() => cancelCalls.length > 0);
+    expect(cancelCalls[0]).toBe('appr-cmd');
+    expect(denyCalls.length).toBe(0);
+    unmount();
+  });
+
+  test('claimed/resolved approvals offer no Claim/Cancel — only a pending approval is actionable', () => {
+    const { el, unmount } = render();
+    const claimedCard = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('surface:tui-A'))!;
+    expect([...claimedCard.querySelectorAll('button')].some((b) => b.textContent?.includes('Claim'))).toBe(false);
+    const resolvedCard = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('delete a temp path'))!;
+    expect([...resolvedCard.querySelectorAll('button')].some((b) => b.textContent?.includes('Cancel'))).toBe(false);
+    unmount();
+  });
+});
+
+describe('ApprovalsTasksView — approval-class matrix (WEBUI-FLEET-DEPTH)', () => {
+  test('breaks the loaded approvals down by category with a risk-level count per category', () => {
+    const { el, unmount } = render();
+    const matrix = el.querySelector('.approval-class-matrix');
+    expect(matrix).toBeTruthy();
+    const text = matrix?.textContent ?? '';
+    // 4 'execute'-category approvals in the fixture (appr-cmd/appr-claimed/appr-done/appr-audited)
+    // and 2 'write'-category (appr-edit/appr-edit-partial).
+    expect(text).toContain('execute');
+    expect(text).toContain('write');
+    expect(text).toContain('medium × '); // appr-edit + appr-claimed + appr-edit-partial are 'medium'
+    unmount();
+  });
+
+  test('an empty approvals list renders no matrix (nothing to break down)', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(queryKeys.approvals, { ...APPROVALS_FIXTURE, approvals: [] });
+    client.setQueryData(queryKeys.tasks, TASKS_FIXTURE);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    flushSync(() => {
+      root.render(React.createElement(
+        QueryClientProvider,
+        { client },
+        React.createElement(ToastProvider, null, React.createElement(ApprovalsTasksView)),
+      ));
+    });
+    expect(container.querySelector('.approval-class-matrix')).toBeNull();
+    flushSync(() => root.unmount());
+    container.remove();
   });
 });
 

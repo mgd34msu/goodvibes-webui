@@ -12,11 +12,28 @@
  * truncated at its node cap says so (never silently implies completeness);
  * daemon-unreachable rides the app-level DaemonUnreachableGate overlay
  * (App.tsx) — this view does not duplicate that state.
+ *
+ * WEBUI-FLEET-DEPTH additions (the observability-layer vision in the browser):
+ *   - Per-node capability actions, gated on lib/fleet.ts's wireBackedActions — steer
+ *     (an 'agent' node with a live sessionRef.sessionId) and detach (any node with a
+ *     live sessionRef) reuse the same sessions.steer/sessions.detach verbs the
+ *     Sessions view already exercises; stop is offered ONLY for a 'watcher' node
+ *     (watchers.stop — the one fleet-kind whose node id genuinely maps to a
+ *     verb-addressable entity). Every other true killable/interruptible/pausable/
+ *     resumable flag gets an honest note instead of a fabricated button — see
+ *     unbackedCapabilityNote's header comment for exactly why.
+ *   - "Approve from the tree": a node correlated to a real pending approval
+ *     (lib/fleet.ts's approvalsForNode) renders that approval inline
+ *     (FleetApprovalInline), reusing the same ApprovalCard the Approvals view uses.
+ *   - Phone (≤980px): master/detail collapses to one pane at a time (mirrors
+ *     SessionsView.tsx's pattern) and the new mutation actions above are desktop-only
+ *     — an honest note says so rather than cramming a steer form into a 375px
+ *     column. Browsing the tree remains fully available on phone.
  */
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Boxes, RefreshCw } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -32,11 +49,17 @@ import {
   isTerminalState,
   kindLabel,
   stateLabel,
+  unbackedCapabilityNote,
+  wireBackedActions,
 } from '../../lib/fleet';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import { compactJson, formatRelative } from '../../lib/object';
+import { formatError } from '../../lib/errors';
+import { useToast } from '../../lib/toast';
+import { FleetSessionActions } from './FleetSessionActions';
+import { FleetApprovalInline } from './FleetApprovalInline';
 import '../../styles/components/fleet.css';
 
 /** No live wire event exists for fleet.* yet — poll instead of going stale silently. */
@@ -78,7 +101,7 @@ export function FleetView() {
   const running = useMemo(() => activeCount(nodes), [nodes]);
 
   return (
-    <div className="fleet-view">
+    <div className={selected ? 'fleet-view has-selection' : 'fleet-view'}>
       <div className="fleet-list-pane">
         <div className="fleet-toolbar">
           <span className="fleet-toolbar__summary">
@@ -137,7 +160,7 @@ export function FleetView() {
       </div>
 
       <div className="fleet-detail-pane">
-        {selected ? <FleetDetail node={selected} /> : (
+        {selected ? <FleetDetail node={selected} onBack={() => setSelectedId('')} /> : (
           <div className="fleet-detail-empty">Select a process to view its detail.</div>
         )}
       </div>
@@ -145,9 +168,30 @@ export function FleetView() {
   );
 }
 
-function FleetDetail({ node }: { node: FleetProcessNode }) {
+function FleetDetail({ node, onBack }: { node: FleetProcessNode; onBack: () => void }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const backed = useMemo(() => wireBackedActions(node), [node]);
+  const unbackedNote = useMemo(() => unbackedCapabilityNote(node), [node]);
+  const sessionId = node.sessionRef?.sessionId;
+
+  const stopWatcher = useMutation({
+    mutationFn: (watcherId: string) => sdk.operator.watchers.stop(watcherId),
+    onSuccess: async () => {
+      toast({ title: 'Stop requested', tone: 'info' });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.fleet });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Stop failed', description: formatError(error), tone: 'danger' });
+    },
+  });
+
   return (
     <div className="fleet-detail">
+      <button type="button" className="fleet-detail__back" onClick={onBack}>
+        <ChevronLeft size={16} aria-hidden="true" />
+        Back to processes
+      </button>
       <header className="fleet-detail__header">
         <h2>{node.label || node.id}</h2>
         <div className="fleet-detail__badges">
@@ -162,6 +206,42 @@ function FleetDetail({ node }: { node: FleetProcessNode }) {
           {node.model && <small>· {node.provider ? `${node.provider}/` : ''}{node.model}</small>}
         </div>
       </header>
+
+      <FleetApprovalInline node={node} />
+
+      {(backed.has('steer') || backed.has('detach')) && sessionId && (
+        <div className="fleet-detail__actions">
+          <FleetSessionActions
+            sessionId={sessionId}
+            steerable={backed.has('steer')}
+            detachable={backed.has('detach')}
+          />
+        </div>
+      )}
+
+      {backed.has('stop') && (
+        <div className="fleet-detail__actions">
+          <button
+            type="button"
+            className="fleet-detail__stop"
+            disabled={stopWatcher.isPending}
+            onClick={() => {
+              if (!window.confirm(`Stop "${node.label || node.id}"?`)) return;
+              stopWatcher.mutate(node.id);
+            }}
+          >
+            <OctagonX size={14} /> {stopWatcher.isPending ? 'Stopping…' : 'Stop'}
+          </button>
+        </div>
+      )}
+
+      {(backed.has('steer') || backed.has('detach') || backed.has('stop')) && (
+        <p className="fleet-detail__phone-actions-note">Steer/stop actions are available on a wider screen.</p>
+      )}
+
+      {unbackedNote && (
+        <p className="fleet-detail__unbacked-note" role="note">{unbackedNote}</p>
+      )}
 
       {node.currentActivity && (
         <div className="fleet-detail__activity">

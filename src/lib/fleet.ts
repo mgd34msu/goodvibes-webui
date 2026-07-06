@@ -12,7 +12,7 @@
  * never drop it.
  */
 
-import type { FleetProcessNode } from './goodvibes';
+import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
 
 /** PROCESS_KIND_SCHEMA (operator-contract-schemas-fleet.ts) at the time this was written. */
 export const KNOWN_PROCESS_KINDS = [
@@ -158,4 +158,93 @@ export function buildFleetRows(nodes: readonly FleetProcessNode[]): FleetRow[] {
 
 export function activeCount(nodes: readonly FleetProcessNode[]): number {
   return nodes.filter((n) => !isTerminalState(n.state)).length;
+}
+
+// ─── Actions the browser can genuinely back over the wire ─────────────────────
+//
+// fleet.snapshot's per-node `capabilities` (interruptible/killable/pausable/
+// resumable/steerable) describe what the underlying process CAN do — but the SDK's own
+// fleet registry (packages/sdk/src/platform/runtime/fleet/registry.ts killNode/
+// interrupt/resume) performs those actions with DIRECT, same-process calls into
+// per-kind managers (agentManager.cancel, watcherRegistry.stopWatcher,
+// workflowManager.cancel, triggerManager.remove, automationManager.removeJob, ...) —
+// none of that is exposed as an operator wire verb today except two cases:
+//   - steer: sessions.steer, for an 'agent' node with a live sessionRef.sessionId
+//     (verified: adaptAgent sets capabilities.steerable = active && messageBusPresent,
+//     and sessions.steer is a real, existing HTTP route this client already uses from
+//     SessionsView).
+//   - stop: watchers.stop, for a 'watcher' node only — WatcherRecord.id IS the node id
+//     (adaptWatcher: `id: record.id`, no namespacing), so `watchers.stop({ watcherId:
+//     node.id })` genuinely targets the right watcher. No other kind's node id maps to
+//     a verb-addressable entity this confidently (schedule/trigger nodes exist with NO
+//     control verb on the wire at all; wrfc-chain/workflow/background-process kills
+//     cascade over members the wire has no bulk-cancel for).
+// Every other killable/interruptible/pausable/resumable flag is real but UNBACKED —
+// `unbackedCapabilityNote` says so plainly instead of a button that would either
+// no-op or 404.
+export type FleetWireAction = 'steer' | 'detach' | 'stop';
+
+export function wireBackedActions(node: FleetProcessNode): ReadonlySet<FleetWireAction> {
+  const actions = new Set<FleetWireAction>();
+  const hasSession = Boolean(node.sessionRef?.sessionId);
+  if (node.kind === 'agent' && node.capabilities.steerable && hasSession) {
+    actions.add('steer');
+  }
+  if (hasSession) {
+    // detach is a session-level action (remove this browser's participant entry),
+    // independent of the node's own kind — any node with a live sessionRef qualifies.
+    actions.add('detach');
+  }
+  if (node.kind === 'watcher' && node.capabilities.killable) {
+    actions.add('stop');
+  }
+  return actions;
+}
+
+/**
+ * An honest note for a capability the daemon reports but the browser cannot act on —
+ * null when every true capability flag on this node is already wire-backed (see
+ * wireBackedActions above). Never silently drops the gap; never fabricates a button.
+ */
+export function unbackedCapabilityNote(node: FleetProcessNode): string | null {
+  const backed = wireBackedActions(node);
+  const hasUnbackedStop = node.capabilities.killable && !(node.kind === 'watcher' && backed.has('stop'));
+  const hasUnbackedInterrupt = node.capabilities.interruptible;
+  const hasUnbackedPauseResume = node.capabilities.pausable || node.capabilities.resumable;
+  if (!hasUnbackedStop && !hasUnbackedInterrupt && !hasUnbackedPauseResume) return null;
+  const verbs = [
+    hasUnbackedStop && 'stop',
+    hasUnbackedInterrupt && 'interrupt',
+    hasUnbackedPauseResume && 'pause/resume',
+  ].filter((v): v is string => Boolean(v));
+  return `The daemon reports this ${kindLabel(node.kind)} process as ${verbs.join('/')}-able, `
+    + `but the browser has no control verb for '${node.kind}' processes yet — use the TUI.`;
+}
+
+/**
+ * Correlate a fleet node to any approvals awaiting a decision on it, so a node in
+ * 'awaiting-approval' state can show (and act on) the real request inline instead of
+ * sending the operator to a different view. Matches the SAME two signals the SDK's own
+ * fleet registry uses to derive the 'awaiting-approval' state in the first place
+ * (packages/sdk/src/platform/runtime/fleet/registry.ts collectPendingApprovals):
+ *   - approval.sessionId === node.sessionRef.sessionId (either may be absent), or
+ *   - node.kind === 'agent' && approval.metadata['agentId'] === node.id (metadata.agentId
+ *     is an untyped, optional string on the wire — read defensively).
+ * Not a guess: this is the exact correlation the daemon itself performs to light up
+ * the node's `awaiting-approval` state, so a node showing that state always has at
+ * least one match here (absent a race against a decision landing between the two reads).
+ */
+export function approvalsForNode(
+  node: FleetProcessNode,
+  approvals: readonly ApprovalRecord[],
+): ApprovalRecord[] {
+  const sessionId = node.sessionRef?.sessionId;
+  return approvals.filter((approval) => {
+    if (sessionId && approval.sessionId === sessionId) return true;
+    if (node.kind === 'agent') {
+      const metaAgentId = approval.metadata.agentId;
+      if (typeof metaAgentId === 'string' && metaAgentId === node.id) return true;
+    }
+    return false;
+  });
 }

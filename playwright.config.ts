@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright harness (W5-M) — the phone-viewport (390x844) proof standard the whole
- * wave defers its visual proofs to, plus a desktop project to catch regressions.
+ * Playwright harness — the phone-viewport (390x844) proof standard this repo's
+ * visual proofs defer to, plus a desktop project to catch regressions.
  *
  * HERMETIC BY CONSTRUCTION: the webServer boots THIS repo's vite dev server on a
  * dedicated port (4318 — deliberately NOT 3421 or 4444) and points its /api proxy at a

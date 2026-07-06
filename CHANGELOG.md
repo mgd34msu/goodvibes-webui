@@ -4,6 +4,31 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [0.2.2] - 2026-07-06
+
+### Changed
+
+- Updated `@pellux/goodvibes-sdk` to `1.0.0` (from `0.38.0`) — the W6-REL
+  release train pin. The operator-method contract families the webui facade
+  calls (`fleet.*`, `checkpoints.*`, `sessions.search`) now carry real
+  `OperatorMethodInputMap`/`OperatorMethodOutputMap` entries, so
+  `src/lib/contract-bridge-types.ts` applies its long-planned `// SWAP:` seam:
+  the hand-authored 0.38 bridge interfaces are replaced one-for-one by
+  `OperatorMethodInput<M>`/`OperatorMethodOutput<M>`, with `FleetProcessNode`,
+  `WorkspaceCheckpoint`, and `SessionsSearchSessionSummary` kept as item-level
+  aliases so every consumer import compiles unchanged. The
+  `bridge-matches-schema` test now pins the bridge shapes against 1.0.0's real
+  `operator-contract.json`; its sample fixtures were updated to the real
+  literal-union members (`state: 'executing-tool'`, `costState: 'priced'`,
+  `retentionClass: 'standard'`).
+
+### Deferred
+
+- The C1 webui credentials-facade block and provider-status honest-degrade
+  rewire is deferred to a follow-up: the SDK C1 credential-status method ships
+  in 1.0.0, but the security-sensitive webui adoption is not gate-blocking and
+  its verbatim design notes were not persisted, so it is not improvised here.
+
 ## [0.2.1] - 2026-06-19
 
 ### Fixed

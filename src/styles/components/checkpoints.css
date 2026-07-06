@@ -1,0 +1,187 @@
+/*
+ * Checkpoints browser — list + diff/restore detail (W3-S2 checkpoints.*).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.checkpoints-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: var(--space-3, 12px);
+  height: 100%;
+  min-height: 0;
+}
+
+.checkpoints-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.checkpoints-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.checkpoints-label-input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  font-size: var(--text-xs, 12px);
+}
+
+.checkpoints-create-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.checkpoints-create-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.checkpoints-loading {
+  padding: var(--space-2, 8px);
+}
+
+.checkpoints-empty,
+.checkpoints-detail-empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.checkpoints-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.checkpoints-row {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.checkpoints-row.active {
+  border-color: var(--border-focus);
+  background: var(--accent-muted);
+}
+
+.checkpoints-row__title {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.checkpoints-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.checkpoints-row__meta {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+/* Detail pane */
+.checkpoints-detail-pane {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.checkpoint-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.checkpoint-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.checkpoint-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+}
+
+.checkpoint-detail__meta small {
+  color: var(--text-tertiary);
+}
+
+.checkpoint-detail__restore {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+  border: 1px solid var(--status-danger);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.checkpoint-detail__restore:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.checkpoint-detail__diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.checkpoint-detail__diff-files {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.checkpoint-detail__diff-pre {
+  font-size: var(--text-xs, 11px);
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-2, 8px);
+  max-height: 480px;
+  overflow-y: auto;
+}

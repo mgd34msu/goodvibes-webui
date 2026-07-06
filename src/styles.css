@@ -768,22 +768,22 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.badge.ok {
+:root[data-theme="light"] .badge.ok {
   color: #09583f;
   background: #dff7ed;
 }
 
-.badge.warning {
+:root[data-theme="light"] .badge.warning {
   color: #724407;
   background: var(--amber-soft);
 }
 
-.badge.bad {
+:root[data-theme="light"] .badge.bad {
   color: #8f1f32;
   background: var(--red-soft);
 }
 
-.badge.neutral {
+:root[data-theme="light"] .badge.neutral {
   color: #41525b;
   background: #edf2f3;
 }

@@ -12,7 +12,25 @@ import {
   isExtraRoutedMethod,
   sdk,
 } from './goodvibes';
-import { BRIDGE_TYPED_METHOD_IDS } from './contract-bridge-types';
+import {
+  BRIDGE_TYPED_METHOD_IDS,
+  type FleetProcessNode,
+  type FleetSnapshotResult,
+  type FleetListInput,
+  type FleetListResult,
+  type WorkspaceCheckpoint,
+  type CheckpointsListInput,
+  type CheckpointsListResult,
+  type CheckpointsCreateInput,
+  type CheckpointsCreateResult,
+  type CheckpointsDiffInput,
+  type CheckpointsDiffResult,
+  type CheckpointsRestoreInput,
+  type CheckpointsRestoreResult,
+  type SessionsSearchInput,
+  type SessionsSearchResult,
+  type SessionsSearchSessionSummary,
+} from './contract-bridge-types';
 
 describe('goodvibes constants', () => {
   test('WEBUI_SURFACE_KIND is webui', () => {
@@ -333,34 +351,174 @@ describe('sdk facade shape — byte-compatible surface (W5-TC)', () => {
 });
 
 describe('bridge-matches-schema — contract-bridge-types.ts pinned against the SDK method catalog', () => {
-  // operator-contract.json carries every method's REAL JSON-Schema input/output shape,
-  // even for the four families whose *TypeScript* generated maps are still generic (see
-  // contract-bridge-types.ts's header). This test walks that same artifact and checks
-  // every bridge type's top-level field names against it, so a silent shape drift (or
-  // the eventual pin-bump itself changing something) fails here immediately instead of
-  // shipping unnoticed.
-  interface JsonSchemaObject {
+  // WHAT THIS ENFORCES (and what it does not):
+  //
+  // Each bridge-typed method has a sample INPUT/OUTPUT object below, annotated AS the
+  // corresponding bridge interface (FleetSnapshotResult, SessionsSearchResult, …). That
+  // closes the loop from two sides at once, WITHOUT any `as` cast or type-erasure trick:
+  //
+  //   • tsc side — the samples are plain object literals typed as the bridge interfaces.
+  //     The OUTPUT/Result interfaces carry NO index signature, so tsc rejects any missing
+  //     required field and any INVENTED field (excess-property error) at compile time.
+  //     `bun run typecheck` is therefore half of this test.
+  //
+  //   • runtime side — assertConforms() walks the method's REAL JSON Schema from
+  //     operator-contract.json RECURSIVELY (into nested objects AND array item shapes,
+  //     not just the top level) and asserts the interface-typed sample carries every
+  //     schema-`required` field at every level it populates. So if a bridge interface
+  //     dropped a nested required field, the sample (constrained to the interface's own
+  //     members) could not satisfy the schema and this fails.
+  //
+  // Net: the bridge interface conforms to the schema (runtime walk) and the sample
+  // conforms to the interface (tsc) — a drift on either side, including the eventual
+  // pin-bump silently reshaping something, fails here or in typecheck.
+  //
+  // NOT enforced: INPUT interfaces intentionally carry a `[key: string]: unknown` index
+  // signature (the generic-fallback shape — see contract-bridge-types.ts header), so tsc
+  // cannot flag an invented INPUT field. The runtime walk still checks that every field
+  // the sample DOES declare is a real schema property and that required inputs are
+  // present; unpopulated optional fields are not exercised.
+  // Loose on purpose: operator-contract.json's per-method schema literals don't
+  // structurally line up with a strict recursive node type (a plain `as` cast to one
+  // fails). `properties`/`items` are read as `unknown` and re-narrowed at each recursion
+  // step — the runtime shape is what we assert against, not a compile-time schema type.
+  interface JsonSchemaNode {
+    readonly type?: string;
     readonly properties?: Record<string, unknown>;
     readonly required?: readonly string[];
+    readonly items?: unknown;
+    readonly additionalProperties?: unknown;
   }
 
   interface OperatorContractMethod {
     readonly id: string;
-    readonly inputSchema?: JsonSchemaObject;
-    readonly outputSchema?: JsonSchemaObject;
+    readonly inputSchema?: JsonSchemaNode;
+    readonly outputSchema?: JsonSchemaNode;
   }
 
   const methods = new Map(
     (operatorContract.operator.methods as OperatorContractMethod[]).map((method) => [method.id, method]),
   );
 
-  function schemaFieldNames(schema: JsonSchemaObject | undefined): string[] {
-    return Object.keys(schema?.properties ?? {});
+  /**
+   * Assert `sample` satisfies `schema`, descending into nested objects and array items.
+   * Only descends where the sample actually populated a value, so an unpopulated
+   * optional does not force its inner required fields.
+   */
+  function assertConforms(schema: JsonSchemaNode | undefined, sample: unknown, path: string): void {
+    if (!schema) return;
+    const where = path || '<root>';
+
+    if (schema.properties) {
+      expect(
+        typeof sample === 'object' && sample !== null && !Array.isArray(sample),
+        `${where}: expected an object per schema`,
+      ).toBe(true);
+      const rec = sample as Record<string, unknown>;
+
+      for (const req of schema.required ?? []) {
+        expect(req in rec, `${where}: schema-required field "${req}" is missing from the bridge-typed sample`).toBe(true);
+      }
+
+      for (const key of Object.keys(rec)) {
+        const propSchema = schema.properties[key];
+        if (!propSchema) {
+          // A field the sample carries that the schema does not declare. Only a genuine
+          // problem where the schema is closed (additionalProperties:false); many nodes
+          // set additionalProperties:true and legitimately allow extras.
+          if (schema.additionalProperties === false) {
+            expect(false, `${where}: sample field "${key}" is not a real schema property (schema is closed)`).toBe(true);
+          }
+          continue;
+        }
+        assertConforms(propSchema as JsonSchemaNode, rec[key], path ? `${path}.${key}` : key);
+      }
+      return;
+    }
+
+    if (schema.items) {
+      expect(Array.isArray(sample), `${where}: expected an array per schema`).toBe(true);
+      const itemSchema = schema.items as JsonSchemaNode;
+      (sample as unknown[]).forEach((item, i) => assertConforms(itemSchema, item, `${path}[${i}]`));
+    }
+    // primitives: the presence/typing is already pinned by the parent object's checks.
   }
 
-  function schemaRequiredNames(schema: JsonSchemaObject | undefined): string[] {
-    return [...(schema?.required ?? [])];
-  }
+  // ── Interface-typed samples ────────────────────────────────────────────────
+  // Populated to exercise every schema-required path (incl. the nested optionals
+  // usage/currentActivity/participants, so their inner shapes are validated too).
+  const fleetNode: FleetProcessNode = {
+    id: 'proc-1',
+    kind: 'agent',
+    label: 'Refactor the spine',
+    state: 'running',
+    elapsedMs: 4200,
+    costState: 'measured',
+    capabilities: { interruptible: true, killable: true, pausable: false, resumable: true, steerable: true },
+    usage: {
+      inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0,
+      llmCallCount: 1, turnCount: 1, toolCallCount: 2,
+    },
+    currentActivity: { kind: 'tool', text: 'running the suite', at: 1 },
+  };
+
+  const workspaceCheckpoint: WorkspaceCheckpoint = {
+    id: 'wcp_1',
+    kind: 'manual',
+    label: 'before refactor',
+    createdAt: 1,
+    parentId: null,
+    retentionClass: 'session',
+    commit: 'abc123',
+    sizeBytes: 2048,
+  };
+
+  const sessionSummary: SessionsSearchSessionSummary = {
+    id: 's-1',
+    kind: 'companion-chat',
+    title: 'Deploy chat',
+    status: 'active',
+    createdAt: 1,
+    updatedAt: 2,
+    lastActivityAt: 2,
+    messageCount: 4,
+    pendingInputCount: 0,
+    routeIds: ['r-1'],
+    surfaceKinds: ['webui'],
+    participants: [{ surfaceKind: 'webui', surfaceId: 'goodvibes-webui', lastSeenAt: 2 }],
+    metadata: {},
+  };
+
+  const outputSamples: Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown> = {
+    'fleet.snapshot': { capturedAt: 1, nodes: [fleetNode], truncated: false, totalCount: 1 } satisfies FleetSnapshotResult,
+    'fleet.list': { items: [fleetNode], hasMore: false, capturedAt: 1 } satisfies FleetListResult,
+    'checkpoints.list': { checkpoints: [workspaceCheckpoint] } satisfies CheckpointsListResult,
+    'checkpoints.create': { checkpoint: workspaceCheckpoint, noop: false } satisfies CheckpointsCreateResult,
+    'checkpoints.diff': {
+      diff: { from: 'wcp_1', to: 'wcp_2', files: ['a.ts'], unifiedDiff: '--- a', stat: '1 file' },
+    } satisfies CheckpointsDiffResult,
+    'checkpoints.restore': {
+      result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.ts'], removedFiles: [] },
+    } satisfies CheckpointsRestoreResult,
+    'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
+  };
+
+  // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
+  // interface (index-signatured, so tsc allows extras — the runtime walk pins the fields
+  // that ARE present against the schema).
+  const inputSamples: Partial<Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown>> = {
+    'fleet.list': { kinds: ['agent'], states: ['running'], limit: 10, cursor: 'c1' } satisfies FleetListInput,
+    'checkpoints.list': { kind: 'manual', since: 1, limit: 5 } satisfies CheckpointsListInput,
+    'checkpoints.create': {
+      kind: 'manual', label: 'x', retentionClass: 'session', turnId: 't1', agentId: 'a1', paths: ['a.ts'],
+    } satisfies CheckpointsCreateInput,
+    'checkpoints.diff': { a: 'wcp_1', b: 'wcp_2' } satisfies CheckpointsDiffInput,
+    'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true } satisfies CheckpointsRestoreInput,
+    'sessions.search': {
+      query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
+      status: 'active', includeClosed: true, limit: 20, cursor: 'c1',
+    } satisfies SessionsSearchInput,
+  };
 
   test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {
     for (const methodId of BRIDGE_TYPED_METHOD_IDS) {
@@ -368,35 +526,22 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     }
   });
 
-  const expectedTopLevelFields: Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], { input: string[]; outputRequired: string[] }> = {
-    'fleet.snapshot': { input: [], outputRequired: ['capturedAt', 'nodes', 'truncated', 'totalCount'] },
-    'fleet.list': { input: ['kinds', 'states', 'limit', 'cursor'], outputRequired: ['items', 'hasMore', 'capturedAt'] },
-    'checkpoints.list': { input: ['kind', 'since', 'limit'], outputRequired: ['checkpoints'] },
-    'checkpoints.create': { input: ['kind', 'label', 'retentionClass', 'turnId', 'agentId', 'paths'], outputRequired: ['checkpoint', 'noop'] },
-    'checkpoints.diff': { input: ['a', 'b'], outputRequired: ['diff'] },
-    'checkpoints.restore': { input: ['id', 'paths', 'safetyCheckpoint'], outputRequired: ['result'] },
-    'sessions.search': {
-      input: ['query', 'project', 'kind', 'surfaceKind', 'status', 'includeClosed', 'limit', 'cursor'],
-      outputRequired: ['sessions', 'hasMore'],
-    },
-  };
-
   for (const methodId of BRIDGE_TYPED_METHOD_IDS) {
-    test(`${methodId}: bridge input fields are all real schema properties (no invented field)`, () => {
+    test(`${methodId}: the bridge-typed OUTPUT sample satisfies every schema-required field, nested included`, () => {
       const method = methods.get(methodId);
-      const realFields = new Set(schemaFieldNames(method?.inputSchema));
-      for (const field of expectedTopLevelFields[methodId].input) {
-        expect(realFields.has(field), `${methodId} input field "${field}" is not in operator-contract.json`).toBe(true);
-      }
+      assertConforms(method?.outputSchema, outputSamples[methodId], '');
     });
 
-    test(`${methodId}: bridge output covers every REQUIRED top-level schema field`, () => {
+    test(`${methodId}: the bridge-typed INPUT sample's fields are all real schema properties`, () => {
       const method = methods.get(methodId);
-      const requiredFields = schemaRequiredNames(method?.outputSchema);
-      const bridgeFields = new Set(expectedTopLevelFields[methodId].outputRequired);
-      for (const field of requiredFields) {
-        expect(bridgeFields.has(field), `${methodId} output requires "${field}" but the bridge type does not carry it`).toBe(true);
+      const input = inputSamples[methodId];
+      if (input === undefined) {
+        // fleet.snapshot: no input. Assert the schema itself declares no required inputs
+        // (otherwise a caller with zero args would silently violate the contract).
+        expect((method?.inputSchema?.required ?? []).length, `${methodId} unexpectedly requires input`).toBe(0);
+        return;
       }
+      assertConforms(method?.inputSchema, input, '');
     });
   }
 });

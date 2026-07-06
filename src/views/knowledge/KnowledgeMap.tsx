@@ -62,6 +62,9 @@ export function KnowledgeMap({
   statusPending,
 }: KnowledgeMapProps) {
   const [showRaw, setShowRaw] = useState(false);
+  // The SVG the <img> failed to decode, if any. Keyed by the svg string so a fresh map
+  // (new svg) clears the error automatically without an effect after the early returns.
+  const [erroredSvg, setErroredSvg] = useState<string | null>(null);
 
   if (isPending || statusPending) {
     return (
@@ -128,7 +131,12 @@ export function KnowledgeMap({
     );
   }
 
-  const renderable = svg.length > 0 && isRenderableSvg(svg);
+  // isRenderableSvg is a cheap well-formedness gate, but a payload can still fail to
+  // decode in the browser (malformed entities, a truncated data: URL). onError below
+  // catches that at render time and flips to the same honest "Map unavailable" state
+  // instead of leaving a broken-image icon (F7c).
+  const imgFailed = erroredSvg === svg && svg.length > 0;
+  const renderable = svg.length > 0 && isRenderableSvg(svg) && !imgFailed;
 
   return (
     <div className="knowledge-map-render">
@@ -139,12 +147,20 @@ export function KnowledgeMap({
         )}
       </div>
       {renderable ? (
-        <div className="knowledge-map-render__canvas">
-          <img
-            src={svgDataUrl(svg)}
-            alt={`Knowledge map: ${nodeCount} nodes, ${edgeCount} edges`}
-          />
-        </div>
+        <>
+          <div className="knowledge-map-render__canvas">
+            <img
+              src={svgDataUrl(svg)}
+              alt={`Knowledge map: ${nodeCount} nodes, ${edgeCount} edges`}
+              onError={() => setErroredSvg(svg)}
+            />
+          </div>
+          {/* F7b: on a narrow screen the map is scaled to fit and the canvas pans
+              horizontally — say so (this note is CSS-hidden on wide viewports). */}
+          <p className="knowledge-map-render__scale-note">
+            Scaled to fit — scroll sideways to pan the full map on a narrow screen.
+          </p>
+        </>
       ) : (
         <EmptyState
           icon={<AlertTriangle size={24} />}

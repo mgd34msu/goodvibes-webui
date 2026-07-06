@@ -51,3 +51,9 @@ prisma/*.db
 
 # Log files
 logs/
+
+# Playwright (W5-M harness)
+/e2e/.artifacts/
+/test-results/
+/playwright-report/
+/playwright/.cache/

@@ -37,6 +37,12 @@ export const queryKeys = {
   // knowledge.job-runs.list, read from the map/nodes "View jobs" link.
   knowledgeJobs: ['knowledge', 'jobs'] as const,
   localAuth: ['local-auth'] as const,
+  // Memory (memory.records.* / memory.review-queue, SDK 1.1.0). No wire event exists
+  // for this domain yet, so MemoryView polls/refetches manually rather than riding
+  // useRealtimeInvalidation (same standing gap fleet.*/checkpoints.* document above).
+  memoryList: ['memory', 'list'] as const,
+  memoryPersonas: ['memory', 'personas'] as const,
+  memoryReviewQueue: ['memory', 'review-queue'] as const,
 };
 
 export async function loadBootSnapshot() {

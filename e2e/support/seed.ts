@@ -294,6 +294,100 @@ export function providersResponse() {
   };
 }
 
+/**
+ * Memory records fixture (memory.records.* / memory.review-queue, SDK 1.1.0). Shapes
+ * are cross-checked against the daemon's own MEMORY_RECORD_SCHEMA
+ * (operator-contract-schemas-runtime.js) the same way the session/provider fixtures
+ * above are checked against their contracts — id/scope/cls/summary/tags/provenance/
+ * reviewState/confidence/createdAt/updatedAt required, detail/reviewedAt/reviewedBy/
+ * staleReason optional.
+ */
+export interface SeedMemoryRecord {
+  id: string;
+  scope: 'session' | 'project' | 'team';
+  cls: string;
+  summary: string;
+  detail?: string;
+  tags: string[];
+  provenance: { kind: string; ref: string; label?: string }[];
+  reviewState: 'fresh' | 'reviewed' | 'stale' | 'contradicted';
+  confidence: number;
+  reviewedAt?: number;
+  reviewedBy?: string;
+  staleReason?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A plain fresh fact — the default "everything is fine" record. */
+export const MEMORY_FACT: SeedMemoryRecord = {
+  id: 'mem-fact-1',
+  scope: 'project',
+  cls: 'fact',
+  summary: 'The daemon is the single writer for the canonical memory store',
+  detail: 'Client surfaces route writes through memory.records.* rather than opening the store file directly.',
+  tags: ['memory', 'architecture'],
+  provenance: [{ kind: 'session', ref: 's-agent-live', label: 'Refactor the session spine' }],
+  reviewState: 'fresh',
+  confidence: 82,
+  createdAt: 1_000,
+  updatedAt: 1_000,
+};
+
+/** A record waiting in the review queue — low-enough confidence / fresh enough to
+ * be prioritized, distinct from MEMORY_FACT so the journey can tell them apart. */
+export const MEMORY_REVIEW_CANDIDATE: SeedMemoryRecord = {
+  id: 'mem-review-1',
+  scope: 'project',
+  cls: 'incident',
+  summary: 'Splash boundary math regressed once during a wide-glyph edit',
+  tags: ['splash'],
+  provenance: [{ kind: 'file', ref: 'src/splash.ts' }],
+  reviewState: 'fresh',
+  confidence: 55,
+  createdAt: 2_000,
+  updatedAt: 2_000,
+};
+
+/** A VIBE.md persona/preference line — cls 'constraint', tagged 'vibe' — the read
+ * surface MemoryView projects into its Personas panel. */
+export const MEMORY_PERSONA: SeedMemoryRecord = {
+  id: 'mem-persona-1',
+  scope: 'project',
+  cls: 'constraint',
+  summary: 'Use plain, concrete, descriptive language',
+  detail: 'Name the files, functions, and behavior explicitly; avoid security-flavored jargon.',
+  tags: ['vibe'],
+  provenance: [{ kind: 'file', ref: 'VIBE.md' }],
+  reviewState: 'reviewed',
+  confidence: 90,
+  reviewedAt: 1_500,
+  reviewedBy: 'operator',
+  createdAt: 500,
+  updatedAt: 1_500,
+};
+
+export const SEED_MEMORY_RECORDS: SeedMemoryRecord[] = [MEMORY_FACT, MEMORY_REVIEW_CANDIDATE, MEMORY_PERSONA];
+
+export function memoryRecordWire(record: SeedMemoryRecord) {
+  return {
+    id: record.id,
+    scope: record.scope,
+    cls: record.cls,
+    summary: record.summary,
+    ...(record.detail !== undefined ? { detail: record.detail } : {}),
+    tags: record.tags,
+    provenance: record.provenance,
+    reviewState: record.reviewState,
+    confidence: record.confidence,
+    ...(record.reviewedAt !== undefined ? { reviewedAt: record.reviewedAt } : {}),
+    ...(record.reviewedBy !== undefined ? { reviewedBy: record.reviewedBy } : {}),
+    ...(record.staleReason !== undefined ? { staleReason: record.staleReason } : {}),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 /** A tiny valid SVG for the knowledge map render proof. */
 export function knowledgeMapResponse() {
   return {

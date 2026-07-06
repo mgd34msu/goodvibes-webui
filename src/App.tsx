@@ -3,6 +3,7 @@ import {
   Boxes,
   Brain,
   ClipboardCheck,
+  Database,
   Gauge,
   History,
   KeyRound,
@@ -35,6 +36,7 @@ import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
+import { MemoryView } from './views/memory/MemoryView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { bestId, bestTitle, firstString } from './lib/object';
@@ -60,6 +62,7 @@ const views: {
   { id: 'fleet', label: 'Fleet', short: 'Processes', icon: Boxes },
   { id: 'checkpoints', label: 'Checkpoints', short: 'Snapshots', icon: History },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
+  { id: 'memory', label: 'Memory', short: 'Recall', icon: Database },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
   // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
@@ -560,6 +563,7 @@ export default function App() {
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
           {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'knowledge' && <KnowledgeView />}
+          {activeView === 'memory' && <MemoryView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>

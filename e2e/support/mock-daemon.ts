@@ -18,10 +18,12 @@ import type { Page, Route } from '@playwright/test';
 import {
   FLEET_SNAPSHOT,
   knowledgeMapResponse,
+  memoryRecordWire,
   messagesResponse,
   PENDING_APPROVAL,
   providersResponse,
   sessionRecord,
+  SEED_MEMORY_RECORDS,
   SEED_SESSIONS,
   unionListResponse,
   type SeedSession,
@@ -42,6 +44,14 @@ export interface MockDaemonOptions {
    * real 403 admin-scope refusal shape (control-plane.ts requireAdmin).
    */
   credentials?: 'available' | 'store-unavailable' | 'admin-required';
+  /** When false, every /api/memory/* route 404s with the honest
+   * `{ code: 'METHOD_NOT_FOUND' }` shape — the "this daemon does not serve memory"
+   * degrade MemoryView renders. Default true. */
+  memoryAvailable?: boolean;
+  /** When true, a semantic memory.records.search request falls back to a literal scan
+   * with a stated `indexUnavailableReason` — the honest degraded-search proof.
+   * Default false (a semantic request succeeds as semantic). */
+  memoryIndexUnavailable?: boolean;
 }
 
 export interface MockDaemon {
@@ -130,7 +140,14 @@ export function dispatchOutcome(session: SeedSession | undefined, intent: 'steer
 }
 
 export async function installMockDaemon(page: Page, options: MockDaemonOptions = {}): Promise<MockDaemon> {
-  const { signedIn = true, dropStreams = false, deleteAvailable = true, credentials = 'available' } = options;
+  const {
+    signedIn = true,
+    dropStreams = false,
+    deleteAvailable = true,
+    credentials = 'available',
+    memoryAvailable = true,
+    memoryIndexUnavailable = false,
+  } = options;
   const daemon: MockDaemon = {
     steerRequests: [],
     followUpRequests: [],
@@ -142,6 +159,17 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // approvals.list() sees (WEBUI-FLEET-DEPTH) — a fresh copy per installMockDaemon
   // call so tests never leak state into each other.
   const approvals = [{ ...PENDING_APPROVAL }];
+
+  // In-memory canonical store for this test only — a fresh copy of the seed per
+  // installMockDaemon call, mutated by add/delete/update-review exactly like the real
+  // daemon-owned single-writer store (never a second copy diverging from what the UI
+  // reads back).
+  let memoryRecords = SEED_MEMORY_RECORDS.map(memoryRecordWire);
+  let memoryIdCounter = 0;
+
+  function methodNotFound(route: Route) {
+    return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+  }
 
   if (signedIn) {
     await page.addInitScript(
@@ -290,6 +318,122 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (method === 'GET' && path.startsWith('/api/providers')) {
       return json(route, providersResponse());
+    }
+
+    // ── Memory (memory.records.* / memory.review-queue, SDK 1.1.0) ─────────
+    // Exact-path routes checked BEFORE the /{id} regexes below, since
+    // '/api/memory/records/search' would otherwise itself match `records/([^/]+)`
+    // with "search" read as an id.
+    if (path === '/api/memory/records/search' && method === 'POST') {
+      if (!memoryAvailable) return methodNotFound(route);
+      const body = (request.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      let records = memoryRecords.slice();
+      if (typeof body.cls === 'string') records = records.filter((r) => r.cls === body.cls);
+      if (typeof body.scope === 'string') records = records.filter((r) => r.scope === body.scope);
+      if (Array.isArray(body.tags) && body.tags.length) {
+        const tags = body.tags as string[];
+        records = records.filter((r) => tags.every((tag) => r.tags.includes(tag)));
+      }
+      if (typeof body.query === 'string' && body.query.trim()) {
+        const q = body.query.trim().toLowerCase();
+        records = records.filter((r) => r.summary.toLowerCase().includes(q) || (r.detail ?? '').toLowerCase().includes(q));
+      }
+      const requestedSemantic = body.semantic === true;
+      const indexUnavailableReason = requestedSemantic && memoryIndexUnavailable
+        ? 'Semantic index unavailable: sqlite-vec extension failed to load — falling back to a literal scan'
+        : null;
+      const mode: 'literal' | 'semantic' = requestedSemantic && !indexUnavailableReason ? 'semantic' : 'literal';
+      const recall = body.recall === true;
+      const totalBeforeRecallFilter = records.length;
+      let excludedFlaggedCount = 0;
+      let excludedBelowFloorCount = 0;
+      if (recall) {
+        const kept: typeof records = [];
+        for (const record of records) {
+          if (record.reviewState === 'stale' || record.reviewState === 'contradicted') {
+            excludedFlaggedCount += 1;
+            continue;
+          }
+          if (record.confidence < 60) {
+            excludedBelowFloorCount += 1;
+            continue;
+          }
+          kept.push(record);
+        }
+        records = kept;
+      }
+      return json(route, {
+        records,
+        mode,
+        requestedSemantic,
+        indexUnavailableReason,
+        caveat: null,
+        recallFiltered: recall,
+        excludedFlaggedCount,
+        excludedBelowFloorCount,
+        totalBeforeRecallFilter,
+      });
+    }
+    if (path === '/api/memory/records' && method === 'POST') {
+      if (!memoryAvailable) return methodNotFound(route);
+      const body = (request.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      memoryIdCounter += 1;
+      const now = Date.now();
+      const record = {
+        id: `mem-added-${memoryIdCounter}`,
+        scope: typeof body.scope === 'string' ? body.scope : 'project',
+        cls: body.cls,
+        summary: body.summary,
+        ...(typeof body.detail === 'string' && body.detail ? { detail: body.detail } : {}),
+        tags: Array.isArray(body.tags) ? body.tags : [],
+        provenance: Array.isArray(body.provenance) ? body.provenance : [],
+        reviewState: 'fresh',
+        confidence: 60,
+        createdAt: now,
+        updatedAt: now,
+      };
+      memoryRecords = [record, ...memoryRecords];
+      return json(route, { record });
+    }
+    if (path === '/api/memory/review-queue' && method === 'GET') {
+      if (!memoryAvailable) return methodNotFound(route);
+      return json(route, { records: memoryRecords.filter((r) => r.confidence < 60 || r.reviewState === 'fresh') });
+    }
+    const memoryReviewMatch = path.match(/^\/api\/memory\/records\/([^/]+)\/review$/);
+    if (method === 'POST' && memoryReviewMatch) {
+      if (!memoryAvailable) return methodNotFound(route);
+      const id = decodeURIComponent(memoryReviewMatch[1]);
+      const body = (request.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      const index = memoryRecords.findIndex((r) => r.id === id);
+      if (index === -1) return json(route, { error: 'Not found' }, 404);
+      const now = Date.now();
+      memoryRecords[index] = {
+        ...memoryRecords[index],
+        ...(typeof body.state === 'string' ? { reviewState: body.state } : {}),
+        ...(typeof body.confidence === 'number' ? { confidence: body.confidence } : {}),
+        ...(typeof body.reviewedBy === 'string' ? { reviewedBy: body.reviewedBy } : {}),
+        ...(typeof body.staleReason === 'string' ? { staleReason: body.staleReason } : {}),
+        reviewedAt: now,
+        updatedAt: now,
+      };
+      return json(route, { record: memoryRecords[index] });
+    }
+    const memoryRecordMatch = path.match(/^\/api\/memory\/records\/([^/]+)$/);
+    if (method === 'GET' && memoryRecordMatch) {
+      if (!memoryAvailable) return methodNotFound(route);
+      const id = decodeURIComponent(memoryRecordMatch[1]);
+      const found = memoryRecords.find((r) => r.id === id);
+      if (!found) return json(route, { error: 'Not found' }, 404);
+      return json(route, { record: found });
+    }
+    if (method === 'DELETE' && memoryRecordMatch) {
+      if (!memoryAvailable) return methodNotFound(route);
+      const id = decodeURIComponent(memoryRecordMatch[1]);
+      const before = memoryRecords.length;
+      memoryRecords = memoryRecords.filter((r) => r.id !== id);
+      // Delete-means-delete: an honest boolean, never a 200 pretending a phantom row
+      // was removed.
+      return json(route, { id, deleted: memoryRecords.length < before });
     }
 
     // ── Knowledge map / status ─────────────────────────────────────────────

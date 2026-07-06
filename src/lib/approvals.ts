@@ -70,6 +70,26 @@ export function isEditApproval(record: ApprovalRecord): boolean {
   return record.request.tool === 'edit' && readApprovalEditHunks(record) !== null;
 }
 
+/**
+ * For a resolved, approved edit approval: was it a per-hunk subset rather
+ * than the whole request? The daemon's `decision.modifiedArgs.edits` carries
+ * the filtered hunk list only when a `selectedHunks` subset was sent
+ * (APPROVAL_APPROVE_INPUT_SCHEMA's selectedHunks doc, operator-contract-
+ * schemas-runtime.ts) — comparing its length against the original request's
+ * hunk count is enough to say "partial (2/5 hunks)" from data already on the
+ * record, no extra wire call. Returns null when not applicable: not
+ * approved, no edit hunks on the request, or modifiedArgs absent/covers
+ * every hunk (a full approval).
+ */
+export function partialApprovalLabel(record: ApprovalRecord): string | null {
+  if (record.status !== 'approved') return null;
+  const originalHunks = readApprovalEditHunks(record);
+  if (!originalHunks || originalHunks.length === 0) return null;
+  const modifiedEdits = record.decision?.modifiedArgs?.edits;
+  if (!Array.isArray(modifiedEdits) || modifiedEdits.length >= originalHunks.length) return null;
+  return `partial (${modifiedEdits.length}/${originalHunks.length} hunks)`;
+}
+
 export function riskTone(riskLevel: string): string {
   switch (riskLevel) {
     case 'critical':

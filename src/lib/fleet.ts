@@ -85,7 +85,7 @@ export function isAwaitingApprovalState(state: string): boolean {
  */
 export function costLabel(node: FleetProcessNode): string {
   if (node.costState === 'unpriced') return 'unpriced';
-  if (node.costUsd === null) return node.costState === 'estimated' ? 'estimating…' : 'unpriced';
+  if (node.costUsd == null) return node.costState === 'estimated' ? 'estimating…' : 'unpriced';
   const amount = `$${node.costUsd.toFixed(node.costUsd < 1 ? 4 : 2)}`;
   return node.costState === 'estimated' ? `~${amount}` : amount;
 }

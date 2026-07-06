@@ -45,6 +45,7 @@ import {
   hunkSummary,
   isActionableApproval,
   isTerminalApprovalStatus,
+  partialApprovalLabel,
   readApprovalEditHunks,
   riskTone,
   sortApprovalsNewestFirst,
@@ -105,7 +106,7 @@ function ApprovalsSection() {
   }
 
   const approve = useMutation({
-    mutationFn: ({ id, selectedHunks }: { id: string; selectedHunks?: readonly number[] }) =>
+    mutationFn: ({ id, selectedHunks }: { id: string; selectedHunks?: readonly number[]; totalHunks?: number }) =>
       sdk.operator.approvals.approve(id, selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : undefined),
     onSuccess: async (_result, variables) => {
       setSelections((current) => {
@@ -113,7 +114,17 @@ function ApprovalsSection() {
         return rest;
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
-      toast({ title: 'Approved', tone: 'success' });
+      // A subset was sent only when selectedHunks is non-empty AND shorter than
+      // the full hunk count on the request — selecting every hunk (or omitting
+      // selectedHunks entirely, "Approve all") is a full approval, not a subset.
+      const selectedCount = variables.selectedHunks?.length ?? 0;
+      const isPartial = selectedCount > 0
+        && variables.totalHunks !== undefined
+        && selectedCount < variables.totalHunks;
+      toast({
+        title: isPartial ? `Approved ${selectedCount} of ${variables.totalHunks} hunks` : 'Approved',
+        tone: 'success',
+      });
     },
     onError: (error: unknown) => {
       toast({ title: 'Approve failed', description: friendlyError(error), tone: 'danger' });
@@ -165,7 +176,11 @@ function ApprovalsSection() {
               record={record}
               selected={selections[record.id] ?? new Set<number>()}
               onToggleHunk={(index) => toggleHunk(record.id, index)}
-              onApprove={(selectedHunks) => approve.mutate({ id: record.id, selectedHunks })}
+              onApprove={(selectedHunks) => approve.mutate({
+                id: record.id,
+                selectedHunks,
+                totalHunks: readApprovalEditHunks(record)?.length,
+              })}
               onDeny={() => deny.mutate(record.id)}
               approving={approve.isPending && approve.variables?.id === record.id}
               denying={deny.isPending && deny.variables === record.id}
@@ -197,6 +212,7 @@ function ApprovalCard({
   const hunks = useMemo(() => readApprovalEditHunks(record), [record]);
   const actionable = isActionableApproval(record);
   const terminal = isTerminalApprovalStatus(record.status);
+  const partialLabel = useMemo(() => partialApprovalLabel(record), [record]);
 
   return (
     <li className="approval-card">
@@ -220,6 +236,7 @@ function ApprovalCard({
           {statusLabel(record.status)}
           {record.resolvedAt ? ` ${formatRelative(record.resolvedAt)}` : ''}
           {record.resolvedBy ? ` by ${record.resolvedBy}` : ''}
+          {partialLabel ? ` — ${partialLabel}` : ''}
         </p>
       )}
 

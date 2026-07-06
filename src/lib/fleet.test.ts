@@ -90,6 +90,16 @@ describe('costLabel', () => {
   test('estimated state with no costUsd yet shows "estimating…" rather than a fake number', () => {
     expect(costLabel(node({ id: 'n1', costState: 'estimated', costUsd: null }))).toBe('estimating…');
   });
+
+  test('costUsd entirely absent (undefined, per the SDK contract — not just null) never throws', () => {
+    const { costUsd: _omit, ...rest } = node({ id: 'n1', costState: 'priced', costUsd: 5 });
+    expect(costLabel(rest as FleetProcessNode)).toBe('unpriced');
+  });
+
+  test('estimated state with costUsd undefined (not null) still shows "estimating…", no throw', () => {
+    const { costUsd: _omit, ...rest } = node({ id: 'n1', costState: 'estimated', costUsd: 5 });
+    expect(costLabel(rest as FleetProcessNode)).toBe('estimating…');
+  });
 });
 
 describe('formatDurationMs', () => {

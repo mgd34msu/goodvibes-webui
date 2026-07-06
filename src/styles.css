@@ -1,5 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap");
 @import './styles/tokens.css';
+/* Generated from the SDK presentation contract — see
+   src/styles/generated/presentation-tokens.css's own header for what this
+   layer is (and is not) and scripts/generate-presentation-tokens.ts for how
+   it's produced. */
+@import './styles/generated/presentation-tokens.css';
 
 /* === Global rendering (theme-invariant) === */
 :root {
@@ -797,7 +802,20 @@ button:disabled {
   border-radius: 999px;
   font-size: 0.76rem;
   font-weight: 800;
+  gap: 4px;
   overflow-wrap: anywhere;
+}
+
+/* Contract-sourced severity glyph (src/lib/presentation-bridge.ts,
+   StatusBadge.tsx's `data-contract-glyph` attribute) — the same glyph
+   vocabulary the TUI/agent render through. Generated CSS content, not a DOM
+   text node, so StatusBadge's `.textContent` is unaffected everywhere it's
+   asserted on exactly (RecordList, SessionHeader, ...). Decorative only —
+   the label text and tone color already carry the meaning. */
+.badge::before {
+  content: attr(data-contract-glyph);
+  line-height: 1;
+  opacity: 0.85;
 }
 
 :root[data-theme="light"] .badge.ok {

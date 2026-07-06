@@ -110,6 +110,17 @@
   color: inherit;
 }
 
+/* Contract-sourced severity glyph (src/lib/presentation-bridge.ts,
+ * StatusStrip.tsx's `data-contract-glyph` attribute on the connection-axis
+ * label). Scoped to the connection segment specifically — not every
+ * `.status-strip__label` carries the attribute. Generated CSS content, not a
+ * DOM text node, so `.textContent` still reports exactly the label text. */
+.status-strip__segment--connection .status-strip__label::before {
+  content: attr(data-contract-glyph);
+  margin-right: 2px;
+  opacity: 0.85;
+}
+
 .status-strip__label--mono {
   font-family: var(--font-mono);
   font-size: 11px; /* intentional sub-token: 11px < --text-xs (12px); model name

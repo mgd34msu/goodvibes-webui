@@ -1,0 +1,57 @@
+/*
+ * GENERATED FILE — DO NOT EDIT BY HAND.
+ * Produced by scripts/generate-presentation-tokens.ts from
+ * @pellux/goodvibes-sdk/platform/presentation (the presentation contract
+ * the TUI and agent already render through — see that package's own
+ * docstring for the W4-R1 parity-audit provenance).
+ *
+ * This is a layer SEPARATE from src/styles/tokens.css: tokens.css owns the
+ * web UI's own brand palette / layout / motion tokens (an explicitly
+ * webui-only, NOT-contract layer, documented at its own top); this file
+ * owns only the values the SDK contract actually defines — status glyphs
+ * and the state tone-color table.
+ *
+ * Regenerate: `bun run presentation:generate`.
+ * Verify (no write): `bun run presentation:check` — wired into `bun run
+ * build`, so a contract change that was not regenerated fails the build.
+ */
+
+:root {
+  /* Status glyphs — GLYPHS.status, quoted for `content:` use. */
+  --contract-glyph-success: "✓";
+  --contract-glyph-failure: "✕";
+  --contract-glyph-pending: "•";
+  --contract-glyph-active: "●";
+  --contract-glyph-idle: "◌";
+  --contract-glyph-info: "○";
+  --contract-glyph-warn: "⚠";
+  --contract-glyph-blocked: "⊘";
+  --contract-glyph-skipped: "◇";
+  --contract-glyph-review: "◈";
+  --contract-glyph-retry: "↻";
+  --contract-glyph-handoff: "⇢";
+  --contract-glyph-reference: "↗";
+  --contract-glyph-partial: "◐";
+  --contract-glyph-dual-pane: "◆";
+  --contract-glyph-star: "★";
+
+  /* State tone colors — TONE_TOKENS.state (dark / default). */
+  --contract-state-info: #38bdf8;
+  --contract-state-good: #22c55e;
+  --contract-state-warn: #f59e0b;
+  --contract-state-bad: #ef4444;
+  --contract-state-blocked: #f97316;
+  --contract-state-active: #60a5fa;
+  --contract-state-reasoning: #a855f7;
+}
+
+/* State tone colors — light-mode override (resolveTones('light')). */
+:root[data-theme="light"] {
+  --contract-state-info: #0369a1;
+  --contract-state-good: #22c55e;
+  --contract-state-warn: #f59e0b;
+  --contract-state-bad: #ef4444;
+  --contract-state-blocked: #f97316;
+  --contract-state-active: #60a5fa;
+  --contract-state-reasoning: #7c3aed;
+}

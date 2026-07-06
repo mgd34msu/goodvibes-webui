@@ -8,7 +8,7 @@ import {
   extractSessionId,
   LocalCompanionMessage,
 } from '../../lib/companion-chat';
-import { isSessionNotFoundError, formatError } from '../../lib/errors';
+import { isSessionNotFoundError, isAuthExpiredError, formatError } from '../../lib/errors';
 import { fileToBase64, uploadedArtifactId, messageText } from './message-utils';
 import type { ChatMessage } from './types';
 
@@ -53,6 +53,21 @@ interface UseChatSendOptions {
   setLocalMessages: Dispatch<SetStateAction<LocalCompanionMessage[]>>;
   setPendingUserMessageId: Dispatch<SetStateAction<string>>;
   invalidateChatState: (sessionId: string) => Promise<void>;
+  /**
+   * The caller's authoritative turn state, read fresh on every send. When a send
+   * starts while the live stream is 'reconnecting' or 'stream paused', the mutation
+   * says so honestly ('sending while reconnecting') instead of silently claiming the
+   * ordinary 'sending'/'submitted' path — the REST send still goes through (it does
+   * not depend on the SSE stream's health), but the reply may not visibly arrive
+   * until the stream resumes or the 1s message poll fallback catches it.
+   */
+  turnState: string;
+  /**
+   * Same auth-expiry handoff useChatStream uses: on a 401 mid-send, re-probe
+   * auth.current so a genuinely dead token flips the app to the signed-out gate,
+   * rather than collapsing to a generic 'send failed'.
+   */
+  onAuthExpired: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +122,8 @@ export function useChatSend({
   setLocalMessages,
   setPendingUserMessageId,
   invalidateChatState,
+  turnState,
+  onAuthExpired,
 }: UseChatSendOptions): UseChatSendReturn {
   // Branch tracking state: rootMessageId -> BranchRecord
   const [branchMap, setBranchMap] = useState<Map<string, BranchRecord>>(() => new Map());
@@ -145,8 +162,19 @@ export function useChatSend({
   const sendMutation = useMutation<undefined, Error, { body: string; files: File[] }>({
     mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
       if (!body && !files.length) return;
-      setTurnState('sending');
-      setTurnError('');
+      // Read the live stream's health at the moment the send starts (not stale —
+      // react-query always calls the mutationFn captured on the latest render). A
+      // send during 'reconnecting'/'stream paused' still goes over REST and does not
+      // depend on the SSE connection, but the reply streams back over that SAME
+      // connection — say so honestly rather than silently claiming ordinary
+      // 'sending'/'submitted' while the live channel is actually down.
+      const sendingWhileReconnecting = turnState === 'reconnecting' || turnState === 'stream paused';
+      setTurnState(sendingWhileReconnecting ? 'sending while reconnecting' : 'sending');
+      setTurnError(
+        sendingWhileReconnecting
+          ? 'Sending — the live stream is reconnecting, so the reply may not appear until it resumes.'
+          : '',
+      );
 
       let sessionId = activeSessionId;
       if (!sessionId) {
@@ -190,7 +218,7 @@ export function useChatSend({
       ]);
       setPendingUserMessageId(localMessageId);
       setLiveText('');
-      setTurnState('submitted');
+      setTurnState(sendingWhileReconnecting ? 'sending while reconnecting' : 'submitted');
 
       let attachments: typeof localAttachments = [];
       try {
@@ -249,6 +277,17 @@ export function useChatSend({
       if (isSessionNotFoundError(error) && activeSessionId) {
         onSessionMissing(activeSessionId);
         setTurnError('That chat session no longer exists. Starting from the current daemon session list.');
+        return;
+      }
+      // A 401 mid-send means the token died between opening the composer and
+      // hitting send — hand off to the sign-in front door instead of a dead-end
+      // generic "send failed" that gives no path forward. The message that failed
+      // is already marked deliveryState:'failed' above (inside the try/catch around
+      // the actual POST), so this only needs to set the honest turn-level state.
+      if (isAuthExpiredError(error)) {
+        onAuthExpired();
+        setTurnState('session expired');
+        setTurnError('Your session expired — sign in again to continue.');
         return;
       }
       setTurnState('send failed');

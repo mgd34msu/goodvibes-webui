@@ -1,7 +1,7 @@
-import { Dispatch, SetStateAction, useCallback, useEffect, useRef, RefObject } from 'react';
-import { sdk } from '../../lib/goodvibes';
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState, RefObject } from 'react';
+import { sdk, DEFAULT_SSE_RECONNECT } from '../../lib/goodvibes';
 import { firstString } from '../../lib/object';
-import { isSessionNotFoundError } from '../../lib/errors';
+import { isSessionNotFoundError, isAuthExpiredError } from '../../lib/errors';
 import { LocalCompanionMessage } from '../../lib/companion-chat';
 import {
   ACTIVE_TURN_STATES,
@@ -20,6 +20,13 @@ interface UseChatStreamOptions {
   setPendingUserMessageId: Dispatch<SetStateAction<string>>;
   invalidateChatState: (sessionId: string) => Promise<void>;
   /**
+   * Called once when the stream (or a send) discovers the token has expired mid-
+   * session (401 / category:'authentication'). The caller re-probes auth.current,
+   * which — for a genuinely dead token — flips the app into the signed-out gate. This
+   * hook never retries a dead token itself; it hands off and stops.
+   */
+  onAuthExpired: () => void;
+  /**
    * The AUTHORITATIVE turn state managed by the caller (e.g. ChatView).
    * When provided, `isStreaming` derives from this value instead of a
    * private shadow copy. Pass the same state variable that is fed to
@@ -33,13 +40,20 @@ interface UseChatStreamOptions {
 }
 
 export interface UseChatStreamResult {
-  /** Whether a turn is actively in-flight (running, streaming, or tooling). */
+  /** Whether a turn is actively in-flight (running, streaming, tooling, or reconnecting). */
   isStreaming: boolean;
   /**
    * Stop the in-flight turn immediately.
    * Disconnects the SSE stream, clears live text, and resets turn state to 'idle'.
    */
   stop: () => void;
+  /**
+   * Force a fresh connection attempt after the stream gave up ('stream paused').
+   * The built-in reconnect only retries up to DEFAULT_SSE_RECONNECT.maxAttempts with
+   * backoff; once exhausted the SDK stops entirely on its own, so recovery needs an
+   * explicit re-open. Safe to call any time — it just re-runs the connect effect.
+   */
+  retryStream: () => void;
 }
 
 export function useChatStream({
@@ -52,6 +66,7 @@ export function useChatStream({
   setLocalMessages,
   setPendingUserMessageId,
   invalidateChatState,
+  onAuthExpired,
   turnState,
 }: UseChatStreamOptions): UseChatStreamResult {
   // Ref to the SSE disconnect fn so stop() can call it at any time.
@@ -59,6 +74,9 @@ export function useChatStream({
   // Cancellation flag: set by stop() and effect cleanup so the .then
   // callback can detect a pre-resolve stop and immediately disconnect.
   const stoppedRef = useRef(false);
+  // Bumped by retryStream() to force a fresh connect after the SDK's own
+  // reconnect loop gives up (it never retries again on its own past onTerminate).
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // Forward state updates to the caller's authoritative turnState.
   const syncedSetTurnState: Dispatch<SetStateAction<string>> = useCallback(
@@ -77,6 +95,10 @@ export function useChatStream({
     setTurnState('idle');
   }, [liveTextRef, setLiveText, setTurnState]);
 
+  const retryStream = useCallback(() => {
+    setRetryNonce((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     if (!activeSessionId) return undefined;
     stoppedRef.current = false;
@@ -85,7 +107,46 @@ export function useChatStream({
     liveTextRef.current = '';
     setTurnError('');
 
+    // True once a drop has been reported for THIS connection instance (an onReconnect
+    // fired). Lets onReady tell "the very first connect" (say nothing, turnState is
+    // already whatever the caller set) apart from "a reconnect after a drop succeeded"
+    // (clear the reconnecting message). Also lets onError tell apart a transient error
+    // it already saw via onReconnect (skip — avoid clobbering with a duplicate/contra-
+    // dictory 'stream error') from a standalone failure (none observed via this SDK's
+    // current wiring, but kept as a defensive fallback).
+    let hadDrop = false;
+    // Guards the auth-expiry handoff to fire exactly once per connection instance —
+    // idempotent either way, but avoids redundant invalidateQueries churn if the dead
+    // token keeps producing 401s across more than one handler callback.
+    let handledAuthExpiry = false;
+
+    const handleAuthExpiry = (error: unknown): boolean => {
+      if (handledAuthExpiry) return true;
+      if (!isAuthExpiredError(error)) return false;
+      handledAuthExpiry = true;
+      onAuthExpired();
+      syncedSetTurnState('session expired');
+      setTurnError('Your session expired — sign in again to continue.');
+      // Stop relying on the built-in reconnect loop: a stale token will just keep
+      // 401ing on every retry, burning the bounded attempt budget for nothing.
+      disconnectRef.current?.();
+      return true;
+    };
+
     void sdk.chat.events.stream(activeSessionId, {
+      onReady: () => {
+        if (stoppedRef.current) return;
+        if (hadDrop) {
+          hadDrop = false;
+          // Functional updater: only clear the reconnecting label if nothing else
+          // (a fresh send, a genuine turn error) has already moved turnState on.
+          // Routed through syncedSetTurnState (already an effect dependency) rather
+          // than the raw setter so this stays in the same forwarding path as every
+          // other turnState write below.
+          syncedSetTurnState((current) => (current === 'reconnecting' ? 'syncing' : current));
+          setTurnError((current) => (current.startsWith('Reconnecting to the live stream') ? '' : current));
+        }
+      },
       onEvent: (eventName, payload) => {
         if (!eventName.startsWith('companion-chat.')) return;
         if (firstString(payload, ['sessionId']) !== activeSessionId) return;
@@ -143,15 +204,52 @@ export function useChatStream({
           void invalidateChatState(activeSessionId);
         }
       },
+      // Fires on every transient failure the built-in reconnect loop is about to
+      // retry (paired with — and called right after — onReconnect below), and once
+      // more on the terminal failure (paired with, and called right after,
+      // onTerminate below). It never fires standalone against this SDK's current
+      // wiring, so `hadDrop` — already true from the paired call — lets this handler
+      // stay a no-op rather than overwrite the more specific 'reconnecting' /
+      // 'stream paused' / 'session expired' state with a generic 'stream error'.
       onError: (error) => {
+        if (stoppedRef.current) return;
         if (isSessionNotFoundError(error)) {
           onSessionMissing(activeSessionId);
           return;
         }
-        syncedSetTurnState('stream error');
-        setTurnError(error instanceof Error ? error.message : String(error));
+        if (handleAuthExpiry(error)) return;
+        if (!hadDrop) {
+          syncedSetTurnState('stream error');
+          setTurnError(error instanceof Error ? error.message : String(error));
+        }
       },
-    }).then((nextDisconnect) => {
+      // A drop the built-in reconnect is about to retry (attempts remain and
+      // reconnect is enabled) — the daemon-blip / SSE-drop case. Honest, distinct
+      // from a genuine unrecoverable 'stream error': the connection is expected back.
+      onReconnect: ({ attempt, delayMs }) => {
+        if (stoppedRef.current) return;
+        hadDrop = true;
+        syncedSetTurnState('reconnecting');
+        setTurnError(
+          `Reconnecting to the live stream — attempt ${attempt} of ${DEFAULT_SSE_RECONNECT.maxAttempts} `
+          + `(next try in ${Math.max(1, Math.round(delayMs / 1000))}s)…`,
+        );
+      },
+      // The built-in reconnect exhausted DEFAULT_SSE_RECONNECT.maxAttempts and gave
+      // up for good — it will not try again on its own. Falls back to the composer's
+      // 1s message poll (ChatView keeps polling while turnState is a 'reconnecting'/
+      // 'sending while reconnecting' ACTIVE_TURN_STATE, and ChatView also polls
+      // explicitly while 'stream paused') until retryStream() re-opens the stream.
+      onTerminate: ({ error, reconnectAttempts }) => {
+        if (stoppedRef.current) return;
+        if (handleAuthExpiry(error)) return;
+        syncedSetTurnState('stream paused');
+        setTurnError(
+          `Stream paused after ${reconnectAttempts} reconnect attempt${reconnectAttempts === 1 ? '' : 's'} — `
+          + 'live updates are off. Tap the status to retry, or send a message to try again.',
+        );
+      },
+    }, { reconnect: DEFAULT_SSE_RECONNECT }).then((nextDisconnect) => {
       if (stoppedRef.current) {
         nextDisconnect();
         return;
@@ -163,6 +261,7 @@ export function useChatStream({
           onSessionMissing(activeSessionId);
           return;
         }
+        if (handleAuthExpiry(err)) return;
         syncedSetTurnState('stream error');
         setTurnError(err instanceof Error ? err.message : String(err));
       }
@@ -173,9 +272,21 @@ export function useChatStream({
       disconnectRef.current?.();
       disconnectRef.current = undefined;
     };
-  }, [activeSessionId, onSessionMissing, invalidateChatState, syncedSetTurnState, setLiveText, liveTextRef, setTurnError, setLocalMessages, setPendingUserMessageId]);
+  }, [
+    activeSessionId,
+    onSessionMissing,
+    onAuthExpired,
+    invalidateChatState,
+    syncedSetTurnState,
+    setLiveText,
+    liveTextRef,
+    setTurnError,
+    setLocalMessages,
+    setPendingUserMessageId,
+    retryNonce,
+  ]);
 
   const isStreaming = ACTIVE_TURN_STATES.includes(turnState ?? 'idle');
 
-  return { isStreaming, stop };
+  return { isStreaming, stop, retryStream };
 }

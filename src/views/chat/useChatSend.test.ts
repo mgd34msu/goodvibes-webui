@@ -19,11 +19,15 @@ import type { LocalCompanionMessage } from '../../lib/companion-chat';
 // ---------------------------------------------------------------------------
 // Mock sdk — prevents real HTTP calls from the mutation function
 // ---------------------------------------------------------------------------
+// `createMessageImpl` is reassignable per-test (e.g. to reject with a 401) since
+// mock.module locks in the module shape once, but not what the inner fn does.
+let createMessageImpl: () => Promise<unknown> = async () => ({ messageId: 'msg-test' });
+
 mock.module('../../lib/goodvibes', () => ({
   sdk: {
     chat: {
       sessions: { create: async () => ({ sessionId: 'sess-test' }) },
-      messages: { create: async () => ({ messageId: 'msg-test' }) },
+      messages: { create: async () => createMessageImpl() },
     },
     artifacts: { create: async () => ({ artifactId: 'art-test' }) },
   },
@@ -36,11 +40,15 @@ mock.module('../../lib/goodvibes', () => ({
 interface HarnessOptions {
   localMessages?: LocalCompanionMessage[];
   activeSessionId?: string;
+  turnState?: string;
+  onAuthExpired?: () => void;
 }
 
 interface HarnessResult {
   getReturn: () => UseChatSendReturn;
   getLocalMessages: () => LocalCompanionMessage[];
+  getTurnStates: () => string[];
+  getTurnErrors: () => string[];
   unmount: () => void;
   queryClient: QueryClient;
 }
@@ -53,6 +61,8 @@ function renderHook(opts: HarnessOptions = {}): HarnessResult {
   const localMessages: LocalCompanionMessage[] = opts.localMessages
     ? [...opts.localMessages]
     : [];
+  const turnStates: string[] = [];
+  const turnErrors: string[] = [];
 
   let returnValue!: UseChatSendReturn;
 
@@ -63,8 +73,12 @@ function renderHook(opts: HarnessOptions = {}): HarnessResult {
       onDraftSessionRequestedChange: () => undefined,
       onLocalSessionCreated: () => undefined,
       onSessionMissing: () => undefined,
-      setTurnState: () => undefined,
-      setTurnError: () => undefined,
+      setTurnState: (next) => {
+        turnStates.push(typeof next === 'function' ? next(turnStates.at(-1) ?? 'idle') : next);
+      },
+      setTurnError: (next) => {
+        turnErrors.push(typeof next === 'function' ? next(turnErrors.at(-1) ?? '') : next);
+      },
       setLiveText: () => undefined,
       setLocalMessages: (updater) => {
         if (typeof updater === 'function') {
@@ -77,6 +91,8 @@ function renderHook(opts: HarnessOptions = {}): HarnessResult {
       },
       setPendingUserMessageId: () => undefined,
       invalidateChatState: async () => undefined,
+      turnState: opts.turnState ?? 'idle',
+      onAuthExpired: opts.onAuthExpired ?? (() => undefined),
     });
     React.useLayoutEffect(() => { returnValue = result; });
     return null;
@@ -97,6 +113,8 @@ function renderHook(opts: HarnessOptions = {}): HarnessResult {
   return {
     getReturn: () => returnValue,
     getLocalMessages: () => localMessages,
+    getTurnStates: () => turnStates,
+    getTurnErrors: () => turnErrors,
     unmount: () => {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -135,6 +153,7 @@ afterEach(() => {
     harness.unmount();
     harness = null;
   }
+  createMessageImpl = async () => ({ messageId: 'msg-test' });
 });
 
 // ---------------------------------------------------------------------------
@@ -394,5 +413,107 @@ describe('selectBranch', () => {
     });
 
     expect(harness.getReturn().branchMap.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-while-reconnecting honesty (W5-W1)
+// ---------------------------------------------------------------------------
+
+describe('send while the stream is degraded', () => {
+  test('sending while turnState is "reconnecting" is labeled honestly, not silently sent', async () => {
+    harness = renderHook({ turnState: 'reconnecting' });
+    const { sendMutation } = harness.getReturn();
+
+    await sendMutation.mutateAsync({ body: 'hello', files: [] });
+
+    const states = harness.getTurnStates();
+    // The very first state set must be the honest label, not the ordinary 'sending'.
+    expect(states[0]).toBe('sending while reconnecting');
+    expect(states).not.toContain('sending');
+    expect(states).toContain('sending while reconnecting');
+    const errors = harness.getTurnErrors();
+    expect(errors.some((e) => e.toLowerCase().includes('reconnecting'))).toBe(true);
+  });
+
+  test('sending while turnState is "stream paused" is also labeled honestly', async () => {
+    harness = renderHook({ turnState: 'stream paused' });
+    const { sendMutation } = harness.getReturn();
+
+    await sendMutation.mutateAsync({ body: 'hello', files: [] });
+
+    expect(harness.getTurnStates()[0]).toBe('sending while reconnecting');
+  });
+
+  test('sending while turnState is "idle" uses the ordinary sending/submitted labels (no regression)', async () => {
+    harness = renderHook({ turnState: 'idle' });
+    const { sendMutation } = harness.getReturn();
+
+    await sendMutation.mutateAsync({ body: 'hello', files: [] });
+
+    const states = harness.getTurnStates();
+    expect(states[0]).toBe('sending');
+    expect(states).not.toContain('sending while reconnecting');
+    // The turnError set alongside ordinary sending must be empty (no false notice).
+    expect(harness.getTurnErrors()[0]).toBe('');
+  });
+
+  test('the message actually sends during a reconnecting stream — it is not dropped', async () => {
+    harness = renderHook({ turnState: 'reconnecting', localMessages: [] });
+    const { sendMutation } = harness.getReturn();
+
+    await sendMutation.mutateAsync({ body: 'hello', files: [] });
+
+    // The local message must resolve to 'sent' (the REST call went through), never
+    // silently vanish because the SSE stream happened to be down at send time.
+    const local = harness.getLocalMessages();
+    expect(local.length).toBe(1);
+    expect(local[0].deliveryState).toBe('sent');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auth-expiry handoff on send (W5-W1)
+// ---------------------------------------------------------------------------
+
+describe('a 401 mid-send hands off to sign-in, not a dead-end error', () => {
+  test('category:"authentication" calls onAuthExpired and sets turnState to "session expired"', async () => {
+    createMessageImpl = async () => {
+      throw Object.assign(new Error('Unauthorized'), { category: 'authentication' });
+    };
+    const onAuthExpired = mock(() => undefined);
+    harness = renderHook({ onAuthExpired });
+
+    await expect(harness.getReturn().sendMutation.mutateAsync({ body: 'hello', files: [] })).rejects.toThrow();
+
+    expect(onAuthExpired).toHaveBeenCalledTimes(1);
+    expect(harness.getTurnStates().at(-1)).toBe('session expired');
+    expect(harness.getTurnErrors().at(-1)).toContain('expired');
+  });
+
+  test('a plain 500 does NOT trigger the auth handoff — falls back to "send failed"', async () => {
+    createMessageImpl = async () => {
+      throw Object.assign(new Error('Internal error'), { status: 500 });
+    };
+    const onAuthExpired = mock(() => undefined);
+    harness = renderHook({ onAuthExpired });
+
+    await expect(harness.getReturn().sendMutation.mutateAsync({ body: 'hello', files: [] })).rejects.toThrow();
+
+    expect(onAuthExpired).not.toHaveBeenCalled();
+    expect(harness.getTurnStates().at(-1)).toBe('send failed');
+  });
+
+  test('the failed local message is marked deliveryState "failed", never silently lost', async () => {
+    createMessageImpl = async () => {
+      throw Object.assign(new Error('Unauthorized'), { category: 'authentication' });
+    };
+    harness = renderHook({ localMessages: [] });
+
+    await expect(harness.getReturn().sendMutation.mutateAsync({ body: 'hello', files: [] })).rejects.toThrow();
+
+    const local = harness.getLocalMessages();
+    expect(local.length).toBe(1);
+    expect(local[0].deliveryState).toBe('failed');
   });
 });

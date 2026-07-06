@@ -29,6 +29,12 @@ type StreamDisconnect = () => void;
 interface StreamOptions {
   onEvent: (eventName: string, payload: unknown) => void;
   onError: (error: unknown) => void;
+  onReady?: () => void;
+  onReconnect?: (input: { attempt: number; delayMs: number }) => void;
+  onTerminate?: (input: { error: unknown; reconnectAttempts: number }) => void;
+}
+interface StreamOpenOptions {
+  reconnect?: { enabled?: boolean; maxAttempts?: number };
 }
 
 /**
@@ -42,20 +48,24 @@ interface StreamControl {
   rejectFn: (err: unknown) => void;
   disconnect: ReturnType<typeof mock>;
   options: StreamOptions;
+  openOptions: StreamOpenOptions | undefined;
 }
 
 let activeStreamControl: StreamControl | null = null;
+let streamCallCount = 0;
 
 // Mock the SDK module
 mock.module('../../lib/goodvibes', () => ({
+  DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1_000, maxDelayMs: 30_000, backoffFactor: 2, maxAttempts: 10 },
   sdk: {
     chat: {
       events: {
         stream: mock(
-          (_sessionId: string, options: StreamOptions): Promise<StreamDisconnect> => {
+          (_sessionId: string, options: StreamOptions, openOptions?: StreamOpenOptions): Promise<StreamDisconnect> => {
+            streamCallCount += 1;
             const disconnect = mock(() => {});
             const promise = new Promise<StreamDisconnect>((resolve, reject) => {
-              activeStreamControl = { resolveFn: resolve, rejectFn: reject, disconnect, options };
+              activeStreamControl = { resolveFn: resolve, rejectFn: reject, disconnect, options, openOptions };
             });
             return promise;
           },
@@ -73,10 +83,12 @@ interface HookOwnerProps {
   activeSessionId: string;
   turnState?: string;
   setTurnState: Dispatch<SetStateAction<string>>;
+  setTurnError: Dispatch<SetStateAction<string>>;
+  onAuthExpired: () => void;
   onResult: (result: UseChatStreamResult) => void;
 }
 
-function HookOwner({ activeSessionId, turnState, setTurnState, onResult }: HookOwnerProps): null {
+function HookOwner({ activeSessionId, turnState, setTurnState, setTurnError, onAuthExpired, onResult }: HookOwnerProps): null {
   const liveTextRef = createRef<string>() as React.RefObject<string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (liveTextRef as any).current = '';
@@ -86,7 +98,7 @@ function HookOwner({ activeSessionId, turnState, setTurnState, onResult }: HookO
     liveTextRef,
     turnState,
     setTurnState,
-    setTurnError: mock(() => {}),
+    setTurnError,
     setLiveText: mock(() => {}),
     setLocalMessages: mock(
       (_fn: SetStateAction<LocalCompanionMessage[]>) => {},
@@ -94,11 +106,12 @@ function HookOwner({ activeSessionId, turnState, setTurnState, onResult }: HookO
     setPendingUserMessageId: mock(() => {}),
     invalidateChatState: mock(() => Promise.resolve()),
     onSessionMissing: mock(() => {}),
+    onAuthExpired,
   });
 
   React.useLayoutEffect(() => {
     onResult(result);
-  });  
+  });
 
   return null;
 }
@@ -110,28 +123,41 @@ function HookOwner({ activeSessionId, turnState, setTurnState, onResult }: HookO
 function renderHookHelper({
   activeSessionId = 'session-1',
   initialTurnState = 'idle',
+  onAuthExpired = () => {},
 }: {
   activeSessionId?: string;
   initialTurnState?: string;
+  onAuthExpired?: () => void;
 } = {}) {
   let result!: UseChatStreamResult;
   let currentTurnState = initialTurnState;
+  let currentTurnError = '';
+  const turnStates: string[] = [];
+  const turnErrors: string[] = [];
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
 
   const setTurnState: Dispatch<SetStateAction<string>> = (next) => {
     currentTurnState = typeof next === 'function' ? next(currentTurnState) : next;
+    turnStates.push(currentTurnState);
     flushSync(() => {
       root.render(
         React.createElement(HookOwner, {
           activeSessionId,
           turnState: currentTurnState,
           setTurnState,
+          setTurnError,
+          onAuthExpired,
           onResult: (r: UseChatStreamResult) => { result = r; },
         }),
       );
     });
+  };
+
+  const setTurnError: Dispatch<SetStateAction<string>> = (next) => {
+    currentTurnError = typeof next === 'function' ? next(currentTurnError) : next;
+    turnErrors.push(currentTurnError);
   };
 
   const rerender = (turnState: string) => {
@@ -142,6 +168,8 @@ function renderHookHelper({
           activeSessionId,
           turnState,
           setTurnState,
+          setTurnError,
+          onAuthExpired,
           onResult: (r: UseChatStreamResult) => { result = r; },
         }),
       );
@@ -154,6 +182,8 @@ function renderHookHelper({
         activeSessionId,
         turnState: initialTurnState,
         setTurnState,
+        setTurnError,
+        onAuthExpired,
         onResult: (r: UseChatStreamResult) => { result = r; },
       }),
     );
@@ -163,6 +193,9 @@ function renderHookHelper({
     get result() { return result; },
     rerender,
     get turnState() { return currentTurnState; },
+    get turnStates() { return turnStates; },
+    get turnError() { return currentTurnError; },
+    get turnErrors() { return turnErrors; },
     unmount: () => {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -176,6 +209,7 @@ function renderHookHelper({
 
 beforeEach(() => {
   activeStreamControl = null;
+  streamCallCount = 0;
 });
 
 afterEach(() => {
@@ -199,6 +233,8 @@ describe('useChatStream — isStreaming derivation from turnState prop', () => {
           activeSessionId: '',
           // turnState intentionally omitted
           setTurnState: mock(() => {}),
+          setTurnError: mock(() => {}),
+          onAuthExpired: mock(() => {}),
           onResult: (r: UseChatStreamResult) => { result = r; },
         }),
       );
@@ -287,6 +323,7 @@ describe('useChatStream — stop() correctness', () => {
 
     // Simple mock: does not re-render, avoids nested flushSync
     const setTurnState = mock((_next: SetStateAction<string>) => {});
+    const setTurnError = mock((_next: SetStateAction<string>) => {});
 
     flushSync(() => {
       root.render(
@@ -294,6 +331,8 @@ describe('useChatStream — stop() correctness', () => {
           activeSessionId,
           turnState: 'streaming',
           setTurnState,
+          setTurnError,
+          onAuthExpired: mock(() => {}),
           onResult: (r: UseChatStreamResult) => { result = r; },
         }),
       );
@@ -374,5 +413,191 @@ describe('useChatStream — stop() correctness', () => {
     expect(disconnectFn).toHaveBeenCalledTimes(1);
 
     unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Resilience: reconnecting / stream paused / session expired / retry (W5-W1)
+// ---------------------------------------------------------------------------
+
+describe('useChatStream — reconnect passed to the SDK', () => {
+  test('opens the stream with DEFAULT_SSE_RECONNECT so a drop actually retries', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-reconnect-opt' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+    expect(ctrl!.openOptions?.reconnect?.enabled).toBe(true);
+    expect(ctrl!.openOptions?.reconnect?.maxAttempts).toBe(10);
+    ctx.unmount();
+  });
+});
+
+describe('useChatStream — onReconnect: a daemon blip / SSE drop is honest, not a dead "stream error"', () => {
+  test('onReconnect sets turnState to "reconnecting" with an attempt-count message', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-drop', initialTurnState: 'streaming' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    ctrl!.options.onReconnect?.({ attempt: 2, delayMs: 4000 });
+
+    expect(ctx.turnState).toBe('reconnecting');
+    expect(ctx.turnError).toContain('attempt 2 of 10');
+    // 'reconnecting' must count as an active turn state (Stop stays meaningful, the
+    // 1s message-poll fallback keeps running) — never collapse to a dead stream error.
+    expect(ctx.turnState).not.toBe('stream error');
+
+    ctx.unmount();
+  });
+
+  test('"reconnecting" keeps isStreaming true (a mid-turn drop does not look "stopped")', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-drop-2', initialTurnState: 'reconnecting' });
+    expect(ctx.result.isStreaming).toBe(true);
+    ctx.unmount();
+  });
+
+  test('onReady after a drop clears the reconnecting message and moves on to "syncing"', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-recover' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    ctrl!.options.onReconnect?.({ attempt: 1, delayMs: 1000 });
+    expect(ctx.turnState).toBe('reconnecting');
+
+    ctrl!.options.onReady?.();
+    expect(ctx.turnState).toBe('syncing');
+    expect(ctx.turnError).toBe('');
+
+    ctx.unmount();
+  });
+
+  test('a genuine turn error mid-reconnect is NOT clobbered by onReady', () => {
+    // onReady's functional updater only clears 'reconnecting' specifically — a
+    // concurrent genuine 'error' (turn.error event) must survive.
+    const ctx = renderHookHelper({ activeSessionId: 'session-guard' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    ctrl!.options.onReconnect?.({ attempt: 1, delayMs: 1000 });
+    ctrl!.options.onEvent('companion-chat.turn.error', { sessionId: 'session-guard', type: 'turn.error', error: 'boom' });
+    expect(ctx.turnState).toBe('error');
+
+    ctrl!.options.onReady?.();
+    // Must stay 'error' — onReady only resets when turnState is still 'reconnecting'.
+    expect(ctx.turnState).toBe('error');
+
+    ctx.unmount();
+  });
+});
+
+describe('useChatStream — onTerminate: the built-in reconnect gave up ("stream paused")', () => {
+  test('onTerminate sets turnState to "stream paused" and isStreaming goes false', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-terminate', initialTurnState: 'streaming' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    ctrl!.options.onTerminate?.({ error: new Error('boom'), reconnectAttempts: 10 });
+
+    expect(ctx.turnState).toBe('stream paused');
+    expect(ctx.turnError).toContain('10 reconnect attempts');
+    expect(ctx.result.isStreaming).toBe(false);
+
+    ctx.unmount();
+  });
+
+  test('the paired onError call right after onTerminate does not overwrite "stream paused"', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-terminate-2' });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    // Real SDK wiring: onReconnect fires for every attempt, THEN onTerminate +
+    // onError both fire once attempts are exhausted (see sse-stream.js: onTerminate
+    // is always called, then reportStreamError calls onError with the same error).
+    ctrl!.options.onReconnect?.({ attempt: 10, delayMs: 30_000 });
+    ctrl!.options.onTerminate?.({ error: new Error('boom'), reconnectAttempts: 10 });
+    ctrl!.options.onError(new Error('boom'));
+
+    expect(ctx.turnState).toBe('stream paused');
+
+    ctx.unmount();
+  });
+});
+
+describe('useChatStream — token expiry mid-session hands off, never loops', () => {
+  test('a 401 on the first connect (before ever succeeding) hands off instead of "stream error"', () => {
+    const onAuthExpired = mock(() => {});
+    const ctx = renderHookHelper({ activeSessionId: 'session-expired-first', onAuthExpired });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    ctrl!.rejectFn(Object.assign(new Error('Unauthorized'), { category: 'authentication' }));
+
+    return Promise.resolve().then(() => Promise.resolve()).then(() => {
+      expect(onAuthExpired).toHaveBeenCalledTimes(1);
+      expect(ctx.turnState).toBe('session expired');
+      expect(ctx.turnState).not.toBe('stream error');
+      ctx.unmount();
+    });
+  });
+
+  test('a 401 mid-stream (via onError, paired with onReconnect) hands off and stops retrying', () => {
+    const onAuthExpired = mock(() => {});
+    const ctx = renderHookHelper({ activeSessionId: 'session-expired-mid', onAuthExpired });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    // Successful first connect — resolve so disconnectRef is populated (the auth-expiry
+    // handler calls disconnectRef.current?.() to stop the built-in retry loop early).
+    ctrl!.resolveFn(ctrl!.disconnect);
+
+    return Promise.resolve().then(() => Promise.resolve()).then(() => {
+      const authError = Object.assign(new Error('Unauthorized'), { category: 'authentication' });
+      ctrl!.options.onReconnect?.({ attempt: 1, delayMs: 1000 });
+      ctrl!.options.onError(authError);
+
+      expect(onAuthExpired).toHaveBeenCalledTimes(1);
+      expect(ctx.turnState).toBe('session expired');
+      // The retry loop must be told to stop — not left burning attempts on a dead token.
+      expect(ctrl!.disconnect).toHaveBeenCalled();
+
+      // A further paired onError call (defensive — the real SDK never double-fires
+      // for one failure) must not re-invoke the handoff a second time.
+      ctrl!.options.onError(authError);
+      expect(onAuthExpired).toHaveBeenCalledTimes(1);
+
+      ctx.unmount();
+    });
+  });
+
+  test('onTerminate carrying an auth error hands off to "session expired", not "stream paused"', () => {
+    const onAuthExpired = mock(() => {});
+    const ctx = renderHookHelper({ activeSessionId: 'session-expired-terminate', onAuthExpired });
+    const ctrl = activeStreamControl;
+    expect(ctrl).not.toBeNull();
+
+    const authError = Object.assign(new Error('Unauthorized'), { category: 'authentication' });
+    ctrl!.options.onTerminate?.({ error: authError, reconnectAttempts: 10 });
+
+    expect(onAuthExpired).toHaveBeenCalledTimes(1);
+    expect(ctx.turnState).toBe('session expired');
+    expect(ctx.turnState).not.toBe('stream paused');
+
+    ctx.unmount();
+  });
+
+  test('"session expired" is NOT an active turn state — isStreaming goes false', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-expired-active', initialTurnState: 'session expired' });
+    expect(ctx.result.isStreaming).toBe(false);
+    ctx.unmount();
+  });
+});
+
+describe('useChatStream — retryStream() re-opens after "stream paused"', () => {
+  test('calling retryStream triggers a fresh sdk.chat.events.stream connect', () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-retry' });
+    expect(streamCallCount).toBe(1);
+
+    flushSync(() => { ctx.result.retryStream(); });
+    expect(streamCallCount).toBe(2);
+
+    ctx.unmount();
   });
 });

@@ -13,6 +13,12 @@ interface SessionHeaderProps {
   onSessionTitleDraftChange: (value: string) => void;
   onFinishRenamingTitle: () => void;
   onTitleKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  /**
+   * Present only when there is something to retry (turnState === 'stream paused' —
+   * the built-in SSE reconnect exhausted its attempts and gave up for good).
+   * Undefined renders the plain, unclickable badge exactly as before.
+   */
+  onRetryStream?: () => void;
 }
 
 export function SessionHeader({
@@ -26,6 +32,7 @@ export function SessionHeader({
   onSessionTitleDraftChange,
   onFinishRenamingTitle,
   onTitleKeyDown,
+  onRetryStream,
 }: SessionHeaderProps) {
   return (
     <header className="chat-main-header">
@@ -52,7 +59,20 @@ export function SessionHeader({
         </button>
       )}
       <div className="chat-status">
-        {visibleTurnState && <StatusBadge value={turnState} />}
+        {visibleTurnState && (
+          onRetryStream ? (
+            <button
+              type="button"
+              className="link-button"
+              onClick={onRetryStream}
+              title="Live updates are off — tap to retry the stream"
+            >
+              <StatusBadge value={turnState} />
+            </button>
+          ) : (
+            <StatusBadge value={turnState} />
+          )
+        )}
       </div>
     </header>
   );

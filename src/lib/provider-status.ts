@@ -47,14 +47,28 @@ export interface ProviderStatus {
 }
 
 // Worst-wins ranking among *meaningful* (i.e. actually-configured) routes.
-// 'unconfigured' deliberately has no rank here — a route reporting
-// 'unconfigured' isn't a severity level, it's "this route isn't set up",
-// handled separately below.
+//
+// FORWARD-COMPAT / UNKNOWN-FRESHNESS RULING (F7f): normalizeRoute maps any freshness
+// value this client build does not recognize (a future daemon could add one) to
+// 'status unavailable' when the route IS configured, or 'unconfigured' when it isn't —
+// NEVER silently to 'healthy'. So a new daemon freshness value can never masquerade as
+// a clean pill. The remaining question is the ROLL-UP: a configured route whose
+// freshness we can't classify must not be silently excluded either (that would let a
+// provider read 'healthy' while holding a route we can't vouch for). Ruling, weighed
+// against the honesty bar: SURFACE it — 'status unavailable' participates in worst-wins,
+// ranked ABOVE healthy/pending ("we can't vouch for this") but BELOW the known-degraded
+// states expiring/expired (a known, actionable fault is genuinely more severe). It is
+// NOT relabelled as a fabricated 'warning' fault — 'status unavailable' is the honest
+// name for "health absent/unknown", so we keep it, we just stop hiding it.
+//
+// 'unconfigured' deliberately has no rank — a route reporting 'unconfigured' isn't a
+// severity level, it's "this route isn't set up", handled separately below.
 const FRESHNESS_RANK: Record<string, number> = {
   healthy: 1,
   pending: 2,
-  expiring: 3,
-  expired: 4,
+  'status unavailable': 3,
+  expiring: 4,
+  expired: 5,
 };
 
 const ROUTE_PATHS: readonly (readonly string[])[] = [
@@ -112,7 +126,10 @@ function normalizeRoute(raw: unknown): ProviderRouteStatus {
  * Roll every route's freshness into one honest provider pill.
  *
  *   - Any meaningful (non-"unconfigured") freshness present -> worst wins
- *     (expired > expiring > pending > healthy).
+ *     (expired > expiring > status-unavailable > pending > healthy). A configured
+ *     route with an unrecognized/future freshness value counts as
+ *     'status unavailable' here (see FRESHNESS_RANK's forward-compat ruling) so it
+ *     surfaces rather than hiding behind a healthy sibling.
  *   - Routes exist but every single one reports 'unconfigured' -> the whole
  *     provider is 'unconfigured' (a real, known state).
  *   - No route data at all (or an empty route list) -> 'status unavailable'

@@ -1,0 +1,184 @@
+/**
+ * voice.css — spoken output + dictation controls.
+ *
+ * Reads the shared CSS-variable tokens (styles/tokens.css) — no new palette, so voice
+ * controls sit in the same visual system as the rest of the chat surface, light and dark.
+ */
+
+/* ── Read-aloud button (per assistant message action row) ──────────────────── */
+
+.voice-speak-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.voice-speak-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+}
+
+.voice-speak-btn.is-playing {
+  color: var(--accent);
+}
+
+.voice-speak-btn.voice-unavailable,
+.voice-speak-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ── Mic (composer) ─────────────────────────────────────────────────────────── */
+
+.voice-mic {
+  position: relative;
+  display: inline-flex;
+}
+
+.voice-mic-btn.is-recording {
+  color: var(--status-danger);
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-mic-btn.is-recording {
+    animation: none;
+  }
+}
+
+/* An honest floating note above the mic (secure-context pointer, permission denied,
+   recording/transcribing status). Scrolls inside its own box on narrow viewports. */
+.voice-mic-note {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: var(--z-overlay);
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 8px 10px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  white-space: normal;
+}
+
+/* ── Voice settings popover (composer) ──────────────────────────────────────── */
+
+.voice-settings {
+  position: relative;
+  display: inline-flex;
+}
+
+.voice-settings-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: var(--z-overlay);
+  width: min(300px, 84vw);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-primary);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+}
+
+.voice-settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-settings-title {
+  font-weight: var(--weight-medium);
+}
+
+.voice-settings-tone.tone-ok {
+  color: var(--status-success);
+}
+.voice-settings-tone.tone-warning {
+  color: var(--status-warning);
+}
+.voice-settings-tone.tone-bad {
+  color: var(--status-danger);
+}
+.voice-settings-tone.tone-neutral {
+  color: var(--text-tertiary);
+}
+
+.voice-settings-shared {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.voice-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.voice-settings-field select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.voice-settings-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.voice-settings-unavailable {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Shared spinner for loading/transcribing states. */
+.voice-spin {
+  animation: voice-rotate 0.9s linear infinite;
+}
+
+@keyframes voice-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-spin {
+    animation: none;
+  }
+}

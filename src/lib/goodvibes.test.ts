@@ -8,6 +8,7 @@ import {
   WEBUI_SURFACE_ID,
   WEBUI_SURFACE_KIND,
   WEBUI_TOKEN_STORE_KEY,
+  getCurrentAuth,
   isRuntimeDomain,
   isExtraRoutedMethod,
   sdk,
@@ -544,4 +545,42 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
       assertConforms(method?.inputSchema, input, '');
     });
   }
+});
+
+// W5-R (token honesty): the daemon's control-plane/auth is a STATUS endpoint — it
+// answers 200 even for an invalid/expired token, carrying the verdict in the
+// `authenticated` boolean (verified against both real daemons and an isolated
+// bootDaemon). getCurrentAuth must REJECT on authenticated!==true so the signed-in
+// gate + health axis hand off to sign-in instead of leaving the operator in a shell
+// where every data endpoint 401s.
+describe('getCurrentAuth honors the authenticated field (token-honesty handoff)', () => {
+  const original = sdk.auth.current;
+  // Deliberate PARTIAL snapshots — the real AuthSnapshot has ~10 fields, but
+  // getCurrentAuth only inspects `authenticated`. Cast to the property's type so the
+  // stubs stand in without hand-authoring every field.
+  const stub = (value: unknown): typeof sdk.auth.current =>
+    (() => Promise.resolve(value)) as typeof sdk.auth.current;
+  afterEach(() => { sdk.auth.current = original; });
+
+  test('rejects with a 401/authentication error when authenticated is false', async () => {
+    sdk.auth.current = stub({ authenticated: false, authMode: 'invalid' });
+    let thrown: unknown;
+    try { await getCurrentAuth(); } catch (e) { thrown = e; }
+    expect(thrown).toBeDefined();
+    const err = thrown as { status?: number; category?: string };
+    expect(err.status).toBe(401);
+    expect(err.category).toBe('authentication');
+  });
+
+  test('resolves when authenticated is true', async () => {
+    const snapshot = { authenticated: true, authMode: 'shared-token' };
+    sdk.auth.current = stub(snapshot);
+    expect(await getCurrentAuth()).toEqual(snapshot);
+  });
+
+  test('does not misclassify a snapshot with no authenticated field (unknown shape passes through)', async () => {
+    const snapshot = { some: 'other-shape' };
+    sdk.auth.current = stub(snapshot);
+    expect(await getCurrentAuth()).toEqual(snapshot);
+  });
 });

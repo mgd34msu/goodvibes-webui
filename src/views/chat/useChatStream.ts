@@ -69,10 +69,14 @@ export function useChatStream({
   onAuthExpired,
   turnState,
 }: UseChatStreamOptions): UseChatStreamResult {
-  // Ref to the SSE disconnect fn so stop() can call it at any time.
+  // Ref to the SSE disconnect fn so stop() can call it at any time. Owned by the
+  // CURRENT connection effect only — a stale effect never writes here (see the
+  // per-effect `cancelled` flag in the connect effect below).
   const disconnectRef = useRef<(() => void) | undefined>(undefined);
-  // Cancellation flag: set by stop() and effect cleanup so the .then
-  // callback can detect a pre-resolve stop and immediately disconnect.
+  // Intra-turn stop signal for the CURRENT connection effect: set by stop() so the
+  // live stream's callbacks and its (possibly still-pending) open promise both go
+  // inert for the rest of this turn. Distinct from the per-effect `cancelled` flag,
+  // which handles the CROSS-effect case (session switch / retry / unmount).
   const stoppedRef = useRef(false);
   // Bumped by retryStream() to force a fresh connect after the SDK's own
   // reconnect loop gives up (it never retries again on its own past onTerminate).
@@ -101,6 +105,19 @@ export function useChatStream({
 
   useEffect(() => {
     if (!activeSessionId) return undefined;
+    // Per-effect cancellation flag — the "epoch" of THIS connection instance. Set to
+    // true by this effect's own cleanup and nothing else; a superseding effect (a
+    // session switch, a retryStream(), or unmount) runs this cleanup FIRST, so the
+    // outgoing effect's `cancelled` is already true before the incoming effect touches
+    // any shared ref. Every callback below, plus the stream-open .then/.catch, closes
+    // over ITS OWN `cancelled`. That is what makes a late callback from the OLD stream
+    // inert: it reads its own `cancelled` (true), never the shared stoppedRef the new
+    // effect just reset to false. Without this, an SDK stream() whose disconnect handle
+    // only resolves AFTER the switch would (a) let the old stream's onReconnect/onEvent
+    // clobber the new session's state, and (b) store the OLD handle into the shared
+    // disconnectRef, orphaning the new stream. See the "session switch mid-handshake"
+    // tests.
+    let cancelled = false;
     stoppedRef.current = false;
     disconnectRef.current = undefined;
     setLiveText('');
@@ -135,7 +152,7 @@ export function useChatStream({
 
     void sdk.chat.events.stream(activeSessionId, {
       onReady: () => {
-        if (stoppedRef.current) return;
+        if (cancelled || stoppedRef.current) return;
         if (hadDrop) {
           hadDrop = false;
           // Functional updater: only clear the reconnecting label if nothing else
@@ -148,6 +165,7 @@ export function useChatStream({
         }
       },
       onEvent: (eventName, payload) => {
+        if (cancelled || stoppedRef.current) return;
         if (!eventName.startsWith('companion-chat.')) return;
         if (firstString(payload, ['sessionId']) !== activeSessionId) return;
         const type = companionEventType(eventName, payload);
@@ -212,7 +230,7 @@ export function useChatStream({
       // stay a no-op rather than overwrite the more specific 'reconnecting' /
       // 'stream paused' / 'session expired' state with a generic 'stream error'.
       onError: (error) => {
-        if (stoppedRef.current) return;
+        if (cancelled || stoppedRef.current) return;
         if (isSessionNotFoundError(error)) {
           onSessionMissing(activeSessionId);
           return;
@@ -227,7 +245,7 @@ export function useChatStream({
       // reconnect is enabled) — the daemon-blip / SSE-drop case. Honest, distinct
       // from a genuine unrecoverable 'stream error': the connection is expected back.
       onReconnect: ({ attempt, delayMs }) => {
-        if (stoppedRef.current) return;
+        if (cancelled || stoppedRef.current) return;
         hadDrop = true;
         syncedSetTurnState('reconnecting');
         setTurnError(
@@ -241,7 +259,7 @@ export function useChatStream({
       // 'sending while reconnecting' ACTIVE_TURN_STATE, and ChatView also polls
       // explicitly while 'stream paused') until retryStream() re-opens the stream.
       onTerminate: ({ error, reconnectAttempts }) => {
-        if (stoppedRef.current) return;
+        if (cancelled || stoppedRef.current) return;
         if (handleAuthExpiry(error)) return;
         syncedSetTurnState('stream paused');
         setTurnError(
@@ -250,13 +268,18 @@ export function useChatStream({
         );
       },
     }, { reconnect: DEFAULT_SSE_RECONNECT }).then((nextDisconnect) => {
-      if (stoppedRef.current) {
+      // The SDK only yields the disconnect handle AFTER the handshake. If this effect
+      // was superseded (cancelled) or the turn was stopped while that promise was still
+      // pending, the handle is already orphaned: disconnect it immediately and never
+      // store it — storing a stale handle here is exactly what used to clobber the new
+      // session's live disconnectRef.
+      if (cancelled || stoppedRef.current) {
         nextDisconnect();
         return;
       }
       disconnectRef.current = nextDisconnect;
     }).catch((err: unknown) => {
-      if (!stoppedRef.current) {
+      if (!cancelled && !stoppedRef.current) {
         if (isSessionNotFoundError(err)) {
           onSessionMissing(activeSessionId);
           return;
@@ -268,6 +291,11 @@ export function useChatStream({
     });
 
     return () => {
+      // Set ONLY this effect's own flag. Its late callbacks / late-resolving open
+      // promise read this same closure variable and go inert; the incoming effect
+      // (which has already run its predecessor's cleanup by the time it executes)
+      // starts with a fresh `cancelled = false` of its own.
+      cancelled = true;
       stoppedRef.current = true;
       disconnectRef.current?.();
       disconnectRef.current = undefined;

@@ -1,7 +1,8 @@
-import { Check, ChevronLeft, ChevronRight, Copy, Layers, Paperclip, Pencil, RotateCcw, X } from 'lucide-react';
+import { Check, Copy, Layers, Paperclip, Pencil, RotateCcw, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import type { ChatMessage } from './types';
-import type { BranchRecord } from './useChatSend';
+import type { SupersededReason } from './lineage';
+import { MessageLineage, messageIsEdited } from './MessageLineage';
 import { useArtifactsPanel } from './ArtifactsPanel';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { asRecord } from '../../lib/object';
@@ -22,15 +23,17 @@ interface MessageItemProps {
   index: number;
   isSendPending: boolean;
   copiedMessageId: string;
-  /** Branch record for this message, if variants exist. */
-  branchRecord?: BranchRecord;
+  /** Superseded messages retained behind this message's fork — oldest first. */
+  priorMessages?: readonly ChatMessage[];
+  /** Why the retained run was superseded ('regenerate' | 'edit'). */
+  reason?: SupersededReason;
+  /** The original message id when this message replaced an edited one. */
+  revisionOf?: string;
   onCopyMessage: (message: ChatMessage) => void;
   onResendMessage: (message: ChatMessage) => void;
   onRegenerateFrom: (messageId: string) => void;
   /** Called when the user submits an edited version of a user message. */
   onEditMessage?: (message: ChatMessage, newText: string) => void;
-  /** Called when the user selects a branch variant by index. */
-  onSelectBranch?: (rootMessageId: string, index: number) => void;
 }
 
 export function MessageItem({
@@ -38,28 +41,23 @@ export function MessageItem({
   index,
   isSendPending,
   copiedMessageId,
-  branchRecord,
+  priorMessages,
+  reason,
+  revisionOf,
   onCopyMessage,
   onResendMessage,
   onRegenerateFrom,
   onEditMessage,
-  onSelectBranch,
 }: MessageItemProps) {
   const id = bestId(message) || `${index}`;
   const tone = messageTone(message);
   const state = deliveryState(message);
-  const rawText = messageText(message);
+  const text = messageText(message);
   const { openArtifacts } = useArtifactsPanel();
-  // When a branch record exists and has been navigated, display the selected
-  // variant's text instead of the raw message text. Use `|| rawText` (not `??`)
-  // so an empty-string variant (e.g. a regeneration placeholder) falls back to
-  // rawText instead of rendering a blank bubble.
-  const text = branchRecord && branchRecord.variants.length > 0
-    ? (branchRecord.variants[branchRecord.currentIndex]?.text || rawText)
-    : rawText;
-  const canRetry = Boolean(rawText) && (tone === 'user' || tone === 'assistant');
+  const canRetry = Boolean(text) && (tone === 'user' || tone === 'assistant');
   const timestamp = messageTimestamp(message);
   const attachments = messageAttachments(message);
+  const isEdited = messageIsEdited(reason, revisionOf);
 
   // ---------------------------------------------------------------------------
   // Inline edit state (user messages only)
@@ -102,29 +100,17 @@ export function MessageItem({
     [handleEditSubmit, handleEditCancel],
   );
 
-  // ---------------------------------------------------------------------------
-  // Branch navigation helpers
-  // ---------------------------------------------------------------------------
-  const hasBranches = branchRecord !== undefined && branchRecord.variants.length > 1;
-  const branchIndex = branchRecord?.currentIndex ?? 0;
-  const branchTotal = branchRecord?.variants.length ?? 1;
-
-  const handlePrevBranch = useCallback(() => {
-    if (!branchRecord || !onSelectBranch) return;
-    onSelectBranch(branchRecord.rootMessageId, branchIndex - 1);
-  }, [branchRecord, branchIndex, onSelectBranch]);
-
-  const handleNextBranch = useCallback(() => {
-    if (!branchRecord || !onSelectBranch) return;
-    onSelectBranch(branchRecord.rootMessageId, branchIndex + 1);
-  }, [branchRecord, branchIndex, onSelectBranch]);
-
   return (
     <article className={`message ${tone}`}>
+      {/* Honest-lineage disclosure: when this message heads a fork, reveal the retained
+          (superseded) history rather than pretending it is gone. */}
+      <MessageLineage priorMessages={priorMessages} reason={reason} revisionOf={revisionOf} />
+
       <div className="message-bubble">
         {timestamp !== 'unknown' && (
           <div className="message-meta">
             <span>{timestamp}</span>
+            {isEdited && <span className="message-meta__edited"> · edited</span>}
           </div>
         )}
 
@@ -239,35 +225,6 @@ export function MessageItem({
           {/* Copied label */}
           {copiedMessageId === id && <span className="message-action-label">copied</span>}
         </div>
-
-        {/* Branch navigator — shown when message has multiple variants */}
-        {hasBranches && (
-          <div className="branch-nav" role="group" aria-label="Response variants">
-            <button
-              type="button"
-              className="branch-nav__btn"
-              onClick={handlePrevBranch}
-              disabled={branchIndex === 0}
-              aria-label="Previous variant"
-              title="Previous variant"
-            >
-              <ChevronLeft size={12} />
-            </button>
-            <span className="branch-nav__label" aria-live="polite" aria-atomic="true">
-              {branchIndex + 1}/{branchTotal}
-            </span>
-            <button
-              type="button"
-              className="branch-nav__btn"
-              onClick={handleNextBranch}
-              disabled={branchIndex === branchTotal - 1}
-              aria-label="Next variant"
-              title="Next variant"
-            >
-              <ChevronRight size={12} />
-            </button>
-          </div>
-        )}
       </div>
     </article>
   );

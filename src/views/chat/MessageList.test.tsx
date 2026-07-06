@@ -17,6 +17,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MessageList } from './MessageList';
+import type { LineageNode } from './lineage';
 import type { ChatMessage } from './types';
 
 // ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ import type { ChatMessage } from './types';
 const noop = () => {};
 
 const baseProps = {
-  renderedMessageItems: [] as ChatMessage[],
+  nodes: [] as LineageNode[],
   liveText: '',
   showJumpToBottom: false,
   isSendPending: false,

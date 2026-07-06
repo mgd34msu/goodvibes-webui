@@ -452,9 +452,9 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     id: 'proc-1',
     kind: 'agent',
     label: 'Refactor the spine',
-    state: 'running',
+    state: 'executing-tool',
     elapsedMs: 4200,
-    costState: 'measured',
+    costState: 'priced',
     capabilities: { interruptible: true, killable: true, pausable: false, resumable: true, steerable: true },
     usage: {
       inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0,
@@ -469,7 +469,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     label: 'before refactor',
     createdAt: 1,
     parentId: null,
-    retentionClass: 'session',
+    retentionClass: 'standard',
     commit: 'abc123',
     sizeBytes: 2048,
   };
@@ -511,7 +511,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'fleet.list': { kinds: ['agent'], states: ['running'], limit: 10, cursor: 'c1' } satisfies FleetListInput,
     'checkpoints.list': { kind: 'manual', since: 1, limit: 5 } satisfies CheckpointsListInput,
     'checkpoints.create': {
-      kind: 'manual', label: 'x', retentionClass: 'session', turnId: 't1', agentId: 'a1', paths: ['a.ts'],
+      kind: 'manual', label: 'x', retentionClass: 'standard', turnId: 't1', agentId: 'a1', paths: ['a.ts'],
     } satisfies CheckpointsCreateInput,
     'checkpoints.diff': { a: 'wcp_1', b: 'wcp_2' } satisfies CheckpointsDiffInput,
     'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true } satisfies CheckpointsRestoreInput,

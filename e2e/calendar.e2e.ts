@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { expectNoHorizontalScroll } from './support/app';
+import { expectNoHorizontalScroll, only, PHONE } from './support/app';
 
 test('configured: events render sorted by start time, no fabricated state', async ({ page }) => {
   await installMockDaemon(page, { calendar: 'configured' });
@@ -64,4 +64,30 @@ test('importing .ics content reports the honest imported count', async ({ page }
   await page.getByLabel('ICS content to import').fill('BEGIN:VCALENDAR\nEND:VCALENDAR');
   await page.getByRole('button', { name: 'Import .ics' }).click();
   await expect(page.getByText('Imported 1 event(s).')).toBeVisible();
+});
+
+test.describe('phone: a long, unbroken event title never forces the page wider (MOBILE-ADAPT overflow sweep)', () => {
+  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+
+  test('the title ellipsizes instead of stretching the row past the viewport', async ({ page }) => {
+    await installMockDaemon(page, { calendar: 'configured' });
+    // A single unbreakable token (no spaces) — the min-content overflow class this
+    // suite sweeps for: white-space:nowrap text needs min-width:0 to actually shrink.
+    const longTitle = 'Quarterly-Cross-Team-Infrastructure-Migration-And-Rollback-Readiness-Review-Session';
+    await page.route('**/api/calendar/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (request.method() !== 'GET' || path !== '/api/calendar/events') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ events: [{ id: 'ev-long', title: longTitle, start: '2026-08-01T09:00:00.000Z', end: '2026-08-01T09:15:00.000Z' }] }),
+      });
+    });
+    await page.goto('/?view=calendar');
+    await expect(page.locator('.calendar-event-row')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
 });

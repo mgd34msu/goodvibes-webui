@@ -76,6 +76,11 @@
 
 .calendar-event-row__title {
   flex: 1 1 auto;
+  /* Without this, a flex item's default min-width:auto — combined with
+     white-space:nowrap — means its minimum size is its FULL unwrapped text
+     width, so a long event title can never actually shrink to the ellipsis
+     and instead forces the row (and the page) wider than the viewport. */
+  min-width: 0;
   font-weight: var(--weight-medium);
   overflow: hidden;
   text-overflow: ellipsis;

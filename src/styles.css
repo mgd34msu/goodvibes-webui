@@ -692,7 +692,20 @@ button:disabled {
 }
 
 .side-panel,
-.chat-surface {
+.chat-surface,
+.panel,
+.data-block,
+.answer-panel,
+.detail-header,
+.knowledge-search {
+  /* Every one of these is used as a grid item inside .two-column/.three-column
+     (minmax(0, 1fr) tracks) or .split-layout/.chat-layout. minmax(0, ...) zeroes
+     the TRACK's own minimum, but a grid item's own box still defaults to
+     min-width:auto unless reset here — so long unbroken content nested inside
+     (a long calendar event title, a long knowledge candidate name) can still
+     force the item, and everything above it, wider than the viewport. Same
+     class of bug as .side-panel/.chat-surface above; .panel is the one this
+     rule was missing (MOBILE-ADAPT overflow sweep). */
   min-width: 0;
 }
 

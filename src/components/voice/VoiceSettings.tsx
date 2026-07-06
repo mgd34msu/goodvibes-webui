@@ -9,7 +9,7 @@
  * reads the same as it does on every other surface.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings2 } from 'lucide-react';
+import { Settings2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invokeMethod, sdk } from '../../lib/goodvibes';
 import { asRecord } from '../../lib/object';
@@ -104,6 +104,17 @@ export function VoiceSettings() {
           <div className="voice-settings-header">
             <span className={`voice-settings-tone tone-${tone}`} aria-hidden>{glyph}</span>
             <span className="voice-settings-title">Spoken voice</span>
+            {/* On a phone this popover becomes a full-screen sheet (voice.css, matching
+                the shared Modal's <=480px convention) with no "tap outside" area to close
+                it, so an explicit close button is required, not optional chrome. */}
+            <button
+              type="button"
+              className="voice-settings-close"
+              aria-label="Close voice settings"
+              onClick={() => setOpen(false)}
+            >
+              <X size={16} aria-hidden />
+            </button>
           </div>
 
           {availability.ttsAvailable ? (

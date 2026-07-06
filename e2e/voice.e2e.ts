@@ -14,7 +14,7 @@
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
 import { installFakeAudio, installVoiceRoutes } from './support/voice-mock';
-import { expectNoHorizontalScroll } from './support/app';
+import { expectNoHorizontalScroll, only, PHONE } from './support/app';
 
 test.use({
   permissions: ['microphone'],
@@ -132,4 +132,36 @@ test('a blocked microphone shows an honest try-again pointer, not a dead button'
   await mic.click();
 
   await expect(page.locator('.voice-mic-note')).toContainText('Microphone access was blocked', { timeout: 15_000 });
+});
+
+test.describe('Voice settings — phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
+  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+
+  test('opens as a full-viewport sheet with an explicit close affordance', async ({ page }) => {
+    await installChatMockDaemon(page);
+    await installVoiceRoutes(page);
+    await page.goto('/?view=chat');
+    await expect(page.locator('.app-shell')).toBeVisible();
+
+    const trigger = page.locator('.voice-settings-btn');
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const sheet = page.locator('.voice-settings-popover');
+    await expect(sheet).toBeVisible();
+    const box = await sheet.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    if (box && viewport) {
+      // Near-fullscreen: within a few px of the viewport in both dimensions —
+      // the same near-fullscreen shape the shared Modal uses at this breakpoint.
+      expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2);
+      expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);
+    }
+    await expectNoHorizontalScroll(page);
+
+    await page.locator('.voice-settings-close').click();
+    await expect(sheet).toBeHidden();
+  });
 });

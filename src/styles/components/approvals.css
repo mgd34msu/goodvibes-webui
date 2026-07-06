@@ -316,3 +316,24 @@
 .task-row__error {
   color: var(--status-danger);
 }
+
+.tasks-phone-note {
+  display: none;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  /* Approvals are the headline mobile action (full tier) — no adaptation here.
+     Tasks are view-only on phone: submitting/cancelling/retrying defer to a
+     wider screen, mirroring fleet.css's desktop-only-mutation pattern. */
+  .tasks-create,
+  .task-row__actions {
+    display: none;
+  }
+
+  .tasks-phone-note {
+    display: block;
+  }
+}

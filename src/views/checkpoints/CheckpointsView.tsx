@@ -21,7 +21,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, History, RefreshCw, RotateCcw } from 'lucide-react';
+import { Camera, ChevronLeft, History, RefreshCw, RotateCcw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { WorkspaceCheckpoint } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -142,30 +142,42 @@ export function CheckpointsView() {
   }
 
   return (
-    <div className="checkpoints-view">
+    <div className={selected ? 'checkpoints-view has-selection' : 'checkpoints-view'}>
       <div className="checkpoints-list-pane">
         <div className="checkpoints-toolbar">
-          <input
-            type="text"
-            className="checkpoints-label-input"
-            placeholder="Checkpoint label (optional)"
-            value={labelDraft}
-            onChange={(e) => setLabelDraft(e.target.value)}
-            disabled={create.isPending}
-          />
-          <button
-            type="button"
-            className="checkpoints-create-button"
-            onClick={() => create.mutate()}
-            disabled={create.isPending}
-            title="Create a checkpoint of the current workspace"
-          >
-            <Camera size={14} /> {create.isPending ? 'Snapshotting…' : 'Snapshot'}
-          </button>
+          {/* Creating a checkpoint is a mutation deferred to a wider screen on phone
+              (view-only tier — see the phone-note below); wrapped as one unit so the
+              phone media query can hide both the input and its button together. */}
+          <div className="checkpoints-create-row">
+            <input
+              type="text"
+              className="checkpoints-label-input"
+              placeholder="Checkpoint label (optional)"
+              value={labelDraft}
+              onChange={(e) => setLabelDraft(e.target.value)}
+              disabled={create.isPending}
+            />
+            <button
+              type="button"
+              className="checkpoints-create-button"
+              onClick={() => create.mutate()}
+              disabled={create.isPending}
+              title="Create a checkpoint of the current workspace"
+            >
+              <Camera size={14} /> {create.isPending ? 'Snapshotting…' : 'Snapshot'}
+            </button>
+          </div>
           <button className="icon-button" type="button" title="Refresh" onClick={() => void list.refetch()}>
             <RefreshCw size={15} />
           </button>
         </div>
+
+        {/* Phone-only honest note (view-only tier): browsing and diffing stay fully
+            available; creating and restoring checkpoints — a git-backed workspace
+            rewrite — happens on a wider screen. */}
+        <p className="checkpoints-phone-note" role="note">
+          Creating and restoring checkpoints happens on a wider screen. Browse checkpoints and read their diffs here.
+        </p>
 
         {list.isPending && (
           <div className="checkpoints-loading">
@@ -221,6 +233,7 @@ export function CheckpointsView() {
             onRetryDiff={() => void diff.refetch()}
             onRestore={() => handleRestore(selected)}
             restoring={restore.isPending && restoringId === selected.id}
+            onBack={() => setSelectedId('')}
           />
         ) : (
           <div className="checkpoints-detail-empty">Select a checkpoint to view its diff.</div>
@@ -241,6 +254,7 @@ function CheckpointDetail({
   onRetryDiff,
   onRestore,
   restoring,
+  onBack,
 }: {
   checkpoint: WorkspaceCheckpoint;
   compareOptions: readonly WorkspaceCheckpoint[];
@@ -252,12 +266,17 @@ function CheckpointDetail({
   onRetryDiff: () => void;
   onRestore: () => void;
   restoring: boolean;
+  onBack: () => void;
 }) {
   const compareTarget = compareToId ? compareOptions.find((c) => c.id === compareToId) ?? null : null;
   const compareTargetLabel: string = compareTarget ? compareTarget.label : '';
   const compareLabel = compareToId ? (compareTargetLabel || compareToId) : 'the working tree';
   return (
     <div className="checkpoint-detail">
+      <button type="button" className="checkpoints-detail__back" onClick={onBack}>
+        <ChevronLeft size={16} aria-hidden="true" />
+        Back to checkpoints
+      </button>
       <header className="checkpoint-detail__header">
         <h2>{checkpoint.label || checkpoint.id}</h2>
         <div className="checkpoint-detail__badges">

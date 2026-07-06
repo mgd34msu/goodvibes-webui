@@ -226,6 +226,14 @@
   gap: var(--space-2);
 }
 
+/* A job title can be a single long unbreakable token (a file path, a hash); without
+   this, its flex-item min-content forces the row (and the page) wider than the
+   viewport instead of wrapping — the min-content overflow class. */
+.knowledge-jobs-peek__row-head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .knowledge-jobs-peek__meta {
   display: block;
   font-size: var(--text-xs);
@@ -264,6 +272,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+/* Same min-content overflow guard as .knowledge-jobs-peek__row-head above — a
+   candidate title can be a long unbreakable token. */
+.knowledge-candidate-row__head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .knowledge-candidate-row__summary {

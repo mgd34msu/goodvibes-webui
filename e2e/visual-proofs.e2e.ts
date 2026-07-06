@@ -84,3 +84,45 @@ for (const theme of ['dark', 'light'] as const) {
     await page.screenshot({ path: shot(testInfo, `white-band-${theme}`), fullPage: true });
   });
 }
+
+/** Perceived luminance (0 dark … 255 light) of an `rgb(...)`/`rgba(...)` string. */
+function luminanceOf(rgb: string): number {
+  const m = rgb.match(/\d+(?:\.\d+)?/g);
+  if (!m || m.length < 3) return NaN;
+  const [r, g, b] = m.map(Number);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+// F2 (hero legibility): the session-detail header is a themed surface card, so its
+// title never renders dark-on-dark in light theme. Asserted by computed contrast, not
+// only by eye — the header background and its title must land on opposite luminance
+// sides in BOTH themes.
+for (const theme of ['dark', 'light'] as const) {
+  test(`session-detail hero title stays legible — ${theme} theme`, async ({ page }, testInfo) => {
+    await seedTheme(page, theme);
+    await installMockDaemon(page);
+    await page.goto('/?view=sessions');
+    await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
+    const header = page.locator('.session-detail__header');
+    await expect(header).toBeVisible();
+
+    const headerBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const titleColor = await header.locator('h2').evaluate((el) => getComputedStyle(el).color);
+    const bgLum = luminanceOf(headerBg);
+    const fgLum = luminanceOf(titleColor);
+
+    // The card must be an opaque themed surface (not transparent → not the dark canvas).
+    expect(headerBg).not.toBe('rgba(0, 0, 0, 0)');
+    // Real contrast: title and its card sit on opposite luminance halves.
+    expect(Math.abs(bgLum - fgLum)).toBeGreaterThan(80);
+    if (theme === 'light') {
+      expect(bgLum).toBeGreaterThan(200); // near-white card
+      expect(fgLum).toBeLessThan(120); // dark title
+    } else {
+      expect(bgLum).toBeLessThan(120); // dark card
+      expect(fgLum).toBeGreaterThan(200); // light title
+    }
+
+    await page.screenshot({ path: shot(testInfo, `session-hero-${theme}`), fullPage: true });
+  });
+}

@@ -1,0 +1,132 @@
+/*
+ * settings.css — SettingsModal styles.
+ * Uses contract tokens only (TOKEN-CONTRACT.md).
+ */
+
+.settings-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-degraded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.settings-degraded strong {
+  color: var(--text-primary);
+}
+
+.settings-degraded span {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.settings-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-right: 1px solid var(--border-subtle);
+  padding-right: var(--space-3);
+}
+
+.settings-category {
+  text-align: left;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.settings-category:hover {
+  color: var(--text-primary);
+}
+
+.settings-category--active {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.settings-category:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.settings-entries {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.settings-table th,
+.settings-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.settings-table th {
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.settings-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.settings-value--secret {
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.settings-secret-flag {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-weight: normal;
+}
+
+.settings-advanced {
+  margin-top: var(--space-4);
+}
+
+/* Phone: stack the category rail above the table. */
+@media (max-width: 620px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-categories {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-right: 0;
+    padding-bottom: var(--space-3);
+  }
+}

@@ -1,0 +1,136 @@
+/*
+ * modal.css — generic centered dialog chrome (Modal.tsx).
+ * Uses contract tokens only (TOKEN-CONTRACT.md). DO NOT edit src/styles.css.
+ * Sits at --z-overlay (50): above the peek panel (40), below the command
+ * palette (60) — a config surface is not meant to stack under a lookup panel.
+ */
+
+/* modal-root is a plain positioning wrapper — NOT an ancestor of the dialog's
+   aria-hidden state. It centers .modal-panel via flex; .modal-backdrop is an
+   absolutely-positioned SIBLING of .modal-panel (see Modal.tsx's structural
+   comment) so aria-hidden on the backdrop never poisons the dialog's a11y tree. */
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.modal-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: min(720px, calc(100vh - var(--space-8)));
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-3);
+  outline: none;
+}
+
+.modal-panel--md {
+  max-width: 560px;
+}
+
+.modal-panel--lg {
+  max-width: 880px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  line-height: var(--leading-tight);
+  flex-shrink: 0;
+}
+
+/* min-width: 0 lets this shrink below its content's natural width — required
+ * for a child with its own overflow-x: auto (model-workspace-targets) to
+ * actually become scrollable instead of forcing the whole header wider. */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--row-h);
+  height: var(--row-h);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+
+.modal-close:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+/* Phone: near-fullscreen instead of a floating card. */
+@media (max-width: 480px) {
+  .modal-root {
+    padding: 0;
+  }
+
+  .modal-panel {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel {
+    transition: none;
+  }
+}

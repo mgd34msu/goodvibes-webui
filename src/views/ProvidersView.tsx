@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Cpu, ExternalLink, KeyRound, Route } from 'lucide-react';
+import { Check, Cpu, ExternalLink, KeyRound, Route, SlidersHorizontal } from 'lucide-react';
 import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
 import { StatusBadge } from '../components/StatusBadge';
 import { CredentialStatusPanel } from '../components/CredentialStatusPanel';
+import { AccountsPanel } from '../components/AccountsPanel';
+import { ModelWorkspaceModal } from '../components/model-workspace/ModelWorkspaceModal';
 import { asRecord, bestId, bestTitle, firstString, readPath } from '../lib/object';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { deriveProviderStatus, providerHeaderLabel } from '../lib/provider-status';
@@ -69,6 +71,7 @@ export function ProvidersView() {
   const [selectedProviderId, setSelectedProviderId] = useState('');
   // aria-live announcement text
   const [liveMessage, setLiveMessage] = useState('');
+  const [modelWorkspaceOpen, setModelWorkspaceOpen] = useState(false);
 
   const providers = useQuery({
     queryKey: queryKeys.providers,
@@ -353,6 +356,14 @@ export function ProvidersView() {
             <div className="panel-title">
               <h2>Models</h2>
               <Route size={18} aria-hidden="true" />
+              <button
+                type="button"
+                className="secondary-button providers-model-workspace-launch"
+                onClick={() => setModelWorkspaceOpen(true)}
+              >
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                Browse Models
+              </button>
             </div>
 
             {selectModel.isError && (
@@ -493,9 +504,17 @@ export function ProvidersView() {
             <DataBlock title="Usage" value={usage.data} />
           </div>
 
-          <DataBlock title="Account Snapshot" value={accounts.data} />
+          <AccountsPanel
+            data={accounts.data}
+            isLoading={accounts.isLoading}
+            isError={accounts.isError}
+            error={accounts.error}
+            onRetry={() => void accounts.refetch()}
+          />
         </section>
       </ErrorBoundary>
+
+      <ModelWorkspaceModal open={modelWorkspaceOpen} onClose={() => setModelWorkspaceOpen(false)} />
     </div>
   );
 }

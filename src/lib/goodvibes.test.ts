@@ -112,7 +112,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   test('the justified survivors remain (SDK-coverage targets)', () => {
     for (const method of [
       'approvals.approve', 'approvals.list', 'models.list', 'models.current', 'models.select',
-      'tasks.list', 'tasks.cancel', 'tasks.retry', 'config.set', 'local_auth.status',
+      'tasks.list', 'tasks.cancel', 'tasks.retry', 'config.get', 'config.set', 'local_auth.status',
       'companion.chat.sessions.delete',
     ]) {
       expect(isExtraRoutedMethod(method)).toBe(true);

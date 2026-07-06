@@ -85,13 +85,85 @@ export function messagesResponse(sessionId: string) {
   return { messages: session ? session.messages : [] };
 }
 
-/** Provider pills fixture — a mix of fresh / stale / unauthenticated for the proof. */
+/**
+ * Provider pills fixture — the REAL providers.list wire shape (verified against the
+ * SDK's operator-contract.json): each provider carries `providerId`/`active`/
+ * `modelCount`/`models` at top level and its auth health nested at
+ * `runtime.auth.routes[].freshness` (with `runtime.auth.mode`/`configured`). There is
+ * NO top-level `authenticated`/`freshnessSeconds` on the wire — the old fixture invented
+ * those, and deriveProviderStatus (which only reads `runtime.auth.routes[].freshness`)
+ * ignored them, so every pill fell through to 'status unavailable' and the freshness
+ * ladder was never exercised (F5). This fixture drives the full ladder — healthy /
+ * expiring / expired / unconfigured / status-unavailable (routes genuinely absent) —
+ * one per provider, so the pills screenshot proves each state.
+ */
 export function providersResponse() {
+  const provider = (
+    providerId: string,
+    active: boolean,
+    auth: {
+      mode: 'api-key' | 'oauth' | 'anonymous' | 'none';
+      configured: boolean;
+      detail?: string;
+      routes: {
+        route: string;
+        label: string;
+        configured: boolean;
+        usable?: boolean;
+        freshness?: string;
+        detail?: string;
+        repairHints?: string[];
+      }[];
+    },
+    models: string[],
+  ) => ({
+    providerId,
+    active,
+    modelCount: models.length,
+    models,
+    runtime: {
+      auth: { mode: auth.mode, configured: auth.configured, detail: auth.detail, routes: auth.routes },
+      models: { models, defaultModel: models[0] },
+    },
+  });
+
   return {
     providers: [
-      { id: 'anthropic', name: 'Anthropic', authenticated: true, freshnessSeconds: 40, models: ['claude-opus-4-8'] },
-      { id: 'openai', name: 'OpenAI', authenticated: true, freshnessSeconds: 5400, models: ['gpt-5'] },
-      { id: 'google', name: 'Google', authenticated: false, models: ['gemini-3'] },
+      provider('anthropic', true, {
+        mode: 'oauth',
+        configured: true,
+        routes: [{ route: 'oauth', label: 'Claude Pro/Max', configured: true, usable: true, freshness: 'healthy' }],
+      }, ['claude-opus-4-8']),
+      provider('openai', true, {
+        mode: 'api-key',
+        configured: true,
+        routes: [{ route: 'api-key', label: 'API key', configured: true, usable: true, freshness: 'expiring', detail: 'Token refreshes soon' }],
+      }, ['gpt-5']),
+      provider('google', true, {
+        mode: 'api-key',
+        configured: true,
+        routes: [{
+          route: 'api-key',
+          label: 'API key',
+          configured: true,
+          usable: false,
+          freshness: 'expired',
+          detail: 'Credentials expired — re-authenticate',
+          repairHints: ['Run: gv auth google'],
+        }],
+      }, ['gemini-3']),
+      provider('mistral', false, {
+        mode: 'none',
+        configured: false,
+        routes: [{ route: 'api-key', label: 'API key', configured: false, freshness: 'unconfigured' }],
+      }, ['mistral-large']),
+      // Health genuinely absent: no routes at all → the honest 'status unavailable'
+      // state (distinct from 'unconfigured').
+      provider('ollama', true, {
+        mode: 'anonymous',
+        configured: true,
+        routes: [],
+      }, ['llama-4']),
     ],
   };
 }

@@ -152,7 +152,15 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
 
     // ── Providers ──────────────────────────────────────────────────────────
-    if (method === 'GET' && (path === '/api/providers' || path.startsWith('/api/providers'))) {
+    // providers.get(id) → the single matching provider (wire-true), so the detail +
+    // auth-routes panels render that provider's real routes/freshness.
+    const providerGetMatch = path.match(/^\/api\/providers\/([^/]+)$/);
+    if (method === 'GET' && providerGetMatch) {
+      const id = decodeURIComponent(providerGetMatch[1]);
+      const found = providersResponse().providers.find((p) => p.providerId === id);
+      return json(route, found ?? {});
+    }
+    if (method === 'GET' && path.startsWith('/api/providers')) {
       return json(route, providersResponse());
     }
 

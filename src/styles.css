@@ -1336,6 +1336,48 @@ button:disabled {
   min-width: 0;
 }
 
+/* Paused-stream honesty: the badge states it, the Retry button ACTS on it — a real,
+   always-visible control, not a hover-title that vanishes on touch (F6). */
+.chat-status__paused {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-status__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  color: var(--text-accent, #8ffcff);
+  background: rgb(0 255 255 / 8%);
+  border: 1px solid rgb(0 255 255 / 26%);
+  border-radius: 7px;
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-status__retry:hover {
+  color: #090717;
+  background: var(--accent-hover, #00ffff);
+  border-color: rgb(0 255 255 / 54%);
+}
+
+.chat-status__retry:focus-visible {
+  outline: 2px solid var(--border-focus, rgb(0 255 255 / 64%));
+  outline-offset: 2px;
+}
+
+/* Coarse pointers (touch): guarantee a ≥44px hit target even though the visual chrome
+   is compact. */
+@media (pointer: coarse) {
+  .chat-status__retry {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+}
+
 .chat-main .chat-conversation {
   gap: 34px;
   padding: 54px clamp(24px, 12vw, 320px) 164px;

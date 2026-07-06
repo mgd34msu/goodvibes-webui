@@ -1,5 +1,5 @@
 import { KeyboardEvent } from 'react';
-import { Edit3 } from 'lucide-react';
+import { Edit3, RefreshCw } from 'lucide-react';
 import { StatusBadge } from '../../components/StatusBadge';
 
 interface SessionHeaderProps {
@@ -61,14 +61,22 @@ export function SessionHeader({
       <div className="chat-status">
         {visibleTurnState && (
           onRetryStream ? (
-            <button
-              type="button"
-              className="link-button"
-              onClick={onRetryStream}
-              title="Live updates are off — tap to retry the stream"
-            >
+            // A hover-title on a badge is invisible on touch (F6). Pair the honest paused
+            // badge with an explicit, always-visible Retry control — a real button with a
+            // ≥44px hit target on coarse pointers.
+            <span className="chat-status__paused">
               <StatusBadge value={turnState} />
-            </button>
+              <button
+                type="button"
+                className="chat-status__retry"
+                onClick={onRetryStream}
+                aria-label="Retry the live stream"
+                title="Live updates are off — retry the stream"
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+                Retry
+              </button>
+            </span>
           ) : (
             <StatusBadge value={turnState} />
           )

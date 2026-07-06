@@ -32,6 +32,14 @@ export interface MockDaemonOptions {
   dropStreams?: boolean;
   /** When false, the sessions.delete capability probe 404s (Delete unavailable). */
   deleteAvailable?: boolean;
+  /**
+   * GET /config/credentials behavior — the admin-scoped credential-status
+   * read (credentials.get). 'available' (default) answers the honest
+   * configured/usable list; 'store-unavailable' answers the daemon's real
+   * 503 CREDENTIAL_STORE_UNAVAILABLE shape; 'admin-required' answers the
+   * real 403 admin-scope refusal shape (control-plane.ts requireAdmin).
+   */
+  credentials?: 'available' | 'store-unavailable' | 'admin-required';
 }
 
 export interface MockDaemon {
@@ -114,7 +122,7 @@ export function dispatchOutcome(session: SeedSession | undefined, intent: 'steer
 }
 
 export async function installMockDaemon(page: Page, options: MockDaemonOptions = {}): Promise<MockDaemon> {
-  const { signedIn = true, dropStreams = false, deleteAvailable = true } = options;
+  const { signedIn = true, dropStreams = false, deleteAvailable = true, credentials = 'available' } = options;
   const daemon: MockDaemon = { steerRequests: [], followUpRequests: [] };
 
   if (signedIn) {
@@ -129,6 +137,27 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       [TOKEN_KEY, 'e2e-operator-token'] as const,
     );
   }
+
+  // credentials.get resolves to GET /config/credentials — note the missing
+  // `/api` segment (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts, matching
+  // config.set's `/config`), so it needs its own route registration; the
+  // `**/api/**` glob below never matches this path.
+  await page.route('**/config/credentials', async (route) => {
+    if (credentials === 'admin-required') {
+      return json(route, { error: 'Admin role required' }, 403);
+    }
+    if (credentials === 'store-unavailable') {
+      return json(route, { error: 'Shared credential store unavailable', code: 'CREDENTIAL_STORE_UNAVAILABLE' }, 503);
+    }
+    return json(route, {
+      available: true,
+      credentials: [
+        { key: 'ANTHROPIC_API_KEY', configured: true, usable: true, source: 'env', secure: true },
+        { key: 'OPENAI_API_KEY', configured: true, usable: true, source: 'env', secure: true },
+        { key: 'GOOGLE_API_KEY', configured: true, usable: false, source: 'env-ref', secure: false },
+      ],
+    });
+  });
 
   await page.route('**/api/**', async (route) => {
     const request = route.request();

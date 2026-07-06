@@ -158,6 +158,20 @@ mock.module('../lib/goodvibes', () => ({
       accounts: {
         snapshot: () => Promise.resolve({}),
       },
+      credentials: {
+        // Mirrors the real 200 shape ({ available: true, credentials: [...] })
+        // — deriveCredentialAvailability reads value.credentials, so this
+        // exercises the panel's normal "available" rendering path within the
+        // existing ProvidersView suite. Dedicated available/degraded/refused
+        // coverage lives in CredentialStatusPanel.test.tsx.
+        get: () =>
+          Promise.resolve({
+            available: true,
+            credentials: [
+              { key: 'ANTHROPIC_API_KEY', configured: true, usable: true, source: 'env', secure: true },
+            ],
+          }),
+      },
     },
   },
 }));

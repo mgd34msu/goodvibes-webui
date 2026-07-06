@@ -5,6 +5,7 @@ import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { DataBlock } from '../components/DataBlock';
 import { StatusBadge } from '../components/StatusBadge';
+import { CredentialStatusPanel } from '../components/CredentialStatusPanel';
 import { asRecord, bestId, bestTitle, firstString, readPath } from '../lib/object';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { deriveProviderStatus, providerHeaderLabel } from '../lib/provider-status';
@@ -479,6 +480,13 @@ export function ProvidersView() {
               </div>
             )}
           </section>
+
+          {/* Cross-surface credential status (src/lib/provider-status.ts's
+              deriveCredentialAvailability) — the reference display-site
+              adoption. Separate from the auth-routes panel above: this reads
+              the shared admin-scoped credential store (credentials.get),
+              not per-provider route freshness. */}
+          <CredentialStatusPanel selectedProviderId={selectedId} />
 
           <div className="two-column">
             <DataBlock title="Provider Runtime" value={selectedProviderDetail} />

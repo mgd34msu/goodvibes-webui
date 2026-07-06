@@ -16,9 +16,11 @@
 
 import type { Page, Route } from '@playwright/test';
 import {
+  accountsSnapshotResponse,
   CALENDAR_NOT_CONFIGURED_BODY,
   calendarEventDetailResponse,
   calendarEventsResponse,
+  configGetResponse,
   FLEET_SNAPSHOT,
   knowledgeCandidateDecideResponse,
   knowledgeCandidatesResponse,
@@ -26,6 +28,7 @@ import {
   knowledgePacketResponse,
   memoryRecordWire,
   messagesResponse,
+  modelsCurrentResponse,
   PENDING_APPROVAL,
   providersResponse,
   sessionRecord,
@@ -66,6 +69,15 @@ export interface MockDaemonOptions {
    * state instead of a fabricated empty calendar.
    */
   calendar?: 'configured' | 'unconfigured';
+  /**
+   * GET/POST /config behavior (config.get/config.set — the Settings modal and
+   * ModelWorkspaceModal's helper/tool/tts/embeddings targets). 'ok' (default)
+   * answers a real, mutable config.get()/config.set() round-trip seeded from
+   * configGetResponse(); 'admin-required' answers the daemon's real 403
+   * admin-scope refusal (system-routes.ts's requireAdmin), matching
+   * credentials' 'admin-required' shape.
+   */
+  config?: 'ok' | 'admin-required';
 }
 
 export interface MockDaemon {
@@ -162,6 +174,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     memoryAvailable = true,
     memoryIndexUnavailable = false,
     calendar = 'configured',
+    config = 'ok',
   } = options;
   const daemon: MockDaemon = {
     steerRequests: [],
@@ -184,6 +197,27 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
   function methodNotFound(route: Route) {
     return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+  }
+
+  // Mutable server-side state for the two round-trip surfaces this brief adds:
+  // the current model slot (models.current/models.select) and the config tree
+  // (config.get/config.set) — a real "select a model, see it reflected" and
+  // "save a setting, see it read back" proof, not a static fixture.
+  let currentModel = modelsCurrentResponse();
+  const configState: Record<string, unknown> = JSON.parse(JSON.stringify(configGetResponse())) as Record<string, unknown>;
+
+  function setDotPath(target: Record<string, unknown>, dottedKey: string, value: unknown): void {
+    const parts = dottedKey.split('.');
+    let cursor = target;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const part = parts[i];
+      const next = cursor[part];
+      if (!next || typeof next !== 'object' || Array.isArray(next)) {
+        cursor[part] = {};
+      }
+      cursor = cursor[part] as Record<string, unknown>;
+    }
+    cursor[parts[parts.length - 1]] = value;
   }
 
   if (signedIn) {
@@ -218,6 +252,25 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         { key: 'GOOGLE_API_KEY', configured: true, usable: false, source: 'env-ref', secure: false },
       ],
     });
+  });
+
+  // config.get/config.set resolve to GET/POST /config — no `/api` segment,
+  // same reason as credentials above (EXTRA_METHOD_ROUTES in
+  // src/lib/goodvibes.ts). A real, mutable round-trip: config.set actually
+  // mutates configState, so a subsequent config.get (or the Settings modal's
+  // own cache invalidation) reflects the write.
+  await page.route('**/config', async (route) => {
+    const request = route.request();
+    if (config === 'admin-required') {
+      return json(route, { error: 'Admin role required' }, 403);
+    }
+    if (request.method() === 'POST') {
+      const body = (request.postDataJSON?.() ?? {}) as { key?: string; value?: unknown };
+      if (!body.key) return json(route, { error: 'Missing or invalid key' }, 400);
+      setDotPath(configState, body.key, body.value);
+      return json(route, { success: true, key: body.key, value: body.value });
+    }
+    return json(route, configState);
   });
 
   await page.route('**/api/**', async (route) => {
@@ -333,6 +386,30 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (method === 'GET' && path.startsWith('/api/providers')) {
       return json(route, providersResponse());
+    }
+    if (method === 'GET' && path === '/api/accounts') {
+      return json(route, accountsSnapshotResponse());
+    }
+
+    // ── Models (models.current/models.select — the "main" target; ModelWorkspaceModal
+    // sources its catalog from providers.list above, not this route, since this one
+    // never carries tier/pricing on the real wire either — see model-catalog.ts). ──
+    if (method === 'GET' && path === '/api/models/current') {
+      return json(route, currentModel);
+    }
+    if (method === 'PATCH' && path === '/api/models/current') {
+      const body = (request.postDataJSON?.() ?? {}) as { registryKey?: string };
+      const registryKey = body.registryKey ?? '';
+      const [provider, ...idParts] = registryKey.split(':');
+      currentModel = {
+        model: { registryKey, provider: provider ?? '', id: idParts.join(':') },
+        configured: true,
+        configuredVia: 'subscription',
+      };
+      return json(route, { ...currentModel, persisted: true });
+    }
+    if (method === 'GET' && path === '/api/models') {
+      return json(route, { providers: [], currentModel: currentModel.model, secretsResolutionSkipped: false });
     }
 
     // ── Memory (memory.records.* / memory.review-queue, SDK 1.1.0) ─────────

@@ -150,11 +150,15 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'companion.chat.messages.retry': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/retry' },
   'companion.chat.sessions.close': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/close' },
   'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
-  // config.get (GET /config) — the resolved config snapshot. The browser reads it to
-  // learn the SHARED spoken-voice defaults (tts.provider / tts.voice) so playback uses
-  // the same voice the TUI and agent do. The typed snapshot declares domain sections
-  // (ui/web/...) with additionalProperties:true, so the `tts` section rides in as an
-  // extra property — read it defensively (src/lib/voice/voice-config.ts).
+  // config.get (GET /config) — the admin-scoped full-config read
+  // (context.configManager.getAll()). Two consumers share this one row: the
+  // voice surface reads it to learn the SHARED spoken-voice defaults
+  // (tts.provider / tts.voice) so playback uses the same voice the TUI and
+  // agent do (the typed snapshot declares domain sections with
+  // additionalProperties:true, so the `tts` section rides in as an extra
+  // property — read it defensively, src/lib/voice/voice-config.ts); the
+  // model/config workspace reads the same full snapshot for its honest
+  // config.get browsing (never rendered raw — src/lib/config-redaction.ts).
   'config.get': { method: 'GET', path: '/config' },
   'config.set': { method: 'POST', path: '/config' },
   'control.methods.get': { method: 'GET', path: '/api/control-plane/methods/{methodId}' },
@@ -956,12 +960,18 @@ export const sdk = {
       // daemon. Status only — never bytes.
       get: () => invokeOperator('credentials.get'),
     },
-    // config.get — the resolved config snapshot (admin-scoped, like credentials.get).
-    // The voice surface reads it for the SHARED tts.provider/tts.voice defaults so the
-    // browser speaks in the same voice as the TUI and agent. Read-only here; writes go
-    // through the existing invokeMethod('config.set', ...) path (AdminView / voice config).
+    // config.* — like models.*, no OperatorMethodId coverage in the pinned
+    // browser SDK route maps, so both resolve through EXTRA_METHOD_ROUTES.
+    // get() returns the daemon's FULL config tree unredacted (configManager.
+    // getAll() — verified against system-routes.ts). Two consumers: the voice
+    // surface reads the SHARED tts.provider/tts.voice defaults so the browser
+    // speaks in the same voice as the TUI and agent; the model/config
+    // workspace browses the same snapshot — callers there MUST run it through
+    // src/lib/config-redaction.ts before rendering, never display it raw.
+    // set() writes one key at a time (the daemon's real /config contract).
     config: {
-      get: () => invokeOperator('config.get', {}),
+      get: () => invokeOperator('config.get'),
+      set: (key: string, value: unknown) => invokeOperator('config.set', { key, value }),
     },
     // Voice (SDK 1.1.0). status/providers/voices are read:voice; stt/tts are write:voice.
     // ttsStream returns the RAW streamed-audio Response (not JSON) — the Web Audio player

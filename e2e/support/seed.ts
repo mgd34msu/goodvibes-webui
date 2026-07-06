@@ -236,6 +236,11 @@ export function providersResponse() {
       }[];
     },
     modelIds: string[],
+    // Real, optional per-model tier/pricing — additive only (existing callers that
+    // omit this keep the exact prior shape). Mirrors what providers.list genuinely
+    // populates today (packages/sdk/src/platform/providers/runtime-snapshot.ts's
+    // toModelSnapshot) for the ModelWorkspaceModal price-filter/group proofs.
+    pricing: Record<string, { tier?: string; pricing?: { inputPerMillionTokens: number; outputPerMillionTokens: number; currency: string } }> = {},
   ) => ({
     providerId,
     active,
@@ -246,6 +251,7 @@ export function providersResponse() {
       displayName: modelId,
       selectable: true,
       contextWindow: 200_000,
+      ...pricing[modelId],
     })),
     runtime: {
       auth: { mode: auth.mode, configured: auth.configured, detail: auth.detail, routes: auth.routes },
@@ -259,12 +265,16 @@ export function providersResponse() {
         mode: 'oauth',
         configured: true,
         routes: [{ route: 'oauth', label: 'Claude Pro/Max', configured: true, usable: true, freshness: 'healthy' }],
-      }, ['claude-opus-4-8']),
+      }, ['claude-opus-4-8'], {
+        'claude-opus-4-8': { tier: 'subscription' },
+      }),
       provider('openai', true, {
         mode: 'api-key',
         configured: true,
         routes: [{ route: 'api-key', label: 'API key', configured: true, usable: true, freshness: 'expiring', detail: 'Token refreshes soon' }],
-      }, ['gpt-5']),
+      }, ['gpt-5'], {
+        'gpt-5': { tier: 'premium', pricing: { inputPerMillionTokens: 5, outputPerMillionTokens: 15, currency: 'USD' } },
+      }),
       provider('google', true, {
         mode: 'api-key',
         configured: true,
@@ -289,7 +299,69 @@ export function providersResponse() {
         mode: 'anonymous',
         configured: true,
         routes: [],
-      }, ['llama-4']),
+      }, ['llama-4'], {
+        'llama-4': { tier: 'free' },
+      }),
+    ],
+  };
+}
+
+/** models.current()'s real shape (CurrentModelResponse) — the counterpart to
+ *  providersResponse()'s 'claude-opus-4-8' model, so ModelWorkspaceModal's
+ *  "current" highlighting has a genuine match in the same fixture set. */
+export function modelsCurrentResponse() {
+  return {
+    model: { registryKey: 'anthropic:claude-opus-4-8', provider: 'anthropic', id: 'claude-opus-4-8' },
+    configured: true,
+    configuredVia: 'subscription',
+  };
+}
+
+/**
+ * config.get()'s shape — a small, realistic slice of configManager.getAll(),
+ * including one surfaces.* secret-shaped key so the settings e2e proof can
+ * confirm it never renders raw in the browser.
+ */
+export function configGetResponse() {
+  return {
+    display: { theme: 'vaporwave' },
+    provider: { model: 'anthropic:claude-opus-4', embeddingProvider: 'hashed-local' },
+    helper: { enabled: false, globalProvider: '', globalModel: '' },
+    tools: { llmEnabled: false, llmProvider: '', llmModel: '' },
+    tts: { provider: 'elevenlabs', voice: '', llmProvider: '', llmModel: '', speed: 1 },
+    surfaces: { slack: { botToken: 'xoxb-e2e-hermetic-secret-9999' } },
+  };
+}
+
+/** accounts.snapshot()'s real shape (ProviderAccountSnapshot). */
+export function accountsSnapshotResponse() {
+  return {
+    capturedAt: Date.now(),
+    configuredCount: 1,
+    issueCount: 1,
+    providers: [
+      {
+        providerId: 'anthropic',
+        active: true,
+        modelCount: 2,
+        configured: true,
+        activeRoute: 'subscription',
+        authFreshness: 'expiring',
+        usageWindows: [{ label: '5-hour window', detail: 'Rolling usage limit may apply.' }],
+        issues: ['Subscription token refreshes soon.'],
+        recommendedActions: ['Re-authenticate before it expires.'],
+      },
+      {
+        providerId: 'openai',
+        active: false,
+        modelCount: 0,
+        configured: false,
+        activeRoute: 'unconfigured',
+        authFreshness: 'unconfigured',
+        usageWindows: [],
+        issues: [],
+        recommendedActions: [],
+      },
     ],
   };
 }

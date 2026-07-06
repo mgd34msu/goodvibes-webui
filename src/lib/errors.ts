@@ -108,6 +108,23 @@ export function isDaemonUnreachableError(error: unknown): boolean {
   return status === 0;
 }
 
+/**
+ * True for a 401 / `category: 'authentication'` rejection — a token that was valid
+ * when the request/stream opened but has since expired or been revoked. Distinct from
+ * `isDaemonUnreachableError` (network/status-0, daemon unreachable): this is a genuine
+ * "the daemon is answering and says you are no longer authenticated" signal, the one
+ * that must hand off to the sign-in front door rather than retry forever.
+ */
+export function isAuthExpiredError(error: unknown): boolean {
+  if (!error) return false;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const category = readString(serialized, 'category') || readString(transport, 'category');
+  if (category === 'authentication') return true;
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 401;
+}
+
 export function errorDebugValue(error: unknown): unknown {
   const serialized = serializeError(error);
   return Object.keys(serialized).length ? serialized : undefined;

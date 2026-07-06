@@ -83,7 +83,25 @@ export function companionEventType(eventName: string, payload: unknown): string 
   return firstString(payload, ['type']) || eventName.replace(/^companion-chat\./, '');
 }
 
-export const ACTIVE_TURN_STATES = ['sending', 'submitted', 'running', 'streaming', 'tooling'];
+/**
+ * States for which a turn is genuinely in flight (drives the streaming indicator, the
+ * Stop control, and the 1s message-poll fallback). 'reconnecting' and 'sending while
+ * reconnecting' are included deliberately: an SSE drop mid-turn (or a send that starts
+ * while the stream is backing off) does not mean the turn stopped — it means the live
+ * channel is temporarily down while the daemon keeps working. 'stream paused' and
+ * 'session expired' are deliberately EXCLUDED — those mean the automatic reconnect gave
+ * up (or the token died), so nothing is actively streaming any more; isStreaming must
+ * go false rather than keep asserting a live turn that no longer has a path to resume.
+ */
+export const ACTIVE_TURN_STATES = [
+  'sending',
+  'submitted',
+  'running',
+  'streaming',
+  'tooling',
+  'reconnecting',
+  'sending while reconnecting',
+];
 
 export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '' {
   const state = firstString(message, ['deliveryState', 'status', 'state']).toLowerCase();

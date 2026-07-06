@@ -136,8 +136,21 @@ export function ChatView({
     enabled: Boolean(activeSessionId),
     queryFn: () => sdk.chat.messages.list(activeSessionId),
     retry: (failureCount, error) => !isSessionNotFoundError(error) && failureCount < 2,
-    refetchInterval: ACTIVE_TURN_STATES.includes(turnState) || turnState === 'syncing' ? 1000 : false,
+    // 'stream paused' is deliberately NOT an ACTIVE_TURN_STATE (isStreaming must go
+    // false once the live channel gives up), but it still needs the periodic-refresh
+    // fallback — the honest promise a paused stream makes ("live updates are off,
+    // falling back to periodic refresh") only holds if something actually keeps
+    // polling for a reply that streamed back while nobody was listening.
+    refetchInterval: ACTIVE_TURN_STATES.includes(turnState) || turnState === 'syncing' || turnState === 'stream paused' ? 1000 : false,
   });
+
+  // Auth-expiry handoff shared by both chat hooks: re-probe auth.current so a
+  // genuinely dead token (401 mid-stream or mid-send) flips the whole app to the
+  // signed-out gate (App.tsx unmounts this view when auth.current confirms it) —
+  // rather than either hook retrying a dead token or collapsing to a dead-end error.
+  const onChatAuthExpired = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.auth });
+  }, [queryClient]);
 
   useEffect(() => {
     if (!activeSessionId || !messages.isError || !isSessionNotFoundError(messages.error)) return;
@@ -155,7 +168,7 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
-  const { isStreaming, stop } = useChatStream({
+  const { isStreaming, stop, retryStream } = useChatStream({
     activeSessionId,
     liveTextRef,
     onSessionMissing,
@@ -165,6 +178,7 @@ export function ChatView({
     setLocalMessages,
     setPendingUserMessageId,
     invalidateChatState,
+    onAuthExpired: onChatAuthExpired,
     turnState,
   });
 
@@ -180,6 +194,8 @@ export function ChatView({
     setLocalMessages,
     setPendingUserMessageId,
     invalidateChatState,
+    turnState,
+    onAuthExpired: onChatAuthExpired,
   });
   const { editAndResend, regenerateFrom: sendRegenerateFrom, branchMap, selectBranch } = send;
 
@@ -337,6 +353,7 @@ export function ChatView({
         onSessionTitleDraftChange={setSessionTitleDraft}
         onFinishRenamingTitle={finishRenamingTitle}
         onTitleKeyDown={handleTitleKeyDown}
+        onRetryStream={turnState === 'stream paused' ? retryStream : undefined}
       />
       <div className="chat-toolbar">
         <button

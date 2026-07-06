@@ -16,8 +16,14 @@
 
 import type { Page, Route } from '@playwright/test';
 import {
+  CALENDAR_NOT_CONFIGURED_BODY,
+  calendarEventDetailResponse,
+  calendarEventsResponse,
   FLEET_SNAPSHOT,
+  knowledgeCandidateDecideResponse,
+  knowledgeCandidatesResponse,
   knowledgeMapResponse,
+  knowledgePacketResponse,
   memoryRecordWire,
   messagesResponse,
   PENDING_APPROVAL,
@@ -52,6 +58,14 @@ export interface MockDaemonOptions {
    * with a stated `indexUnavailableReason` — the honest degraded-search proof.
    * Default false (a semantic request succeeds as semantic). */
   memoryIndexUnavailable?: boolean;
+  /**
+   * calendar.* handler behavior. 'configured' (default) answers the honest seeded
+   * event fixtures for every calendar.* route. 'unconfigured' answers the daemon's
+   * real 412 CALENDAR_NOT_CONFIGURED shape (caldav-client.ts's resolveCalDavConfig
+   * refusal) for every calendar.* route, proving the honest bring-your-own-CalDAV
+   * state instead of a fabricated empty calendar.
+   */
+  calendar?: 'configured' | 'unconfigured';
 }
 
 export interface MockDaemon {
@@ -147,6 +161,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     credentials = 'available',
     memoryAvailable = true,
     memoryIndexUnavailable = false,
+    calendar = 'configured',
   } = options;
   const daemon: MockDaemon = {
     steerRequests: [],
@@ -489,6 +504,86 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     // ── Fallback: an honest empty success for any un-modelled surface. Views
     //    render their empty/degraded states rather than hanging. ─────────────
     if (method === 'GET') return json(route, {});
+    return json(route, {});
+  });
+
+  // ── Knowledge candidates + packet (separate registrations — Playwright runs the
+  //    LAST-registered route FIRST, so these override the generic knowledge fallback
+  //    above for the specific paths they match, without touching that shared handler.
+  //    Kept as their own page.route() calls, per this brief's file-ownership note,
+  //    since five concurrent web UI worktrees touch this file. ───────────────────
+  // Tracks decide() outcomes in-memory so a refetch after accept/reject/supersede
+  // reflects the decision instead of replaying the static pending seed forever —
+  // just enough state to prove the decide-then-refresh round trip honestly.
+  const decidedCandidates = new Map<string, string>();
+
+  await page.route('**/api/knowledge/candidates**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+    const decideMatch = path.match(/^\/api\/knowledge\/candidates\/([^/]+)\/decide$/);
+    if (method === 'POST' && decideMatch) {
+      const id = decodeURIComponent(decideMatch[1]);
+      const body = request.postDataJSON?.() ?? {};
+      const decision = typeof body === 'object' && body !== null && 'decision' in body ? String((body as { decision?: unknown }).decision ?? '') : '';
+      const result = knowledgeCandidateDecideResponse(id, decision);
+      decidedCandidates.set(id, result.candidate.status);
+      return json(route, result);
+    }
+    const getMatch = path.match(/^\/api\/knowledge\/candidates\/([^/]+)$/);
+    if (method === 'GET' && getMatch) {
+      const id = decodeURIComponent(getMatch[1]);
+      const found = knowledgeCandidatesResponse().candidates.find((candidate) => candidate.id === id);
+      const status = decidedCandidates.get(id);
+      return json(route, { candidate: found ? { ...found, ...(status ? { status } : {}) } : null });
+    }
+    if (method === 'GET' && path === '/api/knowledge/candidates') {
+      const withDecisions = knowledgeCandidatesResponse().candidates.map((candidate) => {
+        const status = decidedCandidates.get(candidate.id);
+        return status ? { ...candidate, status } : candidate;
+      });
+      return json(route, { candidates: withDecisions });
+    }
+    return json(route, {});
+  });
+
+  await page.route('**/api/knowledge/packet**', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST') return json(route, {});
+    const body = request.postDataJSON?.() ?? {};
+    const task = typeof body === 'object' && body !== null && 'task' in body ? String((body as { task?: unknown }).task ?? '') : '';
+    return json(route, knowledgePacketResponse(task));
+  });
+
+  // ── Calendar (calendar.events.*, calendar.ics.*) — a genuinely separate domain
+  //    from `/api/knowledge`, so it needs its own registration rather than piggy-
+  //    backing on the generic knowledge fallback. `calendar: 'unconfigured'` answers
+  //    the real 412 CALENDAR_NOT_CONFIGURED shape for every route, proving the
+  //    honest bring-your-own-CalDAV state end to end. ──────────────────────────
+  await page.route('**/api/calendar/**', async (route) => {
+    if (calendar === 'unconfigured') {
+      return json(route, CALENDAR_NOT_CONFIGURED_BODY, 412);
+    }
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'GET' && path === '/api/calendar/events') {
+      return json(route, calendarEventsResponse());
+    }
+    const eventGetMatch = path.match(/^\/api\/calendar\/events\/([^/]+)$/);
+    if (method === 'GET' && eventGetMatch) {
+      return json(route, calendarEventDetailResponse(decodeURIComponent(eventGetMatch[1])));
+    }
+    if (method === 'POST' && path === '/api/calendar/events') {
+      return json(route, { eventId: 'ev-new', uid: 'ev-new@goodvibes', createdAt: new Date(0).toISOString() });
+    }
+    if (method === 'GET' && path === '/api/calendar/ics/export') {
+      return json(route, { icsContent: 'BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR', eventCount: calendarEventsResponse().events.length });
+    }
+    if (method === 'POST' && path === '/api/calendar/ics/import') {
+      return json(route, { imported: 1, eventIds: ['ev-imported'], errors: [] });
+    }
     return json(route, {});
   });
 

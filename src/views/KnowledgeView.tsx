@@ -1,6 +1,6 @@
 import { SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Brain, FileText, Link, Map, Search, GitBranch, AlertCircle, BookOpen } from 'lucide-react';
+import { Brain, FileText, Link, ListChecks, Map, PackageSearch, Search, GitBranch, AlertCircle, BookOpen } from 'lucide-react';
 import { invokeMethod, sdk } from '../lib/goodvibes';
 import type { OperatorMethodInput } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
@@ -15,6 +15,8 @@ import ErrorBoundary from '../components/feedback/ErrorBoundary';
 import { usePeek } from '../components/peek/PeekPanel';
 import { KnowledgeMap } from './knowledge/KnowledgeMap';
 import { KnowledgeJobsPeekBody } from './knowledge/KnowledgeJobsPeek';
+import { KnowledgeCandidatesPanel } from './knowledge/KnowledgeCandidates';
+import { KnowledgePacketPanel } from './knowledge/KnowledgePacket';
 import '../styles/components/knowledge.css';
 
 type UrlSourceType = NonNullable<OperatorMethodInput<'knowledge.ingest.url'>['sourceType']>;
@@ -612,6 +614,23 @@ export function KnowledgeView() {
             <ProjectionResultBlock title="Materialized Projection" value={materializeProjection.data} />
           </div>
         </section>
+
+        <div className="two-column">
+          <section className="panel" aria-label="Consolidation candidates">
+            <div className="panel-title">
+              <h2>Candidates</h2>
+              <ListChecks size={18} aria-hidden="true" />
+            </div>
+            <KnowledgeCandidatesPanel />
+          </section>
+          <section className="panel" aria-label="Knowledge packet">
+            <div className="panel-title">
+              <h2>Prompt Packet</h2>
+              <PackageSearch size={18} aria-hidden="true" />
+            </div>
+            <KnowledgePacketPanel />
+          </section>
+        </div>
 
         <div className="two-column">
           <section className="panel" aria-label="Knowledge status">

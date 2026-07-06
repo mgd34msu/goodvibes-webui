@@ -122,6 +122,22 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
   'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
   'approvals.list': { method: 'GET', path: '/api/approvals' },
+  // Calendar (SDK 1.1.0, method-catalog-calendar.ts): five CalDAV-backed contract ids
+  // with real HTTP paths, but NOT in SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES (the
+  // pinned browser SDK route maps only cover the domains it lists — calendar is not one
+  // of them), so every calendar id needs a hand-written row here, same as approvals.*
+  // above. The SDK's own catalog entry ships these `invokable: false` (a CalDAV-backed
+  // contract with no daemon-sdk handler in the SDK repo itself); a daemon that has
+  // registered a real handler for these ids (see the calendar decision record) answers
+  // normally, an un-upgraded one answers 501 "not invokable" or 404 "unknown gateway
+  // method" — both honest refusals the calendar view distinguishes from a genuine fault
+  // (isMethodNotInvokableError / isMethodUnavailableError, lib/errors.ts) from a
+  // CalDAV-not-configured 412 (isCalendarUnconfiguredError).
+  'calendar.events.create': { method: 'POST', path: '/api/calendar/events' },
+  'calendar.events.get': { method: 'GET', path: '/api/calendar/events/{eventId}' },
+  'calendar.events.list': { method: 'GET', path: '/api/calendar/events' },
+  'calendar.ics.export': { method: 'GET', path: '/api/calendar/ics/export' },
+  'calendar.ics.import': { method: 'POST', path: '/api/calendar/ics/import' },
   // Honest-lineage chat verbs (SDK 1.1.0). Both have real REST routes on the daemon
   // and are in the installed OperatorMethodId union, but the pinned browser SDK route
   // maps (SHARED/KNOWLEDGE_BROWSER_ROUTES) do NOT cover them, so they resolve here as
@@ -623,6 +639,84 @@ export interface WatcherActionResult {
 }
 
 /**
+ * Calendar (calendar.*, SDK 1.1.0) — like models.*, fleet.*, checkpoints.* above, these
+ * ids have NO OperatorMethodInputMap/OutputMap entry in the installed contracts package
+ * (verified: grepping the generated foundation-client-types.d.ts for "calendar" returns
+ * nothing), so OperatorMethodInput/Output<'calendar.*'> would resolve to the generic
+ * `{[k:string]: unknown}` / `unknown` fallback. These hand-authored shapes are cross-
+ * checked field-by-field against the SDK's own CALENDAR_EVENT_SUMMARY_SCHEMA /
+ * CALENDAR_EVENT_DETAIL_SCHEMA / create-output / import-output / export-output
+ * (method-catalog-calendar.ts) — a permanent divergence (no generated map to converge
+ * with), not a pin-bump-pending gap.
+ */
+export interface CalendarEventSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly start: string;
+  readonly end: string;
+  readonly location?: string;
+  readonly description?: string;
+  readonly attendees?: readonly string[];
+}
+
+export interface CalendarEventDetail extends CalendarEventSummary {
+  readonly uid: string;
+  readonly recurrence?: string;
+}
+
+export interface CalendarEventsListInput {
+  readonly calendarId?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly limit?: number;
+}
+
+export interface CalendarEventsListResult {
+  readonly events: readonly CalendarEventSummary[];
+}
+
+/** `confirm` is required — the SDK schema's own explicit-confirmation gate for a write. */
+export interface CalendarEventCreateInput {
+  readonly title: string;
+  readonly start: string;
+  readonly end: string;
+  readonly description?: string;
+  readonly attendees?: readonly string[];
+  readonly location?: string;
+  readonly calendarId?: string;
+  readonly confirm: true;
+}
+
+export interface CalendarEventCreateResult {
+  readonly eventId: string;
+  readonly uid: string;
+  readonly createdAt: string;
+}
+
+export interface CalendarIcsImportInput {
+  readonly icsContent: string;
+  readonly calendarId?: string;
+  readonly confirm: true;
+}
+
+export interface CalendarIcsImportResult {
+  readonly imported: number;
+  readonly eventIds: readonly string[];
+  readonly errors: readonly string[];
+}
+
+export interface CalendarIcsExportInput {
+  readonly calendarId?: string;
+  readonly from?: string;
+  readonly to?: string;
+}
+
+export interface CalendarIcsExportResult {
+  readonly icsContent: string;
+  readonly eventCount: number;
+}
+
+/**
  * SessionDeleteResult — the honest hard-delete outcome shape shared by
  * `operator.sessions.delete` and `chat.sessions.delete`: `deleted: true` means the
  * record and its messages/inputs were actually removed, not merely closed. Neither
@@ -897,6 +991,41 @@ export const sdk = {
       create: (input: TaskCreateInput) => invokeOperator('tasks.create', input),
       cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }),
       retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }),
+    },
+    // Calendar (calendar.*, see the EXTRA_METHOD_ROUTES header comment above for the
+    // invokable-false/501/404 honesty caveat). Every call site here is explicitly typed
+    // against the hand-authored shapes above (no generated I/O map exists for this
+    // family) — see that section's header comment.
+    calendar: {
+      events: {
+        list: (input?: CalendarEventsListInput) =>
+          invokeOperator<'calendar.events.list', CalendarEventsListInput, CalendarEventsListResult>(
+            'calendar.events.list',
+            input ?? {},
+          ),
+        get: (eventId: string, calendarId?: string) =>
+          invokeOperator<'calendar.events.get', { eventId: string; calendarId?: string }, CalendarEventDetail>(
+            'calendar.events.get',
+            { eventId, ...(calendarId ? { calendarId } : {}) },
+          ),
+        create: (input: CalendarEventCreateInput) =>
+          invokeOperator<'calendar.events.create', CalendarEventCreateInput, CalendarEventCreateResult>(
+            'calendar.events.create',
+            input,
+          ),
+      },
+      ics: {
+        export: (input?: CalendarIcsExportInput) =>
+          invokeOperator<'calendar.ics.export', CalendarIcsExportInput, CalendarIcsExportResult>(
+            'calendar.ics.export',
+            input ?? {},
+          ),
+        import: (input: CalendarIcsImportInput) =>
+          invokeOperator<'calendar.ics.import', CalendarIcsImportInput, CalendarIcsImportResult>(
+            'calendar.ics.import',
+            input,
+          ),
+      },
     },
     approvals: {
       // Local ApprovalSnapshotResult/ApprovalRecord diverge from the generated contract

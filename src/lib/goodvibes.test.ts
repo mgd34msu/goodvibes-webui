@@ -329,9 +329,12 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, and the voice + config reads', () => {
+    // 'calendar' added here: calendar.* has real HTTP routes but no
+    // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
+    // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -345,6 +348,12 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.voice).sort()).toEqual(
       ['providers', 'status', 'stt', 'tts', 'ttsStream', 'voices'].sort(),
     );
+  });
+
+  test('sdk.operator.calendar keys are events and ics', () => {
+    expect(Object.keys(sdk.operator.calendar).sort()).toEqual(['events', 'ics'].sort());
+    expect(Object.keys(sdk.operator.calendar.events).sort()).toEqual(['create', 'get', 'list'].sort());
+    expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
   });
 
   test('sdk.operator.sessions keys gain search, delete (delete-means-delete), and detach (WEBUI-FLEET-DEPTH)', () => {

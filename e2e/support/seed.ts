@@ -388,6 +388,131 @@ export function memoryRecordWire(record: SeedMemoryRecord) {
   };
 }
 
+/**
+ * Consolidation candidates fixture (knowledge.candidates.list / .candidate.get) —
+ * the wire shape per method-catalog-knowledge.ts's KNOWLEDGE_CANDIDATE_SCHEMA:
+ * id/candidateType/status/title/score/evidence/metadata/createdAt/updatedAt
+ * required, summary/subjectKind/subjectId optional-but-present here.
+ */
+export function knowledgeCandidatesResponse() {
+  return {
+    candidates: [
+      {
+        id: 'cand-1',
+        candidateType: 'promotion',
+        status: 'pending',
+        subjectKind: 'session',
+        subjectId: 's-agent-live',
+        title: 'Promote the session-spine keepalive decision',
+        summary: 'Referenced across three sessions — a durable-memory candidate.',
+        score: 0.86,
+        evidence: ['s-agent-live', 's-tui-idle'],
+        metadata: {},
+        createdAt: 1000,
+        updatedAt: 1000,
+      },
+      {
+        id: 'cand-2',
+        candidateType: 'refresh',
+        status: 'accepted',
+        subjectKind: 'source',
+        subjectId: 'src-1',
+        title: 'Refresh the daemon architecture source',
+        summary: 'Already accepted in an earlier session.',
+        score: 0.41,
+        evidence: [],
+        metadata: {},
+        createdAt: 900,
+        updatedAt: 1100,
+      },
+    ],
+  };
+}
+
+export function knowledgeCandidateDecideResponse(id: string, decision: string) {
+  return {
+    candidate: {
+      id,
+      candidateType: 'promotion',
+      status: decision === 'accept' ? 'accepted' : decision === 'reject' ? 'rejected' : 'superseded',
+      title: 'Promote the session-spine keepalive decision',
+      score: 0.86,
+      evidence: [],
+      metadata: {},
+      createdAt: 1000,
+      updatedAt: 2000,
+    },
+  };
+}
+
+/** knowledge.packet fixture — KNOWLEDGE_PACKET_SCHEMA shape. */
+export function knowledgePacketResponse(task: string) {
+  return {
+    task,
+    writeScope: [],
+    generatedAt: 1234,
+    detail: 'standard',
+    strategy: 'hybrid-recall',
+    budgetLimit: 4000,
+    estimatedTokens: 180,
+    items: [
+      {
+        kind: 'source',
+        id: 'src-1',
+        title: 'Session spine decision record',
+        summary: 'Timer-driven keepalive design.',
+        reason: 'directly relevant to the task',
+        score: 0.91,
+        estimatedTokens: 180,
+        related: [],
+        evidence: [],
+        metadata: {},
+      },
+    ],
+  };
+}
+
+/**
+ * Calendar events fixture (calendar.events.list/.get) — the wire shape per
+ * method-catalog-calendar.ts's CALENDAR_EVENT_SUMMARY_SCHEMA/DETAIL_SCHEMA.
+ * Two events so the e2e sort-by-start proof has something to sort.
+ */
+export function calendarEventsResponse() {
+  return {
+    events: [
+      {
+        id: 'ev-2',
+        title: 'Design review',
+        start: '2026-08-02T15:00:00.000Z',
+        end: '2026-08-02T16:00:00.000Z',
+        location: 'Room B',
+      },
+      {
+        id: 'ev-1',
+        title: 'Team standup',
+        start: '2026-08-01T09:00:00.000Z',
+        end: '2026-08-01T09:15:00.000Z',
+      },
+    ],
+  };
+}
+
+export function calendarEventDetailResponse(eventId: string) {
+  const base = calendarEventsResponse().events.find((event) => event.id === eventId);
+  return {
+    id: eventId,
+    uid: `${eventId}@goodvibes`,
+    title: base?.title ?? 'Unknown event',
+    start: base?.start ?? '2026-08-01T09:00:00.000Z',
+    end: base?.end ?? '2026-08-01T09:15:00.000Z',
+    ...(base?.location ? { location: base.location } : {}),
+    description: 'Seeded e2e fixture event.',
+    attendees: ['Operator'],
+  };
+}
+
+export const CALENDAR_NOT_CONFIGURED_BODY = { error: 'CalDAV is not configured. Set surfaces.calendar.caldavUrl and surfaces.calendar.caldavUser.', code: 'CALENDAR_NOT_CONFIGURED' };
+
 /** A tiny valid SVG for the knowledge map render proof. */
 export function knowledgeMapResponse() {
   return {

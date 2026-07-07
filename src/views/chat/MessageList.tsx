@@ -45,7 +45,11 @@ export function MessageList({
   onStop,
 }: MessageListProps) {
   const reducedMotion = useReducedMotion();
-  const showStreamControls = isStreaming && Boolean(liveText);
+  // Stop must be reachable for the WHOLE active turn — including the
+  // pre-first-token window (model thinking, long tool calls), where there is
+  // no liveText yet. Requiring text here used to make a turn unstoppable
+  // until it started talking.
+  const showStreamControls = isStreaming;
 
   return (
     <>
@@ -66,7 +70,7 @@ export function MessageList({
             onEditMessage={onEditMessage ? (_msg, newText) => onEditMessage(node.message.id ?? node.message.messageId ?? '', newText) : undefined}
           />
         ))}
-        {liveText && (
+        {(liveText || isStreaming) && (
           <div aria-live="polite" aria-atomic="false">
             <article className="message assistant streaming">
               <div className="message-bubble">
@@ -96,7 +100,7 @@ export function MessageList({
             </article>
           </div>
         )}
-        {!nodes.length && !liveText && (
+        {!nodes.length && !liveText && !isStreaming && (
           <p className="empty-state">Start a chat with GoodVibes.</p>
         )}
       </div>

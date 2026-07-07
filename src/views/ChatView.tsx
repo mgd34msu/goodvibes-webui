@@ -4,7 +4,7 @@ import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
 import { queryKeys } from '../lib/queries';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
-import { shouldSubmitComposerKey } from '../lib/composer-keys';
+import { shouldSteerComposerKey, shouldSubmitComposerKey } from '../lib/composer-keys';
 import { isSessionNotFoundError } from '../lib/errors';
 import {
   companionSessionFromDetail,
@@ -283,14 +283,19 @@ export function ChatView({
     sendText(draft, attachedFiles);
   }
 
-  function sendText(text: string, files: File[] = []) {
+  /** STEER: send immediately, interrupting the in-flight turn (Ctrl/Cmd+Enter, or hold the send button). */
+  function steerDraft() {
+    sendText(draft, attachedFiles, { steer: true });
+  }
+
+  function sendText(text: string, files: File[] = [], options: { steer?: boolean } = {}) {
     const body = text.trim();
     if (send.isPending || (!body && !files.length)) return;
     const filesToSend = [...files];
     setDraft('');
     setAttachedFiles([]);
     composerRef.current?.focus();
-    send.mutate({ body, files: filesToSend });
+    send.mutate({ body, files: filesToSend, ...(options.steer ? { steer: true } : {}) });
   }
 
   function submit(event: FormEvent) {
@@ -299,6 +304,11 @@ export function ChatView({
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (shouldSteerComposerKey(event)) {
+      event.preventDefault();
+      steerDraft();
+      return;
+    }
     if (!shouldSubmitComposerKey(event)) return;
     event.preventDefault();
     submitDraft();
@@ -437,6 +447,7 @@ export function ChatView({
         draft={draft}
         attachedFiles={attachedFiles}
         isSendPending={send.isPending}
+        onSteer={steerDraft}
         sendError={send.error}
         turnError={turnError}
         renameSessionError={renameSession.error}

@@ -13,6 +13,7 @@ import {
   isSessionClosedError,
   isAuthExpiredError,
   formatError,
+  isMethodUnavailableError,
 } from '../../lib/errors';
 import { fileToBase64, uploadedArtifactId } from './message-utils';
 import type { ChatMessage } from './types';
@@ -54,7 +55,7 @@ interface UseChatSendOptions {
 // Return type
 // ---------------------------------------------------------------------------
 
-type SendMutation = ReturnType<typeof useMutation<undefined, Error, { body: string; files: File[] }>>;
+type SendMutation = ReturnType<typeof useMutation<undefined, Error, { body: string; files: File[]; steer?: boolean }>>;
 
 export interface UseChatSendReturn {
   /**
@@ -128,7 +129,7 @@ export function useChatSend({
   // Core send mutation (unchanged API — still used by Composer)
   // -------------------------------------------------------------------------
   const sendMutation = useMutation<undefined, Error, { body: string; files: File[] }>({
-    mutationFn: async ({ body, files }: { body: string; files: File[] }) => {
+    mutationFn: async ({ body, files, steer }: { body: string; files: File[]; steer?: boolean }) => {
       if (!body && !files.length) return;
       // Read the live stream's health at the moment the send starts (not stale —
       // react-query always calls the mutationFn captured on the latest render). A
@@ -217,10 +218,28 @@ export function useChatSend({
 
       let result: unknown;
       try {
-        result = await sdk.chat.messages.create(sessionId, {
+        const payload = {
           body,
           attachments: attachments.map(({ artifactId, label }) => ({ artifactId, label })),
-        });
+        };
+        if (steer) {
+          // STEER: interrupt the in-flight turn and run this message now
+          // (companion.chat.messages.steer). On a pre-1.4 daemon the verb
+          // doesn't exist — fall back to an ordinary send and SAY so, never
+          // silently pretend the interruption happened.
+          try {
+            result = await sdk.chat.messages.steer(sessionId, payload);
+          } catch (steerError) {
+            if (!isMethodUnavailableError(steerError)) throw steerError;
+            result = await sdk.chat.messages.create(sessionId, payload);
+            setTurnError(
+              'Sent as a normal message — this daemon does not support steering '
+              + '(needs SDK 1.4+), so the current reply was not interrupted.',
+            );
+          }
+        } else {
+          result = await sdk.chat.messages.create(sessionId, payload);
+        }
       } catch (error) {
         setLocalMessages((current) => current.map((message) => (
           message.id === localMessageId ? { ...message, deliveryState: 'failed' as const } : message

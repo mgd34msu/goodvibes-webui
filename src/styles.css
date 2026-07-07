@@ -1061,6 +1061,29 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Stopped/queued carry a word, not just a glyph — the honesty markers must
+   read at a glance. Width goes auto; the grid flows icon + label. */
+.delivery-indicator.cancelled,
+.delivery-indicator.queued {
+  width: auto;
+  grid-auto-flow: column;
+  gap: 3px;
+  padding: 0 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.delivery-indicator.cancelled {
+  color: var(--amber, #b8860b);
+  background: rgb(184 134 11 / 10%);
+}
+
+.delivery-indicator.queued {
+  color: var(--muted);
+  background: rgb(95 112 120 / 12%);
+}
+
 .message-action-label {
   color: var(--muted);
   font-size: 0.72rem;

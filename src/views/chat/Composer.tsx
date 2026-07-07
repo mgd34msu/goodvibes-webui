@@ -10,6 +10,7 @@ import {
   useId,
   useRef,
   useState,
+  MouseEvent as ReactMouseEvent,
 } from 'react';
 import { ChevronDown, Check, Paperclip, Send, X } from 'lucide-react';
 import { formatError } from '../../lib/errors';
@@ -46,6 +47,12 @@ export interface ComposerProps {
   onDraftChange: (value: string) => void;
   onComposerKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSubmit: (event: FormEvent) => void;
+  /**
+   * STEER: send immediately, interrupting the in-flight turn. Desktop:
+   * Ctrl/Cmd+Enter (handled by the caller's key handler). Touch: press and
+   * hold the send button. Omitted = the hold affordance is off.
+   */
+  onSteer?: () => void;
   onFileSelection: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveAttachedFile: (index: number) => void;
   onProviderChange: (providerId: string) => void;
@@ -390,6 +397,7 @@ export function Composer({
   onDraftChange,
   onComposerKeyDown,
   onSubmit,
+  onSteer,
   onFileSelection,
   onRemoveAttachedFile,
   onProviderChange,
@@ -494,6 +502,33 @@ export function Composer({
   );
 
   // ── Slash-command keyboard handling ───────────────────────────────────────
+
+  // Press-and-hold the send button = STEER (the touch counterpart of
+  // Ctrl+Enter). The hold fires once at the threshold; the click that follows
+  // pointer-up is suppressed so the form does not ALSO submit normally.
+  const steerHoldTimerRef = useRef<number | null>(null);
+  const steerHoldFiredRef = useRef(false);
+  const startSteerHold = useCallback(() => {
+    steerHoldFiredRef.current = false;
+    steerHoldTimerRef.current = window.setTimeout(() => {
+      steerHoldTimerRef.current = null;
+      steerHoldFiredRef.current = true;
+      onSteer?.();
+    }, 550);
+  }, [onSteer]);
+  const cancelSteerHold = useCallback(() => {
+    if (steerHoldTimerRef.current !== null) {
+      window.clearTimeout(steerHoldTimerRef.current);
+      steerHoldTimerRef.current = null;
+    }
+  }, []);
+  const suppressClickAfterSteerHold = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (steerHoldFiredRef.current) {
+      steerHoldFiredRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, []);
 
   const handleTextareaKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -631,10 +666,17 @@ export function Composer({
             <button
               type="submit"
               className="send-button"
-              title="Send message"
+              title={onSteer
+                ? 'Send message (Enter — queues behind an active reply). Steer: Ctrl+Enter or press and hold — sends now, interrupting the current reply.'
+                : 'Send message'}
               aria-label="Send message"
               data-pending={isSendPending ? 'true' : undefined}
               disabled={isSendPending || (!draft.trim() && !attachedFiles.length)}
+              onPointerDown={onSteer ? startSteerHold : undefined}
+              onPointerUp={onSteer ? cancelSteerHold : undefined}
+              onPointerLeave={onSteer ? cancelSteerHold : undefined}
+              onPointerCancel={onSteer ? cancelSteerHold : undefined}
+              onClick={onSteer ? suppressClickAfterSteerHold : undefined}
             >
               <Send size={18} aria-hidden />
             </button>

@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState, RefObject } from 'react';
 import { sdk, DEFAULT_SSE_RECONNECT } from '../../lib/goodvibes';
 import { firstString } from '../../lib/object';
-import { isSessionNotFoundError, isAuthExpiredError } from '../../lib/errors';
+import { isSessionNotFoundError, isAuthExpiredError, isMethodUnavailableError, isNoActiveTurnError } from '../../lib/errors';
 import { LocalCompanionMessage } from '../../lib/companion-chat';
 import {
   ACTIVE_TURN_STATES,
@@ -43,8 +43,11 @@ export interface UseChatStreamResult {
   /** Whether a turn is actively in-flight (running, streaming, tooling, or reconnecting). */
   isStreaming: boolean;
   /**
-   * Stop the in-flight turn immediately.
-   * Disconnects the SSE stream, clears live text, and resets turn state to 'idle'.
+   * Stop the in-flight turn — a TRUE server-side stop: calls
+   * companion.chat.turns.cancel and keeps the stream open awaiting the
+   * terminal turn.cancelled event (which also converges every other
+   * connected client). Falls back to the old local-render stop, honestly
+   * labeled, only on a pre-1.4 daemon that doesn't serve the verb.
    */
   stop: () => void;
   /**
@@ -90,14 +93,45 @@ export function useChatStream({
     [setTurnState],
   );
 
-  const stop = useCallback(() => {
+  // The pre-1.4 behavior, kept as the honest fallback: stops RENDERING only.
+  const stopLocally = useCallback(() => {
     stoppedRef.current = true;
     disconnectRef.current?.();
     disconnectRef.current = undefined;
     liveTextRef.current = '';
     setLiveText('');
-    setTurnState('idle');
-  }, [liveTextRef, setLiveText, setTurnState]);
+  }, [liveTextRef, setLiveText]);
+
+  const stop = useCallback(() => {
+    if (!activeSessionId) return;
+    setTurnState('stopping');
+    void sdk.chat.turns.cancel(activeSessionId).catch((error: unknown) => {
+      if (isNoActiveTurnError(error)) {
+        // Benign: the turn finished before the stop landed. The terminal
+        // turn.completed already (or will) settle the state; just don't get
+        // stuck in 'stopping' if it already did.
+        setTurnState((current) => (current === 'stopping' ? 'idle' : current));
+        return;
+      }
+      if (isMethodUnavailableError(error)) {
+        // Pre-1.4 daemon: no server-side stop exists. Do the old local stop
+        // and SAY exactly what that means — never pretend the turn is dead.
+        stopLocally();
+        setTurnState('stopped locally');
+        setTurnError(
+          'Stopped rendering only — this daemon does not support stopping a turn '
+          + 'server-side (needs SDK 1.4+). The reply may still finish and will '
+          + 'appear in the history.',
+        );
+        return;
+      }
+      setTurnState('error');
+      setTurnError(error instanceof Error ? error.message : String(error));
+    });
+    // On success nothing else happens here: the terminal turn.cancelled event
+    // on the open stream is the authoritative signal (for this client AND
+    // every other subscriber).
+  }, [activeSessionId, setTurnState, setTurnError, stopLocally]);
 
   const retryStream = useCallback(() => {
     setRetryNonce((n) => n + 1);
@@ -210,6 +244,19 @@ export function useChatStream({
           } else {
             syncedSetTurnState('syncing');
           }
+          setLiveText('');
+          liveTextRef.current = '';
+          void invalidateChatState(activeSessionId);
+          return;
+        }
+
+        if (type === 'turn.cancelled') {
+          // Terminal, exactly like turn.completed/turn.error. The daemon has
+          // already persisted the honest partial (deliveryState 'cancelled')
+          // when partialPersisted is true; the refetch below renders it with
+          // its badge, so no optimistic local copy is needed.
+          setPendingUserMessageId('');
+          syncedSetTurnState('stopped');
           setLiveText('');
           liveTextRef.current = '';
           void invalidateChatState(activeSessionId);

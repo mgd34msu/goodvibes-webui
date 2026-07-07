@@ -59,10 +59,20 @@ let allStreamControls: StreamControl[] = [];
 let streamCallCount = 0;
 
 // Mock the SDK module
+// Controllable behavior for the server-side stop verb: tests set this to
+// simulate an upgraded daemon (resolve), a pre-1.4 daemon (method-unavailable
+// reject), or the benign no-active-turn race.
+let turnsCancelBehavior: (sessionId: string) => Promise<unknown> = () =>
+  Promise.resolve({ cancelled: true, turnId: 'turn-1', partialPersisted: false });
+const turnsCancelMock = mock((sessionId: string) => turnsCancelBehavior(sessionId));
+
 mock.module('../../lib/goodvibes', () => ({
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1_000, maxDelayMs: 30_000, backoffFactor: 2, maxAttempts: 10 },
   sdk: {
     chat: {
+      turns: {
+        cancel: turnsCancelMock,
+      },
       events: {
         stream: mock(
           (_sessionId: string, options: StreamOptions, openOptions?: StreamOpenOptions): Promise<StreamDisconnect> => {
@@ -361,6 +371,8 @@ describe('useChatStream — stop() correctness', () => {
 
     return {
       get result() { return result; },
+      setTurnState,
+      setTurnError,
       unmount: () => {
         flushSync(() => { root.unmount(); });
         if (container.parentNode) container.parentNode.removeChild(container);
@@ -368,72 +380,138 @@ describe('useChatStream — stop() correctness', () => {
     };
   }
 
-  test('stop() calls disconnect and is idempotent', async () => {
-    const { result, unmount } = renderForStop('session-stop');
+  function methodUnavailableError(): Error {
+    // Matches isMethodUnavailableError: 404 + METHOD_NOT_FOUND, the wire shape
+    // an un-upgraded daemon returns for a verb it has never heard of.
+    return Object.assign(new Error('Unknown gateway method'), {
+      status: 404,
+      code: 'METHOD_NOT_FOUND',
+    });
+  }
+
+  test('stop() requests the server-side cancel and KEEPS the stream open (turn.cancelled is the terminal signal)', async () => {
+    turnsCancelBehavior = () => Promise.resolve({ cancelled: true, turnId: 't1', partialPersisted: true });
+    const { result, setTurnState, unmount } = renderForStop('session-stop');
     const ctrl = activeStreamControl;
     expect(ctrl).not.toBeNull();
 
-    // Deliver disconnect handle
     const disconnectFn = ctrl!.disconnect;
     ctrl!.resolveFn(disconnectFn);
     await Promise.resolve();
     await Promise.resolve();
 
-    // First stop call
     result.stop();
-    expect(disconnectFn).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await Promise.resolve();
 
-    // Second stop call — disconnectRef was set to undefined, so no-op on disconnect
-    result.stop();
-    expect(disconnectFn).toHaveBeenCalledTimes(1); // not called again
+    expect(turnsCancelMock).toHaveBeenCalledWith('session-stop');
+    // The stream must STAY open — every subscriber (this client included)
+    // converges on the terminal turn.cancelled event, not on a local teardown.
+    expect(disconnectFn).toHaveBeenCalledTimes(0);
+    expect(setTurnState).toHaveBeenCalledWith('stopping');
 
     unmount();
   });
 
-  test('stop() before .then resolves prevents subscription revival (race fix)', async () => {
+  test('benign NO_ACTIVE_TURN (turn finished first) settles quietly back to idle', async () => {
+    turnsCancelBehavior = () => Promise.reject(Object.assign(new Error('No turn is in flight'), {
+      status: 404,
+      code: 'NO_ACTIVE_TURN',
+    }));
+    const { result, setTurnState, setTurnError, unmount } = renderForStop('session-benign');
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    result.stop();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(ctrl!.disconnect).toHaveBeenCalledTimes(0);
+    // Never rendered as an error — the machine code is the benign race.
+    expect(setTurnError).not.toHaveBeenCalledWith(expect.stringContaining('No turn is in flight'));
+    // The functional updater flips 'stopping' back to 'idle'.
+    const updater = setTurnState.mock.calls.at(-1)?.[0];
+    expect(typeof updater).toBe('function');
+    expect((updater as (c: string) => string)('stopping')).toBe('idle');
+
+    unmount();
+  });
+
+  test('pre-1.4 daemon (method unavailable): falls back to the honest LOCAL stop — disconnect, label, idempotent', async () => {
+    turnsCancelBehavior = () => Promise.reject(methodUnavailableError());
+    const { result, setTurnState, setTurnError, unmount } = renderForStop('session-fallback');
+    const ctrl = activeStreamControl;
+    const disconnectFn = ctrl!.disconnect;
+    ctrl!.resolveFn(disconnectFn);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    result.stop();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(disconnectFn).toHaveBeenCalledTimes(1);
+    expect(setTurnState).toHaveBeenCalledWith('stopped locally');
+    expect(setTurnError).toHaveBeenCalledWith(expect.stringContaining('Stopped rendering only'));
+
+    // Second stop — disconnectRef was cleared, no second disconnect.
+    result.stop();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(disconnectFn).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
+
+  test('fallback stop() before .then resolves prevents subscription revival (race fix)', async () => {
+    turnsCancelBehavior = () => Promise.reject(methodUnavailableError());
     const { result, unmount } = renderForStop('session-race');
     const ctrl = activeStreamControl;
     expect(ctrl).not.toBeNull();
 
     const disconnectFn = ctrl!.disconnect;
 
-    // Call stop() BEFORE .then resolves — disconnectRef.current is still undefined
+    // Fallback stop() BEFORE .then resolves — disconnectRef.current is still undefined
     result.stop();
+    await Promise.resolve();
+    await Promise.resolve();
 
     // Resolve the stream promise — .then must detect stoppedRef=true and call nextDisconnect()
     ctrl!.resolveFn(disconnectFn);
     await Promise.resolve();
     await Promise.resolve();
 
-    // The .then path must call nextDisconnect() when stoppedRef is true
+    expect(disconnectFn).toHaveBeenCalledTimes(1);
+
+    // Call stop() again — disconnectRef was never stored, so this is a no-op on disconnect
+    result.stop();
+    await Promise.resolve();
     expect(disconnectFn).toHaveBeenCalledTimes(1);
 
     unmount();
   });
 
-  test('stop() before .then resolves does NOT store disconnectRef (no revived subscription)', async () => {
-    const { result, unmount } = renderForStop('session-norevive');
+  test('wire-mode stop() before .then resolves keeps the handle (the stream must survive the stop)', async () => {
+    turnsCancelBehavior = () => Promise.resolve({ cancelled: true, turnId: 't1', partialPersisted: false });
+    const { result, unmount } = renderForStop('session-keepalive');
     const ctrl = activeStreamControl;
-    expect(ctrl).not.toBeNull();
-
     const disconnectFn = ctrl!.disconnect;
 
-    // stop() before resolve
     result.stop();
+    await Promise.resolve();
+    await Promise.resolve();
 
-    // Resolve and drain microtasks
     ctrl!.resolveFn(disconnectFn);
     await Promise.resolve();
     await Promise.resolve();
 
-    // disconnect was called once (by the .then guard)
-    expect(disconnectFn).toHaveBeenCalledTimes(1);
-
-    // Call stop() again — disconnectRef was never stored, so this is a no-op on disconnect
-    result.stop();
-    expect(disconnectFn).toHaveBeenCalledTimes(1);
-
+    // The handle is stored, not discarded: a wire stop leaves the stream open
+    // for turn.cancelled. Unmount then disconnects it exactly once.
+    expect(disconnectFn).toHaveBeenCalledTimes(0);
     unmount();
+    expect(disconnectFn).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -705,12 +783,12 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
     await Promise.resolve();
     expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
 
-    // Proof the live handle is B's, not A's: stop() disconnects B (A stays at 1).
-    h.result.stop();
+    // Proof the live handle is B's, not A's: unmount cleanup disconnects B
+    // exactly once (A stays at its single stale-discard call). stop() is no
+    // longer a teardown probe — a wire stop keeps the stream open.
+    h.unmount();
     expect(ctrlB!.disconnect).toHaveBeenCalledTimes(1);
     expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
-
-    h.unmount();
   });
 
   test('retryStream mid-handshake: the superseded stream is inert and its late handle is discarded', async () => {
@@ -737,9 +815,40 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
     await Promise.resolve();
     expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
 
-    ctx.result.stop();
+    // Unmount is the teardown probe (a wire stop keeps the stream open):
+    // B's live handle disconnects once, A stays at its single stale-discard.
+    ctx.unmount();
     expect(ctrlB!.disconnect).toHaveBeenCalledTimes(1);
     expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// turn.cancelled is terminal
+// ---------------------------------------------------------------------------
+
+describe('useChatStream — turn.cancelled terminal event', () => {
+  test('settles the turn to stopped, clears live text, and refetches history', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-cancelled' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ctrl!.options.onEvent?.('companion-chat.turn.cancelled', {
+      type: 'turn.cancelled',
+      sessionId: 'session-cancelled',
+      turnId: 't1',
+      stoppedBy: 'user',
+      partialPersisted: true,
+      assistantMessageId: 'a1',
+      envelope: { sessionId: 'session-cancelled', messageId: 'a1', body: 'partial ', source: 'companion-chat-assistant', timestamp: 1 },
+    });
+
+    // Terminal like turn.completed: the state settles and the stream itself
+    // was NOT torn down (the same event converges every other client too).
+    expect(ctx.turnState).toBe('stopped');
+    expect(ctrl!.disconnect).toHaveBeenCalledTimes(0);
 
     ctx.unmount();
   });

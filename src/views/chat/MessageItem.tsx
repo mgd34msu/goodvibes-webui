@@ -1,4 +1,4 @@
-import { Check, Copy, Layers, Paperclip, Pencil, RotateCcw, X } from 'lucide-react';
+import { Check, Clock, Copy, Layers, Paperclip, Pencil, RotateCcw, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import type { ChatMessage } from './types';
 import type { SupersededReason } from './lineage';
@@ -173,9 +173,18 @@ export function MessageItem({
           {state && (
             <span
               className={`delivery-indicator ${state}`}
-              title={state === 'failed' ? 'Not sent' : state === 'local' ? 'Pending' : 'Sent'}
+              title={
+                state === 'failed' ? 'Not sent'
+                  : state === 'local' ? 'Pending'
+                    : state === 'cancelled' ? 'Stopped before completion — this is the partial reply that existed when the turn was stopped'
+                      : state === 'queued' ? 'Queued — will run after the current reply finishes'
+                        : 'Sent'
+              }
             >
-              {state === 'failed' ? <X size={12} /> : <Check size={12} />}
+              {state === 'failed' ? <X size={12} />
+                : state === 'cancelled' ? <><X size={12} /> stopped</>
+                  : state === 'queued' ? <><Clock size={12} /> queued</>
+                    : <Check size={12} />}
             </span>
           )}
 

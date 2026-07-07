@@ -30,6 +30,8 @@ interface StoredMessage {
   supersededAt?: number;
   supersededReason?: 'regenerate' | 'edit';
   revisionOf?: string;
+  deliveryState?: 'cancelled' | 'queued';
+  inReplyTo?: string;
 }
 
 interface StoredSession {
@@ -45,6 +47,20 @@ export interface ChatMockDaemon {
   titleUpdates: { sessionId: string; title: string }[];
   /** Snapshot the current stored messages for a session (active + retained). */
   messagesOf: (sessionId: string) => StoredMessage[];
+  /** Every server-side turn cancel captured (companion.chat.turns.cancel). */
+  cancelCalls: { sessionId: string; turnId?: string }[];
+  /** Every steer captured (companion.chat.messages.steer). */
+  steerCalls: { sessionId: string; body: string }[];
+}
+
+export interface ChatMockOptions {
+  /**
+   * Hold assistant replies instead of appending them instantly: the turn
+   * stays visibly active so specs can exercise Stop, steering, and the
+   * queued-send marker. A cancel or steer resolves the held turn (cancelled
+   * partial persisted); nothing else does.
+   */
+  holdReplies?: boolean;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -56,10 +72,14 @@ function json(route: Route, body: unknown, status = 200) {
   });
 }
 
-export async function installChatMockDaemon(page: Page): Promise<ChatMockDaemon> {
+export async function installChatMockDaemon(page: Page, options: ChatMockOptions = {}): Promise<ChatMockDaemon> {
   const sessions = new Map<string, StoredSession>();
   const messages = new Map<string, StoredMessage[]>();
   const titleUpdates: { sessionId: string; title: string }[] = [];
+  const cancelCalls: { sessionId: string; turnId?: string }[] = [];
+  const steerCalls: { sessionId: string; body: string }[] = [];
+  // sessionId -> the user message whose reply is being held (an "active turn").
+  const heldTurns = new Map<string, string>();
   let clock = 1_000;
   let seq = 0;
   const nextTime = () => (clock += 1);
@@ -196,13 +216,75 @@ export async function installChatMockDaemon(page: Page): Promise<ChatMockDaemon>
       const list = messages.get(id) ?? [];
       const content = typeof body?.body === 'string' ? body.body : (typeof body?.content === 'string' ? body.content : '');
       const attachments = Array.isArray(body?.attachments) ? (body.attachments as StoredMessage['attachments']) : [];
+      const turnActive = heldTurns.has(id);
       const userMsg: StoredMessage = {
         id: nextId('u'), sessionId: id, role: 'user', content, attachments, createdAt: nextTime(),
+        ...(turnActive ? { deliveryState: 'queued' as const } : {}),
       };
       list.push(userMsg);
       messages.set(id, list);
-      appendAssistantReply(id, 'Assistant reply');
+      if (options.holdReplies) {
+        if (!turnActive) heldTurns.set(id, userMsg.id);
+        // Queued sends stay queued until the held turn resolves (cancel/steer).
+      } else {
+        appendAssistantReply(id, 'Assistant reply');
+      }
       return json(route, { messageId: userMsg.id });
+    }
+
+    // POST /turns/cancel — resolve the held turn as a cancelled partial.
+    const cancelMatch = path.match(/^\/api\/companion\/chat\/sessions\/([^/]+)\/turns\/cancel$/);
+    if (method === 'POST' && cancelMatch) {
+      const id = decodeURIComponent(cancelMatch[1]);
+      const turnUserId = heldTurns.get(id);
+      cancelCalls.push({ sessionId: id, ...(typeof body?.turnId === 'string' ? { turnId: body.turnId } : {}) });
+      if (!sessions.has(id)) return json(route, { error: 'Session not found', code: 'SESSION_NOT_FOUND' }, 404);
+      if (!turnUserId) return json(route, { error: 'No turn in flight', code: 'NO_ACTIVE_TURN' }, 404);
+      heldTurns.delete(id);
+      const list = messages.get(id) ?? [];
+      list.push({
+        id: nextId('a'), sessionId: id, role: 'assistant',
+        content: 'This partial reply was being generated when',
+        attachments: [], createdAt: nextTime(),
+        deliveryState: 'cancelled', inReplyTo: turnUserId,
+      });
+      messages.set(id, list);
+      return json(route, { sessionId: id, turnId: 'e2e-turn-1', cancelled: true, partialPersisted: true });
+    }
+
+    // POST /messages/steer — cancel the held turn (partial) and answer NOW.
+    const steerMatch = path.match(/^\/api\/companion\/chat\/sessions\/([^/]+)\/messages\/steer$/);
+    if (method === 'POST' && steerMatch) {
+      const id = decodeURIComponent(steerMatch[1]);
+      if (!sessions.has(id)) return json(route, { error: 'Session not found', code: 'SESSION_NOT_FOUND' }, 404);
+      const content = typeof body?.body === 'string' ? body.body : (typeof body?.content === 'string' ? body.content : '');
+      steerCalls.push({ sessionId: id, body: content });
+      const list = messages.get(id) ?? [];
+      const interrupted = heldTurns.get(id);
+      let cancelledTurnId: string | undefined;
+      if (interrupted) {
+        heldTurns.delete(id);
+        cancelledTurnId = 'e2e-turn-1';
+        list.push({
+          id: nextId('a'), sessionId: id, role: 'assistant',
+          content: 'This partial reply was being generated when',
+          attachments: [], createdAt: nextTime(),
+          deliveryState: 'cancelled', inReplyTo: interrupted,
+        });
+      }
+      const userMsg: StoredMessage = {
+        id: nextId('u'), sessionId: id, role: 'user', content, attachments: [], createdAt: nextTime(),
+      };
+      list.push(userMsg);
+      messages.set(id, list);
+      list.push({
+        id: nextId('a'), sessionId: id, role: 'assistant',
+        content: `Steered reply`, attachments: [], createdAt: nextTime(), inReplyTo: userMsg.id,
+      });
+      return json(route, {
+        sessionId: id, messageId: userMsg.id, steered: true, turnStarted: true,
+        ...(cancelledTurnId ? { cancelledTurnId } : {}),
+      }, 202);
     }
 
     // regenerate (retry): supersede the last active assistant + anything after, append fresh.
@@ -277,5 +359,7 @@ export async function installChatMockDaemon(page: Page): Promise<ChatMockDaemon>
   return {
     titleUpdates,
     messagesOf: (sessionId: string) => messages.get(sessionId) ?? [],
+    cancelCalls,
+    steerCalls,
   };
 }

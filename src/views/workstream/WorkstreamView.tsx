@@ -43,6 +43,8 @@ import {
   stateLabel,
   unbackedCapabilityNote,
 } from '../../lib/fleet';
+import type { BadgeTone } from '../../lib/presentation-bridge';
+import { contractStateForBadgeTone } from '../../lib/presentation-bridge';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
@@ -52,7 +54,11 @@ import '../../styles/components/workstream.css';
 const WORKSTREAM_POLL_INTERVAL_MS = 15_000;
 const WORKSTREAM_KINDS = new Set(['workstream', 'phase', 'work-item']);
 
-function stateTone(state: string): string {
+/** Same fleet process-state -> severity business logic as FleetView.tsx's stateTone
+ * (genuinely webui/fleet-local — the presentation bridge has no notion of "stalled" or
+ * "awaiting approval"). Typed as BadgeTone so it feeds contractStateForBadgeTone below
+ * with no re-derivation. */
+function stateTone(state: string): BadgeTone {
   if (!isKnownProcessState(state)) return 'warning';
   if (isStalledState(state) || isAwaitingApprovalState(state)) return 'warning';
   if (state === 'failed' || state === 'killed') return 'bad';
@@ -60,8 +66,15 @@ function stateTone(state: string): string {
   return 'ok';
 }
 
+/** Routes the tone through the shared presentation bridge (contractStateForBadgeTone) —
+ * see FleetView.tsx's StateBadge for the full rationale; this view mirrors it exactly. */
 function StateBadge({ state }: { state: string }) {
-  return <span className={`badge ${stateTone(state)}`}>{stateLabel(state)}</span>;
+  const tone = stateTone(state);
+  return (
+    <span className={`badge ${tone}`} data-contract-state={contractStateForBadgeTone(tone)}>
+      {stateLabel(state)}
+    </span>
+  );
 }
 
 function KindBadge({ kind }: { kind: string }) {

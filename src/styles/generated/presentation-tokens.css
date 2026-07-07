@@ -17,7 +17,15 @@
  */
 
 :root {
-  /* Status glyphs — GLYPHS.status, quoted for `content:` use. */
+  /* Status glyphs — GLYPHS.status, quoted for `content:` use. All 16 keys are
+   * emitted for parity with the TS mirror (one snapshot, not a hand-picked
+   * subset) even though only 4 (success/warn/failure/info — the good/warn/bad/
+   * info bucket STATE_GLYPHS aliases) have a real `var()` consumer today: see
+   * `.badge[data-contract-state]::before` in src/styles.css (FleetView.tsx /
+   * WorkstreamView.tsx StateBadge). The other 12 (pending/active/idle/blocked/
+   * skipped/review/retry/handoff/reference/partial/dualPane/star) have no
+   * consumer YET — kept checked-in so a future component reaching for a more
+   * specific glyph than the 4-bucket alias affords never has to regenerate first. */
   --contract-glyph-success: "✓";
   --contract-glyph-failure: "✕";
   --contract-glyph-pending: "•";
@@ -35,7 +43,12 @@
   --contract-glyph-dual-pane: "◆";
   --contract-glyph-star: "★";
 
-  /* State tone colors — TONE_TOKENS.state (dark / default). */
+  /* State tone colors — TONE_TOKENS.state (dark / default). Consumed by the same
+   * `.badge[data-contract-state]::before` rule (src/styles.css) — deliberately only
+   * for the glyph's own tint, never the badge's overall background/text color: this
+   * web UI's own palette (tokens.css) is NOT repainted onto the contract's colors
+   * (see presentation-bridge.ts's header for why — glyphs, not colors, are the
+   * cross-surface parity mechanism). */
   --contract-state-info: #38bdf8;
   --contract-state-good: #22c55e;
   --contract-state-warn: #f59e0b;

@@ -57,3 +57,6 @@ logs/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Harness-internal state — never committed.
+.claude/

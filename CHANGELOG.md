@@ -29,6 +29,48 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   app from another machine over Tailscale, same-origin bundle serving, install,
   offline behavior, and push.
 
+## [1.1.0] - 2026-07-07
+
+The desktop release: the web UI becomes a full chat application and operator
+console with feature parity across most of the terminal UI's surface, on the
+typed `@pellux/goodvibes-sdk` 1.3.1 contracts.
+
+### Added
+
+- **A modern chat app**: streaming markdown with highlighted code blocks and
+  copy buttons, a searchable history sidebar, a rich composer with attachments,
+  regenerate and edit-with-branching where superseded turns stay viewable
+  (never silently gone), automatic conversation titles, and stop-generation.
+- **Voice in the browser**: spoken replies (batched, concurrency-capped
+  synthesis with quiet retry), microphone dictation over the daemon's
+  speech-to-text with review-before-send, and one voice configuration shared
+  across terminal, desktop, and agent.
+- **Memory view**: browse and search the shared cross-surface memory store
+  with the recall-honesty details rendered verbatim (search mode, index
+  availability, exclusion counts, the store's recall floor), review-state
+  edits, and true deletion.
+- **Deeper operator surfaces**: fleet process tree with steer/detach/stop
+  where the wire genuinely supports them (honest notes where it doesn't),
+  inline approvals from the tree, knowledge consolidation candidates and
+  prompt-packet builder with truncation disclosure, a calendar view with ICS
+  import/export, a multi-target model workspace, and a settings modal with
+  the terminal UI's category naming and secret redaction.
+- **Installable app (PWA)**: add-to-home-screen install on iOS/Android, an
+  offline shell that opens instantly and says plainly when the daemon is
+  unreachable, and push notifications for approvals delivered through the
+  daemon's own encrypted push service.
+- **Cross-machine serving**: the daemon can serve this app same-origin
+  (opt-in), so a browser on another machine reaches it with zero
+  cross-origin configuration — designed for `tailscale serve`.
+
+### Fixed
+
+- Live updates now connect only after sign-in and reconnect on every auth
+  change; transport errors show friendly wording, never raw server JSON.
+- Every view fits a phone viewport with no horizontal scrolling.
+- A plain-HTTP address shows an honest "this page needs HTTPS" message
+  instead of a blank screen.
+
 ## [1.0.1] - 2026-07-06
 
 ### Added

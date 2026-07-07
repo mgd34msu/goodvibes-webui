@@ -24,11 +24,23 @@ export function shouldRegisterServiceWorker(): boolean {
 
 export function registerServiceWorker(): void {
   if (!shouldRegisterServiceWorker()) return;
-  window.addEventListener('load', () => {
+
+  const register = () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error: unknown) => {
       // A registration failure must never take the app down — it only means the
       // offline shell + push are unavailable this session.
       console.warn('Service worker registration failed:', error);
     });
-  });
+  };
+
+  // Defer to the load event so registration never contends with first paint — but if the
+  // document has ALREADY loaded, register straight away. This function now runs after a
+  // dynamic import (see bootstrap.ts / mount-app.tsx), so on a fast load the 'load' event
+  // can have fired before we get here; a bare addEventListener('load') would then never
+  // run and the service worker would silently never register.
+  if (document.readyState === 'complete') {
+    register();
+  } else {
+    window.addEventListener('load', register, { once: true });
+  }
 }

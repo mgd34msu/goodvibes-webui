@@ -6,9 +6,14 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * HERMETIC BY CONSTRUCTION: the webServer boots THIS repo's vite dev server on a
  * dedicated port (4318 — deliberately NOT 3421 or 4444) and points its /api proxy at a
- * dead localhost target that is never contacted, because every test installs
- * installMockDaemon (e2e/support/mock-daemon.ts), which intercepts /api in the browser
- * and answers from a seeded fixture. No real daemon, no real network beyond the local
+ * local STUB (scripts/e2e-daemon-stub.ts, port 59991) that answers every request with
+ * a deliberate 503 { code: 'E2E_STUB' } — never a real daemon. In practice the stub is
+ * almost never reached: every test installs an in-page mock (installMockDaemon /
+ * installChatMockDaemon) that intercepts the wire in the browser and answers from a
+ * seeded fixture. The stub exists for the one structural exception — requests made
+ * while a REAL service worker controls the page (the PWA specs), which Playwright
+ * page routing cannot see — so nothing ever dies as a refused connection and a clean
+ * run's webServer log is silent. No real daemon, no real network beyond the local
  * dev server, no port coordination.
  */
 
@@ -52,23 +57,34 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'bunx vite',
-    url: BASE_URL,
-    timeout: 120_000,
-    reuseExistingServer: !process.env.CI,
-    env: {
-      GOODVIBES_WEB_HOST: '127.0.0.1',
-      GOODVIBES_WEB_PORT: String(WEB_PORT),
-      // A dead target that is never actually reached (all /api is intercepted in-page).
-      // Explicitly NOT the real control plane (3421) or web (4444/3423) ports.
-      GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
-      // Force the config's settings/CLI probes to no-op deterministically.
-      GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
-      // Register the service worker against the dev server so the PWA shell +
-      // registration are exercisable headlessly (it is PROD-gated otherwise, to
-      // keep normal dev sessions HMR-friendly). 127.0.0.1 is a secure context.
-      VITE_ENABLE_SW: '1',
+  webServer: [
+    {
+      // The deliberate answer for requests the in-page mocks cannot intercept
+      // (see the header comment). Must start before vite so the proxy target
+      // is never a dead port.
+      command: 'bun scripts/e2e-daemon-stub.ts',
+      url: 'http://127.0.0.1:59991/__stub-alive',
+      timeout: 30_000,
+      reuseExistingServer: true,
     },
-  },
+    {
+      command: 'bunx vite',
+      url: BASE_URL,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+      env: {
+        GOODVIBES_WEB_HOST: '127.0.0.1',
+        GOODVIBES_WEB_PORT: String(WEB_PORT),
+        // The e2e stub (first webServer entry). Explicitly NOT the real control
+        // plane (3421) or web (4444/3423) ports.
+        GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
+        // Force the config's settings/CLI probes to no-op deterministically.
+        GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
+        // Register the service worker against the dev server so the PWA shell +
+        // registration are exercisable headlessly (it is PROD-gated otherwise, to
+        // keep normal dev sessions HMR-friendly). 127.0.0.1 is a secure context.
+        VITE_ENABLE_SW: '1',
+      },
+    },
+  ],
 });

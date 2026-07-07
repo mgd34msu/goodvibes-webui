@@ -22,6 +22,13 @@ Test-harness and CI honesty release — no product code changed.
 
 ### Changed
 
+- The end-to-end harness no longer produces refused-connection noise: the two
+  direct routes the chat-spec mock missed (`/status`, `/config`) are now
+  answered in-page, and the vite proxy's former dead target is a deliberate
+  stub that answers anything the in-page mocks structurally cannot intercept
+  (requests made under a real service worker in the PWA specs) with an
+  unmistakable 503 `E2E_STUB` — a clean run's server log is now silent, so a
+  refused connection can never again be mistaken for the suite's normal state.
 - The lint and end-to-end CI jobs are now blocking. They previously ran with
   `continue-on-error`, which let the workflow report success while those jobs
   failed — a green checkmark must mean everything is green. Ruling recorded in

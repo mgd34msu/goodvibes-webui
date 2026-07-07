@@ -102,6 +102,12 @@ export async function installChatMockDaemon(page: Page): Promise<ChatMockDaemon>
     return reply;
   }
 
+  // The SDK's control.status helper and the settings modal use the direct
+  // GET /status and /config routes (not the invoke gateway) — register them
+  // here too or they escape to the proxy target.
+  await page.route('**/status', async (route) => json(route, { ok: true, status: 'running' }));
+  await page.route('**/config', async (route) => json(route, {}));
+
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const method = request.method();

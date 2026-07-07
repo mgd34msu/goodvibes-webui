@@ -310,6 +310,17 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, configState);
   });
 
+  // The SDK's control.status convenience helper uses the direct `GET /status`
+  // route (not the invoke gateway), so it needs its own registration. Without
+  // it this was the ONE request that escaped the mock to the dead proxy
+  // target: every boot snapshot and the Admin status card ran against a
+  // connection-refused health probe, spamming the webServer log with
+  // ECONNREFUSED and exercising the app permanently in its daemon-down pulse
+  // state. Same answer shape as the invoke-path 'control.status' below.
+  await page.route('**/status', async (route) => {
+    return json(route, { ok: true, status: 'running' });
+  });
+
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const method = request.method();

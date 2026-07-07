@@ -6,6 +6,13 @@
  * uses a MOCKED PushManager (Playwright cannot reach a real push service), and
  * every push.* call is answered by the in-page mock daemon. No real push is
  * ever sent — the STATES are asserted, not deliveries.
+ *
+ * KNOWN RESIDUAL: while the REAL service worker controls the page, Playwright's
+ * page routing cannot intercept its requests — those flow through the vite
+ * proxy to the e2e daemon stub (scripts/e2e-daemon-stub.ts) and get a
+ * deliberate 503 { code: 'E2E_STUB' }. Assertions in this spec therefore never
+ * depend on daemon data while the real worker is in control; they prove the
+ * install/offline/push honesty states.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';

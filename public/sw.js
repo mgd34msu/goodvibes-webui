@@ -188,10 +188,14 @@ self.addEventListener('push', (event) => {
 
 // Map a notification's data onto an in-app URL. Kept in sync with the pure
 // helper src/lib/push/notification-link.ts (unit-tested there); this copy is
-// what the service-worker runtime actually executes.
+// what the service-worker runtime actually executes. The `.startsWith('/')` guard
+// is load-bearing, not decorative: without it an absolute `data.url` (e.g. from a
+// malicious or malformed push payload) would have the SW open an external site on
+// a notification tap. src/lib/push/sw.test.ts loads and executes THIS file (not a
+// hand-copy) to pin that the guard actually runs here, not just in the pure helper.
 function linkForNotification(data) {
   if (data && data.kind === 'approval') return '/?view=approvals-tasks';
-  if (data && typeof data.url === 'string') return data.url;
+  if (data && typeof data.url === 'string' && data.url.startsWith('/')) return data.url;
   return '/';
 }
 

@@ -6,28 +6,28 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
-### Added
+## [1.1.1] - 2026-07-07
 
-- **Installable app (Progressive Web App)** — a web app manifest and icons make
-  the web UI installable straight from the browser on iOS and Android (Add to
-  Home Screen; no app store, no separate download). It opens in its own window,
-  standalone, with the app's own theme color.
-- **Offline app shell, honestly degraded** — a service worker caches the app
-  shell so an installed app opens instantly, even with no network. It **never**
-  caches a daemon API response: opening offline (or while the daemon is
-  unreachable) loads the shell and then shows the ordinary "Can't reach the
-  daemon" reconnecting state. Cached data is never dressed up as live.
-- **Web Push notifications** — subscribe this device from Admin → Notifications &
-  install to receive approvals and completions as notifications, even when the
-  app isn't open, over the daemon's `push.vapid.get` / `push.subscriptions.*`
-  verbs. Tapping an approval notification deep-links to the Approvals view. Every
-  "can't" is an honest state: an insecure (plain-HTTP) context points at opening
-  the app over HTTPS (e.g. `tailscale serve`), a blocked permission explains how
-  to re-enable it, and an unsupported browser (including iOS's installed-app-only
-  push) says so plainly.
-- **Deployment guide** — [docs/deployment.md](docs/deployment.md): reaching the
-  app from another machine over Tailscale, same-origin bundle serving, install,
-  offline behavior, and push.
+Test-harness and CI honesty release — no product code changed.
+
+### Fixed
+
+- Two phone end-to-end tests closed the navigation drawer by clicking the
+  center of the backdrop, a point the open drawer itself covers; they only
+  passed by racing the drawer's opening animation and failed deterministically
+  on CI. They now tap the always-visible dimmed area beside the drawer.
+- All lint errors: unused test fixture arguments, empty mock function bodies,
+  useless variable initializers, and the service worker being excluded from
+  linting entirely (it is now linted with service-worker globals).
+
+### Changed
+
+- The lint and end-to-end CI jobs are now blocking. They previously ran with
+  `continue-on-error`, which let the workflow report success while those jobs
+  failed — a green checkmark must mean everything is green. Ruling recorded in
+  [docs/decisions/2026-07-07-e2e-ci-in-ci.md](docs/decisions/2026-07-07-e2e-ci-in-ci.md).
+- Removed a stale duplicate of the 1.1.0 installable-app notes that had been
+  left under Unreleased.
 
 ## [1.1.0] - 2026-07-07
 

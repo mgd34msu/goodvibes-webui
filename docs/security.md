@@ -33,6 +33,14 @@ Browser code must not read or scrape:
 GoodVibes secret refs such as `goodvibes://secrets/...` are daemon-side
 credential resolution for downstream services. They are not WebUI auth tokens.
 
+## Web Push
+
+Push key custody is daemon-side: the VAPID private key never leaves the daemon,
+and the browser fetches only the public key (`push.vapid.get`) to subscribe.
+Push subscriptions are stored by the daemon (`push.subscriptions.*`). Push and
+install require a secure (HTTPS) context; the app states this on plain HTTP
+instead of failing silently.
+
 ## Network
 
 Development topology:

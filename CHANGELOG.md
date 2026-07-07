@@ -30,9 +30,14 @@ Test-harness and CI honesty release — no product code changed.
   left under Unreleased.
 - Documentation refreshed to the shipped 1.1.x surface: the README (badges,
   feature surface, verification, release checklist), the operator guide (all
-  eleven views plus voice and install), the screenshot tour, and the pinned
-  Bun version in the development guide. All screenshots recaptured from the
-  current UI against the end-to-end suite's seeded mock daemon.
+  eleven views plus voice and install), the architecture doc (typed contract
+  client, session union, memory/voice/PWA models, multiplexed invalidation),
+  the SDK surface matrix (new method families; the `sessions.followUp`
+  exclusion narrowed to what it means), known limitations (no longer claims
+  gaps that were fixed), security notes (Web Push key custody), the screenshot
+  tour, and the pinned Bun version in the development guide. All screenshots
+  recaptured from the current UI against the end-to-end suite's seeded mock
+  daemon.
 
 ## [1.1.0] - 2026-07-07
 

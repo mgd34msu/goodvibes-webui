@@ -52,6 +52,8 @@ import {
   unbackedCapabilityNote,
   wireBackedActions,
 } from '../../lib/fleet';
+import type { BadgeTone } from '../../lib/presentation-bridge';
+import { contractStateForBadgeTone } from '../../lib/presentation-bridge';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
@@ -74,7 +76,12 @@ function KindBadge({ kind }: { kind: string }) {
   );
 }
 
-function stateTone(state: string): string {
+/** Which fleet process states map to which severity is genuinely webui/fleet-local
+ * business logic (stalled/awaiting-approval/failed/killed have no SDK-contract
+ * analogue) — the presentation-bridge cannot derive this, so it stays hand-written.
+ * Typed as BadgeTone (not `string`) so the tone this produces is exactly the same
+ * vocabulary contractStateForBadgeTone below already has a 1:1 mapping for. */
+function stateTone(state: string): BadgeTone {
   if (!isKnownProcessState(state)) return 'warning';
   if (isStalledState(state) || isAwaitingApprovalState(state)) return 'warning';
   if (state === 'failed' || state === 'killed') return 'bad';
@@ -82,8 +89,18 @@ function stateTone(state: string): string {
   return 'ok';
 }
 
+/** `data-contract-state` routes the tone through the shared presentation bridge
+ * (contractStateForBadgeTone) instead of re-deriving the good/warn/bad/info bucket
+ * locally — the same mapping StatusStrip's REACHABLE axis mounts, applied here too
+ * (see status.css / this file's fleet.css sibling for the `::before` glyph rule that
+ * consumes it). */
 function StateBadge({ state }: { state: string }) {
-  return <span className={`badge ${stateTone(state)}`}>{stateLabel(state)}</span>;
+  const tone = stateTone(state);
+  return (
+    <span className={`badge ${tone}`} data-contract-state={contractStateForBadgeTone(tone)}>
+      {stateLabel(state)}
+    </span>
+  );
 }
 
 export function FleetView() {
@@ -235,8 +252,14 @@ function FleetDetail({ node, onBack }: { node: FleetProcessNode; onBack: () => v
         </div>
       )}
 
+      {/* Phone-only honest note (view-only tier) — matches the Checkpoints/Tasks
+          pattern verbatim: "X happens on a wider screen. [reassurance] here.", role="note".
+          Names all three actions the condition above actually covers (steer, detach,
+          stop), not just two of them. */}
       {(backed.has('steer') || backed.has('detach') || backed.has('stop')) && (
-        <p className="fleet-detail__phone-actions-note">Steer/stop actions are available on a wider screen.</p>
+        <p className="fleet-detail__phone-actions-note" role="note">
+          Steering, detaching, and stopping happen on a wider screen. This process's detail stays readable here.
+        </p>
       )}
 
       {unbackedNote && (

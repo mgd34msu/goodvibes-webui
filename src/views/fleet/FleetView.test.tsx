@@ -193,6 +193,18 @@ describe('FleetView rendering', () => {
     expect(el.textContent).toContain('10 in');
     unmount();
   });
+
+  test('a node with steer/detach actions shows the phone-tier honest note, matching the Checkpoints/Tasks convention', () => {
+    const { el, unmount } = render();
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Root agent'));
+    click(row);
+    const note = el.querySelector('.fleet-detail__phone-actions-note');
+    expect(note).not.toBeNull();
+    expect(note!.getAttribute('role')).toBe('note');
+    // Names all three actions the note's own condition covers, not just two.
+    expect(note!.textContent).toBe('Steering, detaching, and stopping happen on a wider screen. This process\'s detail stays readable here.');
+    unmount();
+  });
 });
 
 describe('FleetView honest states', () => {

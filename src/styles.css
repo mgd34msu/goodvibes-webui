@@ -2770,6 +2770,44 @@ code {
   background: var(--blue-soft);
 }
 
+/*
+ * Contract-sourced severity glyph for a `.badge` carrying `data-contract-state`
+ * (FleetView.tsx / WorkstreamView.tsx's StateBadge — see presentation-bridge.ts's
+ * contractStateForBadgeTone). Deliberately NOT a color migration of the badge itself:
+ * `.badge.ok/.warning/.bad/.neutral` above keep this web UI's own hand-picked palette
+ * (tokens.css's documented "webui-only, not the SDK contract" layer) — only the small
+ * prefix glyph is sourced from the generated contract tables (src/styles/generated/
+ * presentation-tokens.css), mirroring status.css's `.status-strip__segment--connection`
+ * rule for the REACHABLE axis. This is a REAL var() consumer for both generated custom-
+ * property families (`--contract-glyph-*` content, `--contract-state-*` color) for the
+ * 4-of-16 keys the good/warn/bad/info bucket actually uses.
+ */
+.badge[data-contract-state]::before {
+  content: '';
+  margin-right: 3px;
+  opacity: 0.85;
+}
+
+.badge[data-contract-state="good"]::before {
+  content: var(--contract-glyph-success);
+  color: var(--contract-state-good);
+}
+
+.badge[data-contract-state="warn"]::before {
+  content: var(--contract-glyph-warn);
+  color: var(--contract-state-warn);
+}
+
+.badge[data-contract-state="bad"]::before {
+  content: var(--contract-glyph-failure);
+  color: var(--contract-state-bad);
+}
+
+.badge[data-contract-state="info"]::before {
+  content: var(--contract-glyph-info);
+  color: var(--contract-state-info);
+}
+
 .primary-button {
   color: #090717;
   background: var(--gv-cyan);

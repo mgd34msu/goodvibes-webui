@@ -1308,6 +1308,11 @@ export const sdk = {
           ...(input.metadata ? { metadata: input.metadata } : {}),
         }) as Promise<CompanionEditResult>,
     },
+    // Server-side turn stop (companion.chat.turns.cancel, SDK 1.4+). The
+    // terminal turn.cancelled event on the session stream is the authoritative
+    // signal; treat 404 NO_ACTIVE_TURN as benign and feature-detect older
+    // daemons with isMethodUnavailableError.
+    turns: scopedSdk.chat.turns,
     events: scopedSdk.chat.events,
   },
   artifacts: scopedSdk.artifacts,

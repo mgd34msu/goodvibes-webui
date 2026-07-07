@@ -132,6 +132,15 @@ export function isSessionActiveError(error: unknown): boolean {
  * honest degraded affordance) from "this session doesn't exist" (SESSION_NOT_FOUND) or
  * a genuine server error.
  */
+/**
+ * The benign refusal from companion.chat.turns.cancel: no turn was in flight —
+ * it finished naturally before the stop landed. Rendered quietly, never as an
+ * error (the daemon promises the machine code, not message text).
+ */
+export function isNoActiveTurnError(error: unknown): boolean {
+  return errorCode(error) === 'NO_ACTIVE_TURN';
+}
+
 export function isMethodUnavailableError(error: unknown): boolean {
   const serialized = serializeError(error);
   const transport = asRecord(serialized.transport);

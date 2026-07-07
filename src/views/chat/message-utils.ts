@@ -101,6 +101,9 @@ export const ACTIVE_TURN_STATES = [
   'tooling',
   'reconnecting',
   'sending while reconnecting',
+  // A server-side stop has been requested; the stream stays open awaiting the
+  // terminal turn.cancelled event.
+  'stopping',
 ];
 
 /**
@@ -122,8 +125,13 @@ export function deriveChatTitle(text: string, maxLength = 52): string {
   return `${onWordBoundary.replace(/[\s.,;:!?-]+$/, '')}…`;
 }
 
-export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '' {
+export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | 'cancelled' | 'queued' | '' {
   const state = firstString(message, ['deliveryState', 'status', 'state']).toLowerCase();
+  // Exact daemon markers first — 'cancelled' (an assistant partial whose turn
+  // was stopped) and 'queued' (a user message whose turn has not started)
+  // must never fall through to the 'sent' default and masquerade as normal.
+  if (state === 'cancelled') return 'cancelled';
+  if (state === 'queued') return 'queued';
   if (state.includes('fail') || state.includes('error')) return 'failed';
   if (state.includes('local') || state.includes('pending')) return 'local';
   if (messageTone(message) === 'user') return 'sent';

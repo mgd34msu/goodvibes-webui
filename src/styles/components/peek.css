@@ -38,22 +38,46 @@
   border-left: 1px solid var(--border-subtle);
   box-shadow: var(--elevation-3);
   z-index: var(--z-peek);
-  display: flex;
   flex-direction: column;
   transform: translateX(100%);
+  /*
+   * CLOSED = display:none so the off-canvas panel is fully OUT of layout. It used to
+   * stay `visibility:hidden` at `translateX(100%)`, but a transform does NOT remove an
+   * element from layout: a fixed panel parked one viewport-width to the right still
+   * extended the document's scrollable width (~798px at 390px viewport), so every view
+   * but Chat scrolled sideways into empty space on a phone. display:none removes the box
+   * entirely — no width contribution, no horizontal overflow.
+   *
+   * The slide still animates BOTH ways: `transition-behavior: allow-discrete` lets the
+   * discrete `display` flip participate in the transition — on close it holds `display`
+   * until the transform finishes (matching the old visibility delay), and on open the
+   * `@starting-style` below gives the just-shown panel its off-canvas start so it slides
+   * in rather than popping.
+   */
+  display: none;
   transition:
     transform var(--motion-base) var(--ease-standard),
-    visibility 0ms var(--motion-base);
+    visibility 0ms var(--motion-base),
+    display 0ms var(--motion-base) allow-discrete;
   visibility: hidden;
   outline: none;
 }
 
 .peek-panel--open {
+  display: flex;
   transform: translateX(0);
   visibility: visible;
   transition:
     transform var(--motion-base) var(--ease-standard),
-    visibility 0ms 0ms;
+    visibility 0ms 0ms,
+    display 0ms 0ms allow-discrete;
+}
+
+/* Slide-in start state: the frame the panel paints on when display flips to flex. */
+@starting-style {
+  .peek-panel--open {
+    transform: translateX(100%);
+  }
 }
 
 /* ---------------------------------------------------------------------------

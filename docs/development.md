@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Bun `1.3.10`
+- Bun `1.3.14`
 - GoodVibes daemon running locally or on an explicitly configured backend URL
 - Installed `goodvibes` CLI for standalone WebUI development
 

@@ -6,6 +6,34 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-07
+
+The turn-control release, on `@pellux/goodvibes-sdk` 1.4.0.
+
+### Added
+
+- **Stop actually stops.** The Stop button now issues the daemon's new
+  server-side cancel (`companion.chat.turns.cancel`) and keeps the live
+  stream open — the terminal `turn.cancelled` event settles this client and
+  every other one watching the session. The partial reply is kept in the
+  transcript with an explicit "stopped" badge, never disguised as a complete
+  answer. On an older daemon the button falls back to the previous
+  local-render stop and says exactly that.
+- **Steer: interrupt and send now.** Ctrl+Enter (Cmd+Enter on Mac) — or press
+  and hold the send button on a phone — interrupts the current reply and runs
+  your message immediately. Plain Enter still sends normally.
+- **Queue-when-busy.** A message sent while a reply is streaming queues
+  behind it (the daemon no longer races concurrent turns against one
+  conversation) and shows an honest "queued" badge until its turn starts.
+
+### Fixed
+
+- The Stop control is now reachable for the whole active turn — it previously
+  required streamed text, so a turn could not be stopped while the model was
+  still thinking or inside a long tool call.
+- The badges above close two honesty gaps: a queued message used to render as
+  "Sent ✓" and a stopped partial rendered unmarked.
+
 ## [1.1.1] - 2026-07-07
 
 Test-harness and CI honesty release — no product code changed.

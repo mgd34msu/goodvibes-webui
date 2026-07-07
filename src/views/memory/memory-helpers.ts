@@ -19,9 +19,12 @@ export const MEMORY_SCOPES: readonly MemoryScope[] = ['session', 'project', 'tea
 
 export const MEMORY_REVIEW_STATES: readonly MemoryReviewState[] = ['fresh', 'reviewed', 'stale', 'contradicted'];
 
-/** The store's own baseline trust — MemoryStore.add stamps new records at this
- * confidence, and it is the recall-injection floor (memory-recall-contract.ts). Shown
- * in the UI so "60%" reads as a real, documented threshold, not an arbitrary number. */
+/** The store's documented baseline trust (memory-recall-contract.ts's
+ * MIN_PROMPT_MEMORY_CONFIDENCE) — MemoryStore.add stamps new records at this
+ * confidence, and it is the recall-injection floor. Kept only as a documented fact for
+ * tests; the live UI never uses this constant directly — it reads the actual
+ * `recallFloor` a search result carries on the wire (isBelowRecallFloor below), so a
+ * retuned store floor can never leave this hardcoded number silently stale. */
 export const RECALL_CONFIDENCE_FLOOR = 60;
 
 /**
@@ -60,9 +63,12 @@ export function isFlaggedReviewState(state: MemoryReviewState): boolean {
 
 /** A confidence below the recall floor never clears prompt-injection even when the
  * record is not flagged — surfaced so a browsing operator can see WHY a record would
- * be silently skipped by the agent, without needing recall:true search semantics. */
-export function isBelowRecallFloor(record: MemoryRecord): boolean {
-  return record.confidence < RECALL_CONFIDENCE_FLOOR;
+ * be silently skipped by the agent, without needing recall:true search semantics.
+ * `recallFloor` is the live wire value (MemorySearchResult.recallFloor) the caller
+ * searched against — required, not defaulted, so this never silently substitutes a
+ * hardcoded number for the store's actual configured floor. */
+export function isBelowRecallFloor(record: MemoryRecord, recallFloor: number): boolean {
+  return record.confidence < recallFloor;
 }
 
 export function formatConfidence(confidence: number): string {

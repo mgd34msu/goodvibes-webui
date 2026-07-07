@@ -242,6 +242,7 @@ export function MemoryView() {
                       <MemoryRecordRow
                         key={record.id}
                         record={record}
+                        recallFloor={list.data.recallFloor}
                         onOpen={openDetail}
                         onDelete={requestDelete}
                         deleting={deleteMutation.isPending && deleteMutation.variables.id === record.id}
@@ -283,6 +284,7 @@ export function MemoryView() {
                       <MemoryRecordRow
                         key={record.id}
                         record={record}
+                        recallFloor={personas.data.recallFloor}
                         onOpen={openDetail}
                         onDelete={requestDelete}
                         deleting={deleteMutation.isPending && deleteMutation.variables.id === record.id}

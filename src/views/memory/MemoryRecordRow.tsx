@@ -4,6 +4,10 @@ import { formatConfidence, isBelowRecallFloor, reviewStateTone } from './memory-
 
 interface MemoryRecordRowProps {
   record: MemoryRecord;
+  /** The wire recall floor (MemorySearchResult.recallFloor) the search that produced
+   * this record ran against — required so the badge title states the store's actual
+   * configured floor, never a hardcoded/duplicated number. */
+  recallFloor: number;
   onOpen: (record: MemoryRecord) => void;
   onDelete: (record: MemoryRecord) => void;
   deleting?: boolean;
@@ -11,9 +15,9 @@ interface MemoryRecordRowProps {
 
 /** One record row: summary + cls/scope/review-state/confidence badges + delete.
  * Never renders `detail` here (that is the peek's job) — the list stays scannable. */
-export function MemoryRecordRow({ record, onOpen, onDelete, deleting = false }: MemoryRecordRowProps) {
+export function MemoryRecordRow({ record, recallFloor, onOpen, onDelete, deleting = false }: MemoryRecordRowProps) {
   const tone = reviewStateTone(record.reviewState);
-  const belowFloor = isBelowRecallFloor(record);
+  const belowFloor = isBelowRecallFloor(record, recallFloor);
 
   return (
     <div className="record-row memory-record-row">
@@ -29,7 +33,7 @@ export function MemoryRecordRow({ record, onOpen, onDelete, deleting = false }: 
           <span className={`badge ${tone}`}>{record.reviewState}</span>
           <span
             className={`badge ${belowFloor ? 'warning' : 'neutral'}`}
-            title={belowFloor ? "Below the store's configured recall floor — never injected into a prompt" : undefined}
+            title={belowFloor ? `Below the ${recallFloor}% recall floor — never injected into a prompt` : undefined}
           >
             {formatConfidence(record.confidence)}
           </span>

@@ -20,10 +20,11 @@ import type { MemorySearchResult } from '../../lib/goodvibes';
  * caller searched with, so the label can say "of the first N" instead of implying N is
  * the whole matching set.
  *
- * The recall floor itself (`excludedBelowFloorCount`'s threshold) is NOT on the wire —
- * memory-recall-contract.ts's `MIN_PROMPT_MEMORY_CONFIDENCE` never travels in the
- * search result — so this never states a specific percentage as fact; if the SDK's
- * floor value ever changes, this label does not silently go stale.
+ * The recall floor itself (`excludedBelowFloorCount`'s threshold) now travels on the
+ * wire as `result.recallFloor` (memory-recall-contract.ts's `MIN_PROMPT_MEMORY_CONFIDENCE`,
+ * promoted onto `HonestMemorySearchResult`) — the label states it directly from that
+ * value, never a hardcoded percentage, so it can never silently drift if the store's
+ * floor is retuned.
  */
 export function MemorySearchHonestyNote({ result, limit }: { result: MemorySearchResult; limit?: number }) {
   return (
@@ -50,7 +51,7 @@ export function MemorySearchHonestyNote({ result, limit }: { result: MemorySearc
         <p className="memory-honesty-note__recall-stats">
           {result.records.length} shown after the recall filter
           {' · '}{result.excludedFlaggedCount} excluded (flagged stale/contradicted)
-          {' · '}{result.excludedBelowFloorCount} excluded (below the store's configured recall floor)
+          {' · '}{result.excludedBelowFloorCount} excluded (below the {result.recallFloor}% recall floor)
           {' · '}{result.totalBeforeRecallFilter} {typeof limit === 'number' ? `of the first ${limit} matches` : 'total'} before the recall filter
         </p>
       )}

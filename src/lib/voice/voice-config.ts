@@ -12,10 +12,10 @@
  *
  *   readSharedVoiceConfig(config.get) — the SHARED tts.provider / tts.voice / tts.speed
  *   defaults, so the browser speaks in the same voice the TUI does. There is one voice
- *   config for the terminal + desktop tier; this reads it, it does not invent a per-surface
- *   one. NOT YET shared with the agent (it resolves tts.* under its own surface-root config
- *   file) — see VoiceSettings.tsx's header comment for the full picture and the flip-back
- *   marker for when the daemon grows a real shared-config tier.
+ *   config across terminal, desktop, and agent — the shared, surface-root-independent
+ *   config tier (~/.goodvibes/shared/settings.json) every surface's ConfigManager
+ *   resolves tts.* from — and this reads it, it does not invent a per-surface one. See
+ *   VoiceSettings.tsx's header comment for the full picture.
  */
 
 import { asRecord } from '../object';

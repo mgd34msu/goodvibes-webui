@@ -10,11 +10,37 @@ import { useMutation } from '@tanstack/react-query';
 import { PackageSearch } from 'lucide-react';
 import { invokeMethod } from '../../lib/goodvibes';
 import type { OperatorMethodInput } from '../../lib/goodvibes';
-import { firstArray, firstString, countFrom } from '../../lib/object';
+import { asRecord, firstArray, firstString, countFrom } from '../../lib/object';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 
 type PacketDetail = NonNullable<OperatorMethodInput<'knowledge.packet'>['detail']>;
+
+/**
+ * Hand-authored: the installed `@pellux/goodvibes-sdk` contracts package (1.1.0) predates
+ * these fields — the SDK added them post-1.2.0 (packet.ts's `truncated` / `totalCandidates` /
+ * `droppedCount`, "a partial packet must never read as complete"). All three are OPTIONAL
+ * here because they are additive on the wire: an older daemon simply omits them, and this
+ * view must keep rendering that daemon's response exactly as it always has — no fabricated
+ * claim. Once the webui pins a contracts package whose `OperatorMethodOutput<'knowledge.packet'>`
+ * carries these, this local type can be dropped for the generated one.
+ */
+interface KnowledgePacketTruncation {
+  readonly totalCandidates: number;
+  readonly droppedCount: number;
+}
+
+/** Only a genuinely truncated, post-1.2.0-daemon response yields a disclosure — a daemon
+ * that never sends `truncated`/`totalCandidates`/`droppedCount` renders exactly as it did
+ * before these fields existed, matching FleetView.tsx's `snapshot.data.truncated` cap-note. */
+function truncationInfo(data: unknown): KnowledgePacketTruncation | null {
+  const record = asRecord(data);
+  if (record.truncated !== true) return null;
+  const totalCandidates = record.totalCandidates;
+  const droppedCount = record.droppedCount;
+  if (typeof totalCandidates !== 'number' || typeof droppedCount !== 'number') return null;
+  return { totalCandidates, droppedCount };
+}
 
 function splitScope(value: string): string[] {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
@@ -46,6 +72,7 @@ export function KnowledgePacketPanel() {
 
   const items = firstArray(packet.data, ['items']);
   const estimatedTokens = countFrom(packet.data, ['estimatedTokens']);
+  const truncation = truncationInfo(packet.data);
 
   return (
     <div className="knowledge-packet">
@@ -107,6 +134,11 @@ export function KnowledgePacketPanel() {
             <p className="knowledge-packet__summary">
               {items.length} item{items.length === 1 ? '' : 's'} · ~{estimatedTokens} estimated tokens
             </p>
+            {truncation && (
+              <p className="knowledge-packet__truncation-note" role="note">
+                Showing {items.length} of {truncation.totalCandidates} candidates ({truncation.droppedCount} dropped).
+              </p>
+            )}
             <ul className="knowledge-packet__items">
               {items.map((item, index) => {
                 const kind = firstString(item, ['kind']) || 'item';

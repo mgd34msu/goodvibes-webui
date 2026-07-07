@@ -67,7 +67,7 @@ test('importing .ics content reports the honest imported count', async ({ page }
 });
 
 test.describe('phone: a long, unbroken event title never forces the page wider (MOBILE-ADAPT overflow sweep)', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the title ellipsizes instead of stretching the row past the viewport', async ({ page }) => {
     await installMockDaemon(page, { calendar: 'configured' });

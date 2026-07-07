@@ -72,7 +72,11 @@ test('drawer opened on a phone does not trap — the scrim closes it from any vi
   await page.goto('/?view=fleet');
   await page.locator('.brand-mark-button').click();
   await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
-  await page.locator('.sidebar-scrim').click();
+  // Tap the dimmed strip RIGHT of the open drawer. The scrim spans the whole
+  // viewport but the 264px drawer sits above its center, so a default
+  // center-click lands on the drawer (and only "passes" if it races the
+  // open animation). x=340 is always in the exposed strip on a 390px phone.
+  await page.locator('.sidebar-scrim').click({ position: { x: 340, y: 422 } });
   await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

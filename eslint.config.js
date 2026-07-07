@@ -113,6 +113,30 @@ export default tseslint.config(
   },
 
   {
+    // The service worker is hand-written plain JS with worker globals; it lives
+    // outside tsconfig.json's include, so type-aware linting cannot resolve it.
+    files: ["public/sw.js"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      // Keep disableTypeChecked's parserOptions (projectService off) — a bare
+      // `languageOptions:` key here would replace them and re-enable the
+      // type-aware parse this block exists to turn off.
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: {
+        self: "readonly",
+        caches: "readonly",
+        clients: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        Response: "readonly",
+        Request: "readonly",
+        Promise: "readonly",
+        console: "readonly",
+      },
+    },
+  },
+
+  {
     // Test files: relax rules that are noisy in test contexts
     files: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {

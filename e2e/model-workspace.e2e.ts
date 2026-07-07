@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('phone: the modal is a near-fullscreen sheet (MOBILE-ADAPT)', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the panel fills the viewport instead of floating as a centered card', async ({ page }) => {
     await page.getByRole('button', { name: 'Browse Models' }).click();

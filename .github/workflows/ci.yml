@@ -67,9 +67,8 @@ jobs:
         run: bun run release:gate
 
   lint:
-    name: Lint (non-blocking)
+    name: Lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -87,17 +86,14 @@ jobs:
         run: bun run lint
 
   e2e:
-    # RULING (docs/decisions/2026-07-07-e2e-ci-in-ci.md): the Playwright suite
-    # goes in as a separate, initially non-blocking job while specs stabilize,
-    # then flips blocking once its promotion criterion is met — 10
-    # consecutive green scheduled/main-branch runs with zero flake reruns.
-    # Track that count by hand against this job's run history; once satisfied,
-    # remove `continue-on-error: true` below (and drop this comment block) in
-    # one small follow-up change. Do not add e2e to the SDK or agent repos'
-    # release trains — this is webui-first only.
-    name: E2E (Playwright, non-blocking)
+    # Blocking since 2026-07-07 (docs/decisions/2026-07-07-e2e-ci-in-ci.md):
+    # the suite's only red was a deterministic spec defect (a scrim click that
+    # raced the drawer animation), not flake — so the "stabilization window"
+    # ended immediately. A failing job must fail the run; a run that reports
+    # success over a red job is a lie. webui-only: do not add e2e jobs to the
+    # SDK or agent repos' release flows.
+    name: E2E (Playwright)
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 15
     steps:
       - name: Checkout

@@ -33,8 +33,11 @@ test('the workspace loads signed-in with the drawer collapsed; open + scrim clos
   await page.locator('.brand-mark-button').click();
   await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
 
-  // Tap the scrim → collapses again (tap-away).
-  await page.locator('.sidebar-scrim').click();
+  // Tap the scrim → collapses again (tap-away). Tap the dimmed strip RIGHT of
+  // the open 264px drawer: the scrim spans the viewport, so a default
+  // center-click (x=195) lands on the drawer itself and only "passes" when it
+  // races the open animation. x=340 is always exposed on a 390px phone.
+  await page.locator('.sidebar-scrim').click({ position: { x: 340, y: 422 } });
   await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
 });
 

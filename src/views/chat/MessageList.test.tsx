@@ -106,9 +106,9 @@ function installGlobal(key: string, value: unknown): void {
 // ---------------------------------------------------------------------------
 
 describe('MessageList — streaming caret', () => {
-  test('caret is absent when liveText is empty regardless of isStreaming', () => {
+  test('caret renders while streaming even before the first token — Stop must be reachable during the thinking window', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: '' });
-    expect(container.querySelector('.stream-caret')).toBeNull();
+    expect(container.querySelector('.stream-caret')).not.toBeNull();
     unmount();
   });
 
@@ -183,10 +183,16 @@ describe('MessageList — aria attributes', () => {
     unmount();
   });
 
-  test('aria-live region is absent when liveText is empty', () => {
+  test('aria-live region renders while streaming even before the first token (the responding bubble)', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: '' });
     const liveRegion = container.querySelector('[aria-live="polite"]');
-    expect(liveRegion).toBeNull();
+    expect(liveRegion).not.toBeNull();
+    unmount();
+  });
+
+  test('aria-live region is absent when idle with no liveText', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: false, liveText: '' });
+    expect(container.querySelector('[aria-live="polite"]')).toBeNull();
     unmount();
   });
 

@@ -42,6 +42,15 @@ local shims and update this table.
 | Tasks | `sdk.operator.tasks.*` | Admin/support views | Daemon | Background work diagnostics. |
 | Approvals | `sdk.operator.approvals.*` | Admin/support views | Daemon | Human-in-the-loop review state. |
 | Realtime | `sdk.realtime.viaSse()` and scoped chat events | app-wide invalidation | Daemon runtime bus | Snapshots/lists remain authoritative. |
+| Sessions union | `sessions.list`, `sessions.search`, session detail/transcript methods via typed invoke | Sessions | Daemon session spine | Cross-surface union; `includeClosed` is an explicit, surfaced choice. |
+| Session steer / follow-up | `sessions.steer`, `sessions.followUp` via typed invoke | Sessions, Fleet | Daemon session spine | Steer only while live; follow-up on closed sessions is offered AS a follow-up, never disguised as steering. |
+| Fleet | `fleet.*` via typed invoke (`contract-bridge-types.ts`) | Fleet | Daemon process tree | Actions render only where the wire supports them. |
+| Checkpoints | `checkpoints.*` via typed invoke | Checkpoints | Daemon checkpoint store | Includes checkpoint-to-checkpoint diff. |
+| Memory | daemon memory wire (list/search/save/review/delete) | Memory | Shared cross-surface memory store | Recall-honesty metadata renders verbatim; deletes are verified. |
+| Calendar | daemon calendar module methods | Calendar | Daemon calendar store | ICS import/export; unconfigured shows the bring-your-own-CalDAV note. |
+| Voice | `voice.tts.stream`, `voice.stt`, `voice.providers.list`, `voice.voices.list`, `voice.status` | Chat composer, Voice settings | Daemon voice routes | One shared voice config tier across surfaces. |
+| Web Push | `push.vapid.get`, `push.subscriptions.*` | Admin (Notifications & install) | Daemon push service | Requires a secure (HTTPS) context. |
+| Presentation tokens | SDK shared presentation contract via `scripts/generate-presentation-tokens.ts` | build-time generation | SDK contract artifact | Generated `src/lib/generated/presentation-tokens.ts` + CSS custom properties; never hand-edited. |
 | Local auth status | daemon local auth route via SDK/route shim | Admin | Daemon | Show user/session metadata only, never raw secrets. |
 | Config | daemon config route via SDK/route shim | Admin | Daemon config | Do not create a separate WebUI config store. |
 
@@ -50,7 +59,7 @@ local shims and update this table.
 | Non-surface | Why it is excluded |
 | --- | --- |
 | `homeassistant.homeGraph.*` | Home Graph is an extension surface, not regular Knowledge/Wiki. |
-| `sessions.followUp` | Operator session continuation can spawn/queue agent work; not plain companion chat. |
+| `sessions.followUp` as a companion-chat send path | It is a legitimate Sessions-view surface for continuing a closed operator session (see matrix above), but it can spawn/queue agent work — never use it to send plain companion chat. |
 | `sessions.messages.create` fallback | Can persist a user message without a daemon-owned assistant turn. |
 | `~/.goodvibes` browser reads | Private daemon/TUI implementation state. |
 | local SDK checkout | Does not validate the installed npm contract. |

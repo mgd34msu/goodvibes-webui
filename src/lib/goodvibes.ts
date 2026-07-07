@@ -843,8 +843,11 @@ export interface MemoryRecordEntityResult {
  * be shown verbatim — never swallowed into a silent empty result. `caveat` is the
  * softer "ran on the hashed-only fallback provider" note. `recallFiltered` /
  * `excludedFlaggedCount` / `excludedBelowFloorCount` / `totalBeforeRecallFilter` are the
- * honesty receipt for the 60%-floor recall-injection contract (only populated when the
- * caller opted into `recall: true`).
+ * honesty receipt for the recall-injection contract (only populated when the caller
+ * opted into `recall: true`). `recallFloor` is the store's configured recall confidence
+ * floor (MIN_PROMPT_MEMORY_CONFIDENCE) this result was judged against, carried on the
+ * wire so a surface can state the floor in a label without hardcoding a number that
+ * could silently go stale if the store's floor is retuned.
  */
 export interface MemorySearchResult {
   readonly records: readonly MemoryRecord[];
@@ -856,6 +859,7 @@ export interface MemorySearchResult {
   readonly excludedFlaggedCount: number;
   readonly excludedBelowFloorCount: number;
   readonly totalBeforeRecallFilter: number;
+  readonly recallFloor: number;
 }
 
 /** Delete-means-delete: an honest boolean, never a 200 that pretends a phantom row was

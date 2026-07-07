@@ -42,3 +42,20 @@ test('building a prompt packet renders the honest item count and each item\'s re
   await expect(packetPanel).toContainText('directly relevant to the task');
   await expectNoHorizontalScroll(page);
 });
+
+test('a real post-1.2.0 truncated packet (the final SDK\'s full field shape) renders the truncation disclosure', async ({ page }) => {
+  // packet: 'truncated' answers truncated/totalCandidates/droppedCount/droppedForBudget/
+  // budgetExhausted all populated (packet.ts's real shape), not just the hand-authored
+  // truncated/totalCandidates/droppedCount subset — proving the disclosure renders from
+  // a genuine final-SDK wire response.
+  await installMockDaemon(page, { packet: 'truncated' });
+  await page.goto('/?view=knowledge');
+  await page.getByLabel('Task description').fill('Refactor the session spine');
+  await page.getByRole('button', { name: 'Build Packet' }).click();
+  const packetPanel = page.locator('.knowledge-packet__result');
+  await expect(packetPanel).toBeVisible();
+  const note = page.locator('.knowledge-packet__truncation-note');
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('Showing 1 of 20 candidates (19 dropped)');
+  await expectNoHorizontalScroll(page);
+});

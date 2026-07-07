@@ -4,6 +4,11 @@
  * whatever `limit` the caller searched with, so it must never read as "every matching
  * record" when a limit was actually applied, and must fall back to an honest "total"
  * when the caller genuinely searched with no limit at all.
+ *
+ * Also covers the recall-floor label now that `recallFloor` travels on the wire
+ * (memory-recall-contract.ts's `MIN_PROMPT_MEMORY_CONFIDENCE`, promoted onto
+ * `HonestMemorySearchResult`): the label must state the exact wire value, not a
+ * hardcoded percentage.
  */
 import { expect, test } from 'bun:test';
 import React from 'react';
@@ -23,6 +28,7 @@ function baseResult(overrides: Partial<MemorySearchResult> = {}): MemorySearchRe
     excludedFlaggedCount: 2,
     excludedBelowFloorCount: 3,
     totalBeforeRecallFilter: 6,
+    recallFloor: 60,
     ...overrides,
   };
 }
@@ -49,8 +55,13 @@ test('a search with no limit falls back to an honest "total" label', () => {
   expect(text).toContain('6 total before the recall filter');
 });
 
-test('the recall-floor exclusion never states a specific percentage — the floor is not on the wire', () => {
-  const text = renderNote(baseResult());
-  expect(text).toContain("3 excluded (below the store's configured recall floor)");
-  expect(text).not.toMatch(/\d+% recall floor/);
+test('the recall-floor exclusion states the exact wire value, never a hardcoded percentage', () => {
+  const text = renderNote(baseResult({ recallFloor: 60 }));
+  expect(text).toContain('3 excluded (below the 60% recall floor)');
+});
+
+test('a different wire recallFloor value is reflected verbatim, not the documented 60% baseline', () => {
+  const text = renderNote(baseResult({ recallFloor: 75 }));
+  expect(text).toContain('3 excluded (below the 75% recall floor)');
+  expect(text).not.toContain('60% recall floor');
 });

@@ -54,6 +54,7 @@ function searchResult(overrides: Partial<{
   excludedFlaggedCount: number;
   excludedBelowFloorCount: number;
   totalBeforeRecallFilter: number;
+  recallFloor: number;
 }> = {}) {
   return {
     records: [],
@@ -65,6 +66,7 @@ function searchResult(overrides: Partial<{
     excludedFlaggedCount: 0,
     excludedBelowFloorCount: 0,
     totalBeforeRecallFilter: 0,
+    recallFloor: 60,
     ...overrides,
   };
 }
@@ -210,10 +212,10 @@ describe('MemoryView — the recall-honesty note', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('excluded (flagged'));
     expect(el.textContent).toContain('2 excluded (flagged');
-    // No hardcoded percentage — the floor itself never travels on the wire, so this
-    // must not assert a specific number that could silently go stale (see cohesion
-    // review finding 9).
-    expect(el.textContent).toContain("3 excluded (below the store's configured recall floor)");
+    // The floor now travels on the wire as recallFloor — the label states the exact
+    // value the search fixture carries, not a hardcoded percentage (see cohesion
+    // review finding 9, now resolved by the SDK's recallFloor field).
+    expect(el.textContent).toContain('3 excluded (below the 60% recall floor)');
     // MemoryView always searches with limit: 100 (DEFAULT_FILTERS) — the label says so
     // rather than implying totalBeforeRecallFilter is every matching record.
     expect(el.textContent).toContain('6 of the first 100 matches before the recall filter');

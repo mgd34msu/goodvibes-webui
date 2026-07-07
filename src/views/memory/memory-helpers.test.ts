@@ -46,10 +46,15 @@ describe('the recall-honesty floor', () => {
     expect(RECALL_CONFIDENCE_FLOOR).toBe(60);
   });
 
-  test('a record below 60 confidence is flagged as below the floor', () => {
-    expect(isBelowRecallFloor(record({ confidence: 59 }))).toBe(true);
-    expect(isBelowRecallFloor(record({ confidence: 60 }))).toBe(false);
-    expect(isBelowRecallFloor(record({ confidence: 100 }))).toBe(false);
+  test('a record below the given recall floor is flagged as below the floor', () => {
+    expect(isBelowRecallFloor(record({ confidence: 59 }), RECALL_CONFIDENCE_FLOOR)).toBe(true);
+    expect(isBelowRecallFloor(record({ confidence: 60 }), RECALL_CONFIDENCE_FLOOR)).toBe(false);
+    expect(isBelowRecallFloor(record({ confidence: 100 }), RECALL_CONFIDENCE_FLOOR)).toBe(false);
+  });
+
+  test('isBelowRecallFloor honors a live wire floor that differs from the documented baseline', () => {
+    expect(isBelowRecallFloor(record({ confidence: 70 }), 75)).toBe(true);
+    expect(isBelowRecallFloor(record({ confidence: 70 }), 50)).toBe(false);
   });
 });
 

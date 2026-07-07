@@ -517,8 +517,16 @@ export function knowledgeCandidateDecideResponse(id: string, decision: string) {
   };
 }
 
-/** knowledge.packet fixture — KNOWLEDGE_PACKET_SCHEMA shape. */
-export function knowledgePacketResponse(task: string) {
+/**
+ * knowledge.packet fixture — KNOWLEDGE_PACKET_SCHEMA shape, now the final SDK's real
+ * (required, not optional) truncation fields: truncated/totalCandidates/droppedCount/
+ * droppedForBudget/budgetExhausted (packet.ts). `truncated: false` (default) is the
+ * every-candidate-fit case — no disclosure should render. `truncated: true` answers a
+ * genuinely truncated packet where the token budget was the binding constraint
+ * (droppedForBudget > 0, budgetExhausted: true), proving KnowledgePacketPanel's
+ * disclosure renders from the real post-1.2.0 wire shape.
+ */
+export function knowledgePacketResponse(task: string, truncated = false) {
   return {
     task,
     writeScope: [],
@@ -527,6 +535,11 @@ export function knowledgePacketResponse(task: string) {
     strategy: 'hybrid-recall',
     budgetLimit: 4000,
     estimatedTokens: 180,
+    truncated,
+    totalCandidates: truncated ? 20 : 1,
+    droppedCount: truncated ? 19 : 0,
+    droppedForBudget: truncated ? 19 : 0,
+    budgetExhausted: truncated,
     items: [
       {
         kind: 'source',

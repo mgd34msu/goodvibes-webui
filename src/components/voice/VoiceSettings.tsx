@@ -1,20 +1,16 @@
 /**
  * VoiceSettings — the shared spoken-voice config surface.
  *
- * There is ONE voice config for the terminal + desktop tier (the tts.provider / tts.voice
- * keys the TUI and daemon already share). This popover READS those keys (config.get) and
- * WRITES them (config.set), so choosing a voice here changes it on the TUI and desktop too
- * — it never invents a web-only voice. Availability and the provider list come straight from
- * voice.status, rendered with the shared presentation-contract tone/glyph so the state
- * reads the same as it does on every other surface.
- *
- * NOT YET SHARED WITH THE AGENT: the agent resolves config under its own surface root
- * (~/.goodvibes/agent/settings.json — see goodvibes-sdk's surface-root.ts), so a voice
- * chosen here does not change what the agent speaks. Closing that gap means the daemon
- * growing a real shared-config tier (SDK/agent-side work, tracked separately) — until then
- * the hint text below intentionally says "terminal and desktop", not "and agent". FLIP
- * THIS BACK to the three-surface wording once that shared tier ships and the agent reads
- * from it.
+ * There is ONE voice config across terminal, desktop, and agent: the tts.provider /
+ * tts.voice keys now resolve from the surface-root-independent shared tier
+ * (~/.goodvibes/shared/settings.json — ConfigManager's shared-config-tier.ts), so every
+ * surface reads and writes the same voice regardless of its own surface root. This
+ * popover READS those keys (config.get) and WRITES them (config.set) through the daemon,
+ * whose ConfigManager persists to that same shared file — so choosing a voice here
+ * changes it on the TUI, desktop, and agent too, never a web-only voice. Availability and
+ * the provider list come straight from voice.status, rendered with the shared
+ * presentation-contract tone/glyph so the state reads the same as it does on every other
+ * surface.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Settings2, X } from 'lucide-react';
@@ -156,10 +152,7 @@ export function VoiceSettings() {
                 </select>
               </label>
               {voicesQuery.isLoading && <p className="voice-settings-hint">Loading voices…</p>}
-              {/* Deliberately "terminal and desktop", not "and agent" — the agent reads its
-                  own tts.* config until the shared-config tier lands (see the header comment
-                  above). Flip this back to three surfaces when that ships. */}
-              <p className="voice-settings-hint">One voice across terminal and desktop. The agent still uses its own voice setting for now.</p>
+              <p className="voice-settings-hint">One voice across terminal, desktop, and agent.</p>
             </>
           ) : (
             <p className="voice-settings-unavailable">{TTS_UNAVAILABLE_MESSAGE}</p>

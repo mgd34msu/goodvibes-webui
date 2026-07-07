@@ -78,6 +78,16 @@ export interface MockDaemonOptions {
    * credentials' 'admin-required' shape.
    */
   config?: 'ok' | 'admin-required';
+  /**
+   * knowledge.packet response shape. 'complete' (default) answers a real, untruncated
+   * packet (truncated: false, droppedCount: 0, budgetExhausted: false) — the every-
+   * candidate-fit case. 'truncated' answers the final SDK's real truncation field
+   * shape (truncated/totalCandidates/droppedCount/droppedForBudget/budgetExhausted all
+   * populated, some candidates dropped for the token budget specifically), proving the
+   * KnowledgePacketPanel disclosure renders from a genuine post-1.2.0 wire shape rather
+   * than only the hand-authored optional subset.
+   */
+  packet?: 'complete' | 'truncated';
 }
 
 export interface MockDaemon {
@@ -175,6 +185,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     memoryIndexUnavailable = false,
     calendar = 'configured',
     config = 'ok',
+    packet = 'complete',
   } = options;
   const daemon: MockDaemon = {
     steerRequests: [],
@@ -463,6 +474,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const mode: 'literal' | 'semantic' = requestedSemantic && !indexUnavailableReason ? 'semantic' : 'literal';
       const recall = body.recall === true;
       const totalBeforeRecallFilter = records.length;
+      // Mirrors the SDK's memory-recall-contract.ts MIN_PROMPT_MEMORY_CONFIDENCE (60) —
+      // the mock daemon's own confidence-floor check below, and now also promoted onto
+      // the wire as `recallFloor` (recallFloor is on the wire per the final SDK's
+      // HonestMemorySearchResult), so MemorySearchHonestyNote/MemoryRecordRow's labels
+      // read this value instead of a hardcoded percentage.
+      const recallFloor = 60;
       let excludedFlaggedCount = 0;
       let excludedBelowFloorCount = 0;
       if (recall) {
@@ -472,7 +489,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
             excludedFlaggedCount += 1;
             continue;
           }
-          if (record.confidence < 60) {
+          if (record.confidence < recallFloor) {
             excludedBelowFloorCount += 1;
             continue;
           }
@@ -490,6 +507,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         excludedFlaggedCount,
         excludedBelowFloorCount,
         totalBeforeRecallFilter,
+        recallFloor,
       });
     }
     if (path === '/api/memory/records' && method === 'POST') {
@@ -722,7 +740,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     if (request.method() !== 'POST') return json(route, {});
     const body = request.postDataJSON?.() ?? {};
     const task = typeof body === 'object' && body !== null && 'task' in body ? String((body as { task?: unknown }).task ?? '') : '';
-    return json(route, knowledgePacketResponse(task));
+    return json(route, knowledgePacketResponse(task, packet === 'truncated'));
   });
 
   // ── Calendar (calendar.events.*, calendar.ics.*) — a genuinely separate domain

@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Checkpoints — desktop', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, DESKTOP));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('create and restore controls are present and reachable', async ({ page }) => {
     await page.goto('/?view=checkpoints');
@@ -30,7 +30,7 @@ test.describe('Checkpoints — desktop', () => {
 });
 
 test.describe('Checkpoints — phone: browsable, mutations desktop-only with an honest pointer', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the list is browsable, creating defers to a wider screen', async ({ page }) => {
     await page.goto('/?view=checkpoints');
@@ -55,7 +55,7 @@ test.describe('Checkpoints — phone: browsable, mutations desktop-only with an 
 });
 
 test.describe('Tasks — desktop', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, DESKTOP));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('submit, cancel, and retry controls are present', async ({ page }) => {
     await page.goto('/?view=approvals-tasks');
@@ -67,7 +67,7 @@ test.describe('Tasks — desktop', () => {
 });
 
 test.describe('Tasks — phone: queue readable, mutations desktop-only with an honest pointer', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the task queue is readable; submit/cancel/retry defer to a wider screen', async ({ page }) => {
     await page.goto('/?view=approvals-tasks');

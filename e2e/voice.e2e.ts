@@ -135,7 +135,7 @@ test('a blocked microphone shows an honest try-again pointer, not a dead button'
 });
 
 test.describe('Voice settings — phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('opens as a full-viewport sheet with an explicit close affordance', async ({ page }) => {
     await installChatMockDaemon(page);

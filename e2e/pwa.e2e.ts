@@ -103,13 +103,19 @@ async function mockPushApis(page: Page, permission: 'granted' | 'denied' | 'defa
         async register() {
           return fakeRegistration;
         },
-        addEventListener() {},
+        addEventListener() {
+          /* the stand-in service worker never emits events */
+        },
       },
     });
     // A stand-in PushManager + Notification so detectPushSupport() reports 'ok'.
-    (window as unknown as { PushManager: unknown }).PushManager = function () {};
+    (window as unknown as { PushManager: unknown }).PushManager = function () {
+      /* presence-only stand-in — detectPushSupport checks the constructor exists */
+    };
     (window as unknown as { Notification: unknown }).Notification = Object.assign(
-      function () {},
+      function () {
+        /* presence-only stand-in — never constructed by the shell */
+      },
       {
         permission: perm,
         async requestPermission() {

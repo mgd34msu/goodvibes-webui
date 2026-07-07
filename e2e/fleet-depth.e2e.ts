@@ -15,7 +15,7 @@ import { only, PHONE, DESKTOP, expectNoHorizontalScroll } from './support/app';
 
 let daemon: MockDaemon;
 
-test.beforeEach(async ({ page }, testInfo) => {
+test.beforeEach(async ({ page }) => {
   daemon = await installMockDaemon(page);
   await page.goto('/?view=fleet');
   await expect(page.locator('.app-shell')).toBeVisible();
@@ -28,7 +28,7 @@ test('the process tree renders both seeded nodes with honest badges', async ({ p
 });
 
 test.describe('desktop actions', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, DESKTOP));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('steer sends over sessions.steer with this browser stamped as the surface', async ({ page }) => {
     await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
@@ -79,7 +79,7 @@ test.describe('desktop actions', () => {
 });
 
 test.describe('phone: browsable, mutation actions are desktop-only with an honest pointer', () => {
-  test.beforeEach(async ({ page }, testInfo) => only(testInfo, PHONE));
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('selecting a node flips to its detail with a Back affordance, no horizontal scroll', async ({ page }) => {
     await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();

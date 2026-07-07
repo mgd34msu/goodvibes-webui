@@ -166,7 +166,7 @@ self.addEventListener('fetch', (event) => {
 // tap, deep-link to the view that action lives in.
 
 self.addEventListener('push', (event) => {
-  let payload = {};
+  let payload;
   try {
     payload = event.data ? event.data.json() : {};
   } catch {

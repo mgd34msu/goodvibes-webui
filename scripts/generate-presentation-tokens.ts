@@ -185,7 +185,7 @@ export function renderTs(snapshot: PresentationContractSnapshot): string {
 // ---------------------------------------------------------------------------
 
 export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
-  let current: string | null = null;
+  let current: string | null;
   try {
     current = readFileSync(path, 'utf8');
   } catch {

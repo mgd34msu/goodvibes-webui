@@ -1,9 +1,9 @@
 # Screenshot Tour
 
-These screenshots are captured from the running WebUI dev server with a fresh
-browser profile at `1440x1000`. Local auth, chat history, providers, and daemon
-state vary by operator environment, so treat these as layout references rather
-than fixed data fixtures.
+These screenshots are captured from the WebUI dev server against the
+end-to-end suite's seeded mock daemon at `1440x1000`, dark theme. Live auth,
+chat history, providers, and daemon state vary by operator environment, so
+treat these as layout references rather than fixed data fixtures.
 
 ## Chat
 
@@ -20,6 +20,33 @@ browser Knowledge SDK. Home Assistant Home Graph is intentionally not part of
 this general surface.
 
 ![Knowledge view](assets/screenshots/knowledge.png)
+
+## Sessions
+
+Sessions is the cross-surface session union: search, read, steer, or follow up
+on any session started from the terminal, agent, or browser.
+
+![Sessions view](assets/screenshots/sessions.png)
+
+## Fleet
+
+Fleet is the live process tree with per-node steer/detach/stop where the wire
+supports them and inline approvals.
+
+![Fleet view](assets/screenshots/fleet.png)
+
+## Memory
+
+Memory browses and searches the shared cross-surface memory store with the
+recall-honesty details rendered verbatim.
+
+![Memory view](assets/screenshots/memory.png)
+
+## Calendar
+
+Calendar renders the daemon calendar module's agenda with ICS import/export.
+
+![Calendar view](assets/screenshots/calendar.png)
 
 ## Providers
 

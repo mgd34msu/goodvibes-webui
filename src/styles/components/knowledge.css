@@ -315,6 +315,19 @@
   margin: 0;
 }
 
+/* Mirrors .fleet-cap-note (fleet.css) — the same "showing N of M, K dropped" honest
+ * truncation-disclosure pattern, only rendered when the daemon's response actually
+ * carries the post-1.2.0 truncation fields (see KnowledgePacket.tsx's truncationInfo). */
+.knowledge-packet__truncation-note {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  margin: 0;
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
 .knowledge-packet__items {
   list-style: none;
   margin: 0;

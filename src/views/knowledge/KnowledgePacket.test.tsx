@@ -109,3 +109,50 @@ test('a build failure renders ErrorState with retry', async () => {
   await waitFor(() => (el.textContent ?? '').includes('Packet build failed'));
   unmount();
 });
+
+test('a post-1.2.0 daemon truncated packet discloses "showing N of M (K dropped)"', async () => {
+  packetImpl = () => Promise.resolve({
+    items: [
+      { kind: 'source', id: 's1', title: 'Session spine decision record', reason: 'directly relevant', score: 0.91, estimatedTokens: 120 },
+    ],
+    estimatedTokens: 120,
+    truncated: true,
+    totalCandidates: 20,
+    droppedCount: 19,
+  });
+  const { el, unmount } = render();
+  submitTask(el, 'Refactor the session spine');
+  await waitFor(() => (el.textContent ?? '').includes('Session spine decision record'));
+  const note = el.querySelector('.knowledge-packet__truncation-note');
+  expect(note).not.toBeNull();
+  expect(note!.getAttribute('role')).toBe('note');
+  expect(note!.textContent).toContain('Showing 1 of 20 candidates (19 dropped)');
+  unmount();
+});
+
+test('an older (pre-1.2.0) daemon response with no truncation fields renders no disclosure — no fabricated claim', async () => {
+  packetImpl = () => Promise.resolve({
+    items: [
+      { kind: 'source', id: 's1', title: 'Session spine decision record', reason: 'directly relevant', score: 0.91, estimatedTokens: 120 },
+    ],
+    estimatedTokens: 120,
+  });
+  const { el, unmount } = render();
+  submitTask(el, 'Refactor the session spine');
+  await waitFor(() => (el.textContent ?? '').includes('Session spine decision record'));
+  expect(el.querySelector('.knowledge-packet__truncation-note')).toBeNull();
+  unmount();
+});
+
+test('truncated:true with a non-numeric totalCandidates/droppedCount is treated as absent, never a fabricated number', async () => {
+  packetImpl = () => Promise.resolve({
+    items: [{ kind: 'source', id: 's1', title: 'X', reason: 'r', score: 0.5, estimatedTokens: 10 }],
+    estimatedTokens: 10,
+    truncated: true,
+  });
+  const { el, unmount } = render();
+  submitTask(el, 'Refactor the session spine');
+  await waitFor(() => (el.textContent ?? '').includes('X'));
+  expect(el.querySelector('.knowledge-packet__truncation-note')).toBeNull();
+  unmount();
+});

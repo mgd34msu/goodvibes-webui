@@ -40,6 +40,9 @@ the configured WebUI origin and Vite proxy during development.
   the expected user workflows.
 - [Development](docs/development.md): local setup, environment variables,
   network binding, validation, and repo conventions.
+- [Deployment](docs/deployment.md): reaching the app from another machine over
+  Tailscale, same-origin bundle serving, installing the app (add-to-home-screen),
+  honest offline, and Web Push notifications.
 - [SDK Surface Matrix](docs/sdk-surface-matrix.md): public SDK/daemon surfaces
   the WebUI is expected to use.
 - [SDK Update Checklist](docs/sdk-update-checklist.md): exact steps for routine

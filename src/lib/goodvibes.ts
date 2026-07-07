@@ -916,6 +916,78 @@ export interface MemoryReviewQueueInput {
   readonly scope?: MemoryScope;
 }
 
+// ─── Web Push (push.*, SDK 1.1.0) ────────────────────────────────────
+//
+// The push.* verbs are registered ws-only with NO REST http binding (SDK
+// method-catalog-push.ts), exactly like fleet.*/checkpoints.*/sessions.search,
+// so they are reachable ONLY through the generic invoke-by-id endpoint
+// (invokeGatewayMethod) — never through scopedSdk.operator.invoke or an
+// EXTRA_METHOD_ROUTES row. push.* IS in the installed 1.1.0 OperatorMethodId
+// union (OPERATOR_METHOD_IDS), so the method-id strings below typecheck; the
+// generated I/O maps are the generic `unknown` fallback for this family (no
+// OperatorMethodInputMap entry yet), so every call supplies its explicit
+// TOutput shape, cross-checked field-by-field against the SDK's own
+// method-catalog-push.ts outputSchema/inputSchema.
+//
+// CUSTODY: the daemon never returns a subscription's capability URL (endpoint)
+// or its key material over the wire — the read shape is the redacted
+// PublicPushSubscription (origin + short hash only). The VAPID private key
+// never leaves the daemon at all. These local types mirror that redaction; the
+// browser holds the full endpoint/keys only transiently, from its own
+// PushManager, to hand to push.subscriptions.create.
+
+/** The endpoint's browser-supplied key material (base64url), sent to subscribe. */
+export interface PushSubscriptionKeys {
+  readonly p256dh: string;
+  readonly auth: string;
+}
+
+/** The redacted, wire-safe view of a stored subscription (no capability URL, no keys). */
+export interface PublicPushSubscription {
+  readonly id: string;
+  readonly principalId: string;
+  readonly endpointOrigin: string;
+  readonly endpointHash: string;
+  readonly createdAt: number;
+  readonly lastDeliveryAt?: number;
+  readonly lastOutcome?: string;
+}
+
+/** An honest per-subscription delivery receipt from a verify/test push. */
+export interface PushDeliveryReceipt {
+  readonly subscriptionId: string;
+  readonly endpointOrigin: string;
+  readonly outcome: 'delivered' | 'pruned' | 'failed' | 'skipped';
+  readonly httpStatus?: number;
+  readonly detail?: string;
+}
+
+export interface PushVapidKeyResult {
+  readonly publicKey: string;
+}
+// A `type` (not `interface`) so it is assignable to invokeGatewayMethod's
+// generic `{ readonly [k: string]: unknown }` input constraint — an object-
+// literal type alias carries an implicit index signature there, an interface
+// does not (the same shape the fleet/checkpoints bridge inputs rely on).
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- must be a type alias (not interface) so it satisfies invokeGatewayMethod's index-signature input constraint
+export type PushSubscriptionCreateInput = {
+  readonly endpoint: string;
+  readonly keys: PushSubscriptionKeys;
+};
+export interface PushSubscriptionCreateResult {
+  readonly subscription: PublicPushSubscription;
+}
+export interface PushSubscriptionListResult {
+  readonly subscriptions: readonly PublicPushSubscription[];
+}
+export interface PushSubscriptionDeleteResult {
+  readonly subscriptionId: string;
+  readonly deleted: boolean;
+}
+export interface PushVerifyResult {
+  readonly receipt: PushDeliveryReceipt;
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -1165,6 +1237,21 @@ export const sdk = {
     watchers: {
       stop: (watcherId: string) =>
         invokeOperator<'watchers.stop', { watcherId: string }, WatcherActionResult>('watchers.stop', { watcherId }),
+    },
+    // push.* (Web Push) — generic-invoke-only (see the Web Push section comment
+    // above). The PWA reads the public VAPID key, registers/lists/removes its own
+    // browser subscription, and can send itself a live test push. Every capability
+    // URL / key stays off the wire; the daemon hands back the redacted view.
+    push: {
+      vapidKey: () => invokeGatewayMethod<'push.vapid.get', PushVapidKeyResult>('push.vapid.get', {}),
+      subscribe: (input: PushSubscriptionCreateInput) =>
+        invokeGatewayMethod<'push.subscriptions.create', PushSubscriptionCreateResult>('push.subscriptions.create', input),
+      list: () =>
+        invokeGatewayMethod<'push.subscriptions.list', PushSubscriptionListResult>('push.subscriptions.list', {}),
+      unsubscribe: (subscriptionId: string) =>
+        invokeGatewayMethod<'push.subscriptions.delete', PushSubscriptionDeleteResult>('push.subscriptions.delete', { subscriptionId }),
+      verify: (subscriptionId: string) =>
+        invokeGatewayMethod<'push.subscriptions.verify', PushVerifyResult>('push.subscriptions.verify', { subscriptionId }),
     },
   },
   chat: {

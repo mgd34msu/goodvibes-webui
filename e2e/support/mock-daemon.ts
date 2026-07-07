@@ -216,6 +216,15 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
   }
 
+  // Web Push (push.*, SDK 1.1.0) — a fresh per-test in-memory subscription store
+  // so subscribe -> list -> verify -> delete round-trips honestly. The redacted
+  // view only (never the capability URL or key material), exactly like the real
+  // daemon. `pushVapidKey` is a syntactically-valid base64url stand-in — enough
+  // for urlBase64ToUint8Array to decode without a real keypair.
+  const pushVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBO_2H6ipYIF3PBhTvbP7z4c';
+  let pushSubscriptions: { id: string; principalId: string; endpointOrigin: string; endpointHash: string; createdAt: number }[] = [];
+  let pushIdCounter = 0;
+
   // Mutable server-side state for the two round-trip surfaces this brief adds:
   // the current model slot (models.current/models.select) and the config tree
   // (config.get/config.set) — a real "select a model, see it reflected" and
@@ -615,6 +624,49 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       if (methodId === 'checkpoints.restore') {
         return json(route, { result: { checkpointId: 'wcp_e2e_1', safetyCheckpointId: null, restoredFiles: ['src/example.ts'], removedFiles: [] } });
+      }
+      // ── Web Push (push.*) — the PWA subscription lifecycle. ────────────────
+      if (methodId === 'push.vapid.get') {
+        return json(route, { publicKey: pushVapidKey });
+      }
+      if (methodId === 'push.subscriptions.create') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { endpoint?: string } };
+        const endpoint = body.body?.endpoint ?? 'https://push.example/endpoint';
+        let origin = 'https://push.example';
+        try {
+          origin = new URL(endpoint).origin;
+        } catch {
+          /* keep the fallback origin */
+        }
+        pushIdCounter += 1;
+        const subscription = {
+          id: `push_e2e_${pushIdCounter}`,
+          principalId: 'operator',
+          endpointOrigin: origin,
+          endpointHash: `hash-${pushIdCounter}`,
+          createdAt: Date.now(),
+        };
+        // Register-in-place: one subscription per origin, mirroring the real verb.
+        pushSubscriptions = [...pushSubscriptions.filter((s) => s.endpointOrigin !== origin), subscription];
+        return json(route, { subscription });
+      }
+      if (methodId === 'push.subscriptions.list') {
+        return json(route, { subscriptions: pushSubscriptions });
+      }
+      if (methodId === 'push.subscriptions.delete') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { subscriptionId?: string } };
+        const id = body.body?.subscriptionId ?? '';
+        const existed = pushSubscriptions.some((s) => s.id === id);
+        if (!existed) return json(route, { error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404);
+        pushSubscriptions = pushSubscriptions.filter((s) => s.id !== id);
+        return json(route, { subscriptionId: id, deleted: true });
+      }
+      if (methodId === 'push.subscriptions.verify') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { subscriptionId?: string } };
+        const id = body.body?.subscriptionId ?? '';
+        const found = pushSubscriptions.find((s) => s.id === id);
+        if (!found) return json(route, { error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404);
+        return json(route, { receipt: { subscriptionId: id, endpointOrigin: found.endpointOrigin, outcome: 'delivered' } });
       }
       return json(route, {});
     }

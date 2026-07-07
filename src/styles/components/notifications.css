@@ -1,0 +1,41 @@
+/*
+ * NotificationSettings layout. Colors/spacing come from the shared token layer
+ * (src/styles/tokens.css); this file is layout only, no new palette.
+ */
+
+.notifications-panel .notifications-push {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notifications-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.notifications-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.notifications-install {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, rgb(255 255 255 / 8%));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notifications-install__head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.notifications-install button {
+  align-self: flex-start;
+}

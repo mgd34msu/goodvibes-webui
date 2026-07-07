@@ -65,6 +65,10 @@ export default defineConfig({
       GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
       // Force the config's settings/CLI probes to no-op deterministically.
       GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
+      // Register the service worker against the dev server so the PWA shell +
+      // registration are exercisable headlessly (it is PROD-gated otherwise, to
+      // keep normal dev sessions HMR-friendly). 127.0.0.1 is a secure context.
+      VITE_ENABLE_SW: '1',
     },
   },
 });

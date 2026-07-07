@@ -4,6 +4,31 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [Unreleased]
+
+### Added
+
+- **Installable app (Progressive Web App)** — a web app manifest and icons make
+  the web UI installable straight from the browser on iOS and Android (Add to
+  Home Screen; no app store, no separate download). It opens in its own window,
+  standalone, with the app's own theme color.
+- **Offline app shell, honestly degraded** — a service worker caches the app
+  shell so an installed app opens instantly, even with no network. It **never**
+  caches a daemon API response: opening offline (or while the daemon is
+  unreachable) loads the shell and then shows the ordinary "Can't reach the
+  daemon" reconnecting state. Cached data is never dressed up as live.
+- **Web Push notifications** — subscribe this device from Admin → Notifications &
+  install to receive approvals and completions as notifications, even when the
+  app isn't open, over the daemon's `push.vapid.get` / `push.subscriptions.*`
+  verbs. Tapping an approval notification deep-links to the Approvals view. Every
+  "can't" is an honest state: an insecure (plain-HTTP) context points at opening
+  the app over HTTPS (e.g. `tailscale serve`), a blocked permission explains how
+  to re-enable it, and an unsupported browser (including iOS's installed-app-only
+  push) says so plainly.
+- **Deployment guide** — [docs/deployment.md](docs/deployment.md): reaching the
+  app from another machine over Tailscale, same-origin bundle serving, install,
+  offline behavior, and push.
+
 ## [1.0.1] - 2026-07-06
 
 ### Added

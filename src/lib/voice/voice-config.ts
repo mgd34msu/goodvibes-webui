@@ -11,8 +11,11 @@
  *   reports — never a stale confident "on".
  *
  *   readSharedVoiceConfig(config.get) — the SHARED tts.provider / tts.voice / tts.speed
- *   defaults, so the browser speaks in the same voice the TUI and agent do. There is one
- *   voice config for the whole platform; this reads it, it does not invent a per-surface one.
+ *   defaults, so the browser speaks in the same voice the TUI does. There is one voice
+ *   config for the terminal + desktop tier; this reads it, it does not invent a per-surface
+ *   one. NOT YET shared with the agent (it resolves tts.* under its own surface-root config
+ *   file) — see VoiceSettings.tsx's header comment for the full picture and the flip-back
+ *   marker for when the daemon grows a real shared-config tier.
  */
 
 import { asRecord } from '../object';

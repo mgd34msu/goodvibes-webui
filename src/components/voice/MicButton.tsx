@@ -42,7 +42,7 @@ export function MicButton({ onTranscript, disabled }: MicButtonProps) {
     controlDisabled = true;
   } else if (support === 'unsupported') {
     icon = <MicOff size={16} aria-hidden />;
-    label = 'Dictation not supported in this browser';
+    label = 'Dictation unavailable — not supported in this browser';
     note = 'This browser cannot capture the microphone.';
     controlDisabled = true;
   } else if (!availability.sttAvailable) {

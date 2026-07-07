@@ -41,6 +41,18 @@ const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
 /** The single multiplexed control-plane stream carrying every domain we invalidate on. */
 const INVALIDATION_EVENTS_PATH = `/api/control-plane/events?domains=${Object.keys(DOMAIN_INVALIDATIONS).join(',')}`;
 
+/**
+ * The ONE operator-facing string this hook ever surfaces. Every failure mode — the
+ * open() promise rejecting, an onError frame, or a clean onTerminate — collapses to this
+ * friendly copy. Critically, the transport's onError sets `err.message` to the raw daemon
+ * RESPONSE BODY (e.g. the `{"error":"Authentication required",...,"code":"AUTH_REQUIRED"}`
+ * 401 blob seen on a pre-auth open); passing that through would paint that JSON verbatim
+ * across every view's banner. We never render a transport-level body — the banner shows
+ * this established "live updates paused / reconnecting" wording instead.
+ */
+const REALTIME_PAUSED_MESSAGE =
+  'Live updates paused — reconnecting. Views fall back to periodic refresh until the stream returns.';
+
 export function useRealtimeInvalidation(enabled: boolean) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -66,13 +78,15 @@ export function useRealtimeInvalidation(enabled: boolean) {
               void queryClient.invalidateQueries({ queryKey: key });
             }
           },
-          onError: (err: unknown) => {
+          // NEVER surface `err.message` here — on a pre-auth open it IS the raw 401
+          // response body. Collapse every transport error to the friendly copy.
+          onError: (_err: unknown) => {
             if (disposed) return;
-            setError(err instanceof Error ? err.message : 'Realtime event stream error');
+            setError(REALTIME_PAUSED_MESSAGE);
           },
           onTerminate: () => {
             if (disposed) return;
-            setError('Realtime event stream disconnected — live updates paused, falling back to periodic refresh.');
+            setError(REALTIME_PAUSED_MESSAGE);
           },
         },
         { reconnect: DEFAULT_SSE_RECONNECT },
@@ -84,9 +98,9 @@ export function useRealtimeInvalidation(enabled: boolean) {
         }
         close = dispose;
       })
-      .catch((err: unknown) => {
+      .catch((_err: unknown) => {
         if (disposed) return;
-        setError(err instanceof Error ? err.message : 'Failed to open realtime event stream');
+        setError(REALTIME_PAUSED_MESSAGE);
       });
 
     return () => {

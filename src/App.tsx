@@ -99,7 +99,6 @@ export default function App() {
       return false;
     }
   });
-  const realtimeError = useRealtimeInvalidation(true);
   const boot = useQuery({
     queryKey: ['boot'],
     queryFn: loadBootSnapshot,
@@ -123,6 +122,14 @@ export default function App() {
   // Session liveness: consume the raw un-domained session-update stream, but only once
   // signed in (opening it while signed-out just 401s). It degrades honestly on failure.
   const sessionRealtime = useSessionRealtime(auth.isSuccess);
+  // Control-plane invalidation stream: SAME auth gate as the session stream. Opening it
+  // unconditionally at mount meant the paste-token sign-in flow (app mounts signed-out)
+  // fired it with no token, 401'd, and — because its enable flag never changed — the
+  // stream never re-opened after the token was applied, leaving live invalidation dead
+  // for the whole session AND painting the raw 401 body across every banner. Gating on
+  // auth.isSuccess opens it only once authenticated and re-opens it on every auth
+  // transition (sign-in, and a re-auth after a token expiry flips isSuccess back true).
+  const realtimeError = useRealtimeInvalidation(auth.isSuccess);
   const chatSessions = useQuery({
     queryKey: ['companion-chat', 'sessions'],
     queryFn: () => sdk.chat.sessions.list({ limit: 100 }),

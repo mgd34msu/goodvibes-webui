@@ -38,7 +38,14 @@ mock.module('../lib/goodvibes', () => ({
 
 const { useRealtimeInvalidation } = await import('./useRealtimeInvalidation');
 
-function renderHook(): { invalidate: ReturnType<typeof mock>; unmount: () => void } {
+interface HookHandle {
+  invalidate: ReturnType<typeof mock>;
+  unmount: () => void;
+  rerender: (enabled: boolean) => void;
+  getError: () => string | null;
+}
+
+function renderHook(initialEnabled = true): HookHandle {
   const client = new QueryClient();
   const invalidate = mock(() => Promise.resolve());
   (client as unknown as { invalidateQueries: unknown }).invalidateQueries = invalidate;
@@ -47,19 +54,26 @@ function renderHook(): { invalidate: ReturnType<typeof mock>; unmount: () => voi
   document.body.appendChild(container);
   const root = createRoot(container);
 
-  function Harness() {
-    useRealtimeInvalidation(true);
+  let latestError: string | null = null;
+  function Harness({ enabled }: { enabled: boolean }) {
+    latestError = useRealtimeInvalidation(enabled);
     return null;
   }
 
-  flushSync(() => {
-    root.render(
-      React.createElement(QueryClientProvider, { client }, React.createElement(Harness)),
-    );
-  });
+  const doRender = (enabled: boolean) => {
+    flushSync(() => {
+      root.render(
+        React.createElement(QueryClientProvider, { client }, React.createElement(Harness, { enabled })),
+      );
+    });
+  };
+
+  doRender(initialEnabled);
 
   return {
     invalidate,
+    getError: () => latestError,
+    rerender: (enabled: boolean) => doRender(enabled),
     unmount: () => {
       flushSync(() => root.unmount());
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -127,5 +141,44 @@ describe('useRealtimeInvalidation', () => {
     capturedHandlers?.onEvent?.('heartbeat', {});
     expect(invalidate).not.toHaveBeenCalled();
     unmount();
+  });
+
+  // ---- Finding 1 (HIGH): auth-gated open, re-open on login, no raw JSON in the banner.
+
+  test('does NOT open the stream when disabled (signed-out: enabled=false)', () => {
+    const { unmount } = renderHook(false);
+    // Pre-auth the app mounts signed-out; opening the stream with no token just 401s.
+    // Gating on auth means no open happens at all until authenticated.
+    expect(openCalls.length).toBe(0);
+    unmount();
+  });
+
+  test('re-opens the stream when enabled flips false → true (sign-in transition)', () => {
+    const handle = renderHook(false);
+    expect(openCalls.length).toBe(0);
+    // The paste-token sign-in flips the auth gate to true; the effect must re-run and
+    // open the stream — the exact recovery the old unconditional-enable code never did.
+    handle.rerender(true);
+    expect(openCalls.length).toBe(1);
+    expect(openCalls[0]).toContain('/api/control-plane/events');
+    handle.unmount();
+  });
+
+  test('a transport error body (raw 401 JSON) NEVER reaches the returned banner string', () => {
+    const handle = renderHook(true);
+    // The SSE transport sets err.message to the daemon's RAW response body on a pre-auth
+    // open. Feed exactly that blob and assert the hook surfaces the friendly copy, not it.
+    const rawBody =
+      '{"error":"Authentication required","hint":"Authenticate first.","code":"AUTH_REQUIRED",'
+      + '"category":"authentication","source":"runtime","recoverable":false,"status":401}';
+    flushSync(() => {
+      capturedHandlers?.onError?.(new Error(rawBody));
+    });
+    const banner = handle.getError();
+    expect(banner).not.toBeNull();
+    expect(banner).not.toContain('AUTH_REQUIRED');
+    expect(banner).not.toContain('{');
+    expect(banner).toContain('Live updates paused');
+    handle.unmount();
   });
 });

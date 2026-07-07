@@ -5,13 +5,19 @@ should stay stable unless the daemon/SDK contract changes.
 
 ## Goals
 
-GoodVibes WebUI is an operator shell over the GoodVibes daemon. It should:
+GoodVibes WebUI is a full chat application and operator console over the
+GoodVibes daemon. It should:
 
-- make chat the primary surface
+- make chat the primary surface, at parity with a modern chat application
+- expose the operator surfaces (sessions union, fleet, checkpoints, memory,
+  calendar, approvals/tasks/workstream, providers/models, admin) over the same
+  typed wire the terminal UI uses
 - expose regular Knowledge/Wiki without leaking extension-specific Home Graph UI
-- let users inspect and select daemon provider/model routing
-- support daemon-owned auth and admin diagnostics
-- stay on public SDK/browser seams
+- serve desktop and phone from one app — the phone gets a drawer layout of the
+  same views, never a different mental model
+- install from the browser (app shell offline, Web Push), with daemon data
+  never cached
+- stay on public SDK/browser seams with contract-typed method I/O
 - avoid creating a second local state store for canonical daemon data
 
 ## Runtime Topology
@@ -55,9 +61,20 @@ checkout. The npm package in `node_modules` is the dependency under test.
 - `sdk.realtime`
 - `sdk.knowledge`
 
-Some daemon routes are temporarily represented as explicit route definitions in
-`EXTRA_METHOD_ROUTES` when the scoped browser SDK does not expose a convenience
-helper. These should be kept narrow and removed when public SDK helpers exist.
+Operator method families without a convenience helper (`fleet.*`,
+`checkpoints.*`, `sessions.search`, ...) ride the generic typed invoke path.
+Their input/output types derive from the SDK's generated
+`OperatorMethodInputMap`/`OperatorMethodOutputMap` via
+`src/lib/contract-bridge-types.ts` — no hand-typed wire shapes. A test pins the
+bridge types against the installed SDK's `operator-contract.json`, and another
+pins the retirement of the old `EXTRA_METHOD_ROUTES` shim so per-route
+definitions do not creep back.
+
+Presentation tokens are generated, not hand-maintained:
+`scripts/generate-presentation-tokens.ts` renders the SDK's shared presentation
+contract into `src/lib/generated/presentation-tokens.ts` and the CSS custom
+properties consumed by `src/styles/tokens.css`, so terminal, agent, and browser
+share one visual vocabulary.
 
 ## Auth Model
 
@@ -127,6 +144,43 @@ Code blocks support:
 
 Line numbers are UI-only and must not be copied with code content.
 
+## Session Union and Steering
+
+The Sessions view is the cross-surface session union: sessions started from the
+terminal, agent, or browser, listed and searched over `sessions.list` /
+`sessions.search` (closed sessions included by explicit `includeClosed` choice,
+surfaced in the UI). A live session can be steered; a closed session offers a
+follow-up — a new linked session — and is labeled as such, never disguised as
+steering. Steer sends stamp this browser as the originating surface. This is
+the operator-session continuation surface; it is distinct from companion chat
+and does not share its send path.
+
+## Memory Model
+
+The Memory view reads and mutates the shared cross-surface memory store over
+the daemon memory wire. Recall-honesty metadata from the daemon (search mode,
+vector-index availability or its `platformLimitReason`, exclusion counts,
+recall floor) renders verbatim — a literal-match fallback is labeled as one.
+Deletion is verified: after a delete the view proves the record is gone rather
+than just dropping it from a local list.
+
+## Voice Model
+
+Voice rides the daemon's voice routes (`voice.tts.stream`, `voice.stt`,
+provider/voice listing) so browser, terminal, and agent get identical provider
+behavior. Spoken replies batch and cap concurrent synthesis with quiet retry;
+dictation always shows the transcript for review before send. Voice
+configuration lives in the shared config tier — one config for all surfaces.
+
+## Installable App (PWA)
+
+`public/manifest.webmanifest` + `public/sw.js` make the app installable. The
+service worker caches the app shell only — never a daemon API response — so an
+offline open loads the shell and shows the ordinary "can't reach the daemon"
+state instead of stale data dressed as live. Web Push subscriptions go through
+the daemon's `push.vapid.get` / `push.subscriptions.*` verbs
+(`src/lib/push/`); registration is production-gated (`src/lib/pwa/`).
+
 ## Knowledge/Wiki Model
 
 The Knowledge page uses regular/base Knowledge routes through the scoped browser
@@ -182,9 +236,15 @@ Realtime events are used as invalidation and rendering signals, not as the only
 source of truth. The app loads snapshots/lists first, then refreshes affected
 queries on relevant events.
 
-Chat streams are session-scoped through companion chat SSE helpers. Terminal
-events matter; intermediate stream iteration events should not be treated as
-complete turns.
+App-wide invalidation rides ONE multiplexed SSE stream (connected only after
+sign-in, reconnected on every auth change) rather than per-view connections —
+per-view streams starved the browser's per-origin connection pool. Domain
+scoping is negotiated with the daemon; the default remains deliver-all so an
+older daemon stays correct. Chat streams are session-scoped through companion
+chat SSE helpers. Terminal events matter; intermediate stream iteration events
+should not be treated as complete turns. Stream drops surface as honest
+degraded states (reconnecting / paused / expired) with real retry, per-effect
+stream epochs preventing stale handlers from acting.
 
 ## Non-Goals and Boundaries
 

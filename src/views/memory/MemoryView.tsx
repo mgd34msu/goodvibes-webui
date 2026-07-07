@@ -197,7 +197,7 @@ export function MemoryView() {
           {list.error && (
             <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Search failed" />
           )}
-          {list.data && <MemorySearchHonestyNote result={list.data} />}
+          {list.data && <MemorySearchHonestyNote result={list.data} limit={appliedFilters.limit} />}
         </div>
 
         <div className="two-column">

@@ -29,7 +29,7 @@ export function MemoryRecordRow({ record, onOpen, onDelete, deleting = false }: 
           <span className={`badge ${tone}`}>{record.reviewState}</span>
           <span
             className={`badge ${belowFloor ? 'warning' : 'neutral'}`}
-            title={belowFloor ? `Below the ${formatConfidence(60)} recall floor — never injected into a prompt` : undefined}
+            title={belowFloor ? "Below the store's configured recall floor — never injected into a prompt" : undefined}
           >
             {formatConfidence(record.confidence)}
           </span>

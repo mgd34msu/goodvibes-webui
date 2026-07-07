@@ -210,8 +210,13 @@ describe('MemoryView — the recall-honesty note', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('excluded (flagged'));
     expect(el.textContent).toContain('2 excluded (flagged');
-    expect(el.textContent).toContain('3 excluded (below the 60% recall floor)');
-    expect(el.textContent).toContain('6 total before filtering');
+    // No hardcoded percentage — the floor itself never travels on the wire, so this
+    // must not assert a specific number that could silently go stale (see cohesion
+    // review finding 9).
+    expect(el.textContent).toContain("3 excluded (below the store's configured recall floor)");
+    // MemoryView always searches with limit: 100 (DEFAULT_FILTERS) — the label says so
+    // rather than implying totalBeforeRecallFilter is every matching record.
+    expect(el.textContent).toContain('6 of the first 100 matches before the recall filter');
     unmount();
   });
 });

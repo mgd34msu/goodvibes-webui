@@ -329,12 +329,19 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
+    // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+    );
+  });
+
+  test('sdk.operator.push exposes the Web Push lifecycle verbs', () => {
+    expect(Object.keys(sdk.operator.push).sort()).toEqual(
+      ['list', 'subscribe', 'unsubscribe', 'vapidKey', 'verify'].sort(),
     );
   });
 

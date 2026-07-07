@@ -1,0 +1,215 @@
+/*
+ * GoodVibes operator shell — service worker.
+ *
+ * TWO JOBS, and a hard line between them:
+ *
+ *  1. Cache the APP SHELL (the HTML document + the hashed JS/CSS/icons Vite
+ *     emits) so the installed app opens instantly, even with no network.
+ *
+ *  2. Receive Web Push notifications (approvals / completions the daemon fans
+ *     out) and deep-link a tap into the right view.
+ *
+ * THE HONESTY LINE — this is the whole point, do not cross it:
+ *   The daemon is the single source of truth for every piece of live data
+ *   (sessions, approvals, config, auth, memory, ...). The service worker
+ *   NEVER caches an API response. `/api/*`, `/login`, `/status`, `/task`,
+ *   `/config`, and every event-stream go straight to the network with no
+ *   fallback. So when the app opens offline (or the daemon is unreachable),
+ *   the SHELL loads from cache but every data call fails — and the app shows
+ *   its existing "Can't reach the daemon" state (DaemonUnreachableGate). The
+ *   offline app reads as an honest degraded state, never as stale-live data.
+ *   A service worker that answered an API call from cache would be showing a
+ *   confident number that might be hours old: that is the trap this avoids.
+ *
+ * Bump CACHE_VERSION whenever the caching behavior itself changes; `activate`
+ * deletes every cache that is not the current version.
+ */
+
+const CACHE_VERSION = 'v1';
+const SHELL_CACHE = `goodvibes-shell-${CACHE_VERSION}`;
+const ASSET_CACHE = `goodvibes-assets-${CACHE_VERSION}`;
+
+// The minimal shell precached on install: the document itself and the app
+// icons. Hashed JS/CSS chunks are filled in at runtime (cache-first) the first
+// time they are fetched — their names are build-generated, so they cannot be
+// listed here by hand.
+const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/goodvibes-icon.png'];
+
+// Paths whose responses must NEVER be cached — the daemon owns this data and it
+// must always be fetched live or fail honestly. Matched against the pathname.
+const NEVER_CACHE_PREFIXES = ['/api/', '/login', '/status', '/task', '/config'];
+
+function isNeverCache(url) {
+  return NEVER_CACHE_PREFIXES.some((prefix) => url.pathname === prefix || url.pathname.startsWith(prefix));
+}
+
+// Only genuine, immutable build output is cache-first. In a Vite PRODUCTION
+// build that is /assets/* (hashed chunks) plus the icons and manifest. This
+// deliberately excludes dev-server module paths (/src/*, /@vite/*, /@fs/*) so
+// running the SW against the dev server never caches a hot module and breaks
+// HMR — those fall through to the network untouched.
+function isCacheableAsset(url) {
+  return (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.webmanifest' ||
+    url.pathname === '/goodvibes-icon.png' ||
+    url.pathname === '/favicon.ico'
+  );
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL_URLS))
+      // A missing precache entry must not wedge the whole install (e.g. a dev
+      // server that does not serve one of these yet). Best-effort shell fill.
+      .catch(() => undefined)
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== SHELL_CACHE && key !== ASSET_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+
+// Let the page trigger an immediate activation of a waiting worker (the
+// install-prompt / update flow posts { type: 'SKIP_WAITING' }).
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+async function staleWhileRevalidateShell(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match('/index.html', { ignoreSearch: true });
+  const network = fetch(request)
+    .then((response) => {
+      if (response && response.ok) cache.put('/index.html', response.clone());
+      return response;
+    })
+    .catch(() => undefined);
+  // Instant open: serve the cached shell immediately when we have it, and let
+  // the network copy refresh the cache for next time (best-effort — the promise
+  // carries its own .catch so a failed revalidation is never unhandled). With no
+  // cache yet, wait for the network; if that also fails, an honest offline page.
+  if (cached) return cached;
+  const fresh = await network;
+  return fresh ?? offlineDocument();
+}
+
+function offlineDocument() {
+  return new Response(
+    '<!doctype html><meta charset="utf-8"><title>GoodVibes — offline</title>' +
+      '<body style="font-family:system-ui,sans-serif;background:#08080f;color:#e8e8f0;' +
+      'display:grid;place-items:center;height:100vh;margin:0;text-align:center">' +
+      '<div><h1 style="font-size:1.1rem">Offline</h1>' +
+      '<p style="opacity:.7;max-width:32ch">The app shell has not been cached yet. ' +
+      'Reconnect to the daemon once, then it will open offline.</p></div>',
+    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+  );
+}
+
+async function cacheFirstAsset(request) {
+  const cache = await caches.open(ASSET_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  // Only cache successful, same-origin, basic responses — never an opaque or
+  // error response (which would poison the cache with a broken asset).
+  if (response && response.ok && response.type === 'basic') cache.put(request, response.clone());
+  return response;
+}
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return; // writes always hit the network live.
+
+  const url = new URL(request.url);
+
+  // Cross-origin (e.g. a CDN, or a separately-hosted daemon origin) — leave it
+  // to the browser's default handling; do not cache another origin's bytes.
+  if (url.origin !== self.location.origin) return;
+
+  // The honesty line: daemon-owned data is never cached, never served stale.
+  if (isNeverCache(url)) return;
+
+  // Navigation (opening the app / a deep link) → the app shell.
+  if (request.mode === 'navigate') {
+    event.respondWith(staleWhileRevalidateShell(request));
+    return;
+  }
+
+  // Immutable build assets (hashed, /icons, manifest) → cache-first. Everything
+  // else (dev modules, anything unrecognized) falls through to the network.
+  if (isCacheableAsset(url)) {
+    event.respondWith(cacheFirstAsset(request));
+  }
+});
+
+// ─── Web Push ─────────────────────────────────────────────────────────
+//
+// The daemon sends a JSON payload shaped like the SDK's PushMessage
+// ({ title, body, data }). For an approval the daemon sets
+// data = { kind: 'approval', approvalId }. We render the notification and, on
+// tap, deep-link to the view that action lives in.
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: 'GoodVibes', body: event.data ? event.data.text() : '' };
+  }
+  const title = typeof payload.title === 'string' && payload.title ? payload.title : 'GoodVibes';
+  const body = typeof payload.body === 'string' ? payload.body : '';
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      data,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: typeof data.approvalId === 'string' ? `approval-${data.approvalId}` : undefined,
+    }),
+  );
+});
+
+// Map a notification's data onto an in-app URL. Kept in sync with the pure
+// helper src/lib/push/notification-link.ts (unit-tested there); this copy is
+// what the service-worker runtime actually executes.
+function linkForNotification(data) {
+  if (data && data.kind === 'approval') return '/?view=approvals-tasks';
+  if (data && typeof data.url === 'string') return data.url;
+  return '/';
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = linkForNotification(event.notification.data || {});
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Prefer focusing an already-open window and navigating it, so a tap does
+      // not stack a second copy of the app.
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(target).catch(() => undefined);
+          return undefined;
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

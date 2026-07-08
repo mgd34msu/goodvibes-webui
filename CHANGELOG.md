@@ -6,6 +6,17 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-07
+
+Maintenance release on `@pellux/goodvibes-sdk` 1.4.1.
+
+### Changed
+
+- Validated against SDK 1.4.1, which makes permission settings the sole
+  authority for command-class risk in the daemon's exec tool. No WebUI
+  behavior change — the WebUI has no exec surface — this release keeps the
+  ecosystem pinned to one SDK version.
+
 ## [1.2.0] - 2026-07-07
 
 The turn-control release, on `@pellux/goodvibes-sdk` 1.4.0.

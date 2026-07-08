@@ -6,6 +6,18 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-08
+
+Maintenance release on `@pellux/goodvibes-sdk` 1.5.0.
+
+### Changed
+
+- Validated against SDK 1.5.0: the daemon now compacts a session immediately
+  when the model itself reports its context window filled up, and honors
+  persistent per-model context-window overrides. No WebUI code change —
+  session behavior improves through the daemon; model context windows shown
+  in the picker reflect any configured override automatically.
+
 ## [1.2.1] - 2026-07-07
 
 Maintenance release on `@pellux/goodvibes-sdk` 1.4.1.

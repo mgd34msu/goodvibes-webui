@@ -130,7 +130,10 @@ export function FleetView() {
   const rows = useMemo(() => buildFleetRows(nodes), [nodes]);
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const running = useMemo(() => activeCount(nodes), [nodes]);
-  const archivedCount = archivedList.data?.nodes.length ?? 0;
+  // Optional-chain `nodes` too: an older daemon (or a degraded surface)
+  // answers the unknown verb with an empty object — that must render as an
+  // empty archive, never crash the whole Fleet view.
+  const archivedCount = archivedList.data?.nodes?.length ?? 0;
 
   const invalidateFleet = async () => {
     await Promise.all([

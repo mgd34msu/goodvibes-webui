@@ -214,6 +214,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     { id: 'wcp_e2e_1', kind: 'manual', label: 'Before the mobile pass', createdAt: 1_700_000_000_000, parentId: null as string | null, retentionClass: 'standard', commit: 'aaaaaaaaaaaa1111', sizeBytes: 4096 },
   ];
 
+  // Fleet archive (fleet.archive/unarchive/archiveFinished/archived.list):
+  // node ids the tests have archived — snapshot/list exclude them, archived.list
+  // returns them, unarchive releases them.
+  const archivedFleetIds = new Set<string>();
+
   // Runtime tasks (tasks.*, MOBILE-ADAPT): one cancellable, one retryable — the
   // pair TaskRow's two mutation buttons key off (task.cancellable / a
   // failed/cancelled status), so the phone-tier hiding of both has something
@@ -628,8 +633,49 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'control.status') return json(route, { ok: true, status: 'running' });
       if (methodId.includes('knowledge')) return json(route, knowledgeMapResponse());
       if (methodId === 'sessions.search') return json(route, unionListResponse());
-      if (methodId === 'fleet.snapshot') return json(route, FLEET_SNAPSHOT);
-      if (methodId === 'fleet.list') return json(route, { items: FLEET_SNAPSHOT.nodes, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
+      if (methodId === 'fleet.snapshot') {
+        const nodes = FLEET_SNAPSHOT.nodes.filter((node) => !archivedFleetIds.has(node.id));
+        return json(route, { ...FLEET_SNAPSHOT, nodes, totalCount: nodes.length });
+      }
+      if (methodId === 'fleet.list') {
+        const items = FLEET_SNAPSHOT.nodes.filter((node) => !archivedFleetIds.has(node.id));
+        return json(route, { items, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
+      }
+      // ── Fleet archive (SDK 1.6.x): stateful enough to prove the archive →
+      //    browse → restore round trip honestly. Only terminal nodes archive,
+      //    mirroring the daemon's refusal for live subtrees.
+      if (methodId === 'fleet.archive') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string } };
+        const id = body.body?.id ?? '';
+        const node = FLEET_SNAPSHOT.nodes.find((n) => n.id === id);
+        if (!node) return json(route, { archived: false, count: 0, reason: `node ${id} not found` });
+        if (!['done', 'failed', 'killed', 'interrupted'].includes(node.state)) {
+          return json(route, { archived: false, count: 0, reason: '1 node(s) in the subtree are still active — only finished subtrees can be archived' });
+        }
+        archivedFleetIds.add(id);
+        return json(route, { archived: true, count: 1 });
+      }
+      if (methodId === 'fleet.unarchive') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string } };
+        const existed = archivedFleetIds.delete(body.body?.id ?? '');
+        return json(route, { restored: existed ? 1 : 0 });
+      }
+      if (methodId === 'fleet.archiveFinished') {
+        let archived = 0;
+        for (const node of FLEET_SNAPSHOT.nodes) {
+          if (['done', 'failed', 'killed', 'interrupted'].includes(node.state) && !archivedFleetIds.has(node.id)) {
+            archivedFleetIds.add(node.id);
+            archived++;
+          }
+        }
+        return json(route, { archivedCount: archived });
+      }
+      if (methodId === 'fleet.archived.list') {
+        return json(route, {
+          capturedAt: FLEET_SNAPSHOT.capturedAt,
+          nodes: FLEET_SNAPSHOT.nodes.filter((node) => archivedFleetIds.has(node.id)),
+        });
+      }
       if (methodId === 'checkpoints.list') return json(route, { checkpoints: checkpointsList });
       if (methodId === 'checkpoints.create') {
         const body = (route.request().postDataJSON?.() ?? {}) as { label?: string };

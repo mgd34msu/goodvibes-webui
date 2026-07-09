@@ -26,6 +26,10 @@ import type { OperatorMethodInput, OperatorMethodOutput } from '@pellux/goodvibe
 export const BRIDGE_TYPED_METHOD_IDS = [
   'fleet.snapshot',
   'fleet.list',
+  'fleet.archive',
+  'fleet.unarchive',
+  'fleet.archiveFinished',
+  'fleet.archived.list',
   'checkpoints.list',
   'checkpoints.create',
   'checkpoints.diff',
@@ -42,6 +46,13 @@ export type FleetSnapshotResult = OperatorMethodOutput<'fleet.snapshot'>;
 export type FleetListInput = OperatorMethodInput<'fleet.list'>;
 export type FleetListResult = OperatorMethodOutput<'fleet.list'>;
 export type FleetProcessNode = FleetSnapshotResult['nodes'][number];
+// Fleet archive (SDK 1.6.0): move finished subtrees out of the live fleet
+// view into the session archive and back; list what is archived.
+export type FleetArchiveInput = OperatorMethodInput<'fleet.archive'>;
+export type FleetArchiveResult = OperatorMethodOutput<'fleet.archive'>;
+export type FleetUnarchiveResult = OperatorMethodOutput<'fleet.unarchive'>;
+export type FleetArchiveFinishedResult = OperatorMethodOutput<'fleet.archiveFinished'>;
+export type FleetArchivedListResult = OperatorMethodOutput<'fleet.archived.list'>;
 
 // ─── Checkpoints (checkpoints.*) ──────────────────────────────────────────────
 // SWAP applied: checkpoints.list/create/diff/restore now carry real map entries.

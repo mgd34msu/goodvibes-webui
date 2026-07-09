@@ -33,7 +33,7 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
+import { Archive, ArchiveRestore, Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -105,56 +105,126 @@ function StateBadge({ state }: { state: string }) {
 
 export function FleetView() {
   const [selectedId, setSelectedId] = useState('');
+  const [view, setView] = useState<'active' | 'archived'>('active');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const snapshot = useQuery({
     queryKey: queryKeys.fleet,
     queryFn: () => sdk.operator.fleet.snapshot(),
     refetchInterval: FLEET_POLL_INTERVAL_MS,
   });
+  const archivedList = useQuery({
+    queryKey: queryKeys.fleetArchived,
+    queryFn: () => sdk.operator.fleet.archivedList(),
+    refetchInterval: FLEET_POLL_INTERVAL_MS,
+  });
 
-  const nodes = useMemo(() => snapshot.data?.nodes ?? [], [snapshot.data]);
+  // The pane renders whichever collection the toggle selects; both share the
+  // same row/detail machinery because archived nodes keep the full node shape.
+  const current = view === 'archived' ? archivedList : snapshot;
+  const nodes = useMemo(
+    () => (view === 'archived' ? archivedList.data?.nodes : snapshot.data?.nodes) ?? [],
+    [view, archivedList.data, snapshot.data],
+  );
   const rows = useMemo(() => buildFleetRows(nodes), [nodes]);
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const running = useMemo(() => activeCount(nodes), [nodes]);
+  const archivedCount = archivedList.data?.nodes.length ?? 0;
+
+  const invalidateFleet = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.fleet }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.fleetArchived }),
+    ]);
+  };
+
+  const archiveFinished = useMutation({
+    mutationFn: () => sdk.operator.fleet.archiveFinished(),
+    onSuccess: async (result) => {
+      toast({
+        title: result.archivedCount > 0
+          ? `Archived ${result.archivedCount} finished node${result.archivedCount === 1 ? '' : 's'}`
+          : 'No fully-finished processes to archive',
+        tone: 'info',
+      });
+      await invalidateFleet();
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Archive failed', description: formatError(error), tone: 'danger' });
+    },
+  });
 
   return (
     <div className={selected ? 'fleet-view has-selection' : 'fleet-view'}>
       <div className="fleet-list-pane">
         <div className="fleet-toolbar">
           <span className="fleet-toolbar__summary">
-            <Boxes size={14} /> {nodes.length} node{nodes.length === 1 ? '' : 's'} · {running} active
+            <Boxes size={14} /> {nodes.length} node{nodes.length === 1 ? '' : 's'}
+            {view === 'active' ? ` · ${running} active` : ' archived'}
           </span>
-          <button className="icon-button" type="button" title="Refresh" onClick={() => void snapshot.refetch()}>
-            <RefreshCw size={15} className={snapshot.isFetching ? 'spin' : undefined} />
+          <button
+            className="icon-button"
+            type="button"
+            title={view === 'active' ? `View archive (${archivedCount})` : 'View live fleet'}
+            aria-label={view === 'active' ? `View archive (${archivedCount})` : 'View live fleet'}
+            onClick={() => { setSelectedId(''); setView(view === 'active' ? 'archived' : 'active'); }}
+          >
+            {view === 'active' ? <Archive size={15} /> : <Boxes size={15} />}
+          </button>
+          {view === 'active' && (
+            <button
+              className="icon-button"
+              type="button"
+              title="Archive all finished"
+              aria-label="Archive all finished"
+              disabled={archiveFinished.isPending}
+              onClick={() => archiveFinished.mutate()}
+            >
+              <ArchiveRestore size={15} style={{ transform: 'scaleY(-1)' }} />
+            </button>
+          )}
+          <button className="icon-button" type="button" title="Refresh" onClick={() => void current.refetch()}>
+            <RefreshCw size={15} className={current.isFetching ? 'spin' : undefined} />
           </button>
         </div>
 
-        {snapshot.isPending && (
+        {current.isPending && (
           <div className="fleet-loading">
             <SkeletonBlock variant="text" lines={4} />
           </div>
         )}
 
-        {snapshot.isError && (
-          <ErrorState error={snapshot.error} onRetry={() => void snapshot.refetch()} title="Failed to load the fleet" />
+        {current.isError && (
+          <ErrorState
+            error={current.error}
+            onRetry={() => void current.refetch()}
+            title={view === 'archived' ? 'Failed to load the archive' : 'Failed to load the fleet'}
+          />
         )}
 
-        {snapshot.isSuccess && snapshot.data.truncated && (
+        {view === 'active' && snapshot.isSuccess && snapshot.data.truncated && (
           <div className="fleet-cap-note" role="note">
             Showing {snapshot.data.nodes.length} of {snapshot.data.totalCount} nodes — truncated at the daemon's
             2000-node cap. Use a narrower fleet.list filter for the rest (not yet exposed in this view).
           </div>
         )}
 
-        {snapshot.isSuccess && !nodes.length && (
+        {current.isSuccess && !nodes.length && (view === 'archived' ? (
+          <EmptyState
+            icon={<Archive size={28} />}
+            title="Archive is empty"
+            description="Archive finished agents and swarms from the live fleet to keep the working view clean — they stay browsable here."
+          />
+        ) : (
           <EmptyState
             icon={<Boxes size={28} />}
             title="No active processes"
             description="Agents, WRFC chains, workflows, watchers, and background processes will appear here while they run."
           />
-        )}
+        ))}
 
-        {snapshot.isSuccess && nodes.length > 0 && (
+        {current.isSuccess && nodes.length > 0 && (
           <ul className="fleet-rows">
             {rows.map(({ node, depth }) => (
               <li key={node.id} style={{ paddingLeft: `${depth * 14}px` }}>
@@ -177,7 +247,14 @@ export function FleetView() {
       </div>
 
       <div className="fleet-detail-pane">
-        {selected ? <FleetDetail node={selected} onBack={() => setSelectedId('')} /> : (
+        {selected ? (
+          <FleetDetail
+            node={selected}
+            archived={view === 'archived'}
+            onMutated={() => { setSelectedId(''); void invalidateFleet(); }}
+            onBack={() => setSelectedId('')}
+          />
+        ) : (
           <div className="fleet-detail-empty">Select a process to view its detail.</div>
         )}
       </div>
@@ -185,12 +262,49 @@ export function FleetView() {
   );
 }
 
-function FleetDetail({ node, onBack }: { node: FleetProcessNode; onBack: () => void }) {
+function FleetDetail({ node, archived, onMutated, onBack }: {
+  node: FleetProcessNode;
+  archived: boolean;
+  onMutated: () => void;
+  onBack: () => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const backed = useMemo(() => wireBackedActions(node), [node]);
   const unbackedNote = useMemo(() => unbackedCapabilityNote(node), [node]);
   const sessionId = node.sessionRef?.sessionId;
+
+  const archiveNode = useMutation({
+    mutationFn: (id: string) => sdk.operator.fleet.archive(id),
+    onSuccess: (result) => {
+      if (result.archived) {
+        toast({ title: `Archived (${result.count} node${result.count === 1 ? '' : 's'})`, tone: 'info' });
+        onMutated();
+      } else {
+        // Honest refusal from the daemon (e.g. a live member in the subtree).
+        toast({ title: 'Not archived', description: result.reason ?? 'The daemon refused to archive this subtree.', tone: 'danger' });
+      }
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Archive failed', description: formatError(error), tone: 'danger' });
+    },
+  });
+
+  const restoreNode = useMutation({
+    mutationFn: (id: string) => sdk.operator.fleet.unarchive(id),
+    onSuccess: (result) => {
+      toast({
+        title: result.restored > 0
+          ? `Restored ${result.restored} node${result.restored === 1 ? '' : 's'} to the live fleet`
+          : 'Nothing restored for this node',
+        tone: 'info',
+      });
+      onMutated();
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Restore failed', description: formatError(error), tone: 'danger' });
+    },
+  });
 
   const stopWatcher = useMutation({
     mutationFn: (watcherId: string) => sdk.operator.watchers.stop(watcherId),
@@ -225,6 +339,30 @@ function FleetDetail({ node, onBack }: { node: FleetProcessNode; onBack: () => v
       </header>
 
       <FleetApprovalInline node={node} />
+
+      {archived ? (
+        <div className="fleet-detail__actions">
+          <button
+            type="button"
+            className="fleet-detail__stop"
+            disabled={restoreNode.isPending}
+            onClick={() => restoreNode.mutate(node.id)}
+          >
+            <ArchiveRestore size={14} /> {restoreNode.isPending ? 'Restoring…' : 'Restore to live fleet'}
+          </button>
+        </div>
+      ) : isTerminalState(node.state) && (
+        <div className="fleet-detail__actions">
+          <button
+            type="button"
+            className="fleet-detail__stop"
+            disabled={archiveNode.isPending}
+            onClick={() => archiveNode.mutate(node.id)}
+          >
+            <Archive size={14} /> {archiveNode.isPending ? 'Archiving…' : 'Archive'}
+          </button>
+        </div>
+      )}
 
       {(backed.has('steer') || backed.has('detach')) && sessionId && (
         <div className="fleet-detail__actions">

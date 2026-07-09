@@ -19,6 +19,11 @@ import {
   type FleetSnapshotResult,
   type FleetListInput,
   type FleetListResult,
+  type FleetArchiveInput,
+  type FleetArchiveResult,
+  type FleetUnarchiveResult,
+  type FleetArchiveFinishedResult,
+  type FleetArchivedListResult,
   type WorkspaceCheckpoint,
   type CheckpointsListInput,
   type CheckpointsListResult,
@@ -374,7 +379,8 @@ describe('sdk facade shape — byte-compatible surface', () => {
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
-    expect(Object.keys(sdk.operator.fleet).sort()).toEqual(['list', 'snapshot'].sort());
+    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees).
+    expect(Object.keys(sdk.operator.fleet).sort()).toEqual(['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList'].sort());
     expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(['create', 'diff', 'list', 'restore'].sort());
     expect(Object.keys(sdk.operator.approvals).sort()).toEqual(['approve', 'cancel', 'claim', 'deny', 'list'].sort());
     expect(Object.keys(sdk.operator.tasks).sort()).toEqual(['cancel', 'create', 'list', 'retry'].sort());
@@ -528,6 +534,10 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   const outputSamples: Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown> = {
     'fleet.snapshot': { capturedAt: 1, nodes: [fleetNode], truncated: false, totalCount: 1 } satisfies FleetSnapshotResult,
     'fleet.list': { items: [fleetNode], hasMore: false, capturedAt: 1 } satisfies FleetListResult,
+    'fleet.archive': { archived: true, count: 3 } satisfies FleetArchiveResult,
+    'fleet.unarchive': { restored: 3 } satisfies FleetUnarchiveResult,
+    'fleet.archiveFinished': { archivedCount: 3 } satisfies FleetArchiveFinishedResult,
+    'fleet.archived.list': { capturedAt: 1, nodes: [fleetNode] } satisfies FleetArchivedListResult,
     'checkpoints.list': { checkpoints: [workspaceCheckpoint] } satisfies CheckpointsListResult,
     'checkpoints.create': { checkpoint: workspaceCheckpoint, noop: false } satisfies CheckpointsCreateResult,
     'checkpoints.diff': {
@@ -553,6 +563,8 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   // that ARE present against the schema).
   const inputSamples: Partial<Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown>> = {
     'fleet.list': { kinds: ['agent'], states: ['running'], limit: 10, cursor: 'c1' } satisfies FleetListInput,
+    'fleet.archive': { id: 'node-1' } satisfies FleetArchiveInput,
+    'fleet.unarchive': { id: 'node-1' } satisfies FleetArchiveInput,
     'checkpoints.list': { kind: 'manual', since: 1, limit: 5 } satisfies CheckpointsListInput,
     'checkpoints.create': {
       kind: 'manual', label: 'x', retentionClass: 'standard', turnId: 't1', agentId: 'a1', paths: ['a.ts'],

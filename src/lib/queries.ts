@@ -17,6 +17,9 @@ export const queryKeys = {
   // fleet-update event (mentioned as a possibility in the SDK's fleet/checkpoints
   // design notes) lands.
   fleet: ['fleet'] as const,
+  // Session archive of finished fleet subtrees (fleet.archived.list) — same
+  // poll-not-push story as the live fleet key above.
+  fleetArchived: ['fleet', 'archived'] as const,
   checkpoints: ['checkpoints'] as const,
   // Workstream view rides fleet.* filtered to orchestration/workstream rows —
   // fill the body, do not restructure the key.

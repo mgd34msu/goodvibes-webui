@@ -6,6 +6,28 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-09
+
+Ships against `@pellux/goodvibes-sdk` 1.6.1.
+
+### Added
+
+- **Fleet archive view.** The Fleet view can now toggle between the live
+  fleet and the session archive of finished agents/swarms (`fleet.archived.list`).
+  Finished processes can be archived one subtree at a time from the detail
+  pane, or all at once from the toolbar (`fleet.archive` /
+  `fleet.archiveFinished`); archived processes stay browsable with full
+  usage/cost detail and can be restored to the live view (`fleet.unarchive`).
+  The daemon refuses to archive subtrees with running members — the refusal
+  reason surfaces as a toast, never a silent no-op.
+
+### Changed
+
+- Sessions benefit from SDK 1.6.1 daemon behavior: immediate compact-and-retry
+  when a provider rejects a request as exceeding the context window, learned
+  per-model context ceilings, and agent-completion notices that deliver
+  exactly once instead of repeating with escalating urgency tags.
+
 ## [1.2.2] - 2026-07-08
 
 Maintenance release on `@pellux/goodvibes-sdk` 1.5.0.

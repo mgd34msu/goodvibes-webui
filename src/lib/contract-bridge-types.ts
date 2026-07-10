@@ -34,6 +34,7 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'checkpoints.create',
   'checkpoints.diff',
   'checkpoints.restore',
+  'checkpoints.restorePreview',
   'sessions.search',
   'sessions.detach',
 ] as const;
@@ -65,6 +66,11 @@ export type CheckpointsDiffInput = OperatorMethodInput<'checkpoints.diff'>;
 export type CheckpointsDiffResult = OperatorMethodOutput<'checkpoints.diff'>;
 export type CheckpointsRestoreInput = OperatorMethodInput<'checkpoints.restore'>;
 export type CheckpointsRestoreResult = OperatorMethodOutput<'checkpoints.restore'>;
+// checkpoints.restorePreview (SDK 1.6.1): non-destructive preview of what a
+// restore would change, plus a short-lived single-use confirmToken the restore
+// call passes back instead of a blind confirm:true.
+export type CheckpointsRestorePreviewInput = OperatorMethodInput<'checkpoints.restorePreview'>;
+export type CheckpointsRestorePreviewResult = OperatorMethodOutput<'checkpoints.restorePreview'>;
 export type WorkspaceCheckpoint = CheckpointsListResult['checkpoints'][number];
 
 // ─── Sessions search (sessions.search) ────────────────────────────────────────

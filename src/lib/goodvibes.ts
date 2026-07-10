@@ -20,6 +20,8 @@ import type {
   CheckpointsListResult,
   CheckpointsRestoreInput,
   CheckpointsRestoreResult,
+  CheckpointsRestorePreviewInput,
+  CheckpointsRestorePreviewResult,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
@@ -49,6 +51,8 @@ export type {
   CheckpointsListResult,
   CheckpointsRestoreInput,
   CheckpointsRestoreResult,
+  CheckpointsRestorePreviewInput,
+  CheckpointsRestorePreviewResult,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
@@ -1191,6 +1195,8 @@ export const sdk = {
       diff: (input: CheckpointsDiffInput) => invokeGatewayMethod<'checkpoints.diff', CheckpointsDiffResult>('checkpoints.diff', input),
       restore: (input: CheckpointsRestoreInput) =>
         invokeGatewayMethod<'checkpoints.restore', CheckpointsRestoreResult>('checkpoints.restore', input),
+      restorePreview: (input: CheckpointsRestorePreviewInput) =>
+        invokeGatewayMethod<'checkpoints.restorePreview', CheckpointsRestorePreviewResult>('checkpoints.restorePreview', input),
     },
     sessions: {
       list: () => invokeOperator('sessions.list', {}),

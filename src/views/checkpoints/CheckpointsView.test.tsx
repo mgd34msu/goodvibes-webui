@@ -11,13 +11,27 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
+import { ToastViewport } from '../../components/toast/ToastViewport';
 
 const restoreCalls: unknown[] = [];
+const previewCalls: unknown[] = [];
 const createCalls: unknown[] = [];
 const diffCalls: unknown[] = [];
 let createImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ checkpoint: null, noop: true });
 let diffImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({
   diff: { from: 'wcp_1', to: 'WORKING', files: ['a.txt'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed' },
+});
+// Default: the daemon mints a preview token and performs the restore (refused: false).
+// Individual tests override these to exercise the refusal / preview-failure paths.
+let previewImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({
+  token: 'tok_wcp_1',
+  expiresAt: Date.now() + 120000,
+  preview: { checkpointId: 'wcp_1', label: 'diff base', affectedPathCount: 1, affectedPathSample: ['a.txt'], stat: '1 file changed' },
+});
+let restoreImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({
+  result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.txt'], removedFiles: [] },
+  refused: false,
+  refusal: null,
 });
 
 mock.module('../../lib/goodvibes', () => ({
@@ -29,7 +43,8 @@ mock.module('../../lib/goodvibes', () => ({
         list: () => Promise.resolve(FIXTURE_LIST),
         create: (input: unknown) => { createCalls.push(input); return createImpl(input); },
         diff: (input: unknown) => { diffCalls.push(input); return diffImpl(input); },
-        restore: (input: unknown) => { restoreCalls.push(input); return Promise.resolve({ result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.txt'], removedFiles: [] } }); },
+        restorePreview: (input: unknown) => { previewCalls.push(input); return previewImpl(input); },
+        restore: (input: unknown) => { restoreCalls.push(input); return restoreImpl(input); },
       },
     },
   },
@@ -55,7 +70,12 @@ function render(seed: unknown = FIXTURE_LIST): { el: HTMLElement; unmount: () =>
     root.render(React.createElement(
       QueryClientProvider,
       { client },
-      React.createElement(ToastProvider, null, React.createElement(CheckpointsView)),
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(CheckpointsView),
+        React.createElement(ToastViewport),
+      ),
     ));
   });
   return {
@@ -84,11 +104,22 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 
 afterEach(() => {
   restoreCalls.length = 0;
+  previewCalls.length = 0;
   createCalls.length = 0;
   diffCalls.length = 0;
   createImpl = () => Promise.resolve({ checkpoint: null, noop: true });
   diffImpl = () => Promise.resolve({
     diff: { from: 'wcp_1', to: 'WORKING', files: ['a.txt'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed' },
+  });
+  previewImpl = () => Promise.resolve({
+    token: 'tok_wcp_1',
+    expiresAt: Date.now() + 120000,
+    preview: { checkpointId: 'wcp_1', label: 'diff base', affectedPathCount: 1, affectedPathSample: ['a.txt'], stat: '1 file changed' },
+  });
+  restoreImpl = () => Promise.resolve({
+    result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.txt'], removedFiles: [] },
+    refused: false,
+    refusal: null,
   });
 });
 
@@ -238,7 +269,7 @@ describe('CheckpointsView restore — destructive confirm gate', () => {
     unmount();
   });
 
-  test('restore fires exactly once after confirming, and the sheet names the checkpoint', async () => {
+  test('restore fires exactly once after confirming, authorized by the preview token', async () => {
     const { el, unmount } = render();
     openRestore(el);
     await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
@@ -246,10 +277,53 @@ describe('CheckpointsView restore — destructive confirm gate', () => {
     // The sheet states the target and the overwrite consequence.
     expect(sheet.textContent).toContain('diff base');
     expect(sheet.textContent?.toLowerCase()).toContain('overwrite');
+    // ...and the restorePreview enrichment: how many files would change plus a sampled path.
+    expect(previewCalls).toHaveLength(1);
+    expect(previewCalls[0]).toMatchObject({ id: 'wcp_1' });
+    expect(sheet.textContent).toContain('1 file would change');
+    expect(sheet.textContent).toContain('a.txt');
     click(sheet.querySelector('.confirm-sheet__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     expect(restoreCalls).toHaveLength(1);
-    expect(restoreCalls[0]).toMatchObject({ id: 'wcp_1' });
+    // The restore is authorized by the single-use token from the preview, not a blind confirm.
+    expect(restoreCalls[0]).toMatchObject({ id: 'wcp_1', confirmToken: 'tok_wcp_1' });
+    unmount();
+  });
+
+  test('a structured refusal surfaces the reason and does not claim success', async () => {
+    // The daemon returns the non-destructive refusal body (result: null, refused: true).
+    restoreImpl = () => Promise.resolve({
+      result: null,
+      refused: true,
+      refusal: {
+        reason: 'checkpoints.restore is destructive and requires confirmation before it will run.',
+        confirmField: 'confirm',
+        previewMethod: 'checkpoints.restorePreview',
+        options: [],
+      },
+    });
+    const { el, unmount } = render();
+    openRestore(el);
+    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
+    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => restoreCalls.length > 0);
+    // The refusal reason is shown, and the success wording never appears.
+    await waitFor(() => Boolean(el.querySelector('.toast')));
+    const toastText = el.querySelector('.toast-viewport')?.textContent ?? '';
+    expect(toastText).toContain('requires confirmation');
+    expect(toastText).not.toContain('Workspace restored');
+    unmount();
+  });
+
+  test('falls back to confirm:true when the preview call fails (non-NOT_FOUND)', async () => {
+    previewImpl = () => Promise.reject(new Error('preview transport blip'));
+    const { el, unmount } = render();
+    openRestore(el);
+    // The confirm sheet still opens (best-effort preview), with the un-enriched message.
+    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
+    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => restoreCalls.length > 0);
+    expect(restoreCalls[0]).toMatchObject({ id: 'wcp_1', confirm: true });
     unmount();
   });
 });

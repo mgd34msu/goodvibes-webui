@@ -5,6 +5,7 @@ import {
   formatBytes,
   kindLabel,
   restoreConfirmMessage,
+  restoreConfirmMessageWithPreview,
   retentionLabel,
   sortCheckpointsNewestFirst,
 } from './checkpoints';
@@ -87,5 +88,46 @@ describe('restoreConfirmMessage', () => {
   test('falls back to the id when there is no label', () => {
     const message = restoreConfirmMessage(checkpoint({ id: 'wcp_2', label: '' }));
     expect(message).toContain('wcp_2');
+  });
+});
+
+describe('restoreConfirmMessageWithPreview', () => {
+  const cp = checkpoint({ id: 'wcp_1', label: 'diff base' });
+
+  test('keeps the base warning and adds the affected-file count and a sampled path', () => {
+    const message = restoreConfirmMessageWithPreview(cp, {
+      checkpointId: 'wcp_1',
+      label: 'diff base',
+      affectedPathCount: 3,
+      affectedPathSample: ['src/a.ts', 'src/b.ts'],
+      stat: '3 files changed',
+    });
+    expect(message.toLowerCase()).toContain('overwrite');
+    expect(message).toContain('3 files would change');
+    expect(message).toContain('src/a.ts');
+    expect(message).toContain('… and 1 more');
+  });
+
+  test('uses singular wording for a single affected file', () => {
+    const message = restoreConfirmMessageWithPreview(cp, {
+      checkpointId: 'wcp_1',
+      label: 'diff base',
+      affectedPathCount: 1,
+      affectedPathSample: ['src/a.ts'],
+      stat: '1 file changed',
+    });
+    expect(message).toContain('1 file would change');
+    expect(message).not.toContain('would change:\n  … and');
+  });
+
+  test('reports "no files would change" when the preview is empty', () => {
+    const message = restoreConfirmMessageWithPreview(cp, {
+      checkpointId: 'wcp_1',
+      label: 'diff base',
+      affectedPathCount: 0,
+      affectedPathSample: [],
+      stat: '',
+    });
+    expect(message.toLowerCase()).toContain('no files would change');
   });
 });

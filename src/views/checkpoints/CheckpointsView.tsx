@@ -30,6 +30,7 @@ import {
   formatBytes,
   kindLabel,
   restoreConfirmMessage,
+  restoreConfirmMessageWithPreview,
   retentionLabel,
   sortCheckpointsNewestFirst,
 } from '../../lib/checkpoints';
@@ -121,12 +122,31 @@ export function CheckpointsView() {
   });
 
   const restore = useMutation({
-    mutationFn: (checkpoint: WorkspaceCheckpoint) => sdk.operator.checkpoints.restore({ id: checkpoint.id }),
-    onSuccess: async (_result, checkpoint) => {
+    // The daemon refuses an unconfirmed restore (SDK 1.6.1). We authorize it with
+    // the single-use confirmToken from the restorePreview shown in the confirm
+    // sheet; if the preview was unavailable we fall back to an explicit
+    // confirm:true, which the user has still confirmed via the same sheet.
+    mutationFn: ({ checkpoint, confirmToken }: { checkpoint: WorkspaceCheckpoint; confirmToken?: string }) =>
+      sdk.operator.checkpoints.restore(
+        confirmToken ? { id: checkpoint.id, confirmToken } : { id: checkpoint.id, confirm: true },
+      ),
+    onSuccess: async (result, { checkpoint }) => {
+      // Honest handling of the structured refusal shape: a refused restore
+      // (result: null, refused: true) is NOT a success. Surface the daemon's own
+      // reason instead of claiming the workspace was restored.
+      if (result.refused || result.result === null) {
+        toast({
+          title: 'Restore not performed',
+          description: result.refusal?.reason
+            ?? 'The daemon refused the restore because it was not confirmed.',
+          tone: 'warning',
+        });
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.checkpoints });
       toast({ title: 'Workspace restored', description: checkpoint.label || checkpoint.id, tone: 'success' });
     },
-    onError: (error: unknown, checkpoint) => {
+    onError: (error: unknown, { checkpoint }) => {
       toast({
         title: isNotFound(error) ? 'Checkpoint no longer exists' : 'Restore failed',
         description: isNotFound(error)
@@ -141,18 +161,40 @@ export function CheckpointsView() {
 
   // Restore is a destructive, git-backed workspace rewrite the daemon executes
   // immediately, so it ALWAYS confirms — on desktop and phone alike — via the
-  // touch-first confirm sheet (replacing the old window.confirm).
+  // touch-first confirm sheet (replacing the old window.confirm). Before asking,
+  // fetch a non-destructive restorePreview so the sheet names how many files
+  // would change; the preview also mints the single-use token used to authorize
+  // the restore. Preview is best-effort: a NOT_FOUND means the checkpoint is
+  // gone (report it, do not ask); any other preview failure falls back to a
+  // blind confirm:true so restore still works.
   async function handleRestore(checkpoint: WorkspaceCheckpoint): Promise<void> {
+    let confirmToken: string | undefined;
+    let description = restoreConfirmMessage(checkpoint);
+    try {
+      const preview = await sdk.operator.checkpoints.restorePreview({ id: checkpoint.id });
+      confirmToken = preview.token;
+      description = restoreConfirmMessageWithPreview(checkpoint, preview.preview);
+    } catch (error) {
+      if (isNotFound(error)) {
+        toast({
+          title: 'Checkpoint no longer exists',
+          description: `"${checkpoint.label || checkpoint.id}" was not found — it may have been garbage-collected.`,
+          tone: 'danger',
+        });
+        return;
+      }
+      // Non-NOT_FOUND preview failure: proceed to confirm with confirm:true.
+    }
     const ok = await confirm.ask({
       title: 'Restore this checkpoint',
       target: checkpoint.label || checkpoint.id,
-      description: restoreConfirmMessage(checkpoint),
+      description,
       confirmLabel: 'Restore',
       tone: 'danger',
     });
     if (!ok) return;
     setRestoringId(checkpoint.id);
-    restore.mutate(checkpoint);
+    restore.mutate({ checkpoint, confirmToken });
   }
 
   // Creating a checkpoint is available on phone (no longer hidden); on a phone a

@@ -4,7 +4,7 @@
  * WorkspaceCheckpointManager).
  */
 
-import type { WorkspaceCheckpoint } from './goodvibes';
+import type { CheckpointsRestorePreviewResult, WorkspaceCheckpoint } from './goodvibes';
 
 /** CHECKPOINT_KIND_SCHEMA (operator-contract-schemas-fleet.ts). */
 export const KNOWN_CHECKPOINT_KINDS = ['turn', 'agent-run', 'manual'] as const;
@@ -54,4 +54,27 @@ export function restoreConfirmMessage(checkpoint: WorkspaceCheckpoint): string {
     + 'This overwrites the CURRENT working tree with the files captured by that checkpoint '
     + '(a git-backed rewrite). Uncommitted changes made since then that are not themselves '
     + 'checkpointed will be lost.';
+}
+
+/**
+ * The restore confirm prompt enriched with a checkpoints.restorePreview result:
+ * how many files the restore would change and a bounded sample of their paths.
+ * Falls back to a "nothing would change" line when the preview reports no
+ * affected paths. Built here (not inlined) so CheckpointsView's test can assert
+ * on the wording without duplicating it.
+ */
+export function restoreConfirmMessageWithPreview(
+  checkpoint: WorkspaceCheckpoint,
+  preview: CheckpointsRestorePreviewResult['preview'],
+): string {
+  const base = restoreConfirmMessage(checkpoint);
+  const count = preview.affectedPathCount;
+  if (count <= 0) {
+    return `${base}\n\nThis checkpoint matches the current working tree — no files would change.`;
+  }
+  const noun = count === 1 ? 'file' : 'files';
+  const sample = preview.affectedPathSample.slice(0, 5);
+  const sampleLines = sample.length ? `\n  ${sample.join('\n  ')}` : '';
+  const remainder = count > sample.length ? `\n  … and ${count - sample.length} more` : '';
+  return `${base}\n\n${count} ${noun} would change:${sampleLines}${remainder}`;
 }

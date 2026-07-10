@@ -2,11 +2,30 @@ import { describe, expect, test } from 'bun:test';
 import {
   formatError,
   isAuthExpiredError,
+  isConflictError,
   isMethodUnavailableError,
   isSessionActiveError,
   isSessionNotFoundError,
   isSessionNotLocalError,
 } from './errors';
+
+describe('isConflictError (409 stale-hunk / not-ready-group)', () => {
+  test('true for the CONFLICT code (revertHunk stale, attempts.pick not-ready)', () => {
+    expect(isConflictError({ code: 'CONFLICT', status: 409, message: 'hunk no longer applies' })).toBe(true);
+    expect(isConflictError(Object.assign(new Error('conflict'), { transport: { body: { code: 'CONFLICT' } } }))).toBe(true);
+  });
+
+  test('true for a bare 409 status even without the machine code', () => {
+    expect(isConflictError({ status: 409 })).toBe(true);
+    expect(isConflictError(Object.assign(new Error('x'), { transport: { status: 409 } }))).toBe(true);
+  });
+
+  test('false for non-conflict errors', () => {
+    expect(isConflictError({ status: 404, code: 'METHOD_NOT_FOUND' })).toBe(false);
+    expect(isConflictError({ status: 500 })).toBe(false);
+    expect(isConflictError(undefined)).toBe(false);
+  });
+});
 
 describe('error formatting', () => {
   test('includes transport status and hint when present', () => {

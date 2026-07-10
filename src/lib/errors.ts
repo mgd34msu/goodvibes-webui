@@ -164,6 +164,24 @@ export function isNoActiveTurnError(error: unknown): boolean {
   return errorCode(error) === 'NO_ACTIVE_TURN';
 }
 
+/**
+ * True for the daemon's honest 409 CONFLICT rejection. Two review-cockpit surfaces
+ * raise it, both meaning "nothing was written — re-read and retry", never a partial apply:
+ *   - checkpoints.revertHunk, when the hunk no longer reverse-applies cleanly because the
+ *     file drifted since the diff was captured (control-plane/routes/checkpoints.ts throws
+ *     GatewayVerbError(..., 'CONFLICT', 409));
+ *   - fleet.attempts.pick, for an unknown/not-ready group or an invalid winner (never a
+ *     partial merge of a best-of-N group).
+ * Code-first, status-fallback, the same pattern as the other daemon-code checks above.
+ */
+export function isConflictError(error: unknown): boolean {
+  if (errorCode(error) === 'CONFLICT') return true;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 409;
+}
+
 export function isMethodUnavailableError(error: unknown): boolean {
   const serialized = serializeError(error);
   const transport = asRecord(serialized.transport);

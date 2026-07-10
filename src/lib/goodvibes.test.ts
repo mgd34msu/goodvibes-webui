@@ -35,6 +35,20 @@ import {
   type CheckpointsRestoreResult,
   type CheckpointsRestorePreviewInput,
   type CheckpointsRestorePreviewResult,
+  type CheckpointsRevertHunkPreviewInput,
+  type CheckpointsRevertHunkPreviewResult,
+  type CheckpointsRevertHunkInput,
+  type CheckpointsRevertHunkResult,
+  type RewindPlanInput,
+  type RewindPlanResult,
+  type RewindApplyInput,
+  type RewindApplyResult,
+  type FleetAttemptsListInput,
+  type FleetAttemptsListResult,
+  type FleetAttemptsPickInput,
+  type FleetAttemptsPickResult,
+  type FleetAttemptsJudgeInput,
+  type FleetAttemptsJudgeResult,
   type SessionsSearchInput,
   type SessionsSearchResult,
   type SessionsSearchSessionSummary,
@@ -615,7 +629,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'rewind', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -689,9 +703,18 @@ describe('sdk facade shape — byte-compatible surface', () => {
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
-    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees).
-    expect(Object.keys(sdk.operator.fleet).sort()).toEqual(['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList'].sort());
-    expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(['create', 'diff', 'list', 'restore', 'restorePreview'].sort());
+    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees)
+    // and the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit.
+    expect(Object.keys(sdk.operator.fleet).sort()).toEqual(
+      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts'].sort(),
+    );
+    expect(Object.keys(sdk.operator.fleet.attempts).sort()).toEqual(['list', 'pick', 'judge'].sort());
+    // checkpoints gains the per-hunk revert preview/apply pair with the 1.6.1 review cockpit.
+    expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(
+      ['create', 'diff', 'list', 'restore', 'restorePreview', 'revertHunkPreview', 'revertHunk'].sort(),
+    );
+    // rewind (plan/apply) is a new top-level operator group with the 1.6.1 rewind surface.
+    expect(Object.keys(sdk.operator.rewind).sort()).toEqual(['plan', 'apply'].sort());
     expect(Object.keys(sdk.operator.approvals).sort()).toEqual(['approve', 'cancel', 'claim', 'deny', 'list'].sort());
     expect(Object.keys(sdk.operator.tasks).sort()).toEqual(['cancel', 'create', 'list', 'retry'].sort());
   });
@@ -869,6 +892,55 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
         stat: '1 file',
       },
     } satisfies CheckpointsRestorePreviewResult,
+    'checkpoints.revertHunkPreview': {
+      path: 'src/foo.ts', applies: true, conflict: null, hunkHeader: '@@ -40,3 +40,4 @@',
+      addedLinesRemoved: 1, removedLinesRestored: 0, matchedAtLine: 40, token: 'tok_hunk_1', expiresAt: 120000,
+    } satisfies CheckpointsRevertHunkPreviewResult,
+    'checkpoints.revertHunk': {
+      receipt: {
+        reverted: true, path: 'src/foo.ts', hunkHeader: '@@ -40,3 +40,4 @@',
+        addedLinesRemoved: 1, removedLinesRestored: 0, safetyCheckpointId: 'wcp_safety',
+        undo: { restoreCheckpointId: 'wcp_safety' },
+      },
+      refused: false, refusal: null,
+    } satisfies CheckpointsRevertHunkResult,
+    'rewind.plan': {
+      sessionId: 's-1', turnId: 't-1', scope: 'both', token: 'tok_rw', expiresAt: 120000,
+      files: { available: true, checkpointId: 'wcp_1', checkpointLabel: 'before turn', affectedFileCount: 2 },
+      conversation: { available: true, messagesToDrop: 3, messagesRemaining: 10 },
+      warnings: [],
+    } satisfies RewindPlanResult,
+    'rewind.apply': {
+      receipt: {
+        sessionId: 's-1', turnId: 't-1', scope: 'both', appliedAt: 1,
+        files: { restored: true, checkpointId: 'wcp_1', safetyCheckpointId: 'wcp_safety', restoredFileCount: 2, removedFileCount: 0 },
+        conversation: { rewound: true, droppedMessages: 3, undoSnapshotId: 'snap_1' },
+        undo: { files: { restoreCheckpointId: 'wcp_safety' }, conversation: { undoSnapshotId: 'snap_1' } },
+        warnings: [],
+      },
+      refused: false, refusal: null,
+    } satisfies RewindApplyResult,
+    'fleet.attempts.list': {
+      groups: [{
+        groupId: 'g-1', workstreamId: 'ws-1', sourceTitle: 'Implement X', ready: true,
+        candidates: [{
+          itemId: 'i-1', attemptIndex: 0, state: 'held-merge', title: 'attempt 1',
+          worktreePath: '/tmp/wt1', branch: 'attempt/1',
+          usage: {
+            inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0,
+            llmCallCount: 1, turnCount: 1, toolCallCount: 2, costUsd: 0.1, costState: 'priced',
+          },
+          failureReason: null,
+          diff: { files: ['a.ts'], unifiedDiff: '--- a', stat: '1 file' },
+        }],
+        autoAccept: false,
+        judgment: { proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model' },
+      }],
+    } satisfies FleetAttemptsListResult,
+    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: ['i-2'], auto: false } satisfies FleetAttemptsPickResult,
+    'fleet.attempts.judge': {
+      proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model',
+    } satisfies FleetAttemptsJudgeResult,
     'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
     'sessions.detach': {
       session: {
@@ -908,6 +980,18 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'checkpoints.diff': { a: 'wcp_1', b: 'wcp_2' } satisfies CheckpointsDiffInput,
     'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true, confirm: true } satisfies CheckpointsRestoreInput,
     'checkpoints.restorePreview': { id: 'wcp_1', paths: ['a.ts'] } satisfies CheckpointsRestorePreviewInput,
+    'checkpoints.revertHunkPreview': {
+      path: 'src/foo.ts', hunk: '@@ -40,3 +40,4 @@\n const a = 1;\n+  const c = 3;\n const b = 2;', sessionId: 's-1',
+    } satisfies CheckpointsRevertHunkPreviewInput,
+    'checkpoints.revertHunk': {
+      path: 'src/foo.ts', hunk: '@@ -40,3 +40,4 @@\n const a = 1;\n+  const c = 3;\n const b = 2;',
+      sessionId: 's-1', confirmToken: 'tok_hunk_1',
+    } satisfies CheckpointsRevertHunkInput,
+    'rewind.plan': { sessionId: 's-1', turnId: 't-1', scope: 'both' } satisfies RewindPlanInput,
+    'rewind.apply': { sessionId: 's-1', turnId: 't-1', scope: 'both', confirmToken: 'tok_rw' } satisfies RewindApplyInput,
+    'fleet.attempts.list': { workstreamId: 'ws-1' } satisfies FleetAttemptsListInput,
+    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1' } satisfies FleetAttemptsPickInput,
+    'fleet.attempts.judge': { groupId: 'g-1' } satisfies FleetAttemptsJudgeInput,
     'sessions.search': {
       query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
       status: 'active', includeClosed: true, limit: 20, cursor: 'c1',

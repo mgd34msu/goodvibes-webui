@@ -1,45 +1,43 @@
 /**
- * SessionChanges — a read-only, hunk-selectable view of the file changes a session made,
- * wired so a single hunk can be commented on and that comment steered into THIS session.
+ * SessionChanges — the session review COCKPIT: every changed file the session made in one
+ * scrollable multibuffer (DiffMultibuffer), each hunk a tap target with three actions.
  *
- * DAEMON SURFACE: sessions.changes.get (SDK 1.6.1) returns a session's aggregate
- * workspace diff, joined over the workspace checkpoints stamped with that session's id —
- * the net change from before the session's earliest stamped checkpoint to its latest.
- * That is the PRIMARY, default source this view reads: genuinely session-scoped, not a
- * workspace-wide diff dressed up with a caveat label. A session with no stamped
- * checkpoints answers honestly with `checkpointCount: 0` and an empty diff
- * (`from`/`to`: "EMPTY") — this view renders that as an explicit "no captured changes for
- * this session" state with a one-tap fallback, never a blank panel.
+ * DAEMON SURFACE: sessions.changes.get (SDK 1.6.1) returns a session's aggregate workspace
+ * diff, joined over the workspace checkpoints stamped with that session's id — the net
+ * change from before the session's earliest stamped checkpoint to its latest. That is the
+ * PRIMARY, default source. A session with no stamped checkpoints answers honestly with
+ * `checkpointCount: 0` and an empty diff — rendered as an explicit "no captured changes"
+ * state with a one-tap workspace-scoped fallback (checkpoints.list + checkpoints.diff),
+ * never a blank panel. Both modes parse their unified diff with parseUnifiedDiff.
  *
- * FALLBACK (explicit secondary mode, not silently blended in): older sessions predate
- * sessionId stamping on checkpoints, so their aggregate is always the honest-empty
- * result above. For them (or any session where a manual read of the raw checkpoint
- * timeline is wanted), the workspace-wide checkpoint-baseline picker this view used to be
- * built on entirely is kept as a toggle: pick a baseline checkpoint → checkpoints.diff
- * gives a unified diff against the live working tree. It is explicitly labeled
- * "workspace-scoped (fallback)" wherever its output is shown — capture provenance stays
- * truthful in both modes.
- *
- * FLOW (either mode): the answering unified diff is parsed by parseUnifiedDiff into
- * files + hunks → each hunk is a tap target → the HunkCommentSheet composes a comment →
- * it is sent through the SAME steer path the SteerComposer/fleet needs-input flow use
- * (sessions.steer when an agent is bound, sessions.followUp otherwise), PREFIXED with a
- * structured context block naming the file, line ranges, capture source, and the hunk
- * excerpt.
+ * PER-HUNK ACTIONS (HunkActionSheet, opened by tapping a hunk):
+ *   - APPROVE — mark the hunk reviewed. Purely client-side progress tracking (a
+ *     reviewed/total indicator); no wire call, resets on refresh (honest — a refreshed diff
+ *     is a new capture).
+ *   - COMMENT & STEER — the existing flow: HunkCommentSheet composes a comment sent through
+ *     the same steer path (sessions.steer when an agent is bound, sessions.followUp
+ *     otherwise), prefixed with a structured context block naming the file/ranges/excerpt.
+ *   - REJECT & REVERT — checkpoints.revertHunkPreview → render exactly what would be
+ *     reverted → confirm → checkpoints.revertHunk with the minted confirm token. A stale
+ *     hunk (preview applies:false, or a 409 CONFLICT on apply) renders the honest conflict
+ *     state and refreshes the diff — NEVER a partial apply.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDiff, RefreshCw } from 'lucide-react';
+import { CheckCircle2, FileDiff, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { WorkspaceCheckpoint } from '../../lib/goodvibes';
+import type { WorkspaceCheckpoint, CheckpointsRevertHunkPreviewResult } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { formatError, isMethodUnavailableError, isSessionClosedError } from '../../lib/errors';
+import { formatError, isConflictError, isMethodUnavailableError, isSessionClosedError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { sortCheckpointsNewestFirst, kindLabel } from '../../lib/checkpoints';
-import { buildHunkCommentSteer, parseUnifiedDiff, type DiffFile, type DiffHunk } from '../../lib/unified-diff';
+import { buildHunkCommentSteer, hunkToPatch, parseUnifiedDiff, type DiffFile, type DiffHunk } from '../../lib/unified-diff';
+import { DiffMultibuffer, hunkReviewKey, type HunkReviewStatus } from '../../components/diff/DiffMultibuffer';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { HunkCommentSheet } from './HunkCommentSheet';
+import { HunkActionSheet } from './HunkActionSheet';
+import { HunkRevertSheet, type HunkRevertPhase } from './HunkRevertSheet';
 import '../../styles/components/session-changes.css';
 
 interface SessionChangesProps {
@@ -51,10 +49,9 @@ interface SessionChangesProps {
   streamPaused?: boolean;
 }
 
-interface Selection {
+interface HunkTarget {
   file: DiffFile;
   hunk: DiffHunk;
-  capturedLabel: string;
 }
 
 type SendState = 'idle' | 'sending' | 'delivered' | 'failed';
@@ -67,7 +64,18 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<ViewMode>('session');
   const [baselineId, setBaselineId] = useState('');
-  const [selection, setSelection] = useState<Selection | null>(null);
+
+  // Per-hunk client-review state (all keyed by hunkReviewKey — namespaced by path + header).
+  const [reviewedKeys, setReviewedKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const [revertedKeys, setRevertedKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const [conflictKeys, setConflictKeys] = useState<ReadonlySet<string>>(() => new Set());
+
+  // The three sheets: tap → action chooser; then either comment or revert.
+  const [actionTarget, setActionTarget] = useState<HunkTarget | null>(null);
+  const [commentTarget, setCommentTarget] = useState<(HunkTarget & { capturedLabel: string }) | null>(null);
+  const [revertTarget, setRevertTarget] = useState<HunkTarget | null>(null);
+  const [revertConflict, setRevertConflict] = useState<string | null>(null);
+
   const [sendState, setSendState] = useState<SendState>('idle');
   const [sendError, setSendError] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState<string | null>(null);
@@ -78,16 +86,11 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
     queryFn: () => sdk.operator.sessions.changes.get(sessionId),
     enabled: expanded && mode === 'session',
   });
-  // An un-upgraded daemon that has never heard of this verb — not the same as the
-  // honest checkpointCount:0 empty result a current daemon returns for an unstamped
-  // session. Both land the caller on the workspace-scoped fallback, with different text.
   const sessionChangesUnavailable = sessionChanges.isError && isMethodUnavailableError(sessionChanges.error);
   const sessionChangesFailed = sessionChanges.isError && !sessionChangesUnavailable;
   const sessionHasNoCapturedChanges = sessionChanges.isSuccess && sessionChanges.data.checkpointCount === 0;
 
-  // ── Secondary/fallback: checkpoints.list + checkpoints.diff (workspace-wide, vs the
-  //    live working tree) — the ORIGINAL source this view was built on before
-  //    sessions.changes.get existed, kept as an explicit, separately-labeled mode. ──
+  // ── Secondary/fallback: checkpoints.list + checkpoints.diff (workspace-wide) ──
   const list = useQuery({
     queryKey: queryKeys.checkpoints,
     queryFn: () => sdk.operator.checkpoints.list(),
@@ -99,24 +102,24 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
     [list.data],
   );
 
-  // Default the baseline to the most recent checkpoint; if the chosen one disappears
-  // from the list (GC / refetch), fall back to the newest rather than query a dangling id.
-  useEffect(() => {
-    if (!checkpoints.length) return;
-    if (!baselineId || !checkpoints.some((c) => c.id === baselineId)) {
-      setBaselineId(checkpoints[0].id);
-    }
+  // Derive the effective baseline rather than defaulting via a setState-in-effect: the
+  // user's explicit pick when it is still a live checkpoint, else the newest one. A chosen
+  // baseline that GC'd out of the list falls back to the newest rather than querying a
+  // dangling id — same behavior as the old effect, with no render cascade.
+  const effectiveBaselineId = useMemo(() => {
+    if (baselineId && checkpoints.some((c) => c.id === baselineId)) return baselineId;
+    return checkpoints[0]?.id ?? '';
   }, [checkpoints, baselineId]);
 
   const baseline: WorkspaceCheckpoint | null = useMemo(
-    () => checkpoints.find((c) => c.id === baselineId) ?? null,
-    [checkpoints, baselineId],
+    () => checkpoints.find((c) => c.id === effectiveBaselineId) ?? null,
+    [checkpoints, effectiveBaselineId],
   );
 
   const diff = useQuery({
-    queryKey: [...queryKeys.checkpoints, baselineId, 'diff', 'working-tree'],
-    queryFn: () => sdk.operator.checkpoints.diff({ a: baselineId }),
-    enabled: expanded && mode === 'workspace' && Boolean(baselineId),
+    queryKey: [...queryKeys.checkpoints, effectiveBaselineId, 'diff', 'working-tree'],
+    queryFn: () => sdk.operator.checkpoints.diff({ a: effectiveBaselineId }),
+    enabled: expanded && mode === 'workspace' && Boolean(effectiveBaselineId),
   });
 
   const files = useMemo(() => {
@@ -142,6 +145,32 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
 
   const mutationMode: 'steer' | 'followUp' = canSteer && !closed ? 'steer' : 'followUp';
 
+  // ── Reviewed/total progress (client-side, over the CURRENT diff's hunks) ──────
+  const reviewableKeys = useMemo(
+    () => files.flatMap((f) => (f.binary ? [] : f.hunks.map((h) => hunkReviewKey(f.path, h)))),
+    [files],
+  );
+  const totalHunks = reviewableKeys.length;
+  const reviewedCount = useMemo(
+    () => reviewableKeys.filter((k) => reviewedKeys.has(k)).length,
+    [reviewableKeys, reviewedKeys],
+  );
+
+  function statusFor(file: DiffFile, hunk: DiffHunk): HunkReviewStatus | null {
+    const key = hunkReviewKey(file.path, hunk);
+    if (revertedKeys.has(key)) return 'reverted';
+    if (conflictKeys.has(key)) return 'conflict';
+    if (reviewedKeys.has(key)) return 'reviewed';
+    return null;
+  }
+
+  function withKey(set: ReadonlySet<string>, key: string, add: boolean): Set<string> {
+    const next = new Set(set);
+    if (add) next.add(key); else next.delete(key);
+    return next;
+  }
+
+  // ── Comment → steer/follow-up (existing flow) ─────────────────────────────────
   const send = useMutation({
     mutationFn: (body: string) => (
       mutationMode === 'steer'
@@ -150,7 +179,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
     ),
     onSuccess: async () => {
       setSendState('delivered');
-      setSelection(null);
+      setCommentTarget(null);
       await queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
     },
     onError: (error) => {
@@ -166,27 +195,136 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
     },
   });
 
-  function openHunk(file: DiffFile, hunk: DiffHunk): void {
+  // ── Reject → revert (preview + apply, honest conflict on stale) ───────────────
+  const preview = useMutation({
+    mutationFn: (target: HunkTarget) =>
+      sdk.operator.checkpoints.revertHunkPreview({ path: target.file.path, hunk: hunkToPatch(target.hunk), sessionId }),
+    onSuccess: (result, target) => {
+      if (!(result.applies && result.token)) {
+        setRevertConflict(result.conflict ?? 'this hunk no longer applies cleanly');
+        setConflictKeys((s) => withKey(s, hunkReviewKey(target.file.path, target.hunk), true));
+      }
+    },
+  });
+
+  const apply = useMutation({
+    mutationFn: (input: { target: HunkTarget; token: string }) =>
+      sdk.operator.checkpoints.revertHunk({
+        path: input.target.file.path,
+        hunk: hunkToPatch(input.target.hunk),
+        confirmToken: input.token,
+        sessionId,
+      }),
+    onSuccess: async (result, input) => {
+      const key = hunkReviewKey(input.target.file.path, input.target.hunk);
+      if (result.receipt?.reverted) {
+        setRevertedKeys((s) => withKey(s, key, true));
+        setRevertTarget(null);
+        await refreshActiveDiff();
+      } else {
+        // A confirmed call should not be refused; if it somehow is, surface it honestly.
+        setRevertConflict(result.refusal?.reason ?? 'the revert was refused');
+        setConflictKeys((s) => withKey(s, key, true));
+      }
+    },
+    onError: (error, input) => {
+      if (isConflictError(error)) {
+        setRevertConflict(formatError(error));
+        setConflictKeys((s) => withKey(s, hunkReviewKey(input.target.file.path, input.target.hunk), true));
+      }
+    },
+  });
+
+  async function refreshActiveDiff(): Promise<void> {
+    setRevertedKeys(new Set());
+    setConflictKeys(new Set());
+    if (mode === 'session') await sessionChanges.refetch();
+    else await diff.refetch();
+  }
+
+  const revertPhase: HunkRevertPhase = apply.isPending
+    ? 'applying'
+    : revertConflict
+      ? 'conflict'
+      : preview.isPending
+        ? 'previewing'
+        : apply.isError || preview.isError
+          ? 'error'
+          : preview.data?.applies && preview.data.token
+            ? 'ready'
+            : 'previewing';
+
+  const revertPreview: CheckpointsRevertHunkPreviewResult | null = preview.data ?? null;
+  const revertError = preview.isError
+    ? formatError(preview.error)
+    : apply.isError && !isConflictError(apply.error)
+      ? formatError(apply.error)
+      : null;
+
+  // ── Action wiring ─────────────────────────────────────────────────────────────
+  function openAction(file: DiffFile, hunk: DiffHunk): void {
+    setActionTarget({ file, hunk });
+  }
+
+  function approve(): void {
+    if (!actionTarget) return;
+    const key = hunkReviewKey(actionTarget.file.path, actionTarget.hunk);
+    setReviewedKeys((s) => withKey(s, key, !s.has(key)));
+    setActionTarget(null);
+  }
+
+  function startComment(): void {
+    if (!actionTarget) return;
     setSendError(null);
     setSendState('idle');
-    setSelection({ file, hunk, capturedLabel });
+    setCommentTarget({ ...actionTarget, capturedLabel });
+    setActionTarget(null);
+  }
+
+  function startRevert(): void {
+    if (!actionTarget) return;
+    const target = actionTarget;
+    setActionTarget(null);
+    setRevertConflict(null);
+    preview.reset();
+    apply.reset();
+    setRevertTarget(target);
+    preview.mutate(target);
+  }
+
+  function confirmRevert(): void {
+    if (!revertTarget || !preview.data?.token) return;
+    apply.mutate({ target: revertTarget, token: preview.data.token });
+  }
+
+  function cancelRevert(): void {
+    setRevertTarget(null);
+    setRevertConflict(null);
+    preview.reset();
+    apply.reset();
+  }
+
+  async function onRevertRefresh(): Promise<void> {
+    cancelRevert();
+    await refreshActiveDiff();
   }
 
   function submitComment(comment: string): void {
-    if (!selection) return;
+    if (!commentTarget) return;
     const body = buildHunkCommentSteer({
-      filePath: selection.file.path,
-      hunk: selection.hunk,
-      capturedLabel: selection.capturedLabel,
+      filePath: commentTarget.file.path,
+      hunk: commentTarget.hunk,
+      capturedLabel: commentTarget.capturedLabel,
       comment,
     });
     setSendState('sending');
     setSendError(null);
-    setLastSent(`${selection.file.path} · ${mutationMode === 'steer' ? 'steered' : 'queued'}`);
+    setLastSent(`${commentTarget.file.path} · ${mutationMode === 'steer' ? 'steered' : 'queued'}`);
     send.mutate(body);
   }
 
   const changedCount = files.length;
+  const actionReviewed = actionTarget ? reviewedKeys.has(hunkReviewKey(actionTarget.file.path, actionTarget.hunk)) : false;
 
   return (
     <section className="session-changes">
@@ -199,7 +337,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
         <FileDiff size={15} aria-hidden="true" />
         <span>Changes</span>
         <span className="session-changes__toggle-hint">
-          {expanded ? 'Comment on a hunk to steer' : 'View file changes and comment on a hunk'}
+          {expanded ? 'Review, comment, or revert a hunk' : 'Review the file changes this session made'}
         </span>
       </button>
 
@@ -223,7 +361,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
                 <label className="session-changes__baseline">
                   Baseline
                   <select
-                    value={baselineId}
+                    value={effectiveBaselineId}
                     onChange={(e) => setBaselineId(e.target.value)}
                     aria-label="Diff baseline checkpoint"
                     disabled={!checkpoints.length}
@@ -241,19 +379,29 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
               type="button"
               className="icon-button"
               title={mode === 'session' ? 'Refresh session changes' : 'Refresh checkpoints and diff'}
-              onClick={() => {
-                if (mode === 'session') void sessionChanges.refetch();
-                else { void list.refetch(); void diff.refetch(); }
-              }}
+              onClick={() => { void refreshActiveDiff(); if (mode === 'workspace') void list.refetch(); }}
             >
               <RefreshCw size={14} />
             </button>
           </div>
 
+          {totalHunks > 0 && (
+            <div className="session-changes__progress" role="status" aria-label="Review progress">
+              <CheckCircle2 size={13} aria-hidden="true" />
+              <span>{reviewedCount} of {totalHunks} hunk{totalHunks === 1 ? '' : 's'} reviewed</span>
+              <span className="session-changes__progress-bar" aria-hidden="true">
+                <span
+                  className="session-changes__progress-fill"
+                  style={{ width: `${totalHunks ? Math.round((reviewedCount / totalHunks) * 100) : 0}%` }}
+                />
+              </span>
+            </div>
+          )}
+
           {lastSent && sendState === 'delivered' && (
             <p className="session-changes__sent" role="status">Comment sent — {lastSent}.</p>
           )}
-          {sendState === 'failed' && sendError && !selection && (
+          {sendState === 'failed' && sendError && !commentTarget && (
             <p className="session-changes__send-error" role="alert">{sendError}</p>
           )}
           {streamPaused && (
@@ -331,61 +479,58 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
             </>
           )}
 
-          {files.map((file) => (
-            <div key={`${file.path}-${file.oldPath}`} className="session-changes__file">
-              <div className="session-changes__file-head">
-                <span className={`badge ${file.status === 'deleted' ? 'bad' : file.status === 'added' ? 'ok' : 'neutral'}`}>
-                  {file.status}
-                </span>
-                <span className="session-changes__file-path">{file.path}</span>
-              </div>
-              {file.binary ? (
-                <p className="session-changes__binary" role="note">Binary file — no line diff to comment on.</p>
-              ) : file.hunks.length === 0 ? (
-                <p className="session-changes__binary" role="note">No textual hunks (metadata-only change).</p>
-              ) : (
-                file.hunks.map((hunk) => (
-                  <button
-                    key={hunk.id}
-                    type="button"
-                    className="session-changes__hunk"
-                    onClick={() => openHunk(file, hunk)}
-                    title="Comment on this hunk and steer the session"
-                  >
-                    <span className="session-changes__hunk-header">{hunk.header}</span>
-                    <code className="session-changes__hunk-lines">
-                      {hunk.lines.slice(0, 12).map((line, i) => (
-                        <span key={i} className={`session-changes__line session-changes__line--${line.type}`}>
-                          {line.type === 'add' ? '+' : line.type === 'del' ? '-' : line.type === 'meta' ? '' : ' '}
-                          {line.text}
-                        </span>
-                      ))}
-                      {hunk.lines.length > 12 && (
-                        <span className="session-changes__line session-changes__line--more">
-                          … {hunk.lines.length - 12} more lines — tap to comment
-                        </span>
-                      )}
-                    </code>
-                    <span className="session-changes__hunk-cta">Comment &amp; steer</span>
-                  </button>
-                ))
-              )}
-            </div>
-          ))}
+          {changedCount > 0 && (
+            <DiffMultibuffer
+              files={files}
+              onHunkActivate={openAction}
+              statusFor={statusFor}
+              hunkCtaLabel="Review, comment, or revert"
+              idPrefix="session-changes"
+            />
+          )}
         </div>
       )}
 
-      {selection && (
+      {actionTarget && (
+        <HunkActionSheet
+          open
+          filePath={actionTarget.file.path}
+          hunk={actionTarget.hunk}
+          reviewed={actionReviewed}
+          commentMode={mutationMode}
+          onApprove={approve}
+          onComment={startComment}
+          onReject={startRevert}
+          onCancel={() => setActionTarget(null)}
+        />
+      )}
+
+      {commentTarget && (
         <HunkCommentSheet
           open
-          filePath={selection.file.path}
-          hunk={selection.hunk}
-          capturedLabel={selection.capturedLabel}
+          filePath={commentTarget.file.path}
+          hunk={commentTarget.hunk}
+          capturedLabel={commentTarget.capturedLabel}
           mode={mutationMode}
           pending={sendState === 'sending'}
           error={sendState === 'failed' ? sendError : null}
           onSubmit={submitComment}
-          onCancel={() => { setSelection(null); setSendState('idle'); setSendError(null); }}
+          onCancel={() => { setCommentTarget(null); setSendState('idle'); setSendError(null); }}
+        />
+      )}
+
+      {revertTarget && (
+        <HunkRevertSheet
+          open
+          filePath={revertTarget.file.path}
+          hunk={revertTarget.hunk}
+          phase={revertPhase}
+          preview={revertPreview}
+          conflict={revertConflict}
+          error={revertError}
+          onConfirm={confirmRevert}
+          onRefresh={() => void onRevertRefresh()}
+          onCancel={cancelRevert}
         />
       )}
     </section>

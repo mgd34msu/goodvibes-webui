@@ -238,22 +238,39 @@ export function formatRange(range: { from: number; to: number }): string {
   return range.from === range.to ? String(range.from) : `${range.from}–${range.to}`;
 }
 
+/** The hunk's body lines with their verbatim +/-/space markers (meta lines kept as-is). */
+function hunkBodyLines(hunk: DiffHunk): string[] {
+  return hunk.lines.map((line) => {
+    if (line.type === 'add') return `+${line.text}`;
+    if (line.type === 'del') return `-${line.text}`;
+    if (line.type === 'meta') return line.text;
+    return ` ${line.text}`;
+  });
+}
+
 /**
  * Reconstruct the hunk's diff text (the `@@` header plus its +/-/space lines),
  * capped to `maxLines` body lines so a huge hunk does not bloat the steer message.
  * When capped, an honest "… N more lines" marker is appended.
  */
 export function hunkExcerpt(hunk: DiffHunk, maxLines = 40): string {
-  const body = hunk.lines.map((line) => {
-    if (line.type === 'add') return `+${line.text}`;
-    if (line.type === 'del') return `-${line.text}`;
-    if (line.type === 'meta') return line.text;
-    return ` ${line.text}`;
-  });
+  const body = hunkBodyLines(hunk);
   const shown = body.slice(0, maxLines);
   const remainder = body.length - shown.length;
   const tail = remainder > 0 ? [`… ${remainder} more line${remainder === 1 ? '' : 's'} in this hunk (truncated)`] : [];
   return [hunk.header, ...shown, ...tail].join('\n');
+}
+
+/**
+ * The COMPLETE, exact unified-diff text of one hunk — its `@@` header followed by
+ * every body line with its verbatim +/-/space/meta marker, UNCAPPED. This is the
+ * string checkpoints.revertHunkPreview / checkpoints.revertHunk consume: the daemon
+ * parses exactly one `@@ … @@` block and reverse-applies it against the live file, so
+ * unlike hunkExcerpt this never truncates or appends a "… N more" marker — a capped or
+ * annotated patch would fail to apply cleanly (an honest conflict, not the revert).
+ */
+export function hunkToPatch(hunk: DiffHunk): string {
+  return [hunk.header, ...hunkBodyLines(hunk)].join('\n');
 }
 
 export interface HunkCommentContextInput {

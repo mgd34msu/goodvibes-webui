@@ -194,6 +194,36 @@ describe('FleetView rendering', () => {
     unmount();
   });
 
+  test('a needsAttention node shows a distinct attention badge with the reason, and floats to the top', () => {
+    const seed = {
+      capturedAt: 1000,
+      truncated: false,
+      totalCount: 2,
+      nodes: [
+        {
+          id: 'busy', kind: 'agent', label: 'Busy agent', state: 'thinking', elapsedMs: 100,
+          startedAt: 200, costState: 'unpriced',
+          capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+        },
+        {
+          id: 'blocked', kind: 'agent', label: 'Blocked agent', state: 'awaiting-approval', elapsedMs: 100,
+          startedAt: 10, costState: 'unpriced',
+          capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+          needsAttention: { reason: 'input', detail: 'Answer the prompt' },
+        },
+      ],
+    };
+    const { el, unmount } = render(seed);
+    const attention = el.querySelector('.fleet-row .badge.attention');
+    expect(attention).not.toBeNull();
+    expect(attention!.textContent).toBe('Needs input');
+    expect(attention!.getAttribute('data-attention-reason')).toBe('input');
+    // Despite starting earlier, the blocked node sorts ahead of the busier newer one.
+    const labels = [...el.querySelectorAll('.fleet-row__title')].map((n) => n.textContent);
+    expect(labels[0]).toBe('Blocked agent');
+    unmount();
+  });
+
   test('a node with steer/detach actions shows the phone-tier honest note, matching the Checkpoints/Tasks convention', () => {
     const { el, unmount } = render();
     const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Root agent'));

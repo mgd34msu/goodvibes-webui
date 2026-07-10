@@ -328,6 +328,7 @@ button:disabled {
 }
 
 .nav-icon {
+  position: relative;
   display: grid;
   width: 34px;
   height: 34px;
@@ -336,6 +337,28 @@ button:disabled {
   background: rgb(0 255 255 / 7%);
   border: 1px solid rgb(0 255 255 / 13%);
   border-radius: 7px;
+}
+
+/* Attention count on a nav entry (Fleet: processes blocked on a human). Anchored
+   to the icon so it stays visible on the collapsed icon-only phone rail, where the
+   text label is hidden. */
+.nav-attention-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ffb020;
+  color: #241600;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--surface-2, #0b1417);
 }
 
 .sidebar.collapsed .nav-item {
@@ -856,6 +879,12 @@ button:disabled {
 :root[data-theme="light"] .badge.info {
   color: #1d3a99;
   background: var(--blue-soft);
+}
+
+:root[data-theme="light"] .badge.attention {
+  color: #7a3d00;
+  background: #ffe8bf;
+  box-shadow: inset 0 0 0 1px rgb(214 120 0 / 40%);
 }
 
 .data-block {
@@ -2791,6 +2820,15 @@ code {
 .badge.info {
   color: var(--blue);
   background: var(--blue-soft);
+}
+
+/* Attention: a node the daemon flagged as blocked on a human (needsAttention).
+   Deliberately louder than .warning — a bordered accent so "someone is waiting
+   on you" reads at a glance in the row's badge cluster. */
+.badge.attention {
+  color: #ffe6b0;
+  background: rgb(255 176 32 / 18%);
+  box-shadow: inset 0 0 0 1px rgb(255 176 32 / 45%);
 }
 
 /*

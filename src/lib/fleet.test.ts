@@ -3,6 +3,8 @@ import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
 import {
   activeCount,
   approvalsForNode,
+  attentionCount,
+  attentionReasonLabel,
   buildFleetRows,
   costLabel,
   formatDurationMs,
@@ -12,6 +14,7 @@ import {
   isStalledState,
   isTerminalState,
   kindLabel,
+  needsAttention,
   stateLabel,
   unbackedCapabilityNote,
   wireBackedActions,
@@ -193,6 +196,55 @@ describe('buildFleetRows', () => {
     const rows = buildFleetRows(nodes);
     expect(rows).toHaveLength(nodes.length);
     expect(new Set(rows.map((r) => r.node.id)).size).toBe(nodes.length);
+  });
+
+  test('a needsAttention node floats to the TOP of its sibling group, ahead of a newer one', () => {
+    const nodes = [
+      node({ id: 'newer', startedAt: 100 }),
+      node({ id: 'blocked', startedAt: 10, needsAttention: { reason: 'input' } }),
+      node({ id: 'oldest', startedAt: 5 }),
+    ];
+    const rows = buildFleetRows(nodes);
+    // Without attention, recency would give newer, oldest, blocked. Attention floats
+    // 'blocked' to the front of the root group even though it started earliest.
+    expect(rows.map((r) => r.node.id)).toEqual(['blocked', 'newer', 'oldest']);
+  });
+
+  test('attention-first sorting is scoped to a sibling group, not across the tree', () => {
+    const nodes = [
+      node({ id: 'root-a', startedAt: 100 }),
+      node({ id: 'root-b', startedAt: 90 }),
+      node({ id: 'child-b', parentId: 'root-b', startedAt: 80, needsAttention: { reason: 'approval' } }),
+    ];
+    const rows = buildFleetRows(nodes);
+    // The blocked child stays nested under root-b (depth 1) — it does not jump to
+    // the top of the whole tree, only ahead of its own siblings (it has none here).
+    expect(rows.map((r) => r.node.id)).toEqual(['root-a', 'root-b', 'child-b']);
+    expect(rows.map((r) => r.depth)).toEqual([0, 0, 1]);
+  });
+});
+
+describe('attention (needs-a-human) helpers', () => {
+  test('needsAttention reflects the daemon-derived marker, absent → false', () => {
+    expect(needsAttention(node({ id: 'a' }))).toBe(false);
+    expect(needsAttention(node({ id: 'b', needsAttention: { reason: 'input' } }))).toBe(true);
+  });
+
+  test('attentionCount counts only flagged nodes', () => {
+    const nodes = [
+      node({ id: 'a' }),
+      node({ id: 'b', needsAttention: { reason: 'input' } }),
+      node({ id: 'c', needsAttention: { reason: 'approval', detail: 'bash' } }),
+    ];
+    expect(attentionCount(nodes)).toBe(2);
+    expect(attentionCount([])).toBe(0);
+  });
+
+  test('attentionReasonLabel maps known reasons and renders an unknown one verbatim', () => {
+    expect(attentionReasonLabel('approval')).toBe('Needs approval');
+    expect(attentionReasonLabel('input')).toBe('Needs input');
+    expect(attentionReasonLabel('future-reason')).toBe('future-reason');
+    expect(attentionReasonLabel('')).toBe('Needs attention');
   });
 });
 

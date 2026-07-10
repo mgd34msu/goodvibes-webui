@@ -78,6 +78,38 @@ export function isAwaitingApprovalState(state: string): boolean {
   return state.trim() === 'awaiting-approval';
 }
 
+// ─── Attention (needs-a-human) ────────────────────────────────────────────────
+//
+// fleet.snapshot nodes now carry a DERIVED `needsAttention` marker
+// ({ reason: 'approval' | 'input', detail? }) — a projection of the node's
+// blocked-on-a-human state, recomputed on every snapshot and never persisted
+// (ProcessAttention, platform/runtime/fleet/types.ts). We read it straight off
+// the snapshot rather than accumulating our own store: the SDK's registry is "a
+// view, not a second source of truth", and so is this surface. A daemon that
+// predates the marker simply omits it — every reader below degrades to "no
+// attention" rather than crashing.
+
+/** True when the daemon flagged this node as blocked waiting on a human. */
+export function needsAttention(node: FleetProcessNode): boolean {
+  return Boolean(node.needsAttention);
+}
+
+/** Human-facing label for the attention reason. Verbatim for an unknown future reason. */
+export function attentionReasonLabel(reason: string): string {
+  if (reason === 'approval') return 'Needs approval';
+  if (reason === 'input') return 'Needs input';
+  return reason.trim() || 'Needs attention';
+}
+
+/**
+ * How many nodes in this snapshot are blocked on a human right now — the count
+ * the app-level Fleet attention indicator shows. Derived purely from the current
+ * snapshot (no new client state).
+ */
+export function attentionCount(nodes: readonly FleetProcessNode[]): number {
+  return nodes.reduce((total, node) => (node.needsAttention ? total + 1 : total), 0);
+}
+
 /**
  * Honest cost label. costState is one of 'priced' | 'unpriced' | 'estimated'
  * (PROCESS_COST_STATE_SCHEMA) — never silently show $0.00 for a node the
@@ -132,9 +164,19 @@ export function buildFleetRows(nodes: readonly FleetProcessNode[]): FleetRow[] {
     }
   }
 
-  const byRecency = (a: FleetProcessNode, b: FleetProcessNode) => (b.startedAt ?? 0) - (a.startedAt ?? 0);
-  roots.sort(byRecency);
-  for (const bucket of childrenByParent.values()) bucket.sort(byRecency);
+  // Attention-first, then newest-started-first: a node the daemon flagged as
+  // blocked on a human (needsAttention) floats to the TOP of its sibling group
+  // so the operator sees what is waiting on them before anything else, without
+  // reordering across the tree (parent/child structure is preserved — only the
+  // order WITHIN a sibling group changes). Ties (both flagged, or neither) fall
+  // back to the existing recency order.
+  const byAttentionThenRecency = (a: FleetProcessNode, b: FleetProcessNode) => {
+    const attentionDelta = Number(Boolean(b.needsAttention)) - Number(Boolean(a.needsAttention));
+    if (attentionDelta !== 0) return attentionDelta;
+    return (b.startedAt ?? 0) - (a.startedAt ?? 0);
+  };
+  roots.sort(byAttentionThenRecency);
+  for (const bucket of childrenByParent.values()) bucket.sort(byAttentionThenRecency);
 
   const rows: FleetRow[] = [];
   const visited = new Set<string>();

@@ -26,6 +26,10 @@ export const queryKeys = {
   // Session archive of finished fleet subtrees (fleet.archived.list) — same
   // poll-not-push story as the live fleet key above.
   fleetArchived: ['fleet', 'archived'] as const,
+  // Best-of-N held-merge attempt groups (fleet.attempts.list) — same poll-not-push
+  // story as the live fleet key above; 'fleet'-prefixed so a broad fleet invalidation
+  // sweeps it too.
+  fleetAttempts: ['fleet', 'attempts'] as const,
   checkpoints: ['checkpoints'] as const,
   // Workstream view rides fleet.* filtered to orchestration/workstream rows —
   // fill the body, do not restructure the key.

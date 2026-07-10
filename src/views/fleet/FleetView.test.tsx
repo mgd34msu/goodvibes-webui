@@ -224,6 +224,21 @@ describe('FleetView rendering', () => {
     unmount();
   });
 
+  test('a needs-input deep link focuses the node on mount and scrubs the fragment', async () => {
+    // A push tap lands here: /?view=fleet#fleet-node=child-task&fleet-session=...
+    window.history.replaceState(null, '', '/?view=fleet#fleet-node=child-task&fleet-session=s-child');
+    const { el, unmount } = render();
+    // The mount effect focuses the deep-linked node (a passive effect → flush it).
+    await waitFor(() => el.querySelector('.fleet-detail') !== null);
+    const detail = el.querySelector('.fleet-detail');
+    expect(detail).not.toBeNull();
+    expect(detail!.textContent).toContain('Child subtask');
+    // The fragment is scrubbed so a reload does not re-focus it.
+    expect(window.location.hash).toBe('');
+    unmount();
+    window.history.replaceState(null, '', '/');
+  });
+
   test('a node with steer/detach actions shows the phone-tier honest note, matching the Checkpoints/Tasks convention', () => {
     const { el, unmount } = render();
     const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Root agent'));

@@ -63,4 +63,18 @@ describe('sw.js linkForNotification (loaded and executed from the real file, not
     expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' })).toBe('/?view=approvals-tasks');
     expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' }, 'snooze')).toBe('/?view=approvals-tasks');
   });
+
+  test('a needs-input push deep-links to the focused Fleet node (real sw.js copy, in sync with notification-link.ts)', () => {
+    const linkForNotification = loadServiceWorkerLinkForNotification();
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'agent-7', sessionId: 's-1' })).toBe(
+      '/?view=fleet#fleet-node=agent-7&fleet-session=s-1',
+    );
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'agent-7' })).toBe('/?view=fleet#fleet-node=agent-7');
+    // No node id → still opens the Fleet view rather than a dead tap.
+    expect(linkForNotification({ kind: 'needs-input' })).toBe('/?view=fleet');
+    // The ids are url-encoded, same as the pure helper.
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'a/b', sessionId: 'x y' })).toBe(
+      '/?view=fleet#fleet-node=a%2Fb&fleet-session=x%20y',
+    );
+  });
 });

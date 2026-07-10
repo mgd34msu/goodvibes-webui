@@ -1,0 +1,170 @@
+/*
+ * session-rewind.css — SessionRewind.tsx (the session-detail rewind surface).
+ * Contract tokens only (src/styles/tokens.css). Phone-first: full-width controls and
+ * ≥44px action buttons.
+ */
+
+.session-rewind {
+  margin-top: var(--space-3, 12px);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3, 12px);
+}
+
+.session-rewind__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  color: var(--text-primary);
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-rewind__toggle-hint {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary, var(--text-secondary));
+}
+
+.session-rewind__body {
+  margin-top: var(--space-3, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.session-rewind__controls {
+  display: flex;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.session-rewind__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.session-rewind__field select {
+  min-height: 40px;
+  min-width: 0;
+}
+
+.session-rewind__preview-btn,
+.session-rewind__apply-btn,
+.session-rewind__undo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2, 8px);
+  min-height: 44px;
+  padding: 0 var(--space-4, 16px);
+  border-radius: var(--radius-md, 10px);
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.session-rewind__preview-btn {
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.session-rewind__apply-btn {
+  width: 100%;
+  margin-top: var(--space-2, 8px);
+  background: var(--status-danger, #b4233a);
+  border: 1px solid transparent;
+  color: var(--accent-contrast, #fff);
+}
+
+.session-rewind__preview-btn:disabled,
+.session-rewind__apply-btn:disabled,
+.session-rewind__undo-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.session-rewind__plan,
+.session-rewind__receipt {
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-sunken);
+}
+
+.session-rewind__plan-title,
+.session-rewind__receipt-title {
+  margin: 0 0 var(--space-2, 8px);
+  font-size: var(--text-sm, 13px);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.session-rewind__plan-list {
+  margin: 0;
+  padding-left: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  font-size: var(--text-xs, 11px);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.session-rewind__warnings {
+  margin: var(--space-2, 8px) 0 0;
+  padding-left: var(--space-4, 16px);
+  font-size: var(--text-xs, 11px);
+  color: var(--status-warning, #c98a00);
+  line-height: 1.45;
+}
+
+.session-rewind__undo {
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-2, 8px);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs, 11px);
+  color: var(--text-secondary);
+}
+
+.session-rewind__undo-btn {
+  min-height: 36px;
+  margin-left: var(--space-2, 8px);
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.session-rewind__note {
+  margin: var(--space-1, 4px) 0 0;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary, var(--text-secondary));
+  line-height: 1.45;
+}
+
+.session-rewind__error {
+  margin: 0;
+  font-size: var(--text-xs, 11px);
+  color: var(--status-danger, #b4233a);
+}
+
+.session-rewind__ok {
+  margin: var(--space-1, 4px) 0 0;
+  font-size: var(--text-xs, 11px);
+  color: var(--status-success, #2c8a5b);
+}

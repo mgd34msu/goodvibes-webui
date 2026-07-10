@@ -44,6 +44,7 @@ import { useCompactionReceipts } from '../../hooks/useCompactionReceipts';
 import { PermissionModeSheet } from '../../components/confirm/PermissionModeSheet';
 import { SteerComposer } from './SteerComposer';
 import { SessionChanges } from './SessionChanges';
+import { SessionRewind } from './SessionRewind';
 import '../../styles/components/sessions.css';
 
 /**
@@ -703,6 +704,8 @@ function SessionDetail({
       </div>
 
       <SessionChanges sessionId={record.id} canSteer={canSteer(record)} closed={closed} streamPaused={streamPaused} />
+
+      <SessionRewind sessionId={record.id} closed={closed} />
 
       <SteerComposer sessionId={record.id} canSteer={canSteer(record)} closed={closed} streamPaused={streamPaused} />
     </div>

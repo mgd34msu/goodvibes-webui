@@ -43,6 +43,11 @@ let methodInfoAvailable = true;
 // 5xx blip, NOT the daemon's honest "Unknown gateway method" absence. The view must
 // treat this as "couldn't check", never as "delete unavailable".
 let methodInfoTransientError = false;
+// Permission-mode fixtures (PermissionModeControl). Starts with no permissions
+// section at all — an honest "Unknown" chip, matching this suite's un-upgraded-
+// daemon theme elsewhere — until a test seeds one.
+let configFixture: unknown = {};
+let configSetCalls: { key: string; value: unknown }[] = [];
 
 function resetUnionMutationFixtures() {
   unionListFixture = FIXTURE_UNION;
@@ -52,13 +57,33 @@ function resetUnionMutationFixtures() {
   unionDeleteReallyRemoves = true;
   methodInfoAvailable = true;
   methodInfoTransientError = false;
+  configFixture = {};
+  configSetCalls = [];
 }
 
 mock.module('../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
+  DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
   sdk: {
+    // useCompactionReceipts (mounted inside SessionDetail) opens this raw stream —
+    // a no-op open that never delivers a frame keeps the compaction chip/receipts
+    // in their honest "not observed yet" empty state for these fixture-driven tests.
+    streams: {
+      open: () => Promise.resolve(() => {}),
+    },
     operator: {
+      // Permission-mode control (PermissionModeControl) — config.get/set fixtures.
+      // No 'permissions.mode' key in the fixture tree, matching this suite's
+      // "an older/un-upgraded daemon" theme elsewhere: the chip renders 'Unknown'.
+      config: {
+        get: () => Promise.resolve(configFixture),
+        set: (key: string, value: unknown) => {
+          configSetCalls.push({ key, value });
+          configFixture = { ...(configFixture as Record<string, unknown>), permissions: { ...(configFixture as Record<string, { mode?: string }>).permissions, mode: value } };
+          return Promise.resolve({ success: true, key, value });
+        },
+      },
       control: {
         methodInfo: (methodId: string) => {
           if (methodId === 'sessions.delete' && methodInfoTransientError) {
@@ -477,6 +502,40 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
     // the reconcile (a fresh sessions.list()) must catch this lie rather than trust it.
     expect(el.textContent).toContain('Old session');
     expect(el.textContent).toContain('Delete did not complete');
+    unmount();
+  });
+});
+
+describe('SessionsView permission-mode control (daemon-wide, not per-session)', () => {
+  test('renders "Unknown" when the daemon config has no permissions.mode — never a guessed default', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    const chip = el.querySelector('.permission-mode-chip');
+    expect(chip?.textContent).toContain('Unknown');
+    unmount();
+  });
+
+  test('renders the current mode once config.get() reports one', async () => {
+    configFixture = { permissions: { mode: 'plan' } };
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    const chip = el.querySelector('.permission-mode-chip');
+    expect(chip?.textContent).toContain('Plan');
+    unmount();
+  });
+
+  test('opens a picker sheet and writes the selected mode via config.set(\'permissions.mode\', ...)', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click(el.querySelector('.permission-mode-chip'));
+    await flushMicrotasks();
+
+    expect(el.textContent).toContain('Set permission mode');
+    const options = [...el.querySelectorAll('.permission-mode-sheet__option')];
+    click(options.find((b) => b.textContent?.startsWith('Auto')));
+    await flushMicrotasks();
+
+    expect(configSetCalls).toEqual([{ key: 'permissions.mode', value: 'allow-all' }]);
     unmount();
   });
 });

@@ -155,6 +155,40 @@ steering. Steer sends stamp this browser as the originating surface. This is
 the operator-session continuation surface; it is distinct from companion chat
 and does not share its send path.
 
+### Permission Mode and Compaction
+
+The Sessions view also surfaces the SDK's permission-mode and auto-compaction
+state, built directly against the daemon wire (there is no TUI precedent for
+this over the wire — the TUI embeds the SDK runtime in-process and reads it
+locally, e.g. `configManager.get('permissions.mode')`, rather than through the
+daemon's operator API).
+
+- Permission mode (`src/lib/permission-mode.ts`) is daemon-wide, not
+  per-session — the SDK's `PERMISSION_MODE_CHANGED` runtime event carries no
+  `sessionId`. There is no dedicated `sessions.permissionMode` wire method;
+  the mode lives at the `permissions.mode` config key, read via
+  `config.get()` (which returns the daemon's full config tree, unredacted —
+  see `config-redaction.ts`) and written one key at a time via
+  `config.set('permissions.mode', mode)`. The control renders once, in the
+  Sessions toolbar, clearly labeled as daemon-wide rather than implied
+  per-session. Live sync rides the existing `permissions` domain
+  invalidation in `useRealtimeInvalidation.ts` (extended to also invalidate
+  the config query) rather than opening a new connection.
+- Context usage / compaction receipts (`src/lib/compaction.ts`,
+  `src/hooks/useCompactionReceipts.ts`) are fed only by the SDK's real
+  `compaction` runtime-event-bus domain (`COMPACTION_CHECK` for the live
+  token/threshold pair, `COMPACTION_RECEIPT` for the mandatory post-compaction
+  summary). No numeric context-window/token-budget value exists anywhere else
+  on the wire for an arbitrary session (checked: `sessions.get`/`list`,
+  `fleet.snapshot`, `config.get`), so the context-usage chip shows an honest
+  "not observed yet" state until the daemon actually reports one — never a
+  computed-from-nowhere percentage. Receipts render as distinct cards
+  appended to the session transcript as they arrive live; there is no
+  history endpoint for past receipts. This hook opens its own raw stream,
+  scoped to the open session detail only (closed on unmount) to stay under
+  the per-origin connection budget documented in
+  `useRealtimeInvalidation.ts`.
+
 ## Memory Model
 
 The Memory view reads and mutates the shared cross-surface memory store over

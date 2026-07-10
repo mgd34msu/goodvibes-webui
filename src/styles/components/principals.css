@@ -1,0 +1,163 @@
+/*
+ * Principals + channel profiles admin (principals.*, channels.profiles.*).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.principals-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  max-width: 720px;
+}
+
+.principals-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.principals-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+}
+
+.principals-section__header h2 {
+  margin: 0;
+  font-size: var(--text-md, 15px);
+}
+
+.principals-section__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.principals-empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.principals-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.principals-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.principals-form input,
+.principals-form select,
+.principals-form textarea {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 8px;
+  font-size: var(--text-xs, 12px);
+  font-family: inherit;
+}
+
+.principals-form__actions {
+  display: flex;
+  gap: var(--space-2, 8px);
+}
+
+.principals-form__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.principals-form__actions button.secondary {
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+
+.principals-form__actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.principals-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.principals-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.principals-row__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.principals-row__name {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.principals-row__identities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.principals-row__meta {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.principals-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 980px) {
+  .principals-form__actions button,
+  .principals-section__actions .icon-button,
+  .principals-row__actions .icon-button {
+    min-height: 44px;
+  }
+}

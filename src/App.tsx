@@ -18,6 +18,7 @@ import {
   ServerCog,
   Settings,
   Trash2,
+  Users,
   Workflow,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -39,6 +40,7 @@ import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
 import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { CiWatchesView } from './views/ci/CiWatchesView';
 import { CheckInView } from './views/checkin/CheckInView';
+import { PrincipalsView } from './views/principals/PrincipalsView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
@@ -83,6 +85,9 @@ const views: {
   { id: 'ci-watches', label: 'CI', short: 'Watches', icon: GitBranch },
   // checkin.* (SDK 1.6.1's initiative family) — proactive check-in config + receipts.
   { id: 'checkin', label: 'Check-in', short: 'Proactive', icon: BellRing },
+  // principals.* / channels.profiles.* (SDK 1.6.1's initiative family) — identity
+  // registry + per-channel model/permission defaults admin.
+  { id: 'principals', label: 'Principals', short: 'Identities', icon: Users },
 ];
 
 export default function App() {
@@ -638,6 +643,7 @@ export default function App() {
           {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'ci-watches' && <CiWatchesView />}
           {activeView === 'checkin' && <CheckInView />}
+          {activeView === 'principals' && <PrincipalsView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}

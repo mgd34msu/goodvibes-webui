@@ -2,7 +2,7 @@
  * router.ts — dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|sessions|knowledge|memory|providers|admin|fleet|checkpoints|approvals-tasks|workstream|calendar|ci-watches|checkin
+ *   ?view=chat|sessions|knowledge|memory|providers|admin|fleet|checkpoints|approvals-tasks|workstream|calendar|ci-watches|checkin|principals
  *   &session=<sessionId>          (chat view only; omitted when empty)
  *   &filter[<key>]=<value>        (per-view filters; any number of pairs)
  *
@@ -29,7 +29,8 @@ export type ViewId =
   | 'workstream'
   | 'calendar'
   | 'ci-watches'
-  | 'checkin';
+  | 'checkin'
+  | 'principals';
 
 export interface AppUrlState {
   view: ViewId;
@@ -51,6 +52,7 @@ const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'calendar',
   'ci-watches',
   'checkin',
+  'principals',
 ]);
 
 const DEFAULT_STATE: AppUrlState = {

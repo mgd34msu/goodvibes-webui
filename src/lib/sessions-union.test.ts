@@ -15,6 +15,7 @@ import {
   isReapedStatus,
   canSteer,
   retentionLabel,
+  attributionLabel,
   sortUnionSessions,
 } from './sessions-union';
 
@@ -172,6 +173,44 @@ describe('reaped-as-reaped (closeReason)', () => {
     const record = unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'future-reason' } });
     expect(record.closeReason).toBe('future-reason');
     expect(isReapedStatus(record)).toBe(false);
+  });
+});
+
+// Channel-origin attribution (principals.*, SDK 1.6.1's initiative family) —
+// metadata.attributedPrincipalId/Name/Known, stamped by channel-profiles/intake.ts.
+describe('attribution (attributedPrincipal*)', () => {
+  test('a session with no attribution metadata at all gets a null known flag and no label', () => {
+    const record = unionSessionFromRecord({ id: 'r', status: 'active' });
+    expect(record.attributedPrincipalKnown).toBeNull();
+    expect(record.attributedPrincipalName).toBe('');
+    expect(attributionLabel(record)).toBeNull();
+  });
+
+  test('a known attribution extracts the resolved principal name', () => {
+    const record = unionSessionFromRecord({
+      id: 'r', status: 'active',
+      metadata: { attributedPrincipalId: 'p-1', attributedPrincipalName: 'Mike', attributedPrincipalKnown: true },
+    });
+    expect(record.attributedPrincipalKnown).toBe(true);
+    expect(record.attributedPrincipalName).toBe('Mike');
+    expect(attributionLabel(record)).toBe('Mike');
+  });
+
+  test('an unmapped sender identity (known:false) renders "unknown principal" plainly, never the empty name or hidden', () => {
+    const record = unionSessionFromRecord({
+      id: 'r', status: 'active',
+      metadata: { attributedPrincipalKnown: false },
+    });
+    expect(record.attributedPrincipalKnown).toBe(false);
+    expect(attributionLabel(record)).toBe('unknown principal');
+  });
+
+  test('known:true with a somehow-empty name still renders "unknown principal" rather than a blank label', () => {
+    const record = unionSessionFromRecord({
+      id: 'r', status: 'active',
+      metadata: { attributedPrincipalKnown: true, attributedPrincipalName: '' },
+    });
+    expect(attributionLabel(record)).toBe('unknown principal');
   });
 });
 

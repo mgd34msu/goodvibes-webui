@@ -91,6 +91,18 @@ export interface UnionSessionRecord {
    * enum) so an unrecognized value is still preserved rather than dropped.
    */
   closeReason: string;
+  /**
+   * Channel-origin attribution (principals.*, SDK 1.6.1's initiative family):
+   * bridge-channel intake stamps `metadata.attributedPrincipalId/Name/Known` on a
+   * session it originates (channel-profiles/intake.ts, ATTRIBUTED_PRINCIPAL_*_KEY).
+   * `attributedPrincipalKnown` is null when the wire never stamped this session at
+   * all (most sessions — non-channel-originated, or a pre-feature daemon build) —
+   * distinct from `false`, which means the sender identity resolved to the honest
+   * unknown principal (unmapped, never a guess). Only render an attribution line
+   * when `attributedPrincipalKnown !== null` — see SessionsView's SessionDetail.
+   */
+  attributedPrincipalName: string;
+  attributedPrincipalKnown: boolean | null;
   raw: unknown;
 }
 
@@ -111,6 +123,13 @@ function stringArrayField(record: Record<string, unknown>, key: string): string[
 function stringAtPath(record: Record<string, unknown>, path: string[]): string {
   const value = readPath(record, path);
   return typeof value === 'string' ? value : '';
+}
+
+/** null when absent (or not a boolean) — never inferred from absence, matching
+ * retentionLabel's "absence means no marker, not a false" stance elsewhere in this file. */
+function booleanAtPathOrNull(record: Record<string, unknown>, path: string[]): boolean | null {
+  const value = readPath(record, path);
+  return typeof value === 'boolean' ? value : null;
 }
 
 /** Normalize one raw record (already unwrapped from any envelope) into a UnionSessionRecord. */
@@ -134,6 +153,8 @@ export function unionSessionFromRecord(value: unknown): UnionSessionRecord {
     activeAgentId: firstString(record, ['activeAgentId']),
     lastError: firstString(record, ['lastError']),
     closeReason: stringAtPath(record, ['metadata', 'closeReason']),
+    attributedPrincipalName: stringAtPath(record, ['metadata', 'attributedPrincipalName']),
+    attributedPrincipalKnown: booleanAtPathOrNull(record, ['metadata', 'attributedPrincipalKnown']),
     raw: value,
   };
 }
@@ -203,6 +224,19 @@ export function retentionLabel(record: UnionSessionRecord): string | null {
   if (retainedMessageCount === null) return null;
   if (retainedMessageCount >= messageCount) return null;
   return `${retainedMessageCount} of ${messageCount} retained`;
+}
+
+/**
+ * Attribution label (principals.*, SDK 1.6.1's initiative family). Returns null when
+ * the wire never stamped this session with attribution at all (attributedPrincipalKnown
+ * is null — most sessions), so a plain, unattributed session renders no line. Otherwise
+ * "known:false" (unmapped sender identity) renders "unknown principal" PLAINLY — never
+ * silently as the resolved name and never hidden.
+ */
+export function attributionLabel(record: Pick<UnionSessionRecord, 'attributedPrincipalName' | 'attributedPrincipalKnown'>): string | null {
+  if (record.attributedPrincipalKnown === null) return null;
+  if (!record.attributedPrincipalKnown) return 'unknown principal';
+  return record.attributedPrincipalName || 'unknown principal';
 }
 
 /**

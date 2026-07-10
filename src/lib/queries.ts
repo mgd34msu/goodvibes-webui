@@ -75,6 +75,10 @@ export const queryKeys = {
   // checkin.* (SDK 1.6.1's initiative family). Same manual-refresh story as ci.* above.
   checkinConfig: ['checkin', 'config'] as const,
   checkinReceipts: ['checkin', 'receipts'] as const,
+  // principals.* / channels.profiles.* (SDK 1.6.1's initiative family). Same
+  // manual-refresh story as ci.*/checkin.* above.
+  principals: ['principals'] as const,
+  channelProfiles: ['channels', 'profiles'] as const,
 };
 
 export async function loadBootSnapshot() {

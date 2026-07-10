@@ -135,6 +135,11 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=checkin').view).toBe('checkin');
   });
 
+  // principals (SDK 1.6.1's initiative family — principals/channel-profiles admin view).
+  test('decodes the principals view id', () => {
+    expect(decodeUrlState('?view=principals').view).toBe('principals');
+  });
+
   test('invalid view falls back to chat', () => {
     expect(decodeUrlState('?view=invalid').view).toBe('chat');
     expect(decodeUrlState('?view=').view).toBe('chat');
@@ -240,6 +245,11 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   test('round-trips the checkin view id', () => {
     const encoded = encodeUrlState(makeState({ view: 'checkin' }));
     expect(decodeUrlState(`?${encoded}`).view).toBe('checkin');
+  });
+
+  test('round-trips the principals view id', () => {
+    const encoded = encodeUrlState(makeState({ view: 'principals' }));
+    expect(decodeUrlState(`?${encoded}`).view).toBe('principals');
   });
 
   test('filter key ordering is stable across encode/decode', () => {

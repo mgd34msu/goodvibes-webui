@@ -259,6 +259,26 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // returns them, unarchive releases them.
   const archivedFleetIds = new Set<string>();
 
+  // Principals (principals.*, SDK 1.6.1's initiative family): one seeded principal
+  // with a channel identity, plus the shared unknown principal principals.resolve
+  // falls back to for an unmapped identity (real daemon behavior — never a guess).
+  let principalList = [
+    {
+      id: 'prin_e2e_1', name: 'Mike', kind: 'user' as const,
+      identities: [{ channel: 'slack', value: 'U123ABC' }],
+      createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000,
+    },
+  ];
+  let principalIdCounter = 0;
+  const UNKNOWN_PRINCIPAL = { id: 'principal-unknown', name: 'unknown', kind: 'user' as const, identities: [], createdAt: 0, updatedAt: 0 };
+
+  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative family): one seeded
+  // surface-wide binding so a spec has real selected-detail content to prove against.
+  let channelProfileList = [
+    { id: 'cp_e2e_1', surfaceKind: 'slack', model: 'claude-sonnet', permissionMode: 'normal' as const, updatedAt: 1_700_000_000_000 },
+  ];
+  let channelProfileIdCounter = 0;
+
   // Check-in (checkin.*, SDK 1.6.1's initiative family): a mutable in-memory config
   // (starts enabled, so the config-display honesty state has real content) plus one
   // seeded receipt for each distinct outcome the wire reports, so ReceiptRow's
@@ -1107,6 +1127,117 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         summary: checkinConfigState.enabled ? 'Manual run: nothing urgent.' : 'Check-in is disabled.',
         ...(checkinConfigState.enabled ? { deliveryId: `dlv_e2e_${checkinReceiptIdCounter}` } : {}),
       });
+    }
+    return json(route, {});
+  });
+
+  // Principals (principals.*, SDK 1.6.1's initiative family) — plain REST paths
+  // (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason as
+  // checkin/ci/calendar/tasks above.
+  await page.route('**/api/principals**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'GET' && path === '/api/principals') {
+      return json(route, { principals: principalList });
+    }
+    if (method === 'POST' && path === '/api/principals') {
+      const body = (request.postDataJSON?.() ?? {}) as { name?: string; kind?: string; identities?: { channel: string; value: string }[] };
+      principalIdCounter += 1;
+      const principal = {
+        id: `prin_e2e_new_${principalIdCounter}`, name: body.name ?? '', kind: (body.kind ?? 'user') as typeof principalList[number]['kind'],
+        identities: body.identities ?? [], createdAt: Date.now(), updatedAt: Date.now(),
+      };
+      principalList = [...principalList, principal];
+      return json(route, { principal });
+    }
+    if (method === 'POST' && path === '/api/principals/resolve') {
+      const body = (request.postDataJSON?.() ?? {}) as { channel?: string; value?: string };
+      const match = principalList.find((p) => p.identities.some((i) => i.channel === body.channel && i.value === body.value));
+      return json(route, match ? { principal: match, known: true } : { principal: UNKNOWN_PRINCIPAL, known: false });
+    }
+    const updateMatch = path.match(/^\/api\/principals\/([^/]+)\/update$/);
+    if (method === 'POST' && updateMatch) {
+      const principalId = decodeURIComponent(updateMatch[1]);
+      const body = (request.postDataJSON?.() ?? {}) as { name?: string; kind?: string; identities?: { channel: string; value: string }[] };
+      const existing = principalList.find((p) => p.id === principalId);
+      if (!existing) return json(route, { error: `Principal not found: ${principalId}`, code: 'NOT_FOUND' }, 404);
+      const updated = {
+        ...existing,
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.kind !== undefined ? { kind: body.kind as typeof existing.kind } : {}),
+        ...(body.identities !== undefined ? { identities: body.identities } : {}),
+        updatedAt: Date.now(),
+      };
+      principalList = principalList.map((p) => (p.id === principalId ? updated : p));
+      return json(route, { principal: updated });
+    }
+    const deleteMatch = path.match(/^\/api\/principals\/([^/]+)$/);
+    if (method === 'DELETE' && deleteMatch) {
+      const principalId = decodeURIComponent(deleteMatch[1]);
+      const existed = principalList.some((p) => p.id === principalId);
+      principalList = principalList.filter((p) => p.id !== principalId);
+      return json(route, { principalId, deleted: existed });
+    }
+    const getMatch = path.match(/^\/api\/principals\/([^/]+)$/);
+    if (method === 'GET' && getMatch) {
+      const principalId = decodeURIComponent(getMatch[1]);
+      const found = principalList.find((p) => p.id === principalId);
+      if (!found) return json(route, { error: `Principal not found: ${principalId}`, code: 'NOT_FOUND' }, 404);
+      return json(route, { principal: found });
+    }
+    return json(route, {});
+  });
+
+  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative family) — plain REST
+  // paths (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason.
+  await page.route('**/api/channels/profiles**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'GET' && path === '/api/channels/profiles') {
+      return json(route, { bindings: channelProfileList });
+    }
+    if (method === 'POST' && path === '/api/channels/profiles') {
+      const body = (request.postDataJSON?.() ?? {}) as {
+        surfaceKind?: string; channelId?: string; model?: string; provider?: string; permissionMode?: string;
+      };
+      const existing = channelProfileList.find((b) => b.surfaceKind === body.surfaceKind && b.channelId === body.channelId);
+      if (existing) {
+        const updated = { ...existing, ...body, updatedAt: Date.now() } as typeof existing;
+        channelProfileList = channelProfileList.map((b) => (b === existing ? updated : b));
+        return json(route, { binding: updated });
+      }
+      channelProfileIdCounter += 1;
+      const binding = {
+        id: `cp_e2e_new_${channelProfileIdCounter}`, surfaceKind: body.surfaceKind ?? '',
+        ...(body.channelId ? { channelId: body.channelId } : {}),
+        ...(body.model ? { model: body.model } : {}),
+        ...(body.provider ? { provider: body.provider } : {}),
+        ...(body.permissionMode ? { permissionMode: body.permissionMode as 'plan' | 'normal' | 'accept-edits' | 'auto' } : {}),
+        updatedAt: Date.now(),
+      };
+      channelProfileList = [...channelProfileList, binding];
+      return json(route, { binding });
+    }
+    const surfaceMatch = path.match(/^\/api\/channels\/profiles\/([^/]+)$/);
+    if (surfaceMatch) {
+      const surfaceKind = decodeURIComponent(surfaceMatch[1]);
+      const channelId = method === 'GET'
+        ? new URL(request.url()).searchParams.get('channelId') ?? undefined
+        : (request.postDataJSON?.() as { channelId?: string } | undefined)?.channelId;
+      const found = channelProfileList.find((b) => b.surfaceKind === surfaceKind && b.channelId === channelId);
+      if (method === 'GET') {
+        if (!found) return json(route, { error: `Channel profile not found: ${surfaceKind}`, code: 'NOT_FOUND' }, 404);
+        return json(route, { binding: found });
+      }
+      if (method === 'DELETE') {
+        const existed = Boolean(found);
+        channelProfileList = channelProfileList.filter((b) => !(b.surfaceKind === surfaceKind && b.channelId === channelId));
+        return json(route, { surfaceKind, channelId, deleted: existed });
+      }
     }
     return json(route, {});
   });

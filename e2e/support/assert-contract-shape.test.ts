@@ -95,6 +95,35 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     })).not.toThrow();
   });
 
+  // sessions.changes.get + cost.attribution.get (SDK 1.6.1) — the mock daemon's own
+  // answer shapes for these two new generic-invoke verbs, pinned against the real
+  // installed contract the same way every other fixture above is.
+  test('sessions.changes.get: the mock daemon\'s honest-empty response shape conforms', () => {
+    expect(() => assertFixtureMatchesOperatorContract('sessions.changes.get', {
+      sessionId: 's-other', checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
+      files: [], unifiedDiff: '', stat: '',
+    })).not.toThrow();
+  });
+
+  test('sessions.changes.get: the mock daemon\'s stamped-checkpoint response shape conforms', () => {
+    expect(() => assertFixtureMatchesOperatorContract('sessions.changes.get', {
+      sessionId: 's-agent-live', checkpointCount: 1, checkpointIds: ['wcp_e2e_1'], from: 'EMPTY', to: 'wcp_e2e_1',
+      files: ['src/example.ts'],
+      unifiedDiff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1 +1 @@\n-old\n+new\n',
+      stat: '1 file changed',
+    })).not.toThrow();
+  });
+
+  test('cost.attribution.get: the mock daemon\'s response shape conforms', () => {
+    const tokens = { inputTokens: 12000, outputTokens: 3400, cacheReadTokens: 2000, cacheWriteTokens: 500 };
+    expect(() => assertFixtureMatchesOperatorContract('cost.attribution.get', {
+      window: '24h', windowStartMs: 1_700_000_000_000, dimension: 'session',
+      totalCostUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+      tokens,
+      rows: [{ key: 's-agent-live', costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1, tokens }],
+    })).not.toThrow();
+  });
+
   test('fleet.snapshot: FLEET_SNAPSHOT conforms, including the derived needsAttention marker', () => {
     // FLEET_BLOCKED_NODE carries needsAttention: { reason:'input', detail } — the new
     // SDK field this consumer round adopts. This pins the fixture against the real

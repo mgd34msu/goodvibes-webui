@@ -53,6 +53,10 @@ let permissionModeLocalId = '';
 let permissionMode = 'normal';
 let permissionModeSetCalls: { sessionId: string; mode: string }[] = [];
 let contextUsageFixture: { estimatedContextTokens: number; contextWindow: number; contextUsagePct: number; contextRemainingTokens: number } | null = null;
+// Cost attribution fixture (CostChip — cost.attribution.get, SDK 1.6.1). One row per
+// entry, keyed by session id; a session with no entry has no recorded usage in the
+// window — the honest "no cost recorded" state, not a fabricated $0.
+let costAttributionRows: { key: string; costUsd: number | null; costState: 'priced' | 'estimated' | 'unpriced'; pricedRecordCount: number; unpricedRecordCount: number; tokens: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number } }[] = [];
 
 function sessionNotLocal(sessionId: string) {
   return Promise.reject(Object.assign(new Error(`This daemon does not host a live runtime for session ${sessionId}.`), {
@@ -73,6 +77,7 @@ function resetUnionMutationFixtures() {
   permissionMode = 'normal';
   permissionModeSetCalls = [];
   contextUsageFixture = null;
+  costAttributionRows = [];
 }
 
 mock.module('../../lib/goodvibes', () => ({
@@ -157,6 +162,18 @@ mock.module('../../lib/goodvibes', () => ({
             }
             return Promise.resolve({ sessionId, ...contextUsageFixture, estimated: true });
           },
+        },
+      },
+      cost: {
+        attribution: {
+          get: (_input: { window: string; dimension: string }) => Promise.resolve({
+            window: '24h', windowStartMs: 1, dimension: 'session',
+            totalCostUsd: costAttributionRows.reduce((sum, r) => (r.costUsd === null ? sum : sum + r.costUsd), 0) || null,
+            costState: costAttributionRows.length ? 'estimated' : 'unpriced',
+            pricedRecordCount: 0, unpricedRecordCount: 0,
+            tokens: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+            rows: costAttributionRows,
+          }),
         },
       },
     },
@@ -614,6 +631,66 @@ describe('SessionsView context-usage chip (session-scoped: sessions.contextUsage
 
     const chip = el.querySelector('.context-usage-chip');
     expect(chip?.textContent).toContain('~62%');
+    unmount();
+  });
+});
+
+describe('SessionsView cost chip (cost.attribution.get, SDK 1.6.1)', () => {
+  test('a session with no row in the 24h window renders the honest "no cost recorded" state, never a fabricated $0', async () => {
+    costAttributionRows = [];
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.cost-chip');
+    expect(chip?.textContent).toContain('none (24h)');
+    unmount();
+  });
+
+  test('a priced row renders a dollar figure', async () => {
+    costAttributionRows = [{
+      key: 's-tui', costUsd: 0.42, costState: 'priced', pricedRecordCount: 3, unpricedRecordCount: 0,
+      tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    }];
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.cost-chip');
+    expect(chip?.textContent).toContain('$0.42');
+    expect(chip?.textContent).not.toContain('est.');
+    unmount();
+  });
+
+  test('an unpriced row renders "unpriced", never a fabricated dollar amount', async () => {
+    costAttributionRows = [{
+      key: 's-tui', costUsd: null, costState: 'unpriced', pricedRecordCount: 0, unpricedRecordCount: 2,
+      tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    }];
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.cost-chip');
+    expect(chip?.textContent).toContain('unpriced');
+    unmount();
+  });
+
+  test('an estimated row (a mix of priced and unpriced records) is labeled "(est.)", never presented as a firm figure', async () => {
+    costAttributionRows = [{
+      key: 's-tui', costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+      tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    }];
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.cost-chip');
+    expect(chip?.textContent).toContain('$0.18 (est.)');
     unmount();
   });
 });

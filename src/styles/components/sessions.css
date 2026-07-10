@@ -305,6 +305,20 @@
   border-color: var(--status-warning, var(--amber, #b57500));
 }
 
+/* Cost chip — cost.attribution.get (SDK 1.6.1), same compact chip treatment as
+   .context-usage-chip above. */
+.cost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
 /* Post-compaction receipt block — a distinct card in the transcript stream,
    never folded into a plain .session-message row. */
 .compaction-receipt {

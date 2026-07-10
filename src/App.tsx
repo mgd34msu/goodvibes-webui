@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Database,
   Gauge,
+  GitBranch,
   History,
   KeyRound,
   MessageSquare,
@@ -35,6 +36,7 @@ import { FleetView } from './views/fleet/FleetView';
 import { CheckpointsView } from './views/checkpoints/CheckpointsView';
 import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
 import { WorkstreamView } from './views/workstream/WorkstreamView';
+import { CiWatchesView } from './views/ci/CiWatchesView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
@@ -75,6 +77,8 @@ const views: {
   // queries.ts, or useRealtimeInvalidation.ts.
   { id: 'approvals-tasks', label: 'Approvals', short: 'Decisions', icon: ClipboardCheck },
   { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
+  // ci.watches.* (SDK 1.6.1's initiative family) — standing CI watches + per-job status.
+  { id: 'ci-watches', label: 'CI', short: 'Watches', icon: GitBranch },
 ];
 
 export default function App() {
@@ -628,6 +632,7 @@ export default function App() {
           {activeView === 'checkpoints' && <CheckpointsView />}
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
           {activeView === 'workstream' && <WorkstreamView />}
+          {activeView === 'ci-watches' && <CiWatchesView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}

@@ -1,0 +1,314 @@
+/*
+ * CI watches — list + per-job status detail (ci.*).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ * Layout mirrors checkpoints.css's master/detail split.
+ */
+
+.ci-watches-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: var(--space-3, 12px);
+  height: 100%;
+  min-height: 0;
+}
+
+.ci-watches-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ci-watches-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}
+
+.ci-watches-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.ci-watches-create-form input {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 8px;
+  font-size: var(--text-xs, 12px);
+}
+
+.ci-watches-create-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.ci-watches-create-form button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.ci-watches-create-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ci-watches-loading {
+  padding: var(--space-2, 8px);
+}
+
+.ci-watches-empty,
+.ci-watches-detail-empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  padding: var(--space-2, 8px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+}
+
+.ci-watches-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.ci-watches-rows > li {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ci-watches-row {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ci-watches-row.active {
+  border-color: var(--border-focus);
+  background: var(--accent-muted);
+}
+
+.ci-watches-row__title {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.ci-watches-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.ci-watches-row__meta {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.ci-watches-row__delete {
+  flex-shrink: 0;
+}
+
+/* Detail pane */
+.ci-watches-detail-pane {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.ci-watch-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.ci-watches-detail__back {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 13px);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ci-watches-detail__back:hover {
+  color: var(--text-primary);
+}
+
+.ci-watch-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+}
+
+.ci-watch-detail__meta small {
+  color: var(--text-tertiary);
+}
+
+.ci-watch-detail__run {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.ci-watch-detail__run:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Per-job report — the honesty-bar element: every job listed, never a bare rollup. */
+.ci-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.ci-report__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.ci-report__meta {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.ci-report__violations {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: var(--text-xs, 12px);
+  color: var(--status-danger);
+}
+
+.ci-report__jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ci-report__job {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-xs, 12px);
+}
+
+.ci-report__job-name {
+  font-weight: 600;
+  flex: 1;
+  min-width: 120px;
+}
+
+.ci-report__job-link {
+  color: var(--accent-primary, var(--text-secondary));
+  font-size: var(--text-xs, 11px);
+}
+
+.ci-report__empty {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.ci-report__notify {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.ci-adhoc-lookup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding-top: var(--space-2, 8px);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ci-adhoc-lookup h3 {
+  margin: 0;
+  font-size: var(--text-sm, 13px);
+}
+
+@media (max-width: 980px) {
+  /* Master-detail on a phone: one pane at a time, mirroring CheckpointsView. */
+  .ci-watches-view {
+    grid-template-columns: 1fr;
+  }
+
+  .ci-watches-view:not(.has-selection) .ci-watches-detail-pane {
+    display: none;
+  }
+
+  .ci-watches-view.has-selection .ci-watches-list-pane {
+    display: none;
+  }
+
+  .ci-watches-detail__back {
+    display: inline-flex;
+  }
+
+  .ci-watches-toolbar .icon-button,
+  .ci-watches-create-form button,
+  .ci-watch-detail__run,
+  .ci-watches-row__delete {
+    min-height: 44px;
+  }
+}

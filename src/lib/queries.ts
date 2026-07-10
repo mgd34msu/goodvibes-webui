@@ -68,6 +68,10 @@ export const queryKeys = {
   // than serving a stale window from cache.
   calendarEvents: (from: string, to: string, calendarId: string) =>
     ['calendar', 'events', from, to, calendarId] as const,
+  // ci.* (SDK 1.6.1's initiative family). No wire event exists for this domain yet, so
+  // CiWatchesView polls/refetches manually rather than riding useRealtimeInvalidation —
+  // same standing gap fleet.*/checkpoints.*/memory.* document above.
+  ciWatches: ['ci', 'watches'] as const,
 };
 
 export async function loadBootSnapshot() {

@@ -149,6 +149,17 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     expect(isExtraRoutedMethod('sessions.permissionMode.set')).toBe(true);
     expect(isExtraRoutedMethod('sessions.contextUsage.get')).toBe(true);
   });
+
+  // ci.* (SDK 1.6.1's initiative-family repack): real REST routes with real generated
+  // I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES — same table-routed shape as
+  // sessions.permissionMode.*/contextUsage.get above.
+  test('ci.status and ci.watches.* are table-routed', () => {
+    expect(isExtraRoutedMethod('ci.status')).toBe(true);
+    expect(isExtraRoutedMethod('ci.watches.list')).toBe(true);
+    expect(isExtraRoutedMethod('ci.watches.create')).toBe(true);
+    expect(isExtraRoutedMethod('ci.watches.delete')).toBe(true);
+    expect(isExtraRoutedMethod('ci.watches.run')).toBe(true);
+  });
 });
 
 describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
@@ -301,6 +312,74 @@ describe('delete-means-delete: sessions.delete / chat.sessions.close / control.m
   });
 });
 
+describe('ci.* (SDK 1.6.1 initiative family) wire calls', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('operator.ci.watches.list GETs /api/ci/watches', async () => {
+    stubFetch({ watches: [] });
+    const result = await sdk.operator.ci.watches.list();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/api/ci/watches');
+    expect(calls[0].method).toBe('GET');
+    expect(result).toEqual({ watches: [] });
+  });
+
+  test('operator.ci.watches.create POSTs the full body to /api/ci/watches', async () => {
+    stubFetch({ watch: { id: 'ciw-1', repo: 'acme/example', deliveryChannel: 'slack:#ci', triggerFixSession: false, createdAt: 1, updatedAt: 1 } });
+    await sdk.operator.ci.watches.create({ repo: 'acme/example', deliveryChannel: 'slack:#ci', triggerFixSession: false });
+    expect(calls[0].url).toContain('/api/ci/watches');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ repo: 'acme/example', deliveryChannel: 'slack:#ci', triggerFixSession: false });
+  });
+
+  test('operator.ci.watches.delete DELETEs /api/ci/watches/{watchId} with no body', async () => {
+    stubFetch({ watchId: 'ciw-1', deleted: true });
+    const result = await sdk.operator.ci.watches.delete('ciw-1');
+    expect(calls[0].url).toContain('/api/ci/watches/ciw-1');
+    expect(calls[0].method).toBe('DELETE');
+    expect(result).toEqual({ watchId: 'ciw-1', deleted: true });
+  });
+
+  test('operator.ci.watches.run POSTs /api/ci/watches/{watchId}/run and returns the full report envelope', async () => {
+    const report = { repo: 'acme/example', overall: 'failed' as const, jobs: [{ name: 'lint', status: 'completed' as const, conclusion: 'failure' }], violations: ['job "lint" concluded failure'], checkedAt: 1 };
+    stubFetch({ report, notified: true, fixSessionTriggered: false });
+    const result = await sdk.operator.ci.watches.run('ciw-1');
+    expect(calls[0].url).toContain('/api/ci/watches/ciw-1/run');
+    expect(calls[0].method).toBe('POST');
+    // The honesty bar: the full per-job report rides through untouched, never collapsed
+    // to a bare rollup.
+    expect(result.report.jobs).toEqual(report.jobs);
+    expect(result.notified).toBe(true);
+  });
+
+  test('operator.ci.status POSTs the repo/ref/prNumber body to /api/ci/status', async () => {
+    const report = { repo: 'acme/example', ref: 'main', overall: 'passed', jobs: [], violations: [], checkedAt: 1 };
+    stubFetch({ report });
+    const result = await sdk.operator.ci.status({ repo: 'acme/example', ref: 'main' });
+    expect(calls[0].url).toContain('/api/ci/status');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ repo: 'acme/example', ref: 'main' });
+    expect(result.report.overall).toBe('passed');
+  });
+});
+
 describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
@@ -345,13 +424,14 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, ci, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
+    // 'ci' added for ci.status/ci.watches.* (SDK 1.6.1's initiative-family repack).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'checkpoints', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -392,6 +472,12 @@ describe('sdk facade shape — byte-compatible surface', () => {
 
   test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH — fleet is a reader, not a watcher-authoring surface)', () => {
     expect(Object.keys(sdk.operator.watchers).sort()).toEqual(['stop']);
+  });
+
+  // ci.* (SDK 1.6.1's initiative-family repack): status + the watches CRUD/run group.
+  test('sdk.operator.ci exposes status and watches', () => {
+    expect(Object.keys(sdk.operator.ci).sort()).toEqual(['status', 'watches'].sort());
+    expect(Object.keys(sdk.operator.ci.watches).sort()).toEqual(['create', 'delete', 'list', 'run'].sort());
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {

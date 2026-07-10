@@ -1,0 +1,110 @@
+/*
+ * diff-multibuffer.css — DiffMultibuffer.tsx: one scrollable review surface with a section
+ * per changed file and a block per hunk. Shared by the session review cockpit
+ * (SessionChanges) and the best-of-N candidate comparison (AttemptComparison).
+ * Contract tokens only (src/styles/tokens.css). Phone-first: an interactive hunk is a
+ * ≥44px tap target.
+ */
+
+.diff-mb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.diff-mb__file {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+}
+
+.diff-mb__file-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.diff-mb__file-path {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs, 11px);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.diff-mb__note {
+  margin: 0;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-size: var(--text-xs, 11px);
+  color: var(--text-secondary);
+}
+
+.diff-mb__hunk {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-raised, var(--surface-base));
+}
+
+/* Interactive hunks (a <button>) are tap targets; static ones (read-only comparison) are not. */
+button.diff-mb__hunk {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+button.diff-mb__hunk:hover,
+button.diff-mb__hunk:focus-visible { background: var(--surface-sunken); }
+
+.diff-mb__hunk:first-of-type { border-top: 0; }
+
+.diff-mb__hunk--reviewed { background: color-mix(in srgb, var(--status-success, #2c8a5b) 8%, transparent); }
+.diff-mb__hunk--reverted { opacity: 0.65; }
+.diff-mb__hunk--conflict { background: color-mix(in srgb, var(--status-warning, #c98a00) 10%, transparent); }
+
+.diff-mb__hunk-header {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary, var(--text-secondary));
+  margin-bottom: var(--space-1, 4px);
+}
+
+.diff-mb__lines {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs, 11px);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-mb__line { display: block; }
+.diff-mb__line--add { color: var(--status-success, #2c8a5b); }
+.diff-mb__line--del { color: var(--status-danger, #b4233a); }
+.diff-mb__line--context { color: var(--text-secondary); }
+.diff-mb__line--meta,
+.diff-mb__line--more { color: var(--text-tertiary, var(--text-secondary)); font-style: italic; }
+
+.diff-mb__hunk-cta {
+  display: inline-block;
+  margin-top: var(--space-1, 4px);
+  font-size: var(--text-xs, 11px);
+  font-weight: 600;
+  color: var(--text-accent);
+}
+
+.diff-mb__hunk-status {
+  display: inline-block;
+  margin-top: var(--space-1, 4px);
+  font-size: var(--text-xs, 11px);
+  font-weight: 600;
+}
+
+.diff-mb__hunk-status--reviewed { color: var(--status-success, #2c8a5b); }
+.diff-mb__hunk-status--reverted { color: var(--text-tertiary, var(--text-secondary)); }
+.diff-mb__hunk-status--conflict { color: var(--status-warning, #c98a00); }

@@ -22,17 +22,32 @@ import type {
   CheckpointsRestoreResult,
   CheckpointsRestorePreviewInput,
   CheckpointsRestorePreviewResult,
+  CheckpointsRevertHunkPreviewInput,
+  CheckpointsRevertHunkPreviewResult,
+  CheckpointsRevertHunkInput,
+  CheckpointsRevertHunkResult,
   CostAttributionGetInput,
   CostAttributionGetResult,
   CostAttributionRow,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
+  FleetAttemptsListInput,
+  FleetAttemptsListResult,
+  FleetAttemptGroup,
+  FleetAttemptCandidate,
+  FleetAttemptJudgment,
+  FleetAttemptsPickResult,
+  FleetAttemptsJudgeResult,
   FleetListInput,
   FleetListResult,
   FleetProcessNode,
   FleetSnapshotResult,
   FleetUnarchiveResult,
+  RewindPlanInput,
+  RewindPlanResult,
+  RewindApplyInput,
+  RewindApplyResult,
   SessionParticipant,
   SessionsChangesGetInput,
   SessionsChangesGetResult,
@@ -58,17 +73,32 @@ export type {
   CheckpointsRestoreResult,
   CheckpointsRestorePreviewInput,
   CheckpointsRestorePreviewResult,
+  CheckpointsRevertHunkPreviewInput,
+  CheckpointsRevertHunkPreviewResult,
+  CheckpointsRevertHunkInput,
+  CheckpointsRevertHunkResult,
   CostAttributionGetInput,
   CostAttributionGetResult,
   CostAttributionRow,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
+  FleetAttemptsListInput,
+  FleetAttemptsListResult,
+  FleetAttemptGroup,
+  FleetAttemptCandidate,
+  FleetAttemptJudgment,
+  FleetAttemptsPickResult,
+  FleetAttemptsJudgeResult,
   FleetListInput,
   FleetListResult,
   FleetProcessNode,
   FleetSnapshotResult,
   FleetUnarchiveResult,
+  RewindPlanInput,
+  RewindPlanResult,
+  RewindApplyInput,
+  RewindApplyResult,
   SessionParticipant,
   SessionsChangesGetInput,
   SessionsChangesGetResult,
@@ -1295,6 +1325,22 @@ export const sdk = {
       unarchive: (id: string) => invokeGatewayMethod<'fleet.unarchive', FleetUnarchiveResult>('fleet.unarchive', { id }),
       archiveFinished: () => invokeGatewayMethod<'fleet.archiveFinished', FleetArchiveFinishedResult>('fleet.archiveFinished', {}),
       archivedList: () => invokeGatewayMethod<'fleet.archived.list', FleetArchivedListResult>('fleet.archived.list', {}),
+      // Best-of-N attempt resolution (SDK 1.6.1). list is read-only (held-merge candidate
+      // groups with per-candidate diffs + any prior judge proposal); judge PROPOSES a winner
+      // with reasons — explicitly model judgment (scoredBy:'model'), never an auto-pick; pick
+      // accepts one candidate as the winner (merges it, cleans losers) and is a 409 CONFLICT
+      // (lib/errors.ts isConflictError) for an unknown/not-ready group — never a partial merge.
+      attempts: {
+        list: (workstreamId?: string) =>
+          invokeGatewayMethod<'fleet.attempts.list', FleetAttemptsListResult>(
+            'fleet.attempts.list',
+            (workstreamId ? { workstreamId } : {}) as FleetAttemptsListInput,
+          ),
+        pick: (groupId: string, winnerItemId: string) =>
+          invokeGatewayMethod<'fleet.attempts.pick', FleetAttemptsPickResult>('fleet.attempts.pick', { groupId, winnerItemId }),
+        judge: (groupId: string) =>
+          invokeGatewayMethod<'fleet.attempts.judge', FleetAttemptsJudgeResult>('fleet.attempts.judge', { groupId }),
+      },
     },
     checkpoints: {
       list: (input?: CheckpointsListInput) => invokeGatewayMethod<'checkpoints.list', CheckpointsListResult>('checkpoints.list', input ?? {}),
@@ -1304,6 +1350,28 @@ export const sdk = {
         invokeGatewayMethod<'checkpoints.restore', CheckpointsRestoreResult>('checkpoints.restore', input),
       restorePreview: (input: CheckpointsRestorePreviewInput) =>
         invokeGatewayMethod<'checkpoints.restorePreview', CheckpointsRestorePreviewResult>('checkpoints.restorePreview', input),
+      // revertHunkPreview/revertHunk (SDK 1.6.1): the review-cockpit's REJECT→REVERT flow.
+      // preview is read-only (validates the hunk still reverse-applies, mints a ~2min
+      // single-use confirmToken, or answers applies:false with a human conflict string and
+      // a null token); revertHunk consumes the token to snapshot-then-reverse-apply exactly
+      // that one hunk. A stale/drifted hunk is an honest 409 CONFLICT (lib/errors.ts
+      // isConflictError) — never a partial write; the caller re-reads the diff and retries.
+      revertHunkPreview: (input: CheckpointsRevertHunkPreviewInput) =>
+        invokeGatewayMethod<'checkpoints.revertHunkPreview', CheckpointsRevertHunkPreviewResult>('checkpoints.revertHunkPreview', input),
+      revertHunk: (input: CheckpointsRevertHunkInput) =>
+        invokeGatewayMethod<'checkpoints.revertHunk', CheckpointsRevertHunkResult>('checkpoints.revertHunk', input),
+    },
+    // rewind.plan/apply (SDK 1.6.1): the unified message-anchored rewind — a terraform-style
+    // dry-run/apply pair over the platform's history stores. plan previews what restoring
+    // files and/or conversation to a turn anchor would change and mints a single-use
+    // confirmToken; apply consumes it, records an undo point (a pre-restore safety checkpoint
+    // and/or a captured conversation snapshot) so the rewind is itself reversible, and emits
+    // REWIND_APPLIED. `transport: ["ws"]` only — generic-invoke-only like checkpoints.* above.
+    // The conversation scope may be reported unavailable in the plan's `warnings` on a runtime
+    // with no conversation store wired — SessionRewind renders that honestly, never faked.
+    rewind: {
+      plan: (input: RewindPlanInput) => invokeGatewayMethod<'rewind.plan', RewindPlanResult>('rewind.plan', input),
+      apply: (input: RewindApplyInput) => invokeGatewayMethod<'rewind.apply', RewindApplyResult>('rewind.apply', input),
     },
     sessions: {
       list: () => invokeOperator('sessions.list', {}),

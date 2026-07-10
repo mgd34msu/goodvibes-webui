@@ -13,6 +13,7 @@ import {
   hunkNewRange,
   formatRange,
   hunkExcerpt,
+  hunkToPatch,
   buildHunkCommentSteer,
 } from './unified-diff';
 
@@ -177,6 +178,22 @@ describe('range + excerpt helpers', () => {
     const capped = hunkExcerpt(hunk, 2);
     expect(capped).toContain('more line');
     expect(capped).toContain('truncated');
+  });
+
+  test('hunkToPatch reconstructs the complete, uncapped, marker-exact hunk (no truncation marker)', () => {
+    const patch = hunkToPatch(hunk);
+    const lines = patch.split('\n');
+    // header first, then every body line verbatim with its +/-/space marker
+    expect(lines[0]).toBe('@@ -40,6 +40,7 @@ export function foo() {');
+    expect(patch).toContain('+  const c = 3;');
+    expect(patch).toContain('-  return a + b;');
+    // never a "… N more" cap — the daemon must reverse-apply the whole hunk exactly
+    expect(patch).not.toContain('more line');
+    expect(patch).not.toContain('truncated');
+    // every non-header line carries a leading +/-/space marker
+    for (const line of lines.slice(1).filter((l) => l.length > 0)) {
+      expect(['+', '-', ' ', '\\']).toContain(line[0]);
+    }
   });
 });
 

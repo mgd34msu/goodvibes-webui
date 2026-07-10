@@ -35,6 +35,13 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'checkpoints.diff',
   'checkpoints.restore',
   'checkpoints.restorePreview',
+  'checkpoints.revertHunkPreview',
+  'checkpoints.revertHunk',
+  'rewind.plan',
+  'rewind.apply',
+  'fleet.attempts.list',
+  'fleet.attempts.pick',
+  'fleet.attempts.judge',
   'sessions.search',
   'sessions.detach',
   'sessions.changes.get',
@@ -74,6 +81,47 @@ export type CheckpointsRestoreResult = OperatorMethodOutput<'checkpoints.restore
 export type CheckpointsRestorePreviewInput = OperatorMethodInput<'checkpoints.restorePreview'>;
 export type CheckpointsRestorePreviewResult = OperatorMethodOutput<'checkpoints.restorePreview'>;
 export type WorkspaceCheckpoint = CheckpointsListResult['checkpoints'][number];
+
+// checkpoints.revertHunkPreview / checkpoints.revertHunk (SDK 1.6.1's per-hunk
+// reverse-apply): the review-cockpit's REJECT→REVERT flow. revertHunkPreview is read-only
+// (validates the hunk still reverse-applies, mints a ~2min single-use confirmToken, or
+// answers applies:false with a human conflict string and a null token); revertHunk consumes
+// the token to snapshot-then-reverse-apply exactly that one hunk, returning a receipt whose
+// `undo` block carries the pre-revert safety checkpoint id. A stale hunk is an honest 409
+// CONFLICT (lib/errors.ts isConflictError), never a partial write.
+export type CheckpointsRevertHunkPreviewInput = OperatorMethodInput<'checkpoints.revertHunkPreview'>;
+export type CheckpointsRevertHunkPreviewResult = OperatorMethodOutput<'checkpoints.revertHunkPreview'>;
+export type CheckpointsRevertHunkInput = OperatorMethodInput<'checkpoints.revertHunk'>;
+export type CheckpointsRevertHunkResult = OperatorMethodOutput<'checkpoints.revertHunk'>;
+
+// ─── Rewind (rewind.plan / rewind.apply) ──────────────────────────────────────
+// SDK 1.6.1's unified message-anchored rewind: a terraform-style dry-run/apply pair over
+// the platform's history stores. plan is read-only (previews what restoring files and/or
+// conversation to a turn anchor would change, mints a single-use confirmToken); apply
+// consumes it, records an undo point (a pre-restore safety checkpoint and/or a captured
+// conversation snapshot) so the rewind is itself reversible, and emits REWIND_APPLIED.
+// `transport: ["ws"]` only — generic-invoke-only, routed through invokeGatewayMethod.
+export type RewindPlanInput = OperatorMethodInput<'rewind.plan'>;
+export type RewindPlanResult = OperatorMethodOutput<'rewind.plan'>;
+export type RewindApplyInput = OperatorMethodInput<'rewind.apply'>;
+export type RewindApplyResult = OperatorMethodOutput<'rewind.apply'>;
+
+// ─── Best-of-N attempts (fleet.attempts.list / pick / judge) ──────────────────
+// SDK 1.6.1's best-of-N sibling-attempt resolution over held-merge candidate groups.
+// list is read-only (held groups with per-candidate diffs + any prior judge proposal);
+// judge PROPOSES a winner with reasons, explicitly model judgment (scoredBy:'model'), never
+// an auto-pick; pick accepts one candidate as the winner (merging it, cleaning losers) and
+// is a 409 CONFLICT for an unknown/not-ready group. `transport: ["ws"]` only — generic-
+// invoke-only, routed through invokeGatewayMethod.
+export type FleetAttemptsListInput = OperatorMethodInput<'fleet.attempts.list'>;
+export type FleetAttemptsListResult = OperatorMethodOutput<'fleet.attempts.list'>;
+export type FleetAttemptGroup = FleetAttemptsListResult['groups'][number];
+export type FleetAttemptCandidate = FleetAttemptGroup['candidates'][number];
+export type FleetAttemptJudgment = NonNullable<FleetAttemptGroup['judgment']>;
+export type FleetAttemptsPickInput = OperatorMethodInput<'fleet.attempts.pick'>;
+export type FleetAttemptsPickResult = OperatorMethodOutput<'fleet.attempts.pick'>;
+export type FleetAttemptsJudgeInput = OperatorMethodInput<'fleet.attempts.judge'>;
+export type FleetAttemptsJudgeResult = OperatorMethodOutput<'fleet.attempts.judge'>;
 
 // ─── Sessions search (sessions.search) ────────────────────────────────────────
 // SWAP applied: sessions.search now carries a real map entry.

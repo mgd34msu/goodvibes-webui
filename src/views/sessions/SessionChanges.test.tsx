@@ -1,15 +1,15 @@
 /**
- * SessionChanges.test.tsx — the hunk-selectable session changes view end to end.
+ * SessionChanges.test.tsx — the session review COCKPIT end to end.
  *
- * Drives the PRIMARY, default source (sessions.changes.get — genuinely session-scoped)
- * and the explicit secondary/fallback mode (checkpoints.list + checkpoints.diff,
- * workspace-scoped, toggled manually or reached automatically from the honest-empty
- * state): expand → the session's aggregate diff is parsed into a tappable hunk →
- * tapping opens the comment sheet → the comment is sent through sessions.steer PREFIXED
- * with the structured context block (file + line ranges + captured label + the hunk
- * excerpt + the comment). Also covers the follow-up fallback when no agent is bound, the
- * honest-empty state when a session has no stamped checkpoints (with its fallback CTA),
- * and the workspace-scoped mode toggle.
+ * Drives the PRIMARY source (sessions.changes.get — session-scoped) and the explicit
+ * workspace-scoped fallback (checkpoints.list + checkpoints.diff): expand → the aggregate
+ * diff is parsed into the multibuffer → tapping a hunk opens the action chooser →
+ *   - APPROVE marks the hunk reviewed (client-side progress, reviewed/total indicator);
+ *   - COMMENT & STEER hands off to the comment sheet → sends through sessions.steer /
+ *     sessions.followUp PREFIXED with the structured context block;
+ *   - REJECT & REVERT runs checkpoints.revertHunkPreview → confirm → checkpoints.revertHunk
+ *     with the minted token, and renders the honest conflict state when the hunk is stale.
+ * Also covers the honest-empty state, the METHOD_NOT_FOUND fallback, and the enabled gate.
  */
 
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -55,9 +55,23 @@ let sessionChangesError: unknown = null;
 const steerCalls: { sessionId: string; input: { body: string } }[] = [];
 const followUpCalls: { sessionId: string; input: { body: string } }[] = [];
 
+let previewResult: unknown = {
+  path: 'src/foo.ts', applies: true, conflict: null, hunkHeader: '@@ -40,3 +40,4 @@',
+  addedLinesRemoved: 1, removedLinesRestored: 0, matchedAtLine: 40, token: 'tok-1', expiresAt: 9_999_999_999,
+};
+let revertResult: unknown = {
+  receipt: {
+    reverted: true, path: 'src/foo.ts', hunkHeader: '@@ -40,3 +40,4 @@',
+    addedLinesRemoved: 1, removedLinesRestored: 0, safetyCheckpointId: 'wcp-safety',
+    undo: { restoreCheckpointId: 'wcp-safety' },
+  },
+  refused: false, refusal: null,
+};
+let revertError: unknown = null;
+const previewCalls: { path: string; hunk: string; sessionId?: string }[] = [];
+const revertCalls: { path: string; hunk: string; confirmToken?: string; sessionId?: string }[] = [];
+
 mock.module('../../lib/goodvibes', () => ({
-  // queries.ts (imported transitively) pulls these named exports at module-eval —
-  // stub them so the mocked module satisfies the whole graph.
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
   sdk: {
@@ -67,6 +81,14 @@ mock.module('../../lib/goodvibes', () => ({
         diff: (_input: { a: string }) => Promise.resolve({
           diff: { from: 'cp-1', to: 'working-tree', files: ['src/bar.ts'], unifiedDiff: WORKSPACE_UNIFIED, stat: '1 file changed' },
         }),
+        revertHunkPreview: (input: { path: string; hunk: string; sessionId?: string }) => {
+          previewCalls.push(input);
+          return Promise.resolve(previewResult);
+        },
+        revertHunk: (input: { path: string; hunk: string; confirmToken?: string; sessionId?: string }) => {
+          revertCalls.push(input);
+          return revertError ? Promise.reject(revertError) : Promise.resolve(revertResult);
+        },
       },
       sessions: {
         steer: (sessionId: string, input: { body: string }) => { steerCalls.push({ sessionId, input }); return Promise.resolve({}); },
@@ -114,6 +136,17 @@ function click(el: Element | null) {
   flushSync(() => el?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 }
 
+/** Tap the first hunk, then click a named action button in the action chooser sheet. */
+function openHunkAction(container: HTMLElement, which: 'approve' | 'comment' | 'reject') {
+  click(container.querySelector('.diff-mb__hunk'));
+  const selector = which === 'approve'
+    ? '.hunk-actions__btn--approve'
+    : which === 'reject'
+      ? '.hunk-actions__btn--reject'
+      : '.hunk-actions__btn:not(.hunk-actions__btn--approve):not(.hunk-actions__btn--reject)';
+  click(container.querySelector(selector));
+}
+
 afterEach(() => {
   checkpoints = [];
   sessionChangesResult = {
@@ -123,6 +156,21 @@ afterEach(() => {
   sessionChangesError = null;
   steerCalls.length = 0;
   followUpCalls.length = 0;
+  previewResult = {
+    path: 'src/foo.ts', applies: true, conflict: null, hunkHeader: '@@ -40,3 +40,4 @@',
+    addedLinesRemoved: 1, removedLinesRestored: 0, matchedAtLine: 40, token: 'tok-1', expiresAt: 9_999_999_999,
+  };
+  revertResult = {
+    receipt: {
+      reverted: true, path: 'src/foo.ts', hunkHeader: '@@ -40,3 +40,4 @@',
+      addedLinesRemoved: 1, removedLinesRestored: 0, safetyCheckpointId: 'wcp-safety',
+      undo: { restoreCheckpointId: 'wcp-safety' },
+    },
+    refused: false, refusal: null,
+  };
+  revertError = null;
+  previewCalls.length = 0;
+  revertCalls.length = 0;
 });
 
 const ONE_CHECKPOINT = [{
@@ -131,25 +179,43 @@ const ONE_CHECKPOINT = [{
 }];
 
 describe('SessionChanges', () => {
-  test('expands and renders the session-scoped diff by default (sessions.changes.get)', async () => {
+  test('expands and renders the session-scoped diff in the multibuffer by default', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
     click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     expect(container.textContent).toContain('src/foo.ts');
     expect(container.textContent).toContain('Session-scoped — filtered to this session\'s own checkpoints only');
-    const hunk = container.querySelector('.session-changes__hunk');
+    const hunk = container.querySelector('.diff-mb__hunk');
     expect(hunk).not.toBeNull();
     expect(hunk?.textContent).toContain('const c = 3;');
+    // reviewed/total progress indicator is present
+    expect(container.textContent).toContain('0 of 1 hunk reviewed');
     unmount();
   });
 
-  test('commenting on a hunk steers the session with the structured context block', async () => {
+  test('APPROVE marks a hunk reviewed and advances the reviewed/total indicator', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
     click(container.querySelector('.session-changes__toggle'));
     await settle();
 
-    click(container.querySelector('.session-changes__hunk'));
+    openHunkAction(container, 'approve');
+    await settle(2);
+
+    expect(container.textContent).toContain('1 of 1 hunk reviewed');
+    expect(container.querySelector('.diff-mb__hunk--reviewed')).not.toBeNull();
+    // no wire calls for a purely client-side approve
+    expect(steerCalls).toHaveLength(0);
+    expect(revertCalls).toHaveLength(0);
+    unmount();
+  });
+
+  test('COMMENT & STEER steers the session with the structured context block', async () => {
+    const { container, unmount } = render({ canSteer: true, closed: false });
+    click(container.querySelector('.session-changes__toggle'));
+    await settle();
+
+    openHunkAction(container, 'comment');
     await settle(2);
 
     const textarea = container.querySelector('.hunk-sheet__input') as HTMLTextAreaElement;
@@ -173,16 +239,15 @@ describe('SessionChanges', () => {
     expect(body).toContain('```diff');
     expect(body).toContain('+  const c = 3;');
     expect(body).toContain('My comment: use a named constant');
-    // captured-label provenance rides along
     expect(body).toContain('Session-scoped');
     unmount();
   });
 
-  test('with no bound agent the comment queues a follow-up instead of steering', async () => {
+  test('with no bound agent COMMENT queues a follow-up instead of steering', async () => {
     const { container, unmount } = render({ canSteer: false, closed: false });
     click(container.querySelector('.session-changes__toggle'));
     await settle();
-    click(container.querySelector('.session-changes__hunk'));
+    openHunkAction(container, 'comment');
     await settle(2);
 
     const textarea = container.querySelector('.hunk-sheet__input') as HTMLTextAreaElement;
@@ -200,7 +265,73 @@ describe('SessionChanges', () => {
     unmount();
   });
 
-  test('a session with no stamped checkpoints (checkpointCount:0) renders an honest empty state, never a blank, with a workspace-scoped fallback CTA', async () => {
+  test('REJECT & REVERT previews then reverts the exact hunk with the minted confirm token', async () => {
+    const { container, unmount } = render({ canSteer: true, closed: false });
+    click(container.querySelector('.session-changes__toggle'));
+    await settle();
+
+    openHunkAction(container, 'reject');
+    await settle(3);
+
+    // preview ran against the exact hunk patch (header + body), attributed to the session
+    expect(previewCalls).toHaveLength(1);
+    expect(previewCalls[0].path).toBe('src/foo.ts');
+    expect(previewCalls[0].hunk).toContain('@@ -40,3 +40,4 @@');
+    expect(previewCalls[0].hunk).toContain('+  const c = 3;');
+    expect(previewCalls[0].sessionId).toBe('s-1');
+    // ready state names the consequence
+    expect(container.textContent).toContain('Will remove 1 added line');
+
+    click(container.querySelector('.hunk-sheet__send--danger'));
+    await settle(3);
+
+    expect(revertCalls).toHaveLength(1);
+    expect(revertCalls[0].path).toBe('src/foo.ts');
+    expect(revertCalls[0].confirmToken).toBe('tok-1');
+    expect(revertCalls[0].hunk).toContain('+  const c = 3;');
+    unmount();
+  });
+
+  test('a stale hunk (preview applies:false) renders the honest conflict state, never a partial apply', async () => {
+    previewResult = {
+      path: 'src/foo.ts', applies: false, conflict: 'the file changed since the diff was taken',
+      hunkHeader: '@@ -40,3 +40,4 @@', addedLinesRemoved: 0, removedLinesRestored: 0, matchedAtLine: null,
+      token: null, expiresAt: null,
+    };
+    const { container, unmount } = render({ canSteer: true, closed: false });
+    click(container.querySelector('.session-changes__toggle'));
+    await settle();
+
+    openHunkAction(container, 'reject');
+    await settle(3);
+
+    expect(container.textContent).toContain('changed since it was captured');
+    expect(container.textContent).toContain('the file changed since the diff was taken');
+    // the confirm/revert path never ran
+    expect(revertCalls).toHaveLength(0);
+    // a Refresh affordance is offered
+    const refresh = Array.from(container.querySelectorAll('.hunk-sheet__send')).find((b) => b.textContent?.includes('Refresh'));
+    expect(refresh).not.toBeUndefined();
+    unmount();
+  });
+
+  test('a 409 conflict on apply (hunk went stale between preview and confirm) shows the conflict state, not a partial write', async () => {
+    revertError = { status: 409, code: 'CONFLICT', message: 'hunk no longer applies' };
+    const { container, unmount } = render({ canSteer: true, closed: false });
+    click(container.querySelector('.session-changes__toggle'));
+    await settle();
+
+    openHunkAction(container, 'reject');
+    await settle(3);
+    click(container.querySelector('.hunk-sheet__send--danger'));
+    await settle(3);
+
+    expect(revertCalls).toHaveLength(1);
+    expect(container.textContent).toContain('changed since it was captured');
+    unmount();
+  });
+
+  test('a session with no stamped checkpoints renders an honest empty state with a workspace-scoped fallback CTA', async () => {
     sessionChangesResult = {
       sessionId: 's-1', checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
       files: [], unifiedDiff: '', stat: '',
@@ -210,31 +341,14 @@ describe('SessionChanges', () => {
     await settle();
 
     expect(container.textContent).toContain('No captured changes for this session');
-    expect(container.querySelector('.session-changes__hunk')).toBeNull();
+    expect(container.querySelector('.diff-mb__hunk')).toBeNull();
     const fallbackLink = container.querySelector('.session-changes__inline-link');
     expect(fallbackLink).not.toBeNull();
     expect(fallbackLink?.textContent).toContain('View workspace-wide changes instead');
     unmount();
   });
 
-  test('tapping the honest-empty fallback CTA switches to the workspace-scoped checkpoint picker', async () => {
-    sessionChangesResult = {
-      sessionId: 's-1', checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
-      files: [], unifiedDiff: '', stat: '',
-    };
-    checkpoints = ONE_CHECKPOINT;
-    const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
-    await settle();
-    click(container.querySelector('.session-changes__inline-link'));
-    await settle();
-
-    expect(container.textContent).toContain('Workspace-scoped (fallback)');
-    expect(container.textContent).toContain('src/bar.ts');
-    unmount();
-  });
-
-  test('the explicit workspace-scoped toggle switches away from session changes even when session data is present', async () => {
+  test('the workspace-scoped toggle switches away from session changes', async () => {
     checkpoints = ONE_CHECKPOINT;
     const { container, unmount } = render({ canSteer: true, closed: false });
     click(container.querySelector('.session-changes__toggle'));
@@ -250,22 +364,20 @@ describe('SessionChanges', () => {
     unmount();
   });
 
-  test('a daemon that has never heard of sessions.changes.get (METHOD_NOT_FOUND) offers the workspace-scoped fallback rather than an error wall', async () => {
+  test('a daemon that has never heard of sessions.changes.get offers the workspace-scoped fallback', async () => {
     sessionChangesError = { status: 404, code: 'METHOD_NOT_FOUND', message: 'Unknown gateway method' };
     const { container, unmount } = render({ canSteer: true, closed: false });
     click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     expect(container.textContent).toContain("doesn't serve session-scoped changes");
-    const fallbackLink = container.querySelector('.session-changes__inline-link');
-    expect(fallbackLink).not.toBeNull();
+    expect(container.querySelector('.session-changes__inline-link')).not.toBeNull();
     unmount();
   });
 
   test('the session-changes query is not fired until the section is expanded', async () => {
     const { container, client, unmount } = render({ canSteer: true, closed: false });
     await settle(2);
-    // collapsed → the enabled:expanded gate keeps the query idle with no data fetched
     const idle = client.getQueryState(queryKeys.sessionChanges('s-1'));
     expect(idle?.fetchStatus).toBe('idle');
     expect(idle?.data).toBeUndefined();

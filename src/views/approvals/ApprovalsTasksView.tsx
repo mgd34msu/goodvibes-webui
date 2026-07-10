@@ -31,7 +31,7 @@
  * subscription, it only benefits from the existing one.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ClipboardCheck,
@@ -45,6 +45,7 @@ import { sdk } from '../../lib/goodvibes';
 import type { RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { readApprovalEditHunks, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
+import { parseApprovalActionFromHash, stripApprovalActionFragment } from '../../lib/push/approval-action-link';
 import { ApprovalCard } from './ApprovalCard';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
@@ -162,6 +163,24 @@ function ApprovalsSection() {
       toast({ title: 'Cancel failed', description: friendlyError(error), tone: 'danger' });
     },
   });
+
+  // Push-notification action hand-off: an "Allow"/"Deny" tap opens the app at
+  // #approval-action=…&approval-id=… (the service worker cannot approve itself).
+  // This authenticated surface completes the real call on mount, once. The ref
+  // guards it across React StrictMode's double effect; the fragment is scrubbed
+  // so a reload does not re-fire it. approve/deny surface their own toasts.
+  const handoffDoneRef = useRef(false);
+  useEffect(() => {
+    if (handoffDoneRef.current) return;
+    const intent = parseApprovalActionFromHash(window.location.hash);
+    if (!intent) return;
+    handoffDoneRef.current = true;
+    stripApprovalActionFragment();
+    if (intent.action === 'approve') approve.mutate({ id: intent.approvalId });
+    else deny.mutate(intent.approvalId);
+    // Mount-once hand-off; approve/deny are stable mutation handles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <section className="approvals-section">

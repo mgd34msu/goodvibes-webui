@@ -206,10 +206,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   let memoryRecords = SEED_MEMORY_RECORDS.map(memoryRecordWire);
   let memoryIdCounter = 0;
 
-  // Checkpoints (checkpoints.*, MOBILE-ADAPT): one seeded checkpoint so the
-  // phone-tier CSS (checkpoints-create-row / checkpoint-detail__restore hidden,
-  // an honest note shown) has real selected-detail content to prove against,
-  // not just the true-empty state phone-smoke already covers.
+  // Checkpoints (checkpoints.*): one seeded checkpoint so the phone confirm-sheet
+  // flow (create/restore routed through ConfirmSheet) has real selected-detail
+  // content to prove against, not just the true-empty state phone-smoke covers.
   let checkpointsList = [
     { id: 'wcp_e2e_1', kind: 'manual', label: 'Before the mobile pass', createdAt: 1_700_000_000_000, parentId: null as string | null, retentionClass: 'standard', commit: 'aaaaaaaaaaaa1111', sizeBytes: 4096 },
   ];
@@ -219,10 +218,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // returns them, unarchive releases them.
   const archivedFleetIds = new Set<string>();
 
-  // Runtime tasks (tasks.*, MOBILE-ADAPT): one cancellable, one retryable — the
-  // pair TaskRow's two mutation buttons key off (task.cancellable / a
-  // failed/cancelled status), so the phone-tier hiding of both has something
-  // to hide.
+  // Runtime tasks (tasks.*): one cancellable, one retryable — the pair TaskRow's
+  // two mutation buttons key off (task.cancellable / a failed/cancelled status),
+  // so the phone confirm-sheet flow for cancel/retry has something to act on.
   let taskList = [
     { id: 'task_e2e_1', kind: 'shell', title: 'Run the release checklist', status: 'running', owner: 'operator', cancellable: true, queuedAt: 1_700_000_000_000 },
     { id: 'task_e2e_2', kind: 'shell', title: 'Rebuild the search index', status: 'failed', owner: 'operator', cancellable: false, queuedAt: 1_700_000_000_000, error: 'index build timed out' },

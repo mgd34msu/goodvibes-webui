@@ -1,0 +1,118 @@
+/*
+ * confirm-sheet.css — ConfirmSheet.tsx.
+ * Contract tokens only (src/styles/tokens.css). Sits at --z-overlay, above the
+ * workspace. Centered dialog on desktop; a bottom sheet on a phone.
+ */
+
+.confirm-sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay, 50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4, 16px);
+}
+
+.confirm-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.confirm-sheet {
+  position: relative;
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-4, 16px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--elevation-3);
+  outline: none;
+}
+
+.confirm-sheet--danger {
+  border-color: color-mix(in srgb, var(--text-danger, #e5484d) 45%, var(--border-subtle));
+}
+
+.confirm-sheet__title {
+  margin: 0;
+  font-size: var(--text-md, 15px);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.confirm-sheet__target {
+  margin: 0;
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.confirm-sheet__desc {
+  margin: 0;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.confirm-sheet__actions {
+  display: flex;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-3, 12px);
+}
+
+.confirm-sheet__cancel,
+.confirm-sheet__confirm {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 var(--space-4, 16px);
+  border-radius: var(--radius-md, 10px);
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-sheet__cancel {
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.confirm-sheet__confirm {
+  border: 1px solid transparent;
+  background: var(--accent-solid, var(--text-accent));
+  color: var(--accent-contrast, #fff);
+}
+
+.confirm-sheet__confirm--danger {
+  background: var(--text-danger, #e5484d);
+  color: #fff;
+}
+
+@media (max-width: 980px) {
+  /* Bottom sheet: anchored to the bottom edge, thumb-reachable, full width. */
+  .confirm-sheet-root {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .confirm-sheet {
+    width: 100%;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding: var(--space-4, 16px) var(--space-4, 16px) calc(var(--space-4, 16px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Stack full-width on the narrowest phones so each target is a big tap. */
+  .confirm-sheet__actions {
+    flex-direction: column-reverse;
+  }
+}

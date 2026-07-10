@@ -35,13 +35,6 @@
   flex-wrap: wrap;
 }
 
-.checkpoints-phone-note {
-  display: none;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
 .checkpoints-detail__back {
   display: none;
   align-items: center;
@@ -262,15 +255,20 @@
     display: inline-flex;
   }
 
-  /* View-only tier: checkpoints.restore is a destructive, git-backed workspace
-     rewrite, and creating a checkpoint is likewise a mutation — both defer to a
-     wider screen. Browsing the list and reading a diff stay fully available. */
-  .checkpoints-create-row,
-  .checkpoint-detail__restore {
-    display: none;
+  /* Creating and restoring are AVAILABLE on phone now (routed through a confirm
+     sheet), so the controls stay visible — and each clears the 44px touch floor. */
+  .checkpoints-create-row {
+    width: 100%;
   }
 
-  .checkpoints-phone-note {
-    display: block;
+  .checkpoints-label-input,
+  .checkpoints-create-button,
+  .checkpoint-detail__restore {
+    min-height: 44px;
+  }
+
+  .checkpoints-create-button,
+  .checkpoint-detail__restore {
+    padding: var(--space-2, 8px) var(--space-3, 12px);
   }
 }

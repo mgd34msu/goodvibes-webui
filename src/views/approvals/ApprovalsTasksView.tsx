@@ -49,6 +49,8 @@ import { ApprovalCard } from './ApprovalCard';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useIsPhoneViewport } from '../../hooks/useIsPhoneViewport';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/approvals.css';
@@ -269,6 +271,8 @@ function ApprovalClassMatrix({ rows }: { rows: readonly import('../../lib/goodvi
 function TasksSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isPhone = useIsPhoneViewport();
+  const confirm = useConfirmSheet();
   const [taskDraft, setTaskDraft] = useState('');
 
   const tasks = useQuery({
@@ -312,8 +316,39 @@ function TasksSection() {
     },
   });
 
+  // Task submit/cancel/retry are AVAILABLE on phone now (no longer hidden). On a
+  // phone each routes through a confirm sheet first, naming the task; desktop keeps
+  // its existing bare one-click behavior.
+  async function handleSubmit(): Promise<void> {
+    const task = taskDraft.trim();
+    if (!task || create.isPending) return;
+    if (isPhone && !(await confirm.ask({ title: 'Submit this task', target: task, confirmLabel: 'Submit' }))) return;
+    create.mutate();
+  }
+
+  async function handleCancel(task: RuntimeTaskSummary): Promise<void> {
+    if (isPhone && !(await confirm.ask({
+      title: 'Cancel this task',
+      target: task.title || task.id,
+      confirmLabel: 'Cancel task',
+      cancelLabel: 'Keep running',
+      tone: 'danger',
+    }))) return;
+    cancel.mutate(task.id);
+  }
+
+  async function handleRetry(task: RuntimeTaskSummary): Promise<void> {
+    if (isPhone && !(await confirm.ask({
+      title: 'Retry this task',
+      target: task.title || task.id,
+      confirmLabel: 'Retry',
+    }))) return;
+    retry.mutate(task.id);
+  }
+
   return (
     <section className="tasks-section">
+      {confirm.element}
       <div className="tasks-toolbar">
         <span className="tasks-toolbar__summary">
           <ListTodo size={14} /> Tasks
@@ -328,8 +363,7 @@ function TasksSection() {
         className="tasks-create"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!taskDraft.trim() || create.isPending) return;
-          create.mutate();
+          void handleSubmit();
         }}
       >
         <input
@@ -344,12 +378,6 @@ function TasksSection() {
           <PlusCircle size={14} /> {create.isPending ? 'Submitting…' : 'Submit'}
         </button>
       </form>
-
-      {/* Phone-only honest note (view-only tier): submitting, cancelling, and
-          retrying a task defer to a wider screen; the queue stays readable here. */}
-      <p className="tasks-phone-note" role="note">
-        Submitting, cancelling, and retrying tasks happens on a wider screen. The task queue stays readable here.
-      </p>
 
       {tasks.isPending && <SkeletonBlock variant="text" lines={4} />}
 
@@ -367,8 +395,8 @@ function TasksSection() {
             <TaskRow
               key={task.id}
               task={task}
-              onCancel={() => cancel.mutate(task.id)}
-              onRetry={() => retry.mutate(task.id)}
+              onCancel={() => void handleCancel(task)}
+              onRetry={() => void handleRetry(task)}
               cancelling={cancel.isPending && cancel.variables === task.id}
               retrying={retry.isPending && retry.variables === task.id}
             />

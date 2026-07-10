@@ -317,23 +317,23 @@
   color: var(--status-danger);
 }
 
-.tasks-phone-note {
-  display: none;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
 @media (max-width: 980px) {
-  /* Approvals are the headline mobile action (full tier) — no adaptation here.
-     Tasks are view-only on phone: submitting/cancelling/retrying defer to a
-     wider screen, mirroring fleet.css's desktop-only-mutation pattern. */
-  .tasks-create,
-  .task-row__actions {
-    display: none;
+  /* Tasks are fully actionable on phone now: submit/cancel/retry each route
+     through a confirm sheet. The controls stay visible and clear the 44px touch
+     floor (approvals were already the headline mobile action — unchanged). */
+  .tasks-create {
+    flex-wrap: wrap;
   }
 
-  .tasks-phone-note {
-    display: block;
+  .tasks-create__input {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+
+  .tasks-create__button,
+  .task-row__cancel,
+  .task-row__retry {
+    min-height: 44px;
+    padding: var(--space-2, 8px) var(--space-3, 12px);
   }
 }

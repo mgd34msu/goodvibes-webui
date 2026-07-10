@@ -2,7 +2,7 @@
  * CheckpointsView — rendering from a mocked checkpoints.* client, covering
  * the honesty markers: true-empty, an honest noop:true create (never a
  * fabricated checkpoint), and the destructive-restore confirm gate (fires
- * only after window.confirm returns true, never on the first click).
+ * only after the confirm sheet is confirmed, never on the first click).
  */
 
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -82,8 +82,6 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
   }
 }
 
-let originalConfirm: typeof window.confirm;
-
 afterEach(() => {
   restoreCalls.length = 0;
   createCalls.length = 0;
@@ -92,7 +90,6 @@ afterEach(() => {
   diffImpl = () => Promise.resolve({
     diff: { from: 'wcp_1', to: 'WORKING', files: ['a.txt'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed' },
   });
-  if (originalConfirm) window.confirm = originalConfirm;
 });
 
 describe('CheckpointsView rendering', () => {
@@ -222,32 +219,37 @@ describe('CheckpointsView create — honest noop', () => {
 });
 
 describe('CheckpointsView restore — destructive confirm gate', () => {
-  test('restore does NOT fire without confirmation', () => {
-    originalConfirm = window.confirm;
-    window.confirm = () => false;
-    const { el, unmount } = render();
+  function openRestore(el: HTMLElement) {
     const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
     click(row);
-    const restoreButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Restore this checkpoint'));
+    const restoreButton = [...el.querySelectorAll('.checkpoint-detail__restore')][0];
     click(restoreButton);
+  }
+
+  test('restore does NOT fire when the confirm sheet is cancelled', async () => {
+    const { el, unmount } = render();
+    openRestore(el);
+    // The confirm sheet is open (destructive restore always confirms).
+    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
+    click([...el.querySelectorAll('.confirm-sheet__cancel')][0]);
+    await new Promise((r) => setTimeout(r, 20));
+    flushSync(() => {});
     expect(restoreCalls).toHaveLength(0);
     unmount();
   });
 
-  test('restore fires exactly once after confirmation, naming the checkpoint', async () => {
-    originalConfirm = window.confirm;
-    let confirmMessage = '';
-    window.confirm = (message?: string) => { confirmMessage = message ?? ''; return true; };
+  test('restore fires exactly once after confirming, and the sheet names the checkpoint', async () => {
     const { el, unmount } = render();
-    const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
-    click(row);
-    const restoreButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Restore this checkpoint'));
-    click(restoreButton);
+    openRestore(el);
+    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
+    const sheet = el.querySelector('.confirm-sheet')!;
+    // The sheet states the target and the overwrite consequence.
+    expect(sheet.textContent).toContain('diff base');
+    expect(sheet.textContent?.toLowerCase()).toContain('overwrite');
+    click(sheet.querySelector('.confirm-sheet__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     expect(restoreCalls).toHaveLength(1);
     expect(restoreCalls[0]).toMatchObject({ id: 'wcp_1' });
-    expect(confirmMessage).toContain('diff base');
-    expect(confirmMessage.toLowerCase()).toContain('overwrite');
     unmount();
   });
 });

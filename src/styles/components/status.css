@@ -99,6 +99,23 @@
   color: var(--text-tertiary);
 }
 
+/* Event streaming genuinely cannot work over relay (not a fault to fix, not a
+ * reconnect-and-it-'ll-be-fine state) — an informational tone, not the danger
+ * color 'error' uses. */
+.status-strip__segment--sse-relay-unsupported .status-strip__icon {
+  color: var(--status-info, var(--text-tertiary));
+}
+
+/* ROUTE axis. 'relay' gets a distinct (info, not success) color so a tunneled
+ * session is never visually indistinguishable from an ordinary direct one. */
+.status-strip__segment--route-direct .status-strip__icon {
+  color: var(--status-success);
+}
+
+.status-strip__segment--route-relay .status-strip__icon {
+  color: var(--status-info, var(--status-warning));
+}
+
 .status-strip__icon {
   color: var(--text-tertiary);
   flex-shrink: 0;

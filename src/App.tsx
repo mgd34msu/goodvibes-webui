@@ -28,6 +28,7 @@ import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDaemonHealth } from './hooks/useDaemonHealth';
 import { usePairingHandoff } from './hooks/usePairingHandoff';
+import { useRelayPairingHandoff } from './hooks/useRelayPairingHandoff';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
@@ -119,6 +120,12 @@ export default function App() {
   // validated. `pending` shows the pairing splash instead of the gate; `error` surfaces
   // on the gate. See usePairingHandoff.
   const pairing = usePairingHandoff();
+  // Relay pairing hand-off: a `#relay=<gvrelay1.…>` fragment is consumed once at
+  // mount, same discipline as the token pairing above, but for a DIFFERENT payload —
+  // transport bootstrap, not identity. Storing it is synchronous/local (no daemon
+  // round trip), so it never gates first paint the way `pairing.status === 'pending'`
+  // does; only a malformed code surfaces, as a banner on the signed-out gate.
+  const relayPairing = useRelayPairingHandoff();
   const boot = useQuery({
     queryKey: ['boot'],
     queryFn: loadBootSnapshot,
@@ -395,7 +402,10 @@ export default function App() {
   if (signedOut) {
     return (
       <AppShell view={view} onNavigate={handleNavigate}>
-        <SignedOutGate pairingError={pairing.status === 'error' ? pairing.error : undefined} />
+        <SignedOutGate
+          pairingError={pairing.status === 'error' ? pairing.error : undefined}
+          relayPairingError={relayPairing.status === 'error' ? relayPairing.error : undefined}
+        />
       </AppShell>
     );
   }

@@ -21,6 +21,7 @@ import { CONTRACT_STATE_GLYPHS } from '../../lib/generated/presentation-tokens';
 
 let _mockHealth: DaemonHealth = {
   connection: 'connected',
+  route: 'direct',
   signedIn: 'signed-in',
   working: 'working',
   latencyMs: 42,
@@ -70,6 +71,7 @@ let cleanup: (() => void) | null = null;
 beforeEach(() => {
   _mockHealth = {
     connection: 'connected',
+    route: 'direct',
     signedIn: 'signed-in',
     working: 'working',
     latencyMs: 42,
@@ -417,6 +419,62 @@ describe('StatusStrip', () => {
       const icon = sseSeg?.querySelector('.status-strip__icon');
       expect(icon).not.toBeNull();
       expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    test('sse relay-unsupported renders a distinct honest label, not a generic error', () => {
+      setHealth({ sse: 'relay-unsupported' });
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const sseSeg = el.querySelector('[aria-label^="Realtime stream:"]');
+      expect(sseSeg?.textContent).toContain('Unavailable (relay)');
+      expect(sseSeg?.className).toContain('status-strip__segment--sse-relay-unsupported');
+      expect(sseSeg?.className).not.toContain('status-strip__segment--sse-error');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Route (direct / via relay / offline)
+  // -------------------------------------------------------------------------
+  describe('route segment', () => {
+    test('route absent (offline) renders no route segment at all', () => {
+      setHealth({ route: null });
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      expect(el.querySelector('[aria-label^="Route:"]')).toBeNull();
+    });
+
+    test('direct route renders the Direct label', () => {
+      setHealth({ route: 'direct' });
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const routeSeg = el.querySelector('[aria-label^="Route:"]');
+      expect(routeSeg?.textContent).toContain('Direct');
+      expect(routeSeg?.getAttribute('aria-label')).toBe('Route: Direct');
+      expect(routeSeg?.className).toContain('status-strip__segment--route-direct');
+    });
+
+    test('relay route renders the honest "Via relay" label, distinct from direct', () => {
+      setHealth({ route: 'relay' });
+      const { el, unmount } = renderStrip();
+      cleanup = unmount;
+      const routeSeg = el.querySelector('[aria-label^="Route:"]');
+      expect(routeSeg?.textContent).toContain('Via relay');
+      expect(routeSeg?.className).toContain('status-strip__segment--route-relay');
+      expect(routeSeg?.className).not.toContain('status-strip__segment--route-direct');
+    });
+
+    test('live region announces the route only when there is a verdict', () => {
+      setHealth({ route: null });
+      const { el, unmount } = renderStrip();
+      const liveRegion = el.querySelector('.status-strip__live-region');
+      expect(liveRegion?.textContent).not.toContain('Direct');
+      expect(liveRegion?.textContent).not.toContain('Via relay');
+      unmount();
+
+      setHealth({ route: 'relay' });
+      const rendered = renderStrip();
+      cleanup = rendered.unmount;
+      expect(rendered.el.querySelector('.status-strip__live-region')?.textContent).toContain('Via relay');
     });
   });
 

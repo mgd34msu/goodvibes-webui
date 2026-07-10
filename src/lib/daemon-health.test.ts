@@ -10,6 +10,7 @@ import {
   deriveAuthState,
   deriveWorkingState,
   sseLabel,
+  routeLabel,
 } from './daemon-health';
 
 // ---------------------------------------------------------------------------
@@ -365,5 +366,28 @@ describe('sseLabel', () => {
 
   test('returns SSE off for disabled', () => {
     expect(sseLabel('disabled')).toBe('SSE off');
+  });
+
+  test('returns a distinct, honest label for relay-unsupported (not "SSE error")', () => {
+    expect(sseLabel('relay-unsupported')).toBe('Unavailable (relay)');
+    expect(sseLabel('relay-unsupported')).not.toBe(sseLabel('error'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// routeLabel
+// ---------------------------------------------------------------------------
+
+describe('routeLabel', () => {
+  test('returns Direct for the direct route', () => {
+    expect(routeLabel('direct')).toBe('Direct');
+  });
+
+  test('returns Via relay for the relay route', () => {
+    expect(routeLabel('relay')).toBe('Via relay');
+  });
+
+  test('returns an em dash for null (no verdict / offline)', () => {
+    expect(routeLabel(null)).toBe('—');
   });
 });

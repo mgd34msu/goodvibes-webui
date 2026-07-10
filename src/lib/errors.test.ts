@@ -7,7 +7,39 @@ import {
   isSessionActiveError,
   isSessionNotFoundError,
   isSessionNotLocalError,
+  isStepUpRequiredError,
+  isStepUpVerifierUnavailableError,
 } from './errors';
+
+describe('isStepUpRequiredError (relay mutating-call refusal)', () => {
+  test('true for the step-up-required code', () => {
+    expect(isStepUpRequiredError({ code: 'step-up-required', message: 'needs a fresh assertion' })).toBe(true);
+  });
+
+  test('true for the step-up-verifier-unavailable code', () => {
+    expect(isStepUpRequiredError({ code: 'step-up-verifier-unavailable', message: 'no verifier wired' })).toBe(true);
+  });
+
+  test('true when the code is nested under transport.body', () => {
+    expect(isStepUpRequiredError(
+      Object.assign(new Error('refused'), { transport: { body: { code: 'step-up-required' } } }),
+    )).toBe(true);
+  });
+
+  test('false for unrelated errors', () => {
+    expect(isStepUpRequiredError({ code: 'CONFLICT', status: 409 })).toBe(false);
+    expect(isStepUpRequiredError({ status: 403 })).toBe(false);
+    expect(isStepUpRequiredError(undefined)).toBe(false);
+  });
+});
+
+describe('isStepUpVerifierUnavailableError', () => {
+  test('true only for the verifier-unavailable variant', () => {
+    expect(isStepUpVerifierUnavailableError({ code: 'step-up-verifier-unavailable' })).toBe(true);
+    expect(isStepUpVerifierUnavailableError({ code: 'step-up-required' })).toBe(false);
+    expect(isStepUpVerifierUnavailableError(undefined)).toBe(false);
+  });
+});
 
 describe('isConflictError (409 stale-hunk / not-ready-group)', () => {
   test('true for the CONFLICT code (revertHunk stale, attempts.pick not-ready)', () => {

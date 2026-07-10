@@ -168,6 +168,9 @@ const SSE_TO_CONTRACT_STATE: Record<SseState, ContractStatusState> = {
   error: 'bad',
   // Deliberately-off is not a fault.
   disabled: 'info',
+  // Streaming genuinely cannot work over the relay (a documented capability gap,
+  // not a fault to fix by retrying) — same "this isn't a fault" bucket as disabled.
+  'relay-unsupported': 'info',
 };
 
 /** Contract severity bucket for the realtime-stream axis (SseState). */

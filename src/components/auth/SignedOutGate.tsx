@@ -21,24 +21,31 @@
  * bounce back to the token field.
  */
 
-import { KeyRound, QrCode, ShieldCheck } from 'lucide-react';
+import { KeyRound, QrCode, Radio, ShieldCheck } from 'lucide-react';
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { login, setExplicitAuthToken } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
+import { decodeRelayPairingCode, storeRelayPairing } from '../../lib/relay-pairing';
 import '../../styles/components/auth-gate.css';
 
 export interface SignedOutGateProps {
   /** Set when a `#pair=…` hand-off token was rejected by the daemon (expired/invalid QR). */
   pairingError?: unknown;
+  /** Set when a `#relay=…` hand-off code was malformed (see useRelayPairingHandoff). */
+  relayPairingError?: unknown;
 }
 
-export function SignedOutGate({ pairingError }: SignedOutGateProps = {}) {
+export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGateProps = {}) {
   const queryClient = useQueryClient();
   const [token, setToken] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showRelayPaste, setShowRelayPaste] = useState(false);
+  const [relayCode, setRelayCode] = useState('');
+  const [relayPasteError, setRelayPasteError] = useState<unknown>(null);
+  const [relayStored, setRelayStored] = useState(false);
 
   const tokenMutation = useMutation({
     mutationFn: () => setExplicitAuthToken(token.trim()),
@@ -62,6 +69,26 @@ export function SignedOutGate({ pairingError }: SignedOutGateProps = {}) {
     if (token.trim()) tokenMutation.mutate();
   }
 
+  // Relay pairing is transport-only — it never signs anyone in, so this is a plain
+  // synchronous decode + local store (lib/relay-pairing.ts), no useMutation/network
+  // round trip. decodeRelayPairingCode throws the SDK's own GoodVibesSdkError on a
+  // malformed code; formatError renders that the same honest way as every other
+  // rejection on this screen.
+  function submitRelayCode(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRelayPasteError(null);
+    setRelayStored(false);
+    if (!relayCode.trim()) return;
+    try {
+      const decoded = decodeRelayPairingCode(relayCode);
+      storeRelayPairing(decoded);
+      setRelayCode('');
+      setRelayStored(true);
+    } catch (err) {
+      setRelayPasteError(err);
+    }
+  }
+
   function submitLogin(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (username && password) loginMutation.mutate();
@@ -83,6 +110,13 @@ export function SignedOutGate({ pairingError }: SignedOutGateProps = {}) {
           <div className="banner warning" role="alert">
             The pairing link was rejected — {formatError(pairingError)}. Its token was
             cleared; scan a fresh QR from <code>goodvibes pair</code>, or paste a token below.
+          </div>
+        )}
+
+        {relayPairingError != null && (
+          <div className="banner warning" role="alert">
+            The relay pairing link was not recognized — {formatError(relayPairingError)}.
+            Scan a fresh relay QR, or paste a relay code below.
           </div>
         )}
 
@@ -127,6 +161,53 @@ export function SignedOutGate({ pairingError }: SignedOutGateProps = {}) {
             {formatError(tokenMutation.error)} — the token was rejected and cleared. Paste a fresh one.
           </div>
         )}
+
+        <div className="signed-out-secondary">
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setShowRelayPaste((current) => !current)}
+            aria-expanded={showRelayPaste}
+          >
+            <Radio size={13} aria-hidden="true" /> Connecting from outside the LAN?
+          </button>
+          {showRelayPaste && (
+            <form className="form-grid signed-out-password" onSubmit={submitRelayCode}>
+              <p className="form-note">
+                If this device cannot reach the daemon directly, scan or paste the relay
+                pairing code the daemon shows (a separate QR from the sign-in one) — it
+                lets this device reach the daemon through the relay instead. This does
+                NOT sign you in by itself; still scan/paste an operator token above (or
+                after) to sign in. Live updates (chat streaming, fleet events) are not
+                available over the relay — those views fall back to periodic refresh.
+              </p>
+              <label>
+                Relay pairing code
+                <input
+                  value={relayCode}
+                  onChange={(event) => setRelayCode(event.target.value)}
+                  type="text"
+                  autoComplete="off"
+                  placeholder="gvrelay1.…"
+                />
+              </label>
+              <button className="secondary-button" type="submit" disabled={!relayCode.trim()}>
+                Save relay pairing
+              </button>
+              {relayStored && (
+                <div className="banner" role="status">
+                  Relay pairing saved. This device will use it automatically when the
+                  direct connection is unavailable.
+                </div>
+              )}
+              {relayPasteError != null && (
+                <div className="banner warning" role="alert">
+                  {formatError(relayPasteError)} — not a recognizable relay pairing code.
+                </div>
+              )}
+            </form>
+          )}
+        </div>
 
         <details className="signed-out-help">
           <summary>Where do I find a token?</summary>

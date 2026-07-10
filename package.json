@@ -61,6 +61,7 @@
     "vite": "^8.0.13"
   },
   "overrides": {
+    "@pellux/goodvibes-sdk": "file:/home/buzzkill/Projects/.gv-dev-tarballs/pellux-goodvibes-sdk-1.6.1.tgz",
     "@pellux/goodvibes-contracts": "file:/home/buzzkill/Projects/.gv-dev-tarballs/pellux-goodvibes-contracts-1.6.1.tgz",
     "@pellux/goodvibes-errors": "file:/home/buzzkill/Projects/.gv-dev-tarballs/pellux-goodvibes-errors-1.6.1.tgz",
     "@pellux/goodvibes-transport-core": "file:/home/buzzkill/Projects/.gv-dev-tarballs/pellux-goodvibes-transport-core-1.6.1.tgz",

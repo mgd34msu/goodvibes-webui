@@ -36,6 +36,17 @@ const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   providers: [queryKeys.providers],
   knowledge: [queryKeys.knowledgeStatus, queryKeys.knowledgeSources, queryKeys.knowledgeRefinement],
   'control-plane': [queryKeys.control],
+  // fleet: the SDK now emits per-node lifecycle deltas (FLEET_NODE_STARTED /
+  // _STATE_CHANGED / _FINISHED / _BLOCKED_ON_USER / _UNBLOCKED) on the runtime
+  // event bus `fleet` domain, which the daemon fans out over this SAME multiplexed
+  // stream (no new connection). We follow this hook's established idiom — INVALIDATE
+  // off the frame, never render straight from it — so any fleet frame revalidates the
+  // live snapshot and the archive: the Fleet tree and the app-level attention badge
+  // update on the event instead of waiting for the next poll. The snapshot stays the
+  // single source of truth (the registry is "a view, not a second source"), so we do
+  // not reconstruct a client-side tree from the deltas. The poll remains as the honest
+  // fallback while this stream is down (see FleetView's subscriptionActive gate).
+  fleet: [queryKeys.fleet, queryKeys.fleetArchived],
 };
 
 /** The single multiplexed control-plane stream carrying every domain we invalidate on. */

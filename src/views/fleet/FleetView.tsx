@@ -3,10 +3,14 @@
  *
  * Renders sdk.operator.fleet.snapshot() (a flat, parentId-linked node list,
  * daemon-capped at 2000 nodes) as a master/detail browser mirroring
- * SessionsView.tsx's list+detail pattern. fleet.* emits NO wire event yet
- * (pinned by the SDK's own fleet test suite), so freshness comes from a
- * background poll + a manual refresh button, not realtime invalidation —
- * see the comment on queryKeys.fleet (lib/queries.ts).
+ * SessionsView.tsx's list+detail pattern. The SDK now emits per-node lifecycle
+ * deltas on the runtime-event `fleet` domain, which App subscribes to over the
+ * existing multiplexed control-plane stream (useRealtimeInvalidation) and turns
+ * into a revalidation of this view's snapshot — so the tree updates ON the event,
+ * not only on the timer. The background poll stays as the HONEST FALLBACK: when
+ * the subscription is live (`subscriptionActive`) it drops to a slow safety cadence;
+ * when the stream is down it returns to the original 15s poll. A manual refresh
+ * button is always available. See queryKeys.fleet (lib/queries.ts).
  *
  * Honest states: a truly empty fleet says so; a snapshot the daemon
  * truncated at its node cap says so (never silently implies completeness);
@@ -39,6 +43,7 @@ import type { FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
   activeCount,
+  attentionReasonLabel,
   buildFleetRows,
   costLabel,
   formatDurationMs,
@@ -64,8 +69,28 @@ import { FleetSessionActions } from './FleetSessionActions';
 import { FleetApprovalInline } from './FleetApprovalInline';
 import '../../styles/components/fleet.css';
 
-/** No live wire event exists for fleet.* yet — poll instead of going stale silently. */
-const FLEET_POLL_INTERVAL_MS = 15_000;
+/**
+ * Poll cadence. When the fleet subscription is DOWN this is the honest fallback —
+ * the original 15s poll, so a stalled stream never silently freezes the tree. When
+ * the subscription is LIVE, fleet events drive freshness and the poll recedes to a
+ * slow safety net (a belt-and-suspenders re-sync in case a delta is ever missed).
+ */
+const FLEET_FALLBACK_POLL_MS = 15_000;
+const FLEET_SAFETY_POLL_MS = 60_000;
+
+function fleetPollInterval(subscriptionActive: boolean): number {
+  return subscriptionActive ? FLEET_SAFETY_POLL_MS : FLEET_FALLBACK_POLL_MS;
+}
+
+/** A distinct badge for a node the daemon flagged as blocked on a human. */
+function AttentionBadge({ reason, detail }: { reason: string; detail?: string }) {
+  const label = attentionReasonLabel(reason);
+  return (
+    <span className="badge attention" data-attention-reason={reason} title={detail ? `${label}: ${detail}` : label}>
+      {label}
+    </span>
+  );
+}
 
 function KindBadge({ kind }: { kind: string }) {
   const known = isKnownProcessKind(kind);
@@ -103,21 +128,22 @@ function StateBadge({ state }: { state: string }) {
   );
 }
 
-export function FleetView() {
+export function FleetView({ subscriptionActive = true }: { subscriptionActive?: boolean } = {}) {
   const [selectedId, setSelectedId] = useState('');
   const [view, setView] = useState<'active' | 'archived'>('active');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const pollInterval = fleetPollInterval(subscriptionActive);
   const snapshot = useQuery({
     queryKey: queryKeys.fleet,
     queryFn: () => sdk.operator.fleet.snapshot(),
-    refetchInterval: FLEET_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   });
   const archivedList = useQuery({
     queryKey: queryKeys.fleetArchived,
     queryFn: () => sdk.operator.fleet.archivedList(),
-    refetchInterval: FLEET_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   });
 
   // The pane renders whichever collection the toggle selects; both share the
@@ -238,6 +264,9 @@ export function FleetView() {
                 >
                   <span className="fleet-row__title">{node.label || node.id}</span>
                   <span className="fleet-row__badges">
+                    {node.needsAttention && (
+                      <AttentionBadge reason={node.needsAttention.reason} detail={node.needsAttention.detail} />
+                    )}
                     <KindBadge kind={node.kind} />
                     <StateBadge state={node.state} />
                     <span className="badge neutral">{costLabel(node)}</span>
@@ -329,6 +358,9 @@ function FleetDetail({ node, archived, onMutated, onBack }: {
       <header className="fleet-detail__header">
         <h2>{node.label || node.id}</h2>
         <div className="fleet-detail__badges">
+          {node.needsAttention && (
+            <AttentionBadge reason={node.needsAttention.reason} detail={node.needsAttention.detail} />
+          )}
           <KindBadge kind={node.kind} />
           <StateBadge state={node.state} />
           <span className="badge neutral">{costLabel(node)}</span>

@@ -96,7 +96,7 @@ describe('useRealtimeInvalidation', () => {
     expect(openCalls.length).toBe(1);
     expect(openCalls[0]).toContain('/api/control-plane/events');
     // Every invalidated domain rides the single stream.
-    for (const domain of ['tasks', 'permissions', 'providers', 'knowledge', 'control-plane']) {
+    for (const domain of ['tasks', 'permissions', 'providers', 'knowledge', 'control-plane', 'fleet']) {
       expect(openCalls[0]).toContain(domain);
     }
     unmount();
@@ -132,6 +132,13 @@ describe('useRealtimeInvalidation', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('control-plane', {});
     expect(invalidatedKeys(invalidate)).toEqual([['control', 'snapshot']]);
+    unmount();
+  });
+
+  test('a `fleet` frame (a FLEET_NODE_* delta) invalidates the live snapshot AND the archive', () => {
+    const { invalidate, unmount } = renderHook();
+    capturedHandlers?.onEvent?.('fleet', { payload: { type: 'FLEET_NODE_BLOCKED_ON_USER', nodeId: 'agent-7' } });
+    expect(invalidatedKeys(invalidate)).toEqual([['fleet'], ['fleet', 'archived']]);
     unmount();
   });
 

@@ -42,6 +42,7 @@ import { MemoryView } from './views/memory/MemoryView';
 import { CalendarView } from './views/calendar/CalendarView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
+import { attentionCount } from './lib/fleet';
 import { bestId, bestTitle, firstString } from './lib/object';
 import {
   companionSessionFromDetail,
@@ -136,6 +137,28 @@ export default function App() {
   // auth.isSuccess opens it only once authenticated and re-opens it on every auth
   // transition (sign-in, and a re-auth after a token expiry flips isSuccess back true).
   const realtimeError = useRealtimeInvalidation(auth.isSuccess);
+  // The fleet subscription rides the SAME multiplexed stream as the invalidation
+  // hook above; realtimeError == null means that stream is live, so fleet events are
+  // flowing and the poll can recede to a safety cadence (FleetView reads this to gate
+  // its own poll fallback).
+  const fleetSubscriptionActive = realtimeError == null;
+  // App-level fleet snapshot: kept warm regardless of the active view so the Fleet
+  // nav entry can show an attention badge (count of nodes blocked on a human) even
+  // while you are elsewhere. It shares queryKeys.fleet with FleetView — React Query
+  // dedupes the fetch and both read the same cache — and it is invalidated by fleet
+  // events (useRealtimeInvalidation) for liveness, with the poll as the honest
+  // fallback when the subscription is down. Derived purely from current data; no new
+  // client store.
+  const fleetSnapshot = useQuery({
+    queryKey: queryKeys.fleet,
+    queryFn: () => sdk.operator.fleet.snapshot(),
+    enabled: auth.isSuccess,
+    refetchInterval: fleetSubscriptionActive ? 60_000 : 15_000,
+  });
+  const fleetAttentionCount = useMemo(
+    () => attentionCount(fleetSnapshot.data?.nodes ?? []),
+    [fleetSnapshot.data],
+  );
   const chatSessions = useQuery({
     queryKey: ['companion-chat', 'sessions'],
     queryFn: () => sdk.chat.sessions.list({ limit: 100 }),
@@ -427,6 +450,14 @@ export default function App() {
         <nav className="nav-list" aria-label="Primary">
           {views.map((navItem) => {
             const Icon = navItem.icon;
+            // Fleet attention indicator: the number of processes blocked on a human
+            // right now, derived from the shared fleet snapshot. Shown on the icon (so
+            // it survives the phone icon-only rail) and named in the accessible label so
+            // a screen reader hears "Fleet, 2 need attention".
+            const attention = navItem.id === 'fleet' ? fleetAttentionCount : 0;
+            const ariaLabel = attention > 0
+              ? `${navItem.label}, ${attention} need${attention === 1 ? 's' : ''} attention`
+              : navItem.label;
             return (
               <button
                 key={navItem.id}
@@ -436,11 +467,16 @@ export default function App() {
                 // to an icon-only rail (.nav-copy is display:none), so the visible label
                 // text leaves the accessibility tree. aria-label keeps every nav target
                 // named for a screen reader — and reachable by name for a tap/test.
-                aria-label={navItem.label}
+                aria-label={ariaLabel}
                 aria-current={navItem.id === activeView ? 'page' : undefined}
                 onClick={() => setView(navItem.id)}
               >
-                <span className="nav-icon"><Icon size={18} /></span>
+                <span className="nav-icon">
+                  <Icon size={18} />
+                  {attention > 0 && (
+                    <span className="nav-attention-badge" aria-hidden="true">{attention > 99 ? '99+' : attention}</span>
+                  )}
+                </span>
                 <span className="nav-copy">
                   <strong>{navItem.label}</strong>
                   <small>{navItem.short}</small>
@@ -588,7 +624,7 @@ export default function App() {
             />
           )}
           {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
-          {activeView === 'fleet' && <FleetView />}
+          {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} />}
           {activeView === 'checkpoints' && <CheckpointsView />}
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
           {activeView === 'workstream' && <WorkstreamView />}

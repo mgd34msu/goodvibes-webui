@@ -112,6 +112,29 @@ export function isSessionActiveError(error: unknown): boolean {
 }
 
 /**
+ * True for the daemon's honest 404 SESSION_NOT_LOCAL refusal (sessions.permissionMode.get/
+ * set, sessions.contextUsage.get — routes/session-runtime.ts) — the session id a caller
+ * asked about is real, but it is not the daemon's OWN live local runtime, so the daemon
+ * cannot answer the mode/usage question truthfully. Distinct from `isSessionNotFoundError`
+ * (the session does not exist at all) and from `isMethodUnavailableError` (the verb itself
+ * is unregistered) — this is "the verb exists and the session exists, but this daemon isn't
+ * the one hosting it." Code-first, message-fallback, same pattern as the other daemon-code
+ * checks above.
+ */
+export function isSessionNotLocalError(error: unknown): boolean {
+  if (errorCode(error) === 'SESSION_NOT_LOCAL') return true;
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const body = asRecord(serialized.body ?? transport.body);
+  const message = [
+    readString(serialized, 'message'),
+    readString(body, 'message'),
+    readString(body, 'error'),
+  ].join(' ').toLowerCase();
+  return message.includes('does not host a live runtime');
+}
+
+/**
  * True when a gateway method id is not registered on the connected daemon at all — the
  * honest "capability not available yet" signal (as opposed to a normal 404 on a known
  * resource, e.g. SESSION_NOT_FOUND).

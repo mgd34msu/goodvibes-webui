@@ -36,9 +36,9 @@ import {
 } from '../../lib/sessions-union';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { firstString, formatRelative } from '../../lib/object';
-import { formatError, isMethodUnavailableError, isSessionNotFoundError } from '../../lib/errors';
-import { currentPermissionMode, permissionModeLabel, type PermissionMode } from '../../lib/permission-mode';
-import { checkUsagePct, outcomeLabel, outcomeTone, type CompactionCheck, type CompactionReceipt } from '../../lib/compaction';
+import { formatError, isMethodUnavailableError, isSessionNotFoundError, isSessionNotLocalError } from '../../lib/errors';
+import { permissionModeLabel, type SettablePermissionMode } from '../../lib/permission-mode';
+import { outcomeLabel, outcomeTone, type CompactionCheck, type CompactionReceipt } from '../../lib/compaction';
 import { useCompactionReceipts } from '../../hooks/useCompactionReceipts';
 import { PermissionModeSheet } from '../../components/confirm/PermissionModeSheet';
 import { SteerComposer } from './SteerComposer';
@@ -46,31 +46,52 @@ import { SessionChanges } from './SessionChanges';
 import '../../styles/components/sessions.css';
 
 /**
- * PermissionModeControl — the session-view chip + picker for the daemon's
- * permission mode. Lives in the toolbar (not per-session-row) because the mode
- * is daemon-wide (lib/permission-mode.ts) — showing it once, clearly labeled,
- * is honest; repeating it on every session row would imply a per-session value
- * that does not exist on the wire.
+ * PermissionModeControl — the toolbar chip + picker for the VIEWED session's
+ * permission mode (sessions.permissionMode.get/set, SDK 1.6.1). Session-scoped, not
+ * daemon-wide: the daemon can only answer for the session id that IS its own live
+ * local runtime, so `sessionId` is the currently selected session (empty string when
+ * none is selected) and a SESSION_NOT_LOCAL 404 renders an honest "unavailable" state
+ * rather than silently falling back to a daemon-wide value (there is no such value on
+ * the wire anymore). Live updates: the 'permissions' domain frame
+ * (useRealtimeInvalidation.ts) invalidates the broad `queryKeys.sessions` prefix,
+ * which covers this query's key.
  */
-function PermissionModeControl() {
+function PermissionModeControl({ sessionId }: { sessionId: string }) {
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const config = useQuery({
-    queryKey: queryKeys.config,
-    queryFn: () => sdk.operator.config.get(),
+  const modeQuery = useQuery({
+    queryKey: queryKeys.sessionPermissionMode(sessionId),
+    queryFn: () => sdk.operator.sessions.permissionMode.get(sessionId),
+    enabled: Boolean(sessionId),
     staleTime: 15_000,
     retry: false,
   });
-  const mode = currentPermissionMode(config.data);
+  const notLocal = modeQuery.isError && isSessionNotLocalError(modeQuery.error);
+  const mode = modeQuery.data?.mode ?? '';
+  const disabled = !sessionId || notLocal;
 
   const setMode = useMutation({
-    mutationFn: (nextMode: PermissionMode) => sdk.operator.config.set('permissions.mode', nextMode),
+    mutationFn: (nextMode: SettablePermissionMode) => sdk.operator.sessions.permissionMode.set(sessionId, nextMode),
     onSuccess: async () => {
       setSheetOpen(false);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.sessionPermissionMode(sessionId) });
     },
   });
+
+  const chipText = !sessionId
+    ? 'Select a session'
+    : notLocal
+      ? 'Unavailable · not this daemon’s live session'
+      : mode
+        ? permissionModeLabel(mode)
+        : (modeQuery.isLoading ? 'Loading…' : 'Unknown');
+
+  const chipTitle = !sessionId
+    ? 'Select a session to view its permission mode'
+    : notLocal
+      ? 'Permission mode is only readable/settable for the daemon’s own live local session — this session runs elsewhere'
+      : 'Change this session’s permission mode';
 
   return (
     <>
@@ -78,11 +99,12 @@ function PermissionModeControl() {
         type="button"
         className="permission-mode-chip"
         onClick={() => setSheetOpen(true)}
-        title="Change the daemon's permission mode"
+        disabled={disabled}
+        title={chipTitle}
       >
         <Shield size={13} aria-hidden="true" />
         <span className="permission-mode-chip__label">Mode:</span>
-        {mode ? permissionModeLabel(mode) : (config.isLoading ? 'Loading…' : 'Unknown')}
+        {chipText}
       </button>
       <PermissionModeSheet
         open={sheetOpen}
@@ -99,23 +121,54 @@ function PermissionModeControl() {
 }
 
 /**
- * ContextUsageChip — the compact context-usage indicator (task: mirror the SDK's
- * auto-compaction state). Fed exclusively by the live COMPACTION_CHECK frames
- * useCompactionReceipts observes for this session; usagePct is null (and this
- * renders an honest "not observed yet" chip) until the daemon has actually
- * reported one — never a computed-from-nowhere percentage.
+ * ContextUsageChip — the compact context-usage indicator, fed by
+ * sessions.contextUsage.get (SDK 1.6.1). The percentage is the token ESTIMATOR's
+ * figure (estimated:true on the wire, always) — the "~" prefix says so at a glance,
+ * never presented as a measured provider count. `check` (the live COMPACTION_CHECK
+ * frame useCompactionReceipts observes for this session) is kept ONLY as a refresh
+ * trigger — a fresh check means token usage just moved, so this refetches the query
+ * rather than rendering the check's own tokenCount/threshold directly. Same
+ * SESSION_NOT_LOCAL honesty as PermissionModeControl: an unavailable chip, never a
+ * silently stale or fabricated percentage.
  */
-function ContextUsageChip({ usagePct, check }: { usagePct: number | null; check: CompactionCheck | null }) {
-  if (!check || usagePct === null) {
-    return <span className="context-usage-chip" title="No compaction check observed yet for this session">Context: —</span>;
+function ContextUsageChip({ sessionId, check }: { sessionId: string; check: CompactionCheck | null }) {
+  const usage = useQuery({
+    queryKey: queryKeys.sessionContextUsage(sessionId),
+    queryFn: () => sdk.operator.sessions.contextUsage.get(sessionId),
+    enabled: Boolean(sessionId),
+    staleTime: 10_000,
+    retry: false,
+  });
+
+  const { refetch } = usage;
+  const lastCheckAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!check || check.receivedAt === lastCheckAtRef.current) return;
+    lastCheckAtRef.current = check.receivedAt;
+    void refetch();
+  }, [check, refetch]);
+
+  if (!sessionId) {
+    return <span className="context-usage-chip" title="Select a session to view its context usage">Context: —</span>;
   }
-  const warn = usagePct >= 80;
+  if (usage.isError && isSessionNotLocalError(usage.error)) {
+    return (
+      <span className="context-usage-chip" title="Context usage is only available for the daemon's own live local session">
+        Context: unavailable
+      </span>
+    );
+  }
+  if (!usage.data) {
+    return <span className="context-usage-chip" title="Context usage not read yet">Context: —</span>;
+  }
+  const { estimatedContextTokens, contextWindow, contextUsagePct } = usage.data;
+  const warn = contextUsagePct >= 80;
   return (
     <span
       className={`context-usage-chip${warn ? ' context-usage-chip--warning' : ''}`}
-      title={`${check.tokenCount.toLocaleString()} tokens of a ${check.threshold.toLocaleString()}-token auto-compact threshold`}
+      title={`Estimated ${estimatedContextTokens.toLocaleString()} of ${contextWindow.toLocaleString()} context-window tokens — an estimate, not a measured provider count`}
     >
-      Context: {usagePct}%
+      Context: ~{contextUsagePct}%
     </span>
   );
 }
@@ -304,7 +357,7 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
           <button className="icon-button" type="button" title="Refresh" onClick={() => void list.refetch()}>
             <RefreshCw size={15} />
           </button>
-          <PermissionModeControl />
+          <PermissionModeControl sessionId={selectedId} />
         </div>
 
         {list.isError && (
@@ -414,11 +467,12 @@ function SessionDetail({
   const retention = retentionLabel(record);
   const closed = isClosedStatus(record.status);
 
-  // Live compaction signal for THIS session only (lib/compaction.ts) — feeds both
-  // the context-usage chip below and the post-compaction receipt blocks appended
-  // to the transcript. Closes when the operator leaves this session's detail.
+  // Live compaction signal for THIS session only (lib/compaction.ts) — the
+  // post-compaction receipt blocks appended to the transcript below, and (via
+  // compaction.latestCheck) the refresh trigger for the context-usage chip's
+  // sessions.contextUsage.get query. Closes when the operator leaves this session's
+  // detail.
   const compaction = useCompactionReceipts(record.id, Boolean(record.id));
-  const usagePct = compaction.latestCheck ? checkUsagePct(compaction.latestCheck) : null;
 
   const invalidateSessions = () => queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
 
@@ -482,7 +536,7 @@ function SessionDetail({
           <StatusBadge record={record} />
           <span className="badge neutral">{record.messageCount} msgs</span>
           {retention && <span className="badge warning">{retention}</span>}
-          <ContextUsageChip usagePct={usagePct} check={compaction.latestCheck} />
+          <ContextUsageChip sessionId={record.id} check={compaction.latestCheck} />
         </div>
         {record.surfaceKinds.length > 0 && (
           <div className="session-detail__surfaces">

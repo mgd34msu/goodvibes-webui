@@ -1,63 +1,47 @@
 /**
- * permission-mode.ts — read/format the daemon's session permission mode.
+ * permission-mode.ts — the session-scoped operator permission-mode vocabulary.
  *
- * GROUNDED: there is no dedicated `sessions.permissionMode` wire method (checked
- * against the installed @pellux/goodvibes-contracts operator-contract.json —
- * OPERATOR_METHOD_IDS has no such id, and neither sessions.get/list nor
- * fleet.snapshot carries a permission-mode field). The mode lives at the shared
- * config key `permissions.mode` (the SDK's own PermissionMode config schema type,
- * platform/config/schema-types.d.ts) — the same key the TUI reads directly via
- * `configManager.get('permissions.mode')` (goodvibes-tui's src/cli/status.ts /
- * src/input/commands/product-runtime.ts) and writes via `configManager.setDynamic`.
+ * GROUNDED: `sessions.permissionMode.get`/`.set` (SDK 1.6.1, routes/session-runtime.ts)
+ * are real session-scoped operator verbs — the daemon answers only for the session id
+ * that IS its own live local runtime; any other session id is an honest 404
+ * SESSION_NOT_LOCAL (lib/errors.ts's isSessionNotLocalError). This replaces the earlier
+ * daemon-wide workaround that read/wrote the shared `permissions.mode` config key via
+ * config.get/config.set — that path is gone; see git history for the prior version of
+ * this module if the config-vocabulary mapping is ever needed again.
  *
- * config.get() returns the daemon's FULL config tree unredacted (verified in
- * config-redaction.ts's header comment — configManager.getAll() verbatim), so
- * `permissions.mode` is a real row in flattenConfig(config.get())'s output even
- * though the generated OperatorMethodOutputMap for config.get only enumerates a
- * handful of top-level sections (a stale/generic passthrough route — see
- * goodvibes.ts's config.* comment). config.set(key, value) writes one key at a
- * time against the daemon's real /config contract, so
- * `sdk.operator.config.set('permissions.mode', nextMode)` is the write path.
- *
- * This mode is DAEMON-WIDE, not scoped to one session — the SDK's own
- * `PERMISSION_MODE_CHANGED` runtime event (events/permissions.ts) carries no
- * sessionId, confirming it. Surfaces must say so rather than implying a
- * per-session value the wire does not provide.
+ * VOCABULARY: the wire's operator-facing mode strings are already the plain-language
+ * ones ('plan' | 'normal' | 'accept-edits' | 'auto' | 'custom') — cross-checked against
+ * the installed @pellux/goodvibes-contracts operator-contract.json's
+ * `sessions.permissionMode.get`/`.set` outputSchema/inputSchema enums. 'custom' is
+ * READ-ONLY: it means the session is running a bespoke rule set, and
+ * `sessions.permissionMode.set`'s inputSchema enum deliberately excludes it as a
+ * settable value — SETTABLE_PERMISSION_MODES mirrors that split so the picker never
+ * offers it as a choice.
  */
 
-import { flattenConfig } from './config-redaction';
-
-/** The SDK's real PermissionMode config enum (platform/config/schema-types.d.ts). */
-export const PERMISSION_MODES = ['prompt', 'allow-all', 'custom', 'plan', 'accept-edits'] as const;
+export const PERMISSION_MODES = ['plan', 'normal', 'accept-edits', 'auto', 'custom'] as const;
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
+
+/** The subset `sessions.permissionMode.set` actually accepts — 'custom' is read-only. */
+export const SETTABLE_PERMISSION_MODES = ['plan', 'normal', 'accept-edits', 'auto'] as const;
+export type SettablePermissionMode = (typeof SETTABLE_PERMISSION_MODES)[number];
 
 export function isPermissionMode(value: string): value is PermissionMode {
   return (PERMISSION_MODES as readonly string[]).includes(value);
 }
 
-/** Human labels — 'prompt'/'allow-all' get a plain-language gloss ("Normal"/"Auto"),
- *  matching the vocabulary the task's operator-facing copy uses, while staying
- *  honest about the underlying config value (shown alongside, never hidden). */
+export function isSettablePermissionMode(value: string): value is SettablePermissionMode {
+  return (SETTABLE_PERMISSION_MODES as readonly string[]).includes(value);
+}
+
 const PERMISSION_MODE_LABELS: Record<PermissionMode, string> = {
-  prompt: 'Normal',
-  'allow-all': 'Auto',
-  custom: 'Custom',
   plan: 'Plan',
+  normal: 'Normal',
   'accept-edits': 'Accept edits',
+  auto: 'Auto',
+  custom: 'Custom',
 };
 
 export function permissionModeLabel(mode: string): string {
   return isPermissionMode(mode) ? PERMISSION_MODE_LABELS[mode] : (mode || 'Unknown');
-}
-
-export const PERMISSIONS_MODE_CONFIG_KEY = 'permissions.mode';
-
-/**
- * Read `permissions.mode` out of a config.get() response, tolerantly. Returns ''
- * when the daemon's config tree does not carry the key (an older daemon, or a
- * connection issue) — never a guessed default.
- */
-export function currentPermissionMode(configData: unknown): string {
-  const entry = flattenConfig(configData).find((row) => row.key === PERMISSIONS_MODE_CONFIG_KEY);
-  return typeof entry?.value === 'string' ? entry.value : '';
 }

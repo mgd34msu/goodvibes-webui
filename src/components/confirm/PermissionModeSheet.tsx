@@ -1,17 +1,24 @@
 /**
- * PermissionModeSheet — a touch-first picker for the daemon's permission mode.
+ * PermissionModeSheet — a touch-first picker for a session's permission mode.
  *
  * Same surface as ConfirmSheet (centered dialog on desktop, bottom sheet on a
  * phone; shares confirm-sheet.css and the focus-trap/Escape/backdrop behavior)
  * but offers a list of mode choices instead of a single confirm/cancel pair —
  * the "existing confirm-sheet pattern" the session-view permission-mode control
- * reuses. Presentational only: the caller runs the config.set mutation after
- * onSelect fires and owns pendingMode (disables the sheet while a write is
- * in flight, matching ConfirmSheet's "caller owns the mutation" contract).
+ * reuses. Presentational only: the caller runs the sessions.permissionMode.set
+ * mutation after onSelect fires and owns pendingMode (disables the sheet while
+ * a write is in flight, matching ConfirmSheet's "caller owns the mutation"
+ * contract).
+ *
+ * Only SETTABLE_PERMISSION_MODES render as choices — 'custom' is a read-only
+ * wire state (a bespoke rule set), never a value `sessions.permissionMode.set`
+ * accepts (lib/permission-mode.ts). If the session is currently in custom mode,
+ * none of the rendered options is highlighted as current, which is honest: none
+ * of them IS the current mode.
  */
 import { useEffect, useId, useRef } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { PERMISSION_MODES, permissionModeLabel, type PermissionMode } from '../../lib/permission-mode';
+import { SETTABLE_PERMISSION_MODES, permissionModeLabel, type SettablePermissionMode } from '../../lib/permission-mode';
 import '../../styles/components/confirm-sheet.css';
 
 export interface PermissionModeSheetProps {
@@ -20,7 +27,7 @@ export interface PermissionModeSheetProps {
   currentMode: string;
   /** The mode a write is currently in flight for, if any — disables the list. */
   pendingMode?: string;
-  onSelect: (mode: PermissionMode) => void;
+  onSelect: (mode: SettablePermissionMode) => void;
   onCancel: () => void;
 }
 
@@ -59,11 +66,11 @@ export function PermissionModeSheet({ open, currentMode, pendingMode, onSelect, 
       >
         <h2 id={titleId} className="confirm-sheet__title">Set permission mode</h2>
         <p id={descId} className="confirm-sheet__desc">
-          Applies daemon-wide — every surface (this browser, the terminal, other
-          sessions) shares one permission mode, not one per session.
+          Applies to this session&apos;s live runtime. Only available while this session
+          is the daemon&apos;s own live local session.
         </p>
         <div className="confirm-sheet__actions permission-mode-sheet__options">
-          {PERMISSION_MODES.map((mode, index) => (
+          {SETTABLE_PERMISSION_MODES.map((mode, index) => (
             <button
               key={mode}
               ref={index === 0 ? firstOptionRef : undefined}

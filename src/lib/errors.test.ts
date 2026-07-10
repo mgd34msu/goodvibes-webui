@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { formatError, isAuthExpiredError, isMethodUnavailableError, isSessionActiveError, isSessionNotFoundError } from './errors';
+import {
+  formatError,
+  isAuthExpiredError,
+  isMethodUnavailableError,
+  isSessionActiveError,
+  isSessionNotFoundError,
+  isSessionNotLocalError,
+} from './errors';
 
 describe('error formatting', () => {
   test('includes transport status and hint when present', () => {
@@ -79,5 +86,20 @@ describe('error formatting', () => {
       status: 404,
       body: { error: 'Unknown gateway method: sessions.delete' },
     })).toBe(true);
+  });
+
+  // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1): the daemon's
+  // honest 404 for a session id that is not its own live local runtime.
+  test('detects the honest 404 SESSION_NOT_LOCAL refusal', () => {
+    expect(isSessionNotLocalError({ status: 404, body: { code: 'SESSION_NOT_LOCAL', error: 'This daemon does not host a live runtime for session s-1.' } })).toBe(true);
+    expect(isSessionNotLocalError(Object.assign(new Error('Request failed'), {
+      transport: { status: 404, body: { code: 'SESSION_NOT_LOCAL' } },
+    }))).toBe(true);
+    expect(isSessionNotLocalError(new Error('This daemon does not host a live runtime for session s-1.'))).toBe(true);
+  });
+
+  test('SESSION_NOT_LOCAL is not confused with SESSION_NOT_FOUND (both 404, different meanings)', () => {
+    expect(isSessionNotLocalError({ status: 404, body: { code: 'SESSION_NOT_FOUND', error: 'Session not found' } })).toBe(false);
+    expect(isSessionNotFoundError({ status: 404, body: { code: 'SESSION_NOT_LOCAL' } })).toBe(false);
   });
 });

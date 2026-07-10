@@ -109,14 +109,16 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
-  test('a `permissions` frame invalidates approvals AND config; `providers` invalidates providers', () => {
+  test('a `permissions` frame invalidates approvals AND the sessions prefix; `providers` invalidates providers', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('permissions', {});
     capturedHandlers?.onEvent?.('providers', {});
-    // config is included because PERMISSION_MODE_CHANGED rides the same 'permissions'
-    // domain and has no dedicated wire event — see useRealtimeInvalidation.ts's
+    // The broad 'sessions' prefix is included (not 'config') because
+    // PERMISSION_MODE_CHANGED rides the same 'permissions' domain, carries no
+    // sessionId, and the session-scoped permission-mode/context-usage queries are
+    // prefixed with 'sessions' (queries.ts) — see useRealtimeInvalidation.ts's
     // DOMAIN_INVALIDATIONS comment.
-    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['config'], ['providers']]);
+    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['sessions'], ['providers']]);
     unmount();
   });
 

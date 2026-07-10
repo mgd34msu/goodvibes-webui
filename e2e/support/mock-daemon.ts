@@ -100,6 +100,16 @@ export interface MockDaemonOptions {
    * existing pending-stream baseline, unchanged for every other test).
    */
   fleetEvents?: readonly unknown[];
+  /**
+   * sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the
+   * session id these two mocked verbs answer for honestly, standing in for "the
+   * daemon's own live local runtime". Any OTHER session id (including '' /
+   * unselected) gets the real 404 SESSION_NOT_LOCAL the daemon returns for a session
+   * it does not host. Defaults to 's-agent-live' (a seeded session, see seed.ts) so
+   * a spec that never touches this option gets the honest-available path for that
+   * one session. Pass '' to make every session answer SESSION_NOT_LOCAL instead.
+   */
+  localSessionId?: string;
 }
 
 export interface MockDaemon {
@@ -199,7 +209,20 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     config = 'ok',
     packet = 'complete',
     fleetEvents = [],
+    localSessionId = 's-agent-live',
   } = options;
+  // sessions.permissionMode.get/set + sessions.contextUsage.get in-memory state — a
+  // fresh copy per installMockDaemon call, mutated by set() exactly like the daemon's
+  // real single-writer config value.
+  let permissionMode: 'plan' | 'normal' | 'accept-edits' | 'auto' | 'custom' = 'normal';
+  const contextUsageState = { estimatedContextTokens: 4200, contextWindow: 200000 };
+
+  function sessionNotLocal(route: Route, sessionId: string) {
+    return json(route, {
+      error: `This daemon does not host a live runtime for session ${sessionId}.`,
+      code: 'SESSION_NOT_LOCAL',
+    }, 404);
+  }
   // The multiplexed fleet subscription emits its frames exactly once (the FIRST
   // events-stream request that carries the `fleet` domain); the emission flips the
   // snapshot to its enriched form so the event-driven refetch surfaces a new node.
@@ -453,6 +476,40 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     if (method === 'GET' && sessionGetMatch) {
       const id = decodeURIComponent(sessionGetMatch[1]);
       return json(route, messagesResponse(id));
+    }
+
+    // sessions.permissionMode.get/set (SDK 1.6.1) — session-scoped, honest
+    // SESSION_NOT_LOCAL for any id other than localSessionId (see that option's
+    // header comment above).
+    const permissionModeMatch = path.match(/^\/api\/sessions\/([^/]+)\/permission-mode$/);
+    if (permissionModeMatch) {
+      const sessionId = decodeURIComponent(permissionModeMatch[1]);
+      if (sessionId !== localSessionId) return sessionNotLocal(route, sessionId);
+      if (method === 'GET') return json(route, { sessionId, mode: permissionMode });
+      if (method === 'POST') {
+        const body = (request.postDataJSON?.() ?? {}) as { mode?: string };
+        const previousMode = permissionMode;
+        if (body.mode) permissionMode = body.mode as typeof permissionMode;
+        return json(route, { sessionId, mode: permissionMode, previousMode });
+      }
+    }
+
+    // sessions.contextUsage.get (SDK 1.6.1) — same session-scoped honesty as above.
+    // The percentage/remaining are derived server-side from the two seeded numbers,
+    // mirroring the real daemon's runtime/context-usage.ts helper.
+    const contextUsageMatch = path.match(/^\/api\/sessions\/([^/]+)\/context-usage$/);
+    if (method === 'GET' && contextUsageMatch) {
+      const sessionId = decodeURIComponent(contextUsageMatch[1]);
+      if (sessionId !== localSessionId) return sessionNotLocal(route, sessionId);
+      const { estimatedContextTokens, contextWindow } = contextUsageState;
+      return json(route, {
+        sessionId,
+        estimatedContextTokens,
+        contextWindow,
+        contextUsagePct: contextWindow > 0 ? Math.round((estimatedContextTokens / contextWindow) * 100) : 0,
+        contextRemainingTokens: Math.max(0, contextWindow - estimatedContextTokens),
+        estimated: true,
+      });
     }
 
     // ── Companion chat sessions (carry the sidebar per-row delete control) ──

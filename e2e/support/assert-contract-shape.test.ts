@@ -73,6 +73,28 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     expect(() => assertFixtureMatchesOperatorContract('control.methods.get', methodInfoResponse('sessions.delete'))).not.toThrow();
   });
 
+  // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the mock
+  // daemon's own answer shapes for the local-session-only verbs, pinned against the
+  // real installed contract the same way every other fixture above is.
+  test('sessions.permissionMode.get: the mock daemon\'s response shape conforms', () => {
+    expect(() => assertFixtureMatchesOperatorContract('sessions.permissionMode.get', { sessionId: 's-agent-live', mode: 'normal' })).not.toThrow();
+  });
+
+  test('sessions.permissionMode.set: the mock daemon\'s response shape conforms', () => {
+    expect(() => assertFixtureMatchesOperatorContract('sessions.permissionMode.set', { sessionId: 's-agent-live', mode: 'auto', previousMode: 'normal' })).not.toThrow();
+  });
+
+  test('sessions.contextUsage.get: the mock daemon\'s response shape conforms', () => {
+    expect(() => assertFixtureMatchesOperatorContract('sessions.contextUsage.get', {
+      sessionId: 's-agent-live',
+      estimatedContextTokens: 4200,
+      contextWindow: 200000,
+      contextUsagePct: 2,
+      contextRemainingTokens: 195800,
+      estimated: true,
+    })).not.toThrow();
+  });
+
   test('fleet.snapshot: FLEET_SNAPSHOT conforms, including the derived needsAttention marker', () => {
     // FLEET_BLOCKED_NODE carries needsAttention: { reason:'input', detail } — the new
     // SDK field this consumer round adopts. This pins the fixture against the real

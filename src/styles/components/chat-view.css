@@ -141,6 +141,26 @@
   }
 }
 
+/* ── Search jump-to-message highlight ─────────────────────── */
+/*
+ * Brief flash applied to a message located via search's jump-to-message
+ * (ChatSearch -> ChatView -> MessageList -> MessageItem). ChatView clears the
+ * highlight state on a short timeout; the transition below just makes the
+ * on/off toggle read as a flash rather than a hard cut. --motion-slow
+ * collapses to 0ms under prefers-reduced-motion (see tokens.css), so this
+ * degrades to an instant, non-animated state change with no extra media
+ * query needed.
+ */
+
+.message--search-highlight {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  background: var(--accent-muted);
+  transition:
+    background var(--motion-slow) var(--ease-standard),
+    outline-color var(--motion-slow) var(--ease-standard);
+}
+
 /* ── Responsive: mobile reflow ────────────────────────────── */
 /*
  * Below 640px, reduce horizontal padding so messages use full width.

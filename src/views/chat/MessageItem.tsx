@@ -30,6 +30,8 @@ interface MessageItemProps {
   reason?: SupersededReason;
   /** The original message id when this message replaced an edited one. */
   revisionOf?: string;
+  /** True when this message is the current search jump-to-message target — flashes a brief highlight. */
+  isHighlighted?: boolean;
   onCopyMessage: (message: ChatMessage) => void;
   onResendMessage: (message: ChatMessage) => void;
   onRegenerateFrom: (messageId: string) => void;
@@ -45,6 +47,7 @@ export function MessageItem({
   priorMessages,
   reason,
   revisionOf,
+  isHighlighted = false,
   onCopyMessage,
   onResendMessage,
   onRegenerateFrom,
@@ -102,7 +105,10 @@ export function MessageItem({
   );
 
   return (
-    <article className={`message ${tone}`}>
+    <article
+      className={`message ${tone}${isHighlighted ? ' message--search-highlight' : ''}`}
+      data-message-id={id}
+    >
       {/* Honest-lineage disclosure: when this message heads a fork, reveal the retained
           (superseded) history rather than pretending it is gone. */}
       <MessageLineage priorMessages={priorMessages} reason={reason} revisionOf={revisionOf} />

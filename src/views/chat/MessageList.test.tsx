@@ -17,6 +17,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MessageList } from './MessageList';
+import { PeekProvider } from '../../components/peek/PeekPanel';
+import { ToastProvider } from '../../lib/toast';
 import type { LineageNode } from './lineage';
 import type { ChatMessage } from './types';
 
@@ -32,6 +34,7 @@ const baseProps = {
   showJumpToBottom: false,
   isSendPending: false,
   copiedMessageId: '',
+  highlightedMessageId: '',
   scrollRef: { current: null } as React.RefObject<HTMLDivElement | null>,
   onScroll: noop,
   onJumpToBottom: noop,
@@ -47,7 +50,18 @@ function renderMessageList(props: Partial<typeof baseProps & { isStreaming?: boo
   const root = createRoot(container);
 
   flushSync(() => {
-    root.render(React.createElement(MessageList, merged));
+    // MessageItem calls useArtifactsPanel unconditionally (for its "View
+    // artifacts" affordance), which needs ToastProvider + PeekProvider
+    // ancestors whenever `nodes` is non-empty — most existing tests here pass
+    // nodes: [] and never actually mount a MessageItem, but the highlight
+    // tests below do.
+    root.render(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(PeekProvider, null, React.createElement(MessageList, merged)),
+      ),
+    );
   });
 
   return {
@@ -200,6 +214,47 @@ describe('MessageList — aria attributes', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'text' });
     const caret = container.querySelector('.stream-caret');
     expect(caret?.getAttribute('aria-hidden')).toBe('true');
+    unmount();
+  });
+});
+
+describe('MessageList — search jump-to-message highlight', () => {
+  // Both nodes use tone 'user': an assistant node with text would also mount
+  // SpeakButton (useTts -> real sdk.operator.voice.status() network call —
+  // unrelated to what this suite covers), so 'user' keeps the fixture
+  // focused on the highlight/data-message-id wiring under test.
+  const nodes: LineageNode[] = [
+    { message: { id: 'msg-1', role: 'user', content: 'first' } as ChatMessage, priorMessages: [] },
+    { message: { id: 'msg-2', role: 'user', content: 'second' } as ChatMessage, priorMessages: [] },
+  ];
+
+  test('each rendered message carries its id as data-message-id, for the scroll-to-message lookup', () => {
+    const { container, unmount } = renderMessageList({ nodes });
+    const articles = container.querySelectorAll('article.message');
+    expect(articles.length).toBe(2);
+    expect(articles[0]?.getAttribute('data-message-id')).toBe('msg-1');
+    expect(articles[1]?.getAttribute('data-message-id')).toBe('msg-2');
+    unmount();
+  });
+
+  test('highlightedMessageId flashes only the matching message', () => {
+    const { container, unmount } = renderMessageList({ nodes, highlightedMessageId: 'msg-2' });
+    const first = container.querySelector('[data-message-id="msg-1"]');
+    const second = container.querySelector('[data-message-id="msg-2"]');
+    expect(first?.classList.contains('message--search-highlight')).toBe(false);
+    expect(second?.classList.contains('message--search-highlight')).toBe(true);
+    unmount();
+  });
+
+  test('no message is highlighted when highlightedMessageId is omitted (default "")', () => {
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('.message--search-highlight')).toBeNull();
+    unmount();
+  });
+
+  test('no message is highlighted when highlightedMessageId does not match any loaded message', () => {
+    const { container, unmount } = renderMessageList({ nodes, highlightedMessageId: 'msg-does-not-exist' });
+    expect(container.querySelector('.message--search-highlight')).toBeNull();
     unmount();
   });
 });

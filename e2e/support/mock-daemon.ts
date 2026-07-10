@@ -700,8 +700,51 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           diff: { from: 'wcp_e2e_1', to: 'WORKING', files: ['src/example.ts'], unifiedDiff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1 +1 @@\n-old\n+new\n', stat: '1 file changed' },
         });
       }
+      // checkpoints.restorePreview (SDK 1.6.1): non-destructive preview + a
+      // single-use token the confirm-aware restore consumes. The webui confirm
+      // flow calls this before opening the ConfirmSheet.
+      if (methodId === 'checkpoints.restorePreview') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string } };
+        const id = body.body?.id ?? 'wcp_e2e_1';
+        const checkpoint = checkpointsList.find((c) => c.id === id);
+        return json(route, {
+          token: `tok_${id}`,
+          expiresAt: Date.now() + 120000,
+          preview: {
+            checkpointId: id,
+            label: checkpoint?.label ?? '',
+            affectedPathCount: 1,
+            affectedPathSample: ['src/example.ts'],
+            stat: '1 file changed',
+          },
+        });
+      }
+      // checkpoints.restore (SDK 1.6.1): refuses without confirmation. A caller
+      // must pass confirm:true or a confirmToken from restorePreview; an
+      // unconfirmed call gets the structured, non-destructive refusal body.
       if (methodId === 'checkpoints.restore') {
-        return json(route, { result: { checkpointId: 'wcp_e2e_1', safetyCheckpointId: null, restoredFiles: ['src/example.ts'], removedFiles: [] } });
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { confirm?: boolean; confirmToken?: string } };
+        const confirmed = body.body?.confirm === true || typeof body.body?.confirmToken === 'string';
+        if (!confirmed) {
+          return json(route, {
+            result: null,
+            refused: true,
+            refusal: {
+              reason: 'checkpoints.restore is destructive (a git-backed workspace rewrite) and requires confirmation before it will run.',
+              confirmField: 'confirm',
+              previewMethod: 'checkpoints.restorePreview',
+              options: [
+                'Pass confirm:true to acknowledge the destructive restore and execute it immediately.',
+                'Call checkpoints.restorePreview for this id, then pass the returned token as confirmToken.',
+              ],
+            },
+          });
+        }
+        return json(route, {
+          result: { checkpointId: 'wcp_e2e_1', safetyCheckpointId: null, restoredFiles: ['src/example.ts'], removedFiles: [] },
+          refused: false,
+          refusal: null,
+        });
       }
       // ── Web Push (push.*) — the PWA subscription lifecycle. ────────────────
       if (methodId === 'push.vapid.get') {

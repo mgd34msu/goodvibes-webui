@@ -33,6 +33,8 @@ import {
   type CheckpointsDiffResult,
   type CheckpointsRestoreInput,
   type CheckpointsRestoreResult,
+  type CheckpointsRestorePreviewInput,
+  type CheckpointsRestorePreviewResult,
   type SessionsSearchInput,
   type SessionsSearchResult,
   type SessionsSearchSessionSummary,
@@ -134,7 +136,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   });
 
   test('fleet.*/checkpoints.* are NOT extra-routed — they ride the generic invoke path, not EXTRA_METHOD_ROUTES', () => {
-    for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore']) {
+    for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore', 'checkpoints.restorePreview']) {
       expect(isExtraRoutedMethod(method)).toBe(false);
     }
   });
@@ -381,7 +383,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
     // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees).
     expect(Object.keys(sdk.operator.fleet).sort()).toEqual(['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList'].sort());
-    expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(['create', 'diff', 'list', 'restore'].sort());
+    expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(['create', 'diff', 'list', 'restore', 'restorePreview'].sort());
     expect(Object.keys(sdk.operator.approvals).sort()).toEqual(['approve', 'cancel', 'claim', 'deny', 'list'].sort());
     expect(Object.keys(sdk.operator.tasks).sort()).toEqual(['cancel', 'create', 'list', 'retry'].sort());
   });
@@ -545,7 +547,20 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     } satisfies CheckpointsDiffResult,
     'checkpoints.restore': {
       result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.ts'], removedFiles: [] },
+      refused: false,
+      refusal: null,
     } satisfies CheckpointsRestoreResult,
+    'checkpoints.restorePreview': {
+      token: 'tok_wcp_1',
+      expiresAt: 120000,
+      preview: {
+        checkpointId: 'wcp_1',
+        label: 'before refactor',
+        affectedPathCount: 1,
+        affectedPathSample: ['a.ts'],
+        stat: '1 file',
+      },
+    } satisfies CheckpointsRestorePreviewResult,
     'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
     'sessions.detach': {
       session: {
@@ -570,7 +585,8 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
       kind: 'manual', label: 'x', retentionClass: 'standard', turnId: 't1', agentId: 'a1', paths: ['a.ts'],
     } satisfies CheckpointsCreateInput,
     'checkpoints.diff': { a: 'wcp_1', b: 'wcp_2' } satisfies CheckpointsDiffInput,
-    'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true } satisfies CheckpointsRestoreInput,
+    'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true, confirm: true } satisfies CheckpointsRestoreInput,
+    'checkpoints.restorePreview': { id: 'wcp_1', paths: ['a.ts'] } satisfies CheckpointsRestorePreviewInput,
     'sessions.search': {
       query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
       status: 'active', includeClosed: true, limit: 20, cursor: 'c1',

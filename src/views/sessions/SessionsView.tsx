@@ -174,6 +174,57 @@ function ContextUsageChip({ sessionId, check }: { sessionId: string; check: Comp
   );
 }
 
+/**
+ * CostChip — the compact per-session cost line, fed by cost.attribution.get (SDK
+ * 1.6.1) windowed to the last 24h with dimension:"session". The wire aggregates cost
+ * PER SESSION within that window as one row per session id; this reads the one row (if
+ * any) whose key equals the viewed session's id — the dimension maps cleanly onto a
+ * single session because "session" is a first-class attribution dimension on the wire,
+ * not something this client has to reconstruct. A session with no priced/unpriced LLM
+ * usage recorded in the window (too old, or genuinely no model calls yet) has no row at
+ * all — rendered as an honest "no cost recorded (24h)", never a fabricated $0. Honest-
+ * unpriced: a row can carry `costUsd: null` (nothing in it could be priced) or
+ * `costState: 'estimated'` (a mix of priced and unpriced records) — both states are
+ * rendered explicitly, never collapsed into a bare dollar figure that implies full
+ * confidence.
+ */
+function CostChip({ sessionId }: { sessionId: string }) {
+  const attribution = useQuery({
+    queryKey: queryKeys.costAttribution('24h', 'session'),
+    queryFn: () => sdk.operator.cost.attribution.get({ window: '24h', dimension: 'session' }),
+    enabled: Boolean(sessionId),
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  if (!sessionId) return null;
+  if (attribution.isError) {
+    return <span className="cost-chip" title="Could not load cost attribution">Cost: unavailable</span>;
+  }
+  if (!attribution.data) {
+    return <span className="cost-chip" title="Cost attribution not read yet">Cost: —</span>;
+  }
+  const row = attribution.data.rows.find((r) => r.key === sessionId);
+  if (!row) {
+    return (
+      <span className="cost-chip" title="No LLM usage recorded for this session in the last 24h">
+        Cost: none (24h)
+      </span>
+    );
+  }
+  const text = row.costUsd === null
+    ? 'unpriced'
+    : `$${row.costUsd.toFixed(row.costUsd < 0.01 ? 4 : 2)}${row.costState === 'estimated' ? ' (est.)' : ''}`;
+  return (
+    <span
+      className="cost-chip"
+      title={`${row.costState} · ${row.pricedRecordCount} priced / ${row.unpricedRecordCount} unpriced record(s) · 24h window`}
+    >
+      Cost: {text}
+    </span>
+  );
+}
+
 /** CompactionReceiptBlock — a distinct card for one COMPACTION_RECEIPT, the SDK's
  *  mandatory post-compaction summary (lib/compaction.ts). Never folded into the
  *  plain .session-message rows above it. */
@@ -538,6 +589,7 @@ function SessionDetail({
           <span className="badge neutral">{record.messageCount} msgs</span>
           {retention && <span className="badge warning">{retention}</span>}
           <ContextUsageChip sessionId={record.id} check={compaction.latestCheck} />
+          <CostChip sessionId={record.id} />
         </div>
         {record.surfaceKinds.length > 0 && (
           <div className="session-detail__surfaces">

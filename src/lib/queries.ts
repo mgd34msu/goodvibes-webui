@@ -43,6 +43,15 @@ export const queryKeys = {
   // which session that is at the point the frame arrives.
   sessionPermissionMode: (sessionId: string) => ['sessions', sessionId, 'permission-mode'] as const,
   sessionContextUsage: (sessionId: string) => ['sessions', sessionId, 'context-usage'] as const,
+  // sessions.changes.get (SDK 1.6.1) — same 'sessions'-prefixed convention as
+  // sessionPermissionMode/sessionContextUsage above. No wire event exists for this verb
+  // yet (same standing gap fleet.*/checkpoints.* document elsewhere in this file), so
+  // SessionChanges.tsx refetches manually rather than riding useRealtimeInvalidation;
+  // the prefix still means it's swept by any broad `queryKeys.sessions` invalidation.
+  sessionChanges: (sessionId: string) => ['sessions', sessionId, 'changes'] as const,
+  // cost.attribution.get (SDK 1.6.1), keyed by window+dimension so switching either
+  // refetches honestly rather than serving a stale slice from cache.
+  costAttribution: (window: string, dimension: string) => ['cost', 'attribution', window, dimension] as const,
   knowledgeStatus: ['knowledge', 'status'] as const,
   knowledgeSources: ['knowledge', 'sources'] as const,
   knowledgeNodes: ['knowledge', 'nodes'] as const,

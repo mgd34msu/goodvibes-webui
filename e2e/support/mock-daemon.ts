@@ -907,6 +907,52 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           refusal: null,
         });
       }
+      // sessions.changes.get (SDK 1.6.1): the session-scoped aggregate diff, joined
+      // over checkpoints stamped with a session's id. localSessionId (default
+      // 's-agent-live') is treated as the one session with a stamped checkpoint — the
+      // real daemon's join is genuinely session-scoped, not a fixed id-based guess, but
+      // for this hermetic mock any OTHER session id gets the honest checkpointCount:0
+      // empty result (from/to:"EMPTY"), same as a session that predates sessionId
+      // stamping. Reuses the seeded checkpointsList's single entry as the "stamped"
+      // checkpoint so the diff content lines up with the workspace-scoped fallback.
+      if (methodId === 'sessions.changes.get') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { sessionId?: string } };
+        const sessionId = body.body?.sessionId ?? '';
+        if (sessionId !== localSessionId || !checkpointsList.length) {
+          return json(route, {
+            sessionId, checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
+            files: [], unifiedDiff: '', stat: '',
+          });
+        }
+        const stamped = checkpointsList[0];
+        return json(route, {
+          sessionId,
+          checkpointCount: 1,
+          checkpointIds: [stamped.id],
+          from: 'EMPTY',
+          to: stamped.id,
+          files: ['src/example.ts'],
+          unifiedDiff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1 +1 @@\n-old\n+new\n',
+          stat: '1 file changed',
+        });
+      }
+      // cost.attribution.get (SDK 1.6.1): windowed, cache-aware-priced cost attribution
+      // grouped by dimension. A real, honest fixture — one priced row plus one unpriced
+      // record folded into the totals, so the honest-unpriced labeling has real content
+      // to prove against rather than an all-zero stub.
+      if (methodId === 'cost.attribution.get') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { window?: string; dimension?: string } };
+        const window = body.body?.window ?? '24h';
+        const dimension = body.body?.dimension ?? 'session';
+        const key = dimension === 'session' ? localSessionId : `${dimension}-e2e-1`;
+        const tokens = { inputTokens: 12000, outputTokens: 3400, cacheReadTokens: 2000, cacheWriteTokens: 500 };
+        return json(route, {
+          window, windowStartMs: 1_700_000_000_000, dimension,
+          totalCostUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+          tokens,
+          rows: [{ key, costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1, tokens }],
+        });
+      }
       // ── Web Push (push.*) — the PWA subscription lifecycle. ────────────────
       if (methodId === 'push.vapid.get') {
         return json(route, { publicKey: pushVapidKey });

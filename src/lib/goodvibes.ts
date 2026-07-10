@@ -22,6 +22,9 @@ import type {
   CheckpointsRestoreResult,
   CheckpointsRestorePreviewInput,
   CheckpointsRestorePreviewResult,
+  CostAttributionGetInput,
+  CostAttributionGetResult,
+  CostAttributionRow,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
@@ -31,6 +34,8 @@ import type {
   FleetSnapshotResult,
   FleetUnarchiveResult,
   SessionParticipant,
+  SessionsChangesGetInput,
+  SessionsChangesGetResult,
   SessionsDetachInput,
   SessionsDetachResult,
   SessionsSearchInput,
@@ -53,6 +58,9 @@ export type {
   CheckpointsRestoreResult,
   CheckpointsRestorePreviewInput,
   CheckpointsRestorePreviewResult,
+  CostAttributionGetInput,
+  CostAttributionGetResult,
+  CostAttributionRow,
   FleetArchivedListResult,
   FleetArchiveFinishedResult,
   FleetArchiveResult,
@@ -62,6 +70,8 @@ export type {
   FleetSnapshotResult,
   FleetUnarchiveResult,
   SessionParticipant,
+  SessionsChangesGetInput,
+  SessionsChangesGetResult,
   SessionsDetachInput,
   SessionsDetachResult,
   SessionsSearchInput,
@@ -1360,6 +1370,20 @@ export const sdk = {
       contextUsage: {
         get: (sessionId: string) => invokeOperator('sessions.contextUsage.get', { sessionId }),
       },
+      // changes.get (SDK 1.6.1): the session-scoped aggregate workspace diff, joined
+      // over checkpoints stamped with this session's id (`transport: ["ws"]` only, no
+      // `http` route — generic-invoke-only like checkpoints.*/sessions.search above, NOT
+      // routed through invokeOperator/EXTRA_METHOD_ROUTES). A session with no stamped
+      // checkpoints answers honestly with checkpointCount:0 and an empty diff
+      // (from/to:"EMPTY") rather than an error — SessionChanges.tsx renders that as an
+      // explicit "no captured changes for this session" state with a workspace-scoped
+      // fallback, never a blank. Older sessions predate sessionId stamping and always
+      // land in that honest-empty branch; the checkpoints.* baseline picker remains the
+      // explicit secondary/fallback mode for them.
+      changes: {
+        get: (sessionId: string) =>
+          invokeGatewayMethod<'sessions.changes.get', SessionsChangesGetResult>('sessions.changes.get', { sessionId }),
+      },
     },
     // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely
     // backed by a real operator wire verb — see the EXTRA_METHOD_ROUTES comment above.
@@ -1384,6 +1408,19 @@ export const sdk = {
         invokeGatewayMethod<'push.subscriptions.delete', PushSubscriptionDeleteResult>('push.subscriptions.delete', { subscriptionId }),
       verify: (subscriptionId: string) =>
         invokeGatewayMethod<'push.subscriptions.verify', PushVerifyResult>('push.subscriptions.verify', { subscriptionId }),
+    },
+    // cost.attribution.get (SDK 1.6.1): windowed (24h/7d), cache-aware-priced cost
+    // attribution grouped by a dimension (agent/tool/hook/mcp/model/provider/session).
+    // `transport: ["ws"]` only — generic-invoke-only like sessions.changes.get above.
+    // Honest-unpriced: a row's costUsd is null when nothing in it could be priced,
+    // costState says priced/estimated/unpriced — callers render that state, never treat
+    // a null cost as zero. The per-session compact cost line (SessionsView) passes
+    // dimension:"session" and reads the row whose key equals the session id.
+    cost: {
+      attribution: {
+        get: (input: CostAttributionGetInput) =>
+          invokeGatewayMethod<'cost.attribution.get', CostAttributionGetResult>('cost.attribution.get', input),
+      },
     },
   },
   chat: {

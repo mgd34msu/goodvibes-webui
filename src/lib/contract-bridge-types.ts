@@ -37,6 +37,8 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'checkpoints.restorePreview',
   'sessions.search',
   'sessions.detach',
+  'sessions.changes.get',
+  'cost.attribution.get',
 ] as const;
 
 // ─── Fleet (fleet.*) ─────────────────────────────────────────────────────────
@@ -129,3 +131,24 @@ export interface SessionsDetachResult {
     readonly metadata: Record<string, unknown>;
   };
 }
+
+// ─── Session workspace changes (sessions.changes.get) ─────────────────────────
+// SWAP applied from day one: sessions.changes.get shipped with a real
+// OperatorMethodInputMap/OutputMap entry (SDK 1.6.1's session-changes repack), unlike
+// sessions.detach's pre-SWAP history above. `transport: ["ws"]` only, no `http` route —
+// same generic-invoke-only shape as checkpoints.*/sessions.search, routed through
+// invokeGatewayMethod in goodvibes.ts's sdk.operator.sessions.changes.get.
+export type SessionsChangesGetInput = OperatorMethodInput<'sessions.changes.get'>;
+export type SessionsChangesGetResult = OperatorMethodOutput<'sessions.changes.get'>;
+
+// ─── Cost attribution (cost.attribution.get) ───────────────────────────────────
+// SDK 1.6.1: windowed (24h/7d), cache-aware-priced cost attribution grouped by a
+// dimension (agent/tool/hook/mcp/model/provider/session). Real generated I/O map entry,
+// `transport: ["ws"]` only — same generic-invoke-only shape as sessions.changes.get
+// above, routed through invokeGatewayMethod. Honest-unpriced: a row's costUsd is `null`
+// when nothing in it could be priced (an unrecognized model), costState says whether the
+// figure is priced/estimated/unpriced — callers must render that state, never treat a
+// null cost as zero.
+export type CostAttributionGetInput = OperatorMethodInput<'cost.attribution.get'>;
+export type CostAttributionGetResult = OperatorMethodOutput<'cost.attribution.get'>;
+export type CostAttributionRow = CostAttributionGetResult['rows'][number];

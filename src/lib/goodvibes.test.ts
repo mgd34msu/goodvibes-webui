@@ -40,6 +40,10 @@ import {
   type SessionsSearchSessionSummary,
   type SessionsDetachInput,
   type SessionsDetachResult,
+  type SessionsChangesGetInput,
+  type SessionsChangesGetResult,
+  type CostAttributionGetInput,
+  type CostAttributionGetResult,
 } from './contract-bridge-types';
 
 describe('goodvibes constants', () => {
@@ -139,6 +143,14 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore', 'checkpoints.restorePreview']) {
       expect(isExtraRoutedMethod(method)).toBe(false);
     }
+  });
+
+  // sessions.changes.get / cost.attribution.get (SDK 1.6.1): `transport: ["ws"]` only,
+  // no `http` route — same generic-invoke-only shape as fleet.*/checkpoints.* above, not
+  // a table-routed EXTRA_METHOD_ROUTES entry.
+  test('sessions.changes.get and cost.attribution.get are NOT extra-routed — generic invoke path', () => {
+    expect(isExtraRoutedMethod('sessions.changes.get')).toBe(false);
+    expect(isExtraRoutedMethod('cost.attribution.get')).toBe(false);
   });
 
   // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1): real REST
@@ -258,6 +270,30 @@ describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id
     expect(caught).toBeInstanceOf(Error);
     expect((caught as { category?: string }).category).toBe('service');
     expect((caught as { body?: unknown }).body).toEqual({ error: 'Method sessions.search is not invokable from this surface', code: 'NOT_INVOKABLE' });
+  });
+
+  test('sessions.changes.get POSTs to the generic invoke endpoint with the sessionId', async () => {
+    stubFetch({
+      sessionId: 's-1', checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
+      files: [], unifiedDiff: '', stat: '',
+    });
+    await sdk.operator.sessions.changes.get('s-1');
+    expect(calls[0].url).toContain('/api/control-plane/methods/sessions.changes.get/invoke');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ body: { sessionId: 's-1' } });
+  });
+
+  test('cost.attribution.get POSTs to the generic invoke endpoint with window/dimension', async () => {
+    stubFetch({
+      window: '24h', windowStartMs: 1, dimension: 'session', totalCostUsd: null, costState: 'unpriced',
+      pricedRecordCount: 0, unpricedRecordCount: 0,
+      tokens: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      rows: [],
+    });
+    await sdk.operator.cost.attribution.get({ window: '24h', dimension: 'session' });
+    expect(calls[0].url).toContain('/api/control-plane/methods/cost.attribution.get/invoke');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ body: { window: '24h', dimension: 'session' } });
   });
 });
 
@@ -571,16 +607,21 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, cost, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
-    // repack.
+    // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.cost exposes the cost.attribution.get verb', () => {
+    expect(Object.keys(sdk.operator.cost).sort()).toEqual(['attribution'].sort());
+    expect(Object.keys(sdk.operator.cost.attribution).sort()).toEqual(['get'].sort());
   });
 
   test('sdk.operator.push exposes the Web Push lifecycle verbs', () => {
@@ -607,9 +648,9 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
   });
 
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), and permissionMode/contextUsage (SDK 1.6.1)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), and changes (SDK 1.6.1)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'reopen', 'search', 'steer'].sort(),
+      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'reopen', 'search', 'steer'].sort(),
     );
   });
 
@@ -838,6 +879,19 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
         metadata: {},
       },
     } satisfies SessionsDetachResult,
+    'sessions.changes.get': {
+      sessionId: 's-1', checkpointCount: 2, checkpointIds: ['wcp_1', 'wcp_2'],
+      from: 'wcp_0', to: 'wcp_2', files: ['a.ts'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed',
+    } satisfies SessionsChangesGetResult,
+    'cost.attribution.get': {
+      window: '24h', windowStartMs: 1, dimension: 'session', totalCostUsd: 0.42, costState: 'estimated',
+      pricedRecordCount: 3, unpricedRecordCount: 1,
+      tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
+      rows: [{
+        key: 's-1', costUsd: 0.42, costState: 'estimated', pricedRecordCount: 3, unpricedRecordCount: 1,
+        tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
+      }],
+    } satisfies CostAttributionGetResult,
   };
 
   // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
@@ -859,6 +913,8 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
       status: 'active', includeClosed: true, limit: 20, cursor: 'c1',
     } satisfies SessionsSearchInput,
     'sessions.detach': { sessionId: 's-1', surfaceId: 'goodvibes-webui' } satisfies SessionsDetachInput,
+    'sessions.changes.get': { sessionId: 's-1' } satisfies SessionsChangesGetInput,
+    'cost.attribution.get': { window: '24h', dimension: 'session' } satisfies CostAttributionGetInput,
   };
 
   test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {

@@ -33,6 +33,7 @@ import {
   isReapedStatus,
   canSteer,
   retentionLabel,
+  attributionLabel,
 } from '../../lib/sessions-union';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { firstString, formatRelative } from '../../lib/object';
@@ -542,6 +543,16 @@ function SessionDetail({
           <div className="session-detail__surfaces">
             <small>Surfaces:</small>
             {record.surfaceKinds.map((s) => <span key={s} className="badge neutral">{s}</span>)}
+          </div>
+        )}
+        {/* Channel-origin attribution (principals.*, SDK 1.6.1): only rendered when the
+            wire actually stamped this session's metadata with attribution — a plain,
+            unattributed session (most sessions) shows no line. An unmapped sender
+            identity renders "unknown principal" plainly, never silently dropped. */}
+        {attributionLabel(record) && (
+          <div className="session-detail__surfaces">
+            <small>Attributed to:</small>
+            <span className="badge neutral">{attributionLabel(record)}</span>
           </div>
         )}
         <div className="session-detail__meta">

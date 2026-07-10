@@ -169,6 +169,17 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     expect(isExtraRoutedMethod('checkin.receipts.list')).toBe(true);
     expect(isExtraRoutedMethod('checkin.run')).toBe(true);
   });
+
+  // principals.* / channels.profiles.* (SDK 1.6.1's initiative-family repack): same
+  // table-routed shape as ci.*/checkin.* above.
+  test('principals.* and channels.profiles.* are table-routed', () => {
+    for (const method of [
+      'principals.create', 'principals.delete', 'principals.get', 'principals.list', 'principals.resolve', 'principals.update',
+      'channels.profiles.delete', 'channels.profiles.get', 'channels.profiles.list', 'channels.profiles.set',
+    ]) {
+      expect(isExtraRoutedMethod(method)).toBe(true);
+    }
+  });
 });
 
 describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
@@ -445,6 +456,77 @@ describe('checkin.* (SDK 1.6.1 initiative family) wire calls', () => {
   });
 });
 
+describe('principals.* / channels.profiles.* (SDK 1.6.1 initiative family) wire calls', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('operator.principals.create POSTs the full body to /api/principals', async () => {
+    stubFetch({ principal: { id: 'p-1', name: 'Mike', kind: 'user', identities: [], createdAt: 1, updatedAt: 1 } });
+    await sdk.operator.principals.create({ name: 'Mike', kind: 'user' });
+    expect(calls[0].url).toContain('/api/principals');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ name: 'Mike', kind: 'user' });
+  });
+
+  test('operator.principals.update POSTs to /api/principals/{principalId}/update, principalId consumed by the path (not duplicated in the body)', async () => {
+    stubFetch({ principal: { id: 'p-1', name: 'Mike D', kind: 'user', identities: [], createdAt: 1, updatedAt: 2 } });
+    await sdk.operator.principals.update('p-1', { name: 'Mike D' });
+    expect(calls[0].url).toContain('/api/principals/p-1/update');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ name: 'Mike D' });
+  });
+
+  test('operator.principals.delete DELETEs /api/principals/{principalId} with no body', async () => {
+    stubFetch({ principalId: 'p-1', deleted: true });
+    const result = await sdk.operator.principals.delete('p-1');
+    expect(calls[0].url).toContain('/api/principals/p-1');
+    expect(calls[0].method).toBe('DELETE');
+    expect(result).toEqual({ principalId: 'p-1', deleted: true });
+  });
+
+  test('operator.principals.resolve POSTs channel/value and preserves known:false for an unmapped identity', async () => {
+    const unknown = { id: 'principal-unknown', name: 'unknown', kind: 'user', identities: [], createdAt: 0, updatedAt: 0 };
+    stubFetch({ principal: unknown, known: false });
+    const result = await sdk.operator.principals.resolve({ channel: 'slack', value: 'U999' });
+    expect(calls[0].url).toContain('/api/principals/resolve');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ channel: 'slack', value: 'U999' });
+    expect(result.known).toBe(false);
+  });
+
+  test('operator.channels.profiles.set POSTs the full binding body to /api/channels/profiles', async () => {
+    stubFetch({ binding: { id: 'cp-1', surfaceKind: 'slack', updatedAt: 1 } });
+    await sdk.operator.channels.profiles.set({ surfaceKind: 'slack', model: 'claude-sonnet' });
+    expect(calls[0].url).toContain('/api/channels/profiles');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ surfaceKind: 'slack', model: 'claude-sonnet' });
+  });
+
+  test('operator.channels.profiles.delete DELETEs /api/channels/profiles/{surfaceKind} with an honest deleted boolean', async () => {
+    stubFetch({ surfaceKind: 'slack', deleted: false });
+    const result = await sdk.operator.channels.profiles.delete('slack');
+    expect(calls[0].url).toContain('/api/channels/profiles/slack');
+    expect(calls[0].method).toBe('DELETE');
+    expect(result.deleted).toBe(false);
+  });
+});
+
 describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
@@ -489,14 +571,15 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
-    // 'ci'/'checkin' added for the SDK 1.6.1 initiative-family repack.
+    // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
+    // repack.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -550,6 +633,18 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.checkin).sort()).toEqual(['config', 'receipts', 'run'].sort());
     expect(Object.keys(sdk.operator.checkin.config).sort()).toEqual(['get', 'set'].sort());
     expect(Object.keys(sdk.operator.checkin.receipts).sort()).toEqual(['list']);
+  });
+
+  // principals.* / channels.profiles.* (SDK 1.6.1's initiative-family repack).
+  test('sdk.operator.principals exposes the full identity-registry verb set', () => {
+    expect(Object.keys(sdk.operator.principals).sort()).toEqual(
+      ['create', 'delete', 'get', 'list', 'resolve', 'update'].sort(),
+    );
+  });
+
+  test('sdk.operator.channels.profiles exposes list/get/set/delete', () => {
+    expect(Object.keys(sdk.operator.channels).sort()).toEqual(['profiles']);
+    expect(Object.keys(sdk.operator.channels.profiles).sort()).toEqual(['delete', 'get', 'list', 'set'].sort());
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {

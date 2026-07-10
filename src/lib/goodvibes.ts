@@ -150,6 +150,15 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'calendar.events.list': { method: 'GET', path: '/api/calendar/events' },
   'calendar.ics.export': { method: 'GET', path: '/api/calendar/ics/export' },
   'calendar.ics.import': { method: 'POST', path: '/api/calendar/ics/import' },
+  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative-family repack). Real
+  // REST routes with real generated I/O maps, same table-routed shape as the families
+  // above. .get/.delete key on {surfaceKind, channelId?} — surfaceKind rides the PATH,
+  // channelId (when present) rides the remainder (a query param for GET, the body for
+  // DELETE); .list takes no input; .set POSTs the full binding body.
+  'channels.profiles.delete': { method: 'DELETE', path: '/api/channels/profiles/{surfaceKind}' },
+  'channels.profiles.get': { method: 'GET', path: '/api/channels/profiles/{surfaceKind}' },
+  'channels.profiles.list': { method: 'GET', path: '/api/channels/profiles' },
+  'channels.profiles.set': { method: 'POST', path: '/api/channels/profiles' },
   // Check-in (checkin.*, SDK 1.6.1's initiative-family repack): the proactive-contact
   // configuration, its run receipts, and a manual run-now trigger. Real REST routes
   // with real generated I/O maps, same table-routed shape as the families above.
@@ -238,6 +247,18 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'memory.records.update-review': { method: 'POST', path: '/api/memory/records/{id}/review' },
   'memory.records.delete': { method: 'DELETE', path: '/api/memory/records/{id}' },
   'memory.review-queue': { method: 'GET', path: '/api/memory/review-queue' },
+  // Principals (principals.*, SDK 1.6.1's initiative-family repack): the named-identity
+  // registry (create/get/list/update/delete) plus resolve (channel+value → principal,
+  // known:false for an unmapped identity — never a guess). Real REST routes with real
+  // generated I/O maps, same table-routed shape as the families above. .update posts to
+  // a distinct /update sub-path (not a bare PATCH {principalId}) — the daemon's own
+  // route shape.
+  'principals.create': { method: 'POST', path: '/api/principals' },
+  'principals.delete': { method: 'DELETE', path: '/api/principals/{principalId}' },
+  'principals.get': { method: 'GET', path: '/api/principals/{principalId}' },
+  'principals.list': { method: 'GET', path: '/api/principals' },
+  'principals.resolve': { method: 'POST', path: '/api/principals/resolve' },
+  'principals.update': { method: 'POST', path: '/api/principals/{principalId}/update' },
   'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
   // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
   // whole body is the task submission), predating the `/api/tasks` REST family.
@@ -1154,6 +1175,18 @@ export const sdk = {
           ),
       },
     },
+    // Channel profiles (channels.profiles.*, SDK 1.6.1). Real generated I/O maps
+    // throughout — no bridge overrides needed, unlike Approvals/Tasks above.
+    channels: {
+      profiles: {
+        list: () => invokeOperator('channels.profiles.list', {}),
+        get: (surfaceKind: string, channelId?: string) =>
+          invokeOperator('channels.profiles.get', channelId ? { surfaceKind, channelId } : { surfaceKind }),
+        set: (input: OperatorMethodInput<'channels.profiles.set'>) => invokeOperator('channels.profiles.set', input),
+        delete: (surfaceKind: string, channelId?: string) =>
+          invokeOperator('channels.profiles.delete', channelId ? { surfaceKind, channelId } : { surfaceKind }),
+      },
+    },
     // Check-in (checkin.*, SDK 1.6.1): the proactive-contact configuration, its run
     // receipts, and a manual run-now trigger. Real generated I/O maps throughout.
     checkin: {
@@ -1165,6 +1198,17 @@ export const sdk = {
         list: (limit?: number) => invokeOperator('checkin.receipts.list', limit ? { limit } : {}),
       },
       run: () => invokeOperator('checkin.run', {}),
+    },
+    // Principals (principals.*, SDK 1.6.1): the named-identity registry. Real generated
+    // I/O maps throughout.
+    principals: {
+      list: () => invokeOperator('principals.list', {}),
+      get: (principalId: string) => invokeOperator('principals.get', { principalId }),
+      create: (input: OperatorMethodInput<'principals.create'>) => invokeOperator('principals.create', input),
+      update: (principalId: string, input: Omit<OperatorMethodInput<'principals.update'>, 'principalId'>) =>
+        invokeOperator('principals.update', { principalId, ...input }),
+      delete: (principalId: string) => invokeOperator('principals.delete', { principalId }),
+      resolve: (input: OperatorMethodInput<'principals.resolve'>) => invokeOperator('principals.resolve', input),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job
     // list — see ci.status's own description) and standing watches. Real generated I/O

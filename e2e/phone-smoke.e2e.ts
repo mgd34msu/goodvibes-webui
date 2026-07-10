@@ -21,6 +21,7 @@ const VIEWS: { view: string; label: string }[] = [
   { view: 'workstream', label: 'Workstream' },
   { view: 'ci-watches', label: 'CI' },
   { view: 'checkin', label: 'Check-in' },
+  { view: 'principals', label: 'Principals' },
   { view: 'knowledge', label: 'Knowledge' },
   { view: 'memory', label: 'Memory' },
   { view: 'providers', label: 'Providers' },

@@ -35,7 +35,7 @@
  *     column. Browsing the tree remains fully available on phone.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
@@ -67,6 +67,7 @@ import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import { FleetSessionActions } from './FleetSessionActions';
 import { FleetApprovalInline } from './FleetApprovalInline';
+import { parseFleetFocusFromHash, stripFleetFocusFragment } from '../../lib/push/fleet-focus-link';
 import '../../styles/components/fleet.css';
 
 /**
@@ -129,10 +130,24 @@ function StateBadge({ state }: { state: string }) {
 }
 
 export function FleetView({ subscriptionActive = true }: { subscriptionActive?: boolean } = {}) {
-  const [selectedId, setSelectedId] = useState('');
+  // needs-input deep link: a push notification tap opens this view at
+  // `#fleet-node=<id>&fleet-session=<sid>` (notification-link.ts). Read the focus
+  // target ONCE via a lazy initializer (no setState-in-effect cascade), seed it as
+  // the initial selection in the live tree, then scrub the fragment in a mount
+  // effect so a reload does not re-focus it. If the node is not in the snapshot yet,
+  // seeding its id is harmless — the detail pane resolves the moment the node
+  // appears (or stays on the picker).
+  const [initialFocus] = useState(() =>
+    typeof window !== 'undefined' ? parseFleetFocusFromHash(window.location.hash) : null,
+  );
+  const [selectedId, setSelectedId] = useState(() => initialFocus?.nodeId ?? '');
   const [view, setView] = useState<'active' | 'archived'>('active');
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialFocus) stripFleetFocusFragment();
+  }, [initialFocus]);
 
   const pollInterval = fleetPollInterval(subscriptionActive);
   const snapshot = useQuery({

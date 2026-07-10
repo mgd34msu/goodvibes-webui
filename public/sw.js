@@ -181,13 +181,22 @@ self.addEventListener('push', (event) => {
   // buttons do NOT approve in the background: notificationclick hands off to the
   // authenticated app, which makes the real call (see docs/push-approval-actions.md).
   const isApproval = data.kind === 'approval' && typeof data.approvalId === 'string' && data.approvalId;
+  // needs-input carries no in-notification action (the operator has to look at the
+  // process to answer it) — a tap just deep-links to the focused Fleet node. Tag it
+  // by node id so repeated blocks on the same node coalesce instead of stacking.
+  const isNeedsInput = data.kind === 'needs-input' && typeof data.nodeId === 'string' && data.nodeId;
+  const tag = typeof data.approvalId === 'string'
+    ? `approval-${data.approvalId}`
+    : isNeedsInput
+      ? `needs-input-${data.nodeId}`
+      : undefined;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       data,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      tag: typeof data.approvalId === 'string' ? `approval-${data.approvalId}` : undefined,
+      tag,
       actions: isApproval
         ? [
             { action: 'approve', title: 'Allow' },
@@ -219,6 +228,19 @@ function linkForNotification(data, action) {
     return '/?view=approvals-tasks#approval-action=' + action + '&approval-id=' + encodeURIComponent(data.approvalId);
   }
   if (data && data.kind === 'approval') return '/?view=approvals-tasks';
+  // needs-input: a fleet node blocked on the operator. Deep-link to the Fleet view
+  // focused on that node (carrying its session id when known). Kept in sync with the
+  // pure helper src/lib/push/notification-link.ts (unit-tested there).
+  if (data && data.kind === 'needs-input') {
+    if (typeof data.nodeId === 'string' && data.nodeId.length > 0) {
+      var nodePart = 'fleet-node=' + encodeURIComponent(data.nodeId);
+      var sessionPart = typeof data.sessionId === 'string' && data.sessionId.length > 0
+        ? '&fleet-session=' + encodeURIComponent(data.sessionId)
+        : '';
+      return '/?view=fleet#' + nodePart + sessionPart;
+    }
+    return '/?view=fleet';
+  }
   if (data && typeof data.url === 'string' && data.url.startsWith('/')) return data.url;
   return '/';
 }

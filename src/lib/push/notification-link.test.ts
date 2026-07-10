@@ -43,4 +43,26 @@ describe('linkForNotification', () => {
       '/?view=approvals-tasks#approval-action=approve&approval-id=a%2Fb%20c',
     );
   });
+
+  test('a needs-input push deep-links to the Fleet view focused on the node + session', () => {
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'agent-7', sessionId: 's-1' })).toBe(
+      '/?view=fleet#fleet-node=agent-7&fleet-session=s-1',
+    );
+  });
+
+  test('a needs-input push with no session id still focuses the node', () => {
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'agent-7' })).toBe(
+      '/?view=fleet#fleet-node=agent-7',
+    );
+  });
+
+  test('a needs-input push with no node id opens the Fleet view rather than a dead tap', () => {
+    expect(linkForNotification({ kind: 'needs-input' })).toBe('/?view=fleet');
+  });
+
+  test('the needs-input node + session ids are url-encoded in the fragment', () => {
+    expect(linkForNotification({ kind: 'needs-input', nodeId: 'a/b', sessionId: 'x y' })).toBe(
+      '/?view=fleet#fleet-node=a%2Fb&fleet-session=x%20y',
+    );
+  });
 });

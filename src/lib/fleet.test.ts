@@ -3,6 +3,8 @@ import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
 import {
   activeCount,
   approvalsForNode,
+  attemptGroupIds,
+  attemptGroupRef,
   attentionCount,
   attentionReasonLabel,
   buildFleetRows,
@@ -370,5 +372,28 @@ describe('approvalsForNode (WEBUI-FLEET-DEPTH — "approve from the tree")', () 
     const n = node({ id: 'a1', kind: 'agent' });
     expect(approvalsForNode(n, [approval({ id: 'appr-1', sessionId: 's-unrelated' })])).toEqual([]);
     expect(approvalsForNode(n, [])).toEqual([]);
+  });
+});
+
+describe('attemptGroupRef / attemptGroupIds (best-of-N sibling markers, read defensively)', () => {
+  test('reads a well-formed attemptGroup marker off an otherwise-untyped node field', () => {
+    const n = { ...node({ id: 'a1' }), attemptGroup: { groupId: 'g-1', index: 1, total: 3, held: true } } as FleetProcessNode;
+    expect(attemptGroupRef(n)).toEqual({ groupId: 'g-1', index: 1, total: 3, held: true });
+  });
+
+  test('returns null when there is no marker (an older daemon omits it) — nothing collapses', () => {
+    expect(attemptGroupRef(node({ id: 'a1' }))).toBeNull();
+    const partial = { ...node({ id: 'a2' }), attemptGroup: { index: 0 } } as FleetProcessNode;
+    expect(attemptGroupRef(partial)).toBeNull(); // no groupId → not a usable marker
+  });
+
+  test('attemptGroupIds collects the distinct group ids present among the nodes', () => {
+    const nodes = [
+      { ...node({ id: 'a1' }), attemptGroup: { groupId: 'g-1' } },
+      { ...node({ id: 'a2' }), attemptGroup: { groupId: 'g-1' } },
+      { ...node({ id: 'a3' }), attemptGroup: { groupId: 'g-2' } },
+      node({ id: 'a4' }),
+    ] as FleetProcessNode[];
+    expect(attemptGroupIds(nodes)).toEqual(new Set(['g-1', 'g-2']));
   });
 });

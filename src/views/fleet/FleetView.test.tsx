@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 let snapshotImpl: () => Promise<unknown> = () => Promise.resolve(FIXTURE_SNAPSHOT);
 let approvalsImpl: () => Promise<unknown> = () => Promise.resolve({ approvals: [] });
+let attemptsImpl: () => Promise<unknown> = () => Promise.resolve({ groups: [] });
 
 /** Every operator call this test file's mocked sdk records, in invocation order. */
 const calls: { steer: unknown[]; detach: unknown[]; watchersStop: unknown[] } = { steer: [], detach: [], watchersStop: [] };
@@ -26,6 +27,12 @@ mock.module('../../lib/goodvibes', () => ({
       fleet: {
         snapshot: () => snapshotImpl(),
         list: () => Promise.resolve({ items: [], hasMore: false, capturedAt: Date.now() }),
+        archivedList: () => Promise.resolve({ capturedAt: Date.now(), nodes: [] }),
+        attempts: {
+          list: () => attemptsImpl(),
+          pick: () => Promise.resolve({ groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: [], auto: false }),
+          judge: () => Promise.resolve({ proposedWinnerItemId: 'i-1', reasons: [], model: 'm', scoredBy: 'model' }),
+        },
       },
       approvals: {
         list: () => approvalsImpl(),
@@ -153,9 +160,56 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 afterEach(() => {
   snapshotImpl = () => Promise.resolve(FIXTURE_SNAPSHOT);
   approvalsImpl = () => Promise.resolve({ approvals: [] });
+  attemptsImpl = () => Promise.resolve({ groups: [] });
   calls.steer.length = 0;
   calls.detach.length = 0;
   calls.watchersStop.length = 0;
+});
+
+const ATTEMPT_GROUP = {
+  groupId: 'g-1', workstreamId: 'ws-1', sourceTitle: 'Implement the parser', ready: true,
+  autoAccept: false,
+  candidates: [
+    {
+      itemId: 'i-1', attemptIndex: 0, state: 'held-merge', title: 'attempt A',
+      worktreePath: '/wt/a', branch: 'attempt/a',
+      usage: { inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 1, turnCount: 1, toolCallCount: 2, costUsd: 0.1, costState: 'priced' },
+      failureReason: null,
+      diff: { files: ['src/a.ts'], unifiedDiff: 'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,2 @@\n const a = 1;\n+const b = 2;\n', stat: '1 file' },
+    },
+    {
+      itemId: 'i-2', attemptIndex: 1, state: 'held-merge', title: 'attempt B',
+      worktreePath: '/wt/b', branch: 'attempt/b',
+      usage: { inputTokens: 15, outputTokens: 25, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 2, turnCount: 1, toolCallCount: 3, costUsd: 0.2, costState: 'priced' },
+      failureReason: null,
+      diff: { files: ['src/a.ts'], unifiedDiff: 'diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,1 +1,2 @@\n const a = 1;\n+const c = 3;\n', stat: '1 file' },
+    },
+  ],
+  judgment: { proposedWinnerItemId: 'i-1', reasons: ['smaller, cleaner diff'], model: 'claude', scoredBy: 'model' },
+};
+
+describe('FleetView best-of-N attempts', () => {
+  test('renders a ready attempt group with the compare-and-pick affordance and opens the comparison', async () => {
+    attemptsImpl = () => Promise.resolve({ groups: [ATTEMPT_GROUP] });
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('Best-of-N attempts'));
+
+    expect(el.textContent).toContain('Implement the parser');
+    expect(el.textContent).toContain('Ready — compare & pick');
+    expect(el.textContent).toContain('2/2 held');
+
+    flushSync(() => el.querySelector('.fleet-attempts__group')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+    await waitFor(() => (el.textContent ?? '').includes('Compare attempts'));
+
+    // both candidates and the model-judgment proposal (clearly labelled) render
+    expect(el.textContent).toContain('attempt A');
+    expect(el.textContent).toContain('attempt B');
+    expect(el.textContent).toContain('Model judgment');
+    expect(el.textContent).toContain('smaller, cleaner diff');
+    // per-candidate diffs render through the shared multibuffer
+    expect(el.querySelector('.diff-mb__hunk')).not.toBeNull();
+    unmount();
+  });
 });
 
 describe('FleetView rendering', () => {

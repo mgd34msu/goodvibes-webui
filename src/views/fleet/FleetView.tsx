@@ -39,10 +39,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { FleetProcessNode } from '../../lib/goodvibes';
+import type { FleetProcessNode, FleetAttemptGroup } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
   activeCount,
+  attemptGroupIds,
   attentionReasonLabel,
   buildFleetRows,
   costLabel,
@@ -57,6 +58,8 @@ import {
   unbackedCapabilityNote,
   wireBackedActions,
 } from '../../lib/fleet';
+import { isMethodUnavailableError } from '../../lib/errors';
+import { AttemptComparison } from './AttemptComparison';
 import type { BadgeTone } from '../../lib/presentation-bridge';
 import { contractStateForBadgeTone } from '../../lib/presentation-bridge';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -142,6 +145,7 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
   );
   const [selectedId, setSelectedId] = useState(() => initialFocus?.nodeId ?? '');
   const [view, setView] = useState<'active' | 'archived'>('active');
+  const [comparingGroupId, setComparingGroupId] = useState<string>('');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -160,15 +164,47 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
     queryFn: () => sdk.operator.fleet.archivedList(),
     refetchInterval: pollInterval,
   });
+  // Best-of-N held-merge groups (fleet.attempts.list) — polled with the fleet. An older
+  // daemon that has never heard of the verb answers METHOD_NOT_FOUND; we degrade to "no
+  // attempt groups" rather than surfacing a scary error (retry:false so it does not spin).
+  const attempts = useQuery({
+    queryKey: queryKeys.fleetAttempts,
+    queryFn: () => sdk.operator.fleet.attempts.list(),
+    refetchInterval: pollInterval,
+    enabled: view === 'active',
+    retry: false,
+  });
+  const attemptGroups: readonly FleetAttemptGroup[] = useMemo(
+    () => (attempts.isError && isMethodUnavailableError(attempts.error) ? [] : attempts.data?.groups ?? []),
+    [attempts.data, attempts.isError, attempts.error],
+  );
 
   // The pane renders whichever collection the toggle selects; both share the
   // same row/detail machinery because archived nodes keep the full node shape.
   const current = view === 'archived' ? archivedList : snapshot;
-  const nodes = useMemo(
+  const rawNodes = useMemo(
     () => (view === 'archived' ? archivedList.data?.nodes : snapshot.data?.nodes) ?? [],
     [view, archivedList.data, snapshot.data],
   );
+  // Collapse best-of-N sibling nodes out of the main tree: any node marked as an attempt
+  // of a group that fleet.attempts.list is tracking is represented by the single group
+  // node in the attempts section instead, so the tree shows one entry per group, not N.
+  const groupIdSet = useMemo(() => new Set(attemptGroups.map((g) => g.groupId)), [attemptGroups]);
+  const nodes = useMemo(() => {
+    if (view === 'archived' || groupIdSet.size === 0) return rawNodes;
+    const siblingIds = attemptGroupIds(rawNodes);
+    if (siblingIds.size === 0) return rawNodes;
+    return rawNodes.filter((n) => {
+      const ref = (n as { attemptGroup?: { groupId?: unknown } }).attemptGroup;
+      const gid = ref && typeof ref.groupId === 'string' ? ref.groupId : '';
+      return !(gid && groupIdSet.has(gid));
+    });
+  }, [view, rawNodes, groupIdSet]);
   const rows = useMemo(() => buildFleetRows(nodes), [nodes]);
+  const comparingGroup = useMemo(
+    () => attemptGroups.find((g) => g.groupId === comparingGroupId) ?? null,
+    [attemptGroups, comparingGroupId],
+  );
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const running = useMemo(() => activeCount(nodes), [nodes]);
   // Optional-chain `nodes` too: an older daemon (or a degraded surface)
@@ -180,6 +216,7 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.fleet }),
       queryClient.invalidateQueries({ queryKey: queryKeys.fleetArchived }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.fleetAttempts }),
     ]);
   };
 
@@ -232,6 +269,37 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
             <RefreshCw size={15} className={current.isFetching ? 'spin' : undefined} />
           </button>
         </div>
+
+        {view === 'active' && attemptGroups.length > 0 && (
+          <div className="fleet-attempts">
+            <div className="fleet-attempts__head">
+              Best-of-N attempts <span className="fleet-attempts__count">{attemptGroups.length}</span>
+            </div>
+            <ul className="fleet-attempts__list">
+              {attemptGroups.map((g) => {
+                const held = g.candidates.filter((c) => c.state === 'held-merge').length;
+                return (
+                  <li key={g.groupId}>
+                    <button
+                      type="button"
+                      className={`fleet-attempts__group${g.ready ? ' ready' : ''}`}
+                      onClick={() => setComparingGroupId(g.groupId)}
+                    >
+                      <span className="fleet-attempts__group-title">{g.sourceTitle || g.groupId}</span>
+                      <span className="fleet-attempts__group-badges">
+                        {g.ready
+                          ? <span className="badge attention">Ready — compare &amp; pick</span>
+                          : <span className="badge neutral">Waiting for attempts</span>}
+                        <span className="badge neutral">{held}/{g.candidates.length} held</span>
+                        {g.judgment && <span className="badge neutral">judge ready</span>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {current.isPending && (
           <div className="fleet-loading">
@@ -305,6 +373,15 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
           <div className="fleet-detail-empty">Select a process to view its detail.</div>
         )}
       </div>
+
+      {comparingGroup && (
+        <AttemptComparison
+          open
+          group={comparingGroup}
+          onClose={() => setComparingGroupId('')}
+          onPicked={() => { void invalidateFleet(); }}
+        />
+      )}
     </div>
   );
 }

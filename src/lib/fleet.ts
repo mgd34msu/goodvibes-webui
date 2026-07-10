@@ -13,6 +13,7 @@
  */
 
 import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
+import { asRecord } from './object';
 
 /** PROCESS_KIND_SCHEMA (operator-contract-schemas-fleet.ts) at the time this was written. */
 export const KNOWN_PROCESS_KINDS = [
@@ -200,6 +201,51 @@ export function buildFleetRows(nodes: readonly FleetProcessNode[]): FleetRow[] {
 
 export function activeCount(nodes: readonly FleetProcessNode[]): number {
   return nodes.filter((n) => !isTerminalState(n.state)).length;
+}
+
+// ─── Best-of-N attempt siblings ────────────────────────────────────────────────
+//
+// A fleet node that is one attempt of a best-of-N group carries an `attemptGroup`
+// marker { groupId, index, total, held }. This is an EXTRA wire field the daemon adds
+// on the snapshot node (the node schema is additionalProperties:true) that the pinned
+// generated FleetProcessNode type does not declare yet — so it is read defensively here,
+// the same stance approvalsForNode takes for the untyped `metadata.agentId`. The
+// authoritative candidate/diff data lives in fleet.attempts.list; this marker only lets
+// FleetView collapse the sibling nodes into one group node and know which group they
+// belong to. A daemon that predates the marker simply omits it → attemptGroupRef is null
+// and nothing collapses.
+
+export interface AttemptGroupRef {
+  readonly groupId: string;
+  readonly index: number;
+  readonly total: number;
+  readonly held: boolean;
+}
+
+export function attemptGroupRef(node: FleetProcessNode): AttemptGroupRef | null {
+  const rec = asRecord((node as { attemptGroup?: unknown }).attemptGroup);
+  const groupId = typeof rec.groupId === 'string' ? rec.groupId.trim() : '';
+  if (!groupId) return null;
+  return {
+    groupId,
+    index: typeof rec.index === 'number' ? rec.index : 0,
+    total: typeof rec.total === 'number' ? rec.total : 0,
+    held: rec.held === true,
+  };
+}
+
+/**
+ * The set of best-of-N group ids present among these nodes as attempt-sibling markers —
+ * FleetView excludes these siblings from the main tree so a group renders as ONE
+ * collapsible group node (driven by fleet.attempts.list) rather than N loose rows.
+ */
+export function attemptGroupIds(nodes: readonly FleetProcessNode[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const node of nodes) {
+    const ref = attemptGroupRef(node);
+    if (ref) ids.add(ref.groupId);
+  }
+  return ids;
 }
 
 // ─── Actions the browser can genuinely back over the wire ─────────────────────

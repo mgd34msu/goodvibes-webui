@@ -32,13 +32,17 @@ import { queryKeys } from '../lib/queries';
  */
 const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   tasks: [queryKeys.tasks],
-  // permissions: approvals AND queryKeys.config — the SDK's PERMISSION_MODE_CHANGED
+  // permissions: approvals AND queryKeys.sessions — the SDK's PERMISSION_MODE_CHANGED
   // event (events/permissions.ts) rides this same domain (no dedicated wire event of
-  // its own), so a mode change anywhere (TUI, another webui tab) revalidates the
-  // config.get() cache SessionsView's permission-mode chip reads from
-  // (lib/permission-mode.ts) — the same "invalidate off the frame, never render
-  // straight from it" idiom the rest of this map already uses.
-  permissions: [queryKeys.approvals, queryKeys.config],
+  // its own) and carries no sessionId, so we can't target the one session-scoped
+  // permission-mode query that changed. Invalidating the broad `queryKeys.sessions`
+  // prefix (queries.ts: sessionPermissionMode/sessionContextUsage are BOTH prefixed
+  // with 'sessions') revalidates whichever session's chip is mounted — the same
+  // "invalidate off the frame, never render straight from it" idiom the rest of this
+  // map already uses. queryKeys.config is NOT invalidated here anymore: nothing reads
+  // permission mode off config.get() since SessionsView moved to the session-scoped
+  // sessions.permissionMode.get/set verbs (lib/permission-mode.ts).
+  permissions: [queryKeys.approvals, queryKeys.sessions],
   providers: [queryKeys.providers],
   knowledge: [queryKeys.knowledgeStatus, queryKeys.knowledgeSources, queryKeys.knowledgeRefinement],
   'control-plane': [queryKeys.control],

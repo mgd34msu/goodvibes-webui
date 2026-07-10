@@ -140,6 +140,15 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
       expect(isExtraRoutedMethod(method)).toBe(false);
     }
   });
+
+  // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1): real REST
+  // routes with real generated I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES —
+  // same table-routed shape as sessions.close/reopen above, not the generic-invoke path.
+  test('sessions.permissionMode.get/set and sessions.contextUsage.get are table-routed', () => {
+    expect(isExtraRoutedMethod('sessions.permissionMode.get')).toBe(true);
+    expect(isExtraRoutedMethod('sessions.permissionMode.set')).toBe(true);
+    expect(isExtraRoutedMethod('sessions.contextUsage.get')).toBe(true);
+  });
 });
 
 describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
@@ -370,10 +379,15 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
   });
 
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), and detach (WEBUI-FLEET-DEPTH)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), and permissionMode/contextUsage (SDK 1.6.1)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['close', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'reopen', 'search', 'steer'].sort(),
+      ['close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'reopen', 'search', 'steer'].sort(),
     );
+  });
+
+  test('sdk.operator.sessions.permissionMode/contextUsage expose exactly the session-scoped verbs', () => {
+    expect(Object.keys(sdk.operator.sessions.permissionMode).sort()).toEqual(['get', 'set'].sort());
+    expect(Object.keys(sdk.operator.sessions.contextUsage).sort()).toEqual(['get']);
   });
 
   test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH — fleet is a reader, not a watcher-authoring surface)', () => {

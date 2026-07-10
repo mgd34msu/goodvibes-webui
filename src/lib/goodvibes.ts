@@ -189,6 +189,19 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   // interpolateRoute from the path).
   'sessions.detach': { method: 'POST', path: '/api/sessions/{sessionId}/detach' },
   'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
+  // sessions.permissionMode.get/.set + sessions.contextUsage.get (SDK 1.6.1): the
+  // session-scoped verbs that replace the earlier daemon-wide config.get/config.set('
+  // permissions.mode') workaround (lib/permission-mode.ts's prior header explained the
+  // gap this closes). Real REST routes, in the installed OperatorMethodId union with real
+  // generated I/O maps (foundation-client-types.d.ts) — not in
+  // SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES, so they still need their own rows
+  // here, same as sessions.close/reopen above. The daemon answers only for the session id
+  // that IS its own live local runtime; any other session id is an honest 404
+  // SESSION_NOT_LOCAL (routes/session-runtime.ts) — callers must handle that explicitly
+  // (lib/errors.ts's isSessionNotLocalError), never fall back to a daemon-wide value.
+  'sessions.permissionMode.get': { method: 'GET', path: '/api/sessions/{sessionId}/permission-mode' },
+  'sessions.permissionMode.set': { method: 'POST', path: '/api/sessions/{sessionId}/permission-mode' },
+  'sessions.contextUsage.get': { method: 'GET', path: '/api/sessions/{sessionId}/context-usage' },
   // memory.records.* / memory.review-queue (WEBUI-MEMORY-VIEW, SDK 1.1.0's just-landed
   // canonical memory store): all six ids ARE in the installed OperatorMethodId union
   // (operator-method-ids.d.ts lists memory.records.add/search/get/update-review/delete
@@ -1250,6 +1263,19 @@ export const sdk = {
       // process itself or any other surface attached to it (e.g. the TUI).
       detach: (sessionId: string, surfaceId: string) =>
         invokeOperator<'sessions.detach', SessionsDetachInput, SessionsDetachResult>('sessions.detach', { sessionId, surfaceId }),
+      // permissionMode.get/set + contextUsage.get (SDK 1.6.1): session-scoped, real
+      // generated I/O maps, typed through the same invokeOperator overload as
+      // close/reopen above — no bridge override needed. Both answer honestly only for
+      // the daemon's own live local session (404 SESSION_NOT_LOCAL otherwise); callers
+      // must check isSessionNotLocalError (lib/errors.ts) rather than assume success.
+      permissionMode: {
+        get: (sessionId: string) => invokeOperator('sessions.permissionMode.get', { sessionId }),
+        set: (sessionId: string, mode: OperatorMethodInput<'sessions.permissionMode.set'>['mode']) =>
+          invokeOperator('sessions.permissionMode.set', { sessionId, mode }),
+      },
+      contextUsage: {
+        get: (sessionId: string) => invokeOperator('sessions.contextUsage.get', { sessionId }),
+      },
     },
     // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely
     // backed by a real operator wire verb — see the EXTRA_METHOD_ROUTES comment above.

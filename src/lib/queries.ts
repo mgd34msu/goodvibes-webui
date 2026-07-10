@@ -35,6 +35,14 @@ export const queryKeys = {
   // query — the single invalidation the raw session-update stream fires.
   sessionDetail: (sessionId: string) => ['sessions', sessionId] as const,
   sessionMessages: (sessionId: string) => ['sessions', sessionId, 'messages'] as const,
+  // sessions.permissionMode.get / sessions.contextUsage.get (SDK 1.6.1) — same
+  // 'sessions'-prefixed convention as sessionDetail/sessionMessages above, so
+  // useRealtimeInvalidation's broad `queryKeys.sessions` invalidation (fired on every
+  // 'permissions' domain frame — PERMISSION_MODE_CHANGED rides it) also revalidates
+  // whichever session's mode/usage chip is currently mounted, without needing to know
+  // which session that is at the point the frame arrives.
+  sessionPermissionMode: (sessionId: string) => ['sessions', sessionId, 'permission-mode'] as const,
+  sessionContextUsage: (sessionId: string) => ['sessions', sessionId, 'context-usage'] as const,
   knowledgeStatus: ['knowledge', 'status'] as const,
   knowledgeSources: ['knowledge', 'sources'] as const,
   knowledgeNodes: ['knowledge', 'nodes'] as const,

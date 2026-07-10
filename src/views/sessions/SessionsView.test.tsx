@@ -43,11 +43,23 @@ let methodInfoAvailable = true;
 // 5xx blip, NOT the daemon's honest "Unknown gateway method" absence. The view must
 // treat this as "couldn't check", never as "delete unavailable".
 let methodInfoTransientError = false;
-// Permission-mode fixtures (PermissionModeControl). Starts with no permissions
-// section at all — an honest "Unknown" chip, matching this suite's un-upgraded-
-// daemon theme elsewhere — until a test seeds one.
-let configFixture: unknown = {};
-let configSetCalls: { key: string; value: unknown }[] = [];
+// Permission-mode / context-usage fixtures (PermissionModeControl, ContextUsageChip —
+// sessions.permissionMode.get/set + sessions.contextUsage.get). `permissionModeLocalId`
+// names the ONE session id these mocked verbs answer for honestly — any other selected
+// session gets the real SESSION_NOT_LOCAL 404, matching the daemon's own session-scoped
+// contract. Defaults to '' (no session is "local") so most tests exercise the honest
+// unavailable state; individual tests reassign it to prove the available path.
+let permissionModeLocalId = '';
+let permissionMode = 'normal';
+let permissionModeSetCalls: { sessionId: string; mode: string }[] = [];
+let contextUsageFixture: { estimatedContextTokens: number; contextWindow: number; contextUsagePct: number; contextRemainingTokens: number } | null = null;
+
+function sessionNotLocal(sessionId: string) {
+  return Promise.reject(Object.assign(new Error(`This daemon does not host a live runtime for session ${sessionId}.`), {
+    status: 404,
+    body: { code: 'SESSION_NOT_LOCAL', error: `This daemon does not host a live runtime for session ${sessionId}.` },
+  }));
+}
 
 function resetUnionMutationFixtures() {
   unionListFixture = FIXTURE_UNION;
@@ -57,8 +69,10 @@ function resetUnionMutationFixtures() {
   unionDeleteReallyRemoves = true;
   methodInfoAvailable = true;
   methodInfoTransientError = false;
-  configFixture = {};
-  configSetCalls = [];
+  permissionModeLocalId = '';
+  permissionMode = 'normal';
+  permissionModeSetCalls = [];
+  contextUsageFixture = null;
 }
 
 mock.module('../../lib/goodvibes', () => ({
@@ -73,17 +87,6 @@ mock.module('../../lib/goodvibes', () => ({
       open: () => Promise.resolve(() => {}),
     },
     operator: {
-      // Permission-mode control (PermissionModeControl) — config.get/set fixtures.
-      // No 'permissions.mode' key in the fixture tree, matching this suite's
-      // "an older/un-upgraded daemon" theme elsewhere: the chip renders 'Unknown'.
-      config: {
-        get: () => Promise.resolve(configFixture),
-        set: (key: string, value: unknown) => {
-          configSetCalls.push({ key, value });
-          configFixture = { ...(configFixture as Record<string, unknown>), permissions: { ...(configFixture as Record<string, { mode?: string }>).permissions, mode: value } };
-          return Promise.resolve({ success: true, key, value });
-        },
-      },
       control: {
         methodInfo: (methodId: string) => {
           if (methodId === 'sessions.delete' && methodInfoTransientError) {
@@ -129,6 +132,31 @@ mock.module('../../lib/goodvibes', () => ({
           // the record) — the proof-of-gone reconcile below must catch this, not the
           // resolved value here.
           return Promise.resolve({ sessionId, deleted: true });
+        },
+        // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) —
+        // session-scoped, honest SESSION_NOT_LOCAL for any id other than
+        // permissionModeLocalId (see that fixture's header comment above).
+        permissionMode: {
+          get: (sessionId: string) => {
+            if (sessionId !== permissionModeLocalId) return sessionNotLocal(sessionId);
+            return Promise.resolve({ sessionId, mode: permissionMode });
+          },
+          set: (sessionId: string, mode: string) => {
+            if (sessionId !== permissionModeLocalId) return sessionNotLocal(sessionId);
+            permissionModeSetCalls.push({ sessionId, mode });
+            const previousMode = permissionMode;
+            permissionMode = mode;
+            return Promise.resolve({ sessionId, mode, previousMode });
+          },
+        },
+        contextUsage: {
+          get: (sessionId: string) => {
+            if (sessionId !== permissionModeLocalId) return sessionNotLocal(sessionId);
+            if (!contextUsageFixture) {
+              return Promise.resolve({ sessionId, estimatedContextTokens: 0, contextWindow: 0, contextUsagePct: 0, contextRemainingTokens: 0, estimated: true });
+            }
+            return Promise.resolve({ sessionId, ...contextUsageFixture, estimated: true });
+          },
         },
       },
     },
@@ -506,36 +534,86 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
   });
 });
 
-describe('SessionsView permission-mode control (daemon-wide, not per-session)', () => {
-  test('renders "Unknown" when the daemon config has no permissions.mode — never a guessed default', async () => {
+describe('SessionsView permission-mode control (session-scoped: sessions.permissionMode.get/set)', () => {
+  test('no session selected: chip shows "Select a session", disabled', async () => {
     const { el, unmount } = render();
     await flushMicrotasks();
     const chip = el.querySelector('.permission-mode-chip');
-    expect(chip?.textContent).toContain('Unknown');
+    expect(chip?.textContent).toContain('Select a session');
+    expect((chip as HTMLButtonElement)?.disabled).toBe(true);
     unmount();
   });
 
-  test('renders the current mode once config.get() reports one', async () => {
-    configFixture = { permissions: { mode: 'plan' } };
+  test('a selected session that is NOT the daemon\'s live local session: honest "unavailable", never a silent daemon-wide fallback', async () => {
+    permissionModeLocalId = 'some-other-session';
     const { el, unmount } = render();
     await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.permission-mode-chip');
+    expect(chip?.textContent).toContain('Unavailable');
+    expect((chip as HTMLButtonElement)?.disabled).toBe(true);
+    unmount();
+  });
+
+  test('renders the current mode once sessions.permissionMode.get() reports one for the local session', async () => {
+    permissionModeLocalId = 's-tui';
+    permissionMode = 'plan';
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
     const chip = el.querySelector('.permission-mode-chip');
     expect(chip?.textContent).toContain('Plan');
+    expect((chip as HTMLButtonElement)?.disabled).toBe(false);
     unmount();
   });
 
-  test('opens a picker sheet and writes the selected mode via config.set(\'permissions.mode\', ...)', async () => {
+  test('opens a picker sheet and writes the selected mode via sessions.permissionMode.set(sessionId, mode)', async () => {
+    permissionModeLocalId = 's-tui';
     const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
     await flushMicrotasks();
     click(el.querySelector('.permission-mode-chip'));
     await flushMicrotasks();
 
     expect(el.textContent).toContain('Set permission mode');
     const options = [...el.querySelectorAll('.permission-mode-sheet__option')];
+    // 'Custom' must never appear as a selectable option — it is read-only on the wire.
+    expect(options.some((b) => b.textContent?.startsWith('Custom'))).toBe(false);
     click(options.find((b) => b.textContent?.startsWith('Auto')));
     await flushMicrotasks();
 
-    expect(configSetCalls).toEqual([{ key: 'permissions.mode', value: 'allow-all' }]);
+    expect(permissionModeSetCalls).toEqual([{ sessionId: 's-tui', mode: 'auto' }]);
+    unmount();
+  });
+});
+
+describe('SessionsView context-usage chip (session-scoped: sessions.contextUsage.get)', () => {
+  test('no local answer available (SESSION_NOT_LOCAL): honest "unavailable"', async () => {
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.context-usage-chip');
+    expect(chip?.textContent).toContain('unavailable');
+    unmount();
+  });
+
+  test('renders the estimate as an approximate percent, prefixed "~", never a bare provider-measured number', async () => {
+    permissionModeLocalId = 's-tui';
+    contextUsageFixture = { estimatedContextTokens: 62000, contextWindow: 100000, contextUsagePct: 62, contextRemainingTokens: 38000 };
+    const { el, unmount } = render();
+    await flushMicrotasks();
+    click([...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('TUI coding')));
+    await flushMicrotasks();
+
+    const chip = el.querySelector('.context-usage-chip');
+    expect(chip?.textContent).toContain('~62%');
     unmount();
   });
 });

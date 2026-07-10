@@ -4,6 +4,7 @@ import {
 } from '@pellux/goodvibes-sdk/browser/knowledge';
 import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/knowledge';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
+import { routedFetch } from './relay-connection';
 import type {
   OperatorMethodId,
   OperatorMethodInput,
@@ -1097,6 +1098,13 @@ export interface PushVerifyResult {
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
+  // routedFetch (lib/relay-connection.ts) is the plain global fetch whenever no relay
+  // pairing exists or the direct path is reachable — this is a no-op for the common
+  // LAN/co-located case. It only diverts to the relay-tunneled fetch once
+  // useDaemonHealth's probe has determined the direct path is genuinely down AND a
+  // relay pairing is stored, and it honestly rejects stream requests over relay rather
+  // than handing them to a tunnel that cannot carry them (see that file's header).
+  fetch: routedFetch,
   realtime: {
     sseReconnect: DEFAULT_SSE_RECONNECT,
   },

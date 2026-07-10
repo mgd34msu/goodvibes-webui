@@ -1,4 +1,4 @@
-import { Activity, KeyRound, Radio, ShieldCheck, Zap } from 'lucide-react';
+import { Activity, KeyRound, Radio, Router, ShieldCheck, Zap } from 'lucide-react';
 import { useDaemonHealth } from '../../hooks/useDaemonHealth';
 import {
   connectionLabel,
@@ -6,6 +6,7 @@ import {
   workingLabel,
   formatLatency,
   sseLabel,
+  routeLabel,
 } from '../../lib/daemon-health';
 import { contractGlyphForConnection } from '../../lib/presentation-bridge';
 import { ConnectionDot } from './ConnectionDot';
@@ -24,22 +25,23 @@ import '../../styles/components/status.css';
  * - Color is never the sole indicator (dot + label + icon).
  */
 export function StatusStrip() {
-  const { connection, signedIn, working, latencyMs, sse, activeTurns, queuedTasks, modelName } = useDaemonHealth();
+  const { connection, route, signedIn, working, latencyMs, sse, activeTurns, queuedTasks, modelName } = useDaemonHealth();
 
   const isBusy = activeTurns > 0 || queuedTasks > 0;
 
   return (
     <footer className="status-strip">
-      {/* Live region — announces the three honest axes to screen readers. Never
-          collapses reachable into "Connected": a reachable-but-401 daemon is
-          reported as reachable AND signed-out AND no-access, three signals that
-          can disagree. */}
+      {/* Live region — announces the honest axes to screen readers. Never collapses
+          reachable into "Connected": a reachable-but-401 daemon is reported as
+          reachable AND signed-out AND no-access, signals that can disagree. Route is
+          only announced when it means something (i.e. the daemon is reachable at
+          all) — "Direct" or "Via relay" while offline would be a false claim. */}
       <span
         className="status-strip__live-region"
         aria-live="polite"
         aria-atomic="true"
       >
-        {`${connectionLabel(connection)}, ${authLabel(signedIn)}, ${workingLabel(working)}`}
+        {`${connectionLabel(connection)}${route ? `, ${routeLabel(route)}` : ''}, ${authLabel(signedIn)}, ${workingLabel(working)}`}
       </span>
 
       {/* REACHABLE axis. The `data-contract-glyph` attribute is painted via a
@@ -58,6 +60,22 @@ export function StatusStrip() {
           {connectionLabel(connection)}
         </span>
       </div>
+
+      {/* ROUTE axis — only rendered once there is a verdict (the daemon is reachable by
+          SOME path). 'relay' gets a distinct visual treatment (--route-relay) so a
+          relay-tunneled session is never mistaken for an ordinary direct one. */}
+      {route !== null && (
+        <div
+          className={`status-strip__segment status-strip__segment--route-${route}`}
+          aria-label={`Route: ${routeLabel(route)}`}
+          title={route === 'relay'
+            ? 'Connected via relay — live event streams are unavailable; affected views poll instead.'
+            : 'Connected directly'}
+        >
+          <Router className="status-strip__icon" aria-hidden="true" size={11} />
+          <span className="status-strip__label">{routeLabel(route)}</span>
+        </div>
+      )}
 
       {/* SIGNED-IN axis */}
       <div

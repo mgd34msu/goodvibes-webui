@@ -26,11 +26,30 @@ export type AuthState = 'signed-in' | 'signed-out' | 'unknown';
  */
 export type WorkingState = 'working' | 'blocked' | 'unknown';
 
-export type SseState = 'active' | 'connecting' | 'error' | 'disabled';
+/**
+ * A stream/subscription cannot work over the relay at all (unary-only tunnel — see
+ * lib/relay-connection.ts's header comment) — distinct from 'error' (a stream that
+ * SHOULD work but currently isn't) and from 'disabled' (never attempted, no verdict
+ * either way). Consumers show a specific, honest "not available over relay" copy
+ * rather than a generic reconnecting/error state.
+ */
+export type SseState = 'active' | 'connecting' | 'error' | 'disabled' | 'relay-unsupported';
+
+/**
+ * ROUTE axis — which transport is currently answering requests when the daemon is
+ * reachable at all. 'direct' is an ordinary fetch against the daemon's own origin
+ * (the LAN/co-located case, true before relay pairing existed). 'relay' means every
+ * unary call is being tunneled end-to-end through a relay server because the direct
+ * path is not reachable from this device. `null` when there is no verdict yet or the
+ * daemon is not reachable by either path (connection === 'down').
+ */
+export type RouteState = 'direct' | 'relay' | null;
 
 export interface DaemonHealth {
   /** REACHABLE axis — HTTP port answered (status < 500). NOT "everything is fine". */
   connection: ConnectionState;
+  /** ROUTE axis — which transport answered: direct, relay, or none (see RouteState). */
+  route: RouteState;
   /** SIGNED-IN axis — auth.current returned 200 vs 401. */
   signedIn: AuthState;
   /** WORKING axis — an authed read succeeded without 401. */
@@ -49,6 +68,7 @@ export interface DaemonHealth {
 
 export const DAEMON_HEALTH_DEFAULTS: DaemonHealth = {
   connection: 'down',
+  route: null,
   signedIn: 'unknown',
   working: 'unknown',
   latencyMs: null,
@@ -184,5 +204,18 @@ export function sseLabel(state: SseState): string {
     case 'connecting': return 'SSE…';
     case 'error': return 'SSE error';
     case 'disabled': return 'SSE off';
+    case 'relay-unsupported': return 'Unavailable (relay)';
+  }
+}
+
+/**
+ * Map the ROUTE axis to a human-readable label. `null` reads as an em dash, matching
+ * formatLatency's convention for "no verdict" rather than a scary/empty string.
+ */
+export function routeLabel(route: RouteState): string {
+  switch (route) {
+    case 'direct': return 'Direct';
+    case 'relay': return 'Via relay';
+    case null: return '—';
   }
 }

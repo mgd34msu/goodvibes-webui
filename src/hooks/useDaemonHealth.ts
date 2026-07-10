@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { sdk, GOODVIBES_BASE_URL, getCurrentAuth } from '../lib/goodvibes';
 import {
@@ -14,6 +14,8 @@ import {
   deriveAuthState,
   deriveWorkingState,
 } from '../lib/daemon-health';
+import { getStoredRelayPairing } from '../lib/relay-pairing';
+import { getActiveRoute, probeRelayReachability, setActiveRoute, subscribeActiveRoute } from '../lib/relay-connection';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -74,6 +76,15 @@ async function probeCall(fn: () => Promise<unknown>): Promise<{ ok: boolean; sta
  * - Subscribes to `sdk.realtime.viaSse()` for SSE state tracking.
  */
 export function useDaemonHealth(): DaemonHealth {
+  // -- Route state ------------------------------------------------------------
+  // Reactive view of the module-level active-route store (lib/relay-connection.ts) —
+  // the SAME store routedFetch reads for every actual request, so this never drifts
+  // from what the SDK client is genuinely dispatching over. The store only ever holds
+  // 'direct' or 'relay' (never a 'down'/null verdict); the connection probe below is
+  // what flips it, and the health.route field returned at the bottom maps it to null
+  // whenever the daemon is unreachable by either path.
+  const storeRoute = useSyncExternalStore(subscribeActiveRoute, getActiveRoute, getActiveRoute);
+
   // -- SSE state ------------------------------------------------------------
   // Stays 'connecting' until the first real envelope arrives — do NOT set
   // 'active' synchronously before any event, as that would show "Live" even
@@ -81,6 +92,14 @@ export function useDaemonHealth(): DaemonHealth {
   const [sseState, setSseState] = useState<SseState>('connecting');
 
   useEffect(() => {
+    // Event streams are not tunneled over the relay (see relay-connection.ts's header
+    // comment) — an honest, immediate verdict rather than attempting a subscription
+    // that can only time out. Skip the attempt entirely while routed over relay.
+    if (storeRoute === 'relay') {
+      setSseState('relay-unsupported');
+      return undefined;
+    }
+
     setSseState('connecting');
     let mounted = true;
     const unsubs: (() => void)[] = [];
@@ -117,7 +136,7 @@ export function useDaemonHealth(): DaemonHealth {
       for (const fn of unsubs) fn();
       // Don't flip to error on unmount — component teardown, not a real failure
     };
-  }, []);
+  }, [storeRoute]);
 
   // -- Latency + connection probe -------------------------------------------
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
@@ -125,8 +144,9 @@ export function useDaemonHealth(): DaemonHealth {
 
   /**
    * Consecutive probe-failure counter (persists across refetch intervals).
-   * 1st failure → 'reconnecting'; 2nd+ consecutive failure → 'down'.
-   * Any success resets it to 0.
+   * 1st failure → 'reconnecting'; 2nd+ consecutive failure → 'down' (or a relay
+   * fallback probe, if a relay pairing is stored — see the effect below).
+   * Any direct success resets it to 0.
    */
   const failureCountRef = useRef<number>(0);
 
@@ -147,29 +167,60 @@ export function useDaemonHealth(): DaemonHealth {
     staleTime: HEALTH_PROBE_INTERVAL_MS / 2,
   });
 
-  // Derive connection state from probe result.
-  // Pure liveness: ok (status < 500) → connected.
-  // On failure: first consecutive failure → 'reconnecting' (transient blip);
-  // FAILURE_THRESHOLD or more consecutive failures → 'down'.
+  // Derive connection + route state from the direct probe result, falling back to the
+  // relay when direct is genuinely down (FAILURE_THRESHOLD+ consecutive misses) and a
+  // relay pairing is stored (lib/relay-pairing.ts). Pure liveness: ok (status < 500) on
+  // either path → connected. Neither path answering → down, route null.
   useEffect(() => {
-    if (healthQuery.isSuccess) {
-      const { latencyMs: probed, ok } = healthQuery.data;
-      setLatencyMs(probed);
-      if (ok) {
-        failureCountRef.current = 0;
-        setConnectionState('connected');
+    let cancelled = false;
+
+    async function evaluate() {
+      if (healthQuery.isSuccess) {
+        const { latencyMs: probed, ok } = healthQuery.data;
+        if (cancelled) return;
+        setLatencyMs(probed);
+        if (ok) {
+          failureCountRef.current = 0;
+          setConnectionState('connected');
+          setActiveRoute('direct');
+          return;
+        }
+      } else if (healthQuery.isError) {
+        // Defensive guard: probeLatency never rethrows today, but this branch
+        // ensures correct failure-threshold behaviour if a future refactor adds
+        // a throwing code path to the probe.
+        if (cancelled) return;
+        setLatencyMs(null);
       } else {
-        failureCountRef.current += 1;
-        setConnectionState(failureCountRef.current >= FAILURE_THRESHOLD ? 'down' : 'reconnecting');
+        return; // still pending — nothing to evaluate yet
       }
-    } else if (healthQuery.isError) {
-      // Defensive guard: probeLatency never rethrows today, but this branch
-      // ensures correct failure-threshold behaviour if a future refactor adds
-      // a throwing code path to the probe.
+
       failureCountRef.current += 1;
-      setLatencyMs(null);
-      setConnectionState(failureCountRef.current >= FAILURE_THRESHOLD ? 'down' : 'reconnecting');
+      const directDown = failureCountRef.current >= FAILURE_THRESHOLD;
+      if (!directDown) {
+        if (!cancelled) setConnectionState('reconnecting');
+        return;
+      }
+
+      // Direct is down. Try the relay ONLY if this device has a stored pairing —
+      // with none, behavior is byte-identical to before this file existed.
+      if (getStoredRelayPairing()) {
+        const relayOk = await probeRelayReachability();
+        if (cancelled) return;
+        if (relayOk) {
+          setConnectionState('connected');
+          setActiveRoute('relay');
+          return;
+        }
+      }
+
+      if (!cancelled) setConnectionState('down');
     }
+
+    void evaluate();
+    return () => {
+      cancelled = true;
+    };
   }, [healthQuery.isSuccess, healthQuery.isError, healthQuery.data]);
 
   // -- Tasks ----------------------------------------------------------------
@@ -227,6 +278,10 @@ export function useDaemonHealth(): DaemonHealth {
 
   return {
     connection: connectionState,
+    // Down means neither path answered — a stale 'relay' from a prior success has no
+    // meaning once nothing is reachable, so this reports null rather than a route that
+    // is not actually carrying anything right now.
+    route: connectionState === 'down' ? null : storeRoute,
     signedIn,
     working,
     latencyMs,

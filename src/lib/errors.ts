@@ -273,6 +273,35 @@ export function isMethodNotInvokableError(error: unknown): boolean {
   return status === 501;
 }
 
+/**
+ * True for the daemon's step-up refusal on a mutating call that arrived over the relay
+ * (evaluateStepUp in @pellux/goodvibes-sdk's relay step-up policy — a fail-closed hook:
+ * consumers wire a real WebAuthn verifier, and until one is wired every mutating relay
+ * call is refused rather than silently allowed through). Two distinct codes, both a
+ * genuine policy refusal rather than a fault:
+ *   - `step-up-required` — a fresh assertion is required and none/an invalid one was
+ *     presented.
+ *   - `step-up-verifier-unavailable` — the daemon has no verifier wired at all, so the
+ *     policy fails closed unconditionally.
+ * The webui has no WebAuthn ceremony implemented (a further deferral of its own), so
+ * either code always means: render the honest refusal with its reason, never retry
+ * silently and never paint a generic/scary failure banner.
+ */
+export function isStepUpRequiredError(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === 'step-up-required' || code === 'step-up-verifier-unavailable';
+}
+
+/**
+ * True when the underlying refusal is specifically the "no verifier wired at all"
+ * variant, as opposed to "a verifier exists but this call didn't carry a valid fresh
+ * assertion". Callers that want to word the refusal differently (e.g. "not supported on
+ * this connection yet" vs "step up and try again") can branch on this.
+ */
+export function isStepUpVerifierUnavailableError(error: unknown): boolean {
+  return errorCode(error) === 'step-up-verifier-unavailable';
+}
+
 export function errorDebugValue(error: unknown): unknown {
   const serialized = serializeError(error);
   return Object.keys(serialized).length ? serialized : undefined;

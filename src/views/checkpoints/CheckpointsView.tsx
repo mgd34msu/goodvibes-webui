@@ -36,6 +36,8 @@ import {
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useIsPhoneViewport } from '../../hooks/useIsPhoneViewport';
 import { formatError, errorCode } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
@@ -48,6 +50,8 @@ function isNotFound(error: unknown): boolean {
 export function CheckpointsView() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isPhone = useIsPhoneViewport();
+  const confirm = useConfirmSheet();
   const [selectedId, setSelectedId] = useState('');
   // Compare target for the detail-pane diff: '' means "working tree" (the long-standing
   // default); a non-empty value is another checkpoint's id, giving checkpoint-to-checkpoint
@@ -135,19 +139,44 @@ export function CheckpointsView() {
 
   const [restoringId, setRestoringId] = useState('');
 
-  function handleRestore(checkpoint: WorkspaceCheckpoint): void {
-    if (!window.confirm(restoreConfirmMessage(checkpoint))) return;
+  // Restore is a destructive, git-backed workspace rewrite the daemon executes
+  // immediately, so it ALWAYS confirms — on desktop and phone alike — via the
+  // touch-first confirm sheet (replacing the old window.confirm).
+  async function handleRestore(checkpoint: WorkspaceCheckpoint): Promise<void> {
+    const ok = await confirm.ask({
+      title: 'Restore this checkpoint',
+      target: checkpoint.label || checkpoint.id,
+      description: restoreConfirmMessage(checkpoint),
+      confirmLabel: 'Restore',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setRestoringId(checkpoint.id);
     restore.mutate(checkpoint);
   }
 
+  // Creating a checkpoint is available on phone (no longer hidden); on a phone a
+  // confirm sheet names what gets snapshotted before the mutation runs. Desktop
+  // keeps its existing bare one-click create.
+  async function handleCreate(): Promise<void> {
+    if (isPhone) {
+      const ok = await confirm.ask({
+        title: 'Create a checkpoint',
+        target: labelDraft.trim() || 'the current workspace',
+        confirmLabel: 'Snapshot',
+      });
+      if (!ok) return;
+    }
+    create.mutate();
+  }
+
   return (
     <div className={selected ? 'checkpoints-view has-selection' : 'checkpoints-view'}>
+      {confirm.element}
       <div className="checkpoints-list-pane">
         <div className="checkpoints-toolbar">
-          {/* Creating a checkpoint is a mutation deferred to a wider screen on phone
-              (view-only tier — see the phone-note below); wrapped as one unit so the
-              phone media query can hide both the input and its button together. */}
+          {/* Creating a checkpoint is available on every viewport; on a phone
+              handleCreate routes it through a confirm sheet first. */}
           <div className="checkpoints-create-row">
             <input
               type="text"
@@ -160,7 +189,7 @@ export function CheckpointsView() {
             <button
               type="button"
               className="checkpoints-create-button"
-              onClick={() => create.mutate()}
+              onClick={() => void handleCreate()}
               disabled={create.isPending}
               title="Create a checkpoint of the current workspace"
             >
@@ -171,13 +200,6 @@ export function CheckpointsView() {
             <RefreshCw size={15} />
           </button>
         </div>
-
-        {/* Phone-only honest note (view-only tier): browsing and diffing stay fully
-            available; creating and restoring checkpoints — a git-backed workspace
-            rewrite — happens on a wider screen. */}
-        <p className="checkpoints-phone-note" role="note">
-          Creating and restoring checkpoints happens on a wider screen. Browse checkpoints and read their diffs here.
-        </p>
 
         {list.isPending && (
           <div className="checkpoints-loading">
@@ -194,7 +216,7 @@ export function CheckpointsView() {
             icon={<History size={28} />}
             title="No checkpoints yet"
             description="Create one to capture the current workspace tree, or checkpoints are created automatically per turn/agent-run depending on daemon config."
-            action={{ label: 'Snapshot now', onClick: () => create.mutate() }}
+            action={{ label: 'Snapshot now', onClick: () => void handleCreate() }}
           />
         )}
 
@@ -231,7 +253,7 @@ export function CheckpointsView() {
             diffPending={diff.isPending}
             diffError={diff.isError ? diff.error : null}
             onRetryDiff={() => void diff.refetch()}
-            onRestore={() => handleRestore(selected)}
+            onRestore={() => void handleRestore(selected)}
             restoring={restore.isPending && restoringId === selected.id}
             onBack={() => setSelectedId('')}
           />

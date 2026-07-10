@@ -6,6 +6,23 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+### Added
+
+- **Permission mode control.** The Sessions view now shows and lets you
+  change the daemon's permission mode (Normal/Auto/Custom/Plan/Accept edits)
+  from a toolbar chip and a touch-first picker sheet. The mode is daemon-wide
+  (`permissions.mode` config key, read via `config.get()` / written via
+  `config.set()`), so the TUI and every WebUI tab agree — a change from
+  either surface reflects everywhere over the existing `permissions`
+  realtime domain.
+- **Context-usage chip and compaction receipts.** A session's detail pane
+  now shows a compact context-usage indicator and renders the SDK's
+  post-compaction receipts (strategy, token/message counts before and after,
+  quality grade, outcome) as distinct cards in the transcript, fed by the
+  SDK's real `compaction` runtime-event domain. Both are honest about
+  absence — a session with no observed compaction activity shows "not
+  observed yet" rather than a fabricated number.
+
 ## [1.3.0] - 2026-07-09
 
 Ships against `@pellux/goodvibes-sdk` 1.6.1.

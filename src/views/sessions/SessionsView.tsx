@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, RefreshCw } from 'lucide-react';
+import { ChevronLeft, RefreshCw, Shield } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
@@ -37,8 +37,114 @@ import {
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { firstString, formatRelative } from '../../lib/object';
 import { formatError, isMethodUnavailableError, isSessionNotFoundError } from '../../lib/errors';
+import { currentPermissionMode, permissionModeLabel, type PermissionMode } from '../../lib/permission-mode';
+import { checkUsagePct, outcomeLabel, outcomeTone, type CompactionCheck, type CompactionReceipt } from '../../lib/compaction';
+import { useCompactionReceipts } from '../../hooks/useCompactionReceipts';
+import { PermissionModeSheet } from '../../components/confirm/PermissionModeSheet';
 import { SteerComposer } from './SteerComposer';
 import '../../styles/components/sessions.css';
+
+/**
+ * PermissionModeControl — the session-view chip + picker for the daemon's
+ * permission mode. Lives in the toolbar (not per-session-row) because the mode
+ * is daemon-wide (lib/permission-mode.ts) — showing it once, clearly labeled,
+ * is honest; repeating it on every session row would imply a per-session value
+ * that does not exist on the wire.
+ */
+function PermissionModeControl() {
+  const queryClient = useQueryClient();
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const config = useQuery({
+    queryKey: queryKeys.config,
+    queryFn: () => sdk.operator.config.get(),
+    staleTime: 15_000,
+    retry: false,
+  });
+  const mode = currentPermissionMode(config.data);
+
+  const setMode = useMutation({
+    mutationFn: (nextMode: PermissionMode) => sdk.operator.config.set('permissions.mode', nextMode),
+    onSuccess: async () => {
+      setSheetOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.config });
+    },
+  });
+
+  return (
+    <>
+      <button
+        type="button"
+        className="permission-mode-chip"
+        onClick={() => setSheetOpen(true)}
+        title="Change the daemon's permission mode"
+      >
+        <Shield size={13} aria-hidden="true" />
+        <span className="permission-mode-chip__label">Mode:</span>
+        {mode ? permissionModeLabel(mode) : (config.isLoading ? 'Loading…' : 'Unknown')}
+      </button>
+      <PermissionModeSheet
+        open={sheetOpen}
+        currentMode={mode}
+        pendingMode={setMode.isPending ? setMode.variables : undefined}
+        onSelect={(nextMode) => setMode.mutate(nextMode)}
+        onCancel={() => setSheetOpen(false)}
+      />
+      {setMode.isError && (
+        <span className="session-detail__action-note" role="alert">{formatError(setMode.error)}</span>
+      )}
+    </>
+  );
+}
+
+/**
+ * ContextUsageChip — the compact context-usage indicator (task: mirror the SDK's
+ * auto-compaction state). Fed exclusively by the live COMPACTION_CHECK frames
+ * useCompactionReceipts observes for this session; usagePct is null (and this
+ * renders an honest "not observed yet" chip) until the daemon has actually
+ * reported one — never a computed-from-nowhere percentage.
+ */
+function ContextUsageChip({ usagePct, check }: { usagePct: number | null; check: CompactionCheck | null }) {
+  if (!check || usagePct === null) {
+    return <span className="context-usage-chip" title="No compaction check observed yet for this session">Context: —</span>;
+  }
+  const warn = usagePct >= 80;
+  return (
+    <span
+      className={`context-usage-chip${warn ? ' context-usage-chip--warning' : ''}`}
+      title={`${check.tokenCount.toLocaleString()} tokens of a ${check.threshold.toLocaleString()}-token auto-compact threshold`}
+    >
+      Context: {usagePct}%
+    </span>
+  );
+}
+
+/** CompactionReceiptBlock — a distinct card for one COMPACTION_RECEIPT, the SDK's
+ *  mandatory post-compaction summary (lib/compaction.ts). Never folded into the
+ *  plain .session-message rows above it. */
+function CompactionReceiptBlock({ receipt }: { receipt: CompactionReceipt }) {
+  const tone = outcomeTone(receipt);
+  return (
+    <div className="compaction-receipt" role="note">
+      <div className="compaction-receipt__header">
+        <span className={`badge ${tone}`}>{outcomeLabel(receipt.outcome)}</span>
+        <span>Compaction · {receipt.trigger} · {receipt.strategy || 'unknown strategy'}</span>
+        {receipt.qualityGrade && (
+          <span className={`badge ${receipt.lowQuality ? 'warning' : 'neutral'}`}>
+            grade {receipt.qualityGrade} ({Math.round(receipt.qualityScore * 100)}%)
+          </span>
+        )}
+      </div>
+      <div className="compaction-receipt__stats">
+        <span>{receipt.tokensBefore.toLocaleString()} → {receipt.tokensAfter.toLocaleString()} tokens</span>
+        <span>{receipt.messagesBefore} → {receipt.messagesAfter} messages</span>
+        <span>{receipt.instructionsReinjected ? 'instructions reinjected' : 'instructions not reinjected'}</span>
+        <span>{receipt.validationPassed ? 'validation passed' : 'validation failed'}</span>
+      </div>
+      {receipt.detail && <p className="compaction-receipt__detail">{receipt.detail}</p>}
+    </div>
+  );
+}
 
 const SNAPSHOT_CAP = 50;
 
@@ -197,6 +303,7 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
           <button className="icon-button" type="button" title="Refresh" onClick={() => void list.refetch()}>
             <RefreshCw size={15} />
           </button>
+          <PermissionModeControl />
         </div>
 
         {list.isError && (
@@ -306,6 +413,12 @@ function SessionDetail({
   const retention = retentionLabel(record);
   const closed = isClosedStatus(record.status);
 
+  // Live compaction signal for THIS session only (lib/compaction.ts) — feeds both
+  // the context-usage chip below and the post-compaction receipt blocks appended
+  // to the transcript. Closes when the operator leaves this session's detail.
+  const compaction = useCompactionReceipts(record.id, Boolean(record.id));
+  const usagePct = compaction.latestCheck ? checkUsagePct(compaction.latestCheck) : null;
+
   const invalidateSessions = () => queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
 
   // Close/Reopen: DISTINCT, reversible, history-preserving actions — sessions.close /
@@ -368,6 +481,7 @@ function SessionDetail({
           <StatusBadge record={record} />
           <span className="badge neutral">{record.messageCount} msgs</span>
           {retention && <span className="badge warning">{retention}</span>}
+          <ContextUsageChip usagePct={usagePct} check={compaction.latestCheck} />
         </div>
         {record.surfaceKinds.length > 0 && (
           <div className="session-detail__surfaces">
@@ -460,6 +574,13 @@ function SessionDetail({
             <span className="session-message__role">{firstString(message, ['role', 'author', 'kind']) || 'message'}</span>
             <span className="session-message__body">{firstString(message, ['body', 'content', 'text', 'message'])}</span>
           </div>
+        ))}
+        {/* Post-compaction receipts observed live while this detail is open (there is
+            no history endpoint for them — see useCompactionReceipts's header) — a
+            distinct block per receipt, appended in arrival order after the loaded
+            transcript. */}
+        {compaction.receipts.map((receipt, index) => (
+          <CompactionReceiptBlock key={`${receipt.receivedAt}-${index}`} receipt={receipt} />
         ))}
       </div>
 

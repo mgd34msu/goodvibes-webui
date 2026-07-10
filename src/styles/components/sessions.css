@@ -26,6 +26,45 @@
   flex-wrap: wrap;
 }
 
+/* Permission-mode chip + control (SessionsView toolbar) — daemon-wide, not
+   per-session; see lib/permission-mode.ts's header for why. */
+.permission-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  min-height: 32px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  color: var(--text-primary);
+  font-size: var(--text-xs, 12px);
+  cursor: pointer;
+}
+
+.permission-mode-chip:hover {
+  background: var(--surface-hover, var(--surface-sunken));
+}
+
+.permission-mode-chip__label {
+  color: var(--text-tertiary);
+}
+
+.permission-mode-sheet__options {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.permission-mode-sheet__option {
+  flex: 1 1 calc(50% - var(--space-2, 8px));
+}
+
+.permission-mode-sheet__option--current {
+  border-color: var(--border-focus);
+  background: var(--accent-muted);
+  font-weight: 700;
+}
+
 .sessions-toolbar select {
   background: var(--surface-sunken);
   color: var(--text-primary);
@@ -243,6 +282,63 @@
 
 .session-detail__action-retry:hover {
   color: var(--accent-hover);
+}
+
+/* Context-usage chip — fed only by live COMPACTION_CHECK/COMPACTION_RECEIPT
+   frames for THIS session (useCompactionReceipts); an honest "not observed
+   yet" state renders until the daemon actually reports one, never a guessed
+   number. */
+.context-usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.context-usage-chip--warning {
+  color: var(--status-warning, var(--amber, #b57500));
+  border-color: var(--status-warning, var(--amber, #b57500));
+}
+
+/* Post-compaction receipt block — a distinct card in the transcript stream,
+   never folded into a plain .session-message row. */
+.compaction-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.compaction-receipt__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.compaction-receipt__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.compaction-receipt__detail {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-tertiary);
 }
 
 .session-detail__transcript {

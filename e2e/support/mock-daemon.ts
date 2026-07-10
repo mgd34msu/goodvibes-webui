@@ -22,6 +22,7 @@ import {
   calendarEventsResponse,
   configGetResponse,
   FLEET_SNAPSHOT,
+  FLEET_EVENT_NODE,
   knowledgeCandidateDecideResponse,
   knowledgeCandidatesResponse,
   knowledgeMapResponse,
@@ -88,6 +89,17 @@ export interface MockDaemonOptions {
    * than only the hand-authored optional subset.
    */
   packet?: 'complete' | 'truncated';
+  /**
+   * Fleet runtime events to emit over the multiplexed control-plane subscription
+   * (the `?domains=…,fleet` stream FleetView now rides). When non-empty, the FIRST
+   * request for that stream is fulfilled with these frames as SSE (`event: fleet`,
+   * one per entry) instead of being left pending — so a test can prove the
+   * subscription path is live. Emitting also flips the fleet snapshot to its
+   * ENRICHED form (FLEET_EVENT_NODE appended), so the event-driven invalidation
+   * surfaces a node that the baseline snapshot did not contain. Default [] (the
+   * existing pending-stream baseline, unchanged for every other test).
+   */
+  fleetEvents?: readonly unknown[];
 }
 
 export interface MockDaemon {
@@ -186,7 +198,13 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     calendar = 'configured',
     config = 'ok',
     packet = 'complete',
+    fleetEvents = [],
   } = options;
+  // The multiplexed fleet subscription emits its frames exactly once (the FIRST
+  // events-stream request that carries the `fleet` domain); the emission flips the
+  // snapshot to its enriched form so the event-driven refetch surfaces a new node.
+  let fleetEventsEmitted = false;
+  let fleetEnriched = false;
   const daemon: MockDaemon = {
     steerRequests: [],
     followUpRequests: [],
@@ -333,6 +351,26 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
     // Streams: an EventSource/fetch stream (text/event-stream).
     if (accept.includes('text/event-stream') || path.includes('/events')) {
+      // Fleet subscription emit: the FIRST request for the multiplexed stream that
+      // carries the `fleet` domain gets the seeded fleet frames as SSE, then the
+      // snapshot flips to its enriched form so the invalidation that frame triggers
+      // surfaces FLEET_EVENT_NODE. Only that one stream (the invalidation feed) is
+      // targeted — the session-update stream (?domains=session) never matches.
+      const domains = url.searchParams.get('domains') ?? '';
+      if (fleetEvents.length > 0 && !fleetEventsEmitted && domains.split(',').includes('fleet')) {
+        fleetEventsEmitted = true;
+        // Let the view's initial snapshot fetch settle before the frame lands, so the
+        // invalidation the frame triggers refetches an idle query (invalidating a query
+        // that is still in flight only marks it stale — it will not fire a second
+        // fetch). This mirrors real usage, where fleet events arrive after the first
+        // snapshot, not simultaneously with it.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        fleetEnriched = true;
+        const body = fleetEvents
+          .map((event) => `event: fleet\ndata: ${JSON.stringify({ payload: event })}\n\n`)
+          .join('');
+        return route.fulfill({ status: 200, contentType: 'text/event-stream', body });
+      }
       if (dropStreams) {
         // Immediately-closed stream → the client sees a terminated feed and enters
         // the reconnect/paused honesty path.
@@ -637,11 +675,17 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId.includes('knowledge')) return json(route, knowledgeMapResponse());
       if (methodId === 'sessions.search') return json(route, unionListResponse());
       if (methodId === 'fleet.snapshot') {
-        const nodes = FLEET_SNAPSHOT.nodes.filter((node) => !archivedFleetIds.has(node.id));
+        // Once a fleet event has been emitted over the subscription, the snapshot
+        // gains FLEET_EVENT_NODE — the node the event announced. A test asserting
+        // this node appears proves the event drove the refetch (it is never in the
+        // baseline, and shows up well before the poll fallback would fire).
+        const base = fleetEnriched ? [...FLEET_SNAPSHOT.nodes, FLEET_EVENT_NODE] : FLEET_SNAPSHOT.nodes;
+        const nodes = base.filter((node) => !archivedFleetIds.has(node.id));
         return json(route, { ...FLEET_SNAPSHOT, nodes, totalCount: nodes.length });
       }
       if (methodId === 'fleet.list') {
-        const items = FLEET_SNAPSHOT.nodes.filter((node) => !archivedFleetIds.has(node.id));
+        const base = fleetEnriched ? [...FLEET_SNAPSHOT.nodes, FLEET_EVENT_NODE] : FLEET_SNAPSHOT.nodes;
+        const items = base.filter((node) => !archivedFleetIds.has(node.id));
         return json(route, { items, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
       }
       // ── Fleet archive (SDK 1.6.x): stateful enough to prove the archive →

@@ -27,6 +27,7 @@ import {
   messageText,
 } from './chat/message-utils';
 import { buildLineage } from './chat/lineage';
+import { resolveScrollTarget, isScrollTargetReady, findMessageElement } from './chat/search-jump';
 import type { ChatViewProps, ChatMessage } from './chat/types';
 
 export type { ChatViewProps };
@@ -62,6 +63,12 @@ export function ChatView({
   const [isRenamingTitle, setIsRenamingTitle] = useState(false);
   const [sessionTitleDraft, setSessionTitleDraft] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  // Search jump-to-message: set when a MESSAGE-level search result is selected
+  // (session-level results carry messageId '' and never set this — see
+  // ChatSearch's module doc). Cleared once the target message is found and
+  // scrolled to, or the operator navigates to a different session first.
+  const [pendingScrollTarget, setPendingScrollTarget] = useState<{ sessionId: string; messageId: string } | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState('');
 
   const providers = useQuery({ queryKey: queryKeys.providers, queryFn: () => sdk.operator.providers.list() });
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
@@ -224,6 +231,37 @@ export function ChatView({
       container.scrollTop = container.scrollHeight;
     });
   }, [activeSessionId, liveText, renderedMessageItems.length, showJumpToBottom]);
+
+  // Search jump-to-message: once the target session is active AND its messages
+  // have loaded, locate the message in the DOM and scroll to it. Session switch
+  // (onActiveSessionChange) and the messages fetch it triggers are both async —
+  // the target message may not exist in lineageNodes/the DOM yet on the render
+  // right after selecting a search result, so this effect just no-ops until a
+  // later render (driven by lineageNodes changing as messages arrive) finds it.
+  // The readiness/lookup rules live in search-jump.ts (framework-free, unit
+  // tested there) — this effect is just the async-retry wiring around them.
+  useEffect(() => {
+    if (!isScrollTargetReady(pendingScrollTarget, activeSessionId, lineageNodes) || !pendingScrollTarget) return;
+    const target = pendingScrollTarget;
+    const element = findMessageElement(scrollRef.current, target.messageId);
+    if (!element) return;
+    element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightedMessageId(target.messageId);
+    setPendingScrollTarget(null);
+  }, [pendingScrollTarget, activeSessionId, lineageNodes]);
+
+  // Auto-clear the search jump-to-message highlight after a brief flash. A
+  // separate effect (keyed only on highlightedMessageId) so a fresh highlight
+  // starting mid-flash restarts its own timer rather than racing the one
+  // above's cleanup.
+  useEffect(() => {
+    if (!highlightedMessageId) return;
+    const target = highlightedMessageId;
+    const timer = window.setTimeout(() => {
+      setHighlightedMessageId((current) => (current === target ? '' : current));
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedMessageId]);
 
   useEffect(() => {
     if ((!ACTIVE_TURN_STATES.includes(turnState) && turnState !== 'syncing') || liveText) return;
@@ -420,9 +458,10 @@ export function ChatView({
       {showSearch && (
         <ChatSearch
           sessions={sessionItems}
-          onSelect={({ sessionId }) => {
-            onActiveSessionChange(sessionId);
+          onSelect={(payload) => {
+            onActiveSessionChange(payload.sessionId);
             setShowSearch(false);
+            setPendingScrollTarget(resolveScrollTarget(payload));
           }}
           className="chat-search-panel"
         />
@@ -434,6 +473,7 @@ export function ChatView({
         isSendPending={send.isPending}
         isStreaming={isStreaming}
         copiedMessageId={copiedMessageId}
+        highlightedMessageId={highlightedMessageId}
         scrollRef={scrollRef}
         onScroll={handleMessagesScroll}
         onJumpToBottom={scrollMessagesToBottom}

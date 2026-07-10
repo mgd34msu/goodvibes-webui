@@ -4,6 +4,7 @@ import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { useReducedMotion } from '../../components/motion/useReducedMotion';
 import { MessageItem } from './MessageItem';
 import { lineageNodeKey, type LineageNode } from './lineage';
+import { bestId } from './message-utils';
 import type { ChatMessage } from './types';
 import '../../styles/components/chat-stream.css';
 
@@ -16,6 +17,8 @@ interface MessageListProps {
   /** Whether a turn is actively streaming (running | streaming | tooling). */
   isStreaming?: boolean;
   copiedMessageId: string;
+  /** Id of the message to flash-highlight (search jump-to-message target), or '' for none. */
+  highlightedMessageId?: string;
   scrollRef: RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   onJumpToBottom: () => void;
@@ -35,6 +38,7 @@ export function MessageList({
   isSendPending,
   isStreaming = false,
   copiedMessageId,
+  highlightedMessageId = '',
   scrollRef,
   onScroll,
   onJumpToBottom,
@@ -64,6 +68,7 @@ export function MessageList({
             priorMessages={node.priorMessages}
             reason={node.reason}
             revisionOf={node.revisionOf}
+            isHighlighted={highlightedMessageId !== '' && bestId(node.message) === highlightedMessageId}
             onCopyMessage={onCopyMessage}
             onResendMessage={onResendMessage}
             onRegenerateFrom={onRegenerateFrom}

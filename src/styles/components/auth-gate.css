@@ -31,6 +31,58 @@
   font-size: var(--text-sm, 13px);
 }
 
+/* Primary path: the QR pairing panel. Visually the lead affordance on the card. */
+.signed-out-pair {
+  display: flex;
+  gap: var(--space-3, 12px);
+  align-items: flex-start;
+  padding: var(--space-3, 12px);
+  background: var(--surface-sunken, var(--surface-base));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+}
+
+.signed-out-pair__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm, 8px);
+  color: var(--text-accent);
+  background: color-mix(in srgb, var(--text-accent) 12%, transparent);
+}
+
+.signed-out-pair__copy h2 {
+  margin: 0 0 2px;
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.signed-out-pair__copy p {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+/* "or paste a token" divider between the primary QR path and the fallback field. */
+.signed-out-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: var(--text-xs, 12px);
+}
+
+.signed-out-or::before,
+.signed-out-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
 .signed-out-help {
   font-size: var(--text-xs, 12px);
   color: var(--text-secondary);

@@ -351,7 +351,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
     // ── Auth / health ──────────────────────────────────────────────────────
     if (path === '/api/control-plane/auth') {
-      if (!signedIn) return json(route, { error: 'unauthorized' }, 401);
+      // Authenticated when the app was seeded signed-in OR presents a bearer token
+      // (what a QR pairing hand-off produces): the daemon authenticates the presented
+      // operator token, so a freshly-paired device with no seeded token still passes.
+      const authz = request.headers()['authorization'] ?? '';
+      const bearer = /^Bearer\s+(.+)$/i.exec(authz)?.[1]?.trim();
+      if (!signedIn && !bearer) return json(route, { error: 'unauthorized' }, 401);
       return json(route, { authenticated: true, username: 'operator', identity: { subject: 'operator' } });
     }
     if (path === '/api/local-auth') {

@@ -6,20 +6,34 @@
  * reports signed-out, this screen is shown INSTEAD of the shell: the nav and views are
  * gated behind it.
  *
- * Paste-token is the primary path (setExplicitAuthToken self-validates via auth.current
- * and auto-clears on failure). Password login is offered only as a de-emphasized
- * secondary path — on hosts where the bootstrap credential was already consumed it is
- * structurally dead, so it must not be presented co-equal with the token path.
+ * PRIMARY path: scan the QR shown by `goodvibes pair` in the terminal. That QR encodes
+ * a link back here with the operator token in the URL fragment; opening it hands the
+ * token off automatically (usePairingHandoff → setExplicitAuthToken) — no copy/paste.
+ * This screen leads with that flow and explains it prominently.
+ *
+ * FALLBACK path: paste the operator token by hand (setExplicitAuthToken self-validates
+ * via auth.current and auto-clears on failure). Password login is offered only as a
+ * de-emphasized tertiary path — on hosts where the bootstrap credential was already
+ * consumed it is structurally dead, so it must not be presented co-equal.
+ *
+ * `pairingError` is set when a pairing link's token was rejected by the daemon (an
+ * expired or malformed QR); it surfaces as a banner so a failed scan is never a silent
+ * bounce back to the token field.
  */
 
-import { KeyRound, ShieldCheck } from 'lucide-react';
+import { KeyRound, QrCode, ShieldCheck } from 'lucide-react';
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { login, setExplicitAuthToken } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
 import '../../styles/components/auth-gate.css';
 
-export function SignedOutGate() {
+export interface SignedOutGateProps {
+  /** Set when a `#pair=…` hand-off token was rejected by the daemon (expired/invalid QR). */
+  pairingError?: unknown;
+}
+
+export function SignedOutGate({ pairingError }: SignedOutGateProps = {}) {
   const queryClient = useQueryClient();
   const [token, setToken] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -61,9 +75,34 @@ export function SignedOutGate() {
         </div>
         <h1>Sign in to GoodVibes</h1>
         <p className="signed-out-lede">
-          This operator shell talks to a daemon that requires an operator token. Browser
-          code cannot read <code>~/.goodvibes</code> files, so paste a token to sign in.
+          This operator shell talks to a daemon that requires an operator token. The
+          quickest way in is to scan a QR from your terminal — no copy/paste.
         </p>
+
+        {pairingError != null && (
+          <div className="banner warning" role="alert">
+            The pairing link was rejected — {formatError(pairingError)}. Its token was
+            cleared; scan a fresh QR from <code>goodvibes pair</code>, or paste a token below.
+          </div>
+        )}
+
+        <section className="signed-out-pair" aria-labelledby="signed-out-pair-title">
+          <div className="signed-out-pair__mark">
+            <QrCode size={22} aria-hidden="true" />
+          </div>
+          <div className="signed-out-pair__copy">
+            <h2 id="signed-out-pair-title">Scan the QR from your terminal</h2>
+            <p>
+              Run <code>goodvibes pair</code> in the terminal where the daemon is running.
+              It prints a QR code — scan it with this device&rsquo;s camera and the link
+              signs you in automatically.
+            </p>
+          </div>
+        </section>
+
+        <div className="signed-out-or" role="separator" aria-label="or paste a token">
+          <span>or paste a token</span>
+        </div>
 
         <form className="form-grid" onSubmit={submitToken}>
           <label>
@@ -92,6 +131,10 @@ export function SignedOutGate() {
         <details className="signed-out-help">
           <summary>Where do I find a token?</summary>
           <ul>
+            <li>
+              Easiest: run <code>goodvibes pair</code> and scan the QR — it carries the
+              token for you, no copy/paste.
+            </li>
             <li>
               The daemon prints an operator token in its startup output when it boots.
             </li>

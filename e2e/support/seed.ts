@@ -640,11 +640,45 @@ export const FLEET_WATCHER_NODE = {
   capabilities: { interruptible: false, killable: true, pausable: false, resumable: false, steerable: false },
 };
 
+// A node the daemon flagged as blocked on the operator (needsAttention). Its
+// startedAt is the OLDEST of the roots so the attention-first sibling sort has
+// something to prove — despite being oldest it floats to the top. Deliberately a
+// distinct session with no pending approval so it does not correlate with
+// PENDING_APPROVAL (the reason is 'input', not 'approval'). This node is also the
+// needs-input deep-link target (fleet-focus-link).
+export const FLEET_BLOCKED_NODE = {
+  id: 'agent-blocked-7',
+  kind: 'agent',
+  label: 'Waiting on your answer',
+  state: 'awaiting-approval',
+  elapsedMs: 3000,
+  startedAt: 50,
+  costState: 'unpriced',
+  capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+  needsAttention: { reason: 'input', detail: 'Which migration should I run?' },
+  sessionRef: { sessionId: 'session-blocked', agentId: 'agent-blocked-7' },
+};
+
+// A node that does NOT exist in the baseline snapshot — the mock daemon adds it
+// only AFTER a fleet event has been delivered over the subscription (see
+// installMockDaemon's fleetEvents option), so an e2e can prove the subscription
+// drove a live tree update rather than a poll.
+export const FLEET_EVENT_NODE = {
+  id: 'agent-live-99',
+  kind: 'agent',
+  label: 'Started via a fleet event',
+  state: 'thinking',
+  elapsedMs: 0,
+  startedAt: 900,
+  costState: 'unpriced',
+  capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+};
+
 export const FLEET_SNAPSHOT = {
   capturedAt: 1000,
   truncated: false,
-  totalCount: 2,
-  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE],
+  totalCount: 3,
+  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE],
 };
 
 export const PENDING_APPROVAL = {

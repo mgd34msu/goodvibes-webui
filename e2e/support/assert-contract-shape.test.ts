@@ -15,6 +15,7 @@ import { describe, expect, test } from 'bun:test';
 import { assertFixtureMatchesOperatorContract, ContractShapeError } from './assert-contract-shape';
 import {
   CLOSED_SESSION,
+  FLEET_SNAPSHOT,
   FOLLOWUP_SESSION,
   messagesResponse,
   providersResponse,
@@ -70,6 +71,15 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
 
   test('control.methods.get: methodInfoResponse() conforms (the sessions.delete capability probe)', () => {
     expect(() => assertFixtureMatchesOperatorContract('control.methods.get', methodInfoResponse('sessions.delete'))).not.toThrow();
+  });
+
+  test('fleet.snapshot: FLEET_SNAPSHOT conforms, including the derived needsAttention marker', () => {
+    // FLEET_BLOCKED_NODE carries needsAttention: { reason:'input', detail } — the new
+    // SDK field this consumer round adopts. This pins the fixture against the real
+    // fleet.snapshot output schema so a drift in the attention shape is caught here.
+    expect(() => assertFixtureMatchesOperatorContract('fleet.snapshot', FLEET_SNAPSHOT)).not.toThrow();
+    const blocked = FLEET_SNAPSHOT.nodes.find((n) => n.id === 'agent-blocked-7');
+    expect(blocked?.needsAttention).toEqual({ reason: 'input', detail: 'Which migration should I run?' });
   });
 });
 

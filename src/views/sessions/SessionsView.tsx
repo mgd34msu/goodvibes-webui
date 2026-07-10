@@ -42,6 +42,7 @@ import { checkUsagePct, outcomeLabel, outcomeTone, type CompactionCheck, type Co
 import { useCompactionReceipts } from '../../hooks/useCompactionReceipts';
 import { PermissionModeSheet } from '../../components/confirm/PermissionModeSheet';
 import { SteerComposer } from './SteerComposer';
+import { SessionChanges } from './SessionChanges';
 import '../../styles/components/sessions.css';
 
 /**
@@ -583,6 +584,8 @@ function SessionDetail({
           <CompactionReceiptBlock key={`${receipt.receivedAt}-${index}`} receipt={receipt} />
         ))}
       </div>
+
+      <SessionChanges sessionId={record.id} canSteer={canSteer(record)} closed={closed} streamPaused={streamPaused} />
 
       <SteerComposer sessionId={record.id} canSteer={canSteer(record)} closed={closed} streamPaused={streamPaused} />
     </div>

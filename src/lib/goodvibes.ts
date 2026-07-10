@@ -150,6 +150,15 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'calendar.events.list': { method: 'GET', path: '/api/calendar/events' },
   'calendar.ics.export': { method: 'GET', path: '/api/calendar/ics/export' },
   'calendar.ics.import': { method: 'POST', path: '/api/calendar/ics/import' },
+  // CI (ci.*, SDK 1.6.1's initiative-family repack): per-job CI status polling and
+  // standing watches. ci.status is a POST (repo/ref/prNumber body) despite being a
+  // read — the daemon's own route shape, not this client's choice. Real REST routes
+  // with real generated I/O maps, same table-routed shape as the families above.
+  'ci.status': { method: 'POST', path: '/api/ci/status' },
+  'ci.watches.create': { method: 'POST', path: '/api/ci/watches' },
+  'ci.watches.delete': { method: 'DELETE', path: '/api/ci/watches/{watchId}' },
+  'ci.watches.list': { method: 'GET', path: '/api/ci/watches' },
+  'ci.watches.run': { method: 'POST', path: '/api/ci/watches/{watchId}/run' },
   // Honest-lineage chat verbs (SDK 1.1.0). Both have real REST routes on the daemon
   // and are in the installed OperatorMethodId union, but the pinned browser SDK route
   // maps (SHARED/KNOWLEDGE_BROWSER_ROUTES) do NOT cover them, so they resolve here as
@@ -1136,6 +1145,18 @@ export const sdk = {
             'calendar.ics.import',
             input,
           ),
+      },
+    },
+    // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job
+    // list — see ci.status's own description) and standing watches. Real generated I/O
+    // maps throughout.
+    ci: {
+      status: (input: OperatorMethodInput<'ci.status'>) => invokeOperator('ci.status', input),
+      watches: {
+        list: () => invokeOperator('ci.watches.list', {}),
+        create: (input: OperatorMethodInput<'ci.watches.create'>) => invokeOperator('ci.watches.create', input),
+        delete: (watchId: string) => invokeOperator('ci.watches.delete', { watchId }),
+        run: (watchId: string) => invokeOperator('ci.watches.run', { watchId }),
       },
     },
     approvals: {

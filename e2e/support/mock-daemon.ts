@@ -259,6 +259,34 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // returns them, unarchive releases them.
   const archivedFleetIds = new Set<string>();
 
+  // CI watches (ci.watches.*, SDK 1.6.1's initiative family): one seeded watch so a
+  // spec has real selected-detail content to prove against, matching the checkpoints
+  // seed above. ci.status/ci.watches.run always answer with a real per-job report
+  // (two jobs, one continue-on-error) — the honesty-bar shape CiWatchesView renders.
+  let ciWatchList = [
+    {
+      id: 'ciw_e2e_1', repo: 'acme/example', ref: 'main', deliveryChannel: 'slack:#ci',
+      triggerFixSession: false, lastOverall: 'passed' as const,
+      createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000,
+    },
+  ];
+  let ciWatchIdCounter = 0;
+  function ciReportFor(repo: string, ref?: string, prNumber?: number) {
+    return {
+      repo,
+      ...(ref ? { ref } : {}),
+      ...(prNumber ? { prNumber } : {}),
+      overall: 'failed' as const,
+      jobs: [
+        { name: 'test', status: 'completed' as const, conclusion: 'success', continueOnError: false, url: 'https://example.com/runs/1' },
+        { name: 'lint', status: 'completed' as const, conclusion: 'failure', continueOnError: false, url: 'https://example.com/runs/2' },
+        { name: 'optional-check', status: 'completed' as const, conclusion: 'failure', continueOnError: true },
+      ],
+      violations: ['job "lint" concluded failure'],
+      checkedAt: 1_700_000_100_000,
+    };
+  }
+
   // Runtime tasks (tasks.*): one cancellable, one retryable — the pair TaskRow's
   // two mutation buttons key off (task.cancellable / a failed/cancelled status),
   // so the phone confirm-sheet flow for cancel/retry has something to act on.
@@ -975,6 +1003,57 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (method === 'POST' && path === '/api/calendar/ics/import') {
       return json(route, { imported: 1, eventIds: ['ev-imported'], errors: [] });
+    }
+    return json(route, {});
+  });
+
+  // CI (ci.*, SDK 1.6.1's initiative family) — plain REST paths (EXTRA_METHOD_ROUTES
+  // in src/lib/goodvibes.ts), same own-registration reason as calendar/tasks above.
+  await page.route('**/api/ci/**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'POST' && path === '/api/ci/status') {
+      const body = (request.postDataJSON?.() ?? {}) as { repo?: string; ref?: string; prNumber?: number };
+      return json(route, { report: ciReportFor(body.repo ?? 'unknown/repo', body.ref, body.prNumber) });
+    }
+    if (method === 'GET' && path === '/api/ci/watches') {
+      return json(route, { watches: ciWatchList });
+    }
+    if (method === 'POST' && path === '/api/ci/watches') {
+      const body = (request.postDataJSON?.() ?? {}) as {
+        repo?: string; ref?: string; prNumber?: number; deliveryChannel?: string; triggerFixSession?: boolean;
+      };
+      ciWatchIdCounter += 1;
+      const watch = {
+        id: `ciw_e2e_new_${ciWatchIdCounter}`,
+        repo: body.repo ?? '',
+        ...(body.ref ? { ref: body.ref } : {}),
+        ...(body.prNumber ? { prNumber: body.prNumber } : {}),
+        deliveryChannel: body.deliveryChannel ?? '',
+        triggerFixSession: Boolean(body.triggerFixSession),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      ciWatchList = [...ciWatchList, watch];
+      return json(route, { watch });
+    }
+    const watchRunMatch = path.match(/^\/api\/ci\/watches\/([^/]+)\/run$/);
+    if (method === 'POST' && watchRunMatch) {
+      const watchId = decodeURIComponent(watchRunMatch[1]);
+      const watch = ciWatchList.find((w) => w.id === watchId);
+      if (!watch) return json(route, { error: `CI watch not found: ${watchId}`, code: 'NOT_FOUND' }, 404);
+      const report = ciReportFor(watch.repo, watch.ref, watch.prNumber);
+      ciWatchList = ciWatchList.map((w) => (w.id === watchId ? { ...w, lastOverall: report.overall, updatedAt: Date.now() } : w));
+      return json(route, { report, notified: true, notificationId: 'ntf-1', fixSessionTriggered: false });
+    }
+    const watchDeleteMatch = path.match(/^\/api\/ci\/watches\/([^/]+)$/);
+    if (method === 'DELETE' && watchDeleteMatch) {
+      const watchId = decodeURIComponent(watchDeleteMatch[1]);
+      const existed = ciWatchList.some((w) => w.id === watchId);
+      ciWatchList = ciWatchList.filter((w) => w.id !== watchId);
+      return json(route, { watchId, deleted: existed });
     }
     return json(route, {});
   });

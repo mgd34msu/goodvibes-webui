@@ -125,6 +125,11 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=workstream').view).toBe('workstream');
   });
 
+  // ci-watches (SDK 1.6.1's initiative family — CI watches/status view).
+  test('decodes the ci-watches view id', () => {
+    expect(decodeUrlState('?view=ci-watches').view).toBe('ci-watches');
+  });
+
   test('invalid view falls back to chat', () => {
     expect(decodeUrlState('?view=invalid').view).toBe('chat');
     expect(decodeUrlState('?view=').view).toBe('chat');
@@ -220,6 +225,11 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
       const encoded = encodeUrlState(makeState({ view }));
       expect(decodeUrlState(`?${encoded}`).view).toBe(view);
     }
+  });
+
+  test('round-trips the ci-watches view id', () => {
+    const encoded = encodeUrlState(makeState({ view: 'ci-watches' }));
+    expect(decodeUrlState(`?${encoded}`).view).toBe('ci-watches');
   });
 
   test('filter key ordering is stable across encode/decode', () => {

@@ -24,6 +24,7 @@ import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDaemonHealth } from './hooks/useDaemonHealth';
+import { usePairingHandoff } from './hooks/usePairingHandoff';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
@@ -99,6 +100,11 @@ export default function App() {
       return false;
     }
   });
+  // Pairing hand-off: a `#pair=<token>` fragment (from the terminal's `goodvibes pair`
+  // QR) is consumed once at mount — the token is stripped from the URL, stored, and
+  // validated. `pending` shows the pairing splash instead of the gate; `error` surfaces
+  // on the gate. See usePairingHandoff.
+  const pairing = usePairingHandoff();
   const boot = useQuery({
     queryKey: ['boot'],
     queryFn: loadBootSnapshot,
@@ -336,10 +342,24 @@ export default function App() {
   // mounted (and inert, so it can't be typed into or clicked while hidden) workspace
   // instead of early-returning in its place; a remount would reset the selected
   // session and discard a half-typed steer/follow-up draft.
+  // A pairing hand-off in flight shows a neutral splash INSTEAD of the signed-out gate,
+  // so scanning a QR never flashes the gate on the way in. Once it resolves, the normal
+  // auth flow below takes over (success → shell; failure → gate with pairing.error).
+  if (pairing.status === 'pending') {
+    return (
+      <AppShell view={view} onNavigate={handleNavigate}>
+        <div className="app-splash" role="status" aria-live="polite">
+          <img className="app-splash__mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
+          <span>Pairing this device…</span>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (signedOut) {
     return (
       <AppShell view={view} onNavigate={handleNavigate}>
-        <SignedOutGate />
+        <SignedOutGate pairingError={pairing.status === 'error' ? pairing.error : undefined} />
       </AppShell>
     );
   }

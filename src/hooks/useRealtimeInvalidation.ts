@@ -32,7 +32,13 @@ import { queryKeys } from '../lib/queries';
  */
 const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   tasks: [queryKeys.tasks],
-  permissions: [queryKeys.approvals],
+  // permissions: approvals AND queryKeys.config — the SDK's PERMISSION_MODE_CHANGED
+  // event (events/permissions.ts) rides this same domain (no dedicated wire event of
+  // its own), so a mode change anywhere (TUI, another webui tab) revalidates the
+  // config.get() cache SessionsView's permission-mode chip reads from
+  // (lib/permission-mode.ts) — the same "invalidate off the frame, never render
+  // straight from it" idiom the rest of this map already uses.
+  permissions: [queryKeys.approvals, queryKeys.config],
   providers: [queryKeys.providers],
   knowledge: [queryKeys.knowledgeStatus, queryKeys.knowledgeSources, queryKeys.knowledgeRefinement],
   'control-plane': [queryKeys.control],

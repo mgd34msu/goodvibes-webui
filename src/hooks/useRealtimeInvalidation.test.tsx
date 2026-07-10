@@ -109,11 +109,14 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
-  test('a `permissions` frame invalidates approvals; `providers` invalidates providers', () => {
+  test('a `permissions` frame invalidates approvals AND config; `providers` invalidates providers', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('permissions', {});
     capturedHandlers?.onEvent?.('providers', {});
-    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['providers']]);
+    // config is included because PERMISSION_MODE_CHANGED rides the same 'permissions'
+    // domain and has no dedicated wire event — see useRealtimeInvalidation.ts's
+    // DOMAIN_INVALIDATIONS comment.
+    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['config'], ['providers']]);
     unmount();
   });
 

@@ -6,6 +6,12 @@ export const queryKeys = {
   control: ['control', 'snapshot'] as const,
   accounts: ['accounts'] as const,
   providers: ['providers'] as const,
+  // The daemon's full config tree (config.get) — shared cache key with
+  // SettingsModal/ModelWorkspaceModal/useSharedVoiceConfig, all of which already
+  // used the literal ['config'] array. Centralized here so the session-view
+  // permission-mode reader (lib/permission-mode.ts) invalidates/dedupes against
+  // the SAME cache entry rather than a second, silently-diverging one.
+  config: ['config'] as const,
   tasks: ['tasks'] as const,
   approvals: ['approvals'] as const,
   sessions: ['sessions'] as const,

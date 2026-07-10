@@ -259,6 +259,18 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // returns them, unarchive releases them.
   const archivedFleetIds = new Set<string>();
 
+  // Check-in (checkin.*, SDK 1.6.1's initiative family): a mutable in-memory config
+  // (starts enabled, so the config-display honesty state has real content) plus one
+  // seeded receipt for each distinct outcome the wire reports, so ReceiptRow's
+  // outcome-label mapping has real content to prove against.
+  let checkinConfigState = { enabled: true, cadence: '0 9 * * *', deliveryChannel: 'slack:#daily', quietHours: '22:00-07:00' };
+  let checkinReceiptList = [
+    { id: 'ckr_e2e_1', ranAt: 1_700_000_300_000, trigger: 'scheduled' as const, outcome: 'delivered' as const, briefingSummary: 'Three PRs merged, one flaky test flagged.', deliveredMessage: 'Morning update: 3 PRs merged overnight.', deliveryChannel: 'slack:#daily' },
+    { id: 'ckr_e2e_2', ranAt: 1_700_000_200_000, trigger: 'scheduled' as const, outcome: 'quiet' as const, briefingSummary: 'Nothing new since the last check-in.', decisionReason: 'No new activity worth surfacing.' },
+    { id: 'ckr_e2e_3', ranAt: 1_700_000_100_000, trigger: 'manual' as const, outcome: 'skipped-quiet-hours' as const, briefingSummary: 'Requested during quiet hours.', decisionReason: 'Current time falls within configured quiet hours.' },
+  ];
+  let checkinReceiptIdCounter = 0;
+
   // CI watches (ci.watches.*, SDK 1.6.1's initiative family): one seeded watch so a
   // spec has real selected-detail content to prove against, matching the checkpoints
   // seed above. ci.status/ci.watches.run always answer with a real per-job report
@@ -1054,6 +1066,47 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const existed = ciWatchList.some((w) => w.id === watchId);
       ciWatchList = ciWatchList.filter((w) => w.id !== watchId);
       return json(route, { watchId, deleted: existed });
+    }
+    return json(route, {});
+  });
+
+  // Check-in (checkin.*, SDK 1.6.1's initiative family) — plain REST paths
+  // (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason as
+  // calendar/tasks/ci above.
+  await page.route('**/api/checkin/**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'GET' && path === '/api/checkin/config') {
+      return json(route, { config: checkinConfigState });
+    }
+    if (method === 'POST' && path === '/api/checkin/config') {
+      const body = (request.postDataJSON?.() ?? {}) as Partial<typeof checkinConfigState>;
+      checkinConfigState = { ...checkinConfigState, ...body };
+      return json(route, { config: checkinConfigState });
+    }
+    if (method === 'GET' && path === '/api/checkin/receipts') {
+      return json(route, { receipts: checkinReceiptList });
+    }
+    if (method === 'POST' && path === '/api/checkin/run') {
+      checkinReceiptIdCounter += 1;
+      const outcome = checkinConfigState.enabled ? ('delivered' as const) : ('skipped' as const);
+      if (checkinConfigState.enabled) {
+        checkinReceiptList = [
+          {
+            id: `ckr_e2e_run_${checkinReceiptIdCounter}`, ranAt: Date.now(), trigger: 'manual' as const,
+            outcome: 'delivered' as const, briefingSummary: 'Manual run: nothing urgent.',
+            deliveredMessage: 'Manual check-in: all quiet.', deliveryChannel: checkinConfigState.deliveryChannel,
+          },
+          ...checkinReceiptList,
+        ];
+      }
+      return json(route, {
+        outcome,
+        summary: checkinConfigState.enabled ? 'Manual run: nothing urgent.' : 'Check-in is disabled.',
+        ...(checkinConfigState.enabled ? { deliveryId: `dlv_e2e_${checkinReceiptIdCounter}` } : {}),
+      });
     }
     return json(route, {});
   });

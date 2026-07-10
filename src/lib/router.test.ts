@@ -130,6 +130,11 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=ci-watches').view).toBe('ci-watches');
   });
 
+  // checkin (SDK 1.6.1's initiative family — proactive check-in config/receipts view).
+  test('decodes the checkin view id', () => {
+    expect(decodeUrlState('?view=checkin').view).toBe('checkin');
+  });
+
   test('invalid view falls back to chat', () => {
     expect(decodeUrlState('?view=invalid').view).toBe('chat');
     expect(decodeUrlState('?view=').view).toBe('chat');
@@ -230,6 +235,11 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   test('round-trips the ci-watches view id', () => {
     const encoded = encodeUrlState(makeState({ view: 'ci-watches' }));
     expect(decodeUrlState(`?${encoded}`).view).toBe('ci-watches');
+  });
+
+  test('round-trips the checkin view id', () => {
+    const encoded = encodeUrlState(makeState({ view: 'checkin' }));
+    expect(decodeUrlState(`?${encoded}`).view).toBe('checkin');
   });
 
   test('filter key ordering is stable across encode/decode', () => {

@@ -72,6 +72,9 @@ export const queryKeys = {
   // CiWatchesView polls/refetches manually rather than riding useRealtimeInvalidation —
   // same standing gap fleet.*/checkpoints.*/memory.* document above.
   ciWatches: ['ci', 'watches'] as const,
+  // checkin.* (SDK 1.6.1's initiative family). Same manual-refresh story as ci.* above.
+  checkinConfig: ['checkin', 'config'] as const,
+  checkinReceipts: ['checkin', 'receipts'] as const,
 };
 
 export async function loadBootSnapshot() {

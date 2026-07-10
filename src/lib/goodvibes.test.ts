@@ -160,6 +160,15 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
     expect(isExtraRoutedMethod('ci.watches.delete')).toBe(true);
     expect(isExtraRoutedMethod('ci.watches.run')).toBe(true);
   });
+
+  // checkin.* (SDK 1.6.1's initiative-family repack): same table-routed shape as ci.*
+  // above.
+  test('checkin.* is table-routed', () => {
+    expect(isExtraRoutedMethod('checkin.config.get')).toBe(true);
+    expect(isExtraRoutedMethod('checkin.config.set')).toBe(true);
+    expect(isExtraRoutedMethod('checkin.receipts.list')).toBe(true);
+    expect(isExtraRoutedMethod('checkin.run')).toBe(true);
+  });
 });
 
 describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
@@ -380,6 +389,62 @@ describe('ci.* (SDK 1.6.1 initiative family) wire calls', () => {
   });
 });
 
+describe('checkin.* (SDK 1.6.1 initiative family) wire calls', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('operator.checkin.config.get GETs /api/checkin/config', async () => {
+    const config = { enabled: true, cadence: '0 9 * * *', deliveryChannel: 'slack:#daily', quietHours: '22:00-07:00' };
+    stubFetch({ config });
+    const result = await sdk.operator.checkin.config.get();
+    expect(calls[0].url).toContain('/api/checkin/config');
+    expect(calls[0].method).toBe('GET');
+    expect(result).toEqual({ config });
+  });
+
+  test('operator.checkin.config.set POSTs only the provided fields to /api/checkin/config', async () => {
+    stubFetch({ config: { enabled: false, cadence: '0 9 * * *', deliveryChannel: 'slack:#daily', quietHours: '22:00-07:00' } });
+    await sdk.operator.checkin.config.set({ enabled: false });
+    expect(calls[0].url).toContain('/api/checkin/config');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ enabled: false });
+  });
+
+  test('operator.checkin.receipts.list GETs /api/checkin/receipts and preserves every receipt field', async () => {
+    const receipts = [{ id: 'ckr-1', ranAt: 1, trigger: 'scheduled' as const, outcome: 'skipped-quiet-hours' as const, briefingSummary: 'x', decisionReason: 'quiet hours' }];
+    stubFetch({ receipts });
+    const result = await sdk.operator.checkin.receipts.list();
+    expect(calls[0].url).toContain('/api/checkin/receipts');
+    expect(calls[0].method).toBe('GET');
+    // The honesty bar: outcome and decisionReason ride through untouched.
+    expect(result.receipts).toEqual(receipts);
+  });
+
+  test('operator.checkin.run POSTs /api/checkin/run with no body and returns the receipt shape', async () => {
+    stubFetch({ outcome: 'delivered', summary: 'All quiet.', deliveryId: 'dlv-1' });
+    const result = await sdk.operator.checkin.run();
+    expect(calls[0].url).toContain('/api/checkin/run');
+    expect(calls[0].method).toBe('POST');
+    expect(result).toEqual({ outcome: 'delivered', summary: 'All quiet.', deliveryId: 'dlv-1' });
+  });
+});
+
 describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
@@ -424,14 +489,14 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, ci, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
-    // 'ci' added for ci.status/ci.watches.* (SDK 1.6.1's initiative-family repack).
+    // 'ci'/'checkin' added for the SDK 1.6.1 initiative-family repack.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'providers', 'push', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -478,6 +543,13 @@ describe('sdk facade shape — byte-compatible surface', () => {
   test('sdk.operator.ci exposes status and watches', () => {
     expect(Object.keys(sdk.operator.ci).sort()).toEqual(['status', 'watches'].sort());
     expect(Object.keys(sdk.operator.ci.watches).sort()).toEqual(['create', 'delete', 'list', 'run'].sort());
+  });
+
+  // checkin.* (SDK 1.6.1's initiative-family repack): config get/set, receipts, run.
+  test('sdk.operator.checkin exposes config, receipts, and run', () => {
+    expect(Object.keys(sdk.operator.checkin).sort()).toEqual(['config', 'receipts', 'run'].sort());
+    expect(Object.keys(sdk.operator.checkin.config).sort()).toEqual(['get', 'set'].sort());
+    expect(Object.keys(sdk.operator.checkin.receipts).sort()).toEqual(['list']);
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {

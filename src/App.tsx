@@ -1,5 +1,6 @@
 import {
   Activity,
+  BellRing,
   Boxes,
   Brain,
   CalendarDays,
@@ -37,6 +38,7 @@ import { CheckpointsView } from './views/checkpoints/CheckpointsView';
 import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
 import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { CiWatchesView } from './views/ci/CiWatchesView';
+import { CheckInView } from './views/checkin/CheckInView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
@@ -79,6 +81,8 @@ const views: {
   { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
   // ci.watches.* (SDK 1.6.1's initiative family) — standing CI watches + per-job status.
   { id: 'ci-watches', label: 'CI', short: 'Watches', icon: GitBranch },
+  // checkin.* (SDK 1.6.1's initiative family) — proactive check-in config + receipts.
+  { id: 'checkin', label: 'Check-in', short: 'Proactive', icon: BellRing },
 ];
 
 export default function App() {
@@ -633,6 +637,7 @@ export default function App() {
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
           {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'ci-watches' && <CiWatchesView />}
+          {activeView === 'checkin' && <CheckInView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}

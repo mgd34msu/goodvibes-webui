@@ -150,6 +150,13 @@ const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
   'calendar.events.list': { method: 'GET', path: '/api/calendar/events' },
   'calendar.ics.export': { method: 'GET', path: '/api/calendar/ics/export' },
   'calendar.ics.import': { method: 'POST', path: '/api/calendar/ics/import' },
+  // Check-in (checkin.*, SDK 1.6.1's initiative-family repack): the proactive-contact
+  // configuration, its run receipts, and a manual run-now trigger. Real REST routes
+  // with real generated I/O maps, same table-routed shape as the families above.
+  'checkin.config.get': { method: 'GET', path: '/api/checkin/config' },
+  'checkin.config.set': { method: 'POST', path: '/api/checkin/config' },
+  'checkin.receipts.list': { method: 'GET', path: '/api/checkin/receipts' },
+  'checkin.run': { method: 'POST', path: '/api/checkin/run' },
   // CI (ci.*, SDK 1.6.1's initiative-family repack): per-job CI status polling and
   // standing watches. ci.status is a POST (repo/ref/prNumber body) despite being a
   // read — the daemon's own route shape, not this client's choice. Real REST routes
@@ -1146,6 +1153,18 @@ export const sdk = {
             input,
           ),
       },
+    },
+    // Check-in (checkin.*, SDK 1.6.1): the proactive-contact configuration, its run
+    // receipts, and a manual run-now trigger. Real generated I/O maps throughout.
+    checkin: {
+      config: {
+        get: () => invokeOperator('checkin.config.get', {}),
+        set: (input: OperatorMethodInput<'checkin.config.set'>) => invokeOperator('checkin.config.set', input),
+      },
+      receipts: {
+        list: (limit?: number) => invokeOperator('checkin.receipts.list', limit ? { limit } : {}),
+      },
+      run: () => invokeOperator('checkin.run', {}),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job
     // list — see ci.status's own description) and standing watches. Real generated I/O

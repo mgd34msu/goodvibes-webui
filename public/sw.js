@@ -175,6 +175,12 @@ self.addEventListener('push', (event) => {
   const title = typeof payload.title === 'string' && payload.title ? payload.title : 'GoodVibes';
   const body = typeof payload.body === 'string' ? payload.body : '';
   const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+  // For an approval, offer Allow/Deny action buttons. Platforms without
+  // notification-action support ignore this field and just show the body (a tap
+  // still deep-links to the approvals list) — an honest graceful degrade. The
+  // buttons do NOT approve in the background: notificationclick hands off to the
+  // authenticated app, which makes the real call (see docs/push-approval-actions.md).
+  const isApproval = data.kind === 'approval' && typeof data.approvalId === 'string' && data.approvalId;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -182,6 +188,12 @@ self.addEventListener('push', (event) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: typeof data.approvalId === 'string' ? `approval-${data.approvalId}` : undefined,
+      actions: isApproval
+        ? [
+            { action: 'approve', title: 'Allow' },
+            { action: 'deny', title: 'Deny' },
+          ]
+        : undefined,
     }),
   );
 });
@@ -193,7 +205,19 @@ self.addEventListener('push', (event) => {
 // malicious or malformed push payload) would have the SW open an external site on
 // a notification tap. src/lib/push/sw.test.ts loads and executes THIS file (not a
 // hand-copy) to pin that the guard actually runs here, not just in the pure helper.
-function linkForNotification(data) {
+function linkForNotification(data, action) {
+  // An Allow/Deny action tap carries the choice + approval id back in the FRAGMENT
+  // for the authenticated app to complete (the SW cannot approve on its own — no
+  // operator token here; see docs/push-approval-actions.md).
+  if (
+    data &&
+    data.kind === 'approval' &&
+    typeof data.approvalId === 'string' &&
+    data.approvalId.length > 0 &&
+    (action === 'approve' || action === 'deny')
+  ) {
+    return '/?view=approvals-tasks#approval-action=' + action + '&approval-id=' + encodeURIComponent(data.approvalId);
+  }
   if (data && data.kind === 'approval') return '/?view=approvals-tasks';
   if (data && typeof data.url === 'string' && data.url.startsWith('/')) return data.url;
   return '/';
@@ -201,7 +225,7 @@ function linkForNotification(data) {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = linkForNotification(event.notification.data || {});
+  const target = linkForNotification(event.notification.data || {}, event.action);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Prefer focusing an already-open window and navigating it, so a tap does

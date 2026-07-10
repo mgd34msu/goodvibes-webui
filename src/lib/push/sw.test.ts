@@ -19,13 +19,13 @@ import { dirname, resolve } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SW_PATH = resolve(__dirname, '../../../public/sw.js');
 
-function loadServiceWorkerLinkForNotification(): (data: unknown) => string {
+function loadServiceWorkerLinkForNotification(): (data: unknown, action?: string) => string {
   const source = readFileSync(SW_PATH, 'utf8');
   // The top level only defines constants/functions and calls `self.addEventListener`
   // (a real happy-dom EventTarget method — a no-op registration here since none of
   // those events fire in this test). Nothing else executes at load time.
   const factory = new Function(`${source}\nreturn linkForNotification;`);
-  return factory() as (data: unknown) => string;
+  return factory() as (data: unknown, action?: string) => string;
 }
 
 describe('sw.js linkForNotification (loaded and executed from the real file, not a hand copy)', () => {
@@ -49,5 +49,18 @@ describe('sw.js linkForNotification (loaded and executed from the real file, not
     expect(linkForNotification({})).toBe('/');
     expect(linkForNotification(undefined)).toBe('/');
     expect(linkForNotification(null)).toBe('/');
+  });
+
+  test('an Allow/Deny action tap carries the action + approval id in the fragment (real sw.js copy)', () => {
+    const linkForNotification = loadServiceWorkerLinkForNotification();
+    expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' }, 'approve')).toBe(
+      '/?view=approvals-tasks#approval-action=approve&approval-id=apr-1',
+    );
+    expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' }, 'deny')).toBe(
+      '/?view=approvals-tasks#approval-action=deny&approval-id=apr-1',
+    );
+    // A body tap (no action) and an unknown action fall back to the plain view.
+    expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' })).toBe('/?view=approvals-tasks');
+    expect(linkForNotification({ kind: 'approval', approvalId: 'apr-1' }, 'snooze')).toBe('/?view=approvals-tasks');
   });
 });

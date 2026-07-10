@@ -20,11 +20,27 @@ export interface NotificationData {
 }
 
 /**
- * Map a notification's `data` onto an in-app URL (a `?view=…` deep link the
- * custom router reads). Falls back to the app root for anything unrecognized,
- * so a tap is never a dead end.
+ * Map a notification's `data` (and an optional action-button id) onto an in-app
+ * URL (a `?view=…` deep link the custom router reads). Falls back to the app
+ * root for anything unrecognized, so a tap is never a dead end.
+ *
+ * When the operator taps the "Allow"/"Deny" ACTION button on an approval push,
+ * the chosen action and the approval id ride back in the URL FRAGMENT. The
+ * service worker cannot itself approve/deny — it holds no operator token, and
+ * the current daemon exposes no single-purpose action-token endpoint (see
+ * docs/push-approval-actions.md). So the authenticated app completes the action
+ * on open (ApprovalsTasksView consumes the fragment), which works against the
+ * daemon today. Tapping the notification BODY (no action) just opens the list.
  */
-export function linkForNotification(data: NotificationData | undefined | null): string {
+export function linkForNotification(data: NotificationData | undefined | null, action?: string): string {
+  if (
+    data?.kind === 'approval'
+    && typeof data.approvalId === 'string'
+    && data.approvalId.length > 0
+    && (action === 'approve' || action === 'deny')
+  ) {
+    return `/?view=approvals-tasks#approval-action=${action}&approval-id=${encodeURIComponent(data.approvalId)}`;
+  }
   if (data?.kind === 'approval') return '/?view=approvals-tasks';
   if (typeof data?.url === 'string' && data.url.startsWith('/')) return data.url;
   return '/';

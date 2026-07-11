@@ -1,8 +1,10 @@
 import {
   createBrowserKnowledgeSdk,
   forSession,
+  KNOWLEDGE_BROWSER_ROUTES,
 } from '@pellux/goodvibes-sdk/browser/knowledge';
 import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/knowledge';
+import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import { routedFetch } from './relay-connection';
 import type {
@@ -134,197 +136,91 @@ interface RequestOptions {
 }
 
 /**
- * EXTRA_METHOD_ROUTES — operator methods NOT covered by the pinned 0.38 browser SDK
- * route maps (SHARED_BROWSER_ROUTES + KNOWLEDGE_BROWSER_ROUTES). Each row is a method
- * invokeOperator must resolve with a hand-written HTTP route because the SDK cannot.
+ * The webui's transport layer is GENERATED, not hand-maintained. The mechanical facts —
+ * which operator methods carry a plain-REST http binding, at what path, and which are
+ * reachable only through the generic gateway-method invoke endpoint — come from the
+ * contract-emitted facade artifact (@pellux/goodvibes-contracts/generated/webui-facade):
+ * WEBUI_METHOD_ROUTES (every REST-routed method id → route). The ergonomic layer below
+ * (the sdk.operator.* call shapes, typed I/O, error normalization, auth handling, and the
+ * routedFetch relay integration) stays hand-written on top — that split is the design.
  *
- * W2B retirement audit (2026-07, SDK 0.38.0): the session methods that gained native
- * coverage in 0.38 — sessions.get / sessions.steer / sessions.followUp /
- * sessions.messages.list / sessions.messages.create / sessions.inputs.list /
- * sessions.inputs.cancel — are DELIBERATELY ABSENT from this table. They resolve
- * natively via scopedSdk.operator.invoke (the fall-through at invokeOperator's
- * no-route branch). DO NOT re-add rows for them.
+ * EXTRA_METHOD_ROUTES is DERIVED (buildExtraMethodRoutes): WEBUI_METHOD_ROUTES minus every
+ * id the pinned browser SDK route maps already cover (those resolve natively through
+ * scopedSdk.operator.invoke — the no-route fall-through in invokeOperator below), plus the
+ * three models.* rows the contract cannot carry. No route path or http method is written
+ * by hand here anymore; the drift test in goodvibes.test.ts pins this table against the
+ * generated artifact so a hand-written row can never shadow or diverge from a generated one.
  *
- * sessions.close / sessions.reopen genuinely REMAIN here: they are not in
- * SHARED_BROWSER_ROUTES in 0.38, so removing their rows breaks the calls. The rest of
- * the survivors (approvals.* / models.* / tasks.* / config.set / local_auth.status /
- * companion.chat.sessions.delete) are contract-coverage targets; each pays
- * its way today because no browser route map covers it.
- *
- * sessions.delete / companion.chat.sessions.close (delete-means-delete): these
- * two rows are forward-looking — verified against the SDK repo's OWN source at the time
- * of writing (method-catalog-control-core.ts / method-catalog-control-companion.ts /
- * runtime-session-lifecycle-routes.ts / companion-chat-routes.ts), where the real
- * hard-delete work is in flight but NOT YET COMMITTED there and not yet in the
- * installed 0.38 contracts package — so neither id is in the installed `OperatorMethodId`
- * union today (unlike sessions.close/reopen above, which ARE). Calls through these rows
- * therefore use invokeOperator's untyped overload (see the sdk.operator.sessions.delete
- * and sdk.chat.sessions.close call sites below), exactly like the models.* rows. This is
- * NOT a bridge-type situation (no I/O shape gap to swap later) — it is a
- * capability-availability gap: an older daemon simply does not have these routes yet,
- * which is why every call site is paired with an honest capability check
- * (control.methods.get, also added below) or a proof-of-gone reconcile rather than
- * trusting a 200 at face value. control.methods.get('sessions.delete'/
- * 'companion.chat.sessions.close') on such a daemon 404s with `{error: 'Unknown gateway
- * method'}` (verified live against a bootDaemon instance) — the signal
- * isMethodUnavailableError (lib/errors.ts) recognizes.
+ * The retirement invariant the previous hand-table documented still holds structurally:
+ * sessions.get / steer / followUp / messages.* / inputs.* are covered by the browser SDK
+ * (SHARED_BROWSER_ROUTES) and so are subtracted out — they resolve natively, never through
+ * a generated REST row (see goodvibes.test.ts's EXTRA_METHOD_ROUTES retirement suite).
  */
-const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = {
-  'approvals.approve': { method: 'POST', path: '/api/approvals/{approvalId}/approve' },
-  'approvals.cancel': { method: 'POST', path: '/api/approvals/{approvalId}/cancel' },
-  'approvals.claim': { method: 'POST', path: '/api/approvals/{approvalId}/claim' },
-  'approvals.deny': { method: 'POST', path: '/api/approvals/{approvalId}/deny' },
-  'approvals.list': { method: 'GET', path: '/api/approvals' },
-  // Calendar (SDK 1.1.0, method-catalog-calendar.ts): five CalDAV-backed contract ids
-  // with real HTTP paths, but NOT in SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES (the
-  // pinned browser SDK route maps only cover the domains it lists — calendar is not one
-  // of them), so every calendar id needs a hand-written row here, same as approvals.*
-  // above. The SDK's own catalog entry ships these `invokable: false` (a CalDAV-backed
-  // contract with no daemon-sdk handler in the SDK repo itself); a daemon that has
-  // registered a real handler for these ids (see the calendar decision record) answers
-  // normally, an un-upgraded one answers 501 "not invokable" or 404 "unknown gateway
-  // method" — both honest refusals the calendar view distinguishes from a genuine fault
-  // (isMethodNotInvokableError / isMethodUnavailableError, lib/errors.ts) from a
-  // CalDAV-not-configured 412 (isCalendarUnconfiguredError).
-  'calendar.events.create': { method: 'POST', path: '/api/calendar/events' },
-  'calendar.events.get': { method: 'GET', path: '/api/calendar/events/{eventId}' },
-  'calendar.events.list': { method: 'GET', path: '/api/calendar/events' },
-  'calendar.ics.export': { method: 'GET', path: '/api/calendar/ics/export' },
-  'calendar.ics.import': { method: 'POST', path: '/api/calendar/ics/import' },
-  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative-family repack). Real
-  // REST routes with real generated I/O maps, same table-routed shape as the families
-  // above. .get/.delete key on {surfaceKind, channelId?} — surfaceKind rides the PATH,
-  // channelId (when present) rides the remainder (a query param for GET, the body for
-  // DELETE); .list takes no input; .set POSTs the full binding body.
-  'channels.profiles.delete': { method: 'DELETE', path: '/api/channels/profiles/{surfaceKind}' },
-  'channels.profiles.get': { method: 'GET', path: '/api/channels/profiles/{surfaceKind}' },
-  'channels.profiles.list': { method: 'GET', path: '/api/channels/profiles' },
-  'channels.profiles.set': { method: 'POST', path: '/api/channels/profiles' },
-  // Check-in (checkin.*, SDK 1.6.1's initiative-family repack): the proactive-contact
-  // configuration, its run receipts, and a manual run-now trigger. Real REST routes
-  // with real generated I/O maps, same table-routed shape as the families above.
-  'checkin.config.get': { method: 'GET', path: '/api/checkin/config' },
-  'checkin.config.set': { method: 'POST', path: '/api/checkin/config' },
-  'checkin.receipts.list': { method: 'GET', path: '/api/checkin/receipts' },
-  'checkin.run': { method: 'POST', path: '/api/checkin/run' },
-  // CI (ci.*, SDK 1.6.1's initiative-family repack): per-job CI status polling and
-  // standing watches. ci.status is a POST (repo/ref/prNumber body) despite being a
-  // read — the daemon's own route shape, not this client's choice. Real REST routes
-  // with real generated I/O maps, same table-routed shape as the families above.
-  'ci.status': { method: 'POST', path: '/api/ci/status' },
-  'ci.watches.create': { method: 'POST', path: '/api/ci/watches' },
-  'ci.watches.delete': { method: 'DELETE', path: '/api/ci/watches/{watchId}' },
-  'ci.watches.list': { method: 'GET', path: '/api/ci/watches' },
-  'ci.watches.run': { method: 'POST', path: '/api/ci/watches/{watchId}/run' },
-  // Honest-lineage chat verbs (SDK 1.1.0). Both have real REST routes on the daemon
-  // and are in the installed OperatorMethodId union, but the pinned browser SDK route
-  // maps (SHARED/KNOWLEDGE_BROWSER_ROUTES) do NOT cover them, so they resolve here as
-  // hand-written REST rows. The route reads the body FLAT ({ messageId, content,
-  // attachments }) — interpolateRoute consumes `sessionId` from the path and posts the
-  // rest as-is (see the chat.messages.retry/.edit call sites below). Neither has a
-  // generated OperatorMethodInput/OutputMap entry, so both are invoked through the
-  // untyped path with a hand-authored result shape (Companion{Regenerate,Edit}Result).
-  'companion.chat.messages.edit': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/edit' },
-  'companion.chat.messages.retry': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/messages/retry' },
-  'companion.chat.sessions.close': { method: 'POST', path: '/api/companion/chat/sessions/{sessionId}/close' },
-  'companion.chat.sessions.delete': { method: 'DELETE', path: '/api/companion/chat/sessions/{sessionId}' },
-  // config.get (GET /config) — the admin-scoped full-config read
-  // (context.configManager.getAll()). Two consumers share this one row: the
-  // voice surface reads it to learn the SHARED spoken-voice defaults
-  // (tts.provider / tts.voice) so playback uses the same voice the TUI and
-  // agent do (the typed snapshot declares domain sections with
-  // additionalProperties:true, so the `tts` section rides in as an extra
-  // property — read it defensively, src/lib/voice/voice-config.ts); the
-  // model/config workspace reads the same full snapshot for its honest
-  // config.get browsing (never rendered raw — src/lib/config-redaction.ts).
-  'config.get': { method: 'GET', path: '/config' },
-  'config.set': { method: 'POST', path: '/config' },
-  'control.methods.get': { method: 'GET', path: '/api/control-plane/methods/{methodId}' },
-  'credentials.get': { method: 'GET', path: '/config/credentials' },
-  'local_auth.status': { method: 'GET', path: '/api/local-auth' },
-  'models.current': { method: 'GET', path: '/api/models/current' },
+
+// The browser SDK owns these routes natively (its SHARED_BROWSER_ROUTES ∪
+// KNOWLEDGE_BROWSER_ROUTES maps — the set scopedSdk is built from). invokeOperator must let
+// them fall through to scopedSdk.operator.invoke rather than shadow them with a generated
+// REST row (the fall-through carries the scoped transport: relay, auth, observer, SSE).
+// KNOWLEDGE_BROWSER_ROUTES is a public runtime export; SHARED_BROWSER_ROUTES is not, so its
+// ids are listed here and pinned to the SDK's own BrowserKnowledgeMethodId type by
+// SHARED_COVERAGE_IS_COMPLETE below — a pin bump that adds a browser-covered method this
+// list has not accounted for stops the build until the list is updated.
+const SHARED_BROWSER_METHOD_IDS = [
+  'accounts.snapshot',
+  'control.auth.current',
+  'control.auth.login',
+  'control.snapshot',
+  'control.status',
+  'providers.get',
+  'providers.list',
+  'providers.usage.get',
+  'sessions.create',
+  'sessions.followUp',
+  'sessions.get',
+  'sessions.inputs.cancel',
+  'sessions.inputs.list',
+  'sessions.list',
+  'sessions.messages.create',
+  'sessions.messages.list',
+  'sessions.steer',
+] as const;
+
+type BrowserCoveredMethodId =
+  | (typeof SHARED_BROWSER_METHOD_IDS)[number]
+  | Extract<keyof typeof KNOWLEDGE_BROWSER_ROUTES, string>;
+// Compile-time half of the drift protection: fails to compile if BrowserKnowledgeMethodId
+// (the SDK's own SHARED ∪ KNOWLEDGE union) gains a member this module does not subtract —
+// otherwise a generated REST row could silently shadow a natively-covered method.
+const SHARED_COVERAGE_IS_COMPLETE: [BrowserKnowledgeMethodId] extends [BrowserCoveredMethodId] ? true : never = true;
+void SHARED_COVERAGE_IS_COMPLETE;
+
+/**
+ * models.list/current/select are the ONLY hand-written REST rows that survive the
+ * migration: they are not in the operator contract at all (no OperatorMethodId entry — the
+ * generated facade has no 'models.*' key), so it cannot carry them. Every other row is
+ * derived from WEBUI_METHOD_ROUTES. Flag this again if a future contracts generation adds
+ * models.* ids (the drift test asserts they remain absent from the generated artifact).
+ */
+const HAND_WRITTEN_ROUTES: Record<string, RouteDefinition> = {
   'models.list': { method: 'GET', path: '/api/models' },
+  'models.current': { method: 'GET', path: '/api/models/current' },
   'models.select': { method: 'PATCH', path: '/api/models/current' },
-  'sessions.close': { method: 'POST', path: '/api/sessions/{sessionId}/close' },
-  'sessions.delete': { method: 'DELETE', path: '/api/sessions/{sessionId}' },
-  // sessions.detach: remove ONE participant (surfaceId) from a shared session's
-  // participant list without closing/killing it (detach != close != kill — see the
-  // wire description on sdk.operator.sessions.detach below). Real REST route, in the
-  // installed OperatorMethodId union, same EXTRA_METHOD_ROUTES pattern as
-  // close/reopen above; body carries `surfaceId` (sessionId is consumed by
-  // interpolateRoute from the path).
-  'sessions.detach': { method: 'POST', path: '/api/sessions/{sessionId}/detach' },
-  'sessions.reopen': { method: 'POST', path: '/api/sessions/{sessionId}/reopen' },
-  // sessions.permissionMode.get/.set + sessions.contextUsage.get (SDK 1.6.1): the
-  // session-scoped verbs that replace the earlier daemon-wide config.get/config.set('
-  // permissions.mode') workaround (lib/permission-mode.ts's prior header explained the
-  // gap this closes). Real REST routes, in the installed OperatorMethodId union with real
-  // generated I/O maps (foundation-client-types.d.ts) — not in
-  // SHARED_BROWSER_ROUTES/KNOWLEDGE_BROWSER_ROUTES, so they still need their own rows
-  // here, same as sessions.close/reopen above. The daemon answers only for the session id
-  // that IS its own live local runtime; any other session id is an honest 404
-  // SESSION_NOT_LOCAL (routes/session-runtime.ts) — callers must handle that explicitly
-  // (lib/errors.ts's isSessionNotLocalError), never fall back to a daemon-wide value.
-  'sessions.permissionMode.get': { method: 'GET', path: '/api/sessions/{sessionId}/permission-mode' },
-  'sessions.permissionMode.set': { method: 'POST', path: '/api/sessions/{sessionId}/permission-mode' },
-  'sessions.contextUsage.get': { method: 'GET', path: '/api/sessions/{sessionId}/context-usage' },
-  // memory.records.* / memory.review-queue (WEBUI-MEMORY-VIEW, SDK 1.1.0's just-landed
-  // canonical memory store): all six ids ARE in the installed OperatorMethodId union
-  // (operator-method-ids.d.ts lists memory.records.add/search/get/update-review/delete
-  // and memory.review-queue), but — like fleet.*/checkpoints.* before them — neither the
-  // generated I/O maps (foundation-client-types.d.ts only covers memory.doctor/
-  // vector.stats/vector.rebuild/embeddings.default.set, none of these six) nor the
-  // browser SDK's route tables (browser-scoped.js / browser-knowledge.js: zero
-  // memory.* entries) cover them yet. UNLIKE fleet.*/checkpoints.* (ws-only, generic
-  // invoke), these six DO have real REST http bindings (method-catalog-runtime.js), so
-  // EXTRA_METHOD_ROUTES — not invokeGatewayMethod — is the correct mechanism, the same
-  // path sessions.close/reopen already take. Wire shapes (MemoryRecord, the honest
-  // search envelope, the delete-means-delete boolean) are hand-authored below from the
-  // daemon's own schemas (operator-contract-schemas-runtime.js), the same
-  // cross-checked-against-source approach the Approvals/Tasks sections above use.
-  'memory.records.add': { method: 'POST', path: '/api/memory/records' },
-  'memory.records.search': { method: 'POST', path: '/api/memory/records/search' },
-  'memory.records.get': { method: 'GET', path: '/api/memory/records/{id}' },
-  'memory.records.update-review': { method: 'POST', path: '/api/memory/records/{id}/review' },
-  'memory.records.delete': { method: 'DELETE', path: '/api/memory/records/{id}' },
-  'memory.review-queue': { method: 'GET', path: '/api/memory/review-queue' },
-  // Principals (principals.*, SDK 1.6.1's initiative-family repack): the named-identity
-  // registry (create/get/list/update/delete) plus resolve (channel+value → principal,
-  // known:false for an unmapped identity — never a guess). Real REST routes with real
-  // generated I/O maps, same table-routed shape as the families above. .update posts to
-  // a distinct /update sub-path (not a bare PATCH {principalId}) — the daemon's own
-  // route shape.
-  'principals.create': { method: 'POST', path: '/api/principals' },
-  'principals.delete': { method: 'DELETE', path: '/api/principals/{principalId}' },
-  'principals.get': { method: 'GET', path: '/api/principals/{principalId}' },
-  'principals.list': { method: 'GET', path: '/api/principals' },
-  'principals.resolve': { method: 'POST', path: '/api/principals/resolve' },
-  'principals.update': { method: 'POST', path: '/api/principals/{principalId}/update' },
-  'tasks.cancel': { method: 'POST', path: '/api/tasks/{taskId}/cancel' },
-  // tasks.create posts to the legacy `/task` path (no {taskId} placeholder — the
-  // whole body is the task submission), predating the `/api/tasks` REST family.
-  'tasks.create': { method: 'POST', path: '/task' },
-  'tasks.list': { method: 'GET', path: '/api/tasks' },
-  'tasks.retry': { method: 'POST', path: '/api/tasks/{taskId}/retry' },
-  // watchers.stop: the one fleet-adjacent kill action this client can back with a
-  // real wire verb (WEBUI-FLEET-DEPTH) — WatcherRecord.id IS the fleet node id for
-  // kind:'watcher' (adaptWatcher, packages/sdk/.../fleet/adapters/watcher.ts sets
-  // `id: record.id` with no namespacing), unlike agent/wrfc-chain/workflow/trigger/
-  // schedule kills, which the daemon only exposes to same-process callers (the TUI's
-  // fleet registry) and NOT over the operator wire today — see lib/fleet.ts's
-  // `wireStopUnavailableReason` for the honest per-kind accounting.
-  'watchers.stop': { method: 'POST', path: '/api/watchers/{watcherId}/stop' },
-  // Voice verbs (SDK 1.1.0). All are in the installed OperatorMethodId union with real
-  // generated I/O maps, but the pinned browser SDK route maps do not cover them, so they
-  // resolve here as hand-written REST rows. voice.tts.stream is DELIBERATELY ABSENT: its
-  // response body is streamed audio bytes, not JSON, so it cannot ride requestJson — the
-  // player fetches it raw via sdk.operator.voice.ttsStream (requestStream below).
-  'voice.providers.list': { method: 'GET', path: '/api/voice/providers' },
-  'voice.status': { method: 'GET', path: '/api/voice' },
-  'voice.stt': { method: 'POST', path: '/api/voice/stt' },
-  'voice.tts': { method: 'POST', path: '/api/voice/tts' },
-  'voice.voices.list': { method: 'GET', path: '/api/voice/voices' },
 };
+
+function buildExtraMethodRoutes(): Record<string, RouteDefinition | undefined> {
+  const browserCovered = new Set<string>([
+    ...SHARED_BROWSER_METHOD_IDS,
+    ...Object.keys(KNOWLEDGE_BROWSER_ROUTES),
+  ]);
+  const table: Record<string, RouteDefinition> = {};
+  for (const [methodId, def] of Object.entries(WEBUI_METHOD_ROUTES)) {
+    if (browserCovered.has(methodId)) continue;
+    table[methodId] = { method: def.method, path: def.path };
+  }
+  return { ...table, ...HAND_WRITTEN_ROUTES };
+}
+
+const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = buildExtraMethodRoutes();
 
 const RUNTIME_DOMAINS: RuntimeEventDomain[] = [
   'session',
@@ -464,6 +360,16 @@ function interpolateRoute(route: RouteDefinition, input: unknown): { path: strin
  */
 export function isExtraRoutedMethod(methodId: string): boolean {
   return Boolean(EXTRA_METHOD_ROUTES[methodId]);
+}
+
+/**
+ * The resolved REST route for a table-routed method id, or undefined when the method falls
+ * through to the browser SDK / generic invoke path. Exported for the drift test that pins
+ * this derived table against the generated WEBUI_METHOD_ROUTES artifact — proving no
+ * hand-written row shadows or diverges from a generated one.
+ */
+export function webuiRouteFor(methodId: string): RouteDefinition | undefined {
+  return EXTRA_METHOD_ROUTES[methodId];
 }
 
 /**

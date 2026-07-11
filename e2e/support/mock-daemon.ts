@@ -15,6 +15,7 @@
  */
 
 import type { Page, Route } from '@playwright/test';
+import { WEBUI_METHOD_SAMPLES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
   accountsSnapshotResponse,
   CALENDAR_NOT_CONFIGURED_BODY,
@@ -996,7 +997,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         if (!found) return json(route, { error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404);
         return json(route, { receipt: { subscriptionId: id, endpointOrigin: found.endpointOrigin, outcome: 'delivered' } });
       }
-      return json(route, {});
+      // Default: a schema-valid output for any cataloged gateway method the scenario
+      // handlers above did not model, seeded from the contract-generated fixtures
+      // (WEBUI_METHOD_SAMPLES). This structurally kills the "unknown invoke id answers {}"
+      // drift class — an uncataloged id still degrades to {} (an honest empty success),
+      // but every real ws-invoke method now gets a shape its view can actually render.
+      return json(route, WEBUI_METHOD_SAMPLES[methodId]?.output ?? {});
     }
 
     // ── Fallback: an honest empty success for any un-modelled surface. Views

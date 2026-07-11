@@ -4,6 +4,12 @@ import { afterEach, describe, expect, test } from 'bun:test';
 // from the SDK's own public export path, not by reaching into a transitive dependency.
 import operatorContract from '@pellux/goodvibes-sdk/contracts/operator-contract.json';
 import {
+  WEBUI_METHOD_ROUTES,
+  WEBUI_WS_INVOKE_METHOD_IDS,
+  WEBUI_METHOD_DISPOSITION,
+  WEBUI_METHOD_SAMPLES,
+} from '@pellux/goodvibes-contracts/generated/webui-facade';
+import {
   GOODVIBES_BASE_URL,
   WEBUI_SURFACE_ID,
   WEBUI_SURFACE_KIND,
@@ -11,6 +17,7 @@ import {
   getCurrentAuth,
   isRuntimeDomain,
   isExtraRoutedMethod,
+  webuiRouteFor,
   sdk,
 } from './goodvibes';
 import {
@@ -204,6 +211,71 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
       'channels.profiles.delete', 'channels.profiles.get', 'channels.profiles.list', 'channels.profiles.set',
     ]) {
       expect(isExtraRoutedMethod(method)).toBe(true);
+    }
+  });
+});
+
+describe('facade route knowledge is generated, not hand-maintained', () => {
+  // The drift protection the migration to the generated facade must keep: EXTRA_METHOD_ROUTES
+  // is DERIVED from @pellux/goodvibes-contracts/generated/webui-facade (WEBUI_METHOD_ROUTES),
+  // not hand-authored. These tests pin that no hand-written row shadows or diverges from a
+  // generated one, and that the rest/ws-invoke disposition the webui acts on is the generated
+  // one. The three models.* rows are the sole documented exception (no contract backing).
+  const HAND_WRITTEN_MODELS = ['models.list', 'models.current', 'models.select'];
+
+  test('every table route matches the generated WEBUI_METHOD_ROUTES artifact EXACTLY (no hand-written row shadows or diverges from a generated one)', () => {
+    for (const [methodId, generated] of Object.entries(WEBUI_METHOD_ROUTES)) {
+      const resolved = webuiRouteFor(methodId);
+      // undefined ⇒ the method is browser-SDK-covered and resolves natively (falls through);
+      // present ⇒ it must equal the generated route byte-for-byte.
+      if (resolved === undefined) continue;
+      expect(resolved, `${methodId}: table route diverges from the generated artifact`).toEqual({
+        method: generated.method,
+        path: generated.path,
+      });
+    }
+  });
+
+  test('the models.* rows are the ONLY table routes with no generated backing (the documented contract gap)', () => {
+    for (const id of HAND_WRITTEN_MODELS) {
+      expect(webuiRouteFor(id), `${id} should be table-routed`).toBeDefined();
+      expect(id in WEBUI_METHOD_ROUTES, `${id} unexpectedly gained a generated route — retire its hand-written row`).toBe(false);
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} unexpectedly gained a generated disposition`).toBeUndefined();
+    }
+  });
+
+  test('no ws-invoke method (per the generated disposition) is shadowed by a REST table row', () => {
+    for (const methodId of WEBUI_WS_INVOKE_METHOD_IDS) {
+      expect(WEBUI_METHOD_DISPOSITION[methodId], `${methodId} disposition`).toBe('ws-invoke');
+      expect(webuiRouteFor(methodId), `${methodId} must not carry a REST table row (it is ws-invoke-only)`).toBeUndefined();
+      expect(isExtraRoutedMethod(methodId)).toBe(false);
+    }
+  });
+
+  test('every ws-invoke verb the webui calls is cataloged as ws-invoke in the generated disposition', () => {
+    // The generic-invoke (invokeGatewayMethod) call sites in goodvibes.ts. If any of these
+    // silently flipped to a REST binding upstream, the generated disposition would say 'rest'
+    // and this test would catch it before the wire behavior drifted.
+    const usedWsInvokeIds = [
+      'fleet.snapshot', 'fleet.list', 'fleet.archive', 'fleet.unarchive', 'fleet.archiveFinished', 'fleet.archived.list',
+      'fleet.attempts.list', 'fleet.attempts.pick', 'fleet.attempts.judge',
+      'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore', 'checkpoints.restorePreview',
+      'checkpoints.revertHunkPreview', 'checkpoints.revertHunk', 'rewind.plan', 'rewind.apply',
+      'sessions.search', 'sessions.changes.get', 'cost.attribution.get',
+      'push.vapid.get', 'push.subscriptions.create', 'push.subscriptions.list', 'push.subscriptions.delete', 'push.subscriptions.verify',
+    ];
+    for (const id of usedWsInvokeIds) {
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} should be ws-invoke in the generated disposition`).toBe('ws-invoke');
+      expect(WEBUI_WS_INVOKE_METHOD_IDS.includes(id), `${id} missing from WEBUI_WS_INVOKE_METHOD_IDS`).toBe(true);
+    }
+  });
+
+  test('WEBUI_METHOD_SAMPLES carries an input/output fixture for every bridged ws-invoke method (the mock daemon default-seed source)', () => {
+    for (const id of BRIDGE_TYPED_METHOD_IDS) {
+      const sample = WEBUI_METHOD_SAMPLES[id];
+      expect(sample, `${id} has no generated sample`).toBeDefined();
+      expect(sample).toHaveProperty('input');
+      expect(sample).toHaveProperty('output');
     }
   });
 });
@@ -726,6 +798,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
 });
 
 describe('bridge-matches-schema — contract-bridge-types.ts pinned against the SDK method catalog', () => {
+  // WHY THESE SAMPLES STAY HAND-AUTHORED (not sourced from WEBUI_METHOD_SAMPLES):
+  // the contract-generated fixtures (WEBUI_METHOD_SAMPLES) are typed `unknown`, so they can
+  // only exercise the RUNTIME schema walk below — not the compile-time half. The samples
+  // here are deliberately annotated AS the bridge interfaces so tsc rejects a missing or
+  // invented field (see the tsc-side note below); that interface conformance is the whole
+  // point and a generic `unknown` sample cannot provide it. The generated fixtures are used
+  // where they ARE mechanical — as the mock daemon's default gateway-invoke seed
+  // (e2e/support/mock-daemon.ts) and pinned for completeness by the "facade route knowledge
+  // is generated" suite above. Everything below is a conformance fixture, not a scenario value.
+  //
   // WHAT THIS ENFORCES (and what it does not):
   //
   // Each bridge-typed method has a sample INPUT/OUTPUT object below, annotated AS the

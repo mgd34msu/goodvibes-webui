@@ -111,6 +111,176 @@
   font-weight: normal;
 }
 
+.settings-search {
+  margin-bottom: var(--space-3);
+}
+
+.settings-search input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.settings-search input:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+/* ── Typed field editor ───────────────────────────────────────────────────── */
+.settings-field {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-field:last-child {
+  border-bottom: none;
+}
+
+.settings-field-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.settings-field-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.settings-field-default,
+.settings-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.settings-field-desc {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.settings-field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-field-input,
+.settings-field-select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  min-width: 12rem;
+  max-width: 100%;
+}
+
+.settings-field-input:focus-visible,
+.settings-field-select:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.settings-field-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.settings-field-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.settings-field-error {
+  margin-top: var(--space-2);
+}
+
+/* ── Feature unit (flag + its config) ─────────────────────────────────────── */
+.feature-unit {
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+}
+
+.feature-unit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.feature-unit-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.feature-unit-title h3 {
+  margin: 0;
+  font-size: var(--text-md, 1rem);
+  color: var(--text-primary);
+}
+
+.feature-unit-state {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.feature-unit-state--enabled {
+  color: var(--contract-state-good, var(--text-primary));
+}
+
+.feature-unit-locked {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.feature-unit-desc {
+  margin: var(--space-2) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.feature-unit-note {
+  margin: var(--space-1) 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.feature-unit-fields {
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-subtle);
+}
+
+.settings-raw-note,
+.settings-advanced-note {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
 .settings-advanced {
   margin-top: var(--space-4);
 }

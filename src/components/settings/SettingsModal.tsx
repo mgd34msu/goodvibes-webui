@@ -1,22 +1,27 @@
 /**
- * SettingsModal — the config/settings surface, moved off the always-visible
- * AdminView page and into a modal (the platform's surface doctrine: modals
- * are a configuration surface, panels/pages are observability — "provider
- * config" and "settings-sync" are named examples of what moves to modals).
+ * SettingsModal — the schema-driven config/settings surface.
  *
- * Reads config.get (honest degraded states: an admin-scope refusal reads
- * distinctly from a genuine fetch failure, mirroring CredentialStatusPanel's
- * pattern) and writes through config.set, one key at a time (the daemon's
- * real /config contract — see src/lib/goodvibes.ts's config.* comment).
+ * Rows are driven by the SDK's CONFIG_SCHEMA (types / enums / defaults /
+ * descriptions / validation hints), merged with the daemon's live config.get()
+ * values, so each key gets a TYPED editor: booleans toggle, enums select,
+ * numbers validate, strings text, secrets stay masked/write-only
+ * (config-redaction.ts). Every feature flag renders as ONE unit — its enable
+ * toggle together with the config keys it governs (FEATURE_FLAG_CONFIG_MAP) —
+ * placed in the topical group its category implies (settings-model.ts). Owned
+ * keys never double-list as orphan rows in their namespace.
  *
- * Categorized using the TUI's own settings-modal category naming
- * (src/lib/config-redaction.ts's CATEGORY_LABELS, ported from
- * goodvibes-tui's settings-modal-helpers.ts CATEGORY_LABELS) for cross-surface
- * naming parity. Every value is masked before rendering if the key is
- * secret-shaped (isSecretConfigKey) — never round-tripped back unless the
- * user explicitly retypes it.
+ * Honesty bars preserved from the read-only version:
+ *   - an admin-scope refusal (403) on config.get reads distinctly from a generic
+ *     fetch failure;
+ *   - a secret-shaped key never renders its stored value;
+ *   - a key the daemon holds but the schema does not know still renders (as a
+ *     read-only raw row) so nothing becomes invisible.
+ *
+ * Writes go through config.set one key at a time (the daemon's real /config
+ * contract); the raw key/value form remains, demoted to an explicit escape hatch
+ * for unschema'd keys.
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { Modal } from '../modal/Modal';
@@ -27,7 +32,10 @@ import { useToast } from '../../lib/toast';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
 import { StepUpSettings } from './StepUpSettings';
-import { displayConfigValue, flattenConfig, isSecretConfigKey } from '../../lib/config-redaction';
+import { SettingsField } from './SettingsField';
+import { FeatureUnitCard } from './FeatureUnitCard';
+import { displayConfigValue } from '../../lib/config-redaction';
+import { buildSettingsModel, filterSettingsModel } from '../../lib/settings-model';
 import '../../styles/components/settings.css';
 
 export interface SettingsModalProps {
@@ -47,7 +55,8 @@ function isAdminRequiredError(error: unknown): boolean {
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [activeCategory, setActiveCategory] = useState<string>('');
+  const [activeGroup, setActiveGroup] = useState<string>('');
+  const [search, setSearch] = useState('');
   const [rawKey, setRawKey] = useState('');
   const [rawValue, setRawValue] = useState('');
   const [rawError, setRawError] = useState('');
@@ -59,26 +68,28 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     retry: false,
   });
 
-  const entries = useMemo(() => flattenConfig(config.data), [config.data]);
-  const categories = useMemo(() => {
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const entry of entries) {
-      if (!seen.has(entry.category)) {
-        seen.add(entry.category);
-        ordered.push(entry.category);
-      }
-    }
-    return ordered;
-  }, [entries]);
-  const currentCategory = activeCategory && categories.includes(activeCategory) ? activeCategory : categories[0] ?? '';
-  const visibleEntries = useMemo(
-    () => entries.filter((entry) => entry.category === currentCategory),
-    [entries, currentCategory],
-  );
+  const allGroups = useMemo(() => buildSettingsModel(config.data), [config.data]);
+  const groups = useMemo(() => filterSettingsModel(allGroups, search), [allGroups, search]);
+  const currentGroup =
+    groups.length > 0 ? (groups.find((g) => g.id === activeGroup) ?? groups[0]) : null;
 
   const refused = config.isError && isAdminRequiredError(config.error);
   const degraded = config.isError && !refused;
+
+  /** Single write path: config.set one key, reconcile via refetch, surface errors. */
+  const commitConfig = useCallback(
+    async (key: string, value: unknown): Promise<void> => {
+      try {
+        await sdk.operator.config.set(key, value);
+        await queryClient.invalidateQueries({ queryKey: ['config'] });
+        toast({ title: 'Config saved', description: `${key} updated.`, tone: 'success' });
+      } catch (error) {
+        toast({ title: 'Failed to save config', description: formatError(error), tone: 'danger' });
+        throw error;
+      }
+    },
+    [queryClient, toast],
+  );
 
   const saveRaw = useMutation({
     mutationFn: () => {
@@ -105,7 +116,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     onError: (error: unknown) => {
       const message = formatError(error);
       setRawError(message);
-      // Validation errors (empty key) are shown inline only — no toast needed.
       if (message === 'Config key is required') return;
       toast({ title: 'Failed to save config', description: message, tone: 'danger' });
     },
@@ -127,48 +137,87 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       ) : degraded ? (
         <ErrorState error={config.error} title="Config unavailable" onRetry={() => void config.refetch()} />
       ) : (
-        <div className="settings-layout">
-          <nav className="settings-categories" aria-label="Settings categories">
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={category === currentCategory ? 'settings-category settings-category--active' : 'settings-category'}
-                onClick={() => setActiveCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </nav>
-          <div className="settings-entries">
-            {visibleEntries.length === 0 ? (
-              <p className="empty-state">No settings in this category.</p>
-            ) : (
-              <table className="settings-table">
-                <tbody>
-                  {visibleEntries.map((entry) => (
-                    <tr key={entry.key}>
-                      <th scope="row">
-                        {entry.key}
-                        {isSecretConfigKey(entry.key) && <span className="settings-secret-flag"> (secret)</span>}
-                      </th>
-                      <td className={isSecretConfigKey(entry.key) ? 'settings-value settings-value--secret' : 'settings-value'}>
-                        {displayConfigValue(entry.key, entry.value)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+        <>
+          <div className="settings-search">
+            <input
+              type="search"
+              value={search}
+              placeholder="Search settings, features, keys…"
+              aria-label="Search settings"
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-        </div>
+          <div className="settings-layout">
+            <nav className="settings-categories" aria-label="Settings categories">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  className={
+                    group.id === currentGroup?.id
+                      ? 'settings-category settings-category--active'
+                      : 'settings-category'
+                  }
+                  onClick={() => setActiveGroup(group.id)}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </nav>
+            <div className="settings-entries">
+              {!currentGroup ? (
+                <p className="empty-state">No settings match your search.</p>
+              ) : (
+                <>
+                  {currentGroup.featureUnits.map((unit) => (
+                    <FeatureUnitCard key={unit.flag.id} unit={unit} onCommit={commitConfig} />
+                  ))}
+                  {currentGroup.plainRows.length > 0 && (
+                    <div className="settings-plain-rows">
+                      {currentGroup.plainRows.map((field) => (
+                        <SettingsField key={field.key} field={field} onCommit={commitConfig} />
+                      ))}
+                    </div>
+                  )}
+                  {currentGroup.rawRows.length > 0 && (
+                    <div className="settings-raw-rows">
+                      <p className="settings-raw-note">
+                        Held by the daemon but not in the config schema — shown read-only. Edit via the
+                        Advanced form below.
+                      </p>
+                      <table className="settings-table">
+                        <tbody>
+                          {currentGroup.rawRows.map((row) => (
+                            <tr key={row.key}>
+                              <th scope="row">
+                                {row.key}
+                                {row.isSecret && <span className="settings-secret-flag"> (secret)</span>}
+                              </th>
+                              <td className={row.isSecret ? 'settings-value settings-value--secret' : 'settings-value'}>
+                                {displayConfigValue(row.key, row.value)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       <section className="settings-advanced panel">
         <div className="panel-title">
-          <h2>Advanced</h2>
+          <h2>Advanced — unschema'd keys</h2>
           <Save size={16} aria-hidden="true" />
         </div>
+        <p className="settings-advanced-note">
+          Escape hatch for keys the config schema does not define. Schema-known keys have typed
+          editors above; prefer those.
+        </p>
         <form
           className="form-grid"
           onSubmit={(event) => {

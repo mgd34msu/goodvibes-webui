@@ -21,12 +21,10 @@
  *     key). The `validate` closures are dropped (not serialisable); the daemon's
  *     config.set is the authoritative validator, and `validationHint` carries the
  *     human-readable constraint into the UI.
- *   - FEATURE_FLAGS + FEATURE_FLAG_CONFIG — from the SDK feature-flags barrel.
- *     That barrel is NOT (yet) wired into the SDK package.json `exports` map, so
- *     it is imported by resolved filesystem path from the installed package's
- *     dist. This is a build-time-only bridge; when the SDK adds a
- *     `./platform/runtime/feature-flags` subpath export, swap FLAG_BARREL_PATH
- *     for that specifier. Nothing here reaches the browser bundle.
+ *   - FEATURE_FLAGS + FEATURE_FLAG_CONFIG — from the SDK's public
+ *     `@pellux/goodvibes-sdk/platform/runtime/feature-flags` subpath export.
+ *     Nothing here reaches the browser bundle (this script only runs at build
+ *     time, via config-schema:generate/:check).
  *
  * `--check` fails (exit 1) the moment the artifact drifts from a fresh
  * regeneration — same generate-or-check convention as presentation:check, wired
@@ -39,28 +37,15 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { CONFIG_SCHEMA } from '@pellux/goodvibes-sdk/platform/config';
+import { FEATURE_FLAGS, FEATURE_FLAG_CONFIG } from '@pellux/goodvibes-sdk/platform/runtime/feature-flags';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const CHECK_ONLY = process.argv.includes('--check');
 
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-schema.ts');
-
-/**
- * The feature-flags barrel, by resolved filesystem path (see the module header:
- * the SDK does not export this subpath yet). Kept as a single constant so the
- * interim deep-import is a one-line swap when the SDK exposes the subpath.
- */
-const FLAG_BARREL_PATH = resolve(
-  ROOT,
-  'node_modules/@pellux/goodvibes-sdk/dist/platform/runtime/feature-flags/index.js',
-);
-const FLAGS_PATH = resolve(
-  ROOT,
-  'node_modules/@pellux/goodvibes-sdk/dist/platform/runtime/feature-flags/flags.js',
-);
 
 // ---------------------------------------------------------------------------
 // Snapshot shapes — the exact serialisable rows the settings model consumes.
@@ -97,13 +82,6 @@ export interface ConfigSchemaSnapshot {
 
 /** Read the real schema + feature-flag tables from the installed SDK. */
 export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
-  const flagBarrel = (await import(pathToFileURL(FLAG_BARREL_PATH).href)) as {
-    FEATURE_FLAG_CONFIG: Record<string, { configCategories: readonly string[]; configKeys: readonly string[] }>;
-  };
-  const flagsModule = (await import(pathToFileURL(FLAGS_PATH).href)) as {
-    FEATURE_FLAGS: FeatureFlagSnapshot[];
-  };
-
   const entries: ConfigSchemaEntrySnapshot[] = CONFIG_SCHEMA.map((s) => ({
     key: s.key,
     type: s.type,
@@ -113,7 +91,7 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
     ...(s.validationHint ? { validationHint: s.validationHint } : {}),
   }));
 
-  const flags: FeatureFlagSnapshot[] = flagsModule.FEATURE_FLAGS.map((f) => ({
+  const flags: FeatureFlagSnapshot[] = FEATURE_FLAGS.map((f) => ({
     id: f.id,
     name: f.name,
     description: f.description,
@@ -123,7 +101,7 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
   }));
 
   const flagConfig: Record<string, FeatureFlagConfigSnapshot> = {};
-  for (const [id, assoc] of Object.entries(flagBarrel.FEATURE_FLAG_CONFIG)) {
+  for (const [id, assoc] of Object.entries(FEATURE_FLAG_CONFIG)) {
     flagConfig[id] = {
       configCategories: [...assoc.configCategories],
       configKeys: [...assoc.configKeys],

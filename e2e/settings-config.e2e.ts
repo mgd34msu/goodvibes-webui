@@ -48,8 +48,12 @@ test('a secret-shaped surfaces.* key never renders its raw value', async ({ page
   await dialog.getByRole('button', { name: 'Surfaces' }).click();
   await expect(dialog.getByText('surfaces.slack.botToken')).toBeVisible();
   await expect(dialog.getByText('xoxb-e2e-hermetic-secret-9999')).toHaveCount(0);
-  // Last 4 chars only, per the mask contract.
-  await expect(dialog.locator('.settings-value--secret')).toContainText('9999');
+  // Last 4 chars only, per the mask contract. Every secret-typed key renders a
+  // masked cell (the unset ones read "(unset)"), so scope to the one key that
+  // actually holds a value rather than matching all masked cells at once.
+  await expect(
+    dialog.locator('[data-config-key="surfaces.slack.botToken"] .settings-value--secret'),
+  ).toContainText('9999');
 });
 
 test('an admin-scope refusal renders honestly, distinct from a generic failure', async ({ page }) => {
@@ -69,9 +73,12 @@ test('the Advanced editor writes through config.set and the change is honestly r
   await expect(page.getByText('Config saved')).toBeVisible();
   await dialog.getByRole('button', { name: 'Close' }).click();
 
-  // Reopen: the Display category shows the value just written, proving this is a
-  // real config.get/config.set round-trip, not a client-side-only form.
+  // Reopen: the Display category's typed editor for display.theme shows the value
+  // just written, proving this is a real config.get/config.set round-trip, not a
+  // client-side-only form. display.theme is a schema-known string key, so it
+  // renders as a labelled text input — the written value lives in that field's
+  // value, not as free-standing page text.
   await page.getByRole('button', { name: 'Open Settings' }).click();
   dialog = page.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByText('cyberpunk')).toBeVisible();
+  await expect(dialog.getByLabel('display.theme')).toHaveValue('cyberpunk');
 });

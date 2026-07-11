@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState, RefObject } from 'react';
 import { sdk, DEFAULT_SSE_RECONNECT } from '../../lib/goodvibes';
 import { firstString } from '../../lib/object';
+import { RELAY_OVERFLOW_EVENT, noteRelayOverflow, readDroppedCount } from '../../lib/relay-stream-overflow';
 import { isSessionNotFoundError, isAuthExpiredError, isMethodUnavailableError, isNoActiveTurnError } from '../../lib/errors';
 import { LocalCompanionMessage } from '../../lib/companion-chat';
 import {
@@ -200,6 +201,14 @@ export function useChatStream({
       },
       onEvent: (eventName, payload) => {
         if (cancelled || stoppedRef.current) return;
+        if (eventName === RELAY_OVERFLOW_EVENT) {
+          // Turn frames were dropped over the relay tunnel. Record the honest notice and
+          // resync this session's chat state — the missed frames may include turn deltas,
+          // so a refetch of the authoritative message list restores the true transcript.
+          noteRelayOverflow(readDroppedCount(payload));
+          void invalidateChatState(activeSessionId);
+          return;
+        }
         if (!eventName.startsWith('companion-chat.')) return;
         if (firstString(payload, ['sessionId']) !== activeSessionId) return;
         const type = companionEventType(eventName, payload);

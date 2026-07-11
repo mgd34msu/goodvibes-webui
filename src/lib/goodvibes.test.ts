@@ -693,16 +693,21 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, cost, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, cost, stepup, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
+    // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'rewind', 'sessions', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.stepup exposes the step-up ceremony verbs', () => {
+    expect(Object.keys(sdk.operator.stepup).sort()).toEqual(['mintChallenge', 'registerCredential'].sort());
   });
 
   test('sdk.operator.cost exposes the cost.attribution.get verb', () => {

@@ -130,3 +130,52 @@
     padding-bottom: var(--space-3);
   }
 }
+
+/* ── Step-up (passkey) settings + inline ceremony ─────────────────────────── */
+.settings-stepup {
+  margin-top: var(--space-4);
+}
+
+.stepup-note {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: var(--space-2) 0;
+}
+
+.stepup-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+  margin: var(--space-2) 0;
+}
+
+.stepup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.stepup-ceremony {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stepup-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: 1.5;
+}
+
+.stepup-target code {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-sunken, rgba(127, 127, 127, 0.12));
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.85rem;
+  word-break: break-all;
+}

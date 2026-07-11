@@ -20,6 +20,7 @@ import { sdk, DEFAULT_SSE_RECONNECT } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { SESSION_UPDATE_WIRE_EVENT, sessionUpdateIntent } from '../lib/sessions-union';
 import { firstString, readPath } from '../lib/object';
+import { RELAY_OVERFLOW_EVENT, noteRelayOverflow, readDroppedCount } from '../lib/relay-stream-overflow';
 
 /** The un-domained control-plane events path; ?domains=session narrows the SSE feed. */
 const SESSION_EVENTS_PATH = '/api/control-plane/events?domains=session';
@@ -78,6 +79,15 @@ export function useSessionRealtime(enabled: boolean): SessionRealtimeState {
           },
           onEvent: (eventName: string, payload: unknown) => {
             if (disposed) return;
+            if (eventName === RELAY_OVERFLOW_EVENT) {
+              // Live events were dropped over the relay tunnel. Record the honest notice
+              // AND revalidate now — the missed frames were only invalidation triggers, so
+              // a refetch restores the true session state (the banner still shows so the
+              // operator knows a gap happened and can resync explicitly).
+              noteRelayOverflow(readDroppedCount(payload));
+              invalidateAll();
+              return;
+            }
             if (eventName !== SESSION_UPDATE_WIRE_EVENT) return;
             // Decode the intent for targeting/observability; an unknown future event
             // (intent === null) still invalidates defensively rather than being dropped.

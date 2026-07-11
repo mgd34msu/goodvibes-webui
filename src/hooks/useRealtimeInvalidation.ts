@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { sdk, DEFAULT_SSE_RECONNECT } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
+import { RELAY_OVERFLOW_EVENT, noteRelayOverflow, readDroppedCount } from '../lib/relay-stream-overflow';
 
 /**
  * Domain → the query keys a frame on that domain should revalidate. The raw stream
@@ -91,8 +92,18 @@ export function useRealtimeInvalidation(enabled: boolean) {
             if (disposed) return;
             setError(null);
           },
-          onEvent: (eventName: string) => {
+          onEvent: (eventName: string, payload: unknown) => {
             if (disposed) return;
+            if (eventName === RELAY_OVERFLOW_EVENT) {
+              // The relay tunnel dropped multiplexed invalidation frames. Record the honest
+              // notice and revalidate every domain we track — a full refetch is the correct
+              // recovery since these frames only ever trigger invalidations.
+              noteRelayOverflow(readDroppedCount(payload));
+              for (const keys of Object.values(DOMAIN_INVALIDATIONS)) {
+                for (const key of keys) void queryClient.invalidateQueries({ queryKey: key });
+              }
+              return;
+            }
             const keys = DOMAIN_INVALIDATIONS[eventName];
             if (!keys) return;
             for (const key of keys) {

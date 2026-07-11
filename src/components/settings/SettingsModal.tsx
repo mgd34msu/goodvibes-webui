@@ -26,6 +26,7 @@ import { asRecord } from '../../lib/object';
 import { useToast } from '../../lib/toast';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { StepUpSettings } from './StepUpSettings';
 import { displayConfigValue, flattenConfig, isSecretConfigKey } from '../../lib/config-redaction';
 import '../../styles/components/settings.css';
 
@@ -189,6 +190,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         </form>
         {rawError && <div className="banner warning" role="alert">{rawError}</div>}
       </section>
+
+      <StepUpSettings />
     </Modal>
   );
 }

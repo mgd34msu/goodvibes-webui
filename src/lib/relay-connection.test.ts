@@ -5,9 +5,10 @@
  * WebSocket/E2E crypto) — that belongs to an integration test against a real or stubbed
  * relay server. These cases cover what is unit-testable without one: the route store's
  * pub/sub, routedFetch falling through to the plain fetch on the direct route (the
- * common, unchanged case), and the immediate honest rejection of a stream request while
- * routed over relay — the one behavior this file adds that a consumer can observe
- * without ever standing up a relay.
+ * common, unchanged case), and that a stream request over relay is NO LONGER rejected —
+ * the relay tunnel now carries event streams, so a stream request routes like any other
+ * (falling through to the plain fetch when no pairing is stored). A real tunnelled stream
+ * belongs to an integration test against a real or stubbed relay server.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -74,33 +75,40 @@ describe('routedFetch', () => {
     }
   });
 
-  test('rejects an event-stream request immediately when routed over relay, without touching the network', async () => {
+  test('no longer rejects an event-stream request over relay — it routes like any other call', async () => {
+    // The relay tunnel now carries event streams, so the old immediate rejection is gone.
+    // With no pairing stored there is no relay client, so the request falls through to the
+    // global fetch (proving it is NOT special-cased into a rejection anymore).
     setActiveRoute('relay');
-    let fetchCalled = false;
+    let sawUrl: unknown;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = stubFetch(() => {
-      fetchCalled = true;
-      return Promise.resolve(new Response('should not be reached'));
+    globalThis.fetch = stubFetch((input) => {
+      sawUrl = input;
+      return Promise.resolve(new Response('event: ping\n\n', { headers: { 'content-type': 'text/event-stream' } }));
     });
     try {
-      await expect(
-        routedFetch('https://daemon.example/api/control-plane/events', {
-          headers: { Accept: 'text/event-stream' },
-        }),
-      ).rejects.toThrow();
-      expect(fetchCalled).toBe(false);
+      const res = await routedFetch('https://daemon.example/api/control-plane/events', {
+        headers: { Accept: 'text/event-stream' },
+      });
+      expect(sawUrl).toBe('https://daemon.example/api/control-plane/events');
+      expect(res.status).toBe(200);
     } finally {
       globalThis.fetch = originalFetch;
     }
   });
 
-  test('rejects an event-stream request built as a Headers instance too', async () => {
+  test('an event-stream request built as a Headers instance also routes through (no rejection)', async () => {
     setActiveRoute('relay');
-    await expect(
-      routedFetch('https://daemon.example/api/control-plane/events', {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(new Response('ok')));
+    try {
+      const res = await routedFetch('https://daemon.example/api/control-plane/events', {
         headers: new Headers({ Accept: 'text/event-stream' }),
-      }),
-    ).rejects.toThrow();
+      });
+      expect(res.status).toBe(200);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('falls back to the global fetch on relay route with no pairing stored (no client to route through)', async () => {

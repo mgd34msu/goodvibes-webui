@@ -9,16 +9,24 @@
  *     this device cannot reach the daemon directly. It requires a stored pairing (see
  *     relay-pairing.ts).
  *
- * SCOPE, HONESTLY: the relay only tunnels unary HTTP calls. Server-Sent-Event streaming
- * is NOT bridged (see relay-transport.js's own header comment: "event streaming keeps
- * using the direct realtime connectors on the LAN. A streaming bridge is deferred, not
- * faked."). `routedFetch` below detects a stream request (the SSE opener's own
- * `Accept: text/event-stream` header — see @pellux/goodvibes-transport-http's
- * sse-stream.js) and rejects it immediately with a clear error when the active route is
- * relay, rather than handing it to the relay client where it would eventually time out
- * (`requestTimeoutMs`, 30s default) doing something it was never going to do. An
- * immediate, clearly-worded rejection is the honest behavior; a 30-second hang that
- * fails the same way is not.
+ * STREAMING OVER RELAY: the relay tunnel now carries live event streams. A request whose
+ * `Accept` is `text/event-stream` (the SSE opener's header — see
+ * @pellux/goodvibes-transport-http's sse-stream.js) is opened by the relay client as a
+ * tunnelled stream: the returned `Response` carries a `ReadableStream` body fed by the
+ * tunnel's `stream-data` frames, and a dropped-chunk overflow surfaces as a visible
+ * `relay-overflow` SSE event (never a silent gap). So `routedFetch` no longer rejects SSE
+ * over relay — it hands the request straight to the relay client like any other, and the
+ * webui's stream consumers render the `relay-overflow` notice honestly (see
+ * relay-stream-overflow.ts).
+ *
+ * STEP-UP ON MUTATING RELAY CALLS: the daemon gates state-changing relay calls behind a
+ * WebAuthn step-up assertion. A mutating call over the relay with no fresh assertion is
+ * answered `401` with `www-authenticate: WebAuthn` and body `{ error: 'step-up-required' }`.
+ * `routedFetch` intercepts exactly that response, asks the registered UI prompter to run the
+ * passkey ceremony (stepup-prompter.ts), and retries the original call ONCE with the
+ * assertion header attached. If no prompter is registered, or the operator cancels, or the
+ * server reports no verifier is available, the original 401 surfaces honestly — never a
+ * silent skip of verification.
  *
  * `routedFetch` is the one `fetch` implementation the SDK client is built with
  * (lib/goodvibes.ts). It always exists and behaves exactly like the plain global fetch
@@ -27,8 +35,9 @@
  */
 
 import { createRelayClient, type RelayClient } from '@pellux/goodvibes-transport-realtime';
-import { GoodVibesSdkError } from '@pellux/goodvibes-errors';
 import { getStoredRelayPairing, type RelayPairingPayload } from './relay-pairing';
+import { STEP_UP_ASSERTION_HEADER } from './stepup';
+import { resolveStepUp } from './stepup-prompter';
 
 export type ConnectionRoute = 'direct' | 'relay';
 
@@ -113,19 +122,75 @@ export async function probeRelayReachability(): Promise<boolean> {
 // routedFetch — the fetch the SDK client is built with.
 // ---------------------------------------------------------------------------
 
-function isStreamRequest(init: RequestInit | undefined, input: RequestInfo | URL): boolean {
-  const headerFrom = (h: HeadersInit | undefined): string | null => {
-    if (!h) return null;
-    if (h instanceof Headers) return h.get('Accept');
-    if (Array.isArray(h)) return h.find(([k]) => k.toLowerCase() === 'accept')?.[1] ?? null;
-    return h.Accept ?? h.accept ?? null;
-  };
-  const initAccept = headerFrom(init?.headers);
-  if (initAccept?.includes('text/event-stream')) return true;
-  if (input instanceof Request) {
-    return input.headers.get('Accept')?.includes('text/event-stream') ?? false;
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** The HTTP method a fetch call carries, uppercased. Mirrors the relay gate's own view. */
+function requestMethod(input: RequestInfo | URL, init: RequestInit | undefined): string {
+  const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+  return method.toUpperCase();
+}
+
+/** The request path (no host) a fetch call targets — what the step-up ceremony binds against. */
+function requestPath(input: RequestInfo | URL): string {
+  try {
+    const href = input instanceof Request ? input.url : String(input);
+    return new URL(href, globalThis.location?.origin ?? 'http://127.0.0.1').pathname;
+  } catch {
+    return '';
   }
-  return false;
+}
+
+/** True when a fetch response is the daemon's "this call needs a fresh step-up assertion". */
+async function isStepUpRequired(response: Response): Promise<boolean> {
+  if (response.status !== 401) return false;
+  if (!/WebAuthn/i.test(response.headers.get('www-authenticate') ?? '')) return false;
+  // Distinguish 'step-up-required' (retry with an assertion helps) from
+  // 'step-up-verifier-unavailable' (retrying cannot help — surface it). Peek a clone so
+  // the caller's response body stays intact when we decide not to retry.
+  try {
+    const body = (await response.clone().json()) as { error?: string };
+    return body?.error === 'step-up-required';
+  } catch {
+    return false;
+  }
+}
+
+/** Re-issue a relay fetch with the step-up assertion header attached, preserving body/method. */
+function withAssertion(
+  relayClient: RelayClient,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  retryRequest: Request | null,
+  assertion: string,
+): Promise<Response> {
+  if (retryRequest) {
+    const headers = new Headers(retryRequest.headers);
+    headers.set(STEP_UP_ASSERTION_HEADER, assertion);
+    return relayClient.fetch(new Request(retryRequest, { headers }));
+  }
+  const headers = new Headers(init?.headers ?? undefined);
+  headers.set(STEP_UP_ASSERTION_HEADER, assertion);
+  return relayClient.fetch(input, { ...init, headers });
+}
+
+/**
+ * Dispatch one relay fetch, transparently satisfying a step-up challenge on a mutating call.
+ * On a `401 step-up-required`, runs the UI ceremony and retries ONCE with the assertion
+ * header. Every non-step-up response (including a 401 with no verifier, or a cancelled
+ * ceremony) is returned unchanged so the caller sees the honest outcome.
+ */
+async function relayFetchWithStepUp(relayClient: RelayClient, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const mutating = !READ_METHODS.has(requestMethod(input, init));
+  // Only mutating calls can be gated; clone a Request body up front so a retry is possible
+  // (a Request's body is single-use). Reads never need a retry path.
+  const retryRequest = mutating && input instanceof Request ? input.clone() : null;
+
+  const first = await relayClient.fetch(input, init);
+  if (!mutating || !(await isStepUpRequired(first))) return first;
+
+  const assertion = await resolveStepUp({ method: requestMethod(input, init), path: requestPath(input) });
+  if (!assertion) return first; // no prompter / cancelled / unsupported — surface the 401 honestly
+  return withAssertion(relayClient, input, init, retryRequest, assertion);
 }
 
 /**
@@ -136,23 +201,9 @@ function isStreamRequest(init: RequestInit | undefined, input: RequestInfo | URL
 function routedFetchImpl(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   if (activeRoute !== 'relay') return globalThis.fetch(input, init);
 
-  if (isStreamRequest(init, input)) {
-    return Promise.reject(
-      new GoodVibesSdkError(
-        'Live event streams are not available over the relay connection — only direct/LAN connectors carry them.',
-        {
-          category: 'protocol',
-          source: 'transport',
-          recoverable: false,
-          hint: 'Views relying on this stream fall back to periodic polling while connected via relay.',
-        },
-      ),
-    );
-  }
-
   const relayClient = getRelayClient();
   if (!relayClient) return globalThis.fetch(input, init);
-  return relayClient.fetch(input, init);
+  return relayFetchWithStepUp(relayClient, input, init);
 }
 
 // The runtime's `fetch` carries a `preconnect` static (a Bun extension the SDK's

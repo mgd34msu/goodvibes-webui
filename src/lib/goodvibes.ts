@@ -288,7 +288,11 @@ async function requestJson<T = unknown>(path: string, options: RequestOptions = 
     ...(method === 'GET' || options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
   };
   const url = buildUrl(path, options.query);
-  const response = await fetch(url, {
+  // routedFetch (not the bare global fetch) so REST-routed methods traverse the relay when
+  // the active route is relay — otherwise a mutating call (permission respond, session
+  // control) would hit an unreachable direct URL over relay and never reach the daemon's
+  // step-up gate. On the direct/LAN route routedFetch IS the plain global fetch (no change).
+  const response = await routedFetch(url, {
     method,
     credentials: 'include',
     headers,
@@ -318,7 +322,8 @@ async function requestJson<T = unknown>(path: string, options: RequestOptions = 
 async function requestStream(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
   const headers: HeadersInit = { ...(await authHeaders()), 'Content-Type': 'application/json' };
   const url = buildUrl(path);
-  const response = await fetch(url, {
+  // routedFetch so this streamed POST also traverses the relay when routed (see requestJson).
+  const response = await routedFetch(url, {
     method: 'POST',
     credentials: 'include',
     headers,
@@ -1042,6 +1047,45 @@ export interface PushVerifyResult {
   readonly receipt: PushDeliveryReceipt;
 }
 
+// ─── WebAuthn step-up (stepup.*) ──────────────────────────────────────
+//
+// The step-up verbs are REST-routed in the generated webui facade
+// (WEBUI_METHOD_ROUTES: stepup.challenge.mint → POST /api/stepup/challenge,
+// stepup.credentials.register → POST /api/stepup/credentials), so they resolve
+// through invokeOperator/EXTRA_METHOD_ROUTES with no hand-written route. Both ids
+// ARE in the OperatorMethodId union and carry generated I/O maps, so these are
+// normal typed invokeOperator calls. The mint challenge is the bootstrap the relay
+// gate exempts from its own step-up requirement; register is a local/admin ceremony.
+
+/** A minted, short-lived, single-use challenge for navigator.credentials.get. */
+export interface StepUpMintChallengeResult {
+  readonly challengeId: string;
+  /** base64url challenge bytes. */
+  readonly challenge: string;
+  readonly expiresAt: number;
+}
+
+/** Input to register a passkey the daemon will verify step-up assertions against. */
+export interface StepUpRegisterCredentialInput {
+  readonly rpId: string;
+  readonly origin: string | readonly string[];
+  readonly credentialId: string;
+  readonly publicKeyCose: string;
+  readonly signCount?: number;
+  readonly userVerification?: 'required' | 'preferred' | 'discouraged';
+  readonly label?: string;
+}
+
+/** A public (no key material) summary of the registered credential. */
+export interface StepUpRegisterCredentialResult {
+  readonly credential: {
+    readonly credentialId: string;
+    readonly label?: string;
+    readonly createdAt: number;
+    readonly signCount: number;
+  };
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -1049,8 +1093,10 @@ const scopedSdk = createBrowserKnowledgeSdk({
   // pairing exists or the direct path is reachable — this is a no-op for the common
   // LAN/co-located case. It only diverts to the relay-tunneled fetch once
   // useDaemonHealth's probe has determined the direct path is genuinely down AND a
-  // relay pairing is stored, and it honestly rejects stream requests over relay rather
-  // than handing them to a tunnel that cannot carry them (see that file's header).
+  // relay pairing is stored. Stream requests are tunnelled too (the relay carries event
+  // streams now), and a mutating call gated by the daemon's step-up requirement triggers
+  // the inline passkey ceremony and is retried with the assertion attached (see that
+  // file's header).
   fetch: routedFetch,
   realtime: {
     sseReconnect: DEFAULT_SSE_RECONNECT,
@@ -1092,6 +1138,20 @@ export const sdk = {
       // CHANGELOG.md). The browser reaches the shared store only over the
       // daemon. Status only — never bytes.
       get: () => invokeOperator('credentials.get'),
+    },
+    // stepup.* — the WebAuthn step-up ceremony's two server verbs. mintChallenge is the
+    // bootstrap call the relay gate exempts from step-up (it is the prerequisite for
+    // producing an assertion); registerCredential persists this device's passkey public
+    // key so the daemon can verify later assertions. Both are REST-routed (see the
+    // StepUpMintChallengeResult comment above) and resolve through invokeOperator.
+    stepup: {
+      mintChallenge: (input?: { rendezvousId?: string; sessionId?: string; ttlMs?: number }) =>
+        invokeOperator<'stepup.challenge.mint', typeof input, StepUpMintChallengeResult>('stepup.challenge.mint', input ?? {}),
+      registerCredential: (input: StepUpRegisterCredentialInput) =>
+        invokeOperator<'stepup.credentials.register', StepUpRegisterCredentialInput, StepUpRegisterCredentialResult>(
+          'stepup.credentials.register',
+          input,
+        ),
     },
     // config.* — like models.*, no OperatorMethodId coverage in the pinned
     // browser SDK route maps, so both resolve through EXTRA_METHOD_ROUTES.
@@ -1606,7 +1666,9 @@ async function readJson(response: Response): Promise<unknown> {
 
 export async function login(username: string, password: string): Promise<unknown> {
   const url = buildLoginUrl();
-  const response = await fetch(url, {
+  // routedFetch so sign-in works when the daemon is only reachable over the relay; on the
+  // direct route this is the plain global fetch.
+  const response = await routedFetch(url, {
     method: 'POST',
     credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },

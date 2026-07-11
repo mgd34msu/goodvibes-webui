@@ -355,6 +355,15 @@
   color: var(--text-tertiary);
 }
 
+/* Shown only when the daemon stamped a fallback (requested strategy differs
+   from the strategy that ran) — see lib/compaction.ts's requestedStrategy doc. */
+.compaction-receipt__fallback {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .session-detail__transcript {
   flex: 1;
   min-height: 0;

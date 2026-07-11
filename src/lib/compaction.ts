@@ -34,6 +34,22 @@ export interface CompactionReceipt {
   readonly sessionId: string;
   readonly trigger: CompactionTrigger;
   readonly strategy: string;
+  /**
+   * The strategy that was ASKED for (`behavior.compactionStrategy`), when it
+   * differs from `strategy` — i.e. a fallback happened (e.g. `distiller`
+   * requested, `structured` ran because the distillation was unavailable or
+   * scored below the quality floor). The daemon only stamps this field on the
+   * wire when a fallback actually occurred (conversation-compaction.ts:
+   * `...(strategyFellBack ? { requestedStrategy } : {})`); absent when the
+   * requested strategy ran as-is.
+   */
+  readonly requestedStrategy?: string;
+  /**
+   * Why the requested strategy fell back to `strategy`, when known. Only
+   * present alongside a genuine fallback (same conditional-spread wire
+   * behavior as `requestedStrategy`).
+   */
+  readonly strategyFallbackReason?: string;
   readonly tokensBefore: number;
   readonly tokensAfter: number;
   readonly messagesBefore: number;
@@ -84,10 +100,14 @@ export function parseCompactionReceipt(payload: unknown, receivedAt: number = Da
   if (!sessionId) return null;
   const trigger = stringField(record, 'trigger');
   const outcome = stringField(record, 'outcome');
+  const requestedStrategy = typeof record.requestedStrategy === 'string' ? record.requestedStrategy : undefined;
+  const strategyFallbackReason = typeof record.strategyFallbackReason === 'string' ? record.strategyFallbackReason : undefined;
   return {
     sessionId,
     trigger: TRIGGERS.includes(trigger) ? (trigger as CompactionTrigger) : 'auto',
     strategy: stringField(record, 'strategy'),
+    ...(requestedStrategy ? { requestedStrategy } : {}),
+    ...(strategyFallbackReason ? { strategyFallbackReason } : {}),
     tokensBefore: numberField(record, 'tokensBefore'),
     tokensAfter: numberField(record, 'tokensAfter'),
     messagesBefore: numberField(record, 'messagesBefore'),

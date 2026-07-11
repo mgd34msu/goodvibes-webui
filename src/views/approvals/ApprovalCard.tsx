@@ -26,11 +26,15 @@ import { useMemo } from 'react';
 import { Ban, Check, Hourglass, X } from 'lucide-react';
 import type { ApprovalRecord } from '../../lib/goodvibes';
 import {
+  attributionLabel,
   auditEntryLabel,
   auditTrail,
   hunkSummary,
   isActionableApproval,
   isTerminalApprovalStatus,
+  judgmentLabel,
+  judgmentTone,
+  judgmentVerdict,
   partialApprovalLabel,
   readApprovalEditHunks,
   riskTone,
@@ -72,6 +76,8 @@ export function ApprovalCard({
   const terminal = isTerminalApprovalStatus(record.status);
   const partialLabel = useMemo(() => partialApprovalLabel(record), [record]);
   const auditEntries = useMemo(() => auditTrail(record), [record]);
+  const attribution = useMemo(() => attributionLabel(record.request.attribution), [record]);
+  const verdict = useMemo(() => judgmentVerdict(record), [record]);
   const busy = approving || denying || claiming || cancelling;
 
   return (
@@ -81,9 +87,20 @@ export function ApprovalCard({
         <span className="approval-card__badges">
           <span className={`badge ${riskTone(record.request.analysis.riskLevel)}`}>{record.request.analysis.riskLevel}</span>
           <span className={`badge ${statusTone(record.status)}`}>{statusLabel(record.status)}</span>
+          {verdict && (
+            <span className={`badge ${judgmentTone(verdict)}`} title="Proposed by the sandbox model-judgment tier — annotate-only, the human still decides">
+              {judgmentLabel(verdict)}
+            </span>
+          )}
         </span>
       </header>
       <p className="approval-card__summary">{record.request.analysis.summary}</p>
+
+      {attribution && (
+        <p className="approval-card__attribution" role="note">
+          {attribution}
+        </p>
+      )}
 
       {record.status === 'claimed' && (
         <p className="approval-card__note" role="note">

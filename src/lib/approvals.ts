@@ -15,7 +15,7 @@
  * doc and the ApprovalsTasksView component, which sends indices only.
  */
 
-import type { ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalStatus } from './goodvibes';
+import type { ApprovalAttribution, ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalStatus } from './goodvibes';
 
 /** APPROVAL_STATUS_SCHEMA (operator-contract-schemas-runtime.ts) at time of writing. */
 export const KNOWN_APPROVAL_STATUSES: readonly ApprovalStatus[] = [
@@ -151,4 +151,65 @@ export function auditEntryLabel(entry: ApprovalAuditRecord): string {
   const surface = entry.actorSurface ? ` (${entry.actorSurface})` : '';
   const note = entry.note ? `: ${entry.note}` : '';
   return `${entry.action} by ${entry.actor}${surface}${note}`;
+}
+
+/**
+ * One-line, human-honest summary of who/what asked, for a non-foreground
+ * approval — read only from `record.request.attribution`'s discriminated
+ * `kind`, never inferred. Null on a foreground ask (the common case, no
+ * `attribution` on the wire).
+ */
+export function attributionLabel(attribution: ApprovalAttribution | undefined): string | null {
+  if (!attribution) return null;
+  switch (attribution.kind) {
+    case 'background-agent':
+      return attribution.template
+        ? `Asked on behalf of agent ${attribution.agentId} (${attribution.template})`
+        : `Asked on behalf of agent ${attribution.agentId}`;
+    case 'mcp-server':
+      return `Requested by MCP server "${attribution.serverName}"`;
+    case 'sandbox-escalation':
+      return `Sandbox "${attribution.sandbox}" wants host access: ${attribution.escalations.join(', ')}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * The optional model-judgment verdict for a sandbox-escalation ask
+ * (`sandbox-model-judgment` flag), read from `record.metadata.judgmentVerdict`
+ * — the ONE place the daemon's annotate-only judgment tier stamps a verdict on
+ * the wire (createSandboxEscalationApprovalHandler, sandbox-escalation.ts).
+ * Absent when the judgment tier is off, unwired, or auto-approved the ask
+ * (auto-approve never reaches a broker request, so no record exists to stamp).
+ * Read defensively — `metadata` is an open `Record<string, unknown>` this
+ * client never runtime-validates.
+ */
+export function judgmentVerdict(record: ApprovalRecord): string | null {
+  const value = record.metadata.judgmentVerdict;
+  return typeof value === 'string' ? value : null;
+}
+
+/** Badge tone for a model-judgment verdict — mirrors riskTone's ok/warning/neutral vocabulary. */
+export function judgmentTone(verdict: string): string {
+  switch (verdict) {
+    case 'looks-safe':
+      return 'ok';
+    case 'flags-risk':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
+/** Human label for a model-judgment verdict badge. */
+export function judgmentLabel(verdict: string): string {
+  switch (verdict) {
+    case 'looks-safe':
+      return 'model judgment: looks safe';
+    case 'flags-risk':
+      return 'model judgment: flags risk';
+    default:
+      return 'model judgment: unavailable';
+  }
 }

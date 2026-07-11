@@ -170,3 +170,26 @@
     opacity: 1;
   }
 }
+
+/* ── Relay live-event overflow notice ─────────────────────────────────────── */
+.relay-overflow-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.relay-overflow-resync {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.relay-overflow-resync:hover {
+  background: rgba(127, 127, 127, 0.15);
+}

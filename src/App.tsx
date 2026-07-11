@@ -31,6 +31,8 @@ import { usePairingHandoff } from './hooks/usePairingHandoff';
 import { useRelayPairingHandoff } from './hooks/useRelayPairingHandoff';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
+import { StepUpHost } from './components/auth/StepUpHost';
+import { RelayOverflowBanner } from './components/status/RelayOverflowBanner';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
@@ -424,6 +426,8 @@ export default function App() {
   return (
     <AppShell view={view} onNavigate={handleNavigate}>
     <div className="app-shell-root">
+    <StepUpHost />
+    <RelayOverflowBanner />
     {daemonUnreachable && (
       <div className="daemon-gate-overlay">
         <DaemonUnreachableGate

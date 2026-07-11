@@ -83,21 +83,27 @@ export function displayConfigValue(key: string, value: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// Category naming parity — mirrors goodvibes-tui's settings-modal-helpers.ts
-// CATEGORY_LABELS. The config namespace (the key's first dot-segment) maps
-// 1:1 onto the TUI's rail category ids for every domain both surfaces share.
-// A namespace with no TUI analogue falls back to a Title Case of itself
-// (honest — never invented, just formatted) rather than a fabricated label.
+// Namespace display labels. The GROUPING SOURCE is SDK metadata (CONFIG_SCHEMA
+// namespaces + each feature flag's configCategories — see settings-model.ts);
+// this table supplies only the human LABEL for a namespace, special-casing
+// acronyms/casing the mechanical Title Case fallback (titleCase, below) would
+// get wrong (WRFC, TTS, UI, MCP, HTTP Listener, Control Plane). A namespace with
+// no entry here Title-Cases itself — honest, never a fabricated label.
+//
+// This replaces the earlier hand-copied port of the TUI's CATEGORY_LABELS: the
+// key namespaces now come from the SDK schema the TUI is also being rebuilt
+// onto, so parity is structural rather than a maintained duplicate list. Every
+// namespace CONFIG_SCHEMA actually defines is covered here or by titleCase.
 // ---------------------------------------------------------------------------
 
 export const CATEGORY_LABELS: Record<string, string> = {
   display: 'Display',
   ui: 'UI',
   provider: 'Provider',
-  subscriptions: 'Subscriptions',
   behavior: 'Behavior',
   storage: 'Storage',
   permissions: 'Permissions',
+  diagnostics: 'Diagnostics',
   orchestration: 'Orchestration',
   planner: 'Planner',
   wrfc: 'WRFC',
@@ -105,24 +111,33 @@ export const CATEGORY_LABELS: Record<string, string> = {
   tts: 'TTS',
   service: 'Service',
   daemon: 'Daemon',
+  checkin: 'Check-In',
   controlPlane: 'Control Plane',
   httpListener: 'HTTP Listener',
   web: 'Web',
+  atRest: 'At Rest',
+  learning: 'Learning',
   batch: 'Batch',
   automation: 'Automation',
   watchers: 'Watchers',
   runtime: 'Runtime',
   telemetry: 'Telemetry',
   cache: 'Cache',
-  mcp: 'MCP',
   sandbox: 'Sandbox',
   surfaces: 'Surfaces',
   cloudflare: 'Cloudflare',
   release: 'Release',
   danger: 'Danger',
   tools: 'Tools',
-  flags: 'Feature Flags',
   network: 'Network',
+  relay: 'Relay',
+  notifications: 'Notifications',
+  fetch: 'Fetch',
+  security: 'Security',
+  integrations: 'Integrations',
+  policy: 'Policy',
+  agents: 'Agents',
+  featureFlags: 'Feature Flags',
 };
 
 function titleCase(value: string): string {

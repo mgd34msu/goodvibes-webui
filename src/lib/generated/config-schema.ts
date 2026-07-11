@@ -1,0 +1,3035 @@
+/**
+ * GENERATED FILE — DO NOT EDIT BY HAND.
+ * Produced by scripts/generate-config-schema.ts from the installed
+ * @pellux/goodvibes-sdk: CONFIG_SCHEMA (platform/config) plus the feature-flag
+ * registry (FEATURE_FLAGS) and its config association map (FEATURE_FLAG_CONFIG).
+ *
+ * This is a build-time snapshot so the browser bundle never imports the SDK
+ * config barrel (which drags SecretsManager / OAuth / google-auth — node-only).
+ *
+ * Regenerate: `bun run config-schema:generate`.
+ * Verify (no write): `bun run config-schema:check` — wired into `bun run build`,
+ * so an SDK schema change that was not regenerated fails the build.
+ */
+
+export interface ConfigSchemaEntry {
+  readonly key: string;
+  readonly type: 'boolean' | 'number' | 'string' | 'enum';
+  readonly default: unknown;
+  readonly description: string;
+  readonly enumValues?: readonly string[];
+  readonly validationHint?: string;
+}
+
+export interface FeatureFlagMeta {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly tier: number;
+  readonly defaultState: 'enabled' | 'disabled' | 'killed';
+  readonly runtimeToggleable: boolean;
+}
+
+export interface FeatureFlagConfigAssoc {
+  readonly configCategories: readonly string[];
+  readonly configKeys: readonly string[];
+}
+
+export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
+  {
+    "key": "display.stream",
+    "type": "boolean",
+    "default": true,
+    "description": "Stream LLM tokens as they arrive"
+  },
+  {
+    "key": "display.lineNumbers",
+    "type": "enum",
+    "default": "off",
+    "description": "Show line numbers for all assistant output, code blocks only, or not at all",
+    "enumValues": [
+      "all",
+      "code",
+      "off"
+    ]
+  },
+  {
+    "key": "display.collapseThreshold",
+    "type": "number",
+    "default": 30,
+    "description": "Line count threshold for collapsing tool output",
+    "validationHint": "number in [1, 1000]"
+  },
+  {
+    "key": "display.theme",
+    "type": "string",
+    "default": "vaporwave",
+    "description": "Color theme name"
+  },
+  {
+    "key": "display.showThinking",
+    "type": "boolean",
+    "default": false,
+    "description": "Show reasoning/thinking content in a dimmed block above assistant responses"
+  },
+  {
+    "key": "display.showReasoningSummary",
+    "type": "boolean",
+    "default": false,
+    "description": "Show reasoning summary (Mercury-2) in a dimmed block above assistant responses"
+  },
+  {
+    "key": "display.showTokenSpeed",
+    "type": "boolean",
+    "default": false,
+    "description": "Show streaming tokens/sec counter during generation"
+  },
+  {
+    "key": "display.showToolPreview",
+    "type": "boolean",
+    "default": false,
+    "description": "Show partial tool call preview while streaming"
+  },
+  {
+    "key": "provider.reasoningEffort",
+    "type": "enum",
+    "default": "medium",
+    "description": "Reasoning effort level for models that support it",
+    "enumValues": [
+      "instant",
+      "low",
+      "medium",
+      "high"
+    ]
+  },
+  {
+    "key": "provider.model",
+    "type": "string",
+    "default": "openrouter:openrouter/free",
+    "description": "Default provider-qualified LLM model registry key"
+  },
+  {
+    "key": "provider.embeddingProvider",
+    "type": "string",
+    "default": "hashed-local",
+    "description": "Default memory embedding provider"
+  },
+  {
+    "key": "provider.systemPromptFile",
+    "type": "string",
+    "default": "",
+    "description": "Path to a file containing the system prompt (empty = none)"
+  },
+  {
+    "key": "provider.optimizerMode",
+    "type": "enum",
+    "default": "manual",
+    "description": "Persistent provider-optimizer routing mode (applied at startup when the provider-optimizer feature flag is enabled): manual (never auto-routes), auto (selects the best capable provider per request via capability contracts), or pinned (force one model — see provider.optimizerPinnedModel). Runtime /provider commands and pin/unpin still override for the session.",
+    "enumValues": [
+      "manual",
+      "auto",
+      "pinned"
+    ]
+  },
+  {
+    "key": "provider.optimizerPinnedModel",
+    "type": "string",
+    "default": "",
+    "description": "Provider-qualified model id (e.g. anthropic:claude-sonnet-4) pinned by the provider optimizer at startup when provider.optimizerMode is \"pinned\". Empty leaves the optimizer unpinned (falls back to manual)."
+  },
+  {
+    "key": "behavior.autoApprove",
+    "type": "boolean",
+    "default": false,
+    "description": "Auto-approve all tool permission requests (--no-worries-just-vibes)"
+  },
+  {
+    "key": "behavior.autoCompactThreshold",
+    "type": "number",
+    "default": 80,
+    "description": "Compact conversation when context usage exceeds this percentage",
+    "validationHint": "number in [10, 100]"
+  },
+  {
+    "key": "behavior.compactionStrategy",
+    "type": "enum",
+    "default": "structured",
+    "description": "Compaction strategy: structured (in-place summarization) or distiller (fresh model call producing a continuation brief; gated by the compaction-distiller-strategy flag, falls back to structured below the quality floor)",
+    "enumValues": [
+      "structured",
+      "distiller"
+    ]
+  },
+  {
+    "key": "behavior.staleContextWarnings",
+    "type": "boolean",
+    "default": true,
+    "description": "Emit proactive context-pressure warnings before compaction is required"
+  },
+  {
+    "key": "behavior.saveHistory",
+    "type": "boolean",
+    "default": true,
+    "description": "Persist conversation history to disk"
+  },
+  {
+    "key": "behavior.notifyOnComplete",
+    "type": "boolean",
+    "default": true,
+    "description": "Emit terminal bell and desktop notification when a long turn completes"
+  },
+  {
+    "key": "behavior.returnContextMode",
+    "type": "enum",
+    "default": "off",
+    "description": "Resume summary mode: off, local deterministic summary, or helper-assisted summary",
+    "enumValues": [
+      "off",
+      "local",
+      "assisted"
+    ]
+  },
+  {
+    "key": "behavior.guidanceMode",
+    "type": "enum",
+    "default": "minimal",
+    "description": "Operational guidance mode: off, minimal, or guided",
+    "enumValues": [
+      "off",
+      "minimal",
+      "guided"
+    ]
+  },
+  {
+    "key": "storage.secretPolicy",
+    "type": "enum",
+    "default": "preferred_secure",
+    "description": "Secret persistence policy: plaintext allowed, preferred secure, or require secure",
+    "enumValues": [
+      "plaintext_allowed",
+      "preferred_secure",
+      "require_secure"
+    ]
+  },
+  {
+    "key": "storage.artifacts.maxBytes",
+    "type": "number",
+    "default": 536870912,
+    "description": "Maximum stored artifact size for file, URL, multipart, and raw upload ingest in bytes",
+    "validationHint": "integer in [1048576, 10737418240]"
+  },
+  {
+    "key": "permissions.mode",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Session permission mode. prompt (default/\"normal\"): auto-approve reads, ask for the rest. plan: read-only tools allowed, every mutating/exec tool is refused with a structured plan-mode denial. accept-edits: file write/edit tools auto-approve, exec and other risky classes still ask. allow-all (\"auto\"): every tool auto-approved. custom: per-tool config actions apply.",
+    "enumValues": [
+      "prompt",
+      "allow-all",
+      "custom",
+      "plan",
+      "accept-edits"
+    ]
+  },
+  {
+    "key": "permissions.backgroundAgents",
+    "type": "enum",
+    "default": "inherit",
+    "description": "How background/subagent tool calls consult the permission layer. inherit (default): background tool execution runs through the same session permission mode as the foreground turn loop (allow-all changes nothing; prompt/plan/accept-edits/custom apply their matrices; asks broker through the same blocked-on-user machinery with subagent attribution). allow-all: background agents are exempt — their tool calls auto-approve regardless of the session mode.",
+    "enumValues": [
+      "inherit",
+      "allow-all"
+    ]
+  },
+  {
+    "key": "permissions.divergenceThreshold",
+    "type": "number",
+    "default": 0.05,
+    "description": "Maximum permission-evaluator divergence rate (0.0–1.0) the permission-divergence-dashboard enforce gate tolerates before blocking a transition from simulation to enforce mode. Default 0.05 = 5%. A per-simulator divergenceThreshold override still wins.",
+    "validationHint": "number in [0, 1]"
+  },
+  {
+    "key": "permissions.maxDivergenceRecords",
+    "type": "number",
+    "default": 500,
+    "description": "Maximum divergence records the permissions simulator retains for the divergence dashboard/trend history. A per-simulator maxDivergenceRecords override still wins.",
+    "validationHint": "integer in [1, 1000000]"
+  },
+  {
+    "key": "diagnostics.postEdit",
+    "type": "enum",
+    "default": "on",
+    "description": "Post-edit diagnostics: after a successful file write/edit, append cheap, in-process syntax diagnostics (errors only) for the touched file to the tool result so the model sees a broken edit immediately. on (default): run the tree-sitter syntax provider when a TS/JS project context is detectable (no process spawn, no type checking). off: never append diagnostics.",
+    "enumValues": [
+      "on",
+      "off"
+    ]
+  },
+  {
+    "key": "permissions.tools.read",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for file read operations (read, find, analyze)",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.write",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for file write operations",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.edit",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for file edit/patch operations",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.exec",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for shell command execution",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.find",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for file/directory search operations",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.fetch",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for outbound network fetch requests (custom mode only)",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.analyze",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for code/project analysis operations",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.inspect",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for inspecting runtime state and objects",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.agent",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for spawning subagents or delegating tasks",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.state",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for reading runtime/session state",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.workflow",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for executing multi-step workflow automation",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.registry",
+    "type": "enum",
+    "default": "allow",
+    "description": "Permission for querying the tool/skill registry",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.mcp",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for MCP tool calls (external server tools)",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "permissions.tools.delegate",
+    "type": "enum",
+    "default": "prompt",
+    "description": "Permission for unknown or unregistered tools (safe default: prompt)",
+    "enumValues": [
+      "allow",
+      "prompt",
+      "deny"
+    ]
+  },
+  {
+    "key": "orchestration.recursionEnabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Allow recursive agent orchestration under bounded policy controls"
+  },
+  {
+    "key": "orchestration.maxActiveAgents",
+    "type": "number",
+    "default": 8,
+    "description": "Total active agents allowed across the orchestration tree",
+    "validationHint": "number in [1, 20]"
+  },
+  {
+    "key": "orchestration.maxDepth",
+    "type": "number",
+    "default": 0,
+    "description": "Maximum recursive orchestration depth: 0=disabled, higher values allow deeper bounded recursion",
+    "validationHint": "number in [0, 5]"
+  },
+  {
+    "key": "planner.decomposition",
+    "type": "enum",
+    "default": "agent",
+    "description": "How /workstream decomposes a goal into work items: 'agent' spawns a read-only planning agent (with automatic fallback to the heuristic path on any failure); 'heuristic' forces the deterministic single-item path and never spawns an agent",
+    "enumValues": [
+      "agent",
+      "heuristic"
+    ]
+  },
+  {
+    "key": "planner.maxTurns",
+    "type": "number",
+    "default": 6,
+    "description": "Maximum turns the planning-decomposition agent may take before it is stopped and the heuristic path is used",
+    "validationHint": "number in [1, 20]"
+  },
+  {
+    "key": "planner.tokenCeiling",
+    "type": "number",
+    "default": 120000,
+    "description": "Total token budget for the planning-decomposition agent; exceeding it stops the agent and falls back to the heuristic path",
+    "validationHint": "number in [1000, 2000000]"
+  },
+  {
+    "key": "planner.wallTimeoutMs",
+    "type": "number",
+    "default": 120000,
+    "description": "Wall-clock timeout (ms) for the planning-decomposition agent; exceeding it cancels the agent and falls back to the heuristic path",
+    "validationHint": "number in [1000, 600000]"
+  },
+  {
+    "key": "sandbox.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Master switch for the per-command exec sandbox (bubblewrap on Linux): the workspace is writable, the rest of the filesystem is read-only, /tmp is isolated, and network is disabled unless a command is on sandbox.egressAllowlist. Default OFF; gated by the graduation-tracked exec-sandbox feature flag and honestly reported unavailable when bubblewrap is not present."
+  },
+  {
+    "key": "sandbox.judgmentAutoApprove",
+    "type": "boolean",
+    "default": false,
+    "description": "When the sandbox-model-judgment tier is enabled, opt into auto-approving a looks-safe verdict on a sandbox escalation ask. Default false = annotate-only (the human still decides). Never auto-denies and never touches the frozen catastrophic block"
+  },
+  {
+    "key": "sandbox.replIsolation",
+    "type": "enum",
+    "default": "shared-vm",
+    "description": "Preferred isolation mode for evaluation runtimes once virtualization is enabled",
+    "enumValues": [
+      "shared-vm",
+      "per-runtime-vm"
+    ]
+  },
+  {
+    "key": "sandbox.mcpIsolation",
+    "type": "enum",
+    "default": "disabled",
+    "description": "Preferred isolation mode for MCP servers once virtualization is enabled",
+    "enumValues": [
+      "disabled",
+      "shared-vm",
+      "hybrid",
+      "per-server-vm"
+    ]
+  },
+  {
+    "key": "sandbox.windowsMode",
+    "type": "enum",
+    "default": "native-basic",
+    "description": "Windows host posture: native basic mode or require WSL before enabling virtualized sandboxing",
+    "enumValues": [
+      "native-basic",
+      "require-wsl"
+    ]
+  },
+  {
+    "key": "sandbox.vmBackend",
+    "type": "enum",
+    "default": "local",
+    "description": "Sandbox backend: local host execution by default, or QEMU for virtualized isolation",
+    "enumValues": [
+      "local",
+      "qemu"
+    ]
+  },
+  {
+    "key": "sandbox.qemuBinary",
+    "type": "string",
+    "default": "qemu-system-x86_64",
+    "description": "QEMU system binary to use when vmBackend=qemu"
+  },
+  {
+    "key": "sandbox.qemuImagePath",
+    "type": "string",
+    "default": "",
+    "description": "Disk image path for QEMU-backed sandbox sessions; when empty, QEMU sessions remain planned-only"
+  },
+  {
+    "key": "sandbox.qemuExecWrapper",
+    "type": "string",
+    "default": "",
+    "description": "Host-side wrapper/bridge used to execute guest commands inside a configured QEMU sandbox"
+  },
+  {
+    "key": "sandbox.qemuGuestHost",
+    "type": "string",
+    "default": "",
+    "description": "Optional guest host/IP used by the QEMU wrapper for real guest command transport"
+  },
+  {
+    "key": "sandbox.qemuGuestPort",
+    "type": "number",
+    "default": 2222,
+    "description": "Optional guest SSH port used by the QEMU wrapper for real guest command transport",
+    "validationHint": "integer port in [1, 65535]"
+  },
+  {
+    "key": "sandbox.qemuGuestUser",
+    "type": "string",
+    "default": "goodvibes",
+    "description": "Optional guest username used by the QEMU wrapper for real guest command transport"
+  },
+  {
+    "key": "sandbox.qemuWorkspacePath",
+    "type": "string",
+    "default": "/workspace",
+    "description": "Guest workspace path used by the QEMU wrapper when executing commands inside the guest"
+  },
+  {
+    "key": "sandbox.qemuSessionMode",
+    "type": "enum",
+    "default": "attach",
+    "description": "Whether the QEMU wrapper attaches to an already running guest or launches a guest per command",
+    "enumValues": [
+      "attach",
+      "launch-per-command"
+    ]
+  },
+  {
+    "key": "sandbox.replJavaScriptCommand",
+    "type": "string",
+    "default": "bun",
+    "description": "Guest command used for JavaScript-family REPL runtimes inside QEMU, including JavaScript, TypeScript, SQL, and GraphQL"
+  },
+  {
+    "key": "ui.voiceEnabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the optional local-first voice control surface"
+  },
+  {
+    "key": "ui.systemMessages",
+    "type": "enum",
+    "default": "panel",
+    "description": "Where operational system messages render by default: panel, conversation, or both",
+    "enumValues": [
+      "panel",
+      "conversation",
+      "both"
+    ]
+  },
+  {
+    "key": "tts.provider",
+    "type": "string",
+    "default": "elevenlabs",
+    "description": "Default TTS provider used by spoken-output clients when no provider is supplied on the request"
+  },
+  {
+    "key": "tts.voice",
+    "type": "string",
+    "default": "",
+    "description": "Default TTS voice id used by spoken-output clients when no voice is supplied on the request"
+  },
+  {
+    "key": "tts.llmProvider",
+    "type": "string",
+    "default": "",
+    "description": "Optional LLM provider override for spoken-output turns; empty means use the active chat provider"
+  },
+  {
+    "key": "tts.llmModel",
+    "type": "string",
+    "default": "",
+    "description": "Optional LLM model override for spoken-output turns; empty means use the active chat model"
+  },
+  {
+    "key": "tts.speed",
+    "type": "number",
+    "default": 1,
+    "description": "Playback speed multiplier for TTS synthesis (0.25–4.0); 1.0 is normal speed",
+    "validationHint": "number in [0.25, 4]"
+  },
+  {
+    "key": "ui.operationalMessages",
+    "type": "enum",
+    "default": "panel",
+    "description": "Where tool, agent, MCP, plugin, and other operational activity messages render by default: panel, conversation, or both",
+    "enumValues": [
+      "panel",
+      "conversation",
+      "both"
+    ]
+  },
+  {
+    "key": "ui.wrfcMessages",
+    "type": "enum",
+    "default": "both",
+    "description": "Where WRFC lifecycle updates render by default: panel, conversation, or both",
+    "enumValues": [
+      "panel",
+      "conversation",
+      "both"
+    ]
+  },
+  {
+    "key": "release.channel",
+    "type": "enum",
+    "default": "stable",
+    "description": "Preferred release channel for install/update flows",
+    "enumValues": [
+      "stable",
+      "preview"
+    ]
+  },
+  {
+    "key": "automation.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the automation subsystem"
+  },
+  {
+    "key": "automation.maxConcurrentRuns",
+    "type": "number",
+    "default": 4,
+    "description": "Maximum automation runs that may execute concurrently",
+    "validationHint": "integer in [1, 64]"
+  },
+  {
+    "key": "automation.runHistoryLimit",
+    "type": "number",
+    "default": 100,
+    "description": "Maximum run history entries retained per automation job",
+    "validationHint": "integer in [1, 5000]"
+  },
+  {
+    "key": "automation.defaultTimeoutMs",
+    "type": "number",
+    "default": 900000,
+    "description": "Default execution timeout for automation runs in milliseconds",
+    "validationHint": "integer in [1000, 86400000]"
+  },
+  {
+    "key": "automation.catchUpWindowMinutes",
+    "type": "number",
+    "default": 30,
+    "description": "How long after startup the engine should catch up missed runs",
+    "validationHint": "integer in [0, 1440]"
+  },
+  {
+    "key": "automation.failureCooldownMs",
+    "type": "number",
+    "default": 300000,
+    "description": "Cooldown applied after a failed automation run before retrying",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "automation.deleteAfterRun",
+    "type": "boolean",
+    "default": false,
+    "description": "Delete one-shot automation jobs after their first successful run"
+  },
+  {
+    "key": "checkin.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the proactive check-in: on a cadence, a briefing is judged and the user is contacted only when something warrants it"
+  },
+  {
+    "key": "checkin.cadence",
+    "type": "string",
+    "default": "0 */4 * * *",
+    "description": "Proactive check-in cadence as a cron expression (default: every 4 hours)"
+  },
+  {
+    "key": "checkin.deliveryChannel",
+    "type": "string",
+    "default": "",
+    "description": "Where a proactive check-in message is delivered: \"surfaceKind\" or \"surfaceKind:address\" (e.g. \"slack:C123\")"
+  },
+  {
+    "key": "checkin.quietHours",
+    "type": "string",
+    "default": "",
+    "description": "Proactive check-in quiet hours as \"HH:MM-HH:MM\" local time (empty disables); no message is sent during this window"
+  },
+  {
+    "key": "controlPlane.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the shared gateway/control-plane service"
+  },
+  {
+    "key": "controlPlane.hostMode",
+    "type": "enum",
+    "default": "local",
+    "description": "Network binding mode: local (127.0.0.1, default port), network (0.0.0.0, default port), custom (editable host and port)",
+    "enumValues": [
+      "local",
+      "network",
+      "custom"
+    ]
+  },
+  {
+    "key": "controlPlane.host",
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind host for the control-plane HTTP server"
+  },
+  {
+    "key": "controlPlane.port",
+    "type": "number",
+    "default": 3421,
+    "description": "Bind port for the control-plane HTTP server",
+    "validationHint": "integer port in [1, 65535]"
+  },
+  {
+    "key": "controlPlane.baseUrl",
+    "type": "string",
+    "default": "http://127.0.0.1:3421",
+    "description": "Public base URL used by route bindings and link generation"
+  },
+  {
+    "key": "controlPlane.streamMode",
+    "type": "enum",
+    "default": "sse",
+    "description": "Live update stream mode for control-plane clients",
+    "enumValues": [
+      "sse",
+      "websocket",
+      "both"
+    ]
+  },
+  {
+    "key": "controlPlane.allowRemote",
+    "type": "boolean",
+    "default": false,
+    "description": "Allow remote clients to connect to the control plane"
+  },
+  {
+    "key": "controlPlane.trustProxy",
+    "type": "boolean",
+    "default": false,
+    "description": "Trust proxy forwarding headers such as x-forwarded-for for the control plane"
+  },
+  {
+    "key": "controlPlane.openaiCompatible.enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Expose OpenAI-compatible /v1/models and /v1/chat/completions routes on the authenticated daemon"
+  },
+  {
+    "key": "controlPlane.openaiCompatible.pathPrefix",
+    "type": "string",
+    "default": "/v1",
+    "description": "Path prefix for the daemon OpenAI-compatible routes"
+  },
+  {
+    "key": "controlPlane.webui.serve",
+    "type": "boolean",
+    "default": false,
+    "description": "Serve a built web UI bundle same-origin from the daemon (opt-in; loopback default unchanged). The bundle is public and the app token-authenticates its own API calls."
+  },
+  {
+    "key": "controlPlane.webui.bundleDir",
+    "type": "string",
+    "default": "",
+    "description": "Directory holding the built web UI bundle (index.html + assets) served when controlPlane.webui.serve is true. Empty disables serving."
+  },
+  {
+    "key": "controlPlane.cors.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Answer OPTIONS preflight and emit Access-Control-Allow-* headers for allowlisted origins (opt-in; off by default). Never wildcards; credentials are allowlist-gated."
+  },
+  {
+    "key": "controlPlane.cors.allowedOrigins",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated explicit allowlist of browser origins permitted to make cross-origin requests when controlPlane.cors.enabled is true (e.g. http://localhost:5173). Empty refuses every cross-origin request."
+  },
+  {
+    "key": "controlPlane.tls.mode",
+    "type": "enum",
+    "default": "off",
+    "description": "TLS mode for the control-plane HTTP server",
+    "enumValues": [
+      "off",
+      "proxy",
+      "direct"
+    ]
+  },
+  {
+    "key": "controlPlane.tls.certFile",
+    "type": "string",
+    "default": "",
+    "description": "Certificate chain PEM path for direct control-plane TLS (empty = ~/.goodvibes/certs/fullchain.pem)"
+  },
+  {
+    "key": "controlPlane.tls.keyFile",
+    "type": "string",
+    "default": "",
+    "description": "Private key PEM path for direct control-plane TLS (empty = ~/.goodvibes/certs/privkey.pem)"
+  },
+  {
+    "key": "httpListener.hostMode",
+    "type": "enum",
+    "default": "local",
+    "description": "Network binding mode: local (127.0.0.1, default port), network (0.0.0.0, default port), custom (editable host and port)",
+    "enumValues": [
+      "local",
+      "network",
+      "custom"
+    ]
+  },
+  {
+    "key": "httpListener.host",
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind host for the webhook HTTP listener"
+  },
+  {
+    "key": "httpListener.port",
+    "type": "number",
+    "default": 3422,
+    "description": "Bind port for the webhook HTTP listener",
+    "validationHint": "integer port in [1, 65535]"
+  },
+  {
+    "key": "httpListener.trustProxy",
+    "type": "boolean",
+    "default": false,
+    "description": "Trust proxy forwarding headers such as x-forwarded-for for the webhook listener"
+  },
+  {
+    "key": "httpListener.tls.mode",
+    "type": "enum",
+    "default": "off",
+    "description": "TLS mode for the webhook HTTP listener",
+    "enumValues": [
+      "off",
+      "proxy",
+      "direct"
+    ]
+  },
+  {
+    "key": "httpListener.tls.certFile",
+    "type": "string",
+    "default": "",
+    "description": "Certificate chain PEM path for direct webhook-listener TLS (empty = ~/.goodvibes/certs/fullchain.pem)"
+  },
+  {
+    "key": "httpListener.tls.keyFile",
+    "type": "string",
+    "default": "",
+    "description": "Private key PEM path for direct webhook-listener TLS (empty = ~/.goodvibes/certs/privkey.pem)"
+  },
+  {
+    "key": "web.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the browser-based operator surface"
+  },
+  {
+    "key": "web.hostMode",
+    "type": "enum",
+    "default": "local",
+    "description": "Network binding mode: local (127.0.0.1, default port), network (0.0.0.0, default port), custom (editable host and port)",
+    "enumValues": [
+      "local",
+      "network",
+      "custom"
+    ]
+  },
+  {
+    "key": "web.host",
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind host for the web surface"
+  },
+  {
+    "key": "web.port",
+    "type": "number",
+    "default": 3423,
+    "description": "Bind port for the web surface",
+    "validationHint": "integer port in [1, 65535]"
+  },
+  {
+    "key": "web.publicBaseUrl",
+    "type": "string",
+    "default": "http://127.0.0.1:3423",
+    "description": "Public base URL for web links and ntfy/notification deep links"
+  },
+  {
+    "key": "web.staticAssetsDir",
+    "type": "string",
+    "default": "dist/web",
+    "description": "Static asset directory for the embedded web surface"
+  },
+  {
+    "key": "atRest.redactionEnabled",
+    "type": "boolean",
+    "default": true,
+    "description": "When true (default), secret/credential patterns (API keys, bearer tokens, GitHub/GitLab/Slack/AWS credentials, home paths) are redacted at WRITE time from the on-disk transcript journal (per-agent <agentId>.jsonl) and the local execution ledger (spans + ledger jsonl), reusing the same pattern set as the telemetry egress. A redacted value shows a [REDACTED_*] marker — a record never pretends the content was absent. Set false ONLY for local debugging where plaintext secrets on disk are acceptable."
+  },
+  {
+    "key": "atRest.retentionMaxAgeDays",
+    "type": "number",
+    "default": 30,
+    "description": "Age cap (days) for the on-disk transcript journal and execution-ledger files. Files older than this are pruned at the retention enforcement point (the journal prunes on each new agent session; the ledger prunes on each export). Generous by default; bounded so the files cannot grow without limit.",
+    "validationHint": "integer in [1, 365]"
+  },
+  {
+    "key": "atRest.retentionMaxTotalMb",
+    "type": "number",
+    "default": 512,
+    "description": "Total-size cap (MB) across the on-disk transcript journal / execution-ledger file set. When exceeded, the retention enforcement point deletes oldest-first (rotated backups before freshly-written active files) until under budget.",
+    "validationHint": "integer in [1, 1048576]"
+  },
+  {
+    "key": "learning.consolidation.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Master switch for the idle-time memory consolidation pass (dedupe merges, confidence decay of never-referenced records, and review proposals). Off by default — the pass runs only when explicitly enabled."
+  },
+  {
+    "key": "learning.consolidation.intervalMs",
+    "type": "number",
+    "default": 21600000,
+    "description": "Minimum time between consolidation runs, in milliseconds. Doubles as the schedule cadence (default: 6 hours).",
+    "validationHint": "integer in [1, 2592000000]"
+  },
+  {
+    "key": "learning.consolidation.minIdleMs",
+    "type": "number",
+    "default": 0,
+    "description": "Minimum continuous idle time required before a consolidation run may start, in milliseconds (default: 0 = no idle requirement).",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "learning.consolidation.maxMergesPerRun",
+    "type": "number",
+    "default": 10,
+    "description": "Maximum duplicate groups merged in a single consolidation run.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "learning.consolidation.maxDecaysPerRun",
+    "type": "number",
+    "default": 20,
+    "description": "Maximum records decayed or archived in a single consolidation run.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "learning.consolidation.maxProposalsPerRun",
+    "type": "number",
+    "default": 20,
+    "description": "Maximum review proposals emitted in a single consolidation run.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "learning.consolidation.decayAgeDays",
+    "type": "number",
+    "default": 45,
+    "description": "Active records older than this (by updatedAt) become decay candidates, in days.",
+    "validationHint": "integer in [1, 3650]"
+  },
+  {
+    "key": "learning.consolidation.decayConfidenceStep",
+    "type": "number",
+    "default": 10,
+    "description": "Confidence points removed from a never-referenced decaying record per run.",
+    "validationHint": "integer in [1, 100]"
+  },
+  {
+    "key": "learning.consolidation.archiveConfidenceFloor",
+    "type": "number",
+    "default": 40,
+    "description": "A decaying record whose confidence would fall to or below this is archived (marked stale).",
+    "validationHint": "integer in [0, 100]"
+  },
+  {
+    "key": "surfaces.slack.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Slack surface adapter"
+  },
+  {
+    "key": "surfaces.slack.signingSecret",
+    "type": "string",
+    "default": "",
+    "description": "Slack signing secret used to verify inbound requests"
+  },
+  {
+    "key": "surfaces.slack.botToken",
+    "type": "string",
+    "default": "",
+    "description": "Slack bot token used for outbound replies and thread updates"
+  },
+  {
+    "key": "surfaces.slack.appToken",
+    "type": "string",
+    "default": "",
+    "description": "Slack app-level token used for advanced client flows"
+  },
+  {
+    "key": "surfaces.slack.defaultChannel",
+    "type": "string",
+    "default": "",
+    "description": "Default Slack channel for notifications and replies"
+  },
+  {
+    "key": "surfaces.slack.workspaceId",
+    "type": "string",
+    "default": "",
+    "description": "Slack workspace identifier for route binding"
+  },
+  {
+    "key": "surfaces.discord.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Discord surface adapter"
+  },
+  {
+    "key": "surfaces.discord.publicKey",
+    "type": "string",
+    "default": "",
+    "description": "Discord application public key used to verify interactions"
+  },
+  {
+    "key": "surfaces.discord.botToken",
+    "type": "string",
+    "default": "",
+    "description": "Discord bot token used for outbound replies"
+  },
+  {
+    "key": "surfaces.discord.applicationId",
+    "type": "string",
+    "default": "",
+    "description": "Discord application ID used for interaction responses"
+  },
+  {
+    "key": "surfaces.discord.defaultChannelId",
+    "type": "string",
+    "default": "",
+    "description": "Default Discord channel for notifications and replies"
+  },
+  {
+    "key": "surfaces.discord.guildId",
+    "type": "string",
+    "default": "",
+    "description": "Discord guild identifier for route binding"
+  },
+  {
+    "key": "surfaces.ntfy.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the ntfy notification surface"
+  },
+  {
+    "key": "surfaces.ntfy.baseUrl",
+    "type": "string",
+    "default": "https://ntfy.sh",
+    "description": "Base URL for ntfy delivery"
+  },
+  {
+    "key": "surfaces.ntfy.topic",
+    "type": "string",
+    "default": "",
+    "description": "Optional default ntfy topic for outbound notifications; does not override inbound route topics"
+  },
+  {
+    "key": "surfaces.ntfy.chatTopic",
+    "type": "string",
+    "default": "goodvibes-chat",
+    "description": "ntfy topic routed into the active terminal TUI session as normal chat"
+  },
+  {
+    "key": "surfaces.ntfy.agentTopic",
+    "type": "string",
+    "default": "goodvibes-agent",
+    "description": "ntfy topic routed to agent work in the active terminal TUI session"
+  },
+  {
+    "key": "surfaces.ntfy.remoteTopic",
+    "type": "string",
+    "default": "goodvibes-ntfy",
+    "description": "ntfy topic routed to a daemon-owned remote chat session"
+  },
+  {
+    "key": "surfaces.ntfy.token",
+    "type": "string",
+    "default": "",
+    "description": "ntfy access token used for authenticated delivery"
+  },
+  {
+    "key": "surfaces.ntfy.defaultPriority",
+    "type": "number",
+    "default": 3,
+    "description": "Default ntfy priority (1-5)",
+    "validationHint": "integer in [1, 5]"
+  },
+  {
+    "key": "surfaces.webhook.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the generic webhook surface"
+  },
+  {
+    "key": "surfaces.webhook.defaultTarget",
+    "type": "string",
+    "default": "",
+    "description": "Default outbound webhook target URL"
+  },
+  {
+    "key": "surfaces.webhook.timeoutMs",
+    "type": "number",
+    "default": 10000,
+    "description": "Outbound webhook timeout in milliseconds",
+    "validationHint": "integer in [1000, 60000]"
+  },
+  {
+    "key": "surfaces.webhook.secret",
+    "type": "string",
+    "default": "",
+    "description": "Shared secret used to sign or verify webhook payloads"
+  },
+  {
+    "key": "surfaces.homeassistant.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Home Assistant daemon surface"
+  },
+  {
+    "key": "surfaces.homeassistant.instanceUrl",
+    "type": "string",
+    "default": "",
+    "description": "Home Assistant base URL, for example http://homeassistant.local:8123"
+  },
+  {
+    "key": "surfaces.homeassistant.accessToken",
+    "type": "string",
+    "default": "",
+    "description": "Home Assistant long-lived access token or goodvibes secret URI"
+  },
+  {
+    "key": "surfaces.homeassistant.webhookSecret",
+    "type": "string",
+    "default": "",
+    "description": "Shared secret used to verify inbound Home Assistant callbacks"
+  },
+  {
+    "key": "surfaces.homeassistant.defaultConversationId",
+    "type": "string",
+    "default": "goodvibes",
+    "description": "Default Home Assistant conversation id used for route binding"
+  },
+  {
+    "key": "surfaces.homeassistant.deviceId",
+    "type": "string",
+    "default": "goodvibes-daemon",
+    "description": "Stable Home Assistant device identifier for this daemon"
+  },
+  {
+    "key": "surfaces.homeassistant.deviceName",
+    "type": "string",
+    "default": "GoodVibes Daemon",
+    "description": "Home Assistant device display name for this daemon"
+  },
+  {
+    "key": "surfaces.homeassistant.eventType",
+    "type": "string",
+    "default": "goodvibes_message",
+    "description": "Home Assistant event type used for daemon-to-Home Assistant deliveries"
+  },
+  {
+    "key": "surfaces.homeassistant.remoteSessionTtlMs",
+    "type": "number",
+    "default": 1200000,
+    "description": "Idle TTL for Home Assistant remote conversation sessions before the daemon closes them",
+    "validationHint": "integer in [60000, 86400000]"
+  },
+  {
+    "key": "surfaces.telegram.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Telegram surface contract"
+  },
+  {
+    "key": "surfaces.telegram.botToken",
+    "type": "string",
+    "default": "",
+    "description": "Telegram bot token used for bot setup and delivery"
+  },
+  {
+    "key": "surfaces.telegram.webhookSecret",
+    "type": "string",
+    "default": "",
+    "description": "Telegram webhook secret token used to verify inbound callbacks"
+  },
+  {
+    "key": "surfaces.telegram.defaultChatId",
+    "type": "string",
+    "default": "",
+    "description": "Default Telegram chat, group, or channel id for delivery"
+  },
+  {
+    "key": "surfaces.telegram.botUsername",
+    "type": "string",
+    "default": "",
+    "description": "Telegram bot username used for targeting and setup hints"
+  },
+  {
+    "key": "surfaces.telegram.mode",
+    "type": "enum",
+    "default": "webhook",
+    "description": "Telegram ingress mode: webhook or polling",
+    "enumValues": [
+      "webhook",
+      "polling"
+    ]
+  },
+  {
+    "key": "surfaces.googleChat.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Google Chat surface contract"
+  },
+  {
+    "key": "surfaces.googleChat.webhookUrl",
+    "type": "string",
+    "default": "",
+    "description": "Google Chat outbound webhook or app callback URL"
+  },
+  {
+    "key": "surfaces.googleChat.verificationToken",
+    "type": "string",
+    "default": "",
+    "description": "Google Chat verification token or shared secret"
+  },
+  {
+    "key": "surfaces.googleChat.appId",
+    "type": "string",
+    "default": "",
+    "description": "Google Chat app identifier used for setup and diagnostics"
+  },
+  {
+    "key": "surfaces.googleChat.spaceId",
+    "type": "string",
+    "default": "",
+    "description": "Default Google Chat space identifier for routing"
+  },
+  {
+    "key": "surfaces.signal.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Signal bridge surface contract"
+  },
+  {
+    "key": "surfaces.signal.bridgeUrl",
+    "type": "string",
+    "default": "",
+    "description": "Signal bridge base URL used for health checks and delivery"
+  },
+  {
+    "key": "surfaces.signal.account",
+    "type": "string",
+    "default": "",
+    "description": "Signal account or device identifier paired with the bridge"
+  },
+  {
+    "key": "surfaces.signal.token",
+    "type": "string",
+    "default": "",
+    "description": "Signal bridge access token"
+  },
+  {
+    "key": "surfaces.signal.defaultRecipient",
+    "type": "string",
+    "default": "",
+    "description": "Default Signal recipient or group identifier for routing"
+  },
+  {
+    "key": "surfaces.whatsapp.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the WhatsApp surface contract"
+  },
+  {
+    "key": "surfaces.whatsapp.provider",
+    "type": "enum",
+    "default": "meta-cloud",
+    "description": "WhatsApp provider mode: Meta Cloud API or bridge",
+    "enumValues": [
+      "meta-cloud",
+      "bridge"
+    ]
+  },
+  {
+    "key": "surfaces.whatsapp.accessToken",
+    "type": "string",
+    "default": "",
+    "description": "WhatsApp provider access token"
+  },
+  {
+    "key": "surfaces.whatsapp.verifyToken",
+    "type": "string",
+    "default": "",
+    "description": "WhatsApp webhook verify token or shared secret"
+  },
+  {
+    "key": "surfaces.whatsapp.signingSecret",
+    "type": "string",
+    "default": "",
+    "description": "WhatsApp inbound signing secret or bridge bearer token"
+  },
+  {
+    "key": "surfaces.whatsapp.phoneNumberId",
+    "type": "string",
+    "default": "",
+    "description": "WhatsApp phone number id used for provider setup"
+  },
+  {
+    "key": "surfaces.whatsapp.businessAccountId",
+    "type": "string",
+    "default": "",
+    "description": "WhatsApp business account id used for provider setup"
+  },
+  {
+    "key": "surfaces.whatsapp.defaultRecipient",
+    "type": "string",
+    "default": "",
+    "description": "Default WhatsApp recipient or chat id for routing"
+  },
+  {
+    "key": "surfaces.telephony.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the telephony SMS, voice, or bridge surface contract"
+  },
+  {
+    "key": "surfaces.telephony.provider",
+    "type": "enum",
+    "default": "twilio",
+    "description": "Telephony provider mode: direct Twilio API or bridge",
+    "enumValues": [
+      "twilio",
+      "bridge"
+    ]
+  },
+  {
+    "key": "surfaces.telephony.mode",
+    "type": "enum",
+    "default": "sms",
+    "description": "Telephony delivery mode: SMS, voice call, or bridge",
+    "enumValues": [
+      "sms",
+      "voice",
+      "bridge"
+    ]
+  },
+  {
+    "key": "surfaces.telephony.bridgeUrl",
+    "type": "string",
+    "default": "",
+    "description": "Telephony bridge base URL used for health checks, inbound callbacks, and delivery"
+  },
+  {
+    "key": "surfaces.telephony.token",
+    "type": "string",
+    "default": "",
+    "description": "Telephony bridge bearer token"
+  },
+  {
+    "key": "surfaces.telephony.accountSid",
+    "type": "string",
+    "default": "",
+    "description": "Twilio account SID for provider-direct SMS or voice delivery"
+  },
+  {
+    "key": "surfaces.telephony.authToken",
+    "type": "string",
+    "default": "",
+    "description": "Twilio auth token or goodvibes secret URI for provider-direct delivery"
+  },
+  {
+    "key": "surfaces.telephony.fromNumber",
+    "type": "string",
+    "default": "",
+    "description": "Default telephony caller or sender phone number"
+  },
+  {
+    "key": "surfaces.telephony.defaultRecipient",
+    "type": "string",
+    "default": "",
+    "description": "Default telephony recipient phone number for routing"
+  },
+  {
+    "key": "surfaces.telephony.webhookSecret",
+    "type": "string",
+    "default": "",
+    "description": "Shared secret used to verify inbound telephony callbacks"
+  },
+  {
+    "key": "surfaces.telephony.voiceLanguage",
+    "type": "string",
+    "default": "en-US",
+    "description": "BCP-47 language code for provider-direct voice call text-to-speech"
+  },
+  {
+    "key": "surfaces.imessage.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the iMessage bridge surface contract"
+  },
+  {
+    "key": "surfaces.imessage.bridgeUrl",
+    "type": "string",
+    "default": "",
+    "description": "iMessage bridge base URL used for health checks and delivery"
+  },
+  {
+    "key": "surfaces.imessage.account",
+    "type": "string",
+    "default": "",
+    "description": "iMessage account identifier used by the bridge"
+  },
+  {
+    "key": "surfaces.imessage.token",
+    "type": "string",
+    "default": "",
+    "description": "iMessage bridge access token"
+  },
+  {
+    "key": "surfaces.imessage.defaultChatId",
+    "type": "string",
+    "default": "",
+    "description": "Default iMessage chat id for routing"
+  },
+  {
+    "key": "watchers.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable managed watcher/listener services"
+  },
+  {
+    "key": "watchers.pollIntervalMs",
+    "type": "number",
+    "default": 60000,
+    "description": "Polling interval for watcher sources in milliseconds",
+    "validationHint": "integer in [1000, 86400000]"
+  },
+  {
+    "key": "watchers.heartbeatIntervalMs",
+    "type": "number",
+    "default": 15000,
+    "description": "Heartbeat interval for watcher services in milliseconds",
+    "validationHint": "integer in [1000, 3600000]"
+  },
+  {
+    "key": "watchers.recoveryWindowMinutes",
+    "type": "number",
+    "default": 10,
+    "description": "Recovery window for watcher restart and missed-event catch-up",
+    "validationHint": "integer in [0, 1440]"
+  },
+  {
+    "key": "service.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable service-install and daemon-management features"
+  },
+  {
+    "key": "service.autostart",
+    "type": "boolean",
+    "default": false,
+    "description": "Start Goodvibes automatically when the host boots or logs in"
+  },
+  {
+    "key": "service.restartOnFailure",
+    "type": "boolean",
+    "default": true,
+    "description": "Restart the service automatically after failure"
+  },
+  {
+    "key": "service.platform",
+    "type": "enum",
+    "default": "auto",
+    "description": "Target service manager platform",
+    "enumValues": [
+      "auto",
+      "systemd",
+      "launchd",
+      "windows",
+      "manual"
+    ]
+  },
+  {
+    "key": "service.serviceName",
+    "type": "string",
+    "default": "goodvibes",
+    "description": "Service name used for host integration and install scripts"
+  },
+  {
+    "key": "service.logPath",
+    "type": "string",
+    "default": "",
+    "description": "File path for daemon/service logs (empty = platform default under the configured service directory)"
+  },
+  {
+    "key": "network.outboundTls.mode",
+    "type": "enum",
+    "default": "bundled",
+    "description": "Outbound HTTPS trust mode for Bun fetch-based network calls",
+    "enumValues": [
+      "bundled",
+      "bundled+custom",
+      "custom"
+    ]
+  },
+  {
+    "key": "network.outboundTls.customCaFile",
+    "type": "string",
+    "default": "",
+    "description": "Additional PEM file to trust for outbound HTTPS when using bundled+custom or custom mode"
+  },
+  {
+    "key": "network.outboundTls.customCaDir",
+    "type": "string",
+    "default": "",
+    "description": "Directory of PEM/CRT/CER files to trust for outbound HTTPS when using bundled+custom or custom mode"
+  },
+  {
+    "key": "network.outboundTls.allowInsecureLocalhost",
+    "type": "boolean",
+    "default": false,
+    "description": "Allow self-signed HTTPS only for localhost/loopback outbound requests"
+  },
+  {
+    "key": "network.remoteFetch.allowPrivateHosts",
+    "type": "boolean",
+    "default": false,
+    "description": "Allow explicit admin-approved remote fetches from private, localhost, or metadata hosts for artifacts and ingest flows"
+  },
+  {
+    "key": "relay.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Connect the daemon OUTBOUND to a zero-knowledge relay for reachability from outside the LAN (also gated by the relay-connect feature flag)"
+  },
+  {
+    "key": "relay.url",
+    "type": "string",
+    "default": "",
+    "description": "Relay URL to dial (wss://…); empty disables the outbound relay connection"
+  },
+  {
+    "key": "relay.rendezvousId",
+    "type": "string",
+    "default": "",
+    "description": "Stable unguessable rendezvous id the daemon registers under; generated on first enable when empty"
+  },
+  {
+    "key": "relay.label",
+    "type": "string",
+    "default": "",
+    "description": "Human-facing daemon label carried in relay pairing payloads"
+  },
+  {
+    "key": "relay.requireStepUpForMutations",
+    "type": "boolean",
+    "default": false,
+    "description": "Require a recent WebAuthn step-up assertion on mutating operator calls arriving via relay (fails closed until a verifier is wired)"
+  },
+  {
+    "key": "runtime.companionChatLimiter.perSessionLimit",
+    "type": "number",
+    "default": 10,
+    "description": "Max companion chat messages per 60-second window per session. Overrides the GOODVIBES_CHAT_LIMITER_THRESHOLD env var (env is read once at daemon startup; this config key is read on each check() call and takes precedence when set to a positive integer)."
+  },
+  {
+    "key": "runtime.eventBus.maxListeners",
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of listeners per event channel (per-type and per-domain) before a warning is emitted in production or a RangeError is thrown in development mode. Raise this only if you have verified there is no subscriber leak.",
+    "validationHint": "integer in [1, 100000]"
+  },
+  {
+    "key": "runtime.toolBudget.maxMs",
+    "type": "number",
+    "default": 0,
+    "description": "Default per-phase wall-clock budget (ms) for tool execution when the runtime-tools-budget-enforcement feature flag is enabled. 0 = unlimited. A per-call ToolRuntimeContext.budget.maxMs overrides this default.",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "runtime.toolBudget.maxTokens",
+    "type": "number",
+    "default": 0,
+    "description": "Default token budget for a single tool execution when runtime-tools-budget-enforcement is enabled (checked against a tool result tokenCount annotation at phase exit). 0 = unlimited. A per-call ToolRuntimeContext.budget.maxTokens overrides.",
+    "validationHint": "integer in [0, 100000000]"
+  },
+  {
+    "key": "runtime.toolBudget.maxCostUsd",
+    "type": "number",
+    "default": 0,
+    "description": "Default cost budget (USD) for a single tool execution when runtime-tools-budget-enforcement is enabled (checked against a tool result costUsd annotation at phase exit). 0 = unlimited. A per-call ToolRuntimeContext.budget.maxCostUsd overrides.",
+    "validationHint": "number in [0, 1000000]"
+  },
+  {
+    "key": "telemetry.includeRawPrompts",
+    "type": "boolean",
+    "default": false,
+    "description": "When false (default), turn emitters emit a redacted prompt summary {length, sha256, first100chars} instead of raw prompt/response content. Set to true ONLY for debugging in non-production environments — raw prompts may contain PII, secrets, or proprietary data. When true at startup, a WARN log is emitted to make the configuration visible to ops."
+  },
+  {
+    "key": "telemetry.decisionOtlpEnabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Export permission/policy decision-log records to an OTLP endpoint (export-only, no ingestion). Requires telemetry.decisionOtlpEndpoint"
+  },
+  {
+    "key": "telemetry.decisionOtlpEndpoint",
+    "type": "string",
+    "default": "",
+    "description": "OTLP/HTTP JSON endpoint base for decision-log export (empty = disabled). Spans POST to <base>/v1/traces, logs to <base>/v1/logs"
+  },
+  {
+    "key": "telemetry.decisionOtlpSignal",
+    "type": "enum",
+    "default": "span",
+    "description": "Which OTLP record shape each decision is emitted as: span, log, or both",
+    "enumValues": [
+      "span",
+      "log",
+      "both"
+    ]
+  },
+  {
+    "key": "batch.mode",
+    "type": "enum",
+    "default": "off",
+    "description": "Daemon provider Batch API mode: off, explicit per request, or eligible-by-default for batch-capable daemon requests",
+    "enumValues": [
+      "off",
+      "explicit",
+      "eligible-by-default"
+    ]
+  },
+  {
+    "key": "batch.fallback",
+    "type": "enum",
+    "default": "live",
+    "description": "Fallback behavior when a batch-requested job is not eligible: live allows callers to choose live execution, fail rejects the batch job",
+    "enumValues": [
+      "live",
+      "fail"
+    ]
+  },
+  {
+    "key": "batch.queueBackend",
+    "type": "enum",
+    "default": "local",
+    "description": "Queue backend for daemon batch signals. local stores jobs under the daemon config directory; cloudflare requires cloudflare.enabled.",
+    "enumValues": [
+      "local",
+      "cloudflare"
+    ]
+  },
+  {
+    "key": "batch.tickIntervalMs",
+    "type": "number",
+    "default": 60000,
+    "description": "Daemon-local batch scheduler tick interval in milliseconds",
+    "validationHint": "integer in [5000, 3600000]"
+  },
+  {
+    "key": "batch.maxDelayMs",
+    "type": "number",
+    "default": 300000,
+    "description": "Maximum time a queued local batch job should wait before the daemon submits its provider batch",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "batch.maxJobsPerProviderBatch",
+    "type": "number",
+    "default": 100,
+    "description": "Maximum SDK jobs grouped into a single upstream provider batch submission",
+    "validationHint": "integer in [1, 100000]"
+  },
+  {
+    "key": "batch.maxQueuePayloadBytes",
+    "type": "number",
+    "default": 16384,
+    "description": "Recommended maximum Cloudflare queue message payload size; queue messages should be signals, not full prompt archives",
+    "validationHint": "integer in [1024, 131072]"
+  },
+  {
+    "key": "batch.maxQueueMessagesPerDay",
+    "type": "number",
+    "default": 1000,
+    "description": "SDK-side free-tier guardrail for Cloudflare queue message volume",
+    "validationHint": "integer in [0, 10000000]"
+  },
+  {
+    "key": "cloudflare.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable optional Cloudflare Worker/Queue integration points. The daemon does not require Cloudflare when this is false."
+  },
+  {
+    "key": "cloudflare.freeTierMode",
+    "type": "boolean",
+    "default": true,
+    "description": "Prefer Cloudflare usage patterns that fit the free tier: small queue signals, local daemon storage, and bounded daily queue volume"
+  },
+  {
+    "key": "cloudflare.accountId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare account id used by SDK-owned Worker/Queue provisioning"
+  },
+  {
+    "key": "cloudflare.apiTokenRef",
+    "type": "string",
+    "default": "",
+    "description": "GoodVibes secret reference for the Cloudflare API token. If empty, the SDK falls back to CLOUDFLARE_API_TOKEN."
+  },
+  {
+    "key": "cloudflare.zoneId",
+    "type": "string",
+    "default": "",
+    "description": "Optional Cloudflare zone id selected for SDK-managed DNS and Zero Trust Access hostnames"
+  },
+  {
+    "key": "cloudflare.zoneName",
+    "type": "string",
+    "default": "",
+    "description": "Optional Cloudflare zone name selected during discovery/onboarding when zone id is not known yet"
+  },
+  {
+    "key": "cloudflare.workerName",
+    "type": "string",
+    "default": "goodvibes-batch-worker",
+    "description": "Cloudflare Worker script name managed by GoodVibes provisioning"
+  },
+  {
+    "key": "cloudflare.workerSubdomain",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare account workers.dev subdomain used to infer cloudflare.workerBaseUrl"
+  },
+  {
+    "key": "cloudflare.workerHostname",
+    "type": "string",
+    "default": "",
+    "description": "Optional custom hostname for the GoodVibes Cloudflare Worker when DNS automation is enabled"
+  },
+  {
+    "key": "cloudflare.workerBaseUrl",
+    "type": "string",
+    "default": "",
+    "description": "Optional deployed GoodVibes Cloudflare Worker base URL used by clients that proxy batch signals through Workers"
+  },
+  {
+    "key": "cloudflare.daemonBaseUrl",
+    "type": "string",
+    "default": "",
+    "description": "Daemon origin URL the Cloudflare Worker or Tunnel uses for Worker-to-daemon batch calls"
+  },
+  {
+    "key": "cloudflare.daemonHostname",
+    "type": "string",
+    "default": "",
+    "description": "Optional public daemon hostname managed through Cloudflare DNS, Tunnel, and Access provisioning"
+  },
+  {
+    "key": "cloudflare.workerTokenRef",
+    "type": "string",
+    "default": "",
+    "description": "Optional GoodVibes secret reference for the Worker-to-daemon bearer token"
+  },
+  {
+    "key": "cloudflare.workerClientTokenRef",
+    "type": "string",
+    "default": "",
+    "description": "Optional GoodVibes secret reference for the bearer token clients use when calling the Cloudflare Worker"
+  },
+  {
+    "key": "cloudflare.workerCron",
+    "type": "string",
+    "default": "*/5 * * * *",
+    "description": "Cron trigger installed on the GoodVibes Cloudflare Worker for batch scheduler ticks"
+  },
+  {
+    "key": "cloudflare.queueName",
+    "type": "string",
+    "default": "goodvibes-batch",
+    "description": "Cloudflare Queue binding/name for GoodVibes batch job signals"
+  },
+  {
+    "key": "cloudflare.deadLetterQueueName",
+    "type": "string",
+    "default": "goodvibes-batch-dlq",
+    "description": "Cloudflare dead-letter queue binding/name for failed GoodVibes batch job signals"
+  },
+  {
+    "key": "cloudflare.tunnelName",
+    "type": "string",
+    "default": "goodvibes-daemon",
+    "description": "Zero Trust Tunnel name managed by GoodVibes provisioning when tunnel integration is enabled"
+  },
+  {
+    "key": "cloudflare.tunnelId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare Zero Trust Tunnel id selected or created by GoodVibes provisioning"
+  },
+  {
+    "key": "cloudflare.tunnelTokenRef",
+    "type": "string",
+    "default": "",
+    "description": "GoodVibes secret reference for the cloudflared tunnel token generated by provisioning"
+  },
+  {
+    "key": "cloudflare.accessAppId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare Zero Trust Access application id protecting the GoodVibes daemon hostname"
+  },
+  {
+    "key": "cloudflare.accessServiceTokenId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare Zero Trust Access service token id created for GoodVibes daemon access"
+  },
+  {
+    "key": "cloudflare.accessServiceTokenRef",
+    "type": "string",
+    "default": "",
+    "description": "GoodVibes secret reference storing Access service token client id/secret JSON"
+  },
+  {
+    "key": "cloudflare.kvNamespaceName",
+    "type": "string",
+    "default": "goodvibes-runtime",
+    "description": "Cloudflare KV namespace name used for optional edge runtime state"
+  },
+  {
+    "key": "cloudflare.kvNamespaceId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare KV namespace id used for the GoodVibes Worker binding"
+  },
+  {
+    "key": "cloudflare.durableObjectNamespaceName",
+    "type": "string",
+    "default": "GoodVibesCoordinator",
+    "description": "Cloudflare Durable Object class/namespace name used for optional edge coordination"
+  },
+  {
+    "key": "cloudflare.durableObjectNamespaceId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare Durable Object namespace id discovered after Worker migration"
+  },
+  {
+    "key": "cloudflare.r2BucketName",
+    "type": "string",
+    "default": "goodvibes-artifacts",
+    "description": "Cloudflare R2 Standard bucket name used for optional GoodVibes artifacts"
+  },
+  {
+    "key": "cloudflare.secretsStoreName",
+    "type": "string",
+    "default": "goodvibes",
+    "description": "Cloudflare Secrets Store name managed by optional GoodVibes provisioning"
+  },
+  {
+    "key": "cloudflare.secretsStoreId",
+    "type": "string",
+    "default": "",
+    "description": "Cloudflare Secrets Store id selected or created by GoodVibes provisioning"
+  },
+  {
+    "key": "cloudflare.maxQueueOpsPerDay",
+    "type": "number",
+    "default": 10000,
+    "description": "Free-tier queue operation budget used by clients to warn before Cloudflare queue usage exceeds the intended budget",
+    "validationHint": "integer in [0, 10000000]"
+  },
+  {
+    "key": "daemon.enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Run the local session daemon (background service that hosts the shared session broker and companion chat). Default on; binds loopback (127.0.0.1) only. Set false to run fully local with no background service."
+  },
+  {
+    "key": "daemon.embedInProcess",
+    "type": "boolean",
+    "default": false,
+    "description": "NOT RECOMMENDED. When true, and no daemon is already running, host the daemon INSIDE this surface process instead of spawning it as a detached background process. In-process embedding couples the daemon lifetime to this one surface: exiting the surface kills the daemon and every other surface sharing it (single point of failure). Default false — the surface spawns a detached, reboot-independent daemon (install it as a system service via POST /api/service/install on the daemon HTTP API)."
+  },
+  {
+    "key": "danger.httpListener",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTP webhook listener for receiving external events"
+  },
+  {
+    "key": "tools.llmEnabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable dedicated tool LLM for internal operations (off = tools use the main conversation model only when needed)"
+  },
+  {
+    "key": "tools.llmProvider",
+    "type": "string",
+    "default": "",
+    "description": "Provider for tool LLM calls (empty = use currently selected provider)"
+  },
+  {
+    "key": "tools.llmModel",
+    "type": "string",
+    "default": "",
+    "description": "Model for tool LLM calls (empty = fastest available for the provider)"
+  },
+  {
+    "key": "tools.autoHeal",
+    "type": "boolean",
+    "default": false,
+    "description": "Automatically fix syntax errors on precision write/edit operations"
+  },
+  {
+    "key": "tools.defaultTokenBudget",
+    "type": "number",
+    "default": 5000,
+    "description": "Default token budget for precision read operations",
+    "validationHint": "number in [100, 100000]"
+  },
+  {
+    "key": "tools.hooksFile",
+    "type": "string",
+    "default": "hooks.json",
+    "description": "Hook configuration file name (relative to the host .goodvibes data directory)"
+  },
+  {
+    "key": "tools.overflowSpillBackend",
+    "type": "enum",
+    "default": "file",
+    "description": "Where large tool-output overflow content spills when the overflow-spill-backends feature flag is enabled: file (on-disk .overflow, default), ledger (execution ledger), or diagnostics. When the flag is disabled the file backend is always used regardless of this setting. An injected custom backend still takes precedence.",
+    "enumValues": [
+      "file",
+      "ledger",
+      "diagnostics"
+    ]
+  },
+  {
+    "key": "wrfc.scoreThreshold",
+    "type": "number",
+    "default": 9.9,
+    "description": "Minimum review score to pass WRFC (0-10)",
+    "validationHint": "number in [0, 10]"
+  },
+  {
+    "key": "wrfc.maxFixAttempts",
+    "type": "number",
+    "default": 5,
+    "description": "Maximum gate retry depth before aborting WRFC chain",
+    "validationHint": "number in [1, 20]"
+  },
+  {
+    "key": "wrfc.autoCommit",
+    "type": "boolean",
+    "default": true,
+    "description": "Auto-commit when WRFC chain passes review and quality gates"
+  },
+  {
+    "key": "wrfc.commitScope",
+    "type": "enum",
+    "default": "scoped",
+    "description": "Scope of files staged on WRFC auto-commit: off (never commit), scoped (only chain-touched files, default), all (legacy full-tree git add -A)",
+    "enumValues": [
+      "off",
+      "scoped",
+      "all"
+    ]
+  },
+  {
+    "key": "wrfc.agentHeartbeatTimeoutMs",
+    "type": "number",
+    "default": 0,
+    "description": "Watchdog timeout in ms for silent WRFC child agents. 0 = disabled."
+  },
+  {
+    "key": "wrfc.transportRetryLimit",
+    "type": "number",
+    "default": 1,
+    "description": "How many times a WRFC chain auto-retries a transport/network-classified child-agent failure (respawning the same role) before failing the chain. 0 disables the retry.",
+    "validationHint": "number in [0, 5]"
+  },
+  {
+    "key": "wrfc.transportRetryDelayMs",
+    "type": "number",
+    "default": 5000,
+    "description": "Backoff delay in ms before respawning a WRFC child agent after a transport-classified failure.",
+    "validationHint": "number in [0, 60000]"
+  },
+  {
+    "key": "cache.enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Enable prompt caching for eligible providers (Anthropic)"
+  },
+  {
+    "key": "cache.stableTtl",
+    "type": "enum",
+    "default": "1h",
+    "description": "Cache TTL for stable content (system prompt + tools): 5m (ephemeral) or 1h (persistent)",
+    "enumValues": [
+      "5m",
+      "1h"
+    ]
+  },
+  {
+    "key": "cache.monitorHitRate",
+    "type": "boolean",
+    "default": true,
+    "description": "Monitor cache hit rate and warn when below threshold"
+  },
+  {
+    "key": "cache.hitRateWarningThreshold",
+    "type": "number",
+    "default": 0.3,
+    "description": "Warn when cache hit rate falls below this fraction (0.0–1.0)",
+    "validationHint": "number in [0, 1]"
+  },
+  {
+    "key": "helper.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable helper model routing for grunt-work tasks"
+  },
+  {
+    "key": "helper.globalProvider",
+    "type": "string",
+    "default": "",
+    "description": "Provider for the global helper model (empty = disabled)"
+  },
+  {
+    "key": "helper.globalModel",
+    "type": "string",
+    "default": "",
+    "description": "Model ID for the global helper model (empty = disabled)"
+  },
+  {
+    "key": "behavior.suggestAlternativeOnProviderFail",
+    "type": "boolean",
+    "default": false,
+    "description": "Show alternative model suggestion when current provider fails non-transiently"
+  },
+  {
+    "key": "behavior.hitlMode",
+    "type": "enum",
+    "default": "balanced",
+    "description": "HITL UX mode: controls notification verbosity and burst batching (quiet/balanced/operator)",
+    "enumValues": [
+      "quiet",
+      "balanced",
+      "operator"
+    ]
+  },
+  {
+    "key": "notifications.burstWindowMs",
+    "type": "number",
+    "default": 1000,
+    "description": "Observation window (ms) for the adaptive-notification-suppression burst detector: rapid domain:level notifications arriving within this window count toward the burst threshold. Applied at NotificationRouter construction.",
+    "validationHint": "integer in [1, 3600000]"
+  },
+  {
+    "key": "notifications.burstThreshold",
+    "type": "number",
+    "default": 3,
+    "description": "Number of notifications for one domain:level group within the burst window that trips adaptive suppression, collapsing further ones to panel_only with a burst_collapsed reason. Critical/milestone/alert notifications are always exempt.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "notifications.burstCooldownMs",
+    "type": "number",
+    "default": 3000,
+    "description": "Cooldown (ms) after a domain:level group trips the burst detector before it can trip again. Applied at NotificationRouter construction.",
+    "validationHint": "integer in [0, 3600000]"
+  },
+  {
+    "key": "fetch.sanitizeMode",
+    "type": "enum",
+    "default": "safe-text",
+    "description": "Default response sanitization mode applied by the fetch tool when the fetch-sanitization feature flag is on and the per-call sanitize_mode is omitted: none (no sanitization), safe-text (strip active/script content, default), or strict (aggressive text-only reduction). A per-call sanitize_mode always overrides this default.",
+    "enumValues": [
+      "none",
+      "safe-text",
+      "strict"
+    ]
+  },
+  {
+    "key": "fetch.trustedHosts",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated default trusted hosts for fetch sanitization/trust-tier classification (e.g. docs.example.com, api.internal). Trusted hosts relax sanitization. Per-call trusted_hosts are added on top of this default; empty means no host is trusted by default."
+  },
+  {
+    "key": "fetch.blockedHosts",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated default blocked hosts for fetch trust-tier classification. Blocked hosts are always refused regardless of sanitize mode. Per-call blocked_hosts are added on top of this default. The built-in SSRF-risk block (private IPs, metadata endpoints, localhost variants) applies independently of this list."
+  },
+  {
+    "key": "security.tokenAudit.rotationCadenceDays",
+    "type": "number",
+    "default": 90,
+    "description": "Default rotation cadence (days) for the token-scope-rotation-audit feature: a token older than this is reported overdue. Per-policy rotationCadenceMs overrides this default. Only enforced (blocking) when security.tokenAudit.managed is true and the feature flag is enabled.",
+    "validationHint": "integer in [1, 3650]"
+  },
+  {
+    "key": "security.tokenAudit.rotationWarningDays",
+    "type": "number",
+    "default": 14,
+    "description": "Default lead time (days) before the rotation-cadence due date at which a token is reported as a rotation warning. Per-policy rotationWarningThresholdMs overrides this default.",
+    "validationHint": "integer in [0, 3650]"
+  },
+  {
+    "key": "security.tokenAudit.managed",
+    "type": "boolean",
+    "default": false,
+    "description": "When true (and the token-scope-rotation-audit feature flag is enabled), tokens with excess scopes or overdue rotation are BLOCKED from use rather than only reported. Default false = advisory reporting only."
+  },
+  {
+    "key": "integrations.delivery.maxRetries",
+    "type": "number",
+    "default": 3,
+    "description": "Maximum retry attempts for a retryable integration delivery (Slack/Discord/webhook) before it moves to the dead-letter queue, when the integration-delivery-slo feature is active. A per-queue maxRetries option overrides this default.",
+    "validationHint": "integer in [0, 100]"
+  },
+  {
+    "key": "integrations.delivery.initialDelayMs",
+    "type": "number",
+    "default": 1000,
+    "description": "Initial exponential-backoff delay (ms) between integration delivery retries. Delay grows as initialDelayMs * 2^(attempt-1) with jitter, capped at integrations.delivery.maxDelayMs.",
+    "validationHint": "integer in [0, 3600000]"
+  },
+  {
+    "key": "integrations.delivery.maxDelayMs",
+    "type": "number",
+    "default": 30000,
+    "description": "Upper cap (ms) on the exponential-backoff delay between integration delivery retries.",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "integrations.delivery.maxDlqSize",
+    "type": "number",
+    "default": 500,
+    "description": "Maximum entries retained in the integration delivery dead-letter queue; oldest entries are evicted first past this size.",
+    "validationHint": "integer in [1, 100000]"
+  },
+  {
+    "key": "integrations.delivery.sloEnforced",
+    "type": "boolean",
+    "default": false,
+    "description": "When true (or the integration-delivery-slo feature flag is enabled), dead-letter events are logged at error level and surfaced in integration diagnostics; when false they are warn-level only. An explicit per-queue sloEnforced option still overrides this default."
+  },
+  {
+    "key": "policy.bundleSource",
+    "type": "enum",
+    "default": "none",
+    "description": "Where the policy-as-code registry loads its initial bundle from at startup: none (no bundle loaded; bundles supplied programmatically or via commands), or file (load policy.bundlePath). Only consulted when the policy-as-code feature flag is enabled.",
+    "enumValues": [
+      "none",
+      "file"
+    ]
+  },
+  {
+    "key": "policy.bundlePath",
+    "type": "string",
+    "default": "",
+    "description": "Filesystem path to the policy bundle JSON loaded at startup when policy.bundleSource is \"file\" and the policy-as-code feature flag is enabled. Empty disables file loading. The loaded bundle enters the registry as a candidate (subject to the divergence gate before promotion)."
+  },
+  {
+    "key": "agents.passiveInjection.budgetTokens",
+    "type": "number",
+    "default": 800,
+    "description": "Default hard token budget for per-turn passive knowledge/code injection (agent-passive-knowledge-injection / agent-passive-code-injection). The effective budget is min(this value, 3% of the model context window). Set 0 to disable injection. A per-run passiveKnowledgeInjectionBudgetTokens override still wins.",
+    "validationHint": "integer in [0, 1000000]"
+  },
+  {
+    "key": "agents.passiveInjection.relevanceFloor",
+    "type": "number",
+    "default": 95,
+    "description": "Minimum relevance score (higher = stricter) a knowledge/code candidate must clear to be eligible for per-turn passive injection. Filters filler before the token budget is applied. A per-run passiveKnowledgeInjectionRelevanceFloor override still wins.",
+    "validationHint": "integer in [0, 1000]"
+  },
+  {
+    "key": "agents.passiveInjection.codeLimit",
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of source-code chunks injected per turn by agent-passive-code-injection (chunks share the passive-injection token budget and relevance floor).",
+    "validationHint": "integer in [0, 100]"
+  },
+  {
+    "key": "agents.contextCompactThreshold",
+    "type": "number",
+    "default": 0.85,
+    "description": "Fraction of the model context window at which the agent-context-window-awareness feature triggers sub-agent conversation compaction (estimated system + messages + tool tokens above this fraction compacts). Distinct from behavior.autoCompactThreshold, which governs main-session conversation compaction.",
+    "validationHint": "number in [0.1, 0.99]"
+  }
+] as const;
+
+export const FEATURE_FLAG_METAS: readonly FeatureFlagMeta[] = [
+  {
+    "id": "permissions-policy-engine",
+    "name": "Permissions Policy Engine",
+    "description": "Activates the redesigned permission model with granular tool-level and path-level rules.",
+    "tier": 2,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "permissions-simulation",
+    "name": "Permissions Simulation Mode",
+    "description": "Enables the dual-evaluator simulation pipeline for the permissions policy engine. Tracks divergence between actual and candidate evaluators without changing enforcement behaviour until switched to enforce mode.",
+    "tier": 2,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "hitl-ux-modes",
+    "name": "HITL UX Modes",
+    "description": "Enables the HITL UX mode system (quiet/balanced/operator) for notification verbosity control. When enabled, ModeManager applies the configured HITL preset to the notification router at startup and on mode change. Disable to keep the router on its baseline delivery policy and reject HITL mode changes.",
+    "tier": 3,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "unified-runtime-task",
+    "name": "Unified RuntimeTask",
+    "description": "Replaces ad-hoc task tracking with the unified RuntimeTask interface across all subsystems.",
+    "tier": 3,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "plugin-lifecycle",
+    "name": "Plugin Lifecycle",
+    "description": "Enables the plugin lifecycle with structured init/teardown phases and health integration.",
+    "tier": 4,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "mcp-lifecycle",
+    "name": "MCP Lifecycle",
+    "description": "Enables the MCP server lifecycle with structured connect/disconnect phases and health integration.",
+    "tier": 4,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "otel-foundation",
+    "name": "OTel Foundation",
+    "description": "Enables the OpenTelemetry instrumentation foundation: SDK init, span creation, and in-process export.",
+    "tier": 4,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "otel-remote-export",
+    "name": "OTel Remote Export",
+    "description": "Enables OTLP/gRPC remote export of spans to a configured collector endpoint. Requires otel-foundation.",
+    "tier": 5,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "tool-result-reconciliation",
+    "name": "Tool Result Reconciliation",
+    "description": "Detects and reconciles unresolved tool calls at turn end. When enabled, dangling tool-call state causes synthetic error results to be injected and a reconciliation event to be emitted, preventing silent conversation corruption. Disable to keep warning-only logging without synthetic result injection.",
+    "tier": 7,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "policy-signing",
+    "name": "Policy Signing",
+    "description": "Enables HMAC-SHA256 signature validation on policy bundle load. When enabled, managed mode rejects bundles with invalid or missing signatures. In non-managed mode, unsigned bundles are permitted with a warning status.",
+    "tier": 7,
+    "defaultState": "disabled",
+    "runtimeToggleable": false
+  },
+  {
+    "id": "session-compaction",
+    "name": "Session Compaction",
+    "description": "Activates structured session compaction with semantic chunking and relevance scoring.",
+    "tier": 6,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "compaction-distiller-strategy",
+    "name": "Fresh-Context Distiller Compaction",
+    "description": "Enables the fresh-context DISTILLER compaction strategy as an alternative to the default in-place structured summarization. When on AND behavior.compactionStrategy is set to \"distiller\", one fresh model call distills the conversation into a structured continuation brief (task state, decisions, open threads, key file/symbol references) that seeds a fresh context, instead of assembling a handoff from many targeted extraction calls. The distillation is scored through the SAME quality scorer as the structured strategy and falls back to structured when it scores below the floor or the fresh call is unavailable — the receipt names the strategy used and any fallback. Standing instruction-chain / active-skill re-injection at the boundary applies to both strategies. DEFAULT OFF: it graduates through the flag-graduation machinery — dark until quality-score evidence earns it a soaking/candidate state. When the flag is off, the config selection resolves back to structured and the compaction path is unchanged.",
+    "tier": 6,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "fetch-sanitization",
+    "name": "Fetch Response Sanitization",
+    "description": "Enables fetch response sanitization and host trust tier classification. Sanitizes HTTP response content (none/safe-text/strict modes) and blocks requests to SSRF-risk hosts (private IPs, metadata endpoints, localhost variants). Defaults to safe-text sanitization mode when enabled. Set sanitize_mode: none in fetch config to override for explicitly trusted hosts.",
+    "tier": 8,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "runtime-tools-budget-enforcement",
+    "name": "Runtime Budget Enforcement",
+    "description": "Enables per-phase runtime budget enforcement for tool execution pipelines. Checks wall-clock time (BUDGET_EXCEEDED_MS), token consumption (BUDGET_EXCEEDED_TOKENS), and cost (BUDGET_EXCEEDED_COST) limits at phase entry and exit. Terminates the pipeline immediately on hard budget breach and emits a typed diagnostic event. Disable to revert to unlimited execution.",
+    "tier": 8,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "overflow-spill-backends",
+    "name": "Overflow Spill Backends",
+    "description": "Enables the pluggable spill backend system for overflow content. When enabled, spillBackend can be set to file|ledger|diagnostics via config. When disabled, overflow content uses the file spill backend.",
+    "tier": 8,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "permission-divergence-dashboard",
+    "name": "Divergence Dashboard and Enforce Gate",
+    "description": "Enables the divergence dashboard and enforcement gate for permissions simulation. Aggregates divergence by tool/prefix/mode, exposes trend history in diagnostics, and blocks enforce mode transitions when the divergence rate exceeds the configured threshold. Disable to fall back to warn mode (no gate enforcement).",
+    "tier": 8,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "shell-ast-normalization",
+    "name": "Shell AST Normalization",
+    "description": "Enables the Shell AST parser for compound command verdict evaluation. Produces per-segment verdicts (safe/unsafe) with user-facing denial explanations that are strictly more specific than the baseline. Default-on: the AST path is safe to default because a parser failure falls back automatically to the baseline flat segmentation matcher (never a hard error, never a blanket allow), and the frozen catastrophic block is enforced identically in both modes. Disable at runtime to force the baseline flat segmentation mode for every command.",
+    "tier": 8,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "local-provider-context-ingestion",
+    "name": "Local Provider Context Window Ingestion",
+    "description": "Enables dynamic ingestion of max_context_length from local/custom provider /v1/models endpoints. When enabled, local models use the provider-reported context window (provenance: provider_api) for token budgeting and compaction thresholds instead of the statically-configured contextWindow value. Disable to revert to explicit configured or static limits (configured_cap / fallback).",
+    "tier": 9,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "agent-context-window-awareness",
+    "name": "Agent Context Window Awareness",
+    "description": "Enables context window validation and compaction in the AgentOrchestrator. Before each provider.chat() call, estimates total token count (system prompt + messages + tool definitions) and compacts the conversation when usage exceeds 85% of the model context window. Also applies layered system prompt assembly (drops conventions then project context for small windows) and catches \"context size exceeded\" errors from the provider with a single compaction retry. Disable to revert to unchecked provider.chat() calls.",
+    "tier": 9,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "agent-passive-knowledge-injection",
+    "name": "Agent Passive Knowledge Injection",
+    "description": "Enables per-turn re-retrieval of project-memory knowledge against the EVOLVING main-session conversation (steers, new sub-topics), not just the frozen spawn-time task. Re-runs retrieval only when a new user/steer message arrived this turn, applies a relevance floor to filter filler, and holds the injected block to a hard token budget (min ~800 tokens or 3% of the model context window) with a visible per-turn record (candidates considered, ids injected, ids dropped for budget, token cost, embeddings backend) stored on AgentRecord.turnInjections and the session transcript. Default-on is safe specifically because the block is hard-budgeted and every turn is honestly recorded, never silently eating context. Disable or set the budget to 0 to revert to spawn-time-only injection (base system prompt byte-identical).",
+    "tier": 9,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "agent-passive-code-injection",
+    "name": "Agent Passive Code Injection",
+    "description": "Enables per-turn passive retrieval from the repo SOURCE-TREE CODE INDEX (CodeIndexStore) alongside project-memory knowledge, sharing the SAME token budget and relevance floor. When the query would benefit and the index is built, similarity-ranked code chunks are injected as untrusted reference pointers, each recorded on the turn injection record with source=code-index and its honest match label (semantic/lexical). Never injects from an empty or provider-mismatched index, or from a hashed-only (no real semantic) provider — the store exposes each of those and the turn record states which. DEFAULT OFF (unlike agent-passive-knowledge-injection, which defaults on): code injection is a newer, higher-variance signal than reviewed project memory — code chunks carry no review/trust provenance and a weak similarity match can pull in a plausibly-worded but wrong chunk — so this first landing is opt-in, earned on by the same hard-budget + honest-record discipline before it becomes a default. Also respects the embedder’s storage.codeIndexEnabled setting; disable either to revert to memory-only injection.",
+    "tier": 9,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "output-schema-fingerprint",
+    "name": "Output Schema Fingerprints",
+    "description": "Appends `_meta.outputSchemaFingerprint` (SHA-256 of sorted result key names) and `_meta.schemaShapeId` (canonical mode identifier) to tool results from the find, analyze, and inspect tools. Enables schema drift detection and diagnostic fingerprint surfaces. Disable to omit fingerprint metadata.",
+    "tier": 8,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "policy-as-code",
+    "name": "Policy-as-Code",
+    "description": "Enables the versioned policy bundle registry with promote/rollback semantics. Requires simulation evidence (divergence gate passing) before enforcement. Exposes /policy load, /policy simulate, /policy diff, /policy promote, and /policy rollback commands. Divergence trends visible by command class/prefix via the diagnostics panel.",
+    "tier": 5,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "adaptive-execution-planner",
+    "name": "Adaptive Execution Planner",
+    "description": "Enables the Adaptive Execution Planner, which scores strategy candidates (single/cohort/background/remote) using risk, latency, and capability inputs and selects the best execution strategy each turn. Exposes /plan mode, /plan explain, and /plan override commands. Disable to revert to implicit single-call execution.",
+    "tier": 5,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "provider-optimizer",
+    "name": "Provider Optimizer",
+    "description": "Enables the capability-contract-driven provider routing optimizer. In auto mode, selects the best capable provider for each request profile using ProviderCapabilityRegistry contracts. Supports manual, auto, and pinned routing modes with deterministic, fully-explainable route decisions. Exposes /provider route, /provider explain-route, /provider pin, and /provider fallback test commands.",
+    "tier": 5,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "integration-delivery-slo",
+    "name": "Integration Delivery SLO",
+    "description": "Enables SLO enforcement for integration delivery (Slack, Discord, webhooks). When enabled, dead-letter events are logged at error level and surfaced in integration diagnostics. Failures are classified as retryable or terminal and retried with exponential backoff. Dead-letter entries are exposed via /notify dlq and replayable via /notify replay. Disable to keep warn-level logging without DLQ tracking.",
+    "tier": 6,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "adaptive-notification-suppression",
+    "name": "Adaptive Notification Suppression",
+    "description": "Enables mode-context and burst-detection policies in the NotificationRouter. In quiet/minimal mode, operational churn is suppressed before reaching the conversation or status bar. Burst detection collapses rapid domain:level floods into panel_only with a burst_collapsed reason code. Disable to revert to base default + quiet-typing + batch-window policies only.",
+    "tier": 3,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "token-scope-rotation-audit",
+    "name": "Token Scope and Rotation Audit",
+    "description": "Enables minimum scope principle checks and rotation cadence audits for API tokens. In managed mode, tokens with excess scopes or overdue rotation are blocked from use. Diagnostics panel surfaces token age, scope violations, and rotation warnings. Emits TOKEN_SCOPE_VIOLATION, TOKEN_ROTATION_WARNING, TOKEN_ROTATION_EXPIRED, and TOKEN_BLOCKED events via the security event domain. Disable to revert to unenforced advisory reporting only.",
+    "tier": 7,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "tool-contract-verification",
+    "name": "Tool Contract Verification",
+    "description": "Enables registration-time contract checks for all registered tools. Validates schema validity, timeout/cancellation semantics, permission class mapping, output policy alignment, and idempotency declarations. Invalid tools fail closed with actionable diagnostics. Exposes /tool verify <name>, /tool verify-all, and /tool contract show <name> commands.",
+    "tier": 8,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "automation-domain",
+    "name": "Automation Domain",
+    "description": "Enables the first-class automation job/run domain used by the shared scheduling engine. This is the top-level gate for durable automation records, schedule evaluation, and run history.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "control-plane-gateway",
+    "name": "Control-Plane Gateway",
+    "description": "Enables the shared gateway/control-plane host that serves state snapshots, live streams, and authenticated automation control APIs to terminal hosts and remote clients.",
+    "tier": 10,
+    "defaultState": "enabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "route-binding",
+    "name": "Route Binding",
+    "description": "Enables durable binding and resolution of external conversation routes, thread contexts, and reply targets across surfaces.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "delivery-engine",
+    "name": "Delivery Engine",
+    "description": "Enables first-class delivery tracking for automation results, retries, dead letters, and surface-specific delivery outcomes.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "slack-surface",
+    "name": "Slack Surface",
+    "description": "Enables the Slack client adapter for interactive command ingress, threaded replies, and notification delivery.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "discord-surface",
+    "name": "Discord Surface",
+    "description": "Enables the Discord client adapter for interaction handling, message replies, and notification delivery.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "ntfy-surface",
+    "name": "ntfy Surface",
+    "description": "Enables the ntfy notification surface for push-style delivery and deep links back into the control-plane UI.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "webhook-surface",
+    "name": "Webhook Surface",
+    "description": "Enables the generic webhook surface for machine-to-machine ingress and egress.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "homeassistant-surface",
+    "name": "Home Assistant Surface",
+    "description": "Enables the Home Assistant surface for daemon/device integration, Home Assistant event delivery, service-call tools, and Home Assistant-originated prompts.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "web-surface",
+    "name": "Web Surface",
+    "description": "Enables the browser-based operator surface backed by the shared control plane.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "watcher-framework",
+    "name": "Watcher Framework",
+    "description": "Enables managed watcher/listener services, checkpointing, and recovery semantics for long-running external sources.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "service-management",
+    "name": "Service Management",
+    "description": "Enables install/start/stop/status/autostart management for running Goodvibes as a durable host service.",
+    "tier": 10,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "exec-sandbox",
+    "name": "Per-Command Exec Sandbox",
+    "description": "Enables the per-command OS-level exec boundary (bubblewrap on Linux): the workspace is writable, the rest of the filesystem read-only, /tmp isolated, and network disabled unless a command is on sandbox.egressAllowlist. When active, boundary-safe commands that would otherwise prompt can auto-allow, and commands needing host access (network, host-privilege escalation, package installs) surface as named escalation asks. The frozen catastrophic command block stays in force identically inside the boundary. DEFAULT OFF: it graduates through the flag-graduation machinery — dark until host-probe and policy evidence earn it a soaking/candidate state. When bubblewrap is absent (or on non-Linux hosts) the feature reports unavailable and the exec path is byte-for-byte unchanged. Also gated by the sandbox.enabled config switch; disable either to revert to unsandboxed exec.",
+    "tier": 11,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "sandbox-model-judgment",
+    "name": "Sandbox Model-Judgment Tier",
+    "description": "Enables an optional model-judgment pass on the residual sandbox ask-tail: when the per-command exec sandbox is active and a command still lands on ask (a boundary needing host access — network, host-privilege escalation), a provider call over the command, its sandbox plan, workspace context, and the policy reasons produces a PROPOSED verdict with stated reasons. The tier NEVER converts allow→deny and NEVER touches the frozen catastrophic-only exec block (rm -rf /, dd to devices, mkfs, fork bomb…); it can only ANNOTATE the human ask (\"model judgment: looks safe because… / flags risk because…\") or, ONLY when the operator opted into sandbox.judgmentAutoApprove, auto-approve a looks-safe verdict. A flags-risk verdict never auto-denies — it annotates the ask the human still decides; a judgment failure degrades to a plain ask. Every judgment leaves a receipt. DEFAULT OFF: it graduates through the flag-graduation machinery — dark until evidence earns it a soaking/candidate state. Config default is annotate-only.",
+    "tier": 11,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  },
+  {
+    "id": "relay-connect",
+    "name": "Outbound Zero-Knowledge Relay",
+    "description": "Lets the daemon connect OUTBOUND to a self-hostable, zero-knowledge relay and register under an unguessable rendezvous id so surfaces can reach it from outside the LAN. An end-to-end channel (ECDH P-256 → HKDF → AES-256-GCM) terminates INSIDE the daemon before any application byte, so the relay operator only ever sees ciphertext plus connection metadata; the daemon is authenticated to surfaces by static-key pinning from the pairing payload. DEFAULT OFF: it graduates through the flag-graduation machinery — dark until reachability soak evidence earns it a soaking/candidate state. Also gated by the relay.enabled config switch and a configured relay.url; disable either to keep the daemon LAN-only.",
+    "tier": 11,
+    "defaultState": "disabled",
+    "runtimeToggleable": true
+  }
+] as const;
+
+export const FEATURE_FLAG_CONFIG_MAP: Readonly<Record<string, FeatureFlagConfigAssoc>> = {
+  "permissions-policy-engine": {
+    "configCategories": [
+      "permissions"
+    ],
+    "configKeys": [
+      "permissions.mode",
+      "permissions.backgroundAgents",
+      "permissions.tools.read",
+      "permissions.tools.write",
+      "permissions.tools.edit",
+      "permissions.tools.exec",
+      "permissions.tools.find",
+      "permissions.tools.fetch",
+      "permissions.tools.analyze",
+      "permissions.tools.inspect",
+      "permissions.tools.agent",
+      "permissions.tools.state",
+      "permissions.tools.workflow",
+      "permissions.tools.registry",
+      "permissions.tools.delegate",
+      "permissions.tools.mcp"
+    ]
+  },
+  "permissions-simulation": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "permission-divergence-dashboard": {
+    "configCategories": [
+      "permissions"
+    ],
+    "configKeys": [
+      "permissions.divergenceThreshold",
+      "permissions.maxDivergenceRecords"
+    ]
+  },
+  "policy-signing": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "policy-as-code": {
+    "configCategories": [
+      "policy"
+    ],
+    "configKeys": [
+      "policy.bundleSource",
+      "policy.bundlePath"
+    ]
+  },
+  "shell-ast-normalization": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "hitl-ux-modes": {
+    "configCategories": [
+      "behavior"
+    ],
+    "configKeys": [
+      "behavior.hitlMode"
+    ]
+  },
+  "adaptive-notification-suppression": {
+    "configCategories": [
+      "notifications"
+    ],
+    "configKeys": [
+      "notifications.burstWindowMs",
+      "notifications.burstThreshold",
+      "notifications.burstCooldownMs"
+    ]
+  },
+  "unified-runtime-task": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "plugin-lifecycle": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "mcp-lifecycle": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "tool-result-reconciliation": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "tool-contract-verification": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "runtime-tools-budget-enforcement": {
+    "configCategories": [
+      "runtime"
+    ],
+    "configKeys": [
+      "runtime.toolBudget.maxMs",
+      "runtime.toolBudget.maxTokens",
+      "runtime.toolBudget.maxCostUsd"
+    ]
+  },
+  "overflow-spill-backends": {
+    "configCategories": [
+      "tools"
+    ],
+    "configKeys": [
+      "tools.overflowSpillBackend"
+    ]
+  },
+  "output-schema-fingerprint": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "otel-foundation": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "otel-remote-export": {
+    "configCategories": [
+      "telemetry"
+    ],
+    "configKeys": [
+      "telemetry.decisionOtlpEnabled",
+      "telemetry.decisionOtlpEndpoint",
+      "telemetry.decisionOtlpSignal"
+    ]
+  },
+  "session-compaction": {
+    "configCategories": [
+      "behavior"
+    ],
+    "configKeys": [
+      "behavior.autoCompactThreshold",
+      "behavior.compactionStrategy",
+      "behavior.staleContextWarnings"
+    ]
+  },
+  "compaction-distiller-strategy": {
+    "configCategories": [
+      "behavior"
+    ],
+    "configKeys": [
+      "behavior.compactionStrategy"
+    ]
+  },
+  "agent-context-window-awareness": {
+    "configCategories": [
+      "agents"
+    ],
+    "configKeys": [
+      "agents.contextCompactThreshold"
+    ]
+  },
+  "agent-passive-knowledge-injection": {
+    "configCategories": [
+      "agents"
+    ],
+    "configKeys": [
+      "agents.passiveInjection.budgetTokens",
+      "agents.passiveInjection.relevanceFloor"
+    ]
+  },
+  "agent-passive-code-injection": {
+    "configCategories": [
+      "agents"
+    ],
+    "configKeys": [
+      "agents.passiveInjection.codeLimit",
+      "agents.passiveInjection.budgetTokens",
+      "agents.passiveInjection.relevanceFloor"
+    ]
+  },
+  "local-provider-context-ingestion": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "fetch-sanitization": {
+    "configCategories": [
+      "fetch"
+    ],
+    "configKeys": [
+      "fetch.sanitizeMode",
+      "fetch.trustedHosts",
+      "fetch.blockedHosts"
+    ]
+  },
+  "adaptive-execution-planner": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "provider-optimizer": {
+    "configCategories": [
+      "provider"
+    ],
+    "configKeys": [
+      "provider.optimizerMode",
+      "provider.optimizerPinnedModel"
+    ]
+  },
+  "token-scope-rotation-audit": {
+    "configCategories": [
+      "security"
+    ],
+    "configKeys": [
+      "security.tokenAudit.rotationCadenceDays",
+      "security.tokenAudit.rotationWarningDays",
+      "security.tokenAudit.managed"
+    ]
+  },
+  "integration-delivery-slo": {
+    "configCategories": [
+      "integrations"
+    ],
+    "configKeys": [
+      "integrations.delivery.maxRetries",
+      "integrations.delivery.initialDelayMs",
+      "integrations.delivery.maxDelayMs",
+      "integrations.delivery.maxDlqSize",
+      "integrations.delivery.sloEnforced"
+    ]
+  },
+  "automation-domain": {
+    "configCategories": [
+      "automation"
+    ],
+    "configKeys": [
+      "automation.enabled",
+      "automation.maxConcurrentRuns",
+      "automation.runHistoryLimit",
+      "automation.defaultTimeoutMs",
+      "automation.catchUpWindowMinutes",
+      "automation.failureCooldownMs",
+      "automation.deleteAfterRun"
+    ]
+  },
+  "delivery-engine": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "route-binding": {
+    "configCategories": [],
+    "configKeys": []
+  },
+  "control-plane-gateway": {
+    "configCategories": [
+      "controlPlane"
+    ],
+    "configKeys": [
+      "controlPlane.enabled",
+      "controlPlane.hostMode",
+      "controlPlane.host",
+      "controlPlane.port",
+      "controlPlane.baseUrl",
+      "controlPlane.streamMode",
+      "controlPlane.allowRemote",
+      "controlPlane.trustProxy",
+      "controlPlane.openaiCompatible.enabled",
+      "controlPlane.openaiCompatible.pathPrefix",
+      "controlPlane.webui.serve",
+      "controlPlane.webui.bundleDir",
+      "controlPlane.cors.enabled",
+      "controlPlane.cors.allowedOrigins",
+      "controlPlane.tls.mode",
+      "controlPlane.tls.certFile",
+      "controlPlane.tls.keyFile"
+    ]
+  },
+  "slack-surface": {
+    "configCategories": [
+      "surfaces"
+    ],
+    "configKeys": [
+      "surfaces.slack.enabled",
+      "surfaces.slack.signingSecret",
+      "surfaces.slack.botToken",
+      "surfaces.slack.appToken",
+      "surfaces.slack.defaultChannel",
+      "surfaces.slack.workspaceId"
+    ]
+  },
+  "discord-surface": {
+    "configCategories": [
+      "surfaces"
+    ],
+    "configKeys": [
+      "surfaces.discord.enabled",
+      "surfaces.discord.publicKey",
+      "surfaces.discord.botToken",
+      "surfaces.discord.applicationId",
+      "surfaces.discord.defaultChannelId",
+      "surfaces.discord.guildId"
+    ]
+  },
+  "ntfy-surface": {
+    "configCategories": [
+      "surfaces"
+    ],
+    "configKeys": [
+      "surfaces.ntfy.enabled",
+      "surfaces.ntfy.baseUrl",
+      "surfaces.ntfy.topic",
+      "surfaces.ntfy.chatTopic",
+      "surfaces.ntfy.agentTopic",
+      "surfaces.ntfy.remoteTopic",
+      "surfaces.ntfy.token",
+      "surfaces.ntfy.defaultPriority"
+    ]
+  },
+  "webhook-surface": {
+    "configCategories": [
+      "surfaces"
+    ],
+    "configKeys": [
+      "surfaces.webhook.enabled",
+      "surfaces.webhook.defaultTarget",
+      "surfaces.webhook.timeoutMs",
+      "surfaces.webhook.secret"
+    ]
+  },
+  "homeassistant-surface": {
+    "configCategories": [
+      "surfaces"
+    ],
+    "configKeys": [
+      "surfaces.homeassistant.enabled",
+      "surfaces.homeassistant.instanceUrl",
+      "surfaces.homeassistant.accessToken",
+      "surfaces.homeassistant.webhookSecret",
+      "surfaces.homeassistant.defaultConversationId",
+      "surfaces.homeassistant.deviceId",
+      "surfaces.homeassistant.deviceName",
+      "surfaces.homeassistant.eventType",
+      "surfaces.homeassistant.remoteSessionTtlMs"
+    ]
+  },
+  "web-surface": {
+    "configCategories": [
+      "web"
+    ],
+    "configKeys": [
+      "web.enabled",
+      "web.hostMode",
+      "web.host",
+      "web.port",
+      "web.publicBaseUrl",
+      "web.staticAssetsDir"
+    ]
+  },
+  "watcher-framework": {
+    "configCategories": [
+      "watchers"
+    ],
+    "configKeys": [
+      "watchers.enabled",
+      "watchers.pollIntervalMs",
+      "watchers.heartbeatIntervalMs",
+      "watchers.recoveryWindowMinutes"
+    ]
+  },
+  "service-management": {
+    "configCategories": [
+      "service"
+    ],
+    "configKeys": [
+      "service.enabled",
+      "service.autostart",
+      "service.restartOnFailure",
+      "service.platform",
+      "service.serviceName",
+      "service.logPath"
+    ]
+  },
+  "exec-sandbox": {
+    "configCategories": [
+      "sandbox"
+    ],
+    "configKeys": [
+      "sandbox.enabled",
+      "sandbox.replIsolation",
+      "sandbox.mcpIsolation",
+      "sandbox.windowsMode",
+      "sandbox.vmBackend",
+      "sandbox.qemuBinary",
+      "sandbox.qemuImagePath",
+      "sandbox.qemuExecWrapper",
+      "sandbox.qemuGuestHost",
+      "sandbox.qemuGuestPort",
+      "sandbox.qemuGuestUser",
+      "sandbox.qemuWorkspacePath",
+      "sandbox.qemuSessionMode",
+      "sandbox.replJavaScriptCommand"
+    ]
+  },
+  "sandbox-model-judgment": {
+    "configCategories": [
+      "sandbox"
+    ],
+    "configKeys": [
+      "sandbox.judgmentAutoApprove"
+    ]
+  },
+  "relay-connect": {
+    "configCategories": [
+      "relay"
+    ],
+    "configKeys": [
+      "relay.enabled",
+      "relay.url",
+      "relay.rendezvousId",
+      "relay.label",
+      "relay.requireStepUpForMutations"
+    ]
+  }
+} as const;

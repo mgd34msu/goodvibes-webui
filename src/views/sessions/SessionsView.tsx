@@ -242,6 +242,12 @@ function CompactionReceiptBlock({ receipt }: { receipt: CompactionReceipt }) {
           </span>
         )}
       </div>
+      {receipt.requestedStrategy && (
+        <p className="compaction-receipt__fallback" role="note">
+          requested {receipt.requestedStrategy}, ran {receipt.strategy || 'unknown strategy'}
+          {receipt.strategyFallbackReason ? ` — ${receipt.strategyFallbackReason}` : ''}
+        </p>
+      )}
       <div className="compaction-receipt__stats">
         <span>{receipt.tokensBefore.toLocaleString()} → {receipt.tokensAfter.toLocaleString()} tokens</span>
         <span>{receipt.messagesBefore} → {receipt.messagesAfter} messages</span>

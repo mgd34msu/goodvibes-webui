@@ -506,6 +506,46 @@ export interface ApprovalAnalysis {
   readonly host?: string;
 }
 
+/**
+ * Attribution for a permission ask that did not originate from the foreground
+ * turn loop — the SDK's `PermissionAttribution` discriminated union (platform/
+ * permissions/prompt.ts). Populated when a background/subagent tool call, an
+ * MCP server's elicitation request, or a sandboxed exec's host-access
+ * escalation brokers an ask, so a surface can render "who/what is asking"
+ * instead of an anonymous prompt. Absent on foreground asks (the common case).
+ *
+ * Not in the generated OperatorMethodOutputMap['approvals.list'/'approve']
+ * shape (the operator contract's PERMISSION_PROMPT_REQUEST_SCHEMA is a stale,
+ * closed `additionalProperties: false` doc that predates this field) — but the
+ * daemon's `/api/approvals*` routes serialize the ApprovalBroker's
+ * SharedApprovalRecord directly (`Response.json({ approval })` /
+ * `Response.json({ approvals })`, no schema-driven stripping), so a real
+ * `request.attribution` genuinely reaches this client when the daemon
+ * populates one. Same known-divergence pattern as `ApprovalDecision.
+ * modifiedArgs` above.
+ */
+export type ApprovalAttribution = BackgroundAgentAttribution | McpServerAttribution | SandboxEscalationAttribution;
+
+/** A background/subagent tool call brokered an ask on behalf of a spawned agent. */
+export interface BackgroundAgentAttribution {
+  readonly kind: 'background-agent';
+  readonly agentId: string;
+  readonly template?: string;
+}
+
+/** An MCP server's `elicitation/create` request, routed through the approval broker. */
+export interface McpServerAttribution {
+  readonly kind: 'mcp-server';
+  readonly serverName: string;
+}
+
+/** A sandboxed exec's ask for host access it would not otherwise have (e.g. network). */
+export interface SandboxEscalationAttribution {
+  readonly kind: 'sandbox-escalation';
+  readonly sandbox: string;
+  readonly escalations: readonly string[];
+}
+
 export interface ApprovalRequest {
   readonly callId: string;
   readonly tool: string;
@@ -513,6 +553,7 @@ export interface ApprovalRequest {
   readonly category: string;
   readonly analysis: ApprovalAnalysis;
   readonly workingDirectory?: string;
+  readonly attribution?: ApprovalAttribution;
 }
 
 export interface ApprovalDecision {

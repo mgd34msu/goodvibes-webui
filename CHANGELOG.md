@@ -6,6 +6,12 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-11
+
+Ships against `@pellux/goodvibes-sdk` 1.7.0. This release rolls up the SDK
+adoption and surface work accumulated since 1.3.0 and re-pins from the local
+dev-link build onto the published 1.7.0 package.
+
 ### Added
 
 - **Permission mode control.** The Sessions view now shows and lets you
@@ -22,6 +28,50 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   SDK's real `compaction` runtime-event domain. Both are honest about
   absence — a session with no observed compaction activity shows "not
   observed yet" rather than a fabricated number.
+- **Schema-driven settings surface.** Settings render from a build-time
+  snapshot of the SDK's `CONFIG_SCHEMA` plus the feature-flag registry
+  (`FEATURE_FLAGS` / `FEATURE_FLAG_CONFIG`), with typed editors per key and
+  feature-unit grouping. The snapshot keeps the node-only config barrel out
+  of the browser bundle; a schema change that was not regenerated fails the
+  build.
+- **QR pairing and relay sign-in.** QR pairing is the primary sign-in path,
+  with relay-pairing intake and an honest via-relay connection state.
+- **Step-up approvals.** A step-up UI with per-call-site step-up UX and
+  relay-overflow surfacing in the transport layer.
+- **Session review cockpit.** A multibuffer review surface with per-hunk
+  approve / comment / revert, a unified-diff parser, and the ability to
+  comment on a hunk and steer it back into the session.
+- **Session rewind.** Plan preview, confirm, apply, and undo for rewinding a
+  session.
+- **Best-of-N pick-winner.** Pick a winning attempt from the Fleet view.
+- **Fleet attention routing.** Attention-first sibling sort, needs-attention
+  helpers, a live attention badge over the fleet subscription, and a
+  needs-input deep link that focuses the blocked fleet node.
+- **Principals and channel profiles admin view.**
+- **Check-in view** (`checkin.config.*`, `checkin.receipts.list`,
+  `checkin.run`).
+- **CI watches view** (`ci.status`, `ci.watches.*`).
+- **Checkpoint confirm-restore.** Confirm-aware restore enriched with a
+  restore preview.
+- **Approval push notifications.** Allow / Deny actions on approval push
+  notifications, and phone mutations behind touch-first confirm sheets.
+
+### Changed
+
+- Re-pinned `@pellux/goodvibes-sdk` from the local dev-link build to the
+  published `1.7.0` registry package; removed the dev-link `file:` overrides
+  so all nested `@pellux` resolutions come from the registry. No behavior
+  change from the pin itself — the surfaces above were validated end to end
+  against the published package, including a live-daemon smoke that boots a
+  real daemon from `1.7.0`.
+- The webui transport layer is now derived from the generated contract
+  facade, and approval attribution, compaction-strategy fallback, and
+  sandbox model-judgment annotations render in the session transcript.
+
+### CI
+
+- Removed `continue-on-error` from the Coverage step so no workflow step can
+  report green over a red result.
 
 ## [1.3.0] - 2026-07-09
 

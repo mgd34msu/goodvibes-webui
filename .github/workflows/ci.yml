@@ -39,7 +39,6 @@ jobs:
 
       - name: Coverage
         run: bun test --isolate --coverage 2>&1 | tee coverage-summary.txt
-        continue-on-error: true
 
       - name: Upload coverage summary
         uses: actions/upload-artifact@v4

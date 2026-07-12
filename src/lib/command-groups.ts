@@ -1,5 +1,5 @@
 /**
- * command-groups — WS1 Command System
+ * command-groups
  *
  * Shared utilities for grouping commands by category.
  * Imported by CommandPalette and ShortcutCheatsheet to avoid duplication.

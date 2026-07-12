@@ -1,5 +1,5 @@
 /**
- * CommandProvider — WS1 Command System
+ * CommandProvider
  *
  * Mounts the CommandPalette and ShortcutCheatsheet, wires ⌘K / ? hotkeys,
  * and registers the default navigation commands.

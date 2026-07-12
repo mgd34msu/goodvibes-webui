@@ -99,7 +99,7 @@ const GENERATED_BANNER = [
   'Produced by scripts/generate-presentation-tokens.ts from',
   '@pellux/goodvibes-sdk/platform/presentation (the presentation contract',
   'the TUI and agent already render through — see that package\'s own',
-  'docstring for the W4-R1 parity-audit provenance).',
+  'docstring for the parity-audit provenance).',
   '',
   'This is a layer SEPARATE from src/styles/tokens.css: tokens.css owns the',
   'web UI\'s own brand palette / layout / motion tokens (an explicitly',

@@ -1,5 +1,5 @@
 /**
- * DOM render tests for CommandPalette — WS1 Command System
+ * DOM render tests for CommandPalette
  *
  * Uses react-dom/client + flushSync (same pattern as useAnnouncer.test.tsx).
  * Tests: open/close rendering, fuzzy filter, keyboard nav (↑↓ Enter Esc Tab),

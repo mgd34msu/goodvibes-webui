@@ -1,5 +1,5 @@
 /**
- * Command Registry — WS1 Command System
+ * Command Registry
  *
  * Central registry for all application commands. Supports registration,
  * lookup, grouped queries, and subscriber notifications for reactive UIs.

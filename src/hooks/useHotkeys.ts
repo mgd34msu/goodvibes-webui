@@ -1,5 +1,5 @@
 /**
- * useHotkeys — WS1 Command System
+ * useHotkeys
  *
  * Global keydown listener that fires bindings while guarding against
  * accidental fires when the user is typing in inputs.

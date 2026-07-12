@@ -1,5 +1,5 @@
 /**
- * ShortcutCheatsheet — WS1 Command System
+ * ShortcutCheatsheet
  *
  * Overlay triggered by pressing "?" that lists all registered
  * commands that have a shortcut defined, grouped by category.

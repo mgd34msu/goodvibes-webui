@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
+import { FEATURE_SETTINGS } from '../../lib/generated/config-schema';
 
 type ConfigOutcome = 'ok' | 'admin-required' | 'network-error';
 let outcome: ConfigOutcome = 'ok';
@@ -15,7 +16,7 @@ const configSetCalls: [string, unknown][] = [];
 const CONFIG_FIXTURE = {
   display: { theme: 'vaporwave', collapseThreshold: 30 },
   surfaces: { slack: { botToken: 'xoxb-super-secret-value-1234' } },
-  featureFlags: {},
+  behavior: { hitlMode: 'balanced' },
 };
 
 mock.module('../../lib/goodvibes', () => ({
@@ -102,13 +103,15 @@ afterEach(() => {
 });
 
 describe('SettingsModal — schema-driven structure', () => {
-  test('renders namespace groups and the Feature Flags group', async () => {
+  test('renders domain groups only — the enablement bucket is gone', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Display')));
     const labels = [...el.querySelectorAll('.settings-category')].map((b) => b.textContent);
     expect(labels).toContain('Display');
     expect(labels).toContain('Surfaces');
-    expect(labels).toContain('Feature Flags');
+    expect(labels).toContain('Permissions');
+    expect(labels).toContain('Behavior');
+    expect(labels).not.toContain('Feature Flags');
     unmount();
   });
 
@@ -148,7 +151,7 @@ describe('SettingsModal — feature units', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
     clickCategory(el, 'Surfaces');
-    await waitFor(() => Boolean(el.querySelector('[data-flag-id="slack-surface"]')));
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="slack-surface"]')));
     const tokenField = el.querySelector('[data-config-key="surfaces.slack.botToken"]') as HTMLElement;
     expect(tokenField).toBeTruthy();
     expect(tokenField.textContent).not.toContain('xoxb-super-secret-value-1234');
@@ -157,18 +160,94 @@ describe('SettingsModal — feature units', () => {
     unmount();
   });
 
-  test('toggling a feature flag writes featureFlags.<id> through config.set', async () => {
+  test('a constant feature (surface adapter) offers no separate feature toggle — its own enabled key is the switch', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
     clickCategory(el, 'Surfaces');
-    await waitFor(() => Boolean(el.querySelector('[data-flag-id="slack-surface"] .feature-unit-toggle input')));
-    const toggle = el.querySelector('[data-flag-id="slack-surface"] .feature-unit-toggle input') as HTMLInputElement;
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="slack-surface"]')));
+    const unit = el.querySelector('[data-feature-id="slack-surface"]') as HTMLElement;
+    expect(unit.querySelector('.feature-unit-toggle')).toBeNull();
+    // The domain key renders as an ordinary typed toggle field inside the unit.
+    expect(unit.querySelector('[data-config-key="surfaces.slack.enabled"] input[type="checkbox"]')).toBeTruthy();
+    unmount();
+  });
+
+  test('toggling a boolean feature writes true/false to its domain settings key', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
+    clickCategory(el, 'Permissions');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
+    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input') as HTMLInputElement;
+    expect(toggle.checked).toBe(true); // ruled default: on
     // React fires a checkbox's onChange from the native click; click also flips checked.
     flushSync(() => {
       toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
     await waitFor(() => configSetCalls.length > 0);
-    expect(configSetCalls).toEqual([['featureFlags.slack-surface', 'enabled']]);
+    expect(configSetCalls).toEqual([['permissions.simulation', false]]);
+    unmount();
+  });
+
+  test('a restart-gated feature shows the pending-restart marker after its enablement changes', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
+    clickCategory(el, 'Permissions');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
+    const unit = el.querySelector('[data-feature-id="permissions-simulation"]') as HTMLElement;
+    // permissions-simulation is restart-gated; no marker before any change.
+    expect(unit.querySelector('[data-pending-restart]')).toBeNull();
+    const toggle = unit.querySelector('.feature-unit-toggle input') as HTMLInputElement;
+    flushSync(() => {
+      toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await waitFor(() => Boolean(el.querySelector('[data-pending-restart="permissions-simulation"]')));
+    expect(el.querySelector('[data-pending-restart="permissions-simulation"]')?.textContent).toContain('daemon restarts');
+    unmount();
+  });
+
+  test('changing an enum feature mode writes the mode value to its domain settings key', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
+    clickCategory(el, 'Behavior');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] select')));
+    const select = el.querySelector('[data-feature-id="hitl-ux-modes"] select') as HTMLSelectElement;
+    expect(select.value).toBe('balanced'); // live fixture value
+    // The full schema mode set is offered, inactive "off" included.
+    expect([...select.options].map((o) => o.value)).toEqual(['off', 'quiet', 'balanced', 'operator']);
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(select, 'quiet');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await waitFor(() => configSetCalls.length > 0);
+    expect(configSetCalls).toEqual([['behavior.hitlMode', 'quiet']]);
+    unmount();
+  });
+
+  test('a runtime-toggleable feature never shows a pending-restart marker after a change', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
+    clickCategory(el, 'Behavior');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] select')));
+    const select = el.querySelector('[data-feature-id="hitl-ux-modes"] select') as HTMLSelectElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(select, 'operator');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await waitFor(() => configSetCalls.length > 0);
+    expect(el.querySelector('[data-pending-restart]')).toBeNull();
+    unmount();
+  });
+
+  test('a feature description renders in full — never truncated', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
+    clickCategory(el, 'Behavior');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] .feature-unit-desc')));
+    const desc = el.querySelector('[data-feature-id="hitl-ux-modes"] .feature-unit-desc') as HTMLElement;
+    const meta = FEATURE_SETTINGS.find((f) => f.id === 'hitl-ux-modes')!;
+    expect(desc.textContent).toBe(meta.description);
     unmount();
   });
 });

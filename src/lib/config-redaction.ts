@@ -137,7 +137,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   integrations: 'Integrations',
   policy: 'Policy',
   agents: 'Agents',
-  featureFlags: 'Feature Flags',
+  // Features are configured through their domain settings keys (SDK 1.7.1's
+  // dissolved feature model) — no enablement bucket exists anymore. An OLDER
+  // daemon can still hold the legacy `featureFlags` record, which then renders
+  // honestly as read-only raw rows; this label names that leftover store
+  // without resurrecting a dead category name (the daemon migrates the record
+  // onto domain keys on upgrade).
+  featureFlags: 'Legacy Toggles',
 };
 
 function titleCase(value: string): string {

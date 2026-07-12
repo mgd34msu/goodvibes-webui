@@ -268,6 +268,32 @@
   font-size: 0.75rem;
 }
 
+/* Enablement change saved this session; the daemon applies it on restart. */
+.feature-unit-pending {
+  margin: var(--space-1) 0;
+  font-size: 0.75rem;
+  color: var(--contract-state-warn, var(--text-primary));
+}
+
+/* Enum enablement: the feature's mode select in the unit header. */
+.feature-unit-mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.feature-unit-mode-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.feature-unit-mode-desc {
+  margin: var(--space-1) 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
 .feature-unit-fields {
   margin-top: var(--space-2);
   padding-left: var(--space-3);

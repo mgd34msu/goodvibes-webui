@@ -116,7 +116,8 @@ test('a feature description renders complete and un-clipped at phone width', asy
   const desc = dialog.locator('[data-feature-id="hitl-ux-modes"] .feature-unit-desc');
   await expect(desc).toBeVisible();
   // Character-exact parity with the SDK's full description — no truncation.
-  const meta = FEATURE_SETTINGS.find((f) => f.id === 'hitl-ux-modes')!;
+  const meta = FEATURE_SETTINGS.find((f) => f.id === 'hitl-ux-modes');
+  if (!meta) throw new Error('hitl-ux-modes missing from the generated feature snapshot');
   await expect(desc).toHaveText(meta.description);
   // And the rendered box holds the whole text: wrap, never clip.
   const clipped = await desc.evaluate((el) => ({

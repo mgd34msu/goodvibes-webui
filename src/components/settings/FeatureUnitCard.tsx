@@ -78,7 +78,7 @@ export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCo
     }
     if (kind === 'enum' && enablementField?.enumValues) {
       const current = enablementField.present ? enablementField.liveValue : enablementField.default;
-      const value = typeof current === 'string' ? current : String(current ?? '');
+      const value = typeof current === 'string' ? current : '';
       return (
         <label className="feature-unit-mode">
           <span className="feature-unit-mode-label">Mode</span>

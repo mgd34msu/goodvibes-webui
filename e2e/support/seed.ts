@@ -327,6 +327,7 @@ export function configGetResponse() {
     display: { theme: 'vaporwave' },
     provider: { model: 'anthropic:claude-opus-4', embeddingProvider: 'hashed-local' },
     helper: { enabled: false, globalProvider: '', globalModel: '' },
+    behavior: { hitlMode: 'balanced' },
     tools: { llmEnabled: false, llmProvider: '', llmModel: '' },
     tts: { provider: 'elevenlabs', voice: '', llmProvider: '', llmModel: '', speed: 1 },
     surfaces: { slack: { botToken: 'xoxb-e2e-hermetic-secret-9999' } },

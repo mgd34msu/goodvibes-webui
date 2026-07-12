@@ -5,10 +5,17 @@
  * descriptions / validation hints), merged with the daemon's live config.get()
  * values, so each key gets a TYPED editor: booleans toggle, enums select,
  * numbers validate, strings text, secrets stay masked/write-only
- * (config-redaction.ts). Every feature flag renders as ONE unit — its enable
- * toggle together with the config keys it governs (FEATURE_FLAG_CONFIG_MAP) —
- * placed in the topical group its category implies (settings-model.ts). Owned
- * keys never double-list as orphan rows in their namespace.
+ * (config-redaction.ts). Every platform capability renders as ONE unit in its
+ * DOMAIN group — its enablement control in its real shape (boolean toggle /
+ * enum mode select / constant, per SDK FEATURE_SETTINGS) together with the
+ * settings keys it owns (settings-model.ts). Features live on first-class
+ * domain settings keys; there is no separate enablement bucket. Owned keys
+ * never double-list as orphan rows in their namespace.
+ *
+ * Restart honesty: a restart-gated feature whose enablement was changed here
+ * shows a pending-restart marker (tracked per feature id from THIS session's
+ * confirmed config.set writes — the daemon exposes no per-process pending
+ * state over the wire, and nothing is fabricated).
  *
  * Honesty bars preserved from the read-only version:
  *   - an admin-scope refusal (403) on config.get reads distinctly from a generic
@@ -57,6 +64,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { toast } = useToast();
   const [activeGroup, setActiveGroup] = useState<string>('');
   const [search, setSearch] = useState('');
+  // Feature ids whose enablement changed this session and only apply after a
+  // daemon restart (feature.restartRequired) — drives the honest pending
+  // marker at the point of change. Held at modal level so switching category
+  // tabs never drops a marker.
+  const [pendingRestartIds, setPendingRestartIds] = useState<ReadonlySet<string>>(new Set());
   const [rawKey, setRawKey] = useState('');
   const [rawValue, setRawValue] = useState('');
   const [rawError, setRawError] = useState('');
@@ -170,7 +182,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               ) : (
                 <>
                   {currentGroup.featureUnits.map((unit) => (
-                    <FeatureUnitCard key={unit.flag.id} unit={unit} onCommit={commitConfig} />
+                    <FeatureUnitCard
+                      key={unit.feature.id}
+                      unit={unit}
+                      onCommit={commitConfig}
+                      pendingRestart={pendingRestartIds.has(unit.feature.id)}
+                      onEnablementCommitted={() => {
+                        if (!unit.feature.restartRequired) return;
+                        setPendingRestartIds((prev) => new Set(prev).add(unit.feature.id));
+                      }}
+                    />
                   ))}
                   {currentGroup.plainRows.length > 0 && (
                     <div className="settings-plain-rows">

@@ -1,44 +1,38 @@
 /**
- * settings-model.ts — the schema-driven, feature-unit grouping the settings
+ * settings-model.ts — the schema-driven, domain-grouped model the settings
  * surface renders from. Pure and deterministic: it takes the daemon's live
- * config snapshot (config.get) and the SDK's generated schema + feature-flag
- * metadata, and produces the ordered group / feature-unit / row structure the
- * SettingsModal walks. No React, no I/O — fully unit-testable.
+ * config snapshot (config.get) and the SDK's generated schema + per-feature
+ * settings metadata, and produces the ordered group / feature-unit / row
+ * structure the SettingsModal walks. No React, no I/O — fully unit-testable.
  *
- * Grouping rules (owner ruling, 2026-07-11 — every feature is ONE unit):
- *   - A feature flag renders as a FEATURE UNIT: its enable toggle together with
- *     the typed editors for the config keys it owns (FEATURE_FLAG_CONFIG_MAP),
- *     placed in the topical group its first config category implies. A flag with
- *     no config category/keys is a simple toggle in the synthetic "Feature Flags"
- *     group.
+ * Grouping rules (dissolved feature model — every capability is a first-class
+ * domain setting; there is no separate enablement namespace):
+ *   - Every feature (FEATURE_SETTINGS) renders as a FEATURE UNIT inside its
+ *     DOMAIN group (the top-level namespace of its enablement key): its real
+ *     name and full description, its enablement control in its real shape
+ *     (boolean toggle / enum mode select / constant — governed directly by its
+ *     own settings keys), and the typed editors for the settings keys it owns.
  *   - A config key owned by a feature unit is NOT double-listed as an orphan row
  *     in its namespace group (ownership wins).
- *   - Schema keys owned by no flag render as typed "plain" rows under their
+ *   - Schema keys owned by no feature render as typed "plain" rows under their
  *     namespace group.
  *   - Keys present in the LIVE config but absent from the schema still render (as
  *     read-only raw rows) so nothing the daemon actually holds becomes invisible.
  *
- * Grouping SOURCE is SDK metadata (CONFIG_SCHEMA namespaces + each flag's
- * configCategories), never a hand-copied category list — so cross-surface parity
- * with the TUI is structural. config-redaction.ts's CATEGORY_LABELS supplies only
- * the human display label for a namespace (special-casing acronyms), with a
- * Title Case fallback for any namespace it has not special-cased.
+ * Grouping SOURCE is SDK metadata (CONFIG_SCHEMA namespaces + each feature's
+ * domain), never a hand-copied category list — so cross-surface parity with the
+ * TUI is structural. config-redaction.ts's CATEGORY_LABELS supplies only the
+ * human display label for a namespace (special-casing acronyms), with a Title
+ * Case fallback for any namespace it has not special-cased.
  */
 import {
   CONFIG_SCHEMA_ENTRIES,
-  FEATURE_FLAG_METAS,
-  FEATURE_FLAG_CONFIG_MAP,
+  FEATURE_SETTINGS,
   type ConfigSchemaEntry,
-  type FeatureFlagMeta,
+  type FeatureSettingMeta,
 } from './generated/config-schema';
 import { categoryLabelForKey, CATEGORY_LABELS, isSecretConfigKey } from './config-redaction';
 import { asRecord } from './object';
-
-/** Synthetic group id/label for flags that own no config keys. */
-export const FEATURE_FLAGS_GROUP_ID = '__feature-flags__';
-export const FEATURE_FLAGS_GROUP_LABEL = 'Feature Flags';
-
-export type FlagState = 'enabled' | 'disabled' | 'killed';
 
 /** A single typed, editable config field: schema metadata merged with its live value. */
 export interface ConfigFieldModel {
@@ -62,13 +56,29 @@ export interface RawRowModel {
   readonly isSecret: boolean;
 }
 
-/** A feature flag rendered as one unit: its toggle plus the fields it governs. */
+/**
+ * A feature rendered as one unit: its enablement control in its real shape
+ * plus the typed editors for the settings keys it owns.
+ *
+ * Enablement shapes:
+ *   - boolean : `enablementField` is the boolean settings key the feature-level
+ *               toggle writes (true/false). It is excluded from `fields`.
+ *   - enum    : `enablementField` is the enum settings key rendered as the
+ *               feature's mode select; the feature is active while its value is
+ *               in `feature.enablement.enabledValues`. Excluded from `fields`.
+ *   - constant: no separate off switch — `enablementField` is null and ALL the
+ *               feature's settings keys (which govern runtime activation
+ *               directly) render as `fields`.
+ */
 export interface FeatureUnitModel {
-  readonly flag: FeatureFlagMeta;
-  /** Resolved current state: the live override if present, else the flag's default. */
-  readonly state: FlagState;
-  /** True when the live config carries an explicit override for this flag. */
-  readonly overridden: boolean;
+  readonly feature: FeatureSettingMeta;
+  /** Whether the feature is active given the live config (per its enablement shape). */
+  readonly enabled: boolean;
+  /** True when the live config explicitly holds the enablement key (vs. schema default). */
+  readonly explicit: boolean;
+  /** The enablement key's typed field (null for constant enablement). */
+  readonly enablementField: ConfigFieldModel | null;
+  /** The remaining settings fields the feature owns (enablement key excluded). */
   readonly fields: readonly ConfigFieldModel[];
 }
 
@@ -123,9 +133,9 @@ export function liveLeafKeys(config: unknown, prefix = ''): string[] {
 
 const SCHEMA_BY_KEY = new Map<string, ConfigSchemaEntry>(CONFIG_SCHEMA_ENTRIES.map((e) => [e.key, e]));
 
-/** Every config key owned by at least one feature flag (excluded from orphan rows). */
+/** Every config key owned by at least one feature (excluded from orphan rows). */
 export const OWNED_CONFIG_KEYS: ReadonlySet<string> = new Set(
-  FEATURE_FLAG_METAS.flatMap((f) => [...(FEATURE_FLAG_CONFIG_MAP[f.id]?.configKeys ?? [])]),
+  FEATURE_SETTINGS.flatMap((f) => [...f.settings]),
 );
 
 function buildField(entry: ConfigSchemaEntry, config: unknown): ConfigFieldModel {
@@ -156,32 +166,67 @@ export function groupLabelForNamespace(namespace: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Model construction
+// Feature enablement
 // ---------------------------------------------------------------------------
 
-/** The topical namespace a flag's unit lives under (its first config category), or null. */
-function flagNamespace(flag: FeatureFlagMeta): string | null {
-  return FEATURE_FLAG_CONFIG_MAP[flag.id]?.configCategories[0] ?? null;
+/**
+ * Whether a feature is active for a given enablement-key value, per its
+ * enablement shape. Mirrors the SDK's own state derivation: boolean keys are
+ * active when true; enum keys while the value is in enabledValues; constant
+ * capabilities have no separate off switch (their own settings keys govern
+ * runtime activation directly), so they report active.
+ */
+export function isFeatureEnabled(feature: FeatureSettingMeta, value: unknown): boolean {
+  switch (feature.enablement.kind) {
+    case 'constant':
+      return true;
+    case 'boolean':
+      return value === true;
+    case 'enum':
+      return typeof value === 'string' && (feature.enablement.enabledValues ?? []).includes(value);
+  }
 }
 
-function resolveFlagState(config: unknown, flagId: string, fallback: FlagState): {
-  state: FlagState;
-  overridden: boolean;
-} {
-  const overrides = asRecord(readConfigPath(config, 'featureFlags').value);
-  const raw = overrides[flagId];
-  if (raw === 'enabled' || raw === 'disabled' || raw === 'killed') {
-    return { state: raw, overridden: true };
-  }
-  return { state: fallback, overridden: false };
+function buildFeatureUnit(feature: FeatureSettingMeta, liveConfig: unknown): FeatureUnitModel {
+  const enablementEntry = SCHEMA_BY_KEY.get(feature.enablement.key);
+  const enablementField =
+    feature.enablement.kind !== 'constant' && enablementEntry
+      ? buildField(enablementEntry, liveConfig)
+      : null;
+
+  // For boolean/enum enablement the enablement key is the feature-level
+  // control, so it does not repeat in the field list; constant features keep
+  // every settings key (enablement key first) as ordinary typed fields.
+  const fieldKeys =
+    feature.enablement.kind === 'constant'
+      ? feature.settings
+      : feature.settings.filter((k) => k !== feature.enablement.key);
+  const fields = fieldKeys
+    .map((k) => SCHEMA_BY_KEY.get(k))
+    .filter((e): e is ConfigSchemaEntry => Boolean(e))
+    .map((e) => buildField(e, liveConfig));
+
+  const { present, value } = readConfigPath(liveConfig, feature.enablement.key);
+  const effective = present ? value : enablementEntry?.default;
+  return {
+    feature,
+    enabled: isFeatureEnabled(feature, effective),
+    explicit: present,
+    enablementField,
+    fields,
+  };
 }
+
+// ---------------------------------------------------------------------------
+// Model construction
+// ---------------------------------------------------------------------------
 
 /**
  * Build the ordered settings model from the live config snapshot.
  *
  * Group order: namespaces in CONFIG_SCHEMA order (first appearance), then any
- * live-only namespaces the schema does not know, then the synthetic Feature
- * Flags group for category-less flags.
+ * feature domains the schema does not cover, then live-only namespaces the
+ * schema does not know.
  */
 export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
   // 1. Ordered namespace list from the schema (first appearance wins).
@@ -195,37 +240,24 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
     }
   }
 
-  // 2. Feature units grouped by their topical namespace; category-less flags held aside.
+  // 2. Feature units grouped by their domain, in FEATURE_SETTINGS declaration order.
   const unitsByNamespace = new Map<string, FeatureUnitModel[]>();
-  const looseFlags: FeatureUnitModel[] = [];
-  const flagsSorted = [...FEATURE_FLAG_METAS].sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
-  for (const flag of flagsSorted) {
-    const assoc = FEATURE_FLAG_CONFIG_MAP[flag.id];
-    const fields = (assoc?.configKeys ?? [])
-      .map((k) => SCHEMA_BY_KEY.get(k))
-      .filter((e): e is ConfigSchemaEntry => Boolean(e))
-      .map((e) => buildField(e, liveConfig));
-    const { state, overridden } = resolveFlagState(liveConfig, flag.id, flag.defaultState);
-    const unit: FeatureUnitModel = { flag, state, overridden, fields };
-    const ns = flagNamespace(flag);
-    if (ns === null) {
-      looseFlags.push(unit);
-    } else {
-      const list = unitsByNamespace.get(ns) ?? [];
-      list.push(unit);
-      unitsByNamespace.set(ns, list);
-      if (!seen.has(ns)) {
-        seen.add(ns);
-        orderedNamespaces.push(ns);
-      }
+  for (const feature of FEATURE_SETTINGS) {
+    const unit = buildFeatureUnit(feature, liveConfig);
+    const ns = feature.domain;
+    const list = unitsByNamespace.get(ns) ?? [];
+    list.push(unit);
+    unitsByNamespace.set(ns, list);
+    if (!seen.has(ns)) {
+      seen.add(ns);
+      orderedNamespaces.push(ns);
     }
   }
 
-  // 3. Live-only namespaces the schema does not cover (excluding the flag store).
+  // 3. Live-only namespaces the schema does not cover.
   const liveKeys = liveLeafKeys(liveConfig);
   for (const key of liveKeys) {
     const ns = namespaceOf(key);
-    if (ns === 'featureFlags') continue;
     if (!seen.has(ns)) {
       seen.add(ns);
       orderedNamespaces.push(ns);
@@ -244,13 +276,7 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
     ).map((e) => buildField(e, liveConfig));
 
     const rawRows: RawRowModel[] = liveKeys
-      .filter(
-        (k) =>
-          namespaceOf(k) === ns &&
-          k !== 'featureFlags' &&
-          !schemaKeySet.has(k) &&
-          !OWNED_CONFIG_KEYS.has(k),
-      )
+      .filter((k) => namespaceOf(k) === ns && !schemaKeySet.has(k) && !OWNED_CONFIG_KEYS.has(k))
       .map((k) => ({ key: k, value: readConfigPath(liveConfig, k).value, isSecret: isSecretConfigKey(k) }));
 
     if (featureUnits.length === 0 && plainRows.length === 0 && rawRows.length === 0) continue;
@@ -261,17 +287,6 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
       featureUnits,
       plainRows,
       rawRows,
-    });
-  }
-
-  // 5. Synthetic Feature Flags group for category-less flags (simple toggles).
-  if (looseFlags.length > 0) {
-    groups.push({
-      id: FEATURE_FLAGS_GROUP_ID,
-      label: FEATURE_FLAGS_GROUP_LABEL,
-      featureUnits: looseFlags,
-      plainRows: [],
-      rawRows: [],
     });
   }
 
@@ -288,15 +303,16 @@ function fieldMatches(field: ConfigFieldModel, q: string): boolean {
 
 function unitMatches(unit: FeatureUnitModel, q: string): boolean {
   return (
-    unit.flag.id.toLowerCase().includes(q) ||
-    unit.flag.name.toLowerCase().includes(q) ||
-    unit.flag.description.toLowerCase().includes(q) ||
+    unit.feature.id.toLowerCase().includes(q) ||
+    unit.feature.name.toLowerCase().includes(q) ||
+    unit.feature.description.toLowerCase().includes(q) ||
+    (unit.enablementField !== null && fieldMatches(unit.enablementField, q)) ||
     unit.fields.some((f) => fieldMatches(f, q))
   );
 }
 
 /**
- * Filter the model by a free-text query across group labels, flag id/name/
+ * Filter the model by a free-text query across group labels, feature id/name/
  * description, and config key/description. A group matches wholly when its label
  * matches; otherwise it is narrowed to matching units and rows. Empty groups drop.
  */

@@ -2,9 +2,9 @@
 /**
  * generate-config-schema.ts
  *
- * Snapshots three SDK data tables the settings surface renders from — the typed
- * config schema and the feature-flag registry with its config association map —
- * into one checked-in, browser-safe TS module:
+ * Snapshots the two SDK data tables the settings surface renders from — the
+ * typed config schema and the per-feature settings metadata — into one
+ * checked-in, browser-safe TS module:
  *
  *   src/lib/generated/config-schema.ts
  *
@@ -21,8 +21,12 @@
  *     key). The `validate` closures are dropped (not serialisable); the daemon's
  *     config.set is the authoritative validator, and `validationHint` carries the
  *     human-readable constraint into the UI.
- *   - FEATURE_FLAGS + FEATURE_FLAG_CONFIG — from the SDK's public
- *     `@pellux/goodvibes-sdk/platform/runtime/feature-flags` subpath export.
+ *   - FEATURE_SETTINGS — from the SDK's public
+ *     `@pellux/goodvibes-sdk/platform/runtime/feature-flags` subpath export:
+ *     every platform capability as a first-class domain setting (name, real
+ *     description, domain, enablement shape, owned settings keys, restart
+ *     requirement, stock default). There is no separate enablement namespace —
+ *     features are configured through their domain settings keys.
  *     Nothing here reaches the browser bundle (this script only runs at build
  *     time, via config-schema:generate/:check).
  *
@@ -39,7 +43,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_SCHEMA } from '@pellux/goodvibes-sdk/platform/config';
-import { FEATURE_FLAGS, FEATURE_FLAG_CONFIG } from '@pellux/goodvibes-sdk/platform/runtime/feature-flags';
+import { FEATURE_SETTINGS } from '@pellux/goodvibes-sdk/platform/runtime/feature-flags';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -60,27 +64,27 @@ export interface ConfigSchemaEntrySnapshot {
   readonly validationHint?: string;
 }
 
-export interface FeatureFlagSnapshot {
+export interface FeatureSettingSnapshot {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly tier: number;
-  readonly defaultState: 'enabled' | 'disabled' | 'killed';
-  readonly runtimeToggleable: boolean;
-}
-
-export interface FeatureFlagConfigSnapshot {
-  readonly configCategories: readonly string[];
-  readonly configKeys: readonly string[];
+  readonly domain: string;
+  readonly enablement: {
+    readonly key: string;
+    readonly kind: 'boolean' | 'enum' | 'constant';
+    readonly enabledValues?: readonly string[];
+  };
+  readonly settings: readonly string[];
+  readonly restartRequired: boolean;
+  readonly defaultEnabled: boolean;
 }
 
 export interface ConfigSchemaSnapshot {
   readonly entries: ConfigSchemaEntrySnapshot[];
-  readonly flags: FeatureFlagSnapshot[];
-  readonly flagConfig: Record<string, FeatureFlagConfigSnapshot>;
+  readonly features: FeatureSettingSnapshot[];
 }
 
-/** Read the real schema + feature-flag tables from the installed SDK. */
+/** Read the real schema + feature-settings tables from the installed SDK. */
 export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
   const entries: ConfigSchemaEntrySnapshot[] = CONFIG_SCHEMA.map((s) => ({
     key: s.key,
@@ -91,24 +95,22 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
     ...(s.validationHint ? { validationHint: s.validationHint } : {}),
   }));
 
-  const flags: FeatureFlagSnapshot[] = FEATURE_FLAGS.map((f) => ({
+  const features: FeatureSettingSnapshot[] = FEATURE_SETTINGS.map((f) => ({
     id: f.id,
     name: f.name,
     description: f.description,
-    tier: f.tier,
-    defaultState: f.defaultState,
-    runtimeToggleable: f.runtimeToggleable,
+    domain: f.domain,
+    enablement: {
+      key: f.enablement.key,
+      kind: f.enablement.kind,
+      ...(f.enablement.enabledValues ? { enabledValues: [...f.enablement.enabledValues] } : {}),
+    },
+    settings: [...f.settings],
+    restartRequired: f.restartRequired,
+    defaultEnabled: f.defaultEnabled,
   }));
 
-  const flagConfig: Record<string, FeatureFlagConfigSnapshot> = {};
-  for (const [id, assoc] of Object.entries(FEATURE_FLAG_CONFIG)) {
-    flagConfig[id] = {
-      configCategories: [...assoc.configCategories],
-      configKeys: [...assoc.configKeys],
-    };
-  }
-
-  return { entries, flags, flagConfig };
+  return { entries, features };
 }
 
 // ---------------------------------------------------------------------------
@@ -118,8 +120,8 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
 const GENERATED_BANNER = [
   'GENERATED FILE — DO NOT EDIT BY HAND.',
   'Produced by scripts/generate-config-schema.ts from the installed',
-  "@pellux/goodvibes-sdk: CONFIG_SCHEMA (platform/config) plus the feature-flag",
-  'registry (FEATURE_FLAGS) and its config association map (FEATURE_FLAG_CONFIG).',
+  "@pellux/goodvibes-sdk: CONFIG_SCHEMA (platform/config) plus the per-feature",
+  'settings metadata (FEATURE_SETTINGS, platform/runtime/feature-flags).',
   '',
   'This is a build-time snapshot so the browser bundle never imports the SDK',
   "config barrel (which drags SecretsManager / OAuth / google-auth — node-only).",
@@ -143,25 +145,26 @@ export function renderTs(snapshot: ConfigSchemaSnapshot): string {
     '  readonly validationHint?: string;',
     '}',
     '',
-    'export interface FeatureFlagMeta {',
+    "export type FeatureEnablementKind = 'boolean' | 'enum' | 'constant';",
+    '',
+    'export interface FeatureSettingMeta {',
     '  readonly id: string;',
     '  readonly name: string;',
     '  readonly description: string;',
-    '  readonly tier: number;',
-    "  readonly defaultState: 'enabled' | 'disabled' | 'killed';",
-    '  readonly runtimeToggleable: boolean;',
-    '}',
-    '',
-    'export interface FeatureFlagConfigAssoc {',
-    '  readonly configCategories: readonly string[];',
-    '  readonly configKeys: readonly string[];',
+    '  readonly domain: string;',
+    '  readonly enablement: {',
+    '    readonly key: string;',
+    '    readonly kind: FeatureEnablementKind;',
+    '    readonly enabledValues?: readonly string[];',
+    '  };',
+    '  readonly settings: readonly string[];',
+    '  readonly restartRequired: boolean;',
+    '  readonly defaultEnabled: boolean;',
     '}',
     '',
     `export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = ${json(snapshot.entries)} as const;`,
     '',
-    `export const FEATURE_FLAG_METAS: readonly FeatureFlagMeta[] = ${json(snapshot.flags)} as const;`,
-    '',
-    `export const FEATURE_FLAG_CONFIG_MAP: Readonly<Record<string, FeatureFlagConfigAssoc>> = ${json(snapshot.flagConfig)} as const;`,
+    `export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = ${json(snapshot.features)} as const;`,
     '',
   ].join('\n');
   return text.replace(/[ \t]+$/gm, '');

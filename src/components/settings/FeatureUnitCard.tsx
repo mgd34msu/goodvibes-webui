@@ -1,34 +1,33 @@
 /**
- * FeatureUnitCard — a feature flag rendered as ONE unit (owner ruling,
- * 2026-07-11): its enable toggle together with the typed editors for the config
- * keys it governs. The flag's persisted override lives at
- * `featureFlags.<id>` in the daemon config, so the toggle writes that key
- * through the same config.set path as every other field.
+ * FeatureUnitCard — one platform capability rendered as ONE unit inside its
+ * domain group: its real name, its full description (never truncated — wrap or
+ * scroll, never clip), its enablement control in its REAL shape, and the typed
+ * editors for the settings keys it owns. Everything writes through the same
+ * config.set path as every other field — features live on first-class domain
+ * settings keys (SDK 1.7.1's dissolved feature model), not on a separate
+ * enablement namespace.
+ *
+ * Enablement shapes (feature.enablement.kind):
+ *   - boolean : a feature-level toggle writing `true`/`false` to the domain key.
+ *   - enum    : a mode select over the key's full schema enum (so inactive
+ *               modes such as "off" are real choices); the feature is active
+ *               while the value is one of enablement.enabledValues.
+ *   - constant: the capability has no separate off switch — its own settings
+ *               keys govern runtime activation directly, so no feature-level
+ *               control renders and the keys appear as ordinary typed fields.
  *
  * Honest states:
- *   - `killed` renders locked (the daemon will not re-enable a killed gate from
- *     a config write) with a plain note, never a toggle that silently no-ops.
- *   - a runtime-toggleable flag (`flag.runtimeToggleable === true`) notes that
- *     the change applies immediately: the daemon's `FeatureFlagManager.
- *     applyConfigState()` (SDK 1.6.1+) live-applies a `config.set('featureFlags.
- *     <id>', ...)` for these through the same enable()/disable()/kill() path a
- *     direct manager toggle uses, no restart involved.
- *   - a non-runtime-toggleable (startup-gated) flag notes that its change
- *     applies on restart — `applyConfigState()` never fakes a live apply for
- *     these; it records the persisted value as pending instead.
- *   - the current state distinguishes an explicit override from the flag default.
- *
- * NOT rendered here: per-process pending-restart state. The SDK's
- * `FeatureFlagManager.getAll()` now carries `persistedState`/`pendingRestart`
- * per flag, but that is in-process daemon state — `config.get` (the only wire
- * surface this webui reads; see config-redaction.ts's GROUNDED note) returns
- * `configManager.getAll()`, the plain persisted config tree, with no
- * feature-flag route or field exposing `pendingRestart`/`persistedState` over
- * the wire (checked: no OperatorMethodId, no daemon-sdk/contracts type,
- * mentions either name). So the restart note below is metadata-driven
- * (flag.runtimeToggleable, known at build time from the generated snapshot),
- * not a live per-process signal — do not fabricate a wire-sourced pending
- * indicator until the daemon actually exposes one.
+ *   - a runtime-toggleable feature notes that changes apply immediately (the
+ *     daemon's live settings bridge derives the internal gate state from the
+ *     domain key on every config change).
+ *   - a restart-gated feature (`restartRequired`) states that up front, and
+ *     after a successful enablement change shows a pending-restart marker at
+ *     the point of change: the write persisted, the running daemon applies it
+ *     on its next restart. The marker is driven by THIS session's confirmed
+ *     writes (config.set resolved), never fabricated from a wire signal the
+ *     daemon does not expose — config.get returns the persisted tree only.
+ *   - the current state distinguishes an explicit config value from the schema
+ *     default.
  */
 import { useState } from 'react';
 import type { FeatureUnitModel } from '../../lib/settings-model';
@@ -37,20 +36,24 @@ import { SettingsField } from './SettingsField';
 interface FeatureUnitCardProps {
   readonly unit: FeatureUnitModel;
   readonly onCommit: (key: string, value: unknown) => Promise<void>;
+  /** True when an enablement change was saved this session and awaits a daemon restart. */
+  readonly pendingRestart: boolean;
+  /** Called after a successful enablement write (toggle or mode change). */
+  readonly onEnablementCommitted: () => void;
 }
 
-export function FeatureUnitCard({ unit, onCommit }: FeatureUnitCardProps) {
-  const { flag, state, overridden, fields } = unit;
+export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCommitted }: FeatureUnitCardProps) {
+  const { feature, enabled, explicit, enablementField, fields } = unit;
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const killed = state === 'killed';
-  const enabled = state === 'enabled';
+  const kind = feature.enablement.kind;
 
-  async function toggle(next: boolean): Promise<void> {
+  async function commitEnablement(value: unknown): Promise<void> {
     setSaving(true);
     setError(null);
     try {
-      await onCommit(`featureFlags.${flag.id}`, next ? 'enabled' : 'disabled');
+      await onCommit(feature.enablement.key, value);
+      onEnablementCommitted();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -58,40 +61,79 @@ export function FeatureUnitCard({ unit, onCommit }: FeatureUnitCardProps) {
     }
   }
 
+  const enablementControl = (() => {
+    if (kind === 'boolean') {
+      return (
+        <label className="settings-field-toggle feature-unit-toggle">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={saving}
+            aria-label={`Enable ${feature.name}`}
+            onChange={(e) => void commitEnablement(e.target.checked)}
+          />
+          <span>{enabled ? 'On' : 'Off'}</span>
+        </label>
+      );
+    }
+    if (kind === 'enum' && enablementField?.enumValues) {
+      const current = enablementField.present ? enablementField.liveValue : enablementField.default;
+      const value = typeof current === 'string' ? current : String(current ?? '');
+      return (
+        <label className="feature-unit-mode">
+          <span className="feature-unit-mode-label">Mode</span>
+          <select
+            className="settings-field-select"
+            aria-label={`${feature.name} mode`}
+            value={value}
+            disabled={saving}
+            onChange={(e) => void commitEnablement(e.target.value)}
+          >
+            {!enablementField.enumValues.includes(value) && <option value={value}>{value || '(unset)'}</option>}
+            {enablementField.enumValues.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </label>
+      );
+    }
+    // constant — no separate off switch; the fields below govern activation.
+    return null;
+  })();
+
   return (
-    <section className="feature-unit" data-flag-id={flag.id} data-flag-state={state}>
+    <section className="feature-unit" data-feature-id={feature.id} data-feature-enabled={enabled}>
       <header className="feature-unit-head">
         <div className="feature-unit-title">
-          <h3>{flag.name}</h3>
-          <span className={`feature-unit-state feature-unit-state--${state}`}>
-            {killed ? 'Killed' : enabled ? 'Enabled' : 'Disabled'}
-            {overridden ? '' : ' (default)'}
-          </span>
+          <h3>{feature.name}</h3>
+          {kind === 'constant' ? (
+            <span className="feature-unit-state">Governed by its settings below</span>
+          ) : (
+            <span className={enabled ? 'feature-unit-state feature-unit-state--enabled' : 'feature-unit-state'}>
+              {enabled ? 'Enabled' : 'Disabled'}
+              {explicit ? '' : ' (default)'}
+            </span>
+          )}
         </div>
-        {killed ? (
-          <span className="feature-unit-locked" title="A killed gate cannot be re-enabled from a config write.">
-            Locked
-          </span>
-        ) : (
-          <label className="settings-field-toggle feature-unit-toggle">
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={saving}
-              aria-label={`Enable ${flag.name}`}
-              onChange={(e) => void toggle(e.target.checked)}
-            />
-            <span>{enabled ? 'On' : 'Off'}</span>
-          </label>
-        )}
+        {enablementControl}
       </header>
-      {flag.description && <p className="feature-unit-desc">{flag.description}</p>}
-      {!killed &&
-        (flag.runtimeToggleable ? (
-          <p className="feature-unit-note">Changes to this feature apply immediately.</p>
+      <p className="feature-unit-desc">{feature.description}</p>
+      {kind !== 'constant' &&
+        (feature.restartRequired ? (
+          <p className="feature-unit-note">Enablement changes apply after a daemon restart.</p>
         ) : (
-          <p className="feature-unit-note">Changes to this feature apply on daemon restart.</p>
+          <p className="feature-unit-note">Changes to this feature apply immediately.</p>
         ))}
+      {pendingRestart && (
+        <p className="feature-unit-pending" role="status" data-pending-restart={feature.id}>
+          Saved — takes effect when the daemon restarts.
+        </p>
+      )}
+      {kind === 'enum' && enablementField?.description && (
+        <p className="feature-unit-mode-desc">{enablementField.description}</p>
+      )}
       {error && (
         <div className="banner warning" role="alert">
           {error}

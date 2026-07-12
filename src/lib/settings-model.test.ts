@@ -2,13 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildSettingsModel,
   filterSettingsModel,
+  isFeatureEnabled,
   readConfigPath,
   liveLeafKeys,
   OWNED_CONFIG_KEYS,
-  FEATURE_FLAGS_GROUP_ID,
   type SettingsGroupModel,
 } from './settings-model';
-import { FEATURE_FLAG_METAS, FEATURE_FLAG_CONFIG_MAP } from './generated/config-schema';
+import { FEATURE_SETTINGS } from './generated/config-schema';
 
 function groupById(groups: SettingsGroupModel[], id: string): SettingsGroupModel | undefined {
   return groups.find((g) => g.id === id);
@@ -29,35 +29,52 @@ describe('readConfigPath / liveLeafKeys', () => {
   });
 });
 
-describe('buildSettingsModel — feature-unit grouping', () => {
+describe('buildSettingsModel — domain grouping (dissolved feature model)', () => {
   const groups = buildSettingsModel({});
 
-  test('every schema namespace and the Feature Flags group is represented', () => {
-    expect(groupById(groups, 'display')).toBeDefined();
-    expect(groupById(groups, 'surfaces')).toBeDefined();
-    expect(groupById(groups, FEATURE_FLAGS_GROUP_ID)).toBeDefined();
-    expect(groupById(groups, FEATURE_FLAGS_GROUP_ID)?.label).toBe('Feature Flags');
+  test('every feature renders exactly once, inside its own domain group', () => {
+    for (const feature of FEATURE_SETTINGS) {
+      const holders = groups.filter((g) => g.featureUnits.some((u) => u.feature.id === feature.id));
+      expect(holders.length).toBe(1);
+      expect(holders[0].id).toBe(feature.domain);
+    }
   });
 
-  test('a flag with config keys renders as a feature unit in its category group, not the flag group', () => {
-    // slack-surface owns surfaces.* keys → lives in the Surfaces group.
-    const surfaces = groupById(groups, 'surfaces');
-    const slack = surfaces?.featureUnits.find((u) => u.flag.id === 'slack-surface');
-    expect(slack).toBeDefined();
-    expect(slack!.fields.length).toBeGreaterThan(0);
-    // It must NOT appear in the synthetic Feature Flags group.
-    const flagGroup = groupById(groups, FEATURE_FLAGS_GROUP_ID);
-    expect(flagGroup?.featureUnits.some((u) => u.flag.id === 'slack-surface')).toBe(false);
+  test('no enablement-bucket group survives: every group is a real config namespace', () => {
+    expect(groups.some((g) => g.id.startsWith('__'))).toBe(false);
+    expect(groups.some((g) => g.label === 'Feature Flags')).toBe(false);
   });
 
-  test('a category-less flag is a simple toggle in the Feature Flags group', () => {
-    // Find a flag the SDK maps to no config category.
-    const loose = FEATURE_FLAG_METAS.find((f) => FEATURE_FLAG_CONFIG_MAP[f.id].configCategories.length === 0);
-    expect(loose).toBeDefined();
-    const flagGroup = groupById(groups, FEATURE_FLAGS_GROUP_ID);
-    const unit = flagGroup?.featureUnits.find((u) => u.flag.id === loose!.id);
+  test('a boolean feature exposes its domain key as the enablement field, not a duplicate row', () => {
+    const web = groupById(groups, 'web');
+    const unit = web?.featureUnits.find((u) => u.feature.id === 'web-surface');
     expect(unit).toBeDefined();
-    expect(unit!.fields.length).toBe(0);
+    expect(unit!.enablementField?.key).toBe('web.enabled');
+    expect(unit!.enablementField?.type).toBe('boolean');
+    // The enablement key never repeats in the unit's ordinary field list.
+    expect(unit!.fields.some((f) => f.key === 'web.enabled')).toBe(false);
+    expect(unit!.fields.length).toBeGreaterThan(0);
+  });
+
+  test('an enum feature exposes the full schema mode set, including inactive modes', () => {
+    const behavior = groupById(groups, 'behavior');
+    const unit = behavior?.featureUnits.find((u) => u.feature.id === 'hitl-ux-modes');
+    expect(unit).toBeDefined();
+    expect(unit!.enablementField?.type).toBe('enum');
+    // The real option shape: every schema mode is a choice, "off" included,
+    // while enabledValues stays the smaller activation subset.
+    expect(unit!.enablementField?.enumValues).toEqual(['off', 'quiet', 'balanced', 'operator']);
+    expect(unit!.feature.enablement.enabledValues).toEqual(['quiet', 'balanced', 'operator']);
+  });
+
+  test('a constant feature has no separate enablement control; its own keys govern it', () => {
+    const surfaces = groupById(groups, 'surfaces');
+    const unit = surfaces?.featureUnits.find((u) => u.feature.id === 'slack-surface');
+    expect(unit).toBeDefined();
+    expect(unit!.enablementField).toBeNull();
+    // Its settings keys (the honest switches) render as ordinary typed fields,
+    // enablement key first.
+    expect(unit!.fields[0]?.key).toBe('surfaces.slack.enabled');
   });
 
   test('config keys owned by a feature unit never double-list as orphan plain rows', () => {
@@ -66,31 +83,79 @@ describe('buildSettingsModel — feature-unit grouping', () => {
         expect(OWNED_CONFIG_KEYS.has(row.key)).toBe(false);
       }
     }
-    // And an owned key really is under some feature unit.
     const ownedSample = [...OWNED_CONFIG_KEYS][0];
-    const underAUnit = groups.some((g) => g.featureUnits.some((u) => u.fields.some((f) => f.key === ownedSample)));
+    const underAUnit = groups.some((g) =>
+      g.featureUnits.some(
+        (u) => u.enablementField?.key === ownedSample || u.fields.some((f) => f.key === ownedSample),
+      ),
+    );
     expect(underAUnit).toBe(true);
-  });
-
-  test('flag state resolves from the live override, else the flag default', () => {
-    const withOverride = buildSettingsModel({ featureFlags: { 'slack-surface': 'enabled' } });
-    const surfaces = groupById(withOverride, 'surfaces');
-    const slack = surfaces?.featureUnits.find((u) => u.flag.id === 'slack-surface');
-    expect(slack?.state).toBe('enabled');
-    expect(slack?.overridden).toBe(true);
-
-    const surfacesDefault = groupById(groups, 'surfaces');
-    const slackDefault = surfacesDefault?.featureUnits.find((u) => u.flag.id === 'slack-surface');
-    expect(slackDefault?.overridden).toBe(false);
   });
 });
 
-describe('buildSettingsModel — honesty for unschema\'d live keys', () => {
+describe('buildSettingsModel — enablement state from domain settings keys', () => {
+  test('a stock config resolves every feature to its ruled default (29 on / 15 dark)', () => {
+    const groups = buildSettingsModel({});
+    const units = groups.flatMap((g) => g.featureUnits);
+    expect(units.length).toBe(FEATURE_SETTINGS.length);
+    for (const unit of units) {
+      expect(unit.enabled).toBe(unit.feature.defaultEnabled);
+      expect(unit.explicit).toBe(false);
+    }
+    expect(units.filter((u) => u.enabled).length).toBe(29);
+    expect(units.filter((u) => !u.enabled).length).toBe(15);
+  });
+
+  test('a boolean feature reads its live domain key', () => {
+    const groups = buildSettingsModel({ permissions: { simulation: false } });
+    const unit = groupById(groups, 'permissions')?.featureUnits.find(
+      (u) => u.feature.id === 'permissions-simulation',
+    );
+    expect(unit?.enabled).toBe(false);
+    expect(unit?.explicit).toBe(true);
+  });
+
+  test('an enum feature is active only while its key holds an activating mode', () => {
+    const off = buildSettingsModel({ behavior: { hitlMode: 'off' } });
+    const offUnit = groupById(off, 'behavior')?.featureUnits.find((u) => u.feature.id === 'hitl-ux-modes');
+    expect(offUnit?.enabled).toBe(false);
+    expect(offUnit?.explicit).toBe(true);
+
+    const quiet = buildSettingsModel({ behavior: { hitlMode: 'quiet' } });
+    const quietUnit = groupById(quiet, 'behavior')?.featureUnits.find((u) => u.feature.id === 'hitl-ux-modes');
+    expect(quietUnit?.enabled).toBe(true);
+  });
+
+  test('isFeatureEnabled applies the enablement shape', () => {
+    const boolFeature = FEATURE_SETTINGS.find((f) => f.id === 'web-surface')!;
+    expect(isFeatureEnabled(boolFeature, true)).toBe(true);
+    expect(isFeatureEnabled(boolFeature, false)).toBe(false);
+    expect(isFeatureEnabled(boolFeature, 'true')).toBe(false);
+
+    const enumFeature = FEATURE_SETTINGS.find((f) => f.id === 'hitl-ux-modes')!;
+    expect(isFeatureEnabled(enumFeature, 'operator')).toBe(true);
+    expect(isFeatureEnabled(enumFeature, 'off')).toBe(false);
+
+    const constantFeature = FEATURE_SETTINGS.find((f) => f.id === 'fetch-sanitization')!;
+    expect(isFeatureEnabled(constantFeature, undefined)).toBe(true);
+  });
+});
+
+describe("buildSettingsModel — honesty for unschema'd live keys", () => {
   test('a live key with no schema entry renders as a raw row, never hidden', () => {
     const groups = buildSettingsModel({ mysteryDomain: { unknownKnob: 'held-by-daemon' } });
     const group = groupById(groups, 'mysteryDomain');
     expect(group).toBeDefined();
     expect(group!.rawRows.some((r) => r.key === 'mysteryDomain.unknownKnob')).toBe(true);
+  });
+
+  test("an older daemon's leftover featureFlags record stays visible, without the dead category name", () => {
+    const groups = buildSettingsModel({ featureFlags: { 'exec-sandbox': 'enabled' } });
+    const group = groupById(groups, 'featureFlags');
+    expect(group).toBeDefined();
+    expect(group!.rawRows.some((r) => r.key === 'featureFlags.exec-sandbox')).toBe(true);
+    expect(group!.label).toBe('Legacy Toggles');
+    expect(groups.some((g) => g.label === 'Feature Flags')).toBe(false);
   });
 
   test('a schema key present in live config renders as a typed field with the live value', () => {
@@ -108,11 +173,22 @@ describe('filterSettingsModel', () => {
 
   test('narrows to matching fields/units and drops empty groups', () => {
     const filtered = filterSettingsModel(groups, 'sanitizeMode');
-    // fetch.sanitizeMode is owned by fetch-sanitization → its unit should survive.
+    // fetch.sanitizeMode belongs to fetch-sanitization → its unit survives.
     const fetch = groupById(filtered, 'fetch');
     expect(fetch).toBeDefined();
-    // Unrelated groups drop.
     expect(groupById(filtered, 'display')).toBeUndefined();
+  });
+
+  test('matches a feature by its human name', () => {
+    const filtered = filterSettingsModel(groups, 'permissions simulation');
+    const permissions = groupById(filtered, 'permissions');
+    expect(permissions?.featureUnits.some((u) => u.feature.id === 'permissions-simulation')).toBe(true);
+  });
+
+  test('matches an enum feature by its enablement key', () => {
+    const filtered = filterSettingsModel(groups, 'hitlMode');
+    const behavior = groupById(filtered, 'behavior');
+    expect(behavior?.featureUnits.some((u) => u.feature.id === 'hitl-ux-modes')).toBe(true);
   });
 
   test('a whole group survives when its label matches', () => {

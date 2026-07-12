@@ -1,7 +1,7 @@
 /**
  * SkeletonBlock — animated loading placeholder.
- * Named SkeletonBlock (not Skeleton) to avoid collision with WS3 if it creates
- * a Skeleton component in the toast/motion workstream.
+ * Named SkeletonBlock (not Skeleton) to avoid a name collision if the
+ * toast/motion area ever grows its own Skeleton component.
  *
  * @example
  * <SkeletonBlock width="100%" height={20} />

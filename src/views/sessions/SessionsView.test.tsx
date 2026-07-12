@@ -238,7 +238,7 @@ describe('SessionsView union rendering', () => {
     unmount();
   });
 
-  test('reaped-as-reaped (B1): an idle-reaped closed session badges "reaped", not "closed · history"', () => {
+  test('reaped-as-reaped: an idle-reaped closed session badges "reaped", not "closed · history"', () => {
     const { el, unmount } = render();
     const reapedRow = [...el.querySelectorAll('.sessions-row')].find((r) => r.textContent?.includes('Reaped session'));
     expect(reapedRow).toBeTruthy();

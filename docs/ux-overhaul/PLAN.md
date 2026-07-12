@@ -50,17 +50,17 @@ serialized into Foundation (start) and Integration (after modules land).
 - Checkpoint commit: `feat(ux): design token system + dark mode foundation`
 
 ### PHASE 1 — Parallel module build (6 agents; new files only, no styles.css/App.tsx)
-- WS1 Command system: `src/components/command/*`, `src/lib/commands.ts`,
+- Command system: `src/components/command/*`, `src/lib/commands.ts`,
   `src/hooks/useHotkeys.ts`, cheatsheet overlay, `src/styles/components/command.css`.
-- WS2 Daemon pulse: `src/hooks/useDaemonHealth.ts`, `src/lib/daemon-health.ts`,
+- Daemon pulse: `src/hooks/useDaemonHealth.ts`, `src/lib/daemon-health.ts`,
   `src/components/status/*`, `src/styles/components/status.css`.
-- WS3 Toast + motion: `src/components/toast/*`, `src/lib/toast.ts`,
+- Toast + motion: `src/components/toast/*`, `src/lib/toast.ts`,
   `src/components/motion/*`, `src/styles/components/toast.css`.
-- WS4 Routing + peek: `src/lib/router.ts`, `src/hooks/useUrlState.ts`,
+- Routing + peek: `src/lib/router.ts`, `src/hooks/useUrlState.ts`,
   `src/components/peek/*`, `src/styles/components/peek.css`.
-- WS5 Feedback primitives: `src/components/feedback/*` (ErrorBoundary, Skeleton,
+- Feedback primitives: `src/components/feedback/*` (ErrorBoundary, Skeleton,
   EmptyState, ErrorState, Onboarding), `src/styles/components/feedback.css`.
-- WS6 (folds into above as capacity allows) shortcut cheatsheet content + a11y helpers
+- Shortcut cheatsheet content + a11y helpers (folds into above as capacity allows)
   `src/lib/a11y.ts`, `src/hooks/useFocusTrap.ts`, `src/hooks/useAnnouncer.ts`.
 - Checkpoint commit per merged workstream.
 

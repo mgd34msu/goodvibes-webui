@@ -226,7 +226,7 @@
   cursor: pointer;
 }
 
-/* Decision trail (B2): the resolved approval card's audit provenance. */
+/* Decision trail: the resolved approval card's audit provenance. */
 .approval-card__audit {
   font-size: var(--text-xs, 11px);
   color: var(--text-tertiary);

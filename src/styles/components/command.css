@@ -1,5 +1,5 @@
 /*
- * Command system styles — WS1
+ * Command system styles
  * Uses token vars from TOKEN-CONTRACT.md / src/styles/tokens.css
  * Exception: the backdrop scrim uses raw rgb(0 0 0 / 0.55) — intentional,
  * no scrim token exists in the contract.

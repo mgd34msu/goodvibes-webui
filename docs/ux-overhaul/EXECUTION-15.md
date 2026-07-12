@@ -27,8 +27,8 @@ only constraint: two agents never write the same file.
 
 ## Batch 1 — Phase-1 closeout + integration prep (~8-10 concurrent)
 
-Running/closing: WS3 fix->review->commit, WS4 tests->review->commit,
-WS5 review->commit, lint+CI commit (bundled w/ WS5 package.json).
+Running/closing: toast+motion fix->review->commit, routing+peek tests->review->commit,
+feedback-primitives review->commit, lint+CI commit (bundled w/ the feedback-primitives package.json).
 Launch in parallel (new files, no conflicts):
 - A: `src/components/shell/AppShell.tsx` (+ shell.css) — provider composition module.
 - B: `src/lib/command-registry-init.ts` — register nav (view switch via useUrlState),
@@ -52,7 +52,7 @@ Launch in parallel (new files, no conflicts):
 - Phase 4 per-view (3, disjoint files): KnowledgeView, ProvidersView, AdminView —
   adopt EmptyState/ErrorState/Skeleton/ErrorBoundary, peek, loading states, pagination, a11y.
 - Phase 5 cross-cutting (3, split by area): responsive breakpoints, density application,
-  a11y sweep (focus mgmt + aria-live wiring using WS5 helpers).
+  a11y sweep (focus mgmt + aria-live wiring using the feedback-primitive helpers).
 - Test backfill (remaining, parallel): per new feature/view as it lands.
 
 ## Batch 3 — Review/fix batch + final gate

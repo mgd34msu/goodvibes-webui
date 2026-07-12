@@ -1,5 +1,5 @@
 /**
- * approvals.ts — unit coverage for the decision-trail helpers (B2).
+ * approvals.ts — unit coverage for the decision-trail helpers.
  *
  * The SDK's approval record carries a required `audit` array
  * (SharedApprovalAuditRecord, packages/sdk/src/platform/control-plane/

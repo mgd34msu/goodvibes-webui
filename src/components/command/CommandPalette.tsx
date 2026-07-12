@@ -1,5 +1,5 @@
 /**
- * CommandPalette — WS1 Command System
+ * CommandPalette
  *
  * ⌘K-triggered fuzzy-searchable palette over the command registry.
  * Keyboard nav: ↑↓ to move, Enter to run, Esc to close.

@@ -81,7 +81,7 @@ export default tseslint.config(
       "@typescript-eslint/no-base-to-string": "warn",
       "@typescript-eslint/no-misused-spread": "warn",
       "@typescript-eslint/no-dynamic-delete": "warn",
-      // Downgrade assertion rules — some patterns require casts (e.g. WS3 toast files)
+      // Downgrade assertion rules — some patterns require casts (e.g. the toast files)
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
       "@typescript-eslint/no-non-null-assertion": "warn",
       // Downgrade type definition style — interface vs type is stylistic

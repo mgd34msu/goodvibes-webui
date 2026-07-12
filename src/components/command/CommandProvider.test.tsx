@@ -1,5 +1,5 @@
 /**
- * DOM render tests for CommandProvider — WS1 Command System
+ * DOM render tests for CommandProvider
  *
  * Covers: children rendering, command registration lifecycle (mount/unmount),
  * mod+k opens palette, Escape closes palette via dialog keydown,

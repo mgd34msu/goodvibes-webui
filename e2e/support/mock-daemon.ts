@@ -843,11 +843,15 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       if (methodId === 'checkpoints.list') return json(route, { checkpoints: checkpointsList });
       if (methodId === 'checkpoints.create') {
-        const body = (route.request().postDataJSON?.() ?? {}) as { label?: string };
+        // Same invoke-tunnel wrapper every other checkpoints.* handler above/below
+        // unwraps (`body.body?.*`) — this one read the top level and so never saw
+        // a real caller's label (it was always undefined, silently falling back to
+        // the empty string every time).
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { label?: string } };
         const created = {
           id: `wcp_e2e_${checkpointsList.length + 1}`,
           kind: 'manual',
-          label: body.label ?? '',
+          label: body.body?.label ?? '',
           createdAt: Date.now(),
           parentId: checkpointsList[0]?.id ?? null,
           retentionClass: 'standard',

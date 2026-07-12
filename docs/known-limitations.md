@@ -20,12 +20,6 @@ mistaken for hidden contracts.
 - Spoken replies are batched synthesis over the wire, not a realtime duplex
   voice conversation.
 
-## Phone
-
-- Every view is browsable at phone width, but some mutations defer to a wider
-  screen with an honest pointer: checkpoint create/restore and task
-  submit/cancel/retry are desktop-only today.
-
 ## Calendar
 
 - The calendar reads the daemon calendar module: ICS file import and read-only

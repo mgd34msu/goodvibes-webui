@@ -122,4 +122,28 @@ describe('CiWatchesView — open fix session', () => {
     expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
     unmount();
   });
+
+  test('a triggered spawn that FAILED renders the honest error line and never a dead open button', async () => {
+    runResult = {
+      report: { repo: 'acme/example', ref: 'main', overall: 'failed', jobs: [], violations: [], checkedAt: 1 },
+      notified: true,
+      fixSessionTriggered: true,
+      // SDK bb4b9c30: fixSessionError instead of a dead id.
+      fixSessionError: 'background automation is disabled on this daemon',
+    };
+    const opened: string[] = [];
+    const { el, unmount } = render((id) => opened.push(id));
+
+    await waitFor(() => Boolean([...el.querySelectorAll('.ci-watches-row')].length));
+    clickByText(el, 'acme/example');
+    await waitFor(() => Boolean([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Check now'))));
+    clickByText(el, 'Check now');
+    await waitFor(() => Boolean(el.querySelector('.ci-report')));
+
+    expect(el.textContent).toContain('The fix-session could not start — background automation is disabled on this daemon');
+    expect(el.textContent).not.toContain('A fix-session was started.');
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
+    expect(opened).toEqual([]);
+    unmount();
+  });
 });

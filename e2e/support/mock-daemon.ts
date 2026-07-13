@@ -131,6 +131,14 @@ export interface MockDaemonOptions {
    * none — the "shows once, never re-shows" contract.
    */
   daemonReceipts?: readonly { id: string; text: string; at: number }[];
+  /**
+   * When set, every CI fix-session spawn attempt FAILS with this error: the
+   * approve of a ci:fix-session offer stamps fixSessionError on the approved
+   * record (never a dead id), and ci.watches.run returns fixSessionError on the
+   * verb result — mirroring SDK bb4b9c30's honest-failure path. Default unset
+   * (spawns succeed and mint a real, servable session).
+   */
+  ciFixSessionError?: string;
 }
 
 export interface MockDaemon {
@@ -332,6 +340,29 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   ];
   let ciWatchIdCounter = 0;
   let ciFixSessionCounter = 0;
+  // Companion chat sessions — STATEFUL so a spawned CI fix session becomes a
+  // real, servable session: opening it must land on a live session view, not an
+  // id the session list has never heard of (App reconciles unknown ids away).
+  let companionChatSessions = [
+    { id: 'chat-1', sessionId: 'chat-1', title: 'Phone chat', status: 'active' },
+    { id: 'chat-2', sessionId: 'chat-2', title: 'Away-from-desk notes', status: 'active' },
+  ];
+  /**
+   * Spawn a CI fix session, mirroring SDK bb4b9c30: success mints a FRESH
+   * session that the mock's session store actually serves (a REAL attachable
+   * id, never a scheduling handle) and returns { sessionId }; a failure (the
+   * ciFixSessionError option) returns the honest { error } and creates nothing.
+   */
+  function spawnCiFixSession(repo: string): { sessionId: string } | { error: string } {
+    if (options.ciFixSessionError) return { error: options.ciFixSessionError };
+    ciFixSessionCounter += 1;
+    const sessionId = `sess-ci-fix-${ciFixSessionCounter}`;
+    companionChatSessions = [
+      ...companionChatSessions,
+      { id: sessionId, sessionId, title: `CI fix session — ${repo}`, status: 'active' },
+    ];
+    return { sessionId };
+  }
   function ciReportFor(repo: string, ref?: string, prNumber?: number) {
     return {
       repo,
@@ -626,13 +657,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
 
     // ── Companion chat sessions (carry the sidebar per-row delete control) ──
+    // Served from the stateful list so a spawned CI fix session is a live,
+    // navigable session, not an unknown id.
     if (method === 'GET' && path === '/api/companion/chat/sessions') {
-      return json(route, {
-        sessions: [
-          { id: 'chat-1', sessionId: 'chat-1', title: 'Phone chat', status: 'active' },
-          { id: 'chat-2', sessionId: 'chat-2', title: 'Away-from-desk notes', status: 'active' },
-        ],
-      });
+      return json(route, { sessions: companionChatSessions });
     }
     if (path.startsWith('/api/companion/chat/sessions/')) {
       // messages / close / delete / detail — an honest empty success.
@@ -903,13 +931,19 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
             // A modifiedArgs answer reaches the run (delivered) when one was sent.
             modifiedArgsDelivered: typeof modifiedArgs?.answer === 'string',
           };
-          // An accepted CI "fix this?" offer spawns a fix session whose id the
-          // broker stamps onto the resolved APPROVED record and publishes live
-          // (SDK 1d6a85e2). Mirrored here: the stamped record is what the next
-          // approvals read serves; denied records are never stamped.
+          // An accepted CI "fix this?" offer spawns a fix session whose REAL,
+          // attachable session id the broker stamps onto the resolved APPROVED
+          // record and publishes live — or, on a failed spawn, the honest
+          // fixSessionError instead of a dead id (SDK bb4b9c30). Mirrored here:
+          // the stamped record is what the next approvals read serves; the
+          // spawned session is servable by the session store; denied records
+          // are never stamped.
           if ((record.request as Record<string, unknown>).tool === 'ci:fix-session') {
-            ciFixSessionCounter += 1;
-            Object.assign(record, { fixSessionId: `sess-ci-fix-${ciFixSessionCounter}` });
+            const args = (record.request as { args?: Record<string, unknown> }).args ?? {};
+            const spawned = spawnCiFixSession(String(args.repo ?? 'unknown/repo'));
+            Object.assign(record, 'sessionId' in spawned
+              ? { fixSessionId: spawned.sessionId }
+              : { fixSessionError: spawned.error });
           }
           // A durable tier persists a rule and SWEEPS queued pending asks for
           // the same tool (the broker's remembered-decision sweep, simplified
@@ -1331,17 +1365,16 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const report = ciReportFor(watch.repo, watch.ref, watch.prNumber);
       ciWatchList = ciWatchList.map((w) => (w.id === watchId ? { ...w, lastOverall: report.overall, updatedAt: Date.now() } : w));
       // A watch that auto-starts a fix session on failure returns the started
-      // session's id on the verb result (SDK 8eecbd32) — the "open session"
-      // affordance keys off it.
+      // session's REAL id on the verb result — or the honest fixSessionError
+      // when the spawn failed, never a dead id (SDK bb4b9c30). The spawned
+      // session is servable by the mock's session store.
       const fixSessionTriggered = Boolean(watch.triggerFixSession) && report.overall === 'failed';
-      let fixSessionId: string | undefined;
-      if (fixSessionTriggered) {
-        ciFixSessionCounter += 1;
-        fixSessionId = `sess-ci-fix-${ciFixSessionCounter}`;
-      }
+      let fixOutcome: { sessionId: string } | { error: string } | undefined;
+      if (fixSessionTriggered) fixOutcome = spawnCiFixSession(watch.repo);
       return json(route, {
         report, notified: true, notificationId: 'ntf-1', fixSessionTriggered,
-        ...(fixSessionId ? { fixSessionId } : {}),
+        ...(fixOutcome && 'sessionId' in fixOutcome ? { fixSessionId: fixOutcome.sessionId } : {}),
+        ...(fixOutcome && 'error' in fixOutcome ? { fixSessionError: fixOutcome.error } : {}),
       });
     }
     const watchDeleteMatch = path.match(/^\/api\/ci\/watches\/([^/]+)$/);

@@ -67,10 +67,16 @@ function friendlyError(error: unknown): string {
   return formatError(error);
 }
 
-export function ApprovalsTasksView() {
+export interface ApprovalsTasksViewProps {
+  /** Navigate to a session's chat view — used by the "open fix session"
+   * affordance on a resolved approved CI fix offer (record.fixSessionId). */
+  readonly onOpenSession?: (sessionId: string) => void;
+}
+
+export function ApprovalsTasksView({ onOpenSession }: ApprovalsTasksViewProps) {
   return (
     <div className="approvals-tasks-view">
-      <ApprovalsSection />
+      <ApprovalsSection onOpenSession={onOpenSession} />
       <PermissionRulesSection />
       <TasksSection />
     </div>
@@ -79,7 +85,7 @@ export function ApprovalsTasksView() {
 
 // ─── Approvals ───────────────────────────────────────────────────────────────
 
-function ApprovalsSection() {
+function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selections, setSelections] = useState<Record<string, ReadonlySet<number>>>({});
@@ -268,6 +274,7 @@ function ApprovalsSection() {
               denying={deny.isPending && deny.variables.id === record.id}
               claiming={claim.isPending && claim.variables === record.id}
               cancelling={cancel.isPending && cancel.variables === record.id}
+              {...(onOpenSession ? { onOpenSession } : {})}
             />
           ))}
         </ul>

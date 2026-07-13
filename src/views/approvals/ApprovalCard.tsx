@@ -33,7 +33,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Ban, Check, Hourglass, SendHorizonal, X } from 'lucide-react';
+import { Ban, Check, ExternalLink, Hourglass, SendHorizonal, X } from 'lucide-react';
 import type { ApprovalRecord } from '../../lib/goodvibes';
 import {
   attributionLabel,
@@ -78,6 +78,10 @@ export interface ApprovalCardProps {
   onCancel?: () => void;
   claiming?: boolean;
   cancelling?: boolean;
+  /** Navigate to a session's chat view. When provided and a resolved APPROVED
+   * record carries `fixSessionId` (the session its acceptance spawned — SDK
+   * 1d6a85e2, stamped live by the broker), the card offers to open it. */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 export function ApprovalCard({
@@ -92,6 +96,7 @@ export function ApprovalCard({
   onCancel,
   claiming = false,
   cancelling = false,
+  onOpenSession,
 }: ApprovalCardProps) {
   const hunks = useMemo(() => readApprovalEditHunks(record), [record]);
   const actionable = isActionableApproval(record);
@@ -111,6 +116,11 @@ export function ApprovalCard({
 
   const approveExtras = rememberTier ? { rememberTier } : {};
   const deny = () => onDeny(denyReason.trim() || undefined);
+
+  // The session this acceptance spawned — only ever honored on an APPROVED
+  // record (the wire never stamps denied records, and this card never implies
+  // a denied ask started anything).
+  const fixSessionId = record.status === 'approved' ? record.fixSessionId : undefined;
 
   const rememberPicker = rememberOptions.length > 0 && !execPrompt && (
     <label className="approval-card__remember">
@@ -202,6 +212,20 @@ export function ApprovalCard({
           {partialLabel ? ` — ${partialLabel}` : ''}
           {record.decision?.reason ? ` — reason: ${record.decision.reason}` : ''}
         </p>
+      )}
+
+      {/* The session this acceptance spawned (CI "fix this?" offers): the broker
+          stamps fixSessionId onto the resolved APPROVED record and publishes it
+          live, so this appears when the record updates post-acceptance. */}
+      {fixSessionId && onOpenSession && (
+        <button
+          type="button"
+          className="approval-card__open-session"
+          onClick={() => onOpenSession(fixSessionId)}
+          title="Open the fix session this acceptance started"
+        >
+          <ExternalLink size={14} aria-hidden="true" /> Open fix session
+        </button>
       )}
 
       {terminal && (

@@ -27,7 +27,12 @@ function friendlyError(error: unknown): string {
   return formatError(error);
 }
 
-export function FleetApprovalInline({ node }: { node: FleetProcessNode }) {
+export function FleetApprovalInline({ node, onOpenSession }: {
+  node: FleetProcessNode;
+  /** Navigate to a session's chat view — the "open fix session" affordance on a
+   * resolved approved CI fix offer (record.fixSessionId). */
+  onOpenSession?: (sessionId: string) => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selections, setSelections] = useState<Record<string, ReadonlySet<number>>>({});
@@ -144,6 +149,7 @@ export function FleetApprovalInline({ node }: { node: FleetProcessNode }) {
             denying={deny.isPending && deny.variables?.id === record.id}
             claiming={claim.isPending && claim.variables === record.id}
             cancelling={cancel.isPending && cancel.variables === record.id}
+            {...(onOpenSession ? { onOpenSession } : {})}
           />
         ))}
       </ul>

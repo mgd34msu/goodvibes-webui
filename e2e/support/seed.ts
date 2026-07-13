@@ -803,6 +803,34 @@ export const EXEC_PROMPT_APPROVAL = {
   metadata: { source: 'exec-prompt', command: 'ssh deploy@staging.internal' },
 };
 
+// A pending CI "fix this?" offer — the red-run fix-session ask the ci-watch
+// service raises through the approval broker (tool 'ci:fix-session'). Accepting
+// it spawns a fix session whose id the broker stamps onto the resolved APPROVED
+// record (SDK 1d6a85e2) — the mock daemon mirrors that stamp on approve.
+export const CI_FIX_OFFER_APPROVAL = {
+  id: 'appr-ci-fix-1',
+  callId: 'ci-fix-e2e1',
+  status: 'pending',
+  request: {
+    callId: 'ci-fix-e2e1',
+    tool: 'ci:fix-session',
+    args: { repo: 'acme/example', ref: 'main', failingJobs: ['lint'] },
+    category: 'delegate',
+    analysis: {
+      classification: 'ci-fix-session',
+      riskLevel: 'medium',
+      summary: 'CI went red on acme/example (main) — start a fix session for lint?',
+      reasons: [
+        'The watched CI run on acme/example reached a failed verdict.',
+        "Accepting starts an isolated fix session seeded with the failing jobs' logs; declining leaves the red run untouched.",
+      ],
+    },
+  },
+  createdAt: 540,
+  updatedAt: 540,
+  metadata: { source: 'ci-watch', repo: 'acme/example' },
+};
+
 // One pre-seeded durable rule for the permissions-rules view proofs.
 export const SEEDED_PERMISSION_RULE = {
   id: 'rule-seeded-1',

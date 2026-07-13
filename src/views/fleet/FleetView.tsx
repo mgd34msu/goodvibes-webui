@@ -134,7 +134,12 @@ function StateBadge({ state }: { state: string }) {
   );
 }
 
-export function FleetView({ subscriptionActive = true }: { subscriptionActive?: boolean } = {}) {
+export function FleetView({ subscriptionActive = true, onOpenSession }: {
+  subscriptionActive?: boolean;
+  /** Navigate to a session's chat view — threads to the inline approval card's
+   * "open fix session" affordance (record.fixSessionId). */
+  onOpenSession?: (sessionId: string) => void;
+} = {}) {
   // needs-input deep link: a push notification tap opens this view at
   // `#fleet-node=<id>&fleet-session=<sid>` (notification-link.ts). Read the focus
   // target ONCE via a lazy initializer (no setState-in-effect cascade), seed it as
@@ -376,6 +381,7 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
             archived={view === 'archived'}
             onMutated={() => { setSelectedId(''); void invalidateFleet(); }}
             onBack={() => setSelectedId('')}
+            {...(onOpenSession ? { onOpenSession } : {})}
           />
         ) : (
           <div className="fleet-detail-empty">Select a process to view its detail.</div>
@@ -394,11 +400,12 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
   );
 }
 
-function FleetDetail({ node, archived, onMutated, onBack }: {
+function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
   node: FleetProcessNode;
   archived: boolean;
   onMutated: () => void;
   onBack: () => void;
+  onOpenSession?: (sessionId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -487,7 +494,7 @@ function FleetDetail({ node, archived, onMutated, onBack }: {
         </div>
       </header>
 
-      <FleetApprovalInline node={node} />
+      <FleetApprovalInline node={node} {...(onOpenSession ? { onOpenSession } : {})} />
 
       {archived ? (
         <div className="fleet-detail__actions">

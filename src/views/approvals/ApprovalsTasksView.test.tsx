@@ -570,7 +570,10 @@ const EXEC_PROMPT_FIXTURE = {
   }],
 };
 
-function renderWith(fixture: unknown): { el: HTMLElement; unmount: () => void } {
+function renderWith(
+  fixture: unknown,
+  viewProps: { onOpenSession?: (sessionId: string) => void } = {},
+): { el: HTMLElement; unmount: () => void } {
   approvalsListImpl = () => Promise.resolve(fixture);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(queryKeys.approvals, fixture);
@@ -582,7 +585,7 @@ function renderWith(fixture: unknown): { el: HTMLElement; unmount: () => void } 
     root.render(React.createElement(
       QueryClientProvider,
       { client },
-      React.createElement(ToastProvider, null, React.createElement(ApprovalsTasksView), React.createElement(ToastViewport)),
+      React.createElement(ToastProvider, null, React.createElement(ApprovalsTasksView, viewProps), React.createElement(ToastViewport)),
     ));
   });
   return {
@@ -842,6 +845,64 @@ describe('PermissionRulesSection — durable approval rules', () => {
     await waitFor(() => ruleDeleteCalls.length > 0);
     await waitFor(() => Boolean(document.querySelector('.toast')));
     expect(document.body.textContent).toContain('Rule already gone');
+    unmount();
+  });
+});
+
+describe('ApprovalsTasksView — open the fix session an accepted CI offer spawned', () => {
+  const ciFixBase = {
+    id: 'appr-ci-fix', callId: 'ci-fix-1', createdAt: 90, updatedAt: 100, metadata: { source: 'ci-watch' },
+    request: {
+      callId: 'ci-fix-1', tool: 'ci:fix-session',
+      args: { repo: 'acme/example', failingJobs: ['lint'] }, category: 'delegate',
+      analysis: analysis({ summary: 'CI went red on acme/example — start a fix session for lint?' }),
+    },
+  };
+
+  test('a resolved APPROVED record carrying fixSessionId offers Open fix session and calls onOpenSession with the stamped id', async () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        ...ciFixBase, status: 'approved', resolvedAt: 100, resolvedBy: 'operator',
+        decision: { approved: true },
+        // The broker's live stamp (SDK 1d6a85e2): the session this acceptance spawned.
+        fixSessionId: 'sess-ci-fix-77',
+      }],
+    };
+    const opened: string[] = [];
+    const { el, unmount } = renderWith(fixture, { onOpenSession: (id) => opened.push(id) });
+    const open = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Open fix session'));
+    expect(open).toBeDefined();
+    click(open);
+    expect(opened).toEqual(['sess-ci-fix-77']);
+    unmount();
+  });
+
+  test('a denied record never offers the affordance — the wire never stamps denied records, and neither does the card', () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        ...ciFixBase, status: 'denied', resolvedAt: 100, resolvedBy: 'operator',
+        decision: { approved: false, reason: 'not now' },
+        // Defensive: even a malformed record that DID carry the field must not
+        // render an open action on a denial.
+        fixSessionId: 'sess-should-never-open',
+      }],
+    };
+    const { el, unmount } = renderWith(fixture, { onOpenSession: () => { throw new Error('must not open'); } });
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
+    unmount();
+  });
+
+  test('an approved record without fixSessionId (spawn not completed / not a fix offer) shows no affordance', () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        ...ciFixBase, status: 'approved', resolvedAt: 100, resolvedBy: 'operator', decision: { approved: true },
+      }],
+    };
+    const { el, unmount } = renderWith(fixture, { onOpenSession: () => { throw new Error('must not open'); } });
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
     unmount();
   });
 });

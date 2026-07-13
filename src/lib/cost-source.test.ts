@@ -1,55 +1,70 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  asWireCostSource,
   costAmountLabel,
-  hasManualPrice,
+  formatPricingAsOf,
   manualPriceKey,
   priceSourceLabel,
   unpricedBlindSpotLabel,
 } from './cost-source';
 
-describe('manualPriceKey / hasManualPrice', () => {
-  const config = {
-    pricing: {
-      modelPrices: {
-        'openrouter:deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
-      },
-    },
-  };
-
+describe('manualPriceKey', () => {
   test('joins provider and model with a colon, null when either is missing', () => {
     expect(manualPriceKey('openrouter', 'deepseek/deepseek-chat')).toBe('openrouter:deepseek/deepseek-chat');
     expect(manualPriceKey(undefined, 'model')).toBeNull();
     expect(manualPriceKey('provider', undefined)).toBeNull();
   });
+});
 
-  test('finds a manual entry only for its exact provider:model', () => {
-    expect(hasManualPrice(config, 'openrouter', 'deepseek/deepseek-chat')).toBe(true);
-    expect(hasManualPrice(config, 'anthropic', 'deepseek/deepseek-chat')).toBe(false);
-    expect(hasManualPrice(config, 'openrouter', 'other-model')).toBe(false);
-    expect(hasManualPrice({}, 'openrouter', 'deepseek/deepseek-chat')).toBe(false);
-    expect(hasManualPrice(undefined, 'openrouter', 'deepseek/deepseek-chat')).toBe(false);
+describe('asWireCostSource', () => {
+  test('accepts the four wire sources, rejects everything else', () => {
+    for (const s of ['user', 'provider', 'catalog', 'mixed'] as const) {
+      expect(asWireCostSource(s)).toBe(s);
+    }
+    expect(asWireCostSource('none')).toBeUndefined();
+    expect(asWireCostSource(null)).toBeUndefined();
+    expect(asWireCostSource(undefined)).toBeUndefined();
+    expect(asWireCostSource(42)).toBeUndefined();
+  });
+});
+
+describe('formatPricingAsOf', () => {
+  test('renders an ISO timestamp as a UTC calendar date', () => {
+    expect(formatPricingAsOf('2026-07-01T00:00:00.000Z')).toBe('Jul 1, 2026');
+    // A late-UTC-day timestamp still reports its own UTC date (no TZ drift).
+    expect(formatPricingAsOf('2026-07-01T23:30:00.000Z')).toBe('Jul 1, 2026');
   });
 
-  test('a malformed manual entry does not count as a price', () => {
-    const bad = { pricing: { modelPrices: { 'a:b': { input: -1, output: 2 } } } };
-    expect(hasManualPrice(bad, 'a', 'b')).toBe(false);
+  test('absent/empty -> null; an unparseable value passes through trimmed', () => {
+    expect(formatPricingAsOf(undefined)).toBeNull();
+    expect(formatPricingAsOf(null)).toBeNull();
+    expect(formatPricingAsOf('   ')).toBeNull();
+    expect(formatPricingAsOf('  whenever  ')).toBe('whenever');
   });
 });
 
 describe('priceSourceLabel', () => {
-  test('manual wins as "your price" regardless of provider source', () => {
-    expect(priceSourceLabel(true, 'catalog')).toBe('your price');
-    expect(priceSourceLabel(true, undefined)).toBe('your price');
+  test('the user tier reads "your price"', () => {
+    expect(priceSourceLabel('user')).toBe('your price');
+    // A dated user price appends the as-of.
+    expect(priceSourceLabel('user', '2026-07-01T00:00:00.000Z')).toBe('your price, as of Jul 1, 2026');
   });
 
-  test('provider-level sources label without a fabricated date', () => {
-    expect(priceSourceLabel(false, 'provider')).toBe('provider-served price');
-    expect(priceSourceLabel(false, 'catalog')).toBe('catalog price');
+  test('catalog carries the as-of date the wire serves', () => {
+    expect(priceSourceLabel('catalog', '2026-07-01T00:00:00.000Z')).toBe('catalog price, as of Jul 1, 2026');
+    expect(priceSourceLabel('catalog')).toBe('catalog price');
   });
 
-  test('nothing truthful to say -> null', () => {
-    expect(priceSourceLabel(false, 'none')).toBeNull();
-    expect(priceSourceLabel(false, undefined)).toBeNull();
+  test('provider and mixed label honestly, dated when served', () => {
+    expect(priceSourceLabel('provider')).toBe('provider-served price');
+    expect(priceSourceLabel('provider', '2026-07-01T00:00:00.000Z')).toBe('provider-served price, as of Jul 1, 2026');
+    expect(priceSourceLabel('mixed', '2026-07-01T00:00:00.000Z')).toBe('mixed pricing sources, as of Jul 1, 2026');
+  });
+
+  test('absent/unknown source -> null (the amount marker carries the honesty)', () => {
+    expect(priceSourceLabel(null)).toBeNull();
+    expect(priceSourceLabel(undefined)).toBeNull();
+    expect(priceSourceLabel(undefined, '2026-07-01T00:00:00.000Z')).toBeNull();
   });
 });
 

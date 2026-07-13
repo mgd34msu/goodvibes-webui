@@ -240,7 +240,21 @@ export function providersResponse() {
     // omit this keep the exact prior shape). Mirrors what providers.list genuinely
     // populates today (packages/sdk/src/platform/providers/runtime-snapshot.ts's
     // toModelSnapshot) for the ModelWorkspaceModal price-filter/group proofs.
-    pricing: Record<string, { tier?: string; pricing?: { inputPerMillionTokens: number; outputPerMillionTokens: number; currency: string } }> = {},
+    // pricing.source is contract-required now (the SDK's runtime snapshot stamps
+    // every priced model with its provenance); asOf is the optional dated stamp.
+    pricing: Record<
+      string,
+      {
+        tier?: string;
+        pricing?: {
+          inputPerMillionTokens: number;
+          outputPerMillionTokens: number;
+          currency: string;
+          source: 'user' | 'provider' | 'catalog';
+          asOf?: string;
+        };
+      }
+    > = {},
   ) => ({
     providerId,
     active,
@@ -273,7 +287,7 @@ export function providersResponse() {
         configured: true,
         routes: [{ route: 'api-key', label: 'API key', configured: true, usable: true, freshness: 'expiring', detail: 'Token refreshes soon' }],
       }, ['gpt-5'], {
-        'gpt-5': { tier: 'premium', pricing: { inputPerMillionTokens: 5, outputPerMillionTokens: 15, currency: 'USD' } },
+        'gpt-5': { tier: 'premium', pricing: { inputPerMillionTokens: 5, outputPerMillionTokens: 15, currency: 'USD', source: 'catalog', asOf: '2026-07-01T00:00:00.000Z' } },
       }),
       provider('google', true, {
         mode: 'api-key',
@@ -626,6 +640,10 @@ export const FLEET_AGENT_NODE = {
   startedAt: 100,
   costUsd: 0.08,
   costState: 'priced',
+  // Provenance on the wire: this node's dollars were priced from the catalog,
+  // dated — the node's PriceSourceNote renders "catalog price, as of Jul 1, 2026".
+  costSource: 'catalog',
+  pricingAsOf: '2026-07-01T00:00:00.000Z',
   model: 'claude-3-5-haiku',
   provider: 'anthropic',
   capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: true },

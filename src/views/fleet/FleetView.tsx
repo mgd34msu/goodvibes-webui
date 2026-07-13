@@ -469,7 +469,12 @@ function FleetDetail({ node, archived, onMutated, onBack }: {
                 only where a model identity exists to price. */}
           </span>
           {(node.model !== undefined || node.provider !== undefined) && (
-            <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
+            <PriceSourceNote
+              provider={node.provider}
+              model={node.model}
+              costSource={node.costSource}
+              pricingAsOf={node.pricingAsOf}
+            />
           )}
         </div>
         <NodeHeadline node={node} block />

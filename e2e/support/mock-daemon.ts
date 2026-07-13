@@ -378,6 +378,21 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     cursor[parts[parts.length - 1]] = value;
   }
 
+  // Mirror the daemon's pricing resolver for fleet nodes: a manual price entry
+  // (config pricing.modelPrices["provider:model"]) always wins, so once one is
+  // set the node re-prices with costSource:'user' and no catalog as-of date —
+  // exactly what a fresh snapshot would carry after the operator sets a price.
+  // Nodes without a manual entry keep whatever provenance the fixture stamped.
+  function withManualPricing<T extends { provider?: string; model?: string }>(node: T): T {
+    if (!node.provider || !node.model) return node;
+    const pricing = (configState.pricing ?? {}) as { modelPrices?: Record<string, unknown> };
+    const table = pricing.modelPrices ?? {};
+    if (!(`${node.provider}:${node.model}` in table)) return node;
+    const next: Record<string, unknown> = { ...node, costSource: 'user' };
+    delete next.pricingAsOf;
+    return next as T;
+  }
+
   if (signedIn) {
     await page.addInitScript(
       ([key, token]) => {
@@ -611,6 +626,46 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const id = decodeURIComponent(providerGetMatch[1]);
       const found = providersResponse().providers.find((p) => p.providerId === id);
       return json(route, found ?? {});
+    }
+    // providers.usage.get → GET /api/providers/{id}/usage. Carries pricing
+    // provenance the same way cost rows and fleet nodes do: a snapshot-level
+    // pricingSource/pricingAsOf plus per-model pricing.source/asOf. Must precede
+    // the providers-list startsWith match below (that one would swallow this path).
+    const providerUsageMatch = path.match(/^\/api\/providers\/([^/]+)\/usage$/);
+    if (method === 'GET' && providerUsageMatch) {
+      const id = decodeURIComponent(providerUsageMatch[1]);
+      return json(route, {
+        providerId: id,
+        active: true,
+        currentModelRegistryKey: `${id}:claude-3-5-haiku`,
+        pricingSource: 'catalog',
+        pricingAsOf: '2026-07-01T00:00:00.000Z',
+        models: [
+          {
+            id: 'claude-3-5-haiku',
+            registryKey: `${id}:claude-3-5-haiku`,
+            displayName: 'Claude 3.5 Haiku',
+            selectable: true,
+            contextWindow: 200_000,
+            tier: 'standard',
+            pricing: {
+              inputPerMillionTokens: 0.8,
+              outputPerMillionTokens: 4,
+              currency: 'USD',
+              source: 'catalog',
+              asOf: '2026-07-01T00:00:00.000Z',
+            },
+          },
+        ],
+        usage: {
+          streaming: true,
+          toolCalling: true,
+          parallelTools: true,
+          promptCaching: true,
+          cost: { source: 'catalog', currency: 'USD', inputPerMillionTokens: 0.8, outputPerMillionTokens: 4 },
+          notes: [],
+        },
+      });
     }
     if (method === 'GET' && path.startsWith('/api/providers')) {
       return json(route, providersResponse());
@@ -875,12 +930,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         // this node appears proves the event drove the refetch (it is never in the
         // baseline, and shows up well before the poll fallback would fire).
         const base = fleetEnriched ? [...FLEET_SNAPSHOT.nodes, FLEET_EVENT_NODE] : FLEET_SNAPSHOT.nodes;
-        const nodes = base.filter((node) => !archivedFleetIds.has(node.id));
+        const nodes = base.filter((node) => !archivedFleetIds.has(node.id)).map(withManualPricing);
         return json(route, { ...FLEET_SNAPSHOT, nodes, totalCount: nodes.length });
       }
       if (methodId === 'fleet.list') {
         const base = fleetEnriched ? [...FLEET_SNAPSHOT.nodes, FLEET_EVENT_NODE] : FLEET_SNAPSHOT.nodes;
-        const items = base.filter((node) => !archivedFleetIds.has(node.id));
+        const items = base.filter((node) => !archivedFleetIds.has(node.id)).map(withManualPricing);
         return json(route, { items, hasMore: false, capturedAt: FLEET_SNAPSHOT.capturedAt });
       }
       // ── Fleet archive (SDK 1.6.x): stateful enough to prove the archive →
@@ -1028,11 +1083,19 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const dimension = body.body?.dimension ?? 'session';
         const key = dimension === 'session' ? localSessionId : `${dimension}-e2e-1`;
         const tokens = { inputTokens: 12000, outputTokens: 3400, cacheReadTokens: 2000, cacheWriteTokens: 500 };
+        // Provenance rides the wire now: the aggregate spans more than one
+        // pricing tier ('mixed'), the single session row was priced from the
+        // catalog — both dated. The webui renders these verbatim, never
+        // re-deriving a source or inventing an as-of date.
         return json(route, {
           window, windowStartMs: 1_700_000_000_000, dimension,
           totalCostUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+          costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z',
           tokens,
-          rows: [{ key, costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1, tokens }],
+          rows: [{
+            key, costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+            costSource: 'catalog', pricingAsOf: '2026-07-01T00:00:00.000Z', tokens,
+          }],
         });
       }
       // ── Web Push (push.*) — the PWA subscription lifecycle. ────────────────

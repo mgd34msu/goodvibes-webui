@@ -261,7 +261,7 @@ export function recordedRememberTier(result: ApprovalActionResult | undefined): 
  */
 export function recordedReasonStored(result: ApprovalActionResult | undefined): boolean {
   const block = result?.recorded;
-  if (block) return block.reasonStored === true;
+  if (block) return block.reasonStored;
   const reason = result?.approval?.decision?.reason;
   return typeof reason === 'string' && reason.length > 0;
 }
@@ -274,7 +274,7 @@ export function recordedReasonStored(result: ApprovalActionResult | undefined): 
  */
 export function recordedAnswerDelivered(result: ApprovalActionResult | undefined): boolean {
   const block = result?.recorded;
-  if (block) return block.modifiedArgsDelivered === true;
+  if (block) return block.modifiedArgsDelivered;
   return typeof result?.approval?.decision?.modifiedArgs?.answer === 'string';
 }
 

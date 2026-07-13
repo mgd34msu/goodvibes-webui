@@ -124,6 +124,13 @@ export interface MockDaemonOptions {
    * remembered-decision sweep so a suppression test is meaningful at mock level.
    */
   permissionRules?: readonly Record<string, unknown>[];
+  /**
+   * Seed for the daemon's undelivered receipt queue, handed over ONCE when
+   * control.status is called with receipts=consume (GET /status?receipts=consume).
+   * Default []. A plain status read never consumes; a second consume returns
+   * none — the "shows once, never re-shows" contract.
+   */
+  daemonReceipts?: readonly { id: string; text: string; at: number }[];
 }
 
 export interface MockDaemon {
@@ -256,6 +263,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // Durable rules (permissions.rules.*) — same fresh-copy-per-install policy.
   const permissionRules: Record<string, unknown>[] = (options.permissionRules ?? []).map((r) => ({ ...r }));
   let ruleCounter = 0;
+
+  // Undelivered daemon receipts — handed over exactly once, on a receipts=consume
+  // status read, then marked delivered so a re-consume (e.g. a reconnect) returns none.
+  let daemonReceipts: { id: string; text: string; at: number }[] = (options.daemonReceipts ?? []).map((r) => ({ ...r }));
 
   // In-memory canonical store for this test only — a fresh copy of the seed per
   // installMockDaemon call, mutated by add/delete/update-review exactly like the real
@@ -453,7 +464,16 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // connection-refused health probe, spamming the webServer log with
   // ECONNREFUSED and exercising the app permanently in its daemon-down pulse
   // state. Same answer shape as the invoke-path 'control.status' below.
-  await page.route('**/status', async (route) => {
+  // Matches /status AND /status?receipts=consume (control.status is GET /status;
+  // the receipts input rides the query string). A consume hands over the queued
+  // receipts once and marks them delivered; a plain read is receipt-neutral.
+  await page.route(/\/status(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get('receipts') === 'consume') {
+      const delivered = daemonReceipts;
+      daemonReceipts = [];
+      return json(route, { ok: true, status: 'running', receipts: delivered });
+    }
     return json(route, { ok: true, status: 'running' });
   });
 

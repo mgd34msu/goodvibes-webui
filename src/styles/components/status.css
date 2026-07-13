@@ -193,3 +193,40 @@
 .relay-overflow-resync:hover {
   background: rgba(127, 127, 127, 0.15);
 }
+
+/* ── Daemon receipts (consumed once per connect) ──────────────────────────── */
+.daemon-receipts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.daemon-receipt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.daemon-receipt__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daemon-receipt__dismiss {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.daemon-receipt__dismiss:hover {
+  background: rgba(127, 127, 127, 0.15);
+}

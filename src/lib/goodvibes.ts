@@ -112,6 +112,19 @@ export type {
   WorkspaceCheckpoint,
 };
 
+/**
+ * One undelivered daemon receipt, served by control.status only when called
+ * with { receipts: 'consume' }. The daemon pre-renders the human line (a crash
+ * restart, a self-update, a migration) in `text`; the webui renders it verbatim
+ * as a one-line dismissible notice — no client-side kind logic. `at` is the
+ * epoch-ms the event happened; `id` is the stable dedupe key.
+ */
+export interface DaemonReceipt {
+  readonly id: string;
+  readonly text: string;
+  readonly at: number;
+}
+
 export const WEBUI_SURFACE_KIND = 'webui';
 export const WEBUI_SURFACE_ID = 'goodvibes-webui';
 export const WEBUI_TOKEN_STORE_KEY = 'goodvibes.webui.token';
@@ -1203,7 +1216,11 @@ export const sdk = {
   operator: {
     invoke: invokeOperator,
     control: {
-      status: () => scopedSdk.operator.invoke('control.status', {}),
+      // A plain status read is receipt-NEUTRAL (never consumes). Pass
+      // { receipts: 'consume' } — done exactly once per daemon connect, not per
+      // poll — to receive undelivered update/crash/migration receipts and mark
+      // them delivered; the daemon returns each such receipt exactly once.
+      status: (input?: { receipts?: 'consume' }) => scopedSdk.operator.invoke('control.status', input ?? {}),
       snapshot: () => scopedSdk.operator.invoke('control.snapshot', {}),
       // methodInfo: an honest, read-only capability probe. 'control.methods.get'
       // IS in the installed 0.38 OperatorMethodId union with a real generated I/O map

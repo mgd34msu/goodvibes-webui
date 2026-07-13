@@ -6,6 +6,51 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-13
+
+Ships against `@pellux/goodvibes-sdk` 1.8.0. This release rolls up the
+approvals, costs, fleet, receipts, and settings work accumulated since 1.4.0
+and re-pins from the local dev-link build onto the published 1.8.0 package.
+
+### Added
+
+- **Approvals depth.** Approval cards remember tiers, support
+  deny-with-a-reason, render exec prompts as answerable cards with the whole
+  command visible, and a durable-rules view lists the remembered decisions.
+  The card trusts the daemon's recorded block — remembered tier, stored
+  reason, and delivered answer all render from the wire, not from client-side
+  guesses.
+- **Cost provenance.** Every visible dollar figure names its source
+  (`costSource` plus an as-of date) straight from the wire, with no
+  client-side derivation. An explicit price-unknown marker replaces silent
+  zeros, and manual pricing is a one-action fix with a real editor for
+  `pricing.modelPrices` in Settings.
+- **Fleet headlines and the stall tell.** Fleet rows and details render the
+  read-model's derived per-node headline and the quiet-stall marker, so a
+  wedged agent is visible at a glance.
+- **Receipts on connect.** The daemon's undelivered notices are consumed
+  exactly once on connect; feature announcements ride the same connect-time
+  queue and their URLs are clickable.
+- **CI fix sessions.** Accepting a CI watch's fix offer opens the spawned fix
+  session directly; the opened id is a real session, and a failed spawn says
+  so instead of presenting a dead button.
+- **Domain-grouped settings.** Settings adopt the SDK's dissolved feature
+  model — domains replace the enablement bucket — driven end to end in e2e,
+  including the pricing-editor and approvals-depth journeys.
+
+### Changed
+
+- Re-pinned `@pellux/goodvibes-sdk` from the local dev-link build to the
+  published `1.8.0` registry package; removed the dev-link `file:` overrides
+  so all nested `@pellux` resolutions come from the registry.
+- Phone-width checkpoint and task mutations complete through their confirm
+  sheets; the stale limitation note is gone from the docs.
+
+### CI
+
+- A build-time check bans internal planning identifiers from tracked text,
+  wired into the build so a violation fails it.
+
 ## [1.4.0] - 2026-07-11
 
 Ships against `@pellux/goodvibes-sdk` 1.7.0. This release rolls up the SDK

@@ -109,7 +109,7 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
-  test('a `permissions` frame invalidates approvals AND the sessions prefix; `providers` invalidates providers', () => {
+  test('a `permissions` frame invalidates approvals, the sessions prefix, AND durable rules; `providers` invalidates providers', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('permissions', {});
     capturedHandlers?.onEvent?.('providers', {});
@@ -118,7 +118,7 @@ describe('useRealtimeInvalidation', () => {
     // sessionId, and the session-scoped permission-mode/context-usage queries are
     // prefixed with 'sessions' (queries.ts) — see useRealtimeInvalidation.ts's
     // DOMAIN_INVALIDATIONS comment.
-    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['sessions'], ['providers']]);
+    expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['sessions'], ['permissions', 'rules'], ['providers']]);
     unmount();
   });
 

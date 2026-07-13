@@ -25,6 +25,12 @@ const taskRetryCalls: string[] = [];
 
 let approvalsListImpl: () => Promise<unknown> = () => Promise.resolve(APPROVALS_FIXTURE);
 let tasksListImpl: () => Promise<unknown> = () => Promise.resolve(TASKS_FIXTURE);
+// The decision the mocked approve() returns on the record — lets a test drive
+// the response-verified remember/answer honesty both ways.
+let approveResultDecision: Record<string, unknown> | undefined;
+const ruleDeleteCalls: string[] = [];
+let rulesFixture: { id: string; effect: string; tier: string; tool: string; description?: string; createdAt: number }[] = [];
+let ruleDeleteResult = true;
 
 mock.module('../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
@@ -35,10 +41,16 @@ mock.module('../../lib/goodvibes', () => ({
         list: () => approvalsListImpl(),
         approve: (approvalId: string, input?: unknown) => {
           approveCalls.push({ approvalId, ...(input as object ?? {}) });
-          return Promise.resolve({ approval: { id: approvalId, status: 'approved' } });
+          return Promise.resolve({
+            approval: {
+              id: approvalId,
+              status: 'approved',
+              ...(approveResultDecision ? { decision: approveResultDecision } : {}),
+            },
+          });
         },
-        deny: (approvalId: string) => {
-          denyCalls.push(approvalId);
+        deny: (approvalId: string, input?: unknown) => {
+          denyCalls.push({ approvalId, ...(input as object ?? {}) });
           return Promise.resolve({ approval: { id: approvalId, status: 'denied' } });
         },
         claim: (approvalId: string) => {
@@ -48,6 +60,16 @@ mock.module('../../lib/goodvibes', () => ({
         cancel: (approvalId: string) => {
           cancelCalls.push(approvalId);
           return Promise.resolve({ approval: { id: approvalId, status: 'cancelled' } });
+        },
+      },
+      permissions: {
+        rules: {
+          list: () => Promise.resolve({ rules: rulesFixture }),
+          delete: (ruleId: string) => {
+            ruleDeleteCalls.push(ruleId);
+            if (ruleDeleteResult) rulesFixture = rulesFixture.filter((r) => r.id !== ruleId);
+            return Promise.resolve({ deleted: ruleDeleteResult });
+          },
         },
       },
       tasks: {
@@ -182,6 +204,10 @@ afterEach(() => {
   taskRetryCalls.length = 0;
   approvalsListImpl = () => Promise.resolve(APPROVALS_FIXTURE);
   tasksListImpl = () => Promise.resolve(TASKS_FIXTURE);
+  approveResultDecision = undefined;
+  ruleDeleteCalls.length = 0;
+  rulesFixture = [];
+  ruleDeleteResult = true;
 });
 
 describe('ApprovalsTasksView — approvals rendering', () => {
@@ -306,7 +332,7 @@ describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () 
     const deny = [...card.querySelectorAll('button')].find((b) => b.textContent?.includes('Deny'));
     click(deny);
     await waitFor(() => denyCalls.length > 0);
-    expect(denyCalls[0]).toBe('appr-cmd');
+    expect(denyCalls[0]).toEqual({ approvalId: 'appr-cmd' });
     unmount();
   });
 
@@ -494,6 +520,245 @@ describe('ApprovalsTasksView — tasks rendering', () => {
     click(submit);
     await waitFor(() => taskCreateCalls.length > 0);
     expect(taskCreateCalls[0]).toMatchObject({ task: 'do the thing' });
+    unmount();
+  });
+});
+
+// ─── Remember tiers, deny reason, exec-prompt, durable rules (rounds 4-6) ────
+
+const REMEMBER_OPTIONS = [
+  { tier: 'session', label: 'for the rest of this session', detail: 'in-memory only; forgotten on restart' },
+  { tier: 'exact', label: 'this exact command', detail: 'bun test' },
+  { tier: 'command-class', label: 'every bun command', detail: 'bun ...' },
+  { tier: 'tool', label: 'always for the bash tool in this project', detail: 'every bash call, any arguments' },
+];
+
+const REMEMBER_FIXTURE = {
+  ...APPROVALS_FIXTURE,
+  approvals: [{
+    id: 'appr-remember', callId: 'call-r1', status: 'pending', createdAt: 300, updatedAt: 300, metadata: {},
+    request: {
+      callId: 'call-r1', tool: 'bash', args: { commands: ['bun test'] }, category: 'execute',
+      analysis: analysis({ summary: 'run bun test' }),
+      rememberOptions: REMEMBER_OPTIONS,
+    },
+  }],
+};
+
+const EXEC_PROMPT_FIXTURE = {
+  ...APPROVALS_FIXTURE,
+  approvals: [{
+    id: 'appr-exec-prompt', callId: 'exec-prompt-1', status: 'pending', createdAt: 300, updatedAt: 300,
+    metadata: { source: 'exec-prompt', command: 'ssh host' },
+    request: {
+      callId: 'exec-prompt-1', tool: 'exec:prompt',
+      args: { command: 'ssh host', prompt: 'Continue connecting (yes/no)?', recentOutput: 'fingerprint…\nContinue connecting (yes/no)?' },
+      category: 'execute',
+      analysis: analysis({ summary: 'A running command is waiting on its terminal' }),
+      attribution: { kind: 'exec-prompt', command: 'ssh host', prompt: 'Continue connecting (yes/no)?' },
+    },
+  }],
+};
+
+function renderWith(fixture: unknown): { el: HTMLElement; unmount: () => void } {
+  approvalsListImpl = () => Promise.resolve(fixture);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(queryKeys.approvals, fixture);
+  client.setQueryData(queryKeys.tasks, TASKS_FIXTURE);
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  flushSync(() => {
+    root.render(React.createElement(
+      QueryClientProvider,
+      { client },
+      React.createElement(ToastProvider, null, React.createElement(ApprovalsTasksView), React.createElement(ToastViewport)),
+    ));
+  });
+  return {
+    el: container,
+    unmount: () => {
+      flushSync(() => root.unmount());
+      if (container.parentNode) container.parentNode.removeChild(container);
+    },
+  };
+}
+
+function setInput(input: HTMLInputElement | null, value: string) {
+  if (!input) throw new Error('input not found');
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  flushSync(() => {
+    setter?.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+}
+
+function setSelect(select: HTMLSelectElement | null, value: string) {
+  if (!select) throw new Error('select not found');
+  flushSync(() => {
+    select.value = value;
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+}
+
+describe('ApprovalsTasksView — remember tiers', () => {
+  test('the ask\'s rememberOptions render verbatim with "just this once" as the default', () => {
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    const select = el.querySelector('.approval-card__remember select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    const optionTexts = [...select.querySelectorAll('option')].map((o) => o.textContent);
+    expect(optionTexts[0]).toBe('just this once');
+    expect(optionTexts.some((t) => t?.includes('every bun command'))).toBe(true);
+    expect(optionTexts.some((t) => t?.includes('this exact command'))).toBe(true);
+    // Durable tiers say they persist; session does not.
+    expect(optionTexts.find((t) => t?.includes('every bun command'))).toContain('(saved as a rule)');
+    expect(optionTexts.find((t) => t?.includes('for the rest of this session'))).not.toContain('(saved as a rule)');
+    expect(select.value).toBe('');
+    unmount();
+  });
+
+  test('approving with a tier sends rememberTier+remember, and a recording daemon yields the remembered toast', async () => {
+    approveResultDecision = { approved: true, remember: true, rememberTier: 'command-class' };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    setSelect(el.querySelector('.approval-card__remember select'), 'command-class');
+    click(el.querySelector('.approval-card__approve-all'));
+    await waitFor(() => approveCalls.length > 0);
+    expect(approveCalls[0]).toEqual({
+      approvalId: 'appr-remember',
+      remember: true,
+      rememberTier: 'command-class',
+    });
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Remembered (command-class)');
+    unmount();
+  });
+
+  test('a daemon that does not record the remember request gets reported honestly, never claimed', async () => {
+    approveResultDecision = { approved: true };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    setSelect(el.querySelector('.approval-card__remember select'), 'tool');
+    click(el.querySelector('.approval-card__approve-all'));
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('did not record the remember request');
+    expect(document.body.textContent).not.toContain('Remembered (');
+    unmount();
+  });
+
+  test('approving without touching the picker sends no remember fields', async () => {
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    click(el.querySelector('.approval-card__approve-all'));
+    await waitFor(() => approveCalls.length > 0);
+    expect(approveCalls[0]).toEqual({ approvalId: 'appr-remember' });
+    unmount();
+  });
+});
+
+describe('ApprovalsTasksView — deny carries an optional reason', () => {
+  test('a typed reason rides the deny call as note AND reason (one text, both wire fields)', async () => {
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    const details = el.querySelector('.approval-card__deny-reason') as HTMLDetailsElement;
+    expect(details).not.toBeNull();
+    details.open = true;
+    setInput(el.querySelector('.approval-card__deny-reason input'), 'wrong branch — run it on main');
+    click(el.querySelector('.approval-card__deny'));
+    await waitFor(() => denyCalls.length > 0);
+    expect(denyCalls[0]).toEqual({
+      approvalId: 'appr-remember',
+      note: 'wrong branch — run it on main',
+      reason: 'wrong branch — run it on main',
+    });
+    unmount();
+  });
+
+  test('a resolved denial with a recorded reason renders it on the history card', () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        id: 'appr-denied-reason', callId: 'c', status: 'denied', resolvedAt: 100, resolvedBy: 'operator',
+        createdAt: 90, updatedAt: 100, metadata: {},
+        request: { callId: 'c', tool: 'exec', args: {}, category: 'execute', analysis: analysis() },
+        decision: { approved: false, reason: 'too broad' },
+      }],
+    };
+    const { el, unmount } = renderWith(fixture);
+    expect(el.querySelector('.approval-card__note')?.textContent).toContain('reason: too broad');
+    unmount();
+  });
+});
+
+describe('ApprovalsTasksView — exec-prompt answerable card', () => {
+  test('renders the waiting command, the prompt line, and the recent output', () => {
+    const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
+    const card = el.querySelector('[data-testid="exec-prompt-card"]');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain('ssh host');
+    expect(card?.textContent).toContain('Continue connecting (yes/no)?');
+    expect(card?.querySelector('.approval-card__exec-output')?.textContent).toContain('fingerprint…');
+    unmount();
+  });
+
+  test('Send answer is gated on text and approves with modifiedArgs.answer feeding the run', async () => {
+    approveResultDecision = { approved: true, modifiedArgs: { answer: 'yes' } };
+    const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
+    const send = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Send answer'));
+    expect(send?.disabled).toBe(true);
+    setInput(el.querySelector('.approval-card__exec-answer input'), 'yes');
+    expect(send?.disabled).toBe(false);
+    click(send);
+    await waitFor(() => approveCalls.length > 0);
+    expect(approveCalls[0]).toEqual({ approvalId: 'appr-exec-prompt', modifiedArgs: { answer: 'yes' } });
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Answer sent');
+    unmount();
+  });
+
+  test('Stop command denies the ask (optionally with a reason)', async () => {
+    const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
+    const stop = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Stop command'));
+    click(stop);
+    await waitFor(() => denyCalls.length > 0);
+    expect(denyCalls[0]).toEqual({ approvalId: 'appr-exec-prompt' });
+    unmount();
+  });
+});
+
+describe('PermissionRulesSection — durable approval rules', () => {
+  test('lists every rule with effect, tier, tool, and delete; delete revokes', async () => {
+    rulesFixture = [
+      { id: 'rule-1', effect: 'allow', tier: 'command-class', tool: 'bash', description: 'bun ...', createdAt: 400 },
+      { id: 'rule-2', effect: 'deny', tier: 'tool', tool: 'fetch', createdAt: 500 },
+    ];
+    const { el, unmount } = renderWith(APPROVALS_FIXTURE);
+    await waitFor(() => el.querySelectorAll('.permission-rule-row').length === 2);
+    const rows = [...el.querySelectorAll('.permission-rule-row')];
+    expect(rows[0].textContent).toContain('Allow · command-class · bash');
+    expect(rows[0].textContent).toContain('bun ...');
+    expect(rows[1].textContent).toContain('Deny · tool · fetch');
+    click(rows[0].querySelector('.permission-rule-row__delete'));
+    await waitFor(() => ruleDeleteCalls.length > 0);
+    expect(ruleDeleteCalls[0]).toBe('rule-1');
+    await waitFor(() => el.querySelectorAll('.permission-rule-row').length === 1);
+    unmount();
+  });
+
+  test('an empty rule store renders the honest empty state, never a fake row', async () => {
+    const { el, unmount } = renderWith(APPROVALS_FIXTURE);
+    await waitFor(() => Boolean(el.querySelector('[data-testid="permission-rules"]')));
+    await waitFor(() => (el.querySelector('[data-testid="permission-rules"]')?.textContent ?? '').includes('No durable approval rules'));
+    expect(el.querySelectorAll('.permission-rule-row').length).toBe(0);
+    unmount();
+  });
+
+  test('deleted:false (already gone) surfaces as info, not success or error', async () => {
+    rulesFixture = [{ id: 'rule-gone', effect: 'allow', tier: 'exact', tool: 'bash', createdAt: 400 }];
+    ruleDeleteResult = false;
+    const { el, unmount } = renderWith(APPROVALS_FIXTURE);
+    await waitFor(() => el.querySelectorAll('.permission-rule-row').length === 1);
+    click(el.querySelector('.permission-rule-row__delete'));
+    await waitFor(() => ruleDeleteCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Rule already gone');
     unmount();
   });
 });

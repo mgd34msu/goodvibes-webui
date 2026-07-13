@@ -12,7 +12,15 @@
  */
 import { describe, expect, test } from 'bun:test';
 import type { ApprovalAuditRecord, ApprovalRecord } from './goodvibes';
-import { auditEntryLabel, auditTrail } from './approvals';
+import {
+  attributionLabel,
+  auditEntryLabel,
+  auditTrail,
+  isDurableRememberTier,
+  readExecPromptAsk,
+  readRememberOptions,
+  recordedRememberTier,
+} from './approvals';
 
 function baseRecord(overrides: Partial<ApprovalRecord> = {}): ApprovalRecord {
   return {
@@ -74,5 +82,84 @@ describe('auditEntryLabel', () => {
   test('omits surface and note segments cleanly when both are absent', () => {
     const entry: ApprovalAuditRecord = { id: 'a1', action: 'expired', actor: 'approval-broker', createdAt: 100 };
     expect(auditEntryLabel(entry)).toBe('expired by approval-broker');
+  });
+});
+
+describe('readRememberOptions', () => {
+  test('reads well-formed options verbatim and drops malformed entries', () => {
+    const record = baseRecord({
+      request: {
+        callId: 'call-1', tool: 'bash', args: {}, category: 'execute',
+        analysis: { classification: 'exec', riskLevel: 'medium', summary: 's', reasons: [] },
+        rememberOptions: [
+          { tier: 'command-class', label: 'every bun command', detail: 'bun ...' },
+          { tier: 'exact' } as never,
+          'nonsense' as never,
+        ],
+      },
+    });
+    expect(readRememberOptions(record)).toEqual([
+      { tier: 'command-class', label: 'every bun command', detail: 'bun ...' },
+    ]);
+  });
+
+  test('a pre-tier record (no rememberOptions) offers none', () => {
+    expect(readRememberOptions(baseRecord())).toEqual([]);
+  });
+});
+
+describe('isDurableRememberTier', () => {
+  test('the four persisting tiers are durable; session is not', () => {
+    for (const tier of ['exact', 'command-class', 'path', 'tool']) expect(isDurableRememberTier(tier)).toBe(true);
+    expect(isDurableRememberTier('session')).toBe(false);
+    expect(isDurableRememberTier('')).toBe(false);
+  });
+});
+
+describe('readExecPromptAsk', () => {
+  test('detects the exec-prompt ask by attribution kind and reads command/prompt/recentOutput', () => {
+    const record = baseRecord({
+      status: 'pending',
+      request: {
+        callId: 'c', tool: 'exec:prompt',
+        args: { command: 'ssh host', prompt: 'Continue?', recentOutput: 'fingerprint' },
+        category: 'execute',
+        analysis: { classification: 'exec-terminal-prompt', riskLevel: 'medium', summary: 's', reasons: [] },
+        attribution: { kind: 'exec-prompt', command: 'ssh host', prompt: 'Continue?' },
+      },
+    });
+    expect(readExecPromptAsk(record)).toEqual({ command: 'ssh host', prompt: 'Continue?', recentOutput: 'fingerprint' });
+  });
+
+  test('falls back to the attribution strings when args are partial', () => {
+    const record = baseRecord({
+      status: 'pending',
+      request: {
+        callId: 'c', tool: 'exec:prompt', args: {}, category: 'execute',
+        analysis: { classification: 'exec-terminal-prompt', riskLevel: 'medium', summary: 's', reasons: [] },
+        attribution: { kind: 'exec-prompt', command: 'ssh host', prompt: 'Continue?' },
+      },
+    });
+    expect(readExecPromptAsk(record)).toEqual({ command: 'ssh host', prompt: 'Continue?', recentOutput: '' });
+  });
+
+  test('a non-exec-prompt ask reads as null', () => {
+    expect(readExecPromptAsk(baseRecord())).toBeNull();
+  });
+});
+
+describe('recordedRememberTier', () => {
+  test('reports only what the daemon recorded on the decision', () => {
+    expect(recordedRememberTier(baseRecord({ decision: { approved: true, rememberTier: 'path' } }))).toBe('path');
+    expect(recordedRememberTier(baseRecord({ decision: { approved: true } }))).toBeNull();
+    expect(recordedRememberTier(baseRecord())).toBeNull();
+    expect(recordedRememberTier(undefined)).toBeNull();
+  });
+});
+
+describe('attributionLabel — exec-prompt', () => {
+  test('names the waiting command', () => {
+    expect(attributionLabel({ kind: 'exec-prompt', command: 'ssh host', prompt: 'Continue?' }))
+      .toBe('Command waiting on its terminal: ssh host');
   });
 });

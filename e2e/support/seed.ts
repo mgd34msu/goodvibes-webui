@@ -690,7 +690,7 @@ export const PENDING_APPROVAL = {
   request: {
     callId: 'call-e2e-1',
     tool: 'bash',
-    args: {},
+    args: { commands: ['bun test --isolate'] },
     category: 'shell',
     analysis: {
       classification: 'command',
@@ -698,8 +698,92 @@ export const PENDING_APPROVAL = {
       summary: 'Run the full test suite before merging',
       reasons: ['Modifies test fixtures'],
     },
+    // The SDK's buildRememberOptions output for one exec command — labels and
+    // details render VERBATIM in the card's remember picker.
+    rememberOptions: [
+      { tier: 'session', label: 'for the rest of this session', detail: 'in-memory only; forgotten on restart' },
+      { tier: 'exact', label: 'this exact command', detail: 'bun test --isolate' },
+      { tier: 'command-class', label: 'every bun command', detail: 'bun ...' },
+      { tier: 'tool', label: 'always for the bash tool in this project', detail: 'every bash call, any arguments' },
+    ],
   },
   createdAt: 500,
   updatedAt: 500,
   metadata: {},
+};
+
+// A SECOND pending ask in the same command class (same tool) — approving the
+// first at the command-class tier must sweep this one at mock level, proving
+// the "granted at a tier suppresses the next identical ask" journey.
+export const PENDING_APPROVAL_SAME_CLASS = {
+  id: 'appr-e2e-2',
+  callId: 'call-e2e-2',
+  sessionId: STEERABLE_SESSION.id,
+  status: 'pending',
+  request: {
+    callId: 'call-e2e-2',
+    tool: 'bash',
+    args: { commands: ['bun run typecheck'] },
+    category: 'shell',
+    analysis: {
+      classification: 'command',
+      riskLevel: 'medium',
+      summary: 'Typecheck the workspace',
+      reasons: ['Read-only check'],
+    },
+    rememberOptions: [
+      { tier: 'session', label: 'for the rest of this session', detail: 'in-memory only; forgotten on restart' },
+      { tier: 'exact', label: 'this exact command', detail: 'bun run typecheck' },
+      { tier: 'command-class', label: 'every bun command', detail: 'bun ...' },
+      { tier: 'tool', label: 'always for the bash tool in this project', detail: 'every bash call, any arguments' },
+    ],
+  },
+  createdAt: 520,
+  updatedAt: 520,
+  metadata: {},
+};
+
+// A running command blocked on its own terminal — the exec PTY prompt-answer
+// path (tool 'exec:prompt', attribution kind 'exec-prompt'). The card renders
+// as ANSWERABLE: the typed reply rides the approve decision's
+// modifiedArgs.answer into the waiting run.
+export const EXEC_PROMPT_APPROVAL = {
+  id: 'appr-exec-prompt-1',
+  callId: 'exec-prompt-a1b2c3d4',
+  sessionId: STEERABLE_SESSION.id,
+  status: 'pending',
+  request: {
+    callId: 'exec-prompt-a1b2c3d4',
+    tool: 'exec:prompt',
+    args: {
+      command: 'ssh deploy@staging.internal',
+      prompt: "The authenticity of host 'staging.internal' can't be established. Continue connecting (yes/no)?",
+      recentOutput: "ED25519 key fingerprint is SHA256:9f2ab8.\nThe authenticity of host 'staging.internal' can't be established. Continue connecting (yes/no)?",
+    },
+    category: 'execute',
+    analysis: {
+      classification: 'exec-terminal-prompt',
+      riskLevel: 'medium',
+      summary: "A running command is waiting on its terminal: The authenticity of host 'staging.internal' can't be established. Continue connecting (yes/no)?",
+      reasons: ['The command is blocked until this prompt is answered or the run is stopped'],
+    },
+    attribution: {
+      kind: 'exec-prompt',
+      command: 'ssh deploy@staging.internal',
+      prompt: "The authenticity of host 'staging.internal' can't be established. Continue connecting (yes/no)?",
+    },
+  },
+  createdAt: 530,
+  updatedAt: 530,
+  metadata: { source: 'exec-prompt', command: 'ssh deploy@staging.internal' },
+};
+
+// One pre-seeded durable rule for the permissions-rules view proofs.
+export const SEEDED_PERMISSION_RULE = {
+  id: 'rule-seeded-1',
+  effect: 'allow',
+  tier: 'path',
+  tool: 'edit',
+  description: 'edits under src/**',
+  createdAt: 400,
 };

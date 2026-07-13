@@ -15,7 +15,7 @@
  * doc and the ApprovalsTasksView component, which sends indices only.
  */
 
-import type { ApprovalAttribution, ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalStatus } from './goodvibes';
+import type { ApprovalAttribution, ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalRememberOption, ApprovalStatus } from './goodvibes';
 
 /** APPROVAL_STATUS_SCHEMA (operator-contract-schemas-runtime.ts) at time of writing. */
 export const KNOWN_APPROVAL_STATUSES: readonly ApprovalStatus[] = [
@@ -170,9 +170,82 @@ export function attributionLabel(attribution: ApprovalAttribution | undefined): 
       return `Requested by MCP server "${attribution.serverName}"`;
     case 'sandbox-escalation':
       return `Sandbox "${attribution.sandbox}" wants host access: ${attribution.escalations.join(', ')}`;
+    case 'exec-prompt':
+      return `Command waiting on its terminal: ${attribution.command}`;
     default:
       return null;
   }
+}
+
+// ─── Remember tiers + exec-prompt asks (snapshot rounds 4-6) ────────────────
+
+function isRememberOptionLike(value: unknown): value is ApprovalRememberOption {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.tier === 'string'
+    && typeof candidate.label === 'string'
+    && typeof candidate.detail === 'string'
+  );
+}
+
+/**
+ * The remember-tier options offered on an ask, read defensively off
+ * `request.rememberOptions` (a record from a pre-tier daemon simply offers
+ * none). Options render VERBATIM — label/detail come from the SDK's
+ * buildRememberOptions, never re-derived policy language.
+ */
+export function readRememberOptions(record: ApprovalRecord): ApprovalRememberOption[] {
+  const options = record.request.rememberOptions;
+  if (!Array.isArray(options)) return [];
+  return options.filter(isRememberOptionLike);
+}
+
+/** The remember tiers that persist as durable permissions.rules.* records. */
+const DURABLE_REMEMBER_TIERS = new Set(['exact', 'command-class', 'path', 'tool']);
+
+export function isDurableRememberTier(tier: string): boolean {
+  return DURABLE_REMEMBER_TIERS.has(tier);
+}
+
+/** The exec PTY prompt-answer ask shape (tool 'exec:prompt'). */
+export interface ExecPromptAsk {
+  readonly command: string;
+  readonly prompt: string;
+  readonly recentOutput: string;
+}
+
+/**
+ * Read an exec-prompt ask — a RUNNING command blocked on its terminal — from
+ * an approval record. Detected by the attribution's discriminated kind first,
+ * with the tool id as the fallback tell (both stamped by the SDK's
+ * buildExecPromptAnswerHandler). Field values come from `request.args`
+ * ({ command, prompt, recentOutput }); missing strings degrade to '' so a
+ * partial record still renders as an exec prompt rather than a generic ask.
+ * Null when this is not an exec-prompt ask.
+ */
+export function readExecPromptAsk(record: ApprovalRecord): ExecPromptAsk | null {
+  const isExecPrompt = record.request.attribution?.kind === 'exec-prompt' || record.request.tool === 'exec:prompt';
+  if (!isExecPrompt) return null;
+  const args = record.request.args;
+  const readString = (value: unknown): string => (typeof value === 'string' ? value : '');
+  const attribution = record.request.attribution;
+  return {
+    command: readString(args.command) || (attribution?.kind === 'exec-prompt' ? attribution.command : ''),
+    prompt: readString(args.prompt) || (attribution?.kind === 'exec-prompt' ? attribution.prompt : ''),
+    recentOutput: readString(args.recentOutput),
+  };
+}
+
+/**
+ * Whether the daemon actually recorded a remembering for this resolved
+ * approval — read from the RESPONSE record's decision, never from what the
+ * client sent (this snapshot's HTTP approval route drops rememberTier, so an
+ * optimistic claim would be a lie). Returns the recorded tier or null.
+ */
+export function recordedRememberTier(record: ApprovalRecord | undefined): string | null {
+  const tier = record?.decision?.rememberTier;
+  return typeof tier === 'string' && tier.length > 0 ? tier : null;
 }
 
 /**

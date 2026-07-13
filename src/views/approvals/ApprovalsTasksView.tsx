@@ -42,11 +42,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { RuntimeTaskSummary } from '../../lib/goodvibes';
+import type { ApprovalApproveInput, RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { readApprovalEditHunks, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
+import { readApprovalEditHunks, recordedRememberTier, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
 import { parseApprovalActionFromHash, stripApprovalActionFragment } from '../../lib/push/approval-action-link';
-import { ApprovalCard } from './ApprovalCard';
+import { ApprovalCard, type ApprovalCardApproveInput } from './ApprovalCard';
+import { PermissionRulesSection } from './PermissionRulesSection';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
@@ -70,6 +71,7 @@ export function ApprovalsTasksView() {
   return (
     <div className="approvals-tasks-view">
       <ApprovalsSection />
+      <PermissionRulesSection />
       <TasksSection />
     </div>
   );
@@ -102,9 +104,18 @@ function ApprovalsSection() {
   }
 
   const approve = useMutation({
-    mutationFn: ({ id, selectedHunks }: { id: string; selectedHunks?: readonly number[]; totalHunks?: number }) =>
-      sdk.operator.approvals.approve(id, selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : undefined),
-    onSuccess: async (_result, variables) => {
+    mutationFn: ({ id, selectedHunks, rememberTier, answer }: { id: string } & ApprovalCardApproveInput & { totalHunks?: number }) => {
+      const input: ApprovalApproveInput = {
+        ...(selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : {}),
+        // Remember tier + exec-prompt answer ride the request; whether the
+        // daemon recorded them is verified from the RESPONSE below, never
+        // assumed (this snapshot's HTTP approval route forwards neither).
+        ...(rememberTier ? { rememberTier, remember: true } : {}),
+        ...(answer !== undefined ? { modifiedArgs: { answer } } : {}),
+      };
+      return sdk.operator.approvals.approve(id, Object.keys(input).length > 0 ? input : undefined);
+    },
+    onSuccess: async (result, variables) => {
       setSelections((current) => {
         const { [variables.id]: _removed, ...rest } = current;
         return rest;
@@ -117,10 +128,26 @@ function ApprovalsSection() {
       const isPartial = selectedCount > 0
         && variables.totalHunks !== undefined
         && selectedCount < variables.totalHunks;
-      toast({
-        title: isPartial ? `Approved ${selectedCount} of ${variables.totalHunks} hunks` : 'Approved',
-        tone: 'success',
-      });
+      const title = isPartial ? `Approved ${selectedCount} of ${variables.totalHunks} hunks` : 'Approved';
+      // Remember/answer honesty: report what the daemon RECORDED, not what was sent.
+      const recordedTier = recordedRememberTier(result.approval);
+      if (variables.rememberTier) {
+        if (recordedTier) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+          toast({ title, description: `Remembered (${recordedTier}) — matching asks will not prompt again.`, tone: 'success' });
+        } else {
+          toast({ title, description: 'The daemon did not record the remember request — this decision applied once.', tone: 'info' });
+        }
+        return;
+      }
+      if (variables.answer !== undefined) {
+        const answered = typeof result.approval.decision?.modifiedArgs?.answer === 'string';
+        toast(answered
+          ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
+          : { title, description: 'The daemon did not record the answer — the command was approved without input and may stop on its prompt.', tone: 'info' });
+        return;
+      }
+      toast({ title, tone: 'success' });
     },
     onError: (error: unknown) => {
       toast({ title: 'Approve failed', description: friendlyError(error), tone: 'danger' });
@@ -128,10 +155,15 @@ function ApprovalsSection() {
   });
 
   const deny = useMutation({
-    mutationFn: (id: string) => sdk.operator.approvals.deny(id),
-    onSuccess: async () => {
+    // The one optional reason text rides both wire fields (note + reason) —
+    // see sdk.operator.approvals.deny.
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      sdk.operator.approvals.deny(id, reason ? { note: reason, reason } : undefined),
+    onSuccess: async (_result, variables) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
-      toast({ title: 'Denied', tone: 'info' });
+      toast(variables.reason
+        ? { title: 'Denied', description: 'Reason fed back with the denial.', tone: 'info' }
+        : { title: 'Denied', tone: 'info' });
     },
     onError: (error: unknown) => {
       toast({ title: 'Deny failed', description: friendlyError(error), tone: 'danger' });
@@ -177,7 +209,7 @@ function ApprovalsSection() {
     handoffDoneRef.current = true;
     stripApprovalActionFragment();
     if (intent.action === 'approve') approve.mutate({ id: intent.approvalId });
-    else deny.mutate(intent.approvalId);
+    else deny.mutate({ id: intent.approvalId });
     // Mount-once hand-off; approve/deny are stable mutation handles.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -218,16 +250,16 @@ function ApprovalsSection() {
               record={record}
               selected={selections[record.id] ?? new Set<number>()}
               onToggleHunk={(index) => toggleHunk(record.id, index)}
-              onApprove={(selectedHunks) => approve.mutate({
+              onApprove={(input) => approve.mutate({
                 id: record.id,
-                selectedHunks,
+                ...input,
                 totalHunks: readApprovalEditHunks(record)?.length,
               })}
-              onDeny={() => deny.mutate(record.id)}
+              onDeny={(reason) => deny.mutate({ id: record.id, reason })}
               onClaim={() => claim.mutate(record.id)}
               onCancel={() => cancel.mutate(record.id)}
-              approving={approve.isPending && approve.variables?.id === record.id}
-              denying={deny.isPending && deny.variables === record.id}
+              approving={approve.isPending && approve.variables.id === record.id}
+              denying={deny.isPending && deny.variables.id === record.id}
               claiming={claim.isPending && claim.variables === record.id}
               cancelling={cancel.isPending && cancel.variables === record.id}
             />

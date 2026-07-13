@@ -43,7 +43,7 @@ const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   // map already uses. queryKeys.config is NOT invalidated here anymore: nothing reads
   // permission mode off config.get() since SessionsView moved to the session-scoped
   // sessions.permissionMode.get/set verbs (lib/permission-mode.ts).
-  permissions: [queryKeys.approvals, queryKeys.sessions],
+  permissions: [queryKeys.approvals, queryKeys.sessions, queryKeys.permissionRules],
   providers: [queryKeys.providers],
   knowledge: [queryKeys.knowledgeStatus, queryKeys.knowledgeSources, queryKeys.knowledgeRefinement],
   'control-plane': [queryKeys.control],

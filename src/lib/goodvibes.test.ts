@@ -701,8 +701,9 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
+    // 'permissions' added for the durable approval rules (permissions.rules.*).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'permissions', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 

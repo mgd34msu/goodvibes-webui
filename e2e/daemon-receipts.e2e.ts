@@ -44,6 +44,25 @@ test('a receipt is dismissible', async ({ page }) => {
   await expect(page.locator('[data-testid="daemon-receipt"]')).toHaveCount(0);
 });
 
+test('a feature announcement rides the same queue, linkifies its URL, and shows once', async ({ page }) => {
+  await installMockDaemon(page, {
+    daemonReceipts: [
+      { id: 'ann-web', text: 'Reach this session from your phone: https://gv.example/s/abc123', at: 1_700_000_000_000 },
+    ],
+  });
+  await gotoView(page, 'sessions');
+
+  const notice = page.locator('[data-testid="daemon-receipt"]', { hasText: 'Reach this session from your phone' });
+  await expect(notice).toBeVisible();
+  const link = notice.getByRole('link', { name: 'https://gv.example/s/abc123' });
+  await expect(link).toHaveAttribute('href', 'https://gv.example/s/abc123');
+
+  // Reconnect (reload) — the announcement was delivered, so it never re-shows.
+  await page.reload();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('[data-testid="daemon-receipt"]')).toHaveCount(0);
+});
+
 test('a daemon with no receipts shows no notice', async ({ page }) => {
   await installMockDaemon(page, { daemonReceipts: [] });
   await gotoView(page, 'sessions');

@@ -116,6 +116,25 @@ describe('DaemonReceipts', () => {
     unmount();
   });
 
+  test('a feature announcement rides the same queue and linkifies its URL', async () => {
+    // Announcements arrive through the SAME receipts=consume read, same shape,
+    // same show-once semantics — the web-surface URL line becomes a real link.
+    stagedReceipts = [
+      { id: 'ann-web', text: 'Reach this session from your phone: https://gv.example/s/abc123', at: 1 },
+    ];
+    const { el, unmount } = render({ connected: true, signedIn: true });
+    await settle();
+    const rows = notices(el);
+    expect(rows).toHaveLength(1);
+    const link = rows[0].querySelector('a');
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute('href')).toBe('https://gv.example/s/abc123');
+    expect(link?.getAttribute('rel')).toContain('noopener');
+    // The surrounding prose still renders.
+    expect(rows[0].textContent).toContain('Reach this session from your phone');
+    unmount();
+  });
+
   test('dismissing a receipt removes it and it does not come back', async () => {
     stagedReceipts = [{ id: 'r1', text: 'Updated to 1.7.1', at: 1 }];
     const { el, rerender, unmount } = render({ connected: true, signedIn: true });

@@ -1,10 +1,10 @@
 /**
- * PriceSourceNote — the price provenance line on dollar displays.
- * Pins: manual entry → "your price" with an Edit action; provider-level
- * pricingSource → "provider-served price"/"catalog price" (no fabricated
- * as-of date — the wire serves none); nothing truthful → "price source
- * unknown"; and the one-action Set price path opening the manual editor
- * seeded with this display's provider:model.
+ * PriceSourceNote — the price provenance line on dollar displays, rendered
+ * straight from the wire's `costSource` + `pricingAsOf`.
+ * Pins: 'user' → "your price" with an Edit action; 'catalog' → "catalog price,
+ * as of <date>"; 'provider'/'mixed' → their honest labels; absent → no source
+ * claim (only the Set price action); and the one-action Set price path opening
+ * the manual editor seeded with this display's provider:model.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -12,22 +12,19 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
+import type { WireCostSource } from '../../lib/cost-source';
 
-let configFixture: Record<string, unknown> = {};
-let pricingSource = 'catalog';
-
+// The note no longer probes the daemon for provenance — the source rides its
+// props. The editor modal it can open still imports lib/goodvibes transitively,
+// so the module is stubbed to the minimum those imports need.
 mock.module('../../lib/goodvibes', () => ({
-  // lib/queries.ts (transitively imported) needs these named exports too.
   getCurrentAuth: () => null,
   invokeMethod: () => Promise.resolve({}),
   sdk: {
     operator: {
       config: {
-        get: () => Promise.resolve(configFixture),
+        get: () => Promise.resolve({}),
         set: () => Promise.resolve({}),
-      },
-      providers: {
-        usage: () => Promise.resolve({ providerId: 'openrouter', active: true, pricingSource, models: [], usage: {} }),
       },
     },
   },
@@ -35,7 +32,12 @@ mock.module('../../lib/goodvibes', () => ({
 
 const { PriceSourceNote } = await import('./PriceSourceNote');
 
-function render(props: { provider?: string; model?: string; priced: boolean }) {
+function render(props: {
+  costSource?: WireCostSource | null;
+  pricingAsOf?: string | null;
+  provider?: string;
+  model?: string;
+}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -66,48 +68,49 @@ async function settle(): Promise<void> {
 }
 
 afterEach(() => {
-  configFixture = {};
-  pricingSource = 'catalog';
+  document.body.innerHTML = '';
 });
 
 describe('PriceSourceNote', () => {
-  test('a manual entry labels the dollars "your price" and offers Edit', async () => {
-    configFixture = { pricing: { modelPrices: { 'openrouter:deepseek/deepseek-chat': { input: 0.14, output: 0.28 } } } };
-    const { el, unmount } = render({ provider: 'openrouter', model: 'deepseek/deepseek-chat', priced: true });
+  test('the user tier labels the dollars "your price" and offers Edit', async () => {
+    const { el, unmount } = render({ costSource: 'user', provider: 'openrouter', model: 'deepseek/deepseek-chat' });
     await settle();
     expect(el.querySelector('.price-source-note__label')?.textContent).toBe('your price');
     expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Edit price');
     unmount();
   });
 
-  test('no manual entry falls to the provider-level source — catalog, with no fabricated date', async () => {
-    pricingSource = 'catalog';
-    const { el, unmount } = render({ provider: 'openrouter', model: 'deepseek/deepseek-chat', priced: true });
+  test('catalog renders the source AND the as-of date the wire served', async () => {
+    const { el, unmount } = render({
+      costSource: 'catalog',
+      pricingAsOf: '2026-07-01T00:00:00.000Z',
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-chat',
+    });
     await settle();
     const label = el.querySelector('.price-source-note__label')?.textContent;
-    expect(label).toBe('catalog price');
-    expect(label).not.toMatch(/\d{4}/);
+    expect(label).toBe('catalog price, as of Jul 1, 2026');
+    expect(label).toMatch(/2026/);
     expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Set price');
     unmount();
   });
 
   test('provider-served source labels as such', async () => {
-    pricingSource = 'provider';
-    const { el, unmount } = render({ provider: 'openrouter', model: 'x', priced: true });
+    const { el, unmount } = render({ costSource: 'provider', provider: 'openrouter', model: 'x' });
     await settle();
     expect(el.querySelector('.price-source-note__label')?.textContent).toBe('provider-served price');
     unmount();
   });
 
-  test('a priced display with no provider identity admits the source is unknown', async () => {
-    const { el, unmount } = render({ priced: true });
+  test('a mixed aggregate labels honestly, dated', async () => {
+    const { el, unmount } = render({ costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z' });
     await settle();
-    expect(el.querySelector('.price-source-note__label')?.textContent).toBe('price source unknown');
+    expect(el.querySelector('.price-source-note__label')?.textContent).toBe('mixed pricing sources, as of Jul 1, 2026');
     unmount();
   });
 
-  test('an unpriced display shows no source claim, only the Set price action', async () => {
-    const { el, unmount } = render({ provider: 'openrouter', model: 'x', priced: false });
+  test('an absent source makes no claim — only the Set price action', async () => {
+    const { el, unmount } = render({ costSource: null, provider: 'openrouter', model: 'x' });
     await settle();
     expect(el.querySelector('.price-source-note__label')).toBeNull();
     expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Set price');
@@ -115,7 +118,7 @@ describe('PriceSourceNote', () => {
   });
 
   test('Set price opens the manual editor seeded with this provider:model', async () => {
-    const { el, unmount } = render({ provider: 'openrouter', model: 'qwen/qwen-2.5', priced: false });
+    const { el, unmount } = render({ costSource: 'catalog', provider: 'openrouter', model: 'qwen/qwen-2.5' });
     await settle();
     flushSync(() => {
       el.querySelector('.price-source-note__edit')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));

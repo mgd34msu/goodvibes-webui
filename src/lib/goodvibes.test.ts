@@ -1046,9 +1046,11 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'cost.attribution.get': {
       window: '24h', windowStartMs: 1, dimension: 'session', totalCostUsd: 0.42, costState: 'estimated',
       pricedRecordCount: 3, unpricedRecordCount: 1,
+      costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z',
       tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
       rows: [{
         key: 's-1', costUsd: 0.42, costState: 'estimated', pricedRecordCount: 3, unpricedRecordCount: 1,
+        costSource: 'catalog', pricingAsOf: '2026-07-01T00:00:00.000Z',
         tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
       }],
     } satisfies CostAttributionGetResult,

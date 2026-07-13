@@ -188,7 +188,12 @@ function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: ()
           <StateBadge state={node.state} />
           {node.kind === 'workstream' && <span className="badge neutral">{costLabel(node)}</span>}
           {node.kind === 'workstream' && (
-            <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
+            <PriceSourceNote
+              provider={node.provider}
+              model={node.model}
+              costSource={node.costSource}
+              pricingAsOf={node.pricingAsOf}
+            />
           )}
         </div>
         <NodeHeadline node={node} block />

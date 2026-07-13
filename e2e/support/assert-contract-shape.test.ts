@@ -114,13 +114,20 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     })).not.toThrow();
   });
 
-  test('cost.attribution.get: the mock daemon\'s response shape conforms', () => {
+  test('cost.attribution.get: the mock daemon\'s response shape conforms, provenance included', () => {
     const tokens = { inputTokens: 12000, outputTokens: 3400, cacheReadTokens: 2000, cacheWriteTokens: 500 };
+    // costSource + pricingAsOf on both the aggregate and the row: the wire's
+    // pricing-provenance stamp, pinned against the real contract so a drift in
+    // the source enum or the as-of field is caught here.
     expect(() => assertFixtureMatchesOperatorContract('cost.attribution.get', {
       window: '24h', windowStartMs: 1_700_000_000_000, dimension: 'session',
       totalCostUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+      costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z',
       tokens,
-      rows: [{ key: 's-agent-live', costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1, tokens }],
+      rows: [{
+        key: 's-agent-live', costUsd: 0.18, costState: 'estimated', pricedRecordCount: 4, unpricedRecordCount: 1,
+        costSource: 'catalog', pricingAsOf: '2026-07-01T00:00:00.000Z', tokens,
+      }],
     })).not.toThrow();
   });
 

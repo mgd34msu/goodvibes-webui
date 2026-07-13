@@ -1,65 +1,43 @@
 /**
  * PriceSourceNote — the provenance line under a dollar display: whose price
- * produced the number, stated only when the wire can back it.
+ * produced the number and, where the wire serves one, the date that price was
+ * captured. The source and date are FACTS on the record now (a cost row / a
+ * fleet node's `costSource` + `pricingAsOf`), so this component only formats
+ * them — it no longer re-derives provenance from the live config or a
+ * providers.usage probe.
  *
- *   - "your price"            — the live config holds a manual entry for this
- *                               provider:model (manual tier always wins in the
- *                               resolver, so this is certain).
- *   - "provider-served price" / "catalog price" — the provider-level
- *                               pricingSource from providers.usage.get. The
- *                               wire serves no catalog as-of date, so none is
- *                               shown — a date here would be fabricated.
- *   - "price source unknown"  — nothing truthful available.
+ *   - "your price"                      — costSource 'user' (the operator's own
+ *                                         manual entry won the resolver).
+ *   - "catalog price, as of <date>"     — costSource 'catalog'.
+ *   - "provider-served price[, as of …]" — costSource 'provider'.
+ *   - "mixed pricing sources[, as of …]" — costSource 'mixed' (an aggregate).
+ *   - (no label)                        — source absent/unknown; the dollar
+ *                                         display's own "price unknown" marker
+ *                                         carries the honesty.
  *
  * Always offers the one-action path into manual-price editing, seeded with
- * this display's provider:model key.
+ * this display's provider:model key when both are known. A 'user' source means
+ * a manual entry already exists → "Edit price"; otherwise → "Set price".
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { sdk } from '../../lib/goodvibes';
-import { queryKeys } from '../../lib/queries';
-import { asRecord } from '../../lib/object';
-import {
-  hasManualPrice,
-  manualPriceKey,
-  priceSourceLabel,
-  type ProviderPricingSource,
-} from '../../lib/cost-source';
+import { manualPriceKey, priceSourceLabel, type WireCostSource } from '../../lib/cost-source';
 import { ModelPricesModal } from './ModelPricesModal';
 import '../../styles/components/pricing.css';
 
 export interface PriceSourceNoteProps {
+  /** The wire's pricing provenance for the dollar figure this note annotates. */
+  readonly costSource?: WireCostSource | null | undefined;
+  /** The wire's dated as-of stamp for that price, when served. */
+  readonly pricingAsOf?: string | null | undefined;
+  /** Provider/model identity — only used to seed the manual-price editor. */
   readonly provider?: string | undefined;
   readonly model?: string | undefined;
-  /** Whether the display this note annotates shows a priced dollar amount. */
-  readonly priced: boolean;
 }
 
-function readProviderPricingSource(usage: unknown): ProviderPricingSource | undefined {
-  const source = asRecord(usage).pricingSource;
-  return source === 'catalog' || source === 'provider' || source === 'none' ? source : undefined;
-}
-
-export function PriceSourceNote({ provider, model, priced }: PriceSourceNoteProps) {
+export function PriceSourceNote({ costSource, pricingAsOf, provider, model }: PriceSourceNoteProps) {
   const [editorOpen, setEditorOpen] = useState(false);
-  const config = useQuery({
-    queryKey: queryKeys.config,
-    queryFn: () => sdk.operator.config.get(),
-    retry: false,
-  });
-  const manual = !config.isError && hasManualPrice(config.data, provider, model);
-  const usage = useQuery({
-    queryKey: ['providers', provider ?? '', 'usage'],
-    // Only consulted for the non-manual tiers of a PRICED display.
-    enabled: Boolean(provider) && priced && !manual,
-    retry: false,
-    queryFn: () => sdk.operator.providers.usage(provider ?? ''),
-  });
-
-  const sourceText = priced
-    ? (priceSourceLabel(manual, usage.isError ? undefined : readProviderPricingSource(usage.data)) ??
-      (usage.isPending && Boolean(provider) ? null : 'price source unknown'))
-    : null;
+  const sourceText = priceSourceLabel(costSource, pricingAsOf);
+  const manual = costSource === 'user';
   const modelKey = manualPriceKey(provider, model);
 
   return (

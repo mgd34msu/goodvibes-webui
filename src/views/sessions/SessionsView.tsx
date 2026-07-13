@@ -216,9 +216,11 @@ function CostChip({ sessionId }: { sessionId: string }) {
     );
   }
   // Explicit "price unknown" for a fully-unpriced row — never $0.00. A session
-  // aggregates records across models, so no single-model source label applies;
-  // the blind spot (how many records contributed no dollars) renders instead,
-  // and the price editor is one action away for filling the gap manually.
+  // aggregates records across models, so the wire's own `costSource` (often
+  // 'mixed' here) and `pricingAsOf` carry the provenance — the note renders
+  // whatever the record states, and the blind spot (how many records
+  // contributed no dollars) renders alongside. The price editor is one action
+  // away for filling the gap manually.
   const text = row.costUsd === null
     ? 'price unknown'
     : `$${row.costUsd.toFixed(row.costUsd < 0.01 ? 4 : 2)}${row.costState === 'estimated' ? ' (est.)' : ''}`;
@@ -230,7 +232,7 @@ function CostChip({ sessionId }: { sessionId: string }) {
     >
       Cost: {text}
       {blindSpot && <span className="cost-chip__blind-spot"> · {blindSpot}</span>}
-      <PriceSourceNote priced={false} />
+      <PriceSourceNote costSource={row.costSource} pricingAsOf={row.pricingAsOf} />
     </span>
   );
 }

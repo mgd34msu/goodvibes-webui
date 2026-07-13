@@ -96,7 +96,7 @@ const views: {
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { view, setView, session: activeChatSessionId, setSession } = useUrlState();
+  const { view, setView, session: activeChatSessionId, setSession, setUrlState } = useUrlState();
   const activeView: ViewId = view;
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
@@ -344,6 +344,13 @@ export default function App() {
       }
     },
     [setView, setSession],
+  );
+
+  // Open a specific session in the chat view — one history entry (view + session
+  // together), used by the CI "open fix session" affordance.
+  const handleOpenSession = useCallback(
+    (sessionId: string) => setUrlState({ view: 'chat', session: sessionId }),
+    [setUrlState],
   );
 
   const title = useMemo(() => views.find((v) => v.id === activeView)?.label ?? 'GoodVibes', [activeView]);
@@ -658,7 +665,7 @@ export default function App() {
           {activeView === 'checkpoints' && <CheckpointsView />}
           {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
           {activeView === 'workstream' && <WorkstreamView />}
-          {activeView === 'ci-watches' && <CiWatchesView />}
+          {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
           {activeView === 'checkin' && <CheckInView />}
           {activeView === 'principals' && <PrincipalsView />}
           {activeView === 'knowledge' && <KnowledgeView />}

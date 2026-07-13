@@ -331,6 +331,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     },
   ];
   let ciWatchIdCounter = 0;
+  let ciFixSessionCounter = 0;
   function ciReportFor(repo: string, ref?: string, prNumber?: number) {
     return {
       repo,
@@ -1321,7 +1322,19 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (!watch) return json(route, { error: `CI watch not found: ${watchId}`, code: 'NOT_FOUND' }, 404);
       const report = ciReportFor(watch.repo, watch.ref, watch.prNumber);
       ciWatchList = ciWatchList.map((w) => (w.id === watchId ? { ...w, lastOverall: report.overall, updatedAt: Date.now() } : w));
-      return json(route, { report, notified: true, notificationId: 'ntf-1', fixSessionTriggered: false });
+      // A watch that auto-starts a fix session on failure returns the started
+      // session's id on the verb result (SDK 8eecbd32) — the "open session"
+      // affordance keys off it.
+      const fixSessionTriggered = Boolean(watch.triggerFixSession) && report.overall === 'failed';
+      let fixSessionId: string | undefined;
+      if (fixSessionTriggered) {
+        ciFixSessionCounter += 1;
+        fixSessionId = `sess-ci-fix-${ciFixSessionCounter}`;
+      }
+      return json(route, {
+        report, notified: true, notificationId: 'ntf-1', fixSessionTriggered,
+        ...(fixSessionId ? { fixSessionId } : {}),
+      });
     }
     const watchDeleteMatch = path.match(/^\/api\/ci\/watches\/([^/]+)$/);
     if (method === 'DELETE' && watchDeleteMatch) {

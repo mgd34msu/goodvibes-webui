@@ -171,3 +171,62 @@ test('the Advanced editor writes through config.set and the change is honestly r
   dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog.getByLabel('display.theme')).toHaveValue('cyberpunk');
 });
+
+test.describe('pricing.modelPrices — the structured per-model price editor', () => {
+  test('renders as price rows with full description — never a JSON blob textarea', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Pricing' }).click();
+    const field = dialog.locator('[data-config-key="pricing.modelPrices"]');
+    await expect(field).toBeVisible();
+    await expect(field.locator('.settings-field-desc')).toContainText('Manual model prices');
+    await expect(field.locator('[data-testid="model-prices-editor"]')).toBeVisible();
+    await expect(field.locator('textarea')).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('a manual price set via the editor persists, re-renders in the table, and labels the priced fleet node "your price"', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    let dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Pricing' }).click();
+    const editor = dialog.locator('[data-testid="model-prices-editor"]');
+    // Empty table → the add form is already open.
+    await editor.getByLabel('Model key (provider:model)').fill('anthropic:claude-3-5-haiku');
+    await editor.getByLabel('Input price (USD per 1M tokens)').fill('0.8');
+    await editor.getByLabel('Output price (USD per 1M tokens)').fill('4');
+    await editor.getByRole('button', { name: 'Add price' }).click();
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(editor.locator('[data-model-key="anthropic:claude-3-5-haiku"]')).toContainText('in $0.8 · out $4 per 1M tokens');
+    await expectNoHorizontalScroll(page);
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    // Reopen — the mock daemon's mutable config tree round-trips the object key.
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Pricing' }).click();
+    await expect(dialog.locator('[data-model-key="anthropic:claude-3-5-haiku"]')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    // The priced fleet node for that provider:model now states the source:
+    // manual wins in the resolver, so the label is "your price".
+    await page.goto('/?view=fleet');
+    await page.locator('.fleet-row', { hasText: 'Refactor the session spine' }).click();
+    const note = page.locator('[data-testid="price-source-note"]');
+    await expect(note).toContainText('your price');
+    await expect(note.getByRole('button', { name: 'Edit price' })).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('an invalid entry is refused inline with the exact problem — nothing silently written', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Pricing' }).click();
+    const editor = dialog.locator('[data-testid="model-prices-editor"]');
+    await editor.getByLabel('Model key (provider:model)').fill('no-colon');
+    await editor.getByLabel('Input price (USD per 1M tokens)').fill('1');
+    await editor.getByLabel('Output price (USD per 1M tokens)').fill('2');
+    await editor.getByRole('button', { name: 'Add price' }).click();
+    await expect(editor.locator('.model-prices-error')).toContainText('provider:model');
+    await expect(page.getByText('Config saved')).toHaveCount(0);
+  });
+});

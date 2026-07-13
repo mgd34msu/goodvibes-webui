@@ -111,6 +111,19 @@ export interface MockDaemonOptions {
    * one session. Pass '' to make every session answer SESSION_NOT_LOCAL instead.
    */
   localSessionId?: string;
+  /**
+   * Seed override for the mutable approvals list (default: [PENDING_APPROVAL]).
+   * Pass several pending records to prove the queue renders every one, or an
+   * exec-prompt ask (EXEC_PROMPT_APPROVAL) to drive the answerable card.
+   */
+  approvals?: readonly Record<string, unknown>[];
+  /**
+   * Seed for the durable approval-rule store (permissions.rules.list/.delete).
+   * Default []. Approving with a durable rememberTier also appends here, and
+   * SWEEPS other pending asks for the same tool — mirroring the broker's
+   * remembered-decision sweep so a suppression test is meaningful at mock level.
+   */
+  permissionRules?: readonly Record<string, unknown>[];
 }
 
 export interface MockDaemon {
@@ -239,7 +252,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // Mutable so approve/deny/claim/cancel genuinely change what a subsequent
   // approvals.list() sees (WEBUI-FLEET-DEPTH) — a fresh copy per installMockDaemon
   // call so tests never leak state into each other.
-  const approvals = [{ ...PENDING_APPROVAL }];
+  const approvals: Record<string, unknown>[] = (options.approvals ?? [PENDING_APPROVAL]).map((a) => ({ ...a }));
+  // Durable rules (permissions.rules.*) — same fresh-copy-per-install policy.
+  const permissionRules: Record<string, unknown>[] = (options.permissionRules ?? []).map((r) => ({ ...r }));
+  let ruleCounter = 0;
 
   // In-memory canonical store for this test only — a fresh copy of the seed per
   // installMockDaemon call, mutated by add/delete/update-review exactly like the real
@@ -777,9 +793,56 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       daemon.approvalActions.push({ approvalId, action, body: requestBody });
       const record = approvals.find((a) => a.id === approvalId);
       if (record) {
-        if (action === 'approve') Object.assign(record, { status: 'approved', resolvedAt: Date.now(), resolvedBy: 'operator' });
-        else if (action === 'deny') Object.assign(record, { status: 'denied', resolvedAt: Date.now(), resolvedBy: 'operator' });
-        else if (action === 'cancel') Object.assign(record, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: 'operator' });
+        const body = requestBody as Record<string, unknown>;
+        if (action === 'approve') {
+          // Mirror the broker's decision record: remember tier and the
+          // exec-prompt answer land on decision so the UI's response-verified
+          // honesty path sees exactly what a supporting daemon would return.
+          const rememberTier = typeof body.rememberTier === 'string' ? body.rememberTier : undefined;
+          const modifiedArgs = body.modifiedArgs && typeof body.modifiedArgs === 'object' ? body.modifiedArgs as Record<string, unknown> : undefined;
+          Object.assign(record, {
+            status: 'approved', resolvedAt: Date.now(), resolvedBy: 'operator',
+            decision: {
+              approved: true,
+              ...(body.remember === true ? { remember: true } : {}),
+              ...(rememberTier ? { rememberTier } : {}),
+              ...(modifiedArgs ? { modifiedArgs } : {}),
+            },
+          });
+          // A durable tier persists a rule and SWEEPS queued pending asks for
+          // the same tool (the broker's remembered-decision sweep, simplified
+          // to tool identity at mock level).
+          if (rememberTier && ['exact', 'command-class', 'path', 'tool'].includes(rememberTier)) {
+            const request = record.request as Record<string, unknown>;
+            ruleCounter += 1;
+            permissionRules.push({
+              id: `rule-mock-${ruleCounter}`,
+              effect: 'allow',
+              tier: rememberTier,
+              tool: String(request.tool ?? ''),
+              description: `remembered ${rememberTier} decision on ${approvalId}`,
+              createdAt: Date.now(),
+            });
+            for (const other of approvals) {
+              if (other === record || other.status !== 'pending') continue;
+              const otherRequest = other.request as Record<string, unknown>;
+              if (otherRequest.tool !== request.tool) continue;
+              Object.assign(other, {
+                status: 'approved', resolvedAt: Date.now(), resolvedBy: 'operator',
+                decision: { approved: true },
+                metadata: { ...(other.metadata as Record<string, unknown> ?? {}), sweptBy: approvalId },
+              });
+            }
+          }
+        } else if (action === 'deny') {
+          Object.assign(record, {
+            status: 'denied', resolvedAt: Date.now(), resolvedBy: 'operator',
+            decision: {
+              approved: false,
+              ...(typeof body.reason === 'string' && body.reason ? { reason: body.reason } : {}),
+            },
+          });
+        } else if (action === 'cancel') Object.assign(record, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: 'operator' });
         else if (action === 'claim') Object.assign(record, { status: 'claimed', claimedBy: 'operator', claimedAt: Date.now() });
       }
       return json(route, { approval: record ?? {} });
@@ -790,6 +853,20 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     if (method === 'POST' && invokeMatch) {
       const methodId = decodeURIComponent(invokeMatch[1]);
       if (methodId === 'control.status') return json(route, { ok: true, status: 'running' });
+      // Durable approval rules (snapshot rounds 4-6). Explicit handlers — the
+      // recorded gotcha: an unknown invoke id answering {} crashes views that
+      // don't optional-chain; these two now have real shapes AND the views
+      // chain defensively anyway.
+      if (methodId === 'permissions.rules.list') {
+        return json(route, { rules: [...permissionRules].sort((a, b) => Number(b.createdAt) - Number(a.createdAt)) });
+      }
+      if (methodId === 'permissions.rules.delete') {
+        const body = (request.postDataJSON?.() ?? {}) as { body?: { ruleId?: string } };
+        const ruleId = body.body?.ruleId;
+        const index = permissionRules.findIndex((r) => r.id === ruleId);
+        if (index >= 0) permissionRules.splice(index, 1);
+        return json(route, { deleted: index >= 0 });
+      }
       if (methodId.includes('knowledge')) return json(route, knowledgeMapResponse());
       if (methodId === 'sessions.search') return json(route, unionListResponse());
       if (methodId === 'fleet.snapshot') {

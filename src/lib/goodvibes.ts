@@ -529,7 +529,11 @@ export interface ApprovalAnalysis {
  * populates one. Same known-divergence pattern as `ApprovalDecision.
  * modifiedArgs` above.
  */
-export type ApprovalAttribution = BackgroundAgentAttribution | McpServerAttribution | SandboxEscalationAttribution;
+export type ApprovalAttribution =
+  | BackgroundAgentAttribution
+  | McpServerAttribution
+  | SandboxEscalationAttribution
+  | ExecPromptAttribution;
 
 /** A background/subagent tool call brokered an ask on behalf of a spawned agent. */
 export interface BackgroundAgentAttribution {
@@ -551,6 +555,34 @@ export interface SandboxEscalationAttribution {
   readonly escalations: readonly string[];
 }
 
+/**
+ * A RUNNING command blocked on its own terminal (host-key confirm, credential
+ * ask, an interactive installer). The SDK's exec PTY prompt-answer path
+ * (exec-prompt-wiring.ts) turns the detected prompt into an ordinary broker
+ * ask with tool 'exec:prompt' and this attribution; an approval whose
+ * decision carries `modifiedArgs.answer` (a string) feeds that text to the
+ * waiting child, a deny (or an answer-less approve) stops the run honestly
+ * with the prompt text on the result.
+ */
+export interface ExecPromptAttribution {
+  readonly kind: 'exec-prompt';
+  readonly command: string;
+  readonly prompt: string;
+}
+
+/**
+ * One remember-tier choice offered on an ask — buildRememberOptions
+ * (approval-rules.ts) generates label/detail from the concrete tool+args, so
+ * a surface renders them verbatim rather than re-deriving policy language.
+ * Tiers: 'session' (in-memory) | 'exact' | 'command-class' | 'path' | 'tool'
+ * (the four durable ones persist as permissions.rules.* records).
+ */
+export interface ApprovalRememberOption {
+  readonly tier: string;
+  readonly label: string;
+  readonly detail: string;
+}
+
 export interface ApprovalRequest {
   readonly callId: string;
   readonly tool: string;
@@ -559,11 +591,20 @@ export interface ApprovalRequest {
   readonly analysis: ApprovalAnalysis;
   readonly workingDirectory?: string;
   readonly attribution?: ApprovalAttribution;
+  /** Remember-tier choices for this ask (PERMISSION_PROMPT_REQUEST_SCHEMA's
+   * rememberOptions). Absent on records from a daemon predating the tiers. */
+  readonly rememberOptions?: readonly ApprovalRememberOption[];
 }
 
 export interface ApprovalDecision {
   readonly approved: boolean;
   readonly remember?: boolean;
+  /** How far the decision reached ('session'|'exact'|'command-class'|'path'|'tool').
+   * Present on the returned record ONLY when the daemon actually recorded the
+   * tier — the UI reports remembering from THIS field, never from what it sent. */
+  readonly rememberTier?: string;
+  /** Free-text feedback; on a deny it rides the structured user-declined result. */
+  readonly reason?: string;
   readonly modifiedArgs?: Record<string, unknown>;
 }
 
@@ -635,6 +676,35 @@ export interface ApprovalApproveInput {
   readonly selectedHunks?: readonly number[];
   readonly note?: string;
   readonly remember?: boolean;
+  /** Requested remember tier. Forward-compatible: the broker's resolveApproval
+   * accepts it in-process, but this snapshot's HTTP approval route
+   * (daemon-sdk system-routes.ts handleApprovalAction) forwards only
+   * note/remember/selectedHunks — so callers must verify the RESPONSE record's
+   * decision.rememberTier before claiming a rule was created. */
+  readonly rememberTier?: string;
+  /** Exec-prompt answer path: `{ answer: string }` feeds the waiting command.
+   * Same forward-compatibility caveat as rememberTier — verify the response. */
+  readonly modifiedArgs?: Record<string, unknown>;
+}
+
+/** Optional deny payload: `note` rides the audit trail today; `reason` is the
+ * broker's structured-feedback field (same HTTP-route caveat as above), so
+ * both are sent with the same text. */
+export interface ApprovalDenyInput {
+  readonly note?: string;
+  readonly reason?: string;
+}
+
+/** One durable approval rule (permissions.rules.list) — a remembered decision
+ * at a generalizing tier, project-scoped, write-only from decisions (never
+ * minted over the wire). Deleting a grant makes matching asks prompt again. */
+export interface PermissionRuleRecord {
+  readonly id: string;
+  readonly effect: 'allow' | 'deny';
+  readonly tier: string;
+  readonly tool: string;
+  readonly description?: string;
+  readonly createdAt: number;
 }
 
 // ─── Tasks (tasks.*) ─────────────────────────────────────────────────────────
@@ -1296,11 +1366,35 @@ export const sdk = {
         invokeOperator<'approvals.cancel', OperatorMethodInput<'approvals.cancel'>, ApprovalActionResult>('approvals.cancel', { approvalId }),
       claim: (approvalId: string) =>
         invokeOperator<'approvals.claim', OperatorMethodInput<'approvals.claim'>, ApprovalActionResult>('approvals.claim', { approvalId }),
-      deny: (approvalId: string, note?: string) =>
-        invokeOperator<'approvals.deny', OperatorMethodInput<'approvals.deny'>, ApprovalActionResult>(
+      // deny carries the optional reason as BOTH `note` (lands in the audit
+      // trail via today's HTTP route) and `reason` (the broker's structured
+      // user-declined feedback field) — one text, both fields, so whichever
+      // the daemon honors, nothing typed is silently dropped. Input override
+      // for the same reason approve has one (reason is not in the generated map).
+      deny: (approvalId: string, input?: ApprovalDenyInput) =>
+        invokeOperator<'approvals.deny', { approvalId: string } & ApprovalDenyInput, ApprovalActionResult>(
           'approvals.deny',
-          { approvalId, ...(note ? { note } : {}) },
+          { approvalId, ...(input?.note ? { note: input.note } : {}), ...(input?.reason ? { reason: input.reason } : {}) },
         ),
+    },
+    // Durable approval rules (permissions.rules.*, this snapshot's rounds): the
+    // remembered-decision store, listable and revocable. Both ids have real
+    // generated I/O maps (foundation-client-types.ts); the explicit output
+    // override swaps in PermissionRuleRecord, which keeps `tier` an open string
+    // per the same defensive-parsing stance as ApprovalRecord (a newer daemon
+    // may add tiers this client has never seen — render, never drop).
+    permissions: {
+      rules: {
+        list: () =>
+          invokeOperator<'permissions.rules.list', OperatorMethodInput<'permissions.rules.list'>, { rules: readonly PermissionRuleRecord[] }>(
+            'permissions.rules.list',
+          ),
+        delete: (ruleId: string) =>
+          invokeOperator<'permissions.rules.delete', OperatorMethodInput<'permissions.rules.delete'>, { deleted: boolean }>(
+            'permissions.rules.delete',
+            { ruleId },
+          ),
+      },
     },
     // memory.records.* / memory.review-queue — table-routed via EXTRA_METHOD_ROUTES
     // (real REST bindings, see that table's comment); every I/O shape here is the

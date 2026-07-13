@@ -14,11 +14,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
-import type { FleetProcessNode } from '../../lib/goodvibes';
+import type { ApprovalApproveInput, FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { approvalsForNode } from '../../lib/fleet';
-import { readApprovalEditHunks } from '../../lib/approvals';
-import { ApprovalCard } from '../approvals/ApprovalCard';
+import { readApprovalEditHunks, recordedRememberTier } from '../../lib/approvals';
+import { ApprovalCard, type ApprovalCardApproveInput } from '../approvals/ApprovalCard';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 
@@ -45,21 +45,44 @@ export function FleetApprovalInline({ node }: { node: FleetProcessNode }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
 
   const approve = useMutation({
-    mutationFn: ({ id, selectedHunks }: { id: string; selectedHunks?: readonly number[]; totalHunks?: number }) =>
-      sdk.operator.approvals.approve(id, selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : undefined),
-    onSuccess: async (_result, variables) => {
+    mutationFn: ({ id, selectedHunks, rememberTier, answer }: { id: string } & ApprovalCardApproveInput & { totalHunks?: number }) => {
+      const input: ApprovalApproveInput = {
+        ...(selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : {}),
+        ...(rememberTier ? { rememberTier, remember: true } : {}),
+        ...(answer !== undefined ? { modifiedArgs: { answer } } : {}),
+      };
+      return sdk.operator.approvals.approve(id, Object.keys(input).length > 0 ? input : undefined);
+    },
+    onSuccess: async (result, variables) => {
       setSelections((current) => {
         const { [variables.id]: _removed, ...rest } = current;
         return rest;
       });
       await invalidate();
+      // Same response-verified remember/answer honesty as ApprovalsTasksView.
+      const recordedTier = recordedRememberTier(result.approval);
+      if (variables.rememberTier) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+        toast(recordedTier
+          ? { title: 'Approved', description: `Remembered (${recordedTier}).`, tone: 'success' }
+          : { title: 'Approved', description: 'The daemon did not record the remember request — applied once.', tone: 'info' });
+        return;
+      }
+      if (variables.answer !== undefined) {
+        const answered = typeof result.approval.decision?.modifiedArgs?.answer === 'string';
+        toast(answered
+          ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
+          : { title: 'Approved', description: 'The daemon did not record the answer — the command may stop on its prompt.', tone: 'info' });
+        return;
+      }
       toast({ title: 'Approved', tone: 'success' });
     },
     onError: (error: unknown) => toast({ title: 'Approve failed', description: friendlyError(error), tone: 'danger' }),
   });
 
   const deny = useMutation({
-    mutationFn: (id: string) => sdk.operator.approvals.deny(id),
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      sdk.operator.approvals.deny(id, reason ? { note: reason, reason } : undefined),
     onSuccess: async () => {
       await invalidate();
       toast({ title: 'Denied', tone: 'info' });
@@ -107,16 +130,16 @@ export function FleetApprovalInline({ node }: { node: FleetProcessNode }) {
             record={record}
             selected={selections[record.id] ?? new Set<number>()}
             onToggleHunk={(index) => toggleHunk(record.id, index)}
-            onApprove={(selectedHunks) => approve.mutate({
+            onApprove={(input) => approve.mutate({
               id: record.id,
-              selectedHunks,
+              ...input,
               totalHunks: readApprovalEditHunks(record)?.length,
             })}
-            onDeny={() => deny.mutate(record.id)}
+            onDeny={(reason) => deny.mutate({ id: record.id, reason })}
             onClaim={() => claim.mutate(record.id)}
             onCancel={() => cancel.mutate(record.id)}
             approving={approve.isPending && approve.variables?.id === record.id}
-            denying={deny.isPending && deny.variables === record.id}
+            denying={deny.isPending && deny.variables?.id === record.id}
             claiming={claim.isPending && claim.variables === record.id}
             cancelling={cancel.isPending && cancel.variables === record.id}
           />

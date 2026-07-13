@@ -903,6 +903,14 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
             // A modifiedArgs answer reaches the run (delivered) when one was sent.
             modifiedArgsDelivered: typeof modifiedArgs?.answer === 'string',
           };
+          // An accepted CI "fix this?" offer spawns a fix session whose id the
+          // broker stamps onto the resolved APPROVED record and publishes live
+          // (SDK 1d6a85e2). Mirrored here: the stamped record is what the next
+          // approvals read serves; denied records are never stamped.
+          if ((record.request as Record<string, unknown>).tool === 'ci:fix-session') {
+            ciFixSessionCounter += 1;
+            Object.assign(record, { fixSessionId: `sess-ci-fix-${ciFixSessionCounter}` });
+          }
           // A durable tier persists a rule and SWEEPS queued pending asks for
           // the same tool (the broker's remembered-decision sweep, simplified
           // to tool identity at mock level).

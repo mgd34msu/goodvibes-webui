@@ -92,6 +92,21 @@
   font-style: italic;
 }
 
+/* Open the fix session an accepted CI offer spawned (record.fixSessionId). */
+.approval-card__open-session {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
 /* Who/what asked, for a non-foreground approval (background agent, MCP server,
    sandbox escalation) — see lib/approvals.ts's attributionLabel. */
 .approval-card__attribution {

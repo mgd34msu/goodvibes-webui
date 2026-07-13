@@ -672,6 +672,14 @@ export interface ApprovalRecord {
   readonly resolvedAt?: number;
   readonly resolvedBy?: string;
   readonly decision?: ApprovalDecision;
+  /**
+   * The session an ACCEPTED ask spawned (SDK 1d6a85e2): a CI "fix this?" offer
+   * that was approved gets the started fix-session's id stamped onto the
+   * resolved APPROVED record by the broker and published live through the
+   * broker-update path, so the accepting surface can open the session. Never
+   * present on denied records; absent until the spawn completes.
+   */
+  readonly fixSessionId?: string;
   readonly metadata: Record<string, unknown>;
   /**
    * The full decision trail. Optional in this client-side type (rather than

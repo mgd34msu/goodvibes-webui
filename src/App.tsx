@@ -661,9 +661,9 @@ export default function App() {
             />
           )}
           {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
-          {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} />}
+          {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} onOpenSession={handleOpenSession} />}
           {activeView === 'checkpoints' && <CheckpointsView />}
-          {activeView === 'approvals-tasks' && <ApprovalsTasksView />}
+          {activeView === 'approvals-tasks' && <ApprovalsTasksView onOpenSession={handleOpenSession} />}
           {activeView === 'workstream' && <WorkstreamView />}
           {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
           {activeView === 'checkin' && <CheckInView />}

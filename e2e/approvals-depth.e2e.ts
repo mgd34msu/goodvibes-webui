@@ -1,11 +1,12 @@
 /**
  * Approvals depth — remember tiers, the pending queue, the exec-prompt
  * answerable card, deny with a reason, and the durable-rules view. Runs on
- * BOTH phone and desktop; the mock daemon mirrors the broker's decision
- * shapes (decision.rememberTier / decision.modifiedArgs.answer on the
- * returned record) and its remembered-decision sweep, so every honesty path
- * here exercises the same response-verified reporting a supporting daemon
- * would drive.
+ * BOTH phone and desktop; the mock daemon forwards the decision fields into
+ * resolution and returns the authoritative `recorded` block
+ * (rememberTier / reasonStored / modifiedArgsDelivered) plus its
+ * remembered-decision sweep, so every honesty path here exercises the same
+ * recorded-block reporting a supporting daemon drives — the UI claims only
+ * what the daemon actually recorded.
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';

@@ -11,7 +11,7 @@
  * fabricated one.
  */
 import { describe, expect, test } from 'bun:test';
-import type { ApprovalAuditRecord, ApprovalRecord } from './goodvibes';
+import type { ApprovalActionResult, ApprovalAuditRecord, ApprovalRecord } from './goodvibes';
 import {
   attributionLabel,
   auditEntryLabel,
@@ -19,6 +19,8 @@ import {
   isDurableRememberTier,
   readExecPromptAsk,
   readRememberOptions,
+  recordedAnswerDelivered,
+  recordedReasonStored,
   recordedRememberTier,
 } from './approvals';
 
@@ -148,12 +150,57 @@ describe('readExecPromptAsk', () => {
   });
 });
 
+function actionResult(overrides: Partial<ApprovalActionResult> = {}): ApprovalActionResult {
+  return { approval: baseRecord(), ...overrides };
+}
+
 describe('recordedRememberTier', () => {
-  test('reports only what the daemon recorded on the decision', () => {
-    expect(recordedRememberTier(baseRecord({ decision: { approved: true, rememberTier: 'path' } }))).toBe('path');
-    expect(recordedRememberTier(baseRecord({ decision: { approved: true } }))).toBeNull();
-    expect(recordedRememberTier(baseRecord())).toBeNull();
+  test('trusts the authoritative `recorded` block first', () => {
+    expect(recordedRememberTier(actionResult({
+      recorded: { approved: true, rememberTier: 'command-class', reasonStored: false, modifiedArgsDelivered: false },
+    }))).toBe('command-class');
+    // A block that explicitly recorded no tier reports null — even if a stale
+    // decision snapshot carried one, the block is authoritative.
+    expect(recordedRememberTier(actionResult({
+      approval: baseRecord({ decision: { approved: true, rememberTier: 'path' } }),
+      recorded: { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false },
+    }))).toBeNull();
+  });
+
+  test('falls back to the decision snapshot for a daemon predating the block', () => {
+    expect(recordedRememberTier(actionResult({ approval: baseRecord({ decision: { approved: true, rememberTier: 'path' } }) }))).toBe('path');
+    expect(recordedRememberTier(actionResult({ approval: baseRecord({ decision: { approved: true } }) }))).toBeNull();
+    expect(recordedRememberTier(actionResult())).toBeNull();
     expect(recordedRememberTier(undefined)).toBeNull();
+  });
+});
+
+describe('recordedReasonStored', () => {
+  test('trusts the block, falls back to a reason on the decision', () => {
+    expect(recordedReasonStored(actionResult({
+      recorded: { approved: false, rememberTier: null, reasonStored: true, modifiedArgsDelivered: false },
+    }))).toBe(true);
+    expect(recordedReasonStored(actionResult({
+      recorded: { approved: false, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false },
+    }))).toBe(false);
+    // No block → the decision's reason field is the fallback.
+    expect(recordedReasonStored(actionResult({ approval: baseRecord({ decision: { approved: false, reason: 'wrong branch' } }) }))).toBe(true);
+    expect(recordedReasonStored(actionResult())).toBe(false);
+    expect(recordedReasonStored(undefined)).toBe(false);
+  });
+});
+
+describe('recordedAnswerDelivered', () => {
+  test('trusts the block, falls back to a stamped answer on the decision', () => {
+    expect(recordedAnswerDelivered(actionResult({
+      recorded: { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: true },
+    }))).toBe(true);
+    expect(recordedAnswerDelivered(actionResult({
+      recorded: { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false },
+    }))).toBe(false);
+    expect(recordedAnswerDelivered(actionResult({ approval: baseRecord({ decision: { approved: true, modifiedArgs: { answer: 'yes' } } }) }))).toBe(true);
+    expect(recordedAnswerDelivered(actionResult())).toBe(false);
+    expect(recordedAnswerDelivered(undefined)).toBe(false);
   });
 });
 

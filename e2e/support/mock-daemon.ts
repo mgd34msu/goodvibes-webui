@@ -847,23 +847,41 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const requestBody = request.postDataJSON?.() ?? {};
       daemon.approvalActions.push({ approvalId, action, body: requestBody });
       const record = approvals.find((a) => a.id === approvalId);
+      // The `recorded` block the daemon now returns: its authoritative report of
+      // what the broker did with the forwarded decision fields. Built alongside
+      // the decision mutation so it reflects exactly the same outcome.
+      let recorded: {
+        approved: boolean;
+        rememberTier: string | null;
+        reasonStored: boolean;
+        modifiedArgsDelivered: boolean;
+      } | undefined;
       if (record) {
         const body = requestBody as Record<string, unknown>;
         if (action === 'approve') {
           // Mirror the broker's decision record: remember tier and the
-          // exec-prompt answer land on decision so the UI's response-verified
-          // honesty path sees exactly what a supporting daemon would return.
+          // exec-prompt answer land on decision, and the route forwards them
+          // into resolution — the `recorded` block reports what stuck.
           const rememberTier = typeof body.rememberTier === 'string' ? body.rememberTier : undefined;
           const modifiedArgs = body.modifiedArgs && typeof body.modifiedArgs === 'object' ? body.modifiedArgs as Record<string, unknown> : undefined;
+          const reason = typeof body.reason === 'string' && body.reason ? body.reason : undefined;
           Object.assign(record, {
             status: 'approved', resolvedAt: Date.now(), resolvedBy: 'operator',
             decision: {
               approved: true,
               ...(body.remember === true ? { remember: true } : {}),
               ...(rememberTier ? { rememberTier } : {}),
+              ...(reason ? { reason } : {}),
               ...(modifiedArgs ? { modifiedArgs } : {}),
             },
           });
+          recorded = {
+            approved: true,
+            rememberTier: rememberTier ?? null,
+            reasonStored: reason !== undefined,
+            // A modifiedArgs answer reaches the run (delivered) when one was sent.
+            modifiedArgsDelivered: typeof modifiedArgs?.answer === 'string',
+          };
           // A durable tier persists a rule and SWEEPS queued pending asks for
           // the same tool (the broker's remembered-decision sweep, simplified
           // to tool identity at mock level).
@@ -890,17 +908,26 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
             }
           }
         } else if (action === 'deny') {
+          const reason = typeof body.reason === 'string' && body.reason ? body.reason : undefined;
+          const rememberTier = typeof body.rememberTier === 'string' ? body.rememberTier : undefined;
           Object.assign(record, {
             status: 'denied', resolvedAt: Date.now(), resolvedBy: 'operator',
             decision: {
               approved: false,
-              ...(typeof body.reason === 'string' && body.reason ? { reason: body.reason } : {}),
+              ...(rememberTier ? { rememberTier } : {}),
+              ...(reason ? { reason } : {}),
             },
           });
+          recorded = {
+            approved: false,
+            rememberTier: rememberTier ?? null,
+            reasonStored: reason !== undefined,
+            modifiedArgsDelivered: false,
+          };
         } else if (action === 'cancel') Object.assign(record, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: 'operator' });
         else if (action === 'claim') Object.assign(record, { status: 'claimed', claimedBy: 'operator', claimedAt: Date.now() });
       }
-      return json(route, { approval: record ?? {} });
+      return json(route, { approval: record ?? {}, ...(recorded ? { recorded } : {}) });
     }
 
     // ── Generic control-plane invoke (POST .../methods/{id}/invoke) ─────────

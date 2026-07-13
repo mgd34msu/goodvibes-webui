@@ -600,12 +600,31 @@ export interface ApprovalDecision {
   readonly approved: boolean;
   readonly remember?: boolean;
   /** How far the decision reached ('session'|'exact'|'command-class'|'path'|'tool').
-   * Present on the returned record ONLY when the daemon actually recorded the
-   * tier — the UI reports remembering from THIS field, never from what it sent. */
+   * Stamped on the resolved record by the broker. The UI reports remembering
+   * from the response's `recorded` block (below), which the daemon now returns
+   * authoritatively — this decision snapshot is the back-compat fallback. */
   readonly rememberTier?: string;
   /** Free-text feedback; on a deny it rides the structured user-declined result. */
   readonly reason?: string;
   readonly modifiedArgs?: Record<string, unknown>;
+}
+
+/**
+ * The `recorded` block a resolve response now carries: the daemon's own report
+ * of what its broker actually did with the decision fields the route forwarded.
+ * This is the authoritative signal the UI trusts — not what the client sent,
+ * and not an inference off the returned record. Optional only for back-compat
+ * with a daemon predating the block (then the UI falls back to the decision
+ * snapshot). Mirrors approvals.approve/deny's contract output `recorded`:
+ *   - `rememberTier` — the tier the broker recorded, or null if none.
+ *   - `reasonStored` — a deny/approve reason was persisted with the decision.
+ *   - `modifiedArgsDelivered` — modifiedArgs (e.g. an exec-prompt answer) reached the run.
+ */
+export interface ApprovalRecordedOutcome {
+  readonly approved: boolean;
+  readonly rememberTier: string | null;
+  readonly reasonStored: boolean;
+  readonly modifiedArgsDelivered: boolean;
 }
 
 export type ApprovalStatus = 'pending' | 'claimed' | 'approved' | 'denied' | 'cancelled' | 'expired';
@@ -663,6 +682,9 @@ export interface ApprovalSnapshotResult {
 
 export interface ApprovalActionResult {
   readonly approval: ApprovalRecord;
+  /** The daemon's authoritative report of what it recorded (see
+   * ApprovalRecordedOutcome). Absent only from a daemon predating the block. */
+  readonly recorded?: ApprovalRecordedOutcome;
 }
 
 /**
@@ -676,20 +698,18 @@ export interface ApprovalApproveInput {
   readonly selectedHunks?: readonly number[];
   readonly note?: string;
   readonly remember?: boolean;
-  /** Requested remember tier. Forward-compatible: the broker's resolveApproval
-   * accepts it in-process, but this snapshot's HTTP approval route
-   * (daemon-sdk system-routes.ts handleApprovalAction) forwards only
-   * note/remember/selectedHunks — so callers must verify the RESPONSE record's
-   * decision.rememberTier before claiming a rule was created. */
+  /** Requested remember tier. The HTTP approval route now forwards it into the
+   * same broker resolution the in-process path uses, and reports what it did in
+   * the response's `recorded` block — the UI reads remembering from there. */
   readonly rememberTier?: string;
   /** Exec-prompt answer path: `{ answer: string }` feeds the waiting command.
-   * Same forward-compatibility caveat as rememberTier — verify the response. */
+   * The route forwards it and reports delivery via `recorded.modifiedArgsDelivered`. */
   readonly modifiedArgs?: Record<string, unknown>;
 }
 
-/** Optional deny payload: `note` rides the audit trail today; `reason` is the
- * broker's structured-feedback field (same HTTP-route caveat as above), so
- * both are sent with the same text. */
+/** Optional deny payload: `note` rides the audit trail; `reason` is the
+ * broker's structured user-declined feedback field. The route now forwards
+ * both and reports persistence via `recorded.reasonStored`. */
 export interface ApprovalDenyInput {
   readonly note?: string;
   readonly reason?: string;

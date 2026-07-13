@@ -1385,12 +1385,16 @@ export const sdk = {
     // may add tiers this client has never seen — render, never drop).
     permissions: {
       rules: {
+        // transport: ws-only (no REST binding, and not in the scoped browser
+        // SDK's entrypoint) — generic-invoke-only via invokeGatewayMethod,
+        // exactly like fleet.*/checkpoints.*.
         list: () =>
-          invokeOperator<'permissions.rules.list', OperatorMethodInput<'permissions.rules.list'>, { rules: readonly PermissionRuleRecord[] }>(
+          invokeGatewayMethod<'permissions.rules.list', { rules: readonly PermissionRuleRecord[] }>(
             'permissions.rules.list',
+            {},
           ),
         delete: (ruleId: string) =>
-          invokeOperator<'permissions.rules.delete', OperatorMethodInput<'permissions.rules.delete'>, { deleted: boolean }>(
+          invokeGatewayMethod<'permissions.rules.delete', { deleted: boolean }>(
             'permissions.rules.delete',
             { ruleId },
           ),

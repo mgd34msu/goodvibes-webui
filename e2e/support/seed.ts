@@ -626,6 +626,8 @@ export const FLEET_AGENT_NODE = {
   startedAt: 100,
   costUsd: 0.08,
   costState: 'priced',
+  model: 'claude-3-5-haiku',
+  provider: 'anthropic',
   capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: true },
   usage: { inputTokens: 200, outputTokens: 400, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 3, turnCount: 2, toolCallCount: 4 },
   sessionRef: { sessionId: STEERABLE_SESSION.id, agentId: 'agent-42' },

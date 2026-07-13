@@ -157,6 +157,9 @@ export default tseslint.config(
       ".goodvibes/**",
       ".claude/**",
       "coverage/**",
+      // Playwright's retained failure artifacts (traces bundle their own JS
+      // viewer assets) — generated, git-ignored, and unlintable by design.
+      "e2e/.artifacts/**",
     ],
   }
 );

@@ -20,7 +20,7 @@
 
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, GitBranch, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronLeft, ExternalLink, GitBranch, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { OperatorMethodOutput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -173,7 +173,12 @@ function CreateWatchForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-export function CiWatchesView() {
+export interface CiWatchesViewProps {
+  /** Navigate to a session's chat view — used by the "open fix session" affordance. */
+  readonly onOpenSession?: (sessionId: string) => void;
+}
+
+export function CiWatchesView({ onOpenSession }: CiWatchesViewProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const confirm = useConfirmSheet();
@@ -341,6 +346,18 @@ export function CiWatchesView() {
                   {runResult.notified ? 'A notification was sent.' : 'No notification was sent (no state change, or quiet).'}
                   {runResult.fixSessionTriggered && ' A fix-session was started.'}
                 </p>
+                {/* The started fix-session id rides the verb result (SDK 8eecbd32);
+                    offer to open it in the session view so the operator can watch
+                    (or steer) the fix as it works. */}
+                {runResult.fixSessionTriggered && runResult.fixSessionId && onOpenSession && (
+                  <button
+                    type="button"
+                    className="ci-watch-detail__open-session"
+                    onClick={() => onOpenSession(runResult.fixSessionId!)}
+                  >
+                    <ExternalLink size={14} aria-hidden="true" /> Open fix session
+                  </button>
+                )}
               </div>
             )}
           </div>

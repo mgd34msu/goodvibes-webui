@@ -36,6 +36,8 @@ import {
   attributionLabel,
 } from '../../lib/sessions-union';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
+import { unpricedBlindSpotLabel } from '../../lib/cost-source';
+import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
 import { firstString, formatRelative } from '../../lib/object';
 import { formatError, isMethodUnavailableError, isSessionNotFoundError, isSessionNotLocalError } from '../../lib/errors';
 import { permissionModeLabel, type SettablePermissionMode } from '../../lib/permission-mode';
@@ -213,15 +215,22 @@ function CostChip({ sessionId }: { sessionId: string }) {
       </span>
     );
   }
+  // Explicit "price unknown" for a fully-unpriced row — never $0.00. A session
+  // aggregates records across models, so no single-model source label applies;
+  // the blind spot (how many records contributed no dollars) renders instead,
+  // and the price editor is one action away for filling the gap manually.
   const text = row.costUsd === null
-    ? 'unpriced'
+    ? 'price unknown'
     : `$${row.costUsd.toFixed(row.costUsd < 0.01 ? 4 : 2)}${row.costState === 'estimated' ? ' (est.)' : ''}`;
+  const blindSpot = unpricedBlindSpotLabel(row.pricedRecordCount, row.unpricedRecordCount);
   return (
     <span
       className="cost-chip"
       title={`${row.costState} · ${row.pricedRecordCount} priced / ${row.unpricedRecordCount} unpriced record(s) · 24h window`}
     >
       Cost: {text}
+      {blindSpot && <span className="cost-chip__blind-spot"> · {blindSpot}</span>}
+      <PriceSourceNote priced={false} />
     </span>
   );
 }

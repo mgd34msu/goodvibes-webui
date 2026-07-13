@@ -114,11 +114,12 @@ export function attentionCount(nodes: readonly FleetProcessNode[]): number {
 /**
  * Honest cost label. costState is one of 'priced' | 'unpriced' | 'estimated'
  * (PROCESS_COST_STATE_SCHEMA) — never silently show $0.00 for a node the
- * daemon could not price.
+ * daemon could not price: the unpriced rendering is the explicit
+ * "price unknown" marker.
  */
 export function costLabel(node: FleetProcessNode): string {
-  if (node.costState === 'unpriced') return 'unpriced';
-  if (node.costUsd == null) return node.costState === 'estimated' ? 'estimating…' : 'unpriced';
+  if (node.costState === 'unpriced') return 'price unknown';
+  if (node.costUsd == null) return node.costState === 'estimated' ? 'estimating…' : 'price unknown';
   const amount = `$${node.costUsd.toFixed(node.costUsd < 1 ? 4 : 2)}`;
   return node.costState === 'estimated' ? `~${amount}` : amount;
 }

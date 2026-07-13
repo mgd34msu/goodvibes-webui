@@ -117,10 +117,13 @@ export function ApprovalCard({
   const approveExtras = rememberTier ? { rememberTier } : {};
   const deny = () => onDeny(denyReason.trim() || undefined);
 
-  // The session this acceptance spawned — only ever honored on an APPROVED
+  // The spawn outcome of this acceptance — only ever honored on an APPROVED
   // record (the wire never stamps denied records, and this card never implies
-  // a denied ask started anything).
+  // a denied ask started anything). fixSessionId and fixSessionError are
+  // mutually exclusive on the wire: a REAL attachable session id, or the
+  // honest failure — never a dead id (SDK bb4b9c30).
   const fixSessionId = record.status === 'approved' ? record.fixSessionId : undefined;
+  const fixSessionError = record.status === 'approved' ? record.fixSessionError : undefined;
 
   const rememberPicker = rememberOptions.length > 0 && !execPrompt && (
     <label className="approval-card__remember">
@@ -226,6 +229,13 @@ export function ApprovalCard({
         >
           <ExternalLink size={14} aria-hidden="true" /> Open fix session
         </button>
+      )}
+      {/* The honest spawn failure: the acceptance did NOT produce an attachable
+          session, so say so plainly — never a dead open button. */}
+      {fixSessionError && (
+        <p className="approval-card__fix-session-error" role="note">
+          The fix session could not start — {fixSessionError}
+        </p>
       )}
 
       {terminal && (

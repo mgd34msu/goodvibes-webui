@@ -673,13 +673,21 @@ export interface ApprovalRecord {
   readonly resolvedBy?: string;
   readonly decision?: ApprovalDecision;
   /**
-   * The session an ACCEPTED ask spawned (SDK 1d6a85e2): a CI "fix this?" offer
-   * that was approved gets the started fix-session's id stamped onto the
-   * resolved APPROVED record by the broker and published live through the
-   * broker-update path, so the accepting surface can open the session. Never
-   * present on denied records; absent until the spawn completes.
+   * The session an ACCEPTED ask spawned: a CI "fix this?" offer that was
+   * approved gets the started fix-session's REAL, attachable session id (never
+   * an internal scheduling handle — SDK bb4b9c30) stamped onto the resolved
+   * APPROVED record by the broker and published live through the broker-update
+   * path, so the accepting surface can open the session. Mutually exclusive
+   * with fixSessionError; never present on denied records; absent until the
+   * spawn completes.
    */
   readonly fixSessionId?: string;
+  /**
+   * The honest failure when the accepted ask's spawn did NOT produce an
+   * attachable session (SDK bb4b9c30): stamped on the approved record instead
+   * of a dead id. Mutually exclusive with fixSessionId.
+   */
+  readonly fixSessionError?: string;
   readonly metadata: Record<string, unknown>;
   /**
    * The full decision trail. Optional in this client-side type (rather than

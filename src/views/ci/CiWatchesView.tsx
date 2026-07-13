@@ -344,11 +344,16 @@ export function CiWatchesView({ onOpenSession }: CiWatchesViewProps) {
                 <CiReportDetail report={runResult.report} />
                 <p className="ci-report__notify">
                   {runResult.notified ? 'A notification was sent.' : 'No notification was sent (no state change, or quiet).'}
-                  {runResult.fixSessionTriggered && ' A fix-session was started.'}
+                  {/* fixSessionId / fixSessionError are mutually exclusive on the
+                      wire (SDK bb4b9c30): a triggered spawn either produced a REAL
+                      attachable session, or an honest failure — never a dead id. */}
+                  {runResult.fixSessionTriggered && runResult.fixSessionId && ' A fix-session was started.'}
+                  {runResult.fixSessionTriggered && runResult.fixSessionError
+                    && ` The fix-session could not start — ${runResult.fixSessionError}`}
                 </p>
-                {/* The started fix-session id rides the verb result (SDK 8eecbd32);
+                {/* The started fix-session's real session id rides the verb result;
                     offer to open it in the session view so the operator can watch
-                    (or steer) the fix as it works. */}
+                    (or steer) the fix as it works. No button on the error path. */}
                 {runResult.fixSessionTriggered && runResult.fixSessionId && onOpenSession && (
                   <button
                     type="button"

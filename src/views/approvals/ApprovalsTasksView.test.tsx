@@ -905,4 +905,37 @@ describe('ApprovalsTasksView — open the fix session an accepted CI offer spawn
     expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
     unmount();
   });
+
+  test('a failed spawn (fixSessionError) renders the honest error line and never a dead open button', () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        ...ciFixBase, status: 'approved', resolvedAt: 100, resolvedBy: 'operator',
+        decision: { approved: true },
+        // SDK bb4b9c30: a spawn that produced no attachable session stamps the
+        // honest failure instead of a dead id.
+        fixSessionError: 'background automation is disabled on this daemon',
+      }],
+    };
+    const { el, unmount } = renderWith(fixture, { onOpenSession: () => { throw new Error('must not open'); } });
+    expect(el.textContent).toContain('The fix session could not start — background automation is disabled on this daemon');
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
+    unmount();
+  });
+
+  test('a denied record never renders a spawn-failure line either — the wire never stamps denied records', () => {
+    const fixture = {
+      ...APPROVALS_FIXTURE,
+      approvals: [{
+        ...ciFixBase, status: 'denied', resolvedAt: 100, resolvedBy: 'operator',
+        decision: { approved: false },
+        // Defensive: a malformed stamped-denied record must not imply a spawn
+        // was ever attempted.
+        fixSessionError: 'should never render',
+      }],
+    };
+    const { el, unmount } = renderWith(fixture, {});
+    expect(el.textContent).not.toContain('The fix session could not start');
+    unmount();
+  });
 });

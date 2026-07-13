@@ -33,6 +33,7 @@ import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { StepUpHost } from './components/auth/StepUpHost';
 import { RelayOverflowBanner } from './components/status/RelayOverflowBanner';
+import { DaemonReceipts } from './components/status/DaemonReceipts';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
@@ -428,6 +429,8 @@ export default function App() {
     <div className="app-shell-root">
     <StepUpHost />
     <RelayOverflowBanner />
+    {/* Undelivered daemon receipts, consumed once on connect (see DaemonReceipts). */}
+    <DaemonReceipts connected={health.connection === 'connected'} signedIn={auth.isSuccess} />
     {daemonUnreachable && (
       <div className="daemon-gate-overlay">
         <DaemonUnreachableGate

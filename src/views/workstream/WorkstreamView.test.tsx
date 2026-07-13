@@ -220,3 +220,22 @@ describe('WorkstreamView honest states', () => {
     unmount();
   });
 });
+
+describe('WorkstreamView — read-model headline + stall tell (rounds 4-6)', () => {
+  test('a work item with the derived tells renders the headline line and the stall marker', () => {
+    const seed = {
+      capturedAt: 1000,
+      truncated: false,
+      totalCount: 1,
+      nodes: [{
+        ...FIXTURE_SNAPSHOT.nodes[2],
+        headline: { text: 'Wiring the fleet adapters', updatedAt: 120 },
+        stall: { since: 1_700_000_000_000, quietForMs: 300_000 },
+      }],
+    };
+    const { el, unmount } = render(seed);
+    expect(el.querySelector('[data-testid="fleet-headline"]')?.textContent).toBe('Wiring the fleet adapters');
+    expect(el.querySelector('[data-testid="fleet-stall"]')?.textContent).toContain('stalled · quiet 5m');
+    unmount();
+  });
+});

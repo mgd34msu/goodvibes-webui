@@ -71,6 +71,7 @@ import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import { FleetSessionActions } from './FleetSessionActions';
 import { FleetApprovalInline } from './FleetApprovalInline';
+import { NodeHeadline, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
 import { parseFleetFocusFromHash, stripFleetFocusFragment } from '../../lib/push/fleet-focus-link';
 import '../../styles/components/fleet.css';
 
@@ -346,11 +347,17 @@ export function FleetView({ subscriptionActive = true }: { subscriptionActive?: 
                   className={`fleet-row${node.id === selectedId ? ' active' : ''}`}
                   onClick={() => setSelectedId(node.id)}
                 >
-                  <span className="fleet-row__title">{node.label || node.id}</span>
+                  <span className="fleet-row__text">
+                    <span className="fleet-row__title">{node.label || node.id}</span>
+                    {/* The read-model's derived headline — ONE line replaced in
+                        place on task/phase transitions, never an appended feed. */}
+                    <NodeHeadline node={node} />
+                  </span>
                   <span className="fleet-row__badges">
                     {node.needsAttention && (
                       <AttentionBadge reason={node.needsAttention.reason} detail={node.needsAttention.detail} />
                     )}
+                    <NodeStallBadge node={node} />
                     <KindBadge kind={node.kind} />
                     <StateBadge state={node.state} />
                     <span className="badge neutral">{costLabel(node)}</span>
@@ -461,10 +468,12 @@ function FleetDetail({ node, archived, onMutated, onBack }: {
             {/* Price provenance + the one-action path into manual pricing —
                 only where a model identity exists to price. */}
           </span>
-          {(node.model || node.provider) && (
+          {(node.model !== undefined || node.provider !== undefined) && (
             <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
           )}
         </div>
+        <NodeHeadline node={node} block />
+        <NodeStallNote node={node} />
         {node.task && <p className="fleet-detail__task">{node.task}</p>}
         <div className="fleet-detail__meta">
           <small>Elapsed {formatDurationMs(node.elapsedMs)}</small>

@@ -27,6 +27,7 @@
  */
 
 import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
+import { NodeHeadline, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, Workflow } from 'lucide-react';
@@ -146,8 +147,13 @@ export function WorkstreamView() {
                   className={`workstream-row${node.id === selectedId ? ' active' : ''}`}
                   onClick={() => setSelectedId(node.id)}
                 >
-                  <span className="workstream-row__title">{node.label || node.id}</span>
+                  <span className="workstream-row__text">
+                    <span className="workstream-row__title">{node.label || node.id}</span>
+                    {/* Derived headline — replaced in place, never a feed. */}
+                    <NodeHeadline node={node} />
+                  </span>
                   <span className="workstream-row__badges">
+                    <NodeStallBadge node={node} />
                     <KindBadge kind={node.kind} />
                     <StateBadge state={node.state} />
                     {node.kind === 'workstream' && <span className="badge neutral">{costLabel(node)}</span>}
@@ -185,6 +191,8 @@ function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: ()
             <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
           )}
         </div>
+        <NodeHeadline node={node} block />
+        <NodeStallNote node={node} />
         {node.task && <p className="workstream-detail__task">{node.task}</p>}
         <div className="workstream-detail__meta">
           <small>Elapsed {formatDurationMs(node.elapsedMs)}</small>

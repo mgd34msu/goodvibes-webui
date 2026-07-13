@@ -124,6 +124,51 @@ export function costLabel(node: FleetProcessNode): string {
   return node.costState === 'estimated' ? `~${amount}` : amount;
 }
 
+// ─── Headline + stall tell (snapshot rounds 4-6 read-model projections) ─────
+//
+// ProcessNode grew two DERIVED projections: `headline` ({ text, updatedAt } —
+// a one-line label derived from task/phase identity only, replaced in place,
+// 80-char capped at the read-model, anti-feed enforced daemon-side) and
+// `stall` ({ since, quietForMs } — a pure timestamp comparison present only on
+// a live node quiet past the threshold). Both ride fleet.snapshot / fleet.list
+// nodes. The generated contract type does not declare them yet (they arrive
+// through the node's open index signature — the daemon serializes the
+// read-model directly), so these readers validate shape defensively, exactly
+// like the approval-attribution divergence documented in goodvibes.ts.
+
+export interface ProcessHeadline {
+  readonly text: string;
+  readonly updatedAt: number;
+}
+
+export interface ProcessStallTell {
+  readonly since: number;
+  readonly quietForMs: number;
+}
+
+export function readHeadline(node: FleetProcessNode): ProcessHeadline | null {
+  const value = (node as Record<string, unknown>).headline;
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.text !== 'string' || candidate.text.length === 0) return null;
+  if (typeof candidate.updatedAt !== 'number') return null;
+  return { text: candidate.text, updatedAt: candidate.updatedAt };
+}
+
+export function readStallTell(node: FleetProcessNode): ProcessStallTell | null {
+  const value = (node as Record<string, unknown>).stall;
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.since !== 'number' || typeof candidate.quietForMs !== 'number') return null;
+  if (!Number.isFinite(candidate.quietForMs) || candidate.quietForMs < 0) return null;
+  return { since: candidate.since, quietForMs: candidate.quietForMs };
+}
+
+/** "stalled · quiet 6m" — the marker text for a node's stall tell. */
+export function stallTellLabel(stall: ProcessStallTell): string {
+  return `stalled · quiet ${formatDurationMs(stall.quietForMs)}`;
+}
+
 export function formatDurationMs(ms: number | undefined): string {
   if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return 'unknown';
   const totalSeconds = Math.floor(ms / 1000);

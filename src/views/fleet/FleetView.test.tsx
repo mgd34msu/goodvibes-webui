@@ -443,3 +443,111 @@ describe('FleetView node actions (WEBUI-FLEET-DEPTH)', () => {
     unmount();
   });
 });
+
+describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
+  const TELLS_SNAPSHOT = {
+    capturedAt: 1000,
+    truncated: false,
+    totalCount: 2,
+    nodes: [
+      {
+        id: 'headlined', kind: 'agent', label: 'Session-spine agent', state: 'executing-tool', elapsedMs: 5000,
+        startedAt: 100, costUsd: 0.1, costState: 'priced',
+        capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+        headline: { text: 'Migrating the session spine to the new store', updatedAt: 110 },
+        stall: { since: 1_700_000_000_000, quietForMs: 6 * 60_000 },
+      },
+      {
+        id: 'plain', kind: 'agent', label: 'Fresh agent', state: 'thinking', elapsedMs: 100,
+        startedAt: 200, costState: 'unpriced',
+        capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+      },
+    ],
+  };
+
+  /** Seed BOTH the cache and the fetch mock — the mount refetch must serve the
+   * same snapshot or it clobbers the seeded tells with the default fixture. */
+  function renderTells(seed: unknown = TELLS_SNAPSHOT) {
+    snapshotImpl = () => Promise.resolve(seed);
+    return render(seed);
+  }
+
+  test('a node headline renders ON the row (one line, replace-in-place — never an appended feed)', () => {
+    const { el, unmount } = renderTells();
+    const headlines = [...el.querySelectorAll('[data-testid="fleet-headline"]')];
+    expect(headlines.length).toBe(1);
+    expect(headlines[0].textContent).toBe('Migrating the session spine to the new store');
+    // The row shows the CURRENT headline only — no history list exists.
+    const row = headlines[0].closest('.fleet-row');
+    expect(row?.querySelectorAll('[data-testid="fleet-headline"]').length).toBe(1);
+    unmount();
+  });
+
+  test('a replaced headline REPLACES the row text — the old line is gone', async () => {
+    const { el, unmount, client } = renderTells();
+    // Let the mount-time refetch resolve FIRST — otherwise it lands after the
+    // replacement below and restores the original snapshot.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    flushSync(() => {});
+    const replaced = {
+      ...TELLS_SNAPSHOT,
+      nodes: [
+        { ...TELLS_SNAPSHOT.nodes[0], headline: { text: 'Verifying the migrated store', updatedAt: 220 } },
+        TELLS_SNAPSHOT.nodes[1],
+      ],
+    };
+    // The view's own refetch must serve the REPLACED snapshot too, or the
+    // poll would clobber the cache write with the stale fixture.
+    snapshotImpl = () => Promise.resolve(replaced);
+    client.setQueryData(queryKeys.fleet, replaced);
+    // react-query notifies subscribers on a microtask — settle before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    flushSync(() => {});
+    const headlines = [...el.querySelectorAll('[data-testid="fleet-headline"]')];
+    expect(headlines.length).toBe(1);
+    expect(headlines[0].textContent).toBe('Verifying the migrated store');
+    expect(el.textContent).not.toContain('Migrating the session spine');
+    unmount();
+  });
+
+  test('the stall tell renders as a marker with the quiet duration, only on the stalled node', () => {
+    const { el, unmount } = renderTells();
+    const stalls = [...el.querySelectorAll('[data-testid="fleet-stall"]')];
+    expect(stalls.length).toBe(1);
+    expect(stalls[0].textContent).toContain('stalled · quiet 6m');
+    unmount();
+  });
+
+  test('the detail pane repeats the headline and states the stall facts', () => {
+    const { el, unmount } = renderTells();
+    click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Session-spine agent')));
+    expect(el.querySelector('[data-testid="fleet-detail-headline"]')?.textContent).toBe('Migrating the session spine to the new store');
+    expect(el.querySelector('[data-testid="fleet-detail-stall"]')?.textContent).toContain('stalled · quiet 6m');
+    unmount();
+  });
+
+  test('nodes without the new fields render exactly as before — no fabricated tells', () => {
+    const { el, unmount } = renderTells();
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Fresh agent'));
+    expect(row?.querySelector('[data-testid="fleet-headline"]')).toBeFalsy();
+    expect(row?.querySelector('[data-testid="fleet-stall"]')).toBeFalsy();
+    unmount();
+  });
+
+  test('malformed tell shapes are dropped, never rendered as garbage', () => {
+    const seed = {
+      ...TELLS_SNAPSHOT,
+      nodes: [{
+        ...TELLS_SNAPSHOT.nodes[1],
+        id: 'weird',
+        label: 'Weird agent',
+        headline: { text: 42, updatedAt: 'later' },
+        stall: { since: 'yesterday' },
+      }],
+    };
+    const { el, unmount } = renderTells(seed);
+    expect(el.querySelector('[data-testid="fleet-headline"]')).toBeFalsy();
+    expect(el.querySelector('[data-testid="fleet-stall"]')).toBeFalsy();
+    unmount();
+  });
+});

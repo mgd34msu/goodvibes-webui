@@ -629,6 +629,11 @@ export const FLEET_AGENT_NODE = {
   capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: true },
   usage: { inputTokens: 200, outputTokens: 400, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 3, turnCount: 2, toolCallCount: 4 },
   sessionRef: { sessionId: STEERABLE_SESSION.id, agentId: 'agent-42' },
+  // Read-model tells (rounds 4-6): the derived one-line headline (replaced in
+  // place on task/phase transitions) and the stall tell (pure timestamp
+  // comparison on a live node) ride the snapshot nodes.
+  headline: { text: 'Migrating the session spine to the new store', updatedAt: 110 },
+  stall: { since: 1_700_000_000_000, quietForMs: 6 * 60_000 },
 };
 
 export const FLEET_WATCHER_NODE = {

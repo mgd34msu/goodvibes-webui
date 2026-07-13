@@ -9,6 +9,9 @@ import {
   attentionReasonLabel,
   buildFleetRows,
   costLabel,
+  readHeadline,
+  readStallTell,
+  stallTellLabel,
   formatDurationMs,
   isAwaitingApprovalState,
   isKnownProcessKind,
@@ -395,5 +398,31 @@ describe('attemptGroupRef / attemptGroupIds (best-of-N sibling markers, read def
       node({ id: 'a4' }),
     ] as FleetProcessNode[];
     expect(attemptGroupIds(nodes)).toEqual(new Set(['g-1', 'g-2']));
+  });
+});
+
+describe('readHeadline / readStallTell / stallTellLabel (read-model tells)', () => {
+  test('reads a well-formed headline and stall tell off the open node shape', () => {
+    const n = node({
+      id: 'n1',
+      headline: { text: 'Migrating the store', updatedAt: 100 },
+      stall: { since: 1_700_000_000_000, quietForMs: 360_000 },
+    } as never);
+    expect(readHeadline(n)).toEqual({ text: 'Migrating the store', updatedAt: 100 });
+    expect(readStallTell(n)).toEqual({ since: 1_700_000_000_000, quietForMs: 360_000 });
+    expect(stallTellLabel({ since: 1_700_000_000_000, quietForMs: 360_000 })).toBe('stalled · quiet 6m 0s');
+  });
+
+  test('absent fields read as null — a pre-tells daemon fabricates nothing', () => {
+    expect(readHeadline(node({ id: 'n1' }))).toBeNull();
+    expect(readStallTell(node({ id: 'n1' }))).toBeNull();
+  });
+
+  test('malformed shapes read as null (wrong types, empty text, negative quiet)', () => {
+    expect(readHeadline(node({ id: 'n1', headline: { text: '', updatedAt: 1 } } as never))).toBeNull();
+    expect(readHeadline(node({ id: 'n1', headline: { text: 42, updatedAt: 1 } } as never))).toBeNull();
+    expect(readHeadline(node({ id: 'n1', headline: 'busy' } as never))).toBeNull();
+    expect(readStallTell(node({ id: 'n1', stall: { since: 'x', quietForMs: 1 } } as never))).toBeNull();
+    expect(readStallTell(node({ id: 'n1', stall: { since: 1, quietForMs: -5 } } as never))).toBeNull();
   });
 });

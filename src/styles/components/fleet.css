@@ -389,3 +389,34 @@
     display: block;
   }
 }
+
+/* ─── Read-model tells: derived headline + stall marker ─────────────────────── */
+
+.fleet-row__text,
+.workstream-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.node-headline {
+  font-size: 0.8rem;
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  overflow-wrap: anywhere;
+}
+
+.node-headline--block {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.node-stall-badge {
+  white-space: nowrap;
+}
+
+.node-stall-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tone-warning-text, #b45309);
+}

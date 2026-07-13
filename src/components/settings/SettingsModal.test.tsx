@@ -293,3 +293,18 @@ describe('SettingsModal — Advanced unschema\'d escape hatch', () => {
     unmount();
   });
 });
+
+describe('SettingsModal — object-typed pricing editor', () => {
+  test('pricing.modelPrices renders the structured per-model editor, not a JSON textarea', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Pricing')));
+    clickCategory(el, 'Pricing');
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="pricing.modelPrices"]')));
+    const field = el.querySelector('[data-config-key="pricing.modelPrices"]') as HTMLElement;
+    // Full description renders, the structured editor mounts, and no blob textarea exists.
+    expect(field.querySelector('.settings-field-desc')?.textContent).toContain('Manual model prices');
+    expect(field.querySelector('[data-testid="model-prices-editor"]')).not.toBeNull();
+    expect(field.querySelector('textarea')).toBeNull();
+    unmount();
+  });
+});

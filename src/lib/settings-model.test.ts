@@ -94,7 +94,7 @@ describe('buildSettingsModel — domain grouping (dissolved feature model)', () 
 });
 
 describe('buildSettingsModel — enablement state from domain settings keys', () => {
-  test('a stock config resolves every feature to its ruled default (29 on / 15 dark)', () => {
+  test('a stock config resolves every feature to its ruled default (40 on / 15 dark)', () => {
     const groups = buildSettingsModel({});
     const units = groups.flatMap((g) => g.featureUnits);
     expect(units.length).toBe(FEATURE_SETTINGS.length);
@@ -102,7 +102,7 @@ describe('buildSettingsModel — enablement state from domain settings keys', ()
       expect(unit.enabled).toBe(unit.feature.defaultEnabled);
       expect(unit.explicit).toBe(false);
     }
-    expect(units.filter((u) => u.enabled).length).toBe(29);
+    expect(units.filter((u) => u.enabled).length).toBe(40);
     expect(units.filter((u) => !u.enabled).length).toBe(15);
   });
 
@@ -198,5 +198,100 @@ describe('filterSettingsModel', () => {
 
   test('empty query returns the full model unchanged', () => {
     expect(filterSettingsModel(groups, '  ')).toBe(groups);
+  });
+});
+
+describe('object-typed schema keys (pricing.modelPrices)', () => {
+  const livePrices = {
+    'openrouter:deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
+    'bedrock:us.anthropic.claude-3-5:0': { input: 3, output: 15 },
+  };
+  const groups = buildSettingsModel({ pricing: { modelPrices: livePrices } });
+  const pricing = groupById(groups, 'pricing');
+
+  test('the object key renders as ONE typed field carrying its live object value', () => {
+    expect(pricing).toBeDefined();
+    const field = pricing!.plainRows.find((f) => f.key === 'pricing.modelPrices');
+    expect(field).toBeDefined();
+    expect(field!.type).toBe('object');
+    expect(field!.present).toBe(true);
+    expect(field!.liveValue).toEqual(livePrices);
+    expect(field!.description.length).toBeGreaterThan(0);
+  });
+
+  test('live entries under the object key never leak into unschema raw rows', () => {
+    for (const group of groups) {
+      expect(group.rawRows.filter((r) => r.key.startsWith('pricing.modelPrices'))).toEqual([]);
+    }
+  });
+
+  test('liveLeafKeys honors the stop-set so dotted model ids stay intact', () => {
+    const keys = liveLeafKeys(
+      { pricing: { modelPrices: livePrices }, display: { theme: 'x' } },
+      '',
+      new Set(['pricing.modelPrices']),
+    );
+    expect(keys.sort()).toEqual(['display.theme', 'pricing.modelPrices']);
+  });
+
+  test('an absent object key still renders with its schema default', () => {
+    const bare = buildSettingsModel({});
+    const field = groupById(bare, 'pricing')?.plainRows.find((f) => f.key === 'pricing.modelPrices');
+    expect(field).toBeDefined();
+    expect(field!.present).toBe(false);
+    expect(field!.default).toEqual({});
+  });
+});
+
+describe('new settings keys from the snapshot schema', () => {
+  const groups = buildSettingsModel({});
+  const allFieldKeys = groups.flatMap((g) => [
+    ...g.plainRows.map((f) => f.key),
+    ...g.featureUnits.flatMap((u) => [
+      ...(u.enablementField ? [u.enablementField.key] : []),
+      ...u.fields.map((f) => f.key),
+    ]),
+  ]);
+
+  test.each([
+    'pricing.modelPrices',
+    'notifications.pushApproval',
+    'notifications.pushNeedsInput',
+    'notifications.pushCompletion',
+    'watchers.ciPollIntervalMs',
+    'update.auto',
+    'update.intervalMinutes',
+    'update.releasesUrl',
+    'surfaces.msteams.enabled',
+    'surfaces.bluebubbles.enabled',
+    'surfaces.mattermost.enabled',
+    'surfaces.matrix.enabled',
+    'surfaces.googleChat.enabled',
+    'surfaces.imessage.enabled',
+    'surfaces.signal.enabled',
+    'surfaces.telegram.enabled',
+    'surfaces.telephony.enabled',
+    'surfaces.whatsapp.enabled',
+  ])('%s renders somewhere in the model with a description', (key) => {
+    expect(allFieldKeys).toContain(key);
+    const field = groups
+      .flatMap((g) => [...g.plainRows, ...g.featureUnits.flatMap((u) => [...(u.enablementField ? [u.enablementField] : []), ...u.fields])])
+      .find((f) => f.key === key);
+    expect(field?.description.length ?? 0).toBeGreaterThan(0);
+  });
+
+  test('new surface credential keys are secret-masked', () => {
+    for (const key of [
+      'surfaces.msteams.appPassword',
+      'surfaces.bluebubbles.password',
+      'surfaces.mattermost.botToken',
+      'surfaces.matrix.accessToken',
+    ]) {
+      const field = groups
+        .flatMap((g) => [...g.plainRows, ...g.featureUnits.flatMap((u) => u.fields)])
+        .find((f) => f.key === key);
+      expect(field, key).toBeDefined();
+      expect(field!.isSecret, key).toBe(true);
+    }
   });
 });

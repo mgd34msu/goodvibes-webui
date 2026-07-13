@@ -75,16 +75,21 @@ export const EMPTY_MODEL_PRICE_DRAFT: ModelPriceDraft = {
   cacheWrite: '',
 };
 
-function parsePriceField(label: string, text: string, required: boolean): { value?: number; error?: string } {
+function parsePriceField(label: string, text: string): { value?: number; error?: string } {
   const trimmed = text.trim();
-  if (!trimmed) {
-    return required ? { error: `${label} price is required` } : {};
-  }
+  if (!trimmed) return {};
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n < 0) {
     return { error: `${label} must be a finite number >= 0 (USD per 1M tokens)` };
   }
   return { value: n };
+}
+
+function parseRequiredPrice(label: string, text: string): { value: number } | { error: string } {
+  const parsed = parsePriceField(label, text);
+  if (parsed.error !== undefined) return { error: parsed.error };
+  if (parsed.value === undefined) return { error: `${label} price is required` };
+  return { value: parsed.value };
 }
 
 /**
@@ -99,20 +104,20 @@ export function parseModelPriceDraft(
   if (!/^[^:\s]+:\S+$/.test(modelKey)) {
     return { ok: false, error: 'Model key must be "provider:model", e.g. "openrouter:deepseek/deepseek-chat"' };
   }
-  const input = parsePriceField('Input', draft.input, true);
-  if (input.error) return { ok: false, error: input.error };
-  const output = parsePriceField('Output', draft.output, true);
-  if (output.error) return { ok: false, error: output.error };
-  const cacheRead = parsePriceField('Cache read', draft.cacheRead, false);
+  const input = parseRequiredPrice('Input', draft.input);
+  if ('error' in input) return { ok: false, error: input.error };
+  const output = parseRequiredPrice('Output', draft.output);
+  if ('error' in output) return { ok: false, error: output.error };
+  const cacheRead = parsePriceField('Cache read', draft.cacheRead);
   if (cacheRead.error) return { ok: false, error: cacheRead.error };
-  const cacheWrite = parsePriceField('Cache write', draft.cacheWrite, false);
+  const cacheWrite = parsePriceField('Cache write', draft.cacheWrite);
   if (cacheWrite.error) return { ok: false, error: cacheWrite.error };
   return {
     ok: true,
     modelKey,
     entry: {
-      input: input.value!,
-      output: output.value!,
+      input: input.value,
+      output: output.value,
       ...(cacheRead.value !== undefined ? { cacheRead: cacheRead.value } : {}),
       ...(cacheWrite.value !== undefined ? { cacheWrite: cacheWrite.value } : {}),
     },

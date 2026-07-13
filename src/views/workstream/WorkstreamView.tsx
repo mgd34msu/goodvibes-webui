@@ -26,6 +26,7 @@
  * offered here: there is no sessionId to address either verb with.
  */
 
+import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, Workflow } from 'lucide-react';
@@ -180,6 +181,9 @@ function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: ()
           <KindBadge kind={node.kind} />
           <StateBadge state={node.state} />
           {node.kind === 'workstream' && <span className="badge neutral">{costLabel(node)}</span>}
+          {node.kind === 'workstream' && (
+            <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
+          )}
         </div>
         {node.task && <p className="workstream-detail__task">{node.task}</p>}
         <div className="workstream-detail__meta">

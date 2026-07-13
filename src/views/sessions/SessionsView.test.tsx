@@ -664,7 +664,7 @@ describe('SessionsView cost chip (cost.attribution.get, SDK 1.6.1)', () => {
     unmount();
   });
 
-  test('an unpriced row renders "unpriced", never a fabricated dollar amount', async () => {
+  test('an unpriced row renders the explicit "price unknown" marker with its blind spot, never a fabricated dollar amount', async () => {
     costAttributionRows = [{
       key: 's-tui', costUsd: null, costState: 'unpriced', pricedRecordCount: 0, unpricedRecordCount: 2,
       tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
@@ -675,7 +675,11 @@ describe('SessionsView cost chip (cost.attribution.get, SDK 1.6.1)', () => {
     await flushMicrotasks();
 
     const chip = el.querySelector('.cost-chip');
-    expect(chip?.textContent).toContain('unpriced');
+    expect(chip?.textContent).toContain('price unknown');
+    expect(chip?.textContent).not.toContain('$');
+    expect(chip?.textContent).toContain('all 2 records unpriced');
+    // Manual-price editing is one action away from the display.
+    expect(chip?.querySelector('.price-source-note__edit')?.textContent).toContain('price');
     unmount();
   });
 
@@ -691,6 +695,8 @@ describe('SessionsView cost chip (cost.attribution.get, SDK 1.6.1)', () => {
 
     const chip = el.querySelector('.cost-chip');
     expect(chip?.textContent).toContain('$0.18 (est.)');
+    // The blind spot behind the estimate is stated, not implied.
+    expect(chip?.textContent).toContain('1 of 5 records unpriced — dollars shown are a floor');
     unmount();
   });
 });

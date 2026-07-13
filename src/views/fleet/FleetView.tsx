@@ -38,6 +38,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, Boxes, ChevronLeft, OctagonX, RefreshCw } from 'lucide-react';
+import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
 import { sdk } from '../../lib/goodvibes';
 import type { FleetProcessNode, FleetAttemptGroup } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -455,7 +456,14 @@ function FleetDetail({ node, archived, onMutated, onBack }: {
           )}
           <KindBadge kind={node.kind} />
           <StateBadge state={node.state} />
-          <span className="badge neutral">{costLabel(node)}</span>
+          <span className="badge neutral">
+            {costLabel(node)}
+            {/* Price provenance + the one-action path into manual pricing —
+                only where a model identity exists to price. */}
+          </span>
+          {(node.model || node.provider) && (
+            <PriceSourceNote provider={node.provider} model={node.model} priced={node.costState === 'priced' || node.costState === 'estimated'} />
+          )}
         </div>
         {node.task && <p className="fleet-detail__task">{node.task}</p>}
         <div className="fleet-detail__meta">

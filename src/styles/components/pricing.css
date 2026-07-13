@@ -1,0 +1,25 @@
+/* Price provenance note + manual-price modal accents. */
+
+.price-source-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  white-space: nowrap;
+}
+
+.price-source-note__edit {
+  font-size: 0.8rem;
+}
+
+.cost-chip__blind-spot {
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+}
+
+.model-prices-modal-note {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  margin: 0 0 var(--space-3);
+}

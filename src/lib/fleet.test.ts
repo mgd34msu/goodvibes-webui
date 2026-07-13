@@ -80,7 +80,7 @@ describe('isTerminalState / isStalledState / isAwaitingApprovalState', () => {
 
 describe('costLabel', () => {
   test('unpriced state never shows a dollar figure, even if costUsd is somehow set', () => {
-    expect(costLabel(node({ id: 'n1', costState: 'unpriced', costUsd: 1.23 }))).toBe('unpriced');
+    expect(costLabel(node({ id: 'n1', costState: 'unpriced', costUsd: 1.23 }))).toBe('price unknown');
   });
 
   test('priced state with a costUsd shows a dollar figure', () => {
@@ -101,7 +101,7 @@ describe('costLabel', () => {
 
   test('costUsd entirely absent (undefined, per the SDK contract — not just null) never throws', () => {
     const { costUsd: _omit, ...rest } = node({ id: 'n1', costState: 'priced', costUsd: 5 });
-    expect(costLabel(rest as FleetProcessNode)).toBe('unpriced');
+    expect(costLabel(rest as FleetProcessNode)).toBe('price unknown');
   });
 
   test('estimated state with costUsd undefined (not null) still shows "estimating…", no throw', () => {

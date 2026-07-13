@@ -57,7 +57,7 @@ export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-schema.ts');
 
 export interface ConfigSchemaEntrySnapshot {
   readonly key: string;
-  readonly type: 'boolean' | 'number' | 'string' | 'enum';
+  readonly type: 'boolean' | 'number' | 'string' | 'enum' | 'object';
   readonly default: unknown;
   readonly description: string;
   readonly enumValues?: readonly string[];
@@ -138,7 +138,7 @@ export function renderTs(snapshot: ConfigSchemaSnapshot): string {
     '',
     'export interface ConfigSchemaEntry {',
     '  readonly key: string;',
-    "  readonly type: 'boolean' | 'number' | 'string' | 'enum';",
+    "  readonly type: 'boolean' | 'number' | 'string' | 'enum' | 'object';",
     '  readonly default: unknown;',
     '  readonly description: string;',
     '  readonly enumValues?: readonly string[];',

@@ -14,7 +14,7 @@
 
 export interface ConfigSchemaEntry {
   readonly key: string;
-  readonly type: 'boolean' | 'number' | 'string' | 'enum';
+  readonly type: 'boolean' | 'number' | 'string' | 'enum' | 'object';
   readonly default: unknown;
   readonly description: string;
   readonly enumValues?: readonly string[];
@@ -1504,6 +1504,144 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Default iMessage chat id for routing"
   },
   {
+    "key": "surfaces.msteams.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Microsoft Teams surface contract"
+  },
+  {
+    "key": "surfaces.msteams.appId",
+    "type": "string",
+    "default": "",
+    "description": "Microsoft Teams bot application (client) id"
+  },
+  {
+    "key": "surfaces.msteams.appPassword",
+    "type": "string",
+    "default": "",
+    "description": "Microsoft Teams bot application password (client secret)"
+  },
+  {
+    "key": "surfaces.msteams.tenantId",
+    "type": "string",
+    "default": "",
+    "description": "Microsoft Entra tenant id the Teams bot authenticates against"
+  },
+  {
+    "key": "surfaces.msteams.serviceUrl",
+    "type": "string",
+    "default": "",
+    "description": "Bot Framework service URL for proactive Teams delivery"
+  },
+  {
+    "key": "surfaces.msteams.botId",
+    "type": "string",
+    "default": "",
+    "description": "Microsoft Teams bot id used in conversation references"
+  },
+  {
+    "key": "surfaces.msteams.defaultConversationId",
+    "type": "string",
+    "default": "",
+    "description": "Default Teams conversation id for routing"
+  },
+  {
+    "key": "surfaces.msteams.defaultChannelId",
+    "type": "string",
+    "default": "",
+    "description": "Default Teams channel id for routing"
+  },
+  {
+    "key": "surfaces.bluebubbles.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the BlueBubbles (iMessage server) surface contract"
+  },
+  {
+    "key": "surfaces.bluebubbles.serverUrl",
+    "type": "string",
+    "default": "",
+    "description": "BlueBubbles server base URL used for health checks and delivery"
+  },
+  {
+    "key": "surfaces.bluebubbles.password",
+    "type": "string",
+    "default": "",
+    "description": "BlueBubbles server password"
+  },
+  {
+    "key": "surfaces.bluebubbles.account",
+    "type": "string",
+    "default": "",
+    "description": "BlueBubbles account identifier"
+  },
+  {
+    "key": "surfaces.bluebubbles.defaultChatGuid",
+    "type": "string",
+    "default": "",
+    "description": "Default BlueBubbles chat GUID for routing"
+  },
+  {
+    "key": "surfaces.mattermost.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Mattermost surface contract"
+  },
+  {
+    "key": "surfaces.mattermost.baseUrl",
+    "type": "string",
+    "default": "",
+    "description": "Mattermost server base URL"
+  },
+  {
+    "key": "surfaces.mattermost.botToken",
+    "type": "string",
+    "default": "",
+    "description": "Mattermost bot access token"
+  },
+  {
+    "key": "surfaces.mattermost.teamId",
+    "type": "string",
+    "default": "",
+    "description": "Mattermost team id the bot operates in"
+  },
+  {
+    "key": "surfaces.mattermost.defaultChannelId",
+    "type": "string",
+    "default": "",
+    "description": "Default Mattermost channel id for routing"
+  },
+  {
+    "key": "surfaces.matrix.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the Matrix surface contract"
+  },
+  {
+    "key": "surfaces.matrix.homeserverUrl",
+    "type": "string",
+    "default": "",
+    "description": "Matrix homeserver base URL"
+  },
+  {
+    "key": "surfaces.matrix.accessToken",
+    "type": "string",
+    "default": "",
+    "description": "Matrix account access token"
+  },
+  {
+    "key": "surfaces.matrix.userId",
+    "type": "string",
+    "default": "",
+    "description": "Matrix user id (@user:server) the adapter acts as"
+  },
+  {
+    "key": "surfaces.matrix.defaultRoomId",
+    "type": "string",
+    "default": "",
+    "description": "Default Matrix room id for routing"
+  },
+  {
     "key": "watchers.enabled",
     "type": "boolean",
     "default": true,
@@ -1522,6 +1660,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": 15000,
     "description": "Heartbeat interval for watcher services in milliseconds",
     "validationHint": "integer in [1000, 3600000]"
+  },
+  {
+    "key": "watchers.ciPollIntervalMs",
+    "type": "number",
+    "default": 60000,
+    "description": "Cadence (ms) for the daemon's recurring CI-watch poll; the poller enforces a 15s floor to respect the status source's rate limits",
+    "validationHint": "integer in [1000, 86400000]"
   },
   {
     "key": "watchers.recoveryWindowMinutes",
@@ -1932,6 +2077,25 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": 10000,
     "description": "Free-tier queue operation budget used by clients to warn before Cloudflare queue usage exceeds the intended budget",
     "validationHint": "integer in [0, 10000000]"
+  },
+  {
+    "key": "update.auto",
+    "type": "boolean",
+    "default": true,
+    "description": "Daemon self-update: check for a new release hourly, download and checksum-verify it, swap at a no-active-work moment, and restart (owner-directed default; the previous binary is kept for one-command rollback)"
+  },
+  {
+    "key": "update.intervalMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "Minutes between daemon update checks",
+    "validationHint": "integer in [5, 1440]"
+  },
+  {
+    "key": "update.releasesUrl",
+    "type": "string",
+    "default": "https://github.com/mgd34msu/goodvibes-tui/releases/latest",
+    "description": "GitHub releases/latest URL the daemon resolves update tags and artifacts from"
   },
   {
     "key": "daemon.enabled",
@@ -2438,6 +2602,31 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": 3000,
     "description": "Cooldown (ms) after a domain:level group trips the burst detector before it can trip again. Applied at NotificationRouter construction.",
     "validationHint": "integer in [0, 3600000]"
+  },
+  {
+    "key": "notifications.pushApproval",
+    "type": "boolean",
+    "default": true,
+    "description": "Device-push fan-out for the approval class: a pending approval pushes to every paired push target. On by default — the toggle exists to silence the class, never as a prerequisite for it to work. Read live per event."
+  },
+  {
+    "key": "notifications.pushNeedsInput",
+    "type": "boolean",
+    "default": true,
+    "description": "Device-push fan-out for the needs-input class: a fleet node blocked on the operator pushes to every paired push target (presence-suppressed when a surface is attached). On by default; the toggle only silences. Read live per event."
+  },
+  {
+    "key": "notifications.pushCompletion",
+    "type": "boolean",
+    "default": true,
+    "description": "Device-push fan-out for the completion class: a tracked run reaching a terminal state (done/failed/killed) pushes to every paired push target. On by default with zero setup; the toggle only silences. Read live per event."
+  },
+  {
+    "key": "pricing.modelPrices",
+    "type": "object",
+    "default": {},
+    "description": "Manual model prices, keyed provider:model (e.g. \"openrouter:deepseek/deepseek-chat\"). Each entry: { input, output, cacheRead?, cacheWrite? } in USD per 1M tokens. A manual price always wins over provider-served and catalog pricing and applies live (no restart). Set one when registering a custom provider/model, or to pin a negotiated rate for any model.",
+    "validationHint": "record keyed \"provider:model\" of { input, output, cacheRead?, cacheWrite? } — finite numbers >= 0, USD per 1M tokens"
   }
 ] as const;
 
@@ -3149,6 +3338,209 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
     "defaultEnabled": true
   },
   {
+    "id": "telegram-surface",
+    "name": "Telegram Surface",
+    "description": "Enables the Telegram client adapter for command ingress, threaded replies, and notification delivery. Activation needs surfaces.telegram.enabled plus bot credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.telegram.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.telegram.enabled",
+      "surfaces.telegram.mode",
+      "surfaces.telegram.botToken",
+      "surfaces.telegram.botUsername",
+      "surfaces.telegram.defaultChatId",
+      "surfaces.telegram.webhookSecret"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "whatsapp-surface",
+    "name": "WhatsApp Surface",
+    "description": "Enables the WhatsApp client adapter for command ingress, interactive actions, and notification delivery. Activation needs surfaces.whatsapp.enabled plus API credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.whatsapp.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.whatsapp.enabled",
+      "surfaces.whatsapp.provider",
+      "surfaces.whatsapp.accessToken",
+      "surfaces.whatsapp.phoneNumberId",
+      "surfaces.whatsapp.businessAccountId",
+      "surfaces.whatsapp.defaultRecipient",
+      "surfaces.whatsapp.signingSecret",
+      "surfaces.whatsapp.verifyToken"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "signal-surface",
+    "name": "Signal Surface",
+    "description": "Enables the Signal client adapter for command ingress and notification delivery. Activation needs surfaces.signal.enabled plus a linked signal-cli endpoint; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.signal.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.signal.enabled",
+      "surfaces.signal.bridgeUrl",
+      "surfaces.signal.account",
+      "surfaces.signal.token",
+      "surfaces.signal.defaultRecipient"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "msteams-surface",
+    "name": "Microsoft Teams Surface",
+    "description": "Enables the Microsoft Teams client adapter for command ingress, threaded replies, and notification delivery. Activation needs surfaces.msteams.enabled plus bot credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.msteams.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.msteams.enabled",
+      "surfaces.msteams.appId",
+      "surfaces.msteams.appPassword",
+      "surfaces.msteams.botId",
+      "surfaces.msteams.tenantId",
+      "surfaces.msteams.serviceUrl",
+      "surfaces.msteams.defaultChannelId",
+      "surfaces.msteams.defaultConversationId"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "matrix-surface",
+    "name": "Matrix Surface",
+    "description": "Enables the Matrix client adapter for command ingress, threaded replies, and notification delivery. Activation needs surfaces.matrix.enabled plus homeserver credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.matrix.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.matrix.enabled",
+      "surfaces.matrix.homeserverUrl",
+      "surfaces.matrix.userId",
+      "surfaces.matrix.accessToken",
+      "surfaces.matrix.defaultRoomId"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "mattermost-surface",
+    "name": "Mattermost Surface",
+    "description": "Enables the Mattermost client adapter for command ingress, threaded replies, and notification delivery. Activation needs surfaces.mattermost.enabled plus server credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.mattermost.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.mattermost.enabled",
+      "surfaces.mattermost.baseUrl",
+      "surfaces.mattermost.botToken",
+      "surfaces.mattermost.teamId",
+      "surfaces.mattermost.defaultChannelId"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "imessage-surface",
+    "name": "iMessage Surface",
+    "description": "Enables the iMessage client adapter for command ingress and notification delivery. Activation needs surfaces.imessage.enabled plus a bridge endpoint; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.imessage.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.imessage.enabled",
+      "surfaces.imessage.bridgeUrl",
+      "surfaces.imessage.account",
+      "surfaces.imessage.token",
+      "surfaces.imessage.defaultChatId"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "bluebubbles-surface",
+    "name": "BlueBubbles Surface",
+    "description": "Enables the BlueBubbles client adapter for iMessage command ingress and notification delivery via a BlueBubbles server. Activation needs surfaces.bluebubbles.enabled plus server credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.bluebubbles.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.bluebubbles.enabled",
+      "surfaces.bluebubbles.serverUrl",
+      "surfaces.bluebubbles.password",
+      "surfaces.bluebubbles.account",
+      "surfaces.bluebubbles.defaultChatGuid"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "google-chat-surface",
+    "name": "Google Chat Surface",
+    "description": "Enables the Google Chat client adapter for command ingress, threaded replies, and notification delivery. Activation needs surfaces.googleChat.enabled plus app credentials; inbound messages are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.googleChat.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.googleChat.enabled",
+      "surfaces.googleChat.appId",
+      "surfaces.googleChat.spaceId",
+      "surfaces.googleChat.verificationToken",
+      "surfaces.googleChat.webhookUrl"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "telephony-surface",
+    "name": "Telephony Surface",
+    "description": "Enables the telephony adapter for delivery-oriented voice/SMS notification egress and webhook ingress. Activation needs surfaces.telephony.enabled plus provider credentials; inbound events are gated by the per-surface owner allowlist.",
+    "domain": "surfaces",
+    "enablement": {
+      "key": "surfaces.telephony.enabled",
+      "kind": "constant"
+    },
+    "settings": [
+      "surfaces.telephony.enabled",
+      "surfaces.telephony.provider",
+      "surfaces.telephony.mode",
+      "surfaces.telephony.accountSid",
+      "surfaces.telephony.authToken",
+      "surfaces.telephony.fromNumber",
+      "surfaces.telephony.bridgeUrl",
+      "surfaces.telephony.token",
+      "surfaces.telephony.defaultRecipient",
+      "surfaces.telephony.voiceLanguage",
+      "surfaces.telephony.webhookSecret"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
     "id": "web-surface",
     "name": "Web Surface",
     "description": "Enables the browser-based operator surface backed by the shared control plane. On by default, bound to loopback (web.hostMode local, 127.0.0.1): a stock install serves the web surface on this machine only and announces its URL once at start. Widen deliberately via web.hostMode network/custom.",
@@ -3202,6 +3594,23 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
       "service.platform",
       "service.serviceName",
       "service.logPath"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "daemon-auto-update",
+    "name": "Daemon Auto-Update",
+    "description": "The daemon checks for a new release hourly, downloads and checksum-verifies it, swaps binaries at a no-active-work moment (never mid-turn), keeps the previous binary for one-command rollback, and restarts via the service manager. On by default per the owner directive; update.auto turns it off, update.intervalMinutes tunes the cadence.",
+    "domain": "update",
+    "enablement": {
+      "key": "update.auto",
+      "kind": "boolean"
+    },
+    "settings": [
+      "update.auto",
+      "update.intervalMinutes",
+      "update.releasesUrl"
     ],
     "restartRequired": false,
     "defaultEnabled": true

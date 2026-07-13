@@ -375,3 +375,112 @@
   font-size: 0.85rem;
   word-break: break-all;
 }
+
+/* ─── Model prices editor (pricing.modelPrices) ──────────────────────────── */
+
+.model-prices-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.model-prices-empty {
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.model-prices-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model-prices-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface-sunken, rgba(127, 127, 127, 0.08));
+  border-radius: var(--radius-sm, 6px);
+}
+
+.model-prices-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.model-prices-key {
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.model-prices-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+}
+
+.model-prices-row-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.model-prices-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model-prices-form-prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+.model-prices-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.model-prices-form-field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.model-prices-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.model-prices-add {
+  align-self: flex-start;
+}
+
+/* Fallback object-JSON form (object-typed keys without a dedicated editor). */
+.settings-field-object {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-field-object textarea {
+  width: 100%;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+}
+
+.settings-field-object .primary-button {
+  align-self: flex-start;
+}

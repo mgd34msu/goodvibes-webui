@@ -109,8 +109,16 @@ export function readConfigPath(config: unknown, key: string): { present: boolean
   return { present: true, value: cursor };
 }
 
-/** All dotted leaf keys held in the live config (objects descended, arrays are leaves). */
-export function liveLeafKeys(config: unknown, prefix = ''): string[] {
+/**
+ * All dotted leaf keys held in the live config (objects descended, arrays are
+ * leaves). A key in `stopKeys` is treated as a leaf even when its value is an
+ * object — the schema's object-typed keys (e.g. pricing.modelPrices) are ONE
+ * setting with a typed editor, and descending into their entries would
+ * double-render every entry as an unschema'd raw row. Entry keys may also
+ * contain dots (model ids like "provider:model-3.5"), which a dotted-path
+ * descent would corrupt.
+ */
+export function liveLeafKeys(config: unknown, prefix = '', stopKeys?: ReadonlySet<string>): string[] {
   const record = asRecord(config);
   const keys = Object.keys(record);
   if (keys.length === 0) return [];
@@ -118,8 +126,8 @@ export function liveLeafKeys(config: unknown, prefix = ''): string[] {
   for (const key of keys) {
     const full = prefix ? `${prefix}.${key}` : key;
     const item = record[key];
-    if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
-      out.push(...liveLeafKeys(item, full));
+    if (item !== null && typeof item === 'object' && !Array.isArray(item) && !stopKeys?.has(full)) {
+      out.push(...liveLeafKeys(item, full, stopKeys));
     } else {
       out.push(full);
     }
@@ -132,6 +140,11 @@ export function liveLeafKeys(config: unknown, prefix = ''): string[] {
 // ---------------------------------------------------------------------------
 
 const SCHEMA_BY_KEY = new Map<string, ConfigSchemaEntry>(CONFIG_SCHEMA_ENTRIES.map((e) => [e.key, e]));
+
+/** Schema keys whose VALUE is an object — one setting each, never descended into. */
+export const OBJECT_TYPED_CONFIG_KEYS: ReadonlySet<string> = new Set(
+  CONFIG_SCHEMA_ENTRIES.filter((e) => e.type === 'object').map((e) => e.key),
+);
 
 /** Every config key owned by at least one feature (excluded from orphan rows). */
 export const OWNED_CONFIG_KEYS: ReadonlySet<string> = new Set(
@@ -254,8 +267,10 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
     }
   }
 
-  // 3. Live-only namespaces the schema does not cover.
-  const liveKeys = liveLeafKeys(liveConfig);
+  // 3. Live-only namespaces the schema does not cover. Object-typed schema
+  // keys are leaves here: their live entries belong to the key's own typed
+  // editor, not to the unschema'd raw-row table.
+  const liveKeys = liveLeafKeys(liveConfig, '', OBJECT_TYPED_CONFIG_KEYS);
   for (const key of liveKeys) {
     const ns = namespaceOf(key);
     if (!seen.has(ns)) {

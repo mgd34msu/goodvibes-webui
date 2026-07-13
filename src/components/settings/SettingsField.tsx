@@ -8,6 +8,10 @@
  *   string  → text input, committed on blur/Enter
  *   secret  → masked display + explicit "Replace" that reveals a WRITE-ONLY
  *             field (the stored value is never round-tripped back into an input)
+ *   object  → a REAL structured editor, never a JSON blob: pricing.modelPrices
+ *             gets the per-model price-row editor (ModelPricesEditor); any
+ *             future object-typed key falls back to a validating JSON form
+ *             that at least round-trips honestly until it gets its own editor
  *
  * Commits call onCommit(key, value); it resolves on success (the parent
  * reconciles via a config refetch) and rejects on daemon rejection, which this
@@ -18,6 +22,7 @@
 import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
 import type { ConfigFieldModel } from '../../lib/settings-model';
+import { ModelPricesEditor } from './ModelPricesEditor';
 
 interface SettingsFieldProps {
   readonly field: ConfigFieldModel;
@@ -64,6 +69,16 @@ export function SettingsField({ field, onCommit }: SettingsFieldProps) {
   ) : null;
 
   const control = (() => {
+    // Object-typed keys get structured editors (see module header).
+    if (field.type === 'object') {
+      if (field.key === 'pricing.modelPrices') {
+        // The editor owns its saving/error state — commits go straight to the
+        // parent's config.set so a rejection surfaces inside the editor row.
+        return <ModelPricesEditor value={effectiveValue(field)} onCommit={(next) => onCommit(field.key, next)} />;
+      }
+      return <ObjectJsonField field={field} saving={saving} onCommit={(value) => void commit(value)} />;
+    }
+
     // Secret string — masked, write-only replace.
     if (field.isSecret && field.type === 'string') {
       const raw = effectiveValue(field);
@@ -205,6 +220,62 @@ export function SettingsField({ field, onCommit }: SettingsFieldProps) {
       {error && (
         <div className="banner warning settings-field-error" role="alert">
           {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Fallback editor for an object-typed schema key that has no dedicated
+ * structured editor yet: shows the current value and accepts a replacement as
+ * validated JSON (must parse to a plain object — never silently committed as a
+ * string). pricing.modelPrices never reaches this — it has ModelPricesEditor.
+ */
+function ObjectJsonField({
+  field,
+  saving,
+  onCommit,
+}: {
+  readonly field: ConfigFieldModel;
+  readonly saving: boolean;
+  readonly onCommit: (value: unknown) => void;
+}) {
+  const current = field.present ? field.liveValue : field.default;
+  const [draft, setDraft] = useState(() => JSON.stringify(current ?? {}, null, 2));
+  const [parseError, setParseError] = useState<string | null>(null);
+  return (
+    <div className="settings-field-object">
+      <textarea
+        aria-label={field.key}
+        value={draft}
+        disabled={saving}
+        rows={Math.min(10, draft.split('\n').length + 1)}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+      <button
+        type="button"
+        className="primary-button"
+        disabled={saving}
+        onClick={() => {
+          try {
+            const parsed: unknown = JSON.parse(draft);
+            if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              setParseError('Value must be a JSON object.');
+              return;
+            }
+            setParseError(null);
+            onCommit(parsed);
+          } catch {
+            setParseError('Not valid JSON.');
+          }
+        }}
+      >
+        Save
+      </button>
+      {parseError && (
+        <div className="banner warning" role="alert">
+          {parseError}
         </div>
       )}
     </div>

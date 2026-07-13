@@ -44,7 +44,7 @@ import {
 import { sdk } from '../../lib/goodvibes';
 import type { ApprovalApproveInput, RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { readApprovalEditHunks, recordedRememberTier, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
+import { isDurableRememberTier, readApprovalEditHunks, recordedAnswerDelivered, recordedReasonStored, recordedRememberTier, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
 import { parseApprovalActionFromHash, stripApprovalActionFragment } from '../../lib/push/approval-action-link';
 import { ApprovalCard, type ApprovalCardApproveInput } from './ApprovalCard';
 import { PermissionRulesSection } from './PermissionRulesSection';
@@ -107,9 +107,9 @@ function ApprovalsSection() {
     mutationFn: ({ id, selectedHunks, rememberTier, answer }: { id: string } & ApprovalCardApproveInput & { totalHunks?: number }) => {
       const input: ApprovalApproveInput = {
         ...(selectedHunks && selectedHunks.length > 0 ? { selectedHunks } : {}),
-        // Remember tier + exec-prompt answer ride the request; whether the
-        // daemon recorded them is verified from the RESPONSE below, never
-        // assumed (this snapshot's HTTP approval route forwards neither).
+        // Remember tier + exec-prompt answer ride the request; the route
+        // forwards them into broker resolution and reports what it did in the
+        // response's `recorded` block, which onSuccess reads below.
         ...(rememberTier ? { rememberTier, remember: true } : {}),
         ...(answer !== undefined ? { modifiedArgs: { answer } } : {}),
       };
@@ -129,11 +129,16 @@ function ApprovalsSection() {
         && variables.totalHunks !== undefined
         && selectedCount < variables.totalHunks;
       const title = isPartial ? `Approved ${selectedCount} of ${variables.totalHunks} hunks` : 'Approved';
-      // Remember/answer honesty: report what the daemon RECORDED, not what was sent.
-      const recordedTier = recordedRememberTier(result.approval);
+      // Remember/answer honesty: report what the daemon RECORDED (the response's
+      // `recorded` block), not what was sent.
+      const recordedTier = recordedRememberTier(result);
       if (variables.rememberTier) {
         if (recordedTier) {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+          // A durable tier minted a rule the sweep can match; a session-scoped
+          // remembering did not, so only refresh the rules list for durable tiers.
+          if (isDurableRememberTier(recordedTier)) {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+          }
           toast({ title, description: `Remembered (${recordedTier}) — matching asks will not prompt again.`, tone: 'success' });
         } else {
           toast({ title, description: 'The daemon did not record the remember request — this decision applied once.', tone: 'info' });
@@ -141,8 +146,7 @@ function ApprovalsSection() {
         return;
       }
       if (variables.answer !== undefined) {
-        const answered = typeof result.approval.decision?.modifiedArgs?.answer === 'string';
-        toast(answered
+        toast(recordedAnswerDelivered(result)
           ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
           : { title, description: 'The daemon did not record the answer — the command was approved without input and may stop on its prompt.', tone: 'info' });
         return;
@@ -159,9 +163,11 @@ function ApprovalsSection() {
     // see sdk.operator.approvals.deny.
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       sdk.operator.approvals.deny(id, reason ? { note: reason, reason } : undefined),
-    onSuccess: async (_result, variables) => {
+    onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
-      toast(variables.reason
+      // Report from the `recorded` block: only claim the reason was fed back
+      // when the daemon actually stored it.
+      toast(variables.reason && recordedReasonStored(result)
         ? { title: 'Denied', description: 'Reason fed back with the denial.', tone: 'info' }
         : { title: 'Denied', tone: 'info' });
     },

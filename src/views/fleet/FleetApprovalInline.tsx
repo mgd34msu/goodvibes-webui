@@ -17,7 +17,7 @@ import { sdk } from '../../lib/goodvibes';
 import type { ApprovalApproveInput, FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { approvalsForNode } from '../../lib/fleet';
-import { readApprovalEditHunks, recordedRememberTier } from '../../lib/approvals';
+import { isDurableRememberTier, readApprovalEditHunks, recordedAnswerDelivered, recordedRememberTier } from '../../lib/approvals';
 import { ApprovalCard, type ApprovalCardApproveInput } from '../approvals/ApprovalCard';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
@@ -59,18 +59,20 @@ export function FleetApprovalInline({ node }: { node: FleetProcessNode }) {
         return rest;
       });
       await invalidate();
-      // Same response-verified remember/answer honesty as ApprovalsTasksView.
-      const recordedTier = recordedRememberTier(result.approval);
+      // Same recorded-block honesty as ApprovalsTasksView: report what the
+      // daemon recorded, not what was sent.
+      const recordedTier = recordedRememberTier(result);
       if (variables.rememberTier) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+        if (recordedTier && isDurableRememberTier(recordedTier)) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
+        }
         toast(recordedTier
           ? { title: 'Approved', description: `Remembered (${recordedTier}).`, tone: 'success' }
           : { title: 'Approved', description: 'The daemon did not record the remember request — applied once.', tone: 'info' });
         return;
       }
       if (variables.answer !== undefined) {
-        const answered = typeof result.approval.decision?.modifiedArgs?.answer === 'string';
-        toast(answered
+        toast(recordedAnswerDelivered(result)
           ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
           : { title: 'Approved', description: 'The daemon did not record the answer — the command may stop on its prompt.', tone: 'info' });
         return;

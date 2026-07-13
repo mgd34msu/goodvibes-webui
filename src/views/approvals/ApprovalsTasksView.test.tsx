@@ -26,8 +26,12 @@ const taskRetryCalls: string[] = [];
 let approvalsListImpl: () => Promise<unknown> = () => Promise.resolve(APPROVALS_FIXTURE);
 let tasksListImpl: () => Promise<unknown> = () => Promise.resolve(TASKS_FIXTURE);
 // The decision the mocked approve() returns on the record — lets a test drive
-// the response-verified remember/answer honesty both ways.
+// the response-verified remember/answer honesty via the back-compat fallback.
 let approveResultDecision: Record<string, unknown> | undefined;
+// The authoritative `recorded` block the mocked approve()/deny() return — lets a
+// test prove the UI trusts the block over what it sent or the decision snapshot.
+let approveResultRecorded: Record<string, unknown> | undefined;
+let denyResultRecorded: Record<string, unknown> | undefined;
 const ruleDeleteCalls: string[] = [];
 let rulesFixture: { id: string; effect: string; tier: string; tool: string; description?: string; createdAt: number }[] = [];
 let ruleDeleteResult = true;
@@ -47,11 +51,15 @@ mock.module('../../lib/goodvibes', () => ({
               status: 'approved',
               ...(approveResultDecision ? { decision: approveResultDecision } : {}),
             },
+            ...(approveResultRecorded ? { recorded: approveResultRecorded } : {}),
           });
         },
         deny: (approvalId: string, input?: unknown) => {
           denyCalls.push({ approvalId, ...(input as object ?? {}) });
-          return Promise.resolve({ approval: { id: approvalId, status: 'denied' } });
+          return Promise.resolve({
+            approval: { id: approvalId, status: 'denied' },
+            ...(denyResultRecorded ? { recorded: denyResultRecorded } : {}),
+          });
         },
         claim: (approvalId: string) => {
           claimCalls.push(approvalId);
@@ -205,6 +213,8 @@ afterEach(() => {
   approvalsListImpl = () => Promise.resolve(APPROVALS_FIXTURE);
   tasksListImpl = () => Promise.resolve(TASKS_FIXTURE);
   approveResultDecision = undefined;
+  approveResultRecorded = undefined;
+  denyResultRecorded = undefined;
   ruleDeleteCalls.length = 0;
   rulesFixture = [];
   ruleDeleteResult = true;
@@ -645,6 +655,31 @@ describe('ApprovalsTasksView — remember tiers', () => {
     unmount();
   });
 
+  test('the response `recorded` block is authoritative — a tier it reports drives the toast even with a silent decision snapshot', async () => {
+    approveResultDecision = undefined; // decision carries no tier
+    approveResultRecorded = { approved: true, rememberTier: 'command-class', reasonStored: false, modifiedArgsDelivered: false };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    setSelect(el.querySelector('.approval-card__remember select'), 'command-class');
+    click(el.querySelector('.approval-card__approve-all'));
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Remembered (command-class)');
+    unmount();
+  });
+
+  test('a recorded block that recorded no tier is honest even when the client asked for one', async () => {
+    // The block is authoritative: it explicitly recorded null, so no claim is made.
+    approveResultRecorded = { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    setSelect(el.querySelector('.approval-card__remember select'), 'tool');
+    click(el.querySelector('.approval-card__approve-all'));
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('did not record the remember request');
+    expect(document.body.textContent).not.toContain('Remembered (');
+    unmount();
+  });
+
   test('approving without touching the picker sends no remember fields', async () => {
     const { el, unmount } = renderWith(REMEMBER_FIXTURE);
     click(el.querySelector('.approval-card__approve-all'));
@@ -668,6 +703,31 @@ describe('ApprovalsTasksView — deny carries an optional reason', () => {
       note: 'wrong branch — run it on main',
       reason: 'wrong branch — run it on main',
     });
+    unmount();
+  });
+
+  test('the denial toast claims the reason was fed back only when the recorded block stored it', async () => {
+    denyResultRecorded = { approved: false, rememberTier: null, reasonStored: true, modifiedArgsDelivered: false };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    (el.querySelector('.approval-card__deny-reason') as HTMLDetailsElement).open = true;
+    setInput(el.querySelector('.approval-card__deny-reason input'), 'wrong branch');
+    click(el.querySelector('.approval-card__deny'));
+    await waitFor(() => denyCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Reason fed back with the denial.');
+    unmount();
+  });
+
+  test('a reason the daemon did not store is not claimed as fed back', async () => {
+    denyResultRecorded = { approved: false, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false };
+    const { el, unmount } = renderWith(REMEMBER_FIXTURE);
+    (el.querySelector('.approval-card__deny-reason') as HTMLDetailsElement).open = true;
+    setInput(el.querySelector('.approval-card__deny-reason input'), 'wrong branch');
+    click(el.querySelector('.approval-card__deny'));
+    await waitFor(() => denyCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Denied');
+    expect(document.body.textContent).not.toContain('Reason fed back');
     unmount();
   });
 
@@ -710,6 +770,29 @@ describe('ApprovalsTasksView — exec-prompt answerable card', () => {
     expect(approveCalls[0]).toEqual({ approvalId: 'appr-exec-prompt', modifiedArgs: { answer: 'yes' } });
     await waitFor(() => Boolean(document.querySelector('.toast')));
     expect(document.body.textContent).toContain('Answer sent');
+    unmount();
+  });
+
+  test('the recorded block drives the answer-sent claim — delivered only when it says so', async () => {
+    // Decision snapshot is silent; the authoritative block reports delivery.
+    approveResultRecorded = { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: true };
+    const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
+    setInput(el.querySelector('.approval-card__exec-answer input'), 'yes');
+    click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Send answer')));
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('Answer sent');
+    unmount();
+  });
+
+  test('an answer the daemon did not deliver is reported honestly, not claimed as sent', async () => {
+    approveResultRecorded = { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: false };
+    const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
+    setInput(el.querySelector('.approval-card__exec-answer input'), 'yes');
+    click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Send answer')));
+    await waitFor(() => approveCalls.length > 0);
+    await waitFor(() => Boolean(document.querySelector('.toast')));
+    expect(document.body.textContent).toContain('did not record the answer');
     unmount();
   });
 

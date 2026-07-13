@@ -15,7 +15,7 @@
  * doc and the ApprovalsTasksView component, which sends indices only.
  */
 
-import type { ApprovalAttribution, ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalRememberOption, ApprovalStatus } from './goodvibes';
+import type { ApprovalActionResult, ApprovalAttribution, ApprovalAuditRecord, ApprovalEditHunk, ApprovalRecord, ApprovalRememberOption, ApprovalStatus } from './goodvibes';
 
 /** APPROVAL_STATUS_SCHEMA (operator-contract-schemas-runtime.ts) at time of writing. */
 export const KNOWN_APPROVAL_STATUSES: readonly ApprovalStatus[] = [
@@ -238,14 +238,44 @@ export function readExecPromptAsk(record: ApprovalRecord): ExecPromptAsk | null 
 }
 
 /**
- * Whether the daemon actually recorded a remembering for this resolved
- * approval — read from the RESPONSE record's decision, never from what the
- * client sent (this snapshot's HTTP approval route drops rememberTier, so an
- * optimistic claim would be a lie). Returns the recorded tier or null.
+ * The remember tier the daemon actually recorded for this resolved approval —
+ * read from the response's authoritative `recorded` block, never from what the
+ * client sent. The HTTP route forwards the requested tier into broker
+ * resolution and reports the tier it recorded (or null) back in that block, so
+ * this is a fact, not an optimistic claim. Falls back to the resolved record's
+ * decision snapshot for a daemon predating the block. Returns the tier or null.
  */
-export function recordedRememberTier(record: ApprovalRecord | undefined): string | null {
-  const tier = record?.decision?.rememberTier;
+export function recordedRememberTier(result: ApprovalActionResult | undefined): string | null {
+  const block = result?.recorded;
+  if (block) {
+    return typeof block.rememberTier === 'string' && block.rememberTier.length > 0 ? block.rememberTier : null;
+  }
+  const tier = result?.approval?.decision?.rememberTier;
   return typeof tier === 'string' && tier.length > 0 ? tier : null;
+}
+
+/**
+ * Whether the daemon persisted the decision's free-text reason (a deny reason,
+ * or an approve note) — from the `recorded` block. Falls back to the presence
+ * of a reason on the resolved record's decision for a pre-block daemon.
+ */
+export function recordedReasonStored(result: ApprovalActionResult | undefined): boolean {
+  const block = result?.recorded;
+  if (block) return block.reasonStored === true;
+  const reason = result?.approval?.decision?.reason;
+  return typeof reason === 'string' && reason.length > 0;
+}
+
+/**
+ * Whether the daemon delivered the decision's modifiedArgs to the waiting run
+ * (e.g. an exec-prompt answer reaching the blocked command) — from the
+ * `recorded` block. Falls back to an answer stamped on the resolved record's
+ * decision.modifiedArgs for a pre-block daemon.
+ */
+export function recordedAnswerDelivered(result: ApprovalActionResult | undefined): boolean {
+  const block = result?.recorded;
+  if (block) return block.modifiedArgsDelivered === true;
+  return typeof result?.approval?.decision?.modifiedArgs?.answer === 'string';
 }
 
 /**

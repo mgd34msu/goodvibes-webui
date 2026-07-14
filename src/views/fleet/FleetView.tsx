@@ -74,7 +74,7 @@ import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import { FleetSessionActions } from './FleetSessionActions';
 import { FleetApprovalInline } from './FleetApprovalInline';
-import { NodeHeadline, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
+import { NodeHeadline, NodeReviewSummary, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
 import { TaskGraphPanel } from '../../components/fleet/TaskGraphPanel';
 import { parseFleetFocusFromHash, stripFleetFocusFragment } from '../../lib/push/fleet-focus-link';
 import '../../styles/components/fleet.css';
@@ -675,6 +675,10 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
       {unbackedNote && (
         <p className="fleet-detail__unbacked-note" role="note">{unbackedNote}</p>
       )}
+
+      {/* The latest review's verdict + acceptance checklist — only on a reviewed
+          wrfc-chain / wrfc-subtask node; renders nothing before a review lands. */}
+      <NodeReviewSummary node={node} />
 
       {node.currentActivity && (
         <div className="fleet-detail__activity">

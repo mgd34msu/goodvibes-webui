@@ -613,6 +613,92 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
   });
 });
 
+describe('FleetView — latest review summary (wrfc acceptance checklist, SDK 1.9.0)', () => {
+  const REVIEWED = {
+    id: 'reviewed-chain', kind: 'wrfc-chain', label: 'Parser chain', state: 'done', elapsedMs: 9000,
+    startedAt: 100, costState: 'unpriced',
+    capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+    review: {
+      score: 92, passed: true, cycles: 2,
+      checklist: [
+        { item: 'Parser handles nested arrays', verified: true, evidence: 'unit test parses [[1,2],[3]]', howExercised: 'bun test src/parser.test.ts' },
+        { item: 'Rejects trailing commas', verified: false, evidence: 'no test exercises this path' },
+      ],
+    },
+  };
+
+  const EMPTY_CHECKLIST = {
+    id: 'empty-review', kind: 'wrfc-subtask', label: 'Empty-checklist subtask', state: 'done', elapsedMs: 3000,
+    startedAt: 90, costState: 'unpriced',
+    capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+    review: { score: 100, passed: true, cycles: 1, checklist: [] },
+  };
+
+  const UNREVIEWED = {
+    id: 'unreviewed-chain', kind: 'wrfc-chain', label: 'Unreviewed chain', state: 'executing-tool', elapsedMs: 1000,
+    startedAt: 80, costState: 'unpriced',
+    capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  };
+
+  function seedFor(node: unknown) {
+    const snap = { capturedAt: 1000, truncated: false, totalCount: 1, nodes: [node] };
+    snapshotImpl = () => Promise.resolve(snap);
+    return render(snap);
+  }
+
+  test('the detail pane renders the verdict, score, cycle count, and every checklist item with its verified state + evidence', () => {
+    const { el, unmount } = seedFor(REVIEWED);
+    click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Parser chain')));
+    const review = el.querySelector('[data-testid="fleet-detail-review"]');
+    expect(review).not.toBeNull();
+    expect(el.querySelector('[data-testid="fleet-review-verdict"]')?.textContent).toBe('Accepted');
+    const text = review?.textContent ?? '';
+    expect(text).toContain('score 92');
+    expect(text).toContain('2 cycles');
+    // Both requirements render, each with its independent-verification state and evidence.
+    expect(text).toContain('Parser handles nested arrays');
+    expect(text).toContain('Verified');
+    expect(text).toContain('unit test parses [[1,2],[3]]');
+    expect(text).toContain('How exercised: bun test src/parser.test.ts');
+    expect(text).toContain('Rejects trailing commas');
+    expect(text).toContain('Not verified');
+    const items = review?.querySelectorAll('[data-testid="fleet-review-checklist"] > li');
+    expect(items?.length).toBe(2);
+    expect(items?.[0].getAttribute('data-verified')).toBe('true');
+    expect(items?.[1].getAttribute('data-verified')).toBe('false');
+    unmount();
+  });
+
+  test('an EMPTY checklist is called out as a gate failure, not shown as an accepted deliverable', () => {
+    const { el, unmount } = seedFor(EMPTY_CHECKLIST);
+    click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Empty-checklist subtask')));
+    expect(el.querySelector('[data-testid="fleet-detail-review"]')).not.toBeNull();
+    const empty = el.querySelector('[data-testid="fleet-review-empty"]');
+    expect(empty?.textContent).toContain('no acceptance checklist');
+    expect(empty?.textContent).toContain('gate failure');
+    // No checklist list rendered when the reviewer emitted none.
+    expect(el.querySelector('[data-testid="fleet-review-checklist"]')).toBeNull();
+    unmount();
+  });
+
+  test('a node with no review renders nothing pre-review — no fabricated "not yet reviewed" shell', () => {
+    const { el, unmount } = seedFor(UNREVIEWED);
+    click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Unreviewed chain')));
+    expect(el.querySelector('.fleet-detail')).not.toBeNull();
+    expect(el.querySelector('[data-testid="fleet-detail-review"]')).toBeNull();
+    unmount();
+  });
+
+  test('a malformed review shape is dropped, never rendered as garbage', () => {
+    const malformed = { ...UNREVIEWED, id: 'bad-review', label: 'Bad review node', review: { score: 'high', passed: 'yes', checklist: 'none' } };
+    const { el, unmount } = seedFor(malformed);
+    click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Bad review node')));
+    expect(el.querySelector('.fleet-detail')).not.toBeNull();
+    expect(el.querySelector('[data-testid="fleet-detail-review"]')).toBeNull();
+    unmount();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Observed foreign agents (SDK 1.8.0's read-only externally-launched
 // coding-agent visibility) — an `observed-external` fleet.snapshot node.

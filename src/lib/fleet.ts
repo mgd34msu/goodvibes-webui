@@ -213,6 +213,69 @@ export function formatDurationMs(ms: number | undefined): string {
   return `${hours}h ${remMinutes}m`;
 }
 
+// ─── Latest review (wrfc-chain / wrfc-subtask acceptance summary) ────────────
+//
+// A wrfc-chain / wrfc-subtask node whose review has COMPLETED carries a derived
+// `review` projection (ProcessReviewSummary, SDK 1.9.0 —
+// platform/runtime/fleet/types.ts, served on fleet.snapshot / fleet.list nodes):
+//   { score, passed, cycles, checklist: [{ item, verified, evidence, howExercised? }] }
+// `passed` is the CONTROLLER verdict (gate-inclusive: checklist + constraints +
+// claims verification) — the reviewer's own claim cannot overstate it. The field
+// is ABSENT before any review has completed (never an empty shell), and an EMPTY
+// `checklist` is itself a gate failure (the reviewer emitted no acceptance items),
+// distinct from the field being absent. Read defensively like the headline/stall
+// tells above — the pinned generated FleetProcessNode type does not declare it
+// (it rides the node's open index signature), and a daemon that predates the
+// projection simply omits it → readReviewSummary returns null and nothing renders.
+
+export interface ReviewChecklistItem {
+  readonly item: string;
+  readonly verified: boolean;
+  readonly evidence: string;
+  readonly howExercised?: string;
+}
+
+export interface ProcessReviewSummary {
+  readonly score: number;
+  readonly passed: boolean;
+  readonly cycles: number;
+  readonly checklist: readonly ReviewChecklistItem[];
+}
+
+/**
+ * The node's latest review summary, or null when the node has not been reviewed
+ * (field absent) or the wire shape is malformed. A well-formed review with an
+ * EMPTY checklist returns a summary with `checklist: []` — that is a real,
+ * renderable state (the reviewer's empty-checklist gate failure), never dropped.
+ */
+export function readReviewSummary(node: FleetProcessNode): ProcessReviewSummary | null {
+  const value = (node as Record<string, unknown>).review;
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.score !== 'number' || !Number.isFinite(candidate.score)) return null;
+  if (typeof candidate.passed !== 'boolean') return null;
+  if (typeof candidate.cycles !== 'number' || !Number.isFinite(candidate.cycles) || candidate.cycles < 0) return null;
+  if (!Array.isArray(candidate.checklist)) return null;
+
+  const checklist: ReviewChecklistItem[] = [];
+  for (const raw of candidate.checklist) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const rec = raw as Record<string, unknown>;
+    if (typeof rec.item !== 'string' || rec.item.trim().length === 0) continue;
+    if (typeof rec.verified !== 'boolean') continue;
+    checklist.push({
+      item: rec.item,
+      verified: rec.verified,
+      evidence: typeof rec.evidence === 'string' ? rec.evidence : '',
+      ...(typeof rec.howExercised === 'string' && rec.howExercised.trim().length > 0
+        ? { howExercised: rec.howExercised }
+        : {}),
+    });
+  }
+
+  return { score: candidate.score, passed: candidate.passed, cycles: candidate.cycles, checklist };
+}
+
 export interface FleetRow {
   readonly node: FleetProcessNode;
   readonly depth: number;

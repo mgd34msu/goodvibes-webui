@@ -12,7 +12,7 @@
  * declare the fields yet; they ride the node's open index signature).
  */
 import type { FleetProcessNode } from '../../lib/goodvibes';
-import { readHeadline, readStallTell, stallTellLabel } from '../../lib/fleet';
+import { readHeadline, readReviewSummary, readStallTell, stallTellLabel } from '../../lib/fleet';
 import { formatRelative } from '../../lib/object';
 
 export function NodeHeadline({ node, block = false }: { readonly node: FleetProcessNode; readonly block?: boolean }) {
@@ -45,5 +45,58 @@ export function NodeStallNote({ node }: { readonly node: FleetProcessNode }) {
     <p className="node-stall-note" role="note" data-testid="fleet-detail-stall">
       {stallTellLabel(stall)} — last activity {formatRelative(stall.since)}
     </p>
+  );
+}
+
+/**
+ * NodeReviewSummary — the latest review's verdict, score, cycles, and acceptance
+ * checklist for a reviewed wrfc-chain / wrfc-subtask node (readReviewSummary,
+ * SDK 1.9.0). Detail-pane only; renders NOTHING before a review has completed
+ * (the field is absent — never a fabricated "not yet reviewed" shell). The
+ * verdict is the CONTROLLER's `passed` (gate-inclusive), not the reviewer's own
+ * claim. Each checklist item shows whether the requirement was independently
+ * VERIFIED (not just scored), with the reviewer's evidence and how it was
+ * exercised. An EMPTY checklist is called out as a gate failure — an accepted
+ * verdict with no acceptance items is not an accepted deliverable.
+ */
+export function NodeReviewSummary({ node }: { readonly node: FleetProcessNode }) {
+  const review = readReviewSummary(node);
+  if (!review) return null;
+  const verdictTone = review.passed ? 'ok' : 'bad';
+  const verdictLabel = review.passed ? 'Accepted' : 'Rejected';
+  return (
+    <div className="fleet-detail__review" data-testid="fleet-detail-review">
+      <div className="fleet-detail__review-head">
+        <strong>Review</strong>
+        <span className={`badge ${verdictTone}`} data-testid="fleet-review-verdict">{verdictLabel}</span>
+        <span className="badge neutral">score {review.score}</span>
+        <span className="badge neutral">{review.cycles} cycle{review.cycles === 1 ? '' : 's'}</span>
+      </div>
+      {review.checklist.length === 0 ? (
+        <p className="fleet-detail__review-empty" role="note" data-testid="fleet-review-empty">
+          The reviewer emitted no acceptance checklist — a gate failure, not an accepted deliverable.
+        </p>
+      ) : (
+        <ul className="fleet-detail__review-checklist" data-testid="fleet-review-checklist">
+          {review.checklist.map((entry, index) => (
+            <li
+              key={`${index}-${entry.item}`}
+              className={entry.verified ? 'verified' : 'unverified'}
+              data-verified={entry.verified}
+            >
+              <span className="fleet-detail__review-mark" aria-hidden="true">{entry.verified ? '✓' : '✗'}</span>
+              <span className="fleet-detail__review-body">
+                <span className="fleet-detail__review-req">{entry.item}</span>
+                <span className="fleet-detail__review-state">{entry.verified ? 'Verified' : 'Not verified'}</span>
+                {entry.evidence && <span className="fleet-detail__review-evidence">{entry.evidence}</span>}
+                {entry.howExercised && (
+                  <span className="fleet-detail__review-exercised">How exercised: {entry.howExercised}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

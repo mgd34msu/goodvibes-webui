@@ -295,3 +295,54 @@ describe('new settings keys from the snapshot schema', () => {
     }
   });
 });
+
+describe('voice.local.* and fleet.maxSize (SDK 1.8.0) — grouping verification', () => {
+  const groups = buildSettingsModel({});
+
+  function groupContaining(key: string): typeof groups[number] | undefined {
+    return groups.find((g) => [
+      ...g.plainRows.map((f) => f.key),
+      ...g.featureUnits.flatMap((u) => [...(u.enablementField ? [u.enablementField.key] : []), ...u.fields.map((f) => f.key)]),
+    ].includes(key));
+  }
+
+  test.each([
+    'voice.local.sttEngine',
+    'voice.local.sttBinary',
+    'voice.local.sttModelPath',
+    'voice.local.ttsEngine',
+    'voice.local.ttsBinary',
+    'voice.local.ttsModelPath',
+  ])('%s renders in the model with a description', (key) => {
+    const group = groupContaining(key);
+    const field = group?.plainRows.find((f) => f.key === key)
+      ?? group?.featureUnits.flatMap((u) => u.fields).find((f) => f.key === key);
+    expect(field, key).toBeDefined();
+    expect(field?.description.length ?? 0).toBeGreaterThan(0);
+  });
+
+  test('every voice.local.* key groups under the "voice" domain, never misfiled elsewhere', () => {
+    for (const key of ['voice.local.sttEngine', 'voice.local.sttBinary', 'voice.local.sttModelPath', 'voice.local.ttsEngine', 'voice.local.ttsBinary', 'voice.local.ttsModelPath']) {
+      expect(groupContaining(key)?.id, key).toBe('voice');
+    }
+  });
+
+  test('fleet.maxSize renders in the model with a description', () => {
+    const group = groupContaining('fleet.maxSize');
+    const field = group?.plainRows.find((f) => f.key === 'fleet.maxSize')
+      ?? group?.featureUnits.flatMap((u) => u.fields).find((f) => f.key === 'fleet.maxSize');
+    expect(field).toBeDefined();
+    expect(field?.description.length ?? 0).toBeGreaterThan(0);
+  });
+
+  test('fleet.maxSize groups under the "fleet" domain, never misfiled under "orchestration" (its pre-rename namespace)', () => {
+    expect(groupContaining('fleet.maxSize')?.id).toBe('fleet');
+  });
+
+  test('the "voice" and "fleet" domain groups get real human labels, not a raw namespace string', () => {
+    const voiceGroup = groups.find((g) => g.id === 'voice');
+    const fleetGroup = groups.find((g) => g.id === 'fleet');
+    expect(voiceGroup?.label).toBe('Voice');
+    expect(fleetGroup?.label).toBe('Fleet');
+  });
+});

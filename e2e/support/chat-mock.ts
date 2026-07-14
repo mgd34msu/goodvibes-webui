@@ -33,6 +33,9 @@ interface StoredMessage {
   revisionOf?: string;
   deliveryState?: 'cancelled' | 'queued';
   inReplyTo?: string;
+  /** Open metadata bag, same shape as the real wire (companion-chat-types.ts). Used by
+   *  the memory-provenance chip proof: `{ memory: { recordIds: string[] } }`. */
+  metadata?: Record<string, unknown>;
 }
 
 interface StoredSession {
@@ -62,6 +65,13 @@ export interface ChatMockOptions {
    * partial persisted); nothing else does.
    */
   holdReplies?: boolean;
+  /**
+   * When set, every appended assistant reply carries
+   * `metadata: { memory: { recordIds: [...] } }` — the memory-provenance chip proof
+   * (MemoryProvenanceChip.tsx / lib/memory-provenance.ts's read convention). Default
+   * unset (no metadata at all, matching a daemon that never stamps this).
+   */
+  assistantReplyMemoryRecordIds?: readonly string[];
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -117,6 +127,9 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       content: `${label}\n\n\`\`\`js\nconsole.log('reply ${seq}');\n\`\`\``,
       attachments: [],
       createdAt: nextTime(),
+      ...(options.assistantReplyMemoryRecordIds?.length
+        ? { metadata: { memory: { recordIds: options.assistantReplyMemoryRecordIds } } }
+        : {}),
     };
     list.push(reply);
     messages.set(sessionId, list);
@@ -161,6 +174,19 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
     // Operator sessions union — empty is fine for the chat journey.
     if (method === 'GET' && path === '/api/sessions') {
       return json(route, { sessions: [], totals: { sessions: 0 } });
+    }
+
+    // memory.records.get — backs the memory-provenance chip's drill-in (a real record
+    // per requested id, so the chip has something honest to show once expanded).
+    const memoryRecordMatch = path.match(/^\/api\/memory\/records\/([^/]+)$/);
+    if (method === 'GET' && memoryRecordMatch) {
+      const id = decodeURIComponent(memoryRecordMatch[1]);
+      return json(route, {
+        record: {
+          id, scope: 'project', cls: 'preference', summary: `Memory record ${id}`, tags: [], provenance: [],
+          reviewState: 'fresh', confidence: 80, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000,
+        },
+      });
     }
 
     // ── Companion chat sessions ────────────────────────────────────────────

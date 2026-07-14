@@ -59,6 +59,10 @@ describe('ui-preferences constants', () => {
   test('DEFAULT_WEBUI_PREFERENCES has codeBlockLineNumbers false', () => {
     expect(DEFAULT_WEBUI_PREFERENCES.codeBlockLineNumbers).toBe(false);
   });
+
+  test('DEFAULT_WEBUI_PREFERENCES has memoryProvenanceChipEnabled false (owner-ruled default OFF)', () => {
+    expect(DEFAULT_WEBUI_PREFERENCES.memoryProvenanceChipEnabled).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -124,6 +128,16 @@ describe('readWebUiPreferences — with storage', () => {
     mockStorage.removeItem(WEBUI_PREFERENCES_KEY);
     expect(readWebUiPreferences()).toEqual(DEFAULT_WEBUI_PREFERENCES);
   });
+
+  test('returns stored value when memoryProvenanceChipEnabled is true', () => {
+    mockStorage.setItem(WEBUI_PREFERENCES_KEY, JSON.stringify({ memoryProvenanceChipEnabled: true }));
+    expect(readWebUiPreferences().memoryProvenanceChipEnabled).toBe(true);
+  });
+
+  test('memoryProvenanceChipEnabled defaults to false when absent from a stored partial object', () => {
+    mockStorage.setItem(WEBUI_PREFERENCES_KEY, JSON.stringify({ codeBlockLineNumbers: true }));
+    expect(readWebUiPreferences().memoryProvenanceChipEnabled).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -160,6 +174,13 @@ describe('writeWebUiPreference — with storage', () => {
     writeWebUiPreference('codeBlockLineNumbers', true);
     writeWebUiPreference('codeBlockLineNumbers', false);
     expect(dispatchedEvents.length).toBe(2);
+  });
+
+  test('writing memoryProvenanceChipEnabled persists independently of codeBlockLineNumbers', () => {
+    writeWebUiPreference('memoryProvenanceChipEnabled', true);
+    const prefs = readWebUiPreferences();
+    expect(prefs.memoryProvenanceChipEnabled).toBe(true);
+    expect(prefs.codeBlockLineNumbers).toBe(false);
   });
 });
 

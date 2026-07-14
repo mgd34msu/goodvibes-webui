@@ -37,6 +37,7 @@ import { MemorySearchHonestyNote } from './MemorySearchHonestyNote';
 import { ReviewQueuePanel } from './ReviewQueuePanel';
 import { AddMemoryForm } from './AddMemoryForm';
 import { MEMORY_CLASSES, MEMORY_SCOPES, isPersonaRecord, splitTags } from './memory-helpers';
+import { useWebUiPreferences } from '../../lib/ui-preferences';
 import '../../styles/components/memory.css';
 
 const DEFAULT_FILTERS: MemorySearchInput = { limit: 100 };
@@ -45,6 +46,7 @@ const PERSONA_FILTER: MemorySearchInput = { cls: 'constraint', tags: [VIBE_PERSO
 export function MemoryView() {
   const queryClient = useQueryClient();
   const peek = usePeek();
+  const [preferences, setPreference] = useWebUiPreferences();
 
   const [queryText, setQueryText] = useState('');
   const [semantic, setSemantic] = useState(false);
@@ -147,6 +149,26 @@ export function MemoryView() {
       fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Memory view failed" />}
     >
       <div className="stack memory-view-stack">
+        <section className="panel memory-provenance-settings" aria-label="Memory chat-provenance setting">
+          <div className="panel-title">
+            <h2>Chat provenance</h2>
+            <Database size={18} aria-hidden="true" />
+          </div>
+          <label className="check-row preference-row">
+            <input
+              type="checkbox"
+              checked={preferences.memoryProvenanceChipEnabled}
+              onChange={(event) => setPreference('memoryProvenanceChipEnabled', event.target.checked)}
+            />
+            <span>Show which memories a chat turn used</span>
+          </label>
+          <p className="form-note">
+            Off by default. When on, a chat reply that drew on memory shows a small chip you can
+            expand to see exactly which records were used. Nothing renders when this is off, or
+            for a turn that used no memories.
+          </p>
+        </section>
+
         <form className="memory-search" onSubmit={submitSearch}>
           <input
             value={queryText}

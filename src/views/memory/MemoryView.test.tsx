@@ -260,3 +260,29 @@ describe('MemoryView — personas (VIBE.md read surface)', () => {
     unmount();
   });
 });
+
+describe('MemoryView — chat-provenance setting (owner-ruled, default OFF)', () => {
+  afterEach(() => {
+    window.localStorage.removeItem('goodvibes.webui.preferences');
+  });
+
+  test('the toggle defaults to unchecked', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('.memory-provenance-settings')));
+    const toggle = el.querySelector('.memory-provenance-settings input[type="checkbox"]') as HTMLInputElement | null;
+    expect(toggle).not.toBeNull();
+    expect(toggle?.checked).toBe(false);
+    unmount();
+  });
+
+  test('toggling it on persists to the shared webui-preferences store', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('.memory-provenance-settings')));
+    const toggle = el.querySelector('.memory-provenance-settings input[type="checkbox"]') as HTMLInputElement;
+    flushSync(() => { toggle.click(); });
+    expect(toggle.checked).toBe(true);
+    const stored = JSON.parse(window.localStorage.getItem('goodvibes.webui.preferences') ?? '{}');
+    expect(stored.memoryProvenanceChipEnabled).toBe(true);
+    unmount();
+  });
+});

@@ -6,6 +6,9 @@ import { MessageLineage, messageIsEdited } from './MessageLineage';
 import { useArtifactsPanel } from './ArtifactsPanel';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { SpeakButton } from '../../components/voice/SpeakButton';
+import { MemoryProvenanceChip } from './MemoryProvenanceChip';
+import { readMemoryProvenanceIds } from '../../lib/memory-provenance';
+import { useWebUiPreferences } from '../../lib/ui-preferences';
 import { asRecord } from '../../lib/object';
 import {
   attachmentLabel,
@@ -62,6 +65,8 @@ export function MessageItem({
   const timestamp = messageTimestamp(message);
   const attachments = messageAttachments(message);
   const isEdited = messageIsEdited(reason, revisionOf);
+  const [{ memoryProvenanceChipEnabled }] = useWebUiPreferences();
+  const memoryProvenanceIds = readMemoryProvenanceIds(message.metadata);
 
   // ---------------------------------------------------------------------------
   // Inline edit state (user messages only)
@@ -247,6 +252,12 @@ export function MessageItem({
           {copiedMessageId === id && <span className="message-action-label">copied</span>}
         </div>
       </div>
+
+      {/* Memory provenance — owner-ruled, default OFF (see ui-preferences.ts). Renders
+          nothing when the preference is off or this turn used no memories. */}
+      {tone === 'assistant' && memoryProvenanceChipEnabled && memoryProvenanceIds.length > 0 && (
+        <MemoryProvenanceChip recordIds={memoryProvenanceIds} />
+      )}
     </article>
   );
 }

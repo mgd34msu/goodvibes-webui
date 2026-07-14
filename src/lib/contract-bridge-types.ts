@@ -42,6 +42,7 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'fleet.attempts.list',
   'fleet.attempts.pick',
   'fleet.attempts.judge',
+  'fleet.observed.steer',
   'sessions.search',
   'sessions.detach',
   'sessions.changes.get',
@@ -122,6 +123,18 @@ export type FleetAttemptsPickInput = OperatorMethodInput<'fleet.attempts.pick'>;
 export type FleetAttemptsPickResult = OperatorMethodOutput<'fleet.attempts.pick'>;
 export type FleetAttemptsJudgeInput = OperatorMethodInput<'fleet.attempts.judge'>;
 export type FleetAttemptsJudgeResult = OperatorMethodOutput<'fleet.attempts.judge'>;
+
+// ─── Observed foreign agents (fleet.observed.steer) ───────────────────────────
+// SDK 1.8.0's read-only visibility of externally-launched coding-agent sessions
+// (an `observed-external` fleet.snapshot node — see the ProcessObserved fields on
+// FleetProcessNode). Steer is the ONE verb offered, and only via the row's
+// drill-in detail (steerDrillInOnly:true, an owner-ruled UX weight) — never a
+// primary/bulk affordance, and never stop (observing is not owning the
+// lifecycle). `id` addresses the observed node itself (not a sessionId — these
+// rows carry no sessionRef). `transport: ["ws"]` only — generic-invoke-only,
+// same family as fleet.attempts.* above.
+export type FleetObservedSteerInput = OperatorMethodInput<'fleet.observed.steer'>;
+export type FleetObservedSteerResult = OperatorMethodOutput<'fleet.observed.steer'>;
 
 // ─── Sessions search (sessions.search) ────────────────────────────────────────
 // SWAP applied: sessions.search now carries a real map entry.

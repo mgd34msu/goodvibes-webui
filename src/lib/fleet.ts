@@ -36,7 +36,22 @@ export const KNOWN_PROCESS_KINDS = [
   'work-item',
   'acp-agent',
   'code-index',
+  'observed-external',
 ] as const;
+
+/**
+ * The one fleet kind goodvibes did not spawn or host — an externally-launched
+ * coding-agent session (Claude Code / Codex / opencode / unknown), read-only
+ * visibility only (SDK 1.8.0). Never killable/interruptible/pausable/resumable
+ * (see the node's own `capabilities`, always false here) and never counted in
+ * "own agent" totals (activeCount below) — it is not goodvibes' process to
+ * count. Steerable only over a genuine channel (node.observed.steer.kind ===
+ * 'tmux'), and only from the row's drill-in detail (steerDrillInOnly is always
+ * true on these rows) — never a primary/bulk affordance.
+ */
+export function isObservedKind(kind: string): boolean {
+  return kind === 'observed-external';
+}
 
 /** PROCESS_STATE_SCHEMA (operator-contract-schemas-fleet.ts) at the time this was written. */
 export const KNOWN_PROCESS_STATES = [
@@ -262,8 +277,25 @@ export function buildFleetRows(nodes: readonly FleetProcessNode[]): FleetRow[] {
   return rows;
 }
 
+/**
+ * "N active" — an OWN-agent count. Observed foreign agents (isObservedKind) are
+ * excluded outright: goodvibes did not spawn them, so counting them alongside
+ * the fleet it actually manages would overstate its own workload. Their
+ * liveness (active/quiet) is a separate, honest signal rendered per-row
+ * (node.observed.liveness), never folded into this total.
+ */
 export function activeCount(nodes: readonly FleetProcessNode[]): number {
-  return nodes.filter((n) => !isTerminalState(n.state)).length;
+  return nodes.filter((n) => !isTerminalState(n.state) && !isObservedKind(n.kind)).length;
+}
+
+/** Total count of nodes goodvibes actually owns/hosts — observed rows excluded (see activeCount). */
+export function ownNodeCount(nodes: readonly FleetProcessNode[]): number {
+  return nodes.filter((n) => !isObservedKind(n.kind)).length;
+}
+
+/** Count of observed (externally-launched) foreign-agent rows in this snapshot. */
+export function observedNodeCount(nodes: readonly FleetProcessNode[]): number {
+  return nodes.filter((n) => isObservedKind(n.kind)).length;
 }
 
 // ─── Best-of-N attempt siblings ────────────────────────────────────────────────

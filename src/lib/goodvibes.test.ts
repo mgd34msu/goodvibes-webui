@@ -56,6 +56,8 @@ import {
   type FleetAttemptsPickResult,
   type FleetAttemptsJudgeInput,
   type FleetAttemptsJudgeResult,
+  type FleetObservedSteerInput,
+  type FleetObservedSteerResult,
   type SessionsSearchInput,
   type SessionsSearchResult,
   type SessionsSearchSessionSummary,
@@ -808,13 +810,15 @@ describe('sdk facade shape — byte-compatible surface', () => {
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
     // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees),
-    // the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit, and
-    // the task-graph read (graph.get) with the 1.8.0 fix-phase workstream rework.
+    // the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit, the
+    // task-graph read (graph.get) with the 1.8.0 fix-phase workstream rework, and the
+    // observed-foreign-agent steer (observed.steer) with the same 1.8.0 round.
     expect(Object.keys(sdk.operator.fleet).sort()).toEqual(
-      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts', 'graph'].sort(),
+      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts', 'graph', 'observed'].sort(),
     );
     expect(Object.keys(sdk.operator.fleet.attempts).sort()).toEqual(['list', 'pick', 'judge'].sort());
     expect(Object.keys(sdk.operator.fleet.graph).sort()).toEqual(['get']);
+    expect(Object.keys(sdk.operator.fleet.observed).sort()).toEqual(['steer']);
     // checkpoints gains the per-hunk revert preview/apply pair with the 1.6.1 review cockpit.
     expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(
       ['create', 'diff', 'list', 'restore', 'restorePreview', 'revertHunkPreview', 'revertHunk'].sort(),
@@ -1059,6 +1063,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'fleet.attempts.judge': {
       proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model',
     } satisfies FleetAttemptsJudgeResult,
+    'fleet.observed.steer': { queued: true, messageId: 'm-1' } satisfies FleetObservedSteerResult,
     'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
     'sessions.detach': {
       session: {
@@ -1112,6 +1117,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'fleet.attempts.list': { workstreamId: 'ws-1' } satisfies FleetAttemptsListInput,
     'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1', confirm: true } satisfies FleetAttemptsPickInput,
     'fleet.attempts.judge': { groupId: 'g-1' } satisfies FleetAttemptsJudgeInput,
+    'fleet.observed.steer': { id: 'observed:1234', text: 'status?' } satisfies FleetObservedSteerInput,
     'sessions.search': {
       query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
       status: 'active', includeClosed: true, limit: 20, cursor: 'c1',

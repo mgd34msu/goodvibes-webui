@@ -52,9 +52,12 @@ import {
   isAwaitingApprovalState,
   isKnownProcessKind,
   isKnownProcessState,
+  isObservedKind,
   isStalledState,
   isTerminalState,
   kindLabel,
+  observedNodeCount,
+  ownNodeCount,
   stateLabel,
   unbackedCapabilityNote,
   wireBackedActions,
@@ -104,6 +107,103 @@ function KindBadge({ kind }: { kind: string }) {
     <span className={`badge ${known ? 'neutral' : 'warning'}`} title={known ? undefined : 'Kind not known to this client — shown verbatim'}>
       {kindLabel(kind)}
     </span>
+  );
+}
+
+/**
+ * ObservedBadge — the honest liveness tell for an observed foreign-agent row
+ * (node.observed.liveness). 'active' means the process's CPU time advanced
+ * since the last detection pass; 'quiet' does NOT mean idle (it may be
+ * blocked on the network or a human) — the daemon's own `detail` states that
+ * distinction verbatim in the title, never a client-invented gloss.
+ */
+function ObservedBadge({ node }: { node: FleetProcessNode }) {
+  if (!node.observed) return null;
+  const { liveness } = node.observed;
+  const tone = liveness.state === 'active' ? 'ok' : 'neutral';
+  return (
+    <span className={`badge ${tone}`} title={liveness.detail}>
+      {liveness.state === 'active' ? 'Active' : 'Quiet'}
+    </span>
+  );
+}
+
+/**
+ * ObservedAgentDetail — the drill-in-only detail for an observed foreign-agent
+ * row (node.kind === 'observed-external'). Renders the honest facts (pid,
+ * liveness, cwd is already shown via node.task above) and the ONE verb this
+ * kind ever offers — steer — gated on a genuine channel:
+ *   - steer.kind 'tmux': a small composer driving fleet.observed.steer, weighted
+ *     as a drill-in-only capability (steerDrillInOnly is always true here —
+ *     never a primary/bulk action, matching this component's placement).
+ *   - steer.kind 'none': the daemon's own plain-language reason, verbatim —
+ *     never a dead button standing in for a missing channel.
+ * Stop/kill/interrupt/pause/resume are NEVER offered for this kind (observing a
+ * foreign session is not owning its lifecycle) — there is no code path here
+ * that could render one.
+ */
+function ObservedAgentDetail({ node, observed }: { node: FleetProcessNode; observed: NonNullable<FleetProcessNode['observed']> }) {
+  const { toast } = useToast();
+  const [draft, setDraft] = useState('');
+
+  const steer = useMutation({
+    mutationFn: (text: string) => sdk.operator.fleet.observed.steer(node.id, text),
+    onSuccess: (result) => {
+      if (result.queued) {
+        toast({ title: 'Sent', description: 'Message delivered over the external session’s channel.', tone: 'success' });
+        setDraft('');
+      } else {
+        toast({ title: 'Not delivered', description: result.reason ?? 'The daemon could not deliver this message.', tone: 'danger' });
+      }
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Steer failed', description: formatError(error), tone: 'danger' });
+    },
+  });
+
+  return (
+    <div className="fleet-detail__observed" aria-label="Observed foreign agent">
+      <p className="fleet-detail__observed-note" role="note">
+        This is an externally-launched coding-agent session goodvibes did not spawn — visibility only.
+        It is never stoppable or interruptible from here.
+      </p>
+      <dl className="fleet-detail__observed-facts">
+        <div>
+          <dt>PID</dt>
+          <dd>{observed.pid}</dd>
+        </div>
+        <div>
+          <dt>Liveness</dt>
+          <dd>{observed.liveness.state === 'active' ? 'Active' : 'Quiet'} — {observed.liveness.detail}</dd>
+        </div>
+      </dl>
+
+      {observed.steer.kind === 'tmux' ? (
+        <form
+          className="fleet-detail__observed-steer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const trimmed = draft.trim();
+            if (trimmed) steer.mutate(trimmed);
+          }}
+        >
+          <label>
+            Send to this session (tmux pane {observed.steer.paneId})
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Message to send over this session's terminal"
+              rows={2}
+            />
+          </label>
+          <button type="submit" className="secondary-button" disabled={steer.isPending || !draft.trim()}>
+            {steer.isPending ? 'Sending…' : 'Send'}
+          </button>
+        </form>
+      ) : (
+        <p className="fleet-detail__observed-no-channel" role="note">{observed.steer.reason}</p>
+      )}
+    </div>
   );
 }
 
@@ -214,6 +314,11 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
   );
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const running = useMemo(() => activeCount(nodes), [nodes]);
+  // Own-agent totals: observed foreign-agent rows are excluded (isObservedKind) — goodvibes
+  // did not spawn them, so folding them into "N node(s)" would overstate its own fleet.
+  // Rendered as a separate, honestly-labeled count instead (never hidden, never conflated).
+  const ownCount = useMemo(() => ownNodeCount(nodes), [nodes]);
+  const observedCount = useMemo(() => observedNodeCount(nodes), [nodes]);
   // Optional-chain `nodes` too: an older daemon (or a degraded surface)
   // answers the unknown verb with an empty object — that must render as an
   // empty archive, never crash the whole Fleet view.
@@ -248,8 +353,9 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
       <div className="fleet-list-pane">
         <div className="fleet-toolbar">
           <span className="fleet-toolbar__summary">
-            <Boxes size={14} /> {nodes.length} node{nodes.length === 1 ? '' : 's'}
+            <Boxes size={14} /> {ownCount} node{ownCount === 1 ? '' : 's'}
             {view === 'active' ? ` · ${running} active` : ' archived'}
+            {view === 'active' && observedCount > 0 ? ` · ${observedCount} observed (external)` : ''}
           </span>
           <button
             className="icon-button"
@@ -365,7 +471,10 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
                     <NodeStallBadge node={node} />
                     <KindBadge kind={node.kind} />
                     <StateBadge state={node.state} />
-                    <span className="badge neutral">{costLabel(node)}</span>
+                    <ObservedBadge node={node} />
+                    {/* Observed foreign agents never report usage/cost — an honest absence,
+                        never a fabricated $0.00. */}
+                    {!isObservedKind(node.kind) && <span className="badge neutral">{costLabel(node)}</span>}
                   </span>
                 </button>
               </li>
@@ -470,11 +579,15 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
           )}
           <KindBadge kind={node.kind} />
           <StateBadge state={node.state} />
-          <span className="badge neutral">
-            {costLabel(node)}
-            {/* Price provenance + the one-action path into manual pricing —
-                only where a model identity exists to price. */}
-          </span>
+          <ObservedBadge node={node} />
+          {/* Observed foreign agents never report usage/cost — honest absence, no $0.00. */}
+          {!isObservedKind(node.kind) && (
+            <span className="badge neutral">
+              {costLabel(node)}
+              {/* Price provenance + the one-action path into manual pricing —
+                  only where a model identity exists to price. */}
+            </span>
+          )}
           {(node.model !== undefined || node.provider !== undefined) && (
             <PriceSourceNote
               provider={node.provider}
@@ -493,6 +606,8 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
           {node.model && <small>· {node.provider ? `${node.provider}/` : ''}{node.model}</small>}
         </div>
       </header>
+
+      {node.kind === 'observed-external' && node.observed && <ObservedAgentDetail node={node} observed={node.observed} />}
 
       <FleetApprovalInline node={node} {...(onOpenSession ? { onOpenSession } : {})} />
 

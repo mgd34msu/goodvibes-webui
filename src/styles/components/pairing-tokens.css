@@ -1,0 +1,107 @@
+/*
+ * Pairing tokens settings/security surface (pairing.tokens.*).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.pairing-tokens-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2, 8px);
+}
+
+.pairing-tokens-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.pairing-token-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.pairing-token-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pairing-token-row__name {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.pairing-token-row__meta {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+.pairing-token-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pairing-token-row__rename-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex: 1;
+}
+
+.pairing-token-row__rename-form input {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 8px;
+  font-size: var(--text-xs, 12px);
+  font-family: inherit;
+  flex: 1;
+  min-width: 8ch;
+}
+
+.pairing-tokens-legacy {
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-3, 12px);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.pairing-tokens-legacy__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pairing-tokens-legacy__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+@media (max-width: 980px) {
+  .pairing-tokens-toolbar .icon-button,
+  .pairing-token-row__actions .icon-button,
+  .pairing-token-row__actions .secondary-button,
+  .pairing-token-row__rename-form button,
+  .pairing-tokens-legacy__actions button {
+    min-height: 44px;
+  }
+}

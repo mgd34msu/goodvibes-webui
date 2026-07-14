@@ -11,7 +11,7 @@
  * from the file the browser loads (the cohesion review's exact finding: the two copies
  * "kept deliberately in sync" had drifted, and nothing loaded sw.js to catch it).
  */
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -26,6 +26,12 @@ function loadServiceWorkerLinkForNotification(): (data: unknown, action?: string
   // those events fire in this test). Nothing else executes at load time.
   const factory = new Function(`${source}\nreturn linkForNotification;`);
   return factory() as (data: unknown, action?: string) => string;
+}
+
+function loadServiceWorkerHandlePushSubscriptionChange(): (event: unknown) => Promise<void> {
+  const source = readFileSync(SW_PATH, 'utf8');
+  const factory = new Function(`${source}\nreturn handlePushSubscriptionChange;`);
+  return factory() as (event: unknown) => Promise<void>;
 }
 
 describe('sw.js linkForNotification (loaded and executed from the real file, not a hand copy)', () => {
@@ -76,5 +82,95 @@ describe('sw.js linkForNotification (loaded and executed from the real file, not
     expect(linkForNotification({ kind: 'needs-input', nodeId: 'a/b', sessionId: 'x y' })).toBe(
       '/?view=fleet#fleet-node=a%2Fb&fleet-session=x%20y',
     );
+  });
+});
+
+// ─── handlePushSubscriptionChange (real sw.js copy) ─────────────────────────
+//
+// A REAL browser-triggered endpoint rotation cannot be produced in this (or any
+// headless) test environment — there is no way to make the OS push service
+// actually rotate a live subscription. What IS tested here, against the exact
+// code the browser runs: given a synthetic pushsubscriptionchange event, the
+// handler (a) re-subscribes using the old subscription's own options (no
+// separately-cached VAPID key needed) and (b) posts the new endpoint/keys to
+// every open window client — the two things the handler can do without a
+// daemon auth token (see the file's own header comment on that boundary).
+describe('sw.js handlePushSubscriptionChange (real sw.js copy)', () => {
+  const selfGlobal = globalThis as unknown as {
+    self: { registration?: unknown; clients?: unknown };
+  };
+
+  afterEach(() => {
+    delete selfGlobal.self.registration;
+    delete selfGlobal.self.clients;
+  });
+
+  test('re-subscribes with the old subscription’s own options and notifies open clients', async () => {
+    const subscribeCalls: unknown[] = [];
+    const postedMessages: unknown[] = [];
+    selfGlobal.self.registration = {
+      pushManager: {
+        async subscribe(options: unknown) {
+          subscribeCalls.push(options);
+          return {
+            toJSON: () => ({ endpoint: 'https://push.example/new-endpoint', keys: { p256dh: 'new-p', auth: 'new-a' } }),
+          };
+        },
+      },
+    };
+    selfGlobal.self.clients = {
+      async matchAll() {
+        return [{ postMessage: (msg: unknown) => postedMessages.push(msg) }];
+      },
+    };
+
+    const handlePushSubscriptionChange = loadServiceWorkerHandlePushSubscriptionChange();
+    const oldOptions = { userVisibleOnly: true, applicationServerKey: 'old-vapid-key' };
+    await handlePushSubscriptionChange({ oldSubscription: { options: oldOptions } });
+
+    expect(subscribeCalls).toEqual([oldOptions]);
+    expect(postedMessages).toEqual([
+      { type: 'goodvibes-push-subscription-changed', endpoint: 'https://push.example/new-endpoint', keys: { p256dh: 'new-p', auth: 'new-a' } },
+    ]);
+  });
+
+  test('no oldSubscription still re-subscribes with a bare userVisibleOnly request (never a dead SW)', async () => {
+    const subscribeCalls: unknown[] = [];
+    selfGlobal.self.registration = {
+      pushManager: {
+        async subscribe(options: unknown) {
+          subscribeCalls.push(options);
+          return { toJSON: () => ({ endpoint: 'https://push.example/new-endpoint', keys: { p256dh: 'p', auth: 'a' } }) };
+        },
+      },
+    };
+    selfGlobal.self.clients = { async matchAll() { return []; } };
+
+    const handlePushSubscriptionChange = loadServiceWorkerHandlePushSubscriptionChange();
+    await handlePushSubscriptionChange({ oldSubscription: null });
+
+    expect(subscribeCalls).toEqual([{ userVisibleOnly: true }]);
+  });
+
+  test('a re-subscribe the browser refuses is swallowed, never an unhandled rejection', async () => {
+    selfGlobal.self.registration = {
+      pushManager: {
+        async subscribe() {
+          throw new Error('permission revoked');
+        },
+      },
+    };
+    let matchAllCalled = false;
+    selfGlobal.self.clients = {
+      async matchAll() {
+        matchAllCalled = true;
+        return [];
+      },
+    };
+
+    const handlePushSubscriptionChange = loadServiceWorkerHandlePushSubscriptionChange();
+    await expect(handlePushSubscriptionChange({ oldSubscription: null })).resolves.toBeUndefined();
+    // The failed re-subscribe returns before ever reaching the client notify step.
+    expect(matchAllCalled).toBe(false);
   });
 });

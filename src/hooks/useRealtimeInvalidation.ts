@@ -58,6 +58,12 @@ const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   // not reconstruct a client-side tree from the deltas. The poll remains as the honest
   // fallback while this stream is down (see FleetView's subscriptionActive gate).
   fleet: [queryKeys.fleet, queryKeys.fleetArchived],
+  // ops: the runtime.ops domain — OPS_POWER_STATE_CHANGED rides it (SDK 1.8.0's host
+  // sleep-ownership work). Invalidating queryKeys.power revalidates the always-visible
+  // "sleep disabled" chip (StatusStrip) and the admin Power panel the instant the owner
+  // keep-awake toggle or the automatic work inhibitor changes on ANY attached surface,
+  // not only on this one's own mutation success.
+  ops: [queryKeys.power],
 };
 
 /** The single multiplexed control-plane stream carrying every domain we invalidate on. */

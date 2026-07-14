@@ -22,7 +22,7 @@ import {
   STEERABLE_SESSION,
   unionListResponse,
 } from './seed';
-import { dispatchOutcome, methodInfoResponse } from './mock-daemon';
+import { dispatchOutcome, fleetGraphResponse, FLEET_GRAPH_WORKSTREAM_ID, methodInfoResponse, powerStatusResponse } from './mock-daemon';
 
 describe('e2e fixtures conform to the SDK operator contract', () => {
   test('providers.list: providersResponse() conforms', () => {
@@ -71,6 +71,15 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
 
   test('control.methods.get: methodInfoResponse() conforms (the sessions.delete capability probe)', () => {
     expect(() => assertFixtureMatchesOperatorContract('control.methods.get', methodInfoResponse('sessions.delete'))).not.toThrow();
+  });
+
+  test('fleet.graph.get: fleetGraphResponse() conforms — proves every node state tell (ready/running/blocked/stalled/done) and the at-cap pool state against the real contract', () => {
+    expect(() => assertFixtureMatchesOperatorContract('fleet.graph.get', fleetGraphResponse(FLEET_GRAPH_WORKSTREAM_ID))).not.toThrow();
+  });
+
+  test('power.status.get / power.keepAwake.set: powerStatusResponse() conforms — the held, honest lid-split case', () => {
+    expect(() => assertFixtureMatchesOperatorContract('power.status.get', powerStatusResponse())).not.toThrow();
+    expect(() => assertFixtureMatchesOperatorContract('power.keepAwake.set', powerStatusResponse())).not.toThrow();
   });
 
   // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the mock

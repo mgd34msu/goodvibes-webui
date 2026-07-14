@@ -66,6 +66,15 @@ let turnsCancelBehavior: (sessionId: string) => Promise<unknown> = () =>
   Promise.resolve({ cancelled: true, turnId: 'turn-1', partialPersisted: false });
 const turnsCancelMock = mock((sessionId: string) => turnsCancelBehavior(sessionId));
 
+// sessions.toolCalls.cancel — controllable per test, capturing every call.
+let toolCallsCancelBehavior: (sessionId: string, callId: string) => Promise<{ sessionId: string; callId: string; cancelled: boolean }> =
+  (sessionId, callId) => Promise.resolve({ sessionId, callId, cancelled: true });
+const toolCallsCancelCalls: { sessionId: string; callId: string }[] = [];
+const toolCallsCancelMock = mock((sessionId: string, callId: string) => {
+  toolCallsCancelCalls.push({ sessionId, callId });
+  return toolCallsCancelBehavior(sessionId, callId);
+});
+
 mock.module('../../lib/goodvibes', () => ({
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1_000, maxDelayMs: 30_000, backoffFactor: 2, maxAttempts: 10 },
   sdk: {
@@ -85,6 +94,13 @@ mock.module('../../lib/goodvibes', () => ({
             return promise;
           },
         ),
+      },
+    },
+    operator: {
+      sessions: {
+        toolCalls: {
+          cancel: toolCallsCancelMock,
+        },
       },
     },
   },
@@ -230,6 +246,24 @@ function renderHookHelper({
       if (container.parentNode) container.parentNode.removeChild(container);
     },
   };
+}
+
+/**
+ * Poll with real timers until `predicate` is true or the timeout elapses,
+ * flushing on every tick. Needed for activeToolCalls assertions specifically:
+ * unlike turnState (routed through the external setTurnState prop, which
+ * itself flushSync's on every call), activeToolCalls is useState INSIDE the
+ * hook, and an update queued from a bare event-handler invocation or a
+ * promise continuation is not guaranteed to have committed by the very next
+ * synchronous line — a single flushSync no-op is not always enough.
+ */
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    flushSync(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -851,5 +885,221 @@ describe('useChatStream — turn.cancelled terminal event', () => {
     expect(ctrl!.disconnect).toHaveBeenCalledTimes(0);
 
     ctx.unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Running tool calls + cancel (SDK 1.8.0's interaction-wins round)
+// ---------------------------------------------------------------------------
+
+describe('useChatStream — activeToolCalls tracking', () => {
+  test('a turn.tool_call event adds an entry; a matching turn.tool_result removes it', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-tools' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-tools', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', toolInput: {},
+    });
+    expect(ctx.result.activeToolCalls).toEqual([{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }]);
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+      type: 'turn.tool_result', sessionId: 'session-tools', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'ok', isError: false,
+    });
+    expect(ctx.result.activeToolCalls).toEqual([]);
+
+    ctx.unmount();
+  });
+
+  test('two concurrent tool calls are both tracked independently', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-tools-2' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-tools-2', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+    });
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-tools-2', turnId: 't1', toolCallId: 'call-2', toolName: 'read',
+    });
+    expect(ctx.result.activeToolCalls.map((c) => c.toolCallId).sort()).toEqual(['call-1', 'call-2']);
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+      type: 'turn.tool_result', sessionId: 'session-tools-2', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: '', isError: false,
+    });
+    expect(ctx.result.activeToolCalls.map((c) => c.toolCallId)).toEqual(['call-2']);
+
+    ctx.unmount();
+  });
+
+  test('a terminal turn.completed clears every active tool call', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-tools-3' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-tools-3', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+      });
+    });
+    expect(ctx.result.activeToolCalls.length).toBe(1);
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.completed', {
+        type: 'turn.completed', sessionId: 'session-tools-3', turnId: 't1', assistantMessageId: 'a1',
+        envelope: { sessionId: 'session-tools-3', messageId: 'a1', body: 'done', source: 'companion-chat-assistant', timestamp: 1 },
+      });
+    });
+    expect(ctx.result.activeToolCalls).toEqual([]);
+
+    ctx.unmount();
+  });
+
+  test('a duplicate turn.tool_call for the same id does not double-add', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-tools-4' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    for (let i = 0; i < 2; i++) {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-tools-4', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+      });
+    }
+    expect(ctx.result.activeToolCalls.length).toBe(1);
+
+    ctx.unmount();
+  });
+});
+
+describe('useChatStream — cancelToolCall()', () => {
+  beforeEach(() => {
+    toolCallsCancelCalls.length = 0;
+    toolCallsCancelBehavior = (sessionId, callId) => Promise.resolve({ sessionId, callId, cancelled: true });
+  });
+
+  test('calls sessions.toolCalls.cancel with the active session and the given callId', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-cancel-tool' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-cancel-tool', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+    });
+
+    await ctx.result.cancelToolCall('call-1');
+    expect(toolCallsCancelCalls).toEqual([{ sessionId: 'session-cancel-tool', callId: 'call-1' }]);
+
+    ctx.unmount();
+  });
+
+  test('on {cancelled:true}, the local entry is marked cancelled but NOT removed (removed only by the real turn.tool_result)', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-cancel-tool-2' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-cancel-tool-2', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+      });
+    });
+
+    await ctx.result.cancelToolCall('call-1');
+    await waitFor(() => ctx.result.activeToolCalls.some((c) => c.cancelled));
+    expect(ctx.result.activeToolCalls).toEqual([{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: true }]);
+
+    // The turn continues — a later, unrelated tool call still tracks normally.
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-cancel-tool-2', turnId: 't1', toolCallId: 'call-2', toolName: 'read',
+      });
+    });
+    expect(ctx.result.activeToolCalls.map((c) => c.toolCallId).sort()).toEqual(['call-1', 'call-2']);
+
+    // The daemon's real result for the cancelled call arrives — NOW it is removed.
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-cancel-tool-2', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'cancelled', isError: true,
+      });
+    });
+    expect(ctx.result.activeToolCalls.map((c) => c.toolCallId)).toEqual(['call-2']);
+
+    ctx.unmount();
+  });
+
+  test('on {cancelled:false} (the daemon declined), the entry is left untouched and the caller can read the refusal', async () => {
+    toolCallsCancelBehavior = (sessionId, callId) => Promise.resolve({ sessionId, callId, cancelled: false });
+    const ctx = renderHookHelper({ activeSessionId: 'session-cancel-tool-3' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-cancel-tool-3', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+    });
+
+    const result = await ctx.result.cancelToolCall('call-1');
+    expect(result.cancelled).toBe(false);
+    expect(ctx.result.activeToolCalls).toEqual([{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }]);
+
+    ctx.unmount();
+  });
+
+  test('a session switch clears any leftover active tool calls from the prior session', async () => {
+    // Mirrors renderForSwitch (the epoch-guard describe block below) rather than
+    // renderHookHelper, which never varies activeSessionId across renders.
+    let result!: UseChatStreamResult;
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const setTurnState = mock((_next: SetStateAction<string>) => {});
+    const setTurnError = mock((_next: SetStateAction<string>) => {});
+    function renderWith(sessionId: string) {
+      flushSync(() => {
+        root.render(
+          React.createElement(HookOwner, {
+            activeSessionId: sessionId,
+            turnState: 'streaming',
+            setTurnState,
+            setTurnError,
+            onAuthExpired: mock(() => {}),
+            onResult: (r: UseChatStreamResult) => { result = r; },
+          }),
+        );
+      });
+    }
+
+    renderWith('session-cancel-tool-4a');
+    const ctrlA = allStreamControls[allStreamControls.length - 1];
+    ctrlA!.resolveFn(ctrlA!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+    // This harness's setTurnState mock does not flushSync on its own (unlike
+    // renderHookHelper's), so the event must be fired inside an explicit flushSync.
+    ctrlA!.options.onEvent?.('companion-chat.turn.tool_call', {
+      type: 'turn.tool_call', sessionId: 'session-cancel-tool-4a', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+    });
+    await waitFor(() => result.activeToolCalls.length === 1);
+
+    // Switch sessions — the new connect effect resets activeToolCalls, exactly
+    // like it resets liveText/turnError.
+    renderWith('session-cancel-tool-4b');
+    await waitFor(() => result.activeToolCalls.length === 0);
+    expect(result.activeToolCalls).toEqual([]);
+
+    flushSync(() => { root.unmount(); });
+    if (container.parentNode) container.parentNode.removeChild(container);
   });
 });

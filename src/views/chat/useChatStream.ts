@@ -40,6 +40,21 @@ interface UseChatStreamOptions {
   turnState?: string;
 }
 
+/**
+ * One tool call currently in flight for the active turn (turn.tool_call ->
+ * turn.tool_result). `cancelled` is set OPTIMISTICALLY the instant
+ * sessions.toolCalls.cancel resolves `cancelled: true` — the entry is not
+ * removed until the matching turn.tool_result (or a terminal turn event)
+ * actually arrives, so "Cancelled" renders honestly for exactly as long as the
+ * daemon is still winding the call down, never flashing to nothing early.
+ */
+export interface ActiveToolCall {
+  readonly turnId: string;
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly cancelled: boolean;
+}
+
 export interface UseChatStreamResult {
   /** Whether a turn is actively in-flight (running, streaming, tooling, or reconnecting). */
   isStreaming: boolean;
@@ -58,6 +73,17 @@ export interface UseChatStreamResult {
    * explicit re-open. Safe to call any time — it just re-runs the connect effect.
    */
   retryStream: () => void;
+  /** Tool calls currently running for this turn (see ActiveToolCall). Empty outside
+   *  a 'tooling' window and cleared on every terminal turn event. */
+  activeToolCalls: readonly ActiveToolCall[];
+  /**
+   * Cancel ONE running tool call (sessions.toolCalls.cancel) — the turn itself
+   * continues; only this one call is stopped. Marks the local entry
+   * `cancelled: true` on a `{cancelled: true}` response; a `{cancelled: false}`
+   * response (the daemon declined — e.g. the call already finished) surfaces via
+   * the returned promise so the caller can toast the honest reason.
+   */
+  cancelToolCall: (callId: string) => Promise<{ cancelled: boolean }>;
 }
 
 export function useChatStream({
@@ -85,6 +111,8 @@ export function useChatStream({
   // Bumped by retryStream() to force a fresh connect after the SDK's own
   // reconnect loop gives up (it never retries again on its own past onTerminate).
   const [retryNonce, setRetryNonce] = useState(0);
+  // Tool calls currently in flight for this turn — see ActiveToolCall's own doc comment.
+  const [activeToolCalls, setActiveToolCalls] = useState<readonly ActiveToolCall[]>([]);
 
   // Forward state updates to the caller's authoritative turnState.
   const syncedSetTurnState: Dispatch<SetStateAction<string>> = useCallback(
@@ -158,6 +186,7 @@ export function useChatStream({
     setLiveText('');
     liveTextRef.current = '';
     setTurnError('');
+    setActiveToolCalls([]);
 
     // True once a drop has been reported for THIS connection instance (an onReconnect
     // fired). Lets onReady tell "the very first connect" (say nothing, turnState is
@@ -229,7 +258,29 @@ export function useChatStream({
           return;
         }
 
-        if (type === 'turn.tool_call' || type === 'turn.tool_result') {
+        if (type === 'turn.tool_call') {
+          const turnId = firstString(payload, ['turnId']);
+          const toolCallId = firstString(payload, ['toolCallId']);
+          const toolName = firstString(payload, ['toolName']);
+          if (toolCallId) {
+            setActiveToolCalls((current) => (
+              current.some((c) => c.toolCallId === toolCallId)
+                ? current
+                : [...current, { turnId, toolCallId, toolName, cancelled: false }]
+            ));
+          }
+          syncedSetTurnState('tooling');
+          return;
+        }
+
+        if (type === 'turn.tool_result') {
+          // The tool call ended (normally OR because it was cancelled — either way
+          // the daemon's own result arrived, so the honest thing is to drop the
+          // entry rather than leave a stale "Cancelled" chip behind).
+          const toolCallId = firstString(payload, ['toolCallId']);
+          if (toolCallId) {
+            setActiveToolCalls((current) => current.filter((c) => c.toolCallId !== toolCallId));
+          }
           syncedSetTurnState('tooling');
           return;
         }
@@ -255,6 +306,7 @@ export function useChatStream({
           }
           setLiveText('');
           liveTextRef.current = '';
+          setActiveToolCalls([]);
           void invalidateChatState(activeSessionId);
           return;
         }
@@ -268,6 +320,7 @@ export function useChatStream({
           syncedSetTurnState('stopped');
           setLiveText('');
           liveTextRef.current = '';
+          setActiveToolCalls([]);
           void invalidateChatState(activeSessionId);
           return;
         }
@@ -275,6 +328,7 @@ export function useChatStream({
         if (type === 'turn.error') {
           syncedSetTurnState('error');
           setTurnError(firstString(payload, ['error']) || 'Companion chat turn failed.');
+          setActiveToolCalls([]);
           void invalidateChatState(activeSessionId);
         }
       },
@@ -372,5 +426,20 @@ export function useChatStream({
 
   const isStreaming = ACTIVE_TURN_STATES.includes(turnState ?? 'idle');
 
-  return { isStreaming, stop, retryStream };
+  // cancelToolCall: the turn ITSELF keeps running — only this one tool call is
+  // stopped (unlike stop(), which ends the whole turn). Marks the local entry
+  // cancelled:true on {cancelled:true}; the entry is removed for real once the
+  // matching turn.tool_result (or a terminal turn event) arrives above.
+  const cancelToolCall = useCallback(
+    async (callId: string): Promise<{ cancelled: boolean }> => {
+      const result = await sdk.operator.sessions.toolCalls.cancel(activeSessionId, callId);
+      if (result.cancelled) {
+        setActiveToolCalls((current) => current.map((c) => (c.toolCallId === callId ? { ...c, cancelled: true } : c)));
+      }
+      return result;
+    },
+    [activeSessionId],
+  );
+
+  return { isStreaming, stop, retryStream, activeToolCalls, cancelToolCall };
 }

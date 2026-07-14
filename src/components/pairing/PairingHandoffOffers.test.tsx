@@ -55,7 +55,10 @@ mock.module('../../lib/stepup', () => ({
 
 const { PairingHandoffOffers } = await import('./PairingHandoffOffers');
 
-function render(offers: ('notifications' | 'relay' | 'passkey')[]): { el: HTMLElement; unmount: () => void; onDoneCalls: number[] } {
+function render(
+  offers: ('notifications' | 'relay' | 'passkey')[],
+  postureNotice?: string | null,
+): { el: HTMLElement; unmount: () => void; onDoneCalls: number[] } {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -65,6 +68,7 @@ function render(offers: ('notifications' | 'relay' | 'passkey')[]): { el: HTMLEl
       React.createElement(PairingHandoffOffers, {
         offers,
         onDone: () => onDoneCalls.push(Date.now()),
+        ...(postureNotice !== undefined ? { postureNotice } : {}),
       }),
     );
   });
@@ -117,6 +121,18 @@ describe('PairingHandoffOffers rendering', () => {
     const checkboxes = [...el.querySelectorAll('input[type="checkbox"]')] as HTMLInputElement[];
     expect(checkboxes).toHaveLength(2);
     expect(checkboxes.every((c) => c.checked)).toBe(true);
+    unmount();
+  });
+
+  test('renders the daemon\'s posture notice line, verbatim, when present', () => {
+    const { el, unmount } = render(['notifications'], 'Connection is unencrypted on your LAN. Everything works except browser-gated features; Tailscale gives encrypted access with the full app.');
+    expect(el.textContent).toContain('Connection is unencrypted on your LAN.');
+    unmount();
+  });
+
+  test('renders no notice when the origin is already a secure context (posture carried none)', () => {
+    const { el, unmount } = render(['notifications'], null);
+    expect(el.querySelector('.pairing-handoff-posture-notice')).toBeNull();
     unmount();
   });
 });

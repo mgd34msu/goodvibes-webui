@@ -34,6 +34,7 @@ import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { StepUpHost } from './components/auth/StepUpHost';
 import { PairingHandoffOffers } from './components/pairing/PairingHandoffOffers';
+import { PairingPostureNotice } from './components/pairing/PairingPostureNotice';
 import { RelayOverflowBanner } from './components/status/RelayOverflowBanner';
 import { DaemonReceipts } from './components/status/DaemonReceipts';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
@@ -444,9 +445,21 @@ export default function App() {
     {/* A hand-off bundle (#pair=<token>&offers=…) surfaces its offer set once the
         token has validated — usePairingHandoff clears it back to [] via
         dismissOffers once the operator has decided (submitted or explicitly
-        skipped everything), so this never reopens on its own. */}
+        skipped everything), so this never reopens on its own. The daemon's one
+        honest plain-http-on-LAN notice line (postureNotice) rides the SAME
+        one-shot modal when there IS an offer set. */}
     {pairing.offers.length > 0 && (
-      <PairingHandoffOffers offers={pairing.offers} onDone={pairing.dismissOffers} />
+      <PairingHandoffOffers
+        offers={pairing.offers}
+        onDone={() => { pairing.dismissOffers(); pairing.dismissPostureNotice(); }}
+        postureNotice={pairing.postureNotice}
+      />
+    )}
+    {/* A plain #pair=<token> hand-off (no offer set) has no modal of its own — the
+        posture notice, if any, gets this standalone one-shot banner instead. Never
+        re-appears once dismissed (postureNotice only fires once per hand-off). */}
+    {pairing.offers.length === 0 && pairing.postureNotice && (
+      <PairingPostureNotice notice={pairing.postureNotice} onDismiss={pairing.dismissPostureNotice} />
     )}
     <RelayOverflowBanner />
     {/* Undelivered daemon receipts, consumed once on connect (see DaemonReceipts). */}

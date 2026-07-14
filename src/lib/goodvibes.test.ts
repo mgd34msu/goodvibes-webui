@@ -724,12 +724,13 @@ describe('sdk facade shape — byte-compatible surface', () => {
     );
   });
 
-  test('sdk.operator.pairing exposes the per-device token + hand-off verbs', () => {
-    expect(Object.keys(sdk.operator.pairing).sort()).toEqual(['tokens', 'handoff'].sort());
+  test('sdk.operator.pairing exposes the per-device token + hand-off + posture verbs', () => {
+    expect(Object.keys(sdk.operator.pairing).sort()).toEqual(['tokens', 'handoff', 'posture'].sort());
     expect(Object.keys(sdk.operator.pairing.tokens).sort()).toEqual(
       ['list', 'create', 'migrate', 'rename', 'delete', 'revokeShared'].sort(),
     );
     expect(Object.keys(sdk.operator.pairing.handoff).sort()).toEqual(['create', 'complete'].sort());
+    expect(Object.keys(sdk.operator.pairing.posture).sort()).toEqual(['get'].sort());
   });
 
   test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs', () => {

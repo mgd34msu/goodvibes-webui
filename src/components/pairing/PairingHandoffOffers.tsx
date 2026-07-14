@@ -41,6 +41,12 @@ import '../../styles/components/pairing-handoff.css';
 export interface PairingHandoffOffersProps {
   offers: readonly PairingOfferKind[];
   onDone: () => void;
+  /**
+   * The daemon's one honest plain-http-on-LAN notice line (usePairingHandoff's
+   * postureNotice), shown once at the top of this modal — never a nag, since this
+   * modal itself only ever appears once per hand-off.
+   */
+  postureNotice?: string | null;
 }
 
 const OFFER_META: Record<PairingOfferKind, { label: string; description: string; icon: typeof BellRing }> = {
@@ -68,7 +74,7 @@ const STATUS_LABEL: Record<PairingHandoffOutcome['status'], string> = {
   failed: 'Failed',
 };
 
-export function PairingHandoffOffers({ offers, onDone }: PairingHandoffOffersProps) {
+export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingHandoffOffersProps) {
   const [accepted, setAccepted] = useState<Partial<Record<PairingOfferKind, boolean>>>(() =>
     Object.fromEntries(offers.map((kind) => [kind, true])),
   );
@@ -145,6 +151,9 @@ export function PairingHandoffOffers({ offers, onDone }: PairingHandoffOffersPro
   return (
     <Modal open title="Finish pairing this device" onClose={onDone}>
       <div className="pairing-handoff">
+        {postureNotice && (
+          <p className="banner info pairing-handoff-posture-notice" role="status">{postureNotice}</p>
+        )}
         {phase === 'done' ? (
           <>
             <p className="form-note">Here’s what happened with each offer from this pairing link:</p>

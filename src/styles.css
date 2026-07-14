@@ -565,6 +565,19 @@ button:disabled {
   border: 1px solid #f0d39b;
 }
 
+/* Informational, not a warning — the plain-http-on-LAN posture notice
+   (pairing.posture.get's one honest notice line): everything works, this is a
+   deliberate supported deployment, not a problem to fix. */
+.banner.info {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border: 1px solid var(--blue-soft);
+}
+
+:root[data-theme="light"] .banner.info {
+  color: #1d3a99;
+}
+
 .action-banner {
   justify-content: space-between;
 }

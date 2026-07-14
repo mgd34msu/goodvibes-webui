@@ -28,6 +28,7 @@
 
 import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
 import { NodeHeadline, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
+import { TaskGraphPanel } from '../../components/fleet/TaskGraphPanel';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, Workflow } from 'lucide-react';
@@ -240,6 +241,8 @@ function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: ()
           <small>Agent: {node.sessionRef.agentId}</small>
         </div>
       )}
+
+      {node.kind === 'workstream' && <TaskGraphPanel workstreamId={node.id} />}
 
       <details className="workstream-detail__raw">
         <summary>Raw node</summary>

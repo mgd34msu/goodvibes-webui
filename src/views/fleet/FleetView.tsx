@@ -75,6 +75,7 @@ import { useToast } from '../../lib/toast';
 import { FleetSessionActions } from './FleetSessionActions';
 import { FleetApprovalInline } from './FleetApprovalInline';
 import { NodeHeadline, NodeStallBadge, NodeStallNote } from '../../components/fleet/NodeTells';
+import { TaskGraphPanel } from '../../components/fleet/TaskGraphPanel';
 import { parseFleetFocusFromHash, stripFleetFocusFragment } from '../../lib/push/fleet-focus-link';
 import '../../styles/components/fleet.css';
 
@@ -703,6 +704,8 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
           {node.sessionRef.agentId && <small> · agent {node.sessionRef.agentId}</small>}
         </div>
       )}
+
+      {node.kind === 'workstream' && <TaskGraphPanel workstreamId={node.id} />}
 
       <details className="fleet-detail__raw">
         <summary>Raw node</summary>

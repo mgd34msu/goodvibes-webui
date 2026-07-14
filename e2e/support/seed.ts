@@ -729,6 +729,24 @@ export const FLEET_CONFLICT_NODE = {
   needsAttention: { reason: 'conflict', detail: 'merge conflict in src/checkout.ts' },
 };
 
+// The one workstream node whose id matches mock-daemon.ts's FLEET_GRAPH_WORKSTREAM_ID
+// ('ws-e2e-graph', kept as a literal here rather than imported to avoid a cycle —
+// mock-daemon.ts imports FROM this module) — opening it in WorkstreamView/FleetView
+// triggers fleet.graph.get for an id the mock actually answers (the representative
+// fleetGraphResponse() fixture), proving the task-graph panel end to end.
+export const FLEET_GRAPH_WORKSTREAM_NODE = {
+  id: 'ws-e2e-graph',
+  kind: 'workstream',
+  label: 'Fix findings from the review',
+  state: 'executing-tool',
+  elapsedMs: 60000,
+  startedAt: 600,
+  costUsd: 0.3,
+  costState: 'priced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  usage: { inputTokens: 200, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0, llmCallCount: 3, turnCount: 3, toolCallCount: 4 },
+};
+
 // Observed foreign agents (SDK 1.8.0's read-only externally-launched coding-agent
 // visibility) — an `observed-external` node goodvibes did not spawn or host. Two
 // shapes, matching the SDK's own adaptObservedAgent: a steerable one (a genuine tmux
@@ -781,10 +799,10 @@ export const FLEET_OBSERVED_NO_CHANNEL_NODE = {
 export const FLEET_SNAPSHOT = {
   capturedAt: 1000,
   truncated: false,
-  totalCount: 7,
+  totalCount: 8,
   nodes: [
     FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE, FLEET_PICK_NODE, FLEET_CONFLICT_NODE,
-    FLEET_OBSERVED_STEERABLE_NODE, FLEET_OBSERVED_NO_CHANNEL_NODE,
+    FLEET_OBSERVED_STEERABLE_NODE, FLEET_OBSERVED_NO_CHANNEL_NODE, FLEET_GRAPH_WORKSTREAM_NODE,
   ],
 };
 

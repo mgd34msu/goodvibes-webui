@@ -6,6 +6,49 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-14
+
+Ships against `@pellux/goodvibes-sdk` 1.9.0. This release rolls up the pairing,
+fleet, task-graph, voice, memory-provenance, and remote-access work accumulated
+since 1.5.0, adds the fleet review acceptance checklist, and re-pins from the
+local dev-link build onto the published 1.9.0 package.
+
+### Added
+
+- **Fleet review acceptance checklist.** A reviewed WRFC chain or sub-deliverable
+  node now renders the latest review's verdict, score, and cycle count, plus the
+  acceptance checklist itself — each requirement listed with whether it was
+  independently verified (not just scored), the reviewer's evidence, and how it
+  was exercised. The verdict is the controller's gate-inclusive `passed`, not the
+  reviewer's own claim. An empty checklist is called out as a gate failure rather
+  than shown as an accepted deliverable, and a node renders nothing before its
+  review has completed.
+- **Pairing depth.** QR and token pairing, hand-off between surfaces, single-use
+  pairing tokens, and push-subscription reconcile on connect, with the daemon's
+  own posture and reason text rendered verbatim.
+- **Fleet attention and observed agents.** Best-of-N pick and merge-conflict
+  states join approval/input as one waiting-on-a-human class; externally-launched
+  coding-agent sessions appear as read-only observed rows (visibility only, never
+  counted as own agents); the `acp-agent` kind renders with the generic kind
+  badge.
+- **Fix-phase task graph.** A fix workstream's dependency graph renders and stays
+  legible on a phone.
+- **Local voice provider.** The speech-to-text provider selection shows a local
+  option beside ElevenLabs, driven by the SDK's `voice.local.*` surface.
+- **Turn and queue control.** A running tool call can be cancelled; queued
+  messages stay editable and deletable before they send.
+- **Memory provenance and receipts.** A provenance chip proves the real
+  `TURN_COMPLETED` wire convention on and off; consolidation receipts route the
+  records they concern to the existing review queue.
+- **One-action remote access.** A single action stands up Tailscale HTTPS serving
+  for reaching the surface across the LAN.
+
+### Changed
+
+- Re-pinned `@pellux/goodvibes-sdk` from the local dev-link build to the published
+  `1.9.0` registry package; removed the dev-link `file:` overrides so all nested
+  `@pellux` resolutions come from the registry.
+
 ## [1.5.0] - 2026-07-13
 
 Ships against `@pellux/goodvibes-sdk` 1.8.0. This release rolls up the

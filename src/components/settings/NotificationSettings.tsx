@@ -19,35 +19,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellRing, BellOff, Send, ShieldAlert, Smartphone } from 'lucide-react';
 import {
   currentSubscription,
+  describePushSubscribeError,
   sendTestPush,
   subscribeToPush,
   unsubscribeFromPush,
-  PushSubscribeError,
 } from '../../lib/push/push-client';
 import { detectPushSupport, readNotificationPermission } from '../../lib/push/push-support';
 import type { PushSupport, NotificationPermissionState } from '../../lib/push/push-support';
 import { useInstallPrompt } from '../../lib/pwa/install-prompt';
-import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/notifications.css';
 
-function pushErrorMessage(error: unknown): string {
-  if (error instanceof PushSubscribeError) {
-    switch (error.reason) {
-      case 'insecure-context':
-        return 'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home machine, `tailscale serve` fronts the daemon with an HTTPS hostname.';
-      case 'permission-denied':
-        return 'Notifications are blocked for this site. Re-enable them in your browser’s site settings, then try again.';
-      case 'unsupported':
-        return 'This browser does not support Web Push. On iOS, install the app to the Home Screen first (iOS 16.4+ delivers push only to an installed app).';
-      case 'no-registration':
-        return 'The service worker is not ready yet. Reload the page and try again.';
-      default:
-        return 'Could not complete the push subscription. Please try again.';
-    }
-  }
-  return formatError(error);
-}
+const pushErrorMessage = describePushSubscribeError;
 
 export function NotificationSettings() {
   const queryClient = useQueryClient();

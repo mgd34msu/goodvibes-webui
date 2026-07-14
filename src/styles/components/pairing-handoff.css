@@ -1,0 +1,98 @@
+/*
+ * Pairing hand-off offer decisions (pairing.handoff.*).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.pairing-handoff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.pairing-handoff-offers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.pairing-handoff-offer {
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.pairing-handoff-offer__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.pairing-handoff-offer__label {
+  font-weight: 600;
+  font-size: var(--text-sm, 13px);
+}
+
+.pairing-handoff-offer__desc {
+  margin: 4px 0 0 26px;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+}
+
+.pairing-handoff-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.pairing-handoff-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.pairing-handoff-result__status {
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.pairing-handoff-result--completed .pairing-handoff-result__status {
+  color: var(--status-success);
+}
+
+.pairing-handoff-result--failed .pairing-handoff-result__status {
+  color: var(--status-danger);
+}
+
+.pairing-handoff-result--declined .pairing-handoff-result__status,
+.pairing-handoff-result--unavailable .pairing-handoff-result__status {
+  color: var(--text-tertiary);
+}
+
+.pairing-handoff-result__detail {
+  flex-basis: 100%;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 980px) {
+  .pairing-handoff-offer__row input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
+  }
+}

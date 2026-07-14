@@ -1365,6 +1365,41 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         pairingStore.legacySharedRevoked = true;
         return json(route, { legacySharedRevoked: true });
       }
+      // ── Pairing hand-off (pairing.handoff.*, SDK 1.8.0) — the QR/deep-link
+      //    bundle: one token + an offer set (notifications/relay/passkey), each
+      //    independently declinable. create mints a token via the SAME store as
+      //    pairing.tokens.* above; complete mirrors the real daemon's honest
+      //    per-offer status (present in `accept` → completed, omitted or
+      //    explicitly false → declined) — good enough to prove the client
+      //    renders each outcome honestly, without modeling `unavailable`/
+      //    `failed` server-side (those are exercised as CLIENT-side ceremony
+      //    failures in PairingHandoffOffers.test.tsx). ─────────────────────
+      if (methodId === 'pairing.handoff.create') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { name?: string; offers?: string[] } };
+        const name = body.body?.name ?? 'Paired device';
+        const offers = body.body?.offers ?? ['notifications', 'relay', 'passkey'];
+        pairingIdCounter += 1;
+        const minted = { id: `pairing_e2e_${pairingIdCounter}`, name, token: `e2e-handoff-token-${pairingIdCounter}`, createdAt: Date.now() };
+        pairingStore.tokens = [...pairingStore.tokens, minted];
+        return json(route, {
+          token: minted,
+          offers: offers.map((kind) => (kind === 'notifications' ? { kind, available: true, vapidPublicKey: pushVapidKey } : { kind, available: true })),
+          fragment: `pair=${minted.token}&offers=${offers.join(',')}`,
+        });
+      }
+      if (methodId === 'pairing.handoff.complete') {
+        const body = (route.request().postDataJSON?.() ?? {}) as {
+          body?: { accept?: { notifications?: unknown; relay?: unknown; passkey?: unknown } };
+        };
+        const accept = body.body?.accept ?? {};
+        const results = (['notifications', 'relay', 'passkey'] as const).map((kind) => {
+          const offered = accept[kind];
+          return offered === undefined || offered === false
+            ? { kind, status: 'declined' }
+            : { kind, status: 'completed' };
+        });
+        return json(route, { results });
+      }
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures
       // (WEBUI_METHOD_SAMPLES). This structurally kills the "unknown invoke id answers {}"

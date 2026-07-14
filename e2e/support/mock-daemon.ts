@@ -360,6 +360,8 @@ export interface MockDaemon {
   keepAwakeSetRequests: boolean[];
   /** Every sessions.toolCalls.cancel POST captured, in order. */
   toolCallCancelRequests: { sessionId: string; callId: string }[];
+  /** Every fleet.observed.steer invoke captured, in order. */
+  observedSteerRequests: { id: string; text: string }[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -475,6 +477,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     approvalActions: [],
     keepAwakeSetRequests: [],
     toolCallCancelRequests: [],
+    observedSteerRequests: [],
   };
   // power.status.get / power.keepAwake.set in-memory state — a fresh copy per
   // installMockDaemon call, mutated by keepAwake.set exactly like the daemon's
@@ -1347,6 +1350,23 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string } };
         const existed = archivedFleetIds.delete(body.body?.id ?? '');
         return json(route, { restored: existed ? 1 : 0 });
+      }
+      // fleet.observed.steer (SDK 1.8.0): steer an observed foreign-agent row over its
+      // genuine channel. Honest refusal for an id this daemon does not know, or one
+      // whose steer channel is 'none' — mirroring the real verb's own refusal (a
+      // client should never call this for a 'none' channel anyway; this mock
+      // enforces the same rule so a mistaken call is caught, not silently accepted).
+      if (methodId === 'fleet.observed.steer') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string; text?: string } };
+        const id = body.body?.id ?? '';
+        const text = body.body?.text ?? '';
+        daemon.observedSteerRequests.push({ id, text });
+        const node = FLEET_SNAPSHOT.nodes.find((n) => n.id === id) as { observed?: { steer?: { kind?: string } } } | undefined;
+        if (!node?.observed) return json(route, { queued: false, reason: `observed node ${id} not found` });
+        if (node.observed.steer?.kind !== 'tmux') {
+          return json(route, { queued: false, reason: 'no steer channel exists for this observed session' });
+        }
+        return json(route, { queued: true, messageId: `obs-msg-${daemon.observedSteerRequests.length}` });
       }
       if (methodId === 'fleet.archiveFinished') {
         let archived = 0;

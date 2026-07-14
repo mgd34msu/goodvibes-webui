@@ -42,6 +42,7 @@ import type {
   FleetAttemptJudgment,
   FleetAttemptsPickResult,
   FleetAttemptsJudgeResult,
+  FleetObservedSteerResult,
   FleetListInput,
   FleetListResult,
   FleetProcessNode,
@@ -93,6 +94,7 @@ export type {
   FleetAttemptJudgment,
   FleetAttemptsPickResult,
   FleetAttemptsJudgeResult,
+  FleetObservedSteerResult,
   FleetListInput,
   FleetListResult,
   FleetProcessNode,
@@ -1692,6 +1694,18 @@ export const sdk = {
       // when the workstreamId is unknown to this daemon.
       graph: {
         get: (workstreamId: string) => invokeOperator('fleet.graph.get', { workstreamId }),
+      },
+      // observed.steer (SDK 1.8.0's read-only foreign-agent visibility): steer an
+      // externally-launched coding-agent session over its genuine channel (tmux
+      // send-keys). `id` is the OBSERVED NODE's own id (observed:<pid>, not a
+      // sessionId — these rows carry no sessionRef). ws-only, generic-invoke, same
+      // family as fleet.attempts.* above. Callers must gate this on
+      // node.observed.steer.kind === 'tmux' first — a 'none' channel means there is
+      // nothing to steer, and the daemon's own honest reason should render instead
+      // of ever calling this.
+      observed: {
+        steer: (id: string, text: string) =>
+          invokeGatewayMethod<'fleet.observed.steer', FleetObservedSteerResult>('fleet.observed.steer', { id, text }),
       },
     },
     checkpoints: {

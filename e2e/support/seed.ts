@@ -729,11 +729,63 @@ export const FLEET_CONFLICT_NODE = {
   needsAttention: { reason: 'conflict', detail: 'merge conflict in src/checkout.ts' },
 };
 
+// Observed foreign agents (SDK 1.8.0's read-only externally-launched coding-agent
+// visibility) — an `observed-external` node goodvibes did not spawn or host. Two
+// shapes, matching the SDK's own adaptObservedAgent: a steerable one (a genuine tmux
+// channel) and a no-channel one (the daemon's own honest reason, never a dead button).
+// Never killable/interruptible/pausable/resumable, and excluded from the toolbar's
+// own-agent counts (lib/fleet.ts's activeCount/ownNodeCount/observedNodeCount).
+export const FLEET_OBSERVED_STEERABLE_NODE = {
+  id: 'observed:4242',
+  kind: 'observed-external',
+  label: 'Claude Code (external)',
+  task: '/home/user/project',
+  state: 'executing-tool',
+  elapsedMs: 60000,
+  startedAt: 500,
+  costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: true },
+  observed: {
+    externalKind: 'claude-code',
+    pid: 4242,
+    cwd: '/home/user/project',
+    liveness: { state: 'active', cpuSeconds: 12.5, detail: 'CPU time advanced since the last check' },
+    steer: { kind: 'tmux', paneId: '%3', tty: '/dev/pts/4' },
+    steerDrillInOnly: true,
+  },
+};
+
+export const FLEET_OBSERVED_NO_CHANNEL_NODE = {
+  id: 'observed:9001',
+  kind: 'observed-external',
+  label: 'Codex (external)',
+  task: '/home/user/other',
+  state: 'idle',
+  elapsedMs: 30000,
+  startedAt: 400,
+  costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  observed: {
+    externalKind: 'codex',
+    pid: 9001,
+    cwd: '/home/user/other',
+    liveness: {
+      state: 'quiet', cpuSeconds: 3.1,
+      detail: 'No CPU time observed since the last check — this does not prove the agent is idle',
+    },
+    steer: { kind: 'none', reason: 'no controlling tty found for this process' },
+    steerDrillInOnly: true,
+  },
+};
+
 export const FLEET_SNAPSHOT = {
   capturedAt: 1000,
   truncated: false,
-  totalCount: 5,
-  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE, FLEET_PICK_NODE, FLEET_CONFLICT_NODE],
+  totalCount: 7,
+  nodes: [
+    FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE, FLEET_PICK_NODE, FLEET_CONFLICT_NODE,
+    FLEET_OBSERVED_STEERABLE_NODE, FLEET_OBSERVED_NO_CHANNEL_NODE,
+  ],
 };
 
 export const PENDING_APPROVAL = {

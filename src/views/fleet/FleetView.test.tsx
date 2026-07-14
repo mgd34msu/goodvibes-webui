@@ -15,7 +15,9 @@ let approvalsImpl: () => Promise<unknown> = () => Promise.resolve({ approvals: [
 let attemptsImpl: () => Promise<unknown> = () => Promise.resolve({ groups: [] });
 
 /** Every operator call this test file's mocked sdk records, in invocation order. */
-const calls: { steer: unknown[]; detach: unknown[]; watchersStop: unknown[] } = { steer: [], detach: [], watchersStop: [] };
+const calls: { steer: unknown[]; detach: unknown[]; watchersStop: unknown[]; observedSteer: unknown[] } =
+  { steer: [], detach: [], watchersStop: [], observedSteer: [] };
+let observedSteerImpl: (id: string, text: string) => Promise<unknown> = () => Promise.resolve({ queued: true, messageId: 'm-1' });
 
 mock.module('../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
@@ -32,6 +34,12 @@ mock.module('../../lib/goodvibes', () => ({
           list: () => attemptsImpl(),
           pick: () => Promise.resolve({ groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: [], auto: false }),
           judge: () => Promise.resolve({ proposedWinnerItemId: 'i-1', reasons: [], model: 'm', scoredBy: 'model' }),
+        },
+        observed: {
+          steer: (id: string, text: string) => {
+            calls.observedSteer.push({ id, text });
+            return observedSteerImpl(id, text);
+          },
         },
       },
       approvals: {
@@ -161,9 +169,11 @@ afterEach(() => {
   snapshotImpl = () => Promise.resolve(FIXTURE_SNAPSHOT);
   approvalsImpl = () => Promise.resolve({ approvals: [] });
   attemptsImpl = () => Promise.resolve({ groups: [] });
+  observedSteerImpl = () => Promise.resolve({ queued: true, messageId: 'm-1' });
   calls.steer.length = 0;
   calls.detach.length = 0;
   calls.watchersStop.length = 0;
+  calls.observedSteer.length = 0;
 });
 
 const ATTEMPT_GROUP = {
@@ -599,6 +609,139 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
     const { el, unmount } = renderTells(seed);
     expect(el.querySelector('[data-testid="fleet-headline"]')).toBeFalsy();
     expect(el.querySelector('[data-testid="fleet-stall"]')).toBeFalsy();
+    unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Observed foreign agents (SDK 1.8.0's read-only externally-launched
+// coding-agent visibility) — an `observed-external` fleet.snapshot node.
+// ---------------------------------------------------------------------------
+
+const OBSERVED_STEERABLE = {
+  id: 'observed:4242', kind: 'observed-external', label: 'Claude Code (external)', task: '/home/user/project',
+  state: 'executing-tool', elapsedMs: 60000, startedAt: 500, costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: true },
+  observed: {
+    externalKind: 'claude-code', pid: 4242, cwd: '/home/user/project',
+    liveness: { state: 'active', cpuSeconds: 12.5, detail: 'CPU time advanced since the last check' },
+    steer: { kind: 'tmux', paneId: '%3', tty: '/dev/pts/4' },
+    steerDrillInOnly: true,
+  },
+};
+
+const OBSERVED_NO_CHANNEL = {
+  id: 'observed:9001', kind: 'observed-external', label: 'Codex (external)', task: '/home/user/other',
+  state: 'idle', elapsedMs: 30000, startedAt: 400, costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  observed: {
+    externalKind: 'codex', pid: 9001, cwd: '/home/user/other',
+    liveness: { state: 'quiet', cpuSeconds: 3.1, detail: 'No CPU time observed since the last check — this does not prove the agent is idle' },
+    steer: { kind: 'none', reason: 'no controlling tty found for this process' },
+    steerDrillInOnly: true,
+  },
+};
+
+const OWN_AGENT_FOR_OBSERVED_MIX = {
+  id: 'own-agent', kind: 'agent', label: 'Own agent', state: 'thinking', elapsedMs: 1000, startedAt: 50,
+  costState: 'unpriced',
+  capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+};
+
+const OBSERVED_SNAPSHOT = {
+  capturedAt: 1000,
+  truncated: false,
+  totalCount: 3,
+  nodes: [OWN_AGENT_FOR_OBSERVED_MIX, OBSERVED_STEERABLE, OBSERVED_NO_CHANNEL],
+};
+
+describe('FleetView — observed foreign agents (visibility only, SDK 1.8.0)', () => {
+  test('both shapes render: honest external kind label + liveness badge', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const text = el.textContent ?? '';
+    expect(text).toContain('Claude Code (external)');
+    expect(text).toContain('Codex (external)');
+    unmount();
+  });
+
+  test('the active row shows an "Active" liveness badge; the quiet row shows "Quiet"', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const activeRow = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Claude Code (external)'));
+    const quietRow = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Codex (external)'));
+    expect([...(activeRow?.querySelectorAll('.badge') ?? [])].some((b) => b.textContent === 'Active')).toBe(true);
+    expect([...(quietRow?.querySelectorAll('.badge') ?? [])].some((b) => b.textContent === 'Quiet')).toBe(true);
+    unmount();
+  });
+
+  test('observed rows never show a cost badge (no fabricated $0.00)', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Claude Code (external)'));
+    const badges = [...(row?.querySelectorAll('.badge') ?? [])].map((b) => b.textContent);
+    expect(badges.some((t) => t?.includes('$'))).toBe(false);
+    unmount();
+  });
+
+  test('observed rows are excluded from the "N node(s) / M active" own-agent counts', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const summary = el.querySelector('.fleet-toolbar__summary')?.textContent ?? '';
+    // Only the one real agent counts as "own": 1 node, 1 active — the two observed
+    // rows are named separately as "2 observed (external)", never folded in.
+    expect(summary).toContain('1 node');
+    expect(summary).toContain('1 active');
+    expect(summary).toContain('2 observed (external)');
+    unmount();
+  });
+
+  test('selecting the steerable observed row opens its drill-in with a working steer composer', async () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Claude Code (external)'));
+    click(row);
+    await waitFor(() => Boolean(el.querySelector('.fleet-detail__observed')));
+    expect(el.textContent).toContain('4242'); // pid
+    expect(el.textContent).toContain('tmux pane %3');
+    const textarea = el.querySelector('.fleet-detail__observed-steer textarea') as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(textarea, 'status check');
+      textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.fleet-detail__observed-steer') as HTMLFormElement;
+    flushSync(() => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    await waitFor(() => calls.observedSteer.length > 0);
+    expect(calls.observedSteer[0]).toEqual({ id: 'observed:4242', text: 'status check' });
+    unmount();
+  });
+
+  test('the no-channel observed row renders the daemon\'s honest reason, never a dead button', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Codex (external)'));
+    click(row);
+    expect(el.querySelector('.fleet-detail__observed-steer')).toBeNull();
+    expect(el.querySelector('.fleet-detail__observed-no-channel')?.textContent).toBe('no controlling tty found for this process');
+    unmount();
+  });
+
+  test('no stop/archive/steer-from-list button ever renders for an observed row', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    for (const label of ['Claude Code (external)', 'Codex (external)']) {
+      const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes(label));
+      click(row);
+      expect(el.querySelector('.fleet-detail__stop')).toBeNull();
+    }
+    unmount();
+  });
+
+  test('phone-width legible: the observed detail and its steer controls clear the 44px tap-target floor via CSS, no wide-only gating', () => {
+    const { el, unmount } = render(OBSERVED_SNAPSHOT);
+    const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Claude Code (external)'));
+    click(row);
+    // Unlike owned-node actions (steer/detach/stop), no phone-only note gates this —
+    // the observed drill-in has no desktop-only wrapper class at all.
+    expect(el.querySelector('.fleet-detail__observed')).not.toBeNull();
+    expect(el.querySelector('.fleet-detail__phone-actions-note')).toBeNull();
+    const button = el.querySelector('.fleet-detail__observed-steer button');
+    expect(button?.className).toContain('secondary-button');
     unmount();
   });
 });

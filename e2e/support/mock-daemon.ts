@@ -72,7 +72,7 @@ function isPrivateNetworkHostMock(hostname: string): boolean {
   return false;
 }
 
-function describeOriginPostureForMock(origin: string): {
+export function describeOriginPostureForMock(origin: string): {
   origin: string;
   scheme: string;
   privateNetwork: boolean;

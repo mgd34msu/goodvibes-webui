@@ -9,6 +9,34 @@
   gap: var(--space-3, 12px);
 }
 
+.pairing-handoff-posture-notice {
+  margin: 0;
+}
+
+/* Standalone one-shot banner (App.tsx, a plain #pair=<token> hand-off with no
+   offer set) — same tone, its own dismiss affordance. */
+.pairing-posture-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.pairing-posture-notice__dismiss {
+  margin-left: auto;
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pairing-posture-notice__dismiss:hover {
+  background: rgba(127, 127, 127, 0.15);
+}
+
 .pairing-handoff-offers {
   list-style: none;
   margin: 0;

@@ -16,6 +16,13 @@
  *      if the link carried a non-empty offer set — publishes it via `offers` so
  *      the app can render the accept/decline UI. A plain `#pair=<token>` link
  *      (no offers) behaves exactly as before: `offers` stays [].
+ *   4. also reads this device's own TLS/capability posture (pairing.posture.get,
+ *      SDK 1.8.0's LAN-http posture work) for `window.location.origin` and, when
+ *      it carries the one honest plain-http-on-LAN notice line, publishes it via
+ *      `postureNotice` — verbatim daemon wording, rendered ONCE by the caller
+ *      (App.tsx) and cleared via `dismissPostureNotice`, never re-shown on this
+ *      hand-off. A posture read failure is swallowed (this is a nice-to-have
+ *      notice, never a blocker on completing the pairing itself).
  *
  * WHY CAPTURE HAPPENS AT MODULE/RENDER TIME, NOT IN AN EFFECT: useUrlState's own
  * mount effect normalizes a bare URL to `?view=chat` and, in doing so, drops the
@@ -31,7 +38,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { setExplicitAuthToken } from '../lib/goodvibes';
+import { sdk, setExplicitAuthToken } from '../lib/goodvibes';
 import { parsePairingOffersFromHash, parsePairingTokenFromHash, stripPairingFragment, type PairingOfferKind } from '../lib/pairing';
 
 export type PairingStatus = 'idle' | 'pending' | 'error';
@@ -43,6 +50,15 @@ export interface PairingHandoff {
   offers: readonly PairingOfferKind[];
   /** Clears `offers` — call once the offer-decision UI has finished (submitted or explicitly skipped). */
   dismissOffers: () => void;
+  /**
+   * The daemon's one honest plain-http-on-LAN notice line for this device's own origin,
+   * once read — null when the origin is already a secure context (nothing to say), the
+   * read hasn't finished yet, or it failed. Present for exactly one render pass unless
+   * dismissed sooner; never re-appears for this hand-off.
+   */
+  postureNotice: string | null;
+  /** Clears `postureNotice` — call once the caller has shown it (or chooses to skip it). */
+  dismissPostureNotice: () => void;
 }
 
 // The pairing token/offers captured ONCE, the first time either is asked for —
@@ -82,6 +98,7 @@ export function usePairingHandoff(): PairingHandoff {
   );
   const [error, setError] = useState<unknown>(null);
   const [offers, setOffers] = useState<readonly PairingOfferKind[]>([]);
+  const [postureNotice, setPostureNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const { token, offers: capturedOffers } = capturePairingHandoff();
@@ -96,6 +113,16 @@ export function usePairingHandoff(): PairingHandoff {
       } catch (err) {
         setError(err);
         setStatus('error');
+        return;
+      }
+      // Best-effort, AFTER the pairing itself has succeeded: a posture read failure
+      // never blocks or errors the hand-off, it just means no notice line shows.
+      try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+        const { posture } = await sdk.operator.pairing.posture.get(origin);
+        if (posture.notice) setPostureNotice(posture.notice);
+      } catch {
+        // Swallowed — see above.
       }
     })();
     // Mount-once: the token was captured synchronously above; a later hash change
@@ -106,6 +133,7 @@ export function usePairingHandoff(): PairingHandoff {
   }, []);
 
   const dismissOffers = useCallback(() => setOffers([]), []);
+  const dismissPostureNotice = useCallback(() => setPostureNotice(null), []);
 
-  return { status, error, offers, dismissOffers };
+  return { status, error, offers, dismissOffers, postureNotice, dismissPostureNotice };
 }

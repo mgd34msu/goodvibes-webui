@@ -13,6 +13,7 @@
 import { Loader, Mic, MicOff, Square } from 'lucide-react';
 import { useVoiceInput } from '../../lib/voice/useVoice';
 import { STT_UNAVAILABLE_MESSAGE } from '../../lib/voice/voice-config';
+import { capabilityReason, useOriginPosture } from '../../hooks/useOriginPosture';
 
 interface MicButtonProps {
   /** Receives the transcript. The composer fills its draft with it — never auto-sends. */
@@ -21,11 +22,18 @@ interface MicButtonProps {
   readonly disabled?: boolean;
 }
 
-const SECURE_CONTEXT_NOTE =
+// The honest fallback while pairing.posture.get hasn't answered yet (or errored) — still
+// true, just less specific than the daemon's own wording about ITS deployment.
+const SECURE_CONTEXT_FALLBACK_NOTE =
   'Microphone needs a secure (HTTPS) connection — open this page over HTTPS (for example via Tailscale) to dictate.';
 
 export function MicButton({ onTranscript, disabled }: MicButtonProps) {
   const { support, availability, phase, error, start, stopAndTranscribe } = useVoiceInput(onTranscript);
+  // pairing.posture.get is the daemon's own labeled-degradation reason for this exact
+  // origin ("needs https — available via tailscale") — never a client-fabricated guess.
+  // The fallback above covers the brief window before it answers.
+  const { posture } = useOriginPosture();
+  const SECURE_CONTEXT_NOTE = capabilityReason(posture, 'microphone') ?? SECURE_CONTEXT_FALLBACK_NOTE;
 
   // Resolve a single (icon, label, note, onClick, disabled) tuple for the current state.
   let icon = <Mic size={16} aria-hidden />;

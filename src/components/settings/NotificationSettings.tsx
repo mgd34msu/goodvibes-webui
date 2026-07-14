@@ -27,10 +27,22 @@ import {
 import { detectPushSupport, readNotificationPermission } from '../../lib/push/push-support';
 import type { PushSupport, NotificationPermissionState } from '../../lib/push/push-support';
 import { useInstallPrompt } from '../../lib/pwa/install-prompt';
+import { capabilityReason, useOriginPosture } from '../../hooks/useOriginPosture';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/notifications.css';
 
 const pushErrorMessage = describePushSubscribeError;
+
+// The honest fallback while pairing.posture.get hasn't answered yet (or errored) — still
+// true, just less specific than the daemon's own wording about ITS deployment.
+const PUSH_INSECURE_FALLBACK =
+  'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home '
+  + 'machine, tailscale serve fronts the daemon with an HTTPS hostname, and push then '
+  + 'works same-origin.';
+const INSTALL_INSECURE_FALLBACK =
+  'Installing needs a secure (HTTPS) connection — this browser will not register a '
+  + 'service worker over plain HTTP to a LAN address. Open this app over HTTPS (for '
+  + 'example via Tailscale) to install it.';
 
 export function NotificationSettings() {
   const queryClient = useQueryClient();
@@ -41,6 +53,17 @@ export function NotificationSettings() {
   const [support] = useState<PushSupport>(() => detectPushSupport());
   const [permission, setPermission] = useState<NotificationPermissionState>(() => readNotificationPermission());
   const { affordance, promptInstall } = useInstallPrompt();
+  // pairing.posture.get is the daemon's own labeled-degradation reason for this exact
+  // origin ("needs https — available via tailscale") — never a client-fabricated guess.
+  // The fallbacks above cover the brief window before it answers.
+  const { posture } = useOriginPosture();
+  const pushReason = capabilityReason(posture, 'push') ?? PUSH_INSECURE_FALLBACK;
+  // Chromium never fires beforeinstallprompt over an insecure origin (its service worker
+  // never registers there — register-sw.ts's shouldRegisterServiceWorker), so 'none' on a
+  // non-iOS browser is ambiguous between "insecure origin" and "just no prompt yet". The
+  // origin's own secureContext answers which one this is.
+  const installBlockedByInsecureOrigin = affordance === 'none' && posture !== undefined && !posture.secureContext;
+  const installReason = capabilityReason(posture, 'service-worker') ?? INSTALL_INSECURE_FALLBACK;
 
   const subscribed = useQuery({
     queryKey: ['push', 'subscribed'],
@@ -89,10 +112,7 @@ export function NotificationSettings() {
 
       {support === 'insecure-context' ? (
         <div className="banner warning" role="status">
-          <ShieldAlert size={16} aria-hidden="true" />{' '}
-          Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home
-          machine, <code>tailscale serve</code> fronts the daemon with an HTTPS hostname, and
-          push then works same-origin.
+          <ShieldAlert size={16} aria-hidden="true" /> {pushReason}
         </div>
       ) : support === 'unsupported' ? (
         <div className="banner warning" role="status">
@@ -164,6 +184,10 @@ export function NotificationSettings() {
             To install on iOS: tap the Share button, then <strong>Add to Home Screen</strong>.
             Open the installed app once to enable notifications.
           </p>
+        ) : installBlockedByInsecureOrigin ? (
+          <div className="banner warning" role="status">
+            <ShieldAlert size={16} aria-hidden="true" /> {installReason}
+          </div>
         ) : (
           <p className="form-note">
             Use your browser&rsquo;s menu to add this app to your Home Screen or apps.

@@ -1233,6 +1233,39 @@ export interface PairingTokensRevokeSharedResult {
   readonly legacySharedRevoked: boolean;
 }
 
+// ─── Origin posture (pairing.posture.get, SDK 1.8.0's LAN-http posture work) ──
+//
+// The honest TLS/capability posture of a web origin: plain http on a private-network
+// origin (LAN IP, .local, localhost) is a supported posture, reported with ONE honest
+// notice line (LAN_PLAIN_HTTP_NOTICE_TEXT below, stated once at pairing — never a nag);
+// each browser-gated capability (service worker/PWA install, push, microphone) is
+// labeled available or with the daemon's OWN "needs https — available via tailscale"
+// wording, never a client-fabricated guess. Mirrors
+// packages/sdk/src/platform/pairing/origin-posture.ts's ORIGIN_POSTURE_SCHEMA exactly.
+export type BrowserGatedCapability = 'service-worker' | 'push' | 'microphone';
+export interface OriginCapability {
+  readonly capability: string;
+  readonly available: boolean;
+  /** Present when unavailable: the label a surface renders instead of a dead button. */
+  readonly reason?: string;
+}
+export interface OriginPosture {
+  readonly origin: string;
+  readonly scheme: string;
+  readonly privateNetwork: boolean;
+  readonly secureContext: boolean;
+  /** Present only for the plain-http-on-LAN posture; absent when already a secure context. */
+  readonly notice?: string;
+  readonly capabilities: readonly OriginCapability[];
+}
+export interface PairingPostureGetInput {
+  /** This surface's own current origin. Omit to read the daemon's configured web origin. */
+  readonly origin?: string;
+}
+export interface PairingPostureGetResult {
+  readonly posture: OriginPosture;
+}
+
 /** The set-up steps a pairing hand-off can offer. Each is independently declinable. */
 export type PairingHandoffOfferKind = 'notifications' | 'relay' | 'passkey';
 export interface PairingHandoffOffer {
@@ -1248,6 +1281,8 @@ export interface PairingHandoffCreateResult {
   readonly fragment: string;
   /** The fragment prefixed with a known web origin, when the daemon knows one. */
   readonly deepLink?: string;
+  /** The origin's honest TLS/capability posture — present when the daemon knows a web origin. */
+  readonly posture?: OriginPosture;
 }
 export interface PairingHandoffCompleteNotificationsAccept {
   readonly endpoint: string;
@@ -1824,6 +1859,17 @@ export const sdk = {
           ),
         complete: (input: PairingHandoffCompleteInput) =>
           invokeGatewayMethod<'pairing.handoff.complete', PairingHandoffCompleteResult>('pairing.handoff.complete', input),
+      },
+      // posture.get: the same honest TLS/capability read outside a pairing exchange — a
+      // surface passes ITS OWN current origin (usePairingHandoff, useOriginPosture pass
+      // window.location.origin) so the labels describe wherever it is actually running,
+      // not wherever the daemon's configured web origin happens to be.
+      posture: {
+        get: (origin?: string) =>
+          invokeGatewayMethod<'pairing.posture.get', PairingPostureGetResult>(
+            'pairing.posture.get',
+            (origin ? { origin } : {}) as PairingPostureGetInput,
+          ),
       },
     },
     // cost.attribution.get (SDK 1.6.1): windowed (24h/7d), cache-aware-priced cost

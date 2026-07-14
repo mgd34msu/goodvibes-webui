@@ -11,7 +11,7 @@
  * at all (METHOD_NOT_FOUND on the list query) gets an honest "this daemon does not
  * serve memory" state, never a blank panel that reads as "nothing is stored".
  */
-import { useCallback, useMemo, useState, type SyntheticEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Database, Search, Users } from 'lucide-react';
 import {
@@ -35,6 +35,7 @@ import { MemoryRecordRow } from './MemoryRecordRow';
 import { MemoryRecordDetail } from './MemoryRecordDetail';
 import { MemorySearchHonestyNote } from './MemorySearchHonestyNote';
 import { ReviewQueuePanel } from './ReviewQueuePanel';
+import { ConsolidationReceipts } from './ConsolidationReceipts';
 import { AddMemoryForm } from './AddMemoryForm';
 import { MEMORY_CLASSES, MEMORY_SCOPES, isPersonaRecord, splitTags } from './memory-helpers';
 import { useWebUiPreferences } from '../../lib/ui-preferences';
@@ -55,6 +56,18 @@ export function MemoryView() {
   const [tagsInput, setTagsInput] = useState('');
   const [recall, setRecall] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<MemorySearchInput>(DEFAULT_FILTERS);
+  // One-tap route from a consolidation proposal to the existing review flow: the
+  // referenced record ids highlight in the review queue below (if present there —
+  // consolidation marks them into it, but a longer queue may push them past the
+  // fetched limit) and the panel scrolls into view. Never filters the queue down —
+  // a jump lands on the row, it does not hide the rest of the queue.
+  const [reviewHighlightIds, setReviewHighlightIds] = useState<ReadonlySet<string>>(new Set());
+  const reviewQueueSectionRef = useRef<HTMLElement>(null);
+
+  const jumpToReview = useCallback((ids: readonly string[]) => {
+    setReviewHighlightIds(new Set(ids));
+    reviewQueueSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   const list = useQuery({
     queryKey: [...queryKeys.memoryList, appliedFilters],
@@ -222,13 +235,15 @@ export function MemoryView() {
           {list.data && <MemorySearchHonestyNote result={list.data} limit={appliedFilters.limit} />}
         </div>
 
+        <ConsolidationReceipts onReviewIds={jumpToReview} />
+
         <div className="two-column">
           <AddMemoryForm
             isPending={addMutation.isPending}
             error={addMutation.error}
             onSubmit={(input) => addMutation.mutate(input)}
           />
-          <section className="panel" aria-label="Review queue">
+          <section className="panel" aria-label="Review queue" ref={reviewQueueSectionRef}>
             <div className="panel-title">
               <h2>Review Queue</h2>
             </div>
@@ -239,6 +254,7 @@ export function MemoryView() {
               onRetry={() => void reviewQueue.refetch()}
               savingId={updateReviewMutation.isPending ? updateReviewMutation.variables.id : null}
               onSave={(id, input) => updateReviewMutation.mutate({ id, input })}
+              highlightIds={reviewHighlightIds}
             />
             {updateReviewMutation.error && (
               <ErrorState error={updateReviewMutation.error} title="Could not save the review" />

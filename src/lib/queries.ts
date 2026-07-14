@@ -118,6 +118,15 @@ export const queryKeys = {
   // this verb yet either — same standing gap. Keyed by workstreamId so switching the
   // selected workstream refetches honestly rather than serving a stale graph.
   fleetGraph: (workstreamId: string) => ['fleet', 'graph', workstreamId] as const,
+  // tailscale.get (SDK 1.8.0's LAN-http posture work) — the read-only environment
+  // probe behind the one-action "Serve over tailscale" affordance. No wire event
+  // exists for this verb yet, so TailscaleSettings polls/refetches manually — same
+  // standing gap pairingTokens/fleetGraph document above.
+  tailscale: ['tailscale', 'get'] as const,
+  // memory.consolidation.receipts (SDK 1.8.0) — retained consolidation run receipts
+  // + pending judgment proposals. No wire event exists for this verb yet either —
+  // same standing gap; the panel refetches manually/on demand.
+  memoryConsolidationReceipts: ['memory', 'consolidation', 'receipts'] as const,
 };
 
 export async function loadBootSnapshot() {

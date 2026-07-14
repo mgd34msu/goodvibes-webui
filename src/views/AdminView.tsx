@@ -22,6 +22,7 @@ import { SettingsModal } from '../components/settings/SettingsModal';
 import { NotificationSettings } from '../components/settings/NotificationSettings';
 import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
 import { PowerSettings } from '../components/settings/PowerSettings';
+import { TailscaleSettings } from '../components/settings/TailscaleSettings';
 import '../styles/components/admin.css';
 
 interface AdminViewProps {
@@ -210,6 +211,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         <PairingTokensSettings />
 
         <PowerSettings />
+
+        <TailscaleSettings />
 
         <section className="panel">
           <div className="panel-title">

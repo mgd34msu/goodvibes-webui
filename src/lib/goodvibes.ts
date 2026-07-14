@@ -1049,6 +1049,43 @@ export interface MemoryReviewQueueResult {
   readonly records: readonly MemoryRecord[];
 }
 
+// ─── Memory consolidation receipts (memory.consolidation.receipts, SDK 1.8.0's
+// consolidation-reaches-the-review-queue work) ──────────────────────────────────
+//
+// What each idle/scheduled consolidation pass scanned, merged, archived, decayed,
+// and — the judgment calls it never makes unilaterally — PROPOSED. A proposal names
+// the record ids it concerns; those records are already marked into the review
+// queue (reviewState set to 'fresh' or 'contradicted' by the pass itself — see
+// packages/sdk/src/platform/state/memory-consolidation.ts), so "route to review"
+// here means finding those same ids in the existing review queue, not a separate
+// resolution path. `route` is an internal agent-tool invocation string
+// (`memory action:"curator" ...`), not a browser route — never rendered as a link.
+// A runtime without the consolidation scheduler answers an honest 501
+// (isMethodUnavailableError), which the panel renders as an honest unavailable state.
+export interface MemoryConsolidationProposal {
+  readonly kind: 'contradiction' | 'cross-scope-duplicate' | 'stale-delete';
+  readonly ids: readonly string[];
+  readonly route: string;
+  readonly reason: string;
+}
+export interface MemoryConsolidationRunReceipt {
+  readonly runId: string;
+  readonly ranAt: string;
+  readonly trigger: string;
+  readonly idle: boolean;
+  readonly scanned: number;
+  readonly merged: readonly { readonly survivorId?: string; readonly duplicateIds?: readonly string[] }[];
+  readonly archived: readonly { readonly id?: string; readonly reason?: string }[];
+  readonly decayed: readonly { readonly id?: string; readonly fromConfidence?: number; readonly toConfidence?: number }[];
+  readonly proposed: readonly MemoryConsolidationProposal[];
+  readonly usageSignalAvailable: boolean;
+  readonly note: string;
+}
+export interface MemoryConsolidationReceiptsResult {
+  readonly receipts: readonly MemoryConsolidationRunReceipt[];
+  readonly pendingProposals: readonly MemoryConsolidationProposal[];
+}
+
 export interface MemorySearchInput {
   readonly scope?: MemoryScope;
   readonly cls?: MemoryClass;
@@ -1312,6 +1349,42 @@ export interface PairingHandoffOutcome {
 }
 export interface PairingHandoffCompleteResult {
   readonly results: readonly PairingHandoffOutcome[];
+}
+
+// ─── Tailscale one-action https (tailscale.get / tailscale.serve.run, SDK 1.8.0's
+// LAN-http posture work) ────────────────────────────────────────────────────────
+//
+// The one confirmed action behind a "needs https — available via tailscale" label,
+// reachable from the browser instead of only the TUI. tailscale.get is a READ-ONLY
+// probe (binary present, logged in, MagicDNS name, the https URL `tailscale serve`
+// would yield, and the most recent serve receipt if any) — surfaces offer the
+// affordance ONLY when this reports a usable environment (available && loggedIn &&
+// httpsUrl); absence is quiet, never a nag or a dead button. tailscale.serve.run is
+// the ONE state-changing tailscale command the daemon ever runs, and only from this
+// explicit user-initiated verb; the attempt is recorded with an honest receipt
+// either way, and on success the daemon's web.publicBaseUrl updates to the same
+// https URL. Both ids carry no REST route binding (transport: ws-only), so they
+// resolve through invokeGatewayMethod exactly like fleet.*/permissions.rules.*.
+// Mirrors packages/sdk/src/platform/remote-access/tailscale.ts exactly.
+export interface TailscaleServeReceipt {
+  readonly at: number;
+  readonly command: string;
+  readonly ok: boolean;
+  /** The https MagicDNS URL now fronting the daemon, present only on success. */
+  readonly url?: string;
+  readonly detail: string;
+}
+export interface TailscaleGetResult {
+  readonly available: boolean;
+  readonly loggedIn: boolean;
+  readonly magicDnsName?: string;
+  readonly httpsUrl?: string;
+  readonly detail: string;
+  readonly lastServe?: TailscaleServeReceipt;
+}
+export interface TailscaleServeRunResult {
+  readonly receipt: TailscaleServeReceipt;
+  readonly publicBaseUrlUpdated: boolean;
 }
 
 // ─── WebAuthn step-up (stepup.*) ──────────────────────────────────────
@@ -1644,6 +1717,17 @@ export const sdk = {
           'memory.review-queue',
           input ?? {},
         ),
+      // memory.consolidation.receipts (SDK 1.8.0) — HAS a real generated I/O map
+      // (unlike the six ids above), but the explicit TOutput override keeps the
+      // hand-authored, narrower `merged`/`archived`/`decayed` entry shapes above
+      // rather than the generated catch-all `{} & Record<string, unknown>`.
+      consolidation: {
+        receipts: () =>
+          invokeOperator<'memory.consolidation.receipts', Record<string, never>, MemoryConsolidationReceiptsResult>(
+            'memory.consolidation.receipts',
+            {},
+          ),
+      },
     },
     // fleet.*/checkpoints.*/sessions.search — generic-invoke-only (see
     // invokeGatewayMethod above); I/O shapes are the contract-bridge-types.ts bridge
@@ -1950,6 +2034,13 @@ export const sdk = {
         get: (input: CostAttributionGetInput) =>
           invokeGatewayMethod<'cost.attribution.get', CostAttributionGetResult>('cost.attribution.get', input),
       },
+    },
+    // tailscale.get / tailscale.serve.run (SDK 1.8.0) — see the type block above for
+    // the full rationale. Neither id has a REST route binding, so both are
+    // generic-invoke-only via invokeGatewayMethod.
+    tailscale: {
+      get: () => invokeGatewayMethod<'tailscale.get', TailscaleGetResult>('tailscale.get', {}),
+      serveRun: () => invokeGatewayMethod<'tailscale.serve.run', TailscaleServeRunResult>('tailscale.serve.run', {}),
     },
   },
   chat: {

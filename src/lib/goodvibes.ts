@@ -1602,19 +1602,30 @@ export const sdk = {
       unarchive: (id: string) => invokeGatewayMethod<'fleet.unarchive', FleetUnarchiveResult>('fleet.unarchive', { id }),
       archiveFinished: () => invokeGatewayMethod<'fleet.archiveFinished', FleetArchiveFinishedResult>('fleet.archiveFinished', {}),
       archivedList: () => invokeGatewayMethod<'fleet.archived.list', FleetArchivedListResult>('fleet.archived.list', {}),
-      // Best-of-N attempt resolution (SDK 1.6.1). list is read-only (held-merge candidate
-      // groups with per-candidate diffs + any prior judge proposal); judge PROPOSES a winner
-      // with reasons — explicitly model judgment (scoredBy:'model'), never an auto-pick; pick
-      // accepts one candidate as the winner (merges it, cleans losers) and is a 409 CONFLICT
-      // (lib/errors.ts isConflictError) for an unknown/not-ready group — never a partial merge.
+      // Best-of-N attempt resolution (SDK 1.6.1, confirm/apply grammar SDK 1.8.0). list is
+      // read-only (held-merge candidate groups with per-candidate diffs + any prior judge
+      // proposal); judge PROPOSES a winner with reasons — explicitly model judgment
+      // (scoredBy:'model'), never an auto-pick; pick is the ONE-ACT verb: confirm defaults
+      // to true here because every caller in this app (AttemptComparison's ConfirmSheet)
+      // already ran its own human confirmation before calling pick — so the daemon should
+      // actually apply, not hand back a preview that needs confirming a second time. Pass
+      // confirm:false explicitly to get the structured preview (candidates + diffs + any
+      // judge proposal) without applying anything. Output.applied says what really
+      // happened — a caller must check it rather than assume confirm:true always merges
+      // (a stale/no-longer-ready group can still come back requiresConfirm:true,
+      // applied:false). An unknown/not-ready group is a 409 CONFLICT (lib/errors.ts
+      // isConflictError), never a partial merge.
       attempts: {
         list: (workstreamId?: string) =>
           invokeGatewayMethod<'fleet.attempts.list', FleetAttemptsListResult>(
             'fleet.attempts.list',
             (workstreamId ? { workstreamId } : {}) as FleetAttemptsListInput,
           ),
-        pick: (groupId: string, winnerItemId: string) =>
-          invokeGatewayMethod<'fleet.attempts.pick', FleetAttemptsPickResult>('fleet.attempts.pick', { groupId, winnerItemId }),
+        pick: (groupId: string, winnerItemId: string, confirm = true) =>
+          invokeGatewayMethod<'fleet.attempts.pick', FleetAttemptsPickResult>(
+            'fleet.attempts.pick',
+            { groupId, winnerItemId, confirm },
+          ),
         judge: (groupId: string) =>
           invokeGatewayMethod<'fleet.attempts.judge', FleetAttemptsJudgeResult>('fleet.attempts.judge', { groupId }),
       },

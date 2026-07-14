@@ -57,8 +57,20 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
   });
 
   const pick = useMutation({
+    // confirm defaults to true (the operator already confirmed via the ConfirmSheet
+    // below) — the daemon still reports applied/requiresConfirm honestly, and a
+    // false applied (e.g. the group went stale between confirm and this call) is
+    // NOT treated as a completed merge: onSuccess only closes the modal when the
+    // daemon actually applied it.
     mutationFn: (winnerItemId: string) => sdk.operator.fleet.attempts.pick(group.groupId, winnerItemId),
-    onSuccess: () => { onPicked(); onClose(); },
+    onSuccess: (result) => {
+      if (!result.applied) {
+        setConflict('The daemon did not apply this pick — the group may no longer be ready. Refresh the fleet and try again.');
+        return;
+      }
+      onPicked();
+      onClose();
+    },
     onError: (error) => {
       if (isConflictError(error)) setConflict('This group is no longer ready to pick — refresh the fleet and try again.');
     },

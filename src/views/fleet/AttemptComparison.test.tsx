@@ -11,9 +11,10 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const pickCalls: { groupId: string; winnerItemId: string }[] = [];
+const pickCalls: { groupId: string; winnerItemId: string; confirm: boolean }[] = [];
 const judgeCalls: string[] = [];
 let pickError: unknown = null;
+let pickApplied = true;
 
 mock.module('../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
@@ -22,9 +23,13 @@ mock.module('../../lib/goodvibes', () => ({
     operator: {
       fleet: {
         attempts: {
-          pick: (groupId: string, winnerItemId: string) => {
-            pickCalls.push({ groupId, winnerItemId });
-            return pickError ? Promise.reject(pickError) : Promise.resolve({ groupId, winnerItemId, loserItemIds: ['i-2'], auto: false });
+          pick: (groupId: string, winnerItemId: string, confirm = true) => {
+            pickCalls.push({ groupId, winnerItemId, confirm });
+            return pickError
+              ? Promise.reject(pickError)
+              : Promise.resolve({
+                applied: pickApplied, groupId, winnerItemId, loserItemIds: ['i-2'], auto: false, requiresConfirm: !pickApplied,
+              });
           },
           judge: (groupId: string) => {
             judgeCalls.push(groupId);
@@ -87,6 +92,7 @@ afterEach(() => {
   pickCalls.length = 0;
   judgeCalls.length = 0;
   pickError = null;
+  pickApplied = true;
 });
 
 describe('AttemptComparison', () => {
@@ -119,7 +125,7 @@ describe('AttemptComparison', () => {
     click(container.querySelector('.confirm-sheet__confirm'));
     await settle(3);
 
-    expect(pickCalls).toEqual([{ groupId: 'g-1', winnerItemId: 'i-1' }]);
+    expect(pickCalls).toEqual([{ groupId: 'g-1', winnerItemId: 'i-1', confirm: true }]);
     expect(picked).toBe(true);
     unmount();
   });
@@ -134,6 +140,21 @@ describe('AttemptComparison', () => {
 
     expect(pickCalls).toHaveLength(1);
     expect(container.textContent).toContain('no longer ready');
+    unmount();
+  });
+
+  test('applied:false (a stale group the daemon refused to merge) never reports success', async () => {
+    pickApplied = false;
+    let picked = false;
+    const { container, unmount } = render(() => { picked = true; });
+    click(container.querySelector('.attempt-cmp__pick-btn'));
+    await settle(2);
+    click(container.querySelector('.confirm-sheet__confirm'));
+    await settle(3);
+
+    expect(pickCalls).toEqual([{ groupId: 'g-1', winnerItemId: 'i-1', confirm: true }]);
+    expect(picked).toBe(false);
+    expect(container.textContent).toContain('did not apply');
     unmount();
   });
 });

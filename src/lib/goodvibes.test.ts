@@ -1035,7 +1035,9 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
         judgment: { proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model' },
       }],
     } satisfies FleetAttemptsListResult,
-    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: ['i-2'], auto: false } satisfies FleetAttemptsPickResult,
+    'fleet.attempts.pick': {
+      applied: true, groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: ['i-2'], auto: false, requiresConfirm: false,
+    } satisfies FleetAttemptsPickResult,
     'fleet.attempts.judge': {
       proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model',
     } satisfies FleetAttemptsJudgeResult,
@@ -1090,7 +1092,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'rewind.plan': { sessionId: 's-1', turnId: 't-1', scope: 'both' } satisfies RewindPlanInput,
     'rewind.apply': { sessionId: 's-1', turnId: 't-1', scope: 'both', confirmToken: 'tok_rw' } satisfies RewindApplyInput,
     'fleet.attempts.list': { workstreamId: 'ws-1' } satisfies FleetAttemptsListInput,
-    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1' } satisfies FleetAttemptsPickInput,
+    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1', confirm: true } satisfies FleetAttemptsPickInput,
     'fleet.attempts.judge': { groupId: 'g-1' } satisfies FleetAttemptsJudgeInput,
     'sessions.search': {
       query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',

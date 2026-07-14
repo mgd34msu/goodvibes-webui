@@ -431,13 +431,6 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Allow recursive agent orchestration under bounded policy controls"
   },
   {
-    "key": "orchestration.maxActiveAgents",
-    "type": "number",
-    "default": 8,
-    "description": "Total active agents allowed across the orchestration tree",
-    "validationHint": "number in [1, 20]"
-  },
-  {
     "key": "orchestration.maxDepth",
     "type": "number",
     "default": 0,
@@ -986,8 +979,8 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
   {
     "key": "learning.consolidation.enabled",
     "type": "boolean",
-    "default": false,
-    "description": "Master switch for the idle-time memory consolidation pass (dedupe merges, confidence decay of never-referenced records, and review proposals). Off by default — the pass runs only when explicitly enabled."
+    "default": true,
+    "description": "Master switch for the idle-time memory consolidation pass (dedupe merges, confidence decay of never-referenced records, and review proposals). On by default — the daemon runs it at idle and on a slow schedule; every outcome is reversible or proposal-gated, and false turns the pass off."
   },
   {
     "key": "learning.consolidation.intervalMs",
@@ -1044,6 +1037,78 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": 40,
     "description": "A decaying record whose confidence would fall to or below this is archived (marked stale).",
     "validationHint": "integer in [0, 100]"
+  },
+  {
+    "key": "power.keepAwake",
+    "type": "boolean",
+    "default": false,
+    "description": "The owner keep-awake toggle: the daemon holds a sleep inhibitor INDEPENDENT of work state, so the host stays reachable after work finishes and after surfaces close. Covers idle + sleep + lid-switch inhibitor classes where the OS grants them; the served state names any refused class honestly. Every attached surface shows an always-visible \"sleep disabled\" chip while this is on — the chip, not a timer, is the safety mechanism."
+  },
+  {
+    "key": "power.inhibitWhileWorking",
+    "type": "boolean",
+    "default": true,
+    "description": "Hold an idle/sleep inhibitor automatically while real work runs (a running turn, an active agent, a schedule about to fire), released when work drains. On by default so the host cannot sleep mid-work."
+  },
+  {
+    "key": "power.workInhibitMaxMinutes",
+    "type": "number",
+    "default": 180,
+    "description": "Hard cap in minutes on the automatic WORK inhibitor (never the keep-awake toggle): a wedged hold releases at the cap and the state reports the expiry honestly.",
+    "validationHint": "integer in [1, 1440]"
+  },
+  {
+    "key": "voice.local.sttEngine",
+    "type": "enum",
+    "default": "",
+    "description": "Local speech-to-text engine: whisper-cpp (blessed default — CPU-first, realtime-capable) or faster-whisper (NVIDIA-GPU alternative via a wrapper script). Empty = not configured (honest unconfigured status; nothing auto-downloads).",
+    "enumValues": [
+      "",
+      "whisper-cpp",
+      "faster-whisper"
+    ]
+  },
+  {
+    "key": "voice.local.sttBinary",
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the local STT engine binary (e.g. whisper.cpp's whisper-cli)."
+  },
+  {
+    "key": "voice.local.sttModelPath",
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the local STT model file (e.g. ggml-tiny.en.bin). The user downloads this explicitly — nothing auto-downloads."
+  },
+  {
+    "key": "voice.local.ttsEngine",
+    "type": "enum",
+    "default": "",
+    "description": "Local text-to-speech engine: piper (blessed default — sub-50ms first-audio class, MIT) or kokoro (quality alternative, Apache 2.0, via a wrapper script). Empty = not configured.",
+    "enumValues": [
+      "",
+      "piper",
+      "kokoro"
+    ]
+  },
+  {
+    "key": "voice.local.ttsBinary",
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the local TTS engine binary (e.g. piper)."
+  },
+  {
+    "key": "voice.local.ttsModelPath",
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the local TTS voice model (e.g. en_US-lessac-low.onnx with its .json beside it). The user downloads this explicitly — nothing auto-downloads."
+  },
+  {
+    "key": "fleet.maxSize",
+    "type": "number",
+    "default": 8,
+    "description": "Maximum fleet size — the one ceiling on agents this daemon is responsible for: native spawned agents, ACP-hosted agents, and elastic fix-task agents all count against it. Externally-launched agents merely observed on the host never count. Renamed from orchestration.maxActiveAgents.",
+    "validationHint": "number in [1, 20]"
   },
   {
     "key": "surfaces.slack.enabled",

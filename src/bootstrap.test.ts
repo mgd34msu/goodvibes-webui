@@ -1,9 +1,12 @@
 /**
- * bootstrap / insecure-origin guard — Finding 3 (plain-http LAN white screen).
+ * bootstrap / insecure-origin guard — Finding 3 (plain-http LAN white screen), and its
+ * SDK 1.8.0 narrowing to public-only.
  *
- * Proves the entry guard: on an insecure non-local origin the honest "needs HTTPS"
- * message renders and the app graph (mount-app, which pulls the throwing SDK transport at
- * module load) is NEVER imported; on a secure origin the app mounts normally.
+ * Proves the entry guard: on an insecure PUBLIC origin the honest "needs HTTPS" message
+ * renders and the app graph (mount-app, which pulls the throwing SDK transport at module
+ * load) is NEVER imported; on a secure origin, or a private-network http origin (localhost,
+ * a LAN IP, a .local name — the supported plain-http-on-LAN posture), the app mounts
+ * normally.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 
@@ -38,9 +41,23 @@ describe('isInsecureTransportOrigin', () => {
     expect(isInsecureTransportOrigin()).toBe(false);
   });
 
-  test('plain http on a LAN IP IS insecure', () => {
-    setOrigin('http://192.168.0.131:4360/');
-    expect(isInsecureTransportOrigin()).toBe(true);
+  test('plain http on a LAN IP (10/8, 172.16/12, 192.168/16) is NOT insecure — the supported LAN posture', () => {
+    for (const origin of ['http://192.168.0.131:4360/', 'http://10.0.0.7:4360/', 'http://172.16.4.2:4360/', 'http://172.31.255.9:4360/']) {
+      setOrigin(origin);
+      expect(isInsecureTransportOrigin()).toBe(false);
+    }
+  });
+
+  test('plain http on a .local mDNS name is NOT insecure', () => {
+    setOrigin('http://mybox.local:4360/');
+    expect(isInsecureTransportOrigin()).toBe(false);
+  });
+
+  test('plain http on a genuinely public origin IS insecure', () => {
+    for (const origin of ['http://example.com/', 'http://8.8.8.8:4360/', 'http://172.15.0.1:4360/', 'http://172.32.0.1:4360/']) {
+      setOrigin(origin);
+      expect(isInsecureTransportOrigin()).toBe(true);
+    }
   });
 
   test('https on a LAN IP is NOT insecure (the supported tailscale path)', () => {
@@ -58,8 +75,8 @@ describe('bootstrap entry guard', () => {
     expect(root.textContent).toContain('HTTPS');
   });
 
-  test('an insecure non-local origin renders the message and never mounts the app', async () => {
-    setOrigin('http://192.168.0.131:4360/');
+  test('an insecure public origin renders the message and never mounts the app', async () => {
+    setOrigin('http://example.com/');
     const root = document.createElement('div');
     await bootstrap(root);
     expect(root.textContent).toContain(INSECURE_ORIGIN_TITLE);
@@ -68,6 +85,14 @@ describe('bootstrap entry guard', () => {
 
   test('a secure origin mounts the app and shows no HTTPS notice', async () => {
     setOrigin('http://localhost:4360/');
+    const root = document.createElement('div');
+    await bootstrap(root);
+    expect(mountAppCalls).toBe(1);
+    expect(root.textContent).not.toContain(INSECURE_ORIGIN_TITLE);
+  });
+
+  test('a private-network LAN http origin mounts the app (the supported plain-http-on-LAN posture)', async () => {
+    setOrigin('http://192.168.0.131:4360/');
     const root = document.createElement('div');
     await bootstrap(root);
     expect(mountAppCalls).toBe(1);

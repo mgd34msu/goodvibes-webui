@@ -1,11 +1,12 @@
 import { RefObject } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, X } from 'lucide-react';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { useReducedMotion } from '../../components/motion/useReducedMotion';
 import { MessageItem } from './MessageItem';
 import { lineageNodeKey, type LineageNode } from './lineage';
 import { bestId } from './message-utils';
 import type { ChatMessage } from './types';
+import type { ActiveToolCall } from './useChatStream';
 import '../../styles/components/chat-stream.css';
 
 interface MessageListProps {
@@ -29,6 +30,10 @@ interface MessageListProps {
   onEditMessage?: (messageId: string, newText: string) => void;
   /** Called when the user clicks the Stop button during an active stream. */
   onStop?: () => void;
+  /** Tool calls currently running for the active turn (useChatStream's ActiveToolCall). */
+  activeToolCalls?: readonly ActiveToolCall[];
+  /** Cancel ONE running tool call — the turn itself continues (unlike onStop, which ends it). */
+  onCancelToolCall?: (callId: string) => void;
 }
 
 export function MessageList({
@@ -47,6 +52,8 @@ export function MessageList({
   onRegenerateFrom,
   onEditMessage,
   onStop,
+  activeToolCalls = [],
+  onCancelToolCall,
 }: MessageListProps) {
   const reducedMotion = useReducedMotion();
   // Stop must be reachable for the WHOLE active turn — including the
@@ -100,6 +107,30 @@ export function MessageList({
                       </button>
                     )}
                   </div>
+                )}
+                {/* Running tool calls — cancel ONE call without ending the turn. The
+                    cancelled result renders honestly (a "Cancelled" label replaces the
+                    button) until the daemon's own turn.tool_result actually clears it. */}
+                {activeToolCalls.length > 0 && (
+                  <ul className="active-tool-calls" aria-label="Running tool calls">
+                    {activeToolCalls.map((call) => (
+                      <li key={call.toolCallId} className="active-tool-call">
+                        <span className="active-tool-call__name">
+                          {call.cancelled ? 'Cancelled: ' : 'Running: '}{call.toolName || call.toolCallId}
+                        </span>
+                        {!call.cancelled && onCancelToolCall && (
+                          <button
+                            type="button"
+                            className="active-tool-call__cancel"
+                            onClick={() => onCancelToolCall(call.toolCallId)}
+                            aria-label={`Cancel tool call ${call.toolName || call.toolCallId}`}
+                          >
+                            <X size={12} aria-hidden="true" /> Cancel
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </article>

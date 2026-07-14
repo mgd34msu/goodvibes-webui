@@ -55,6 +55,10 @@ export interface ChatMockDaemon {
   cancelCalls: { sessionId: string; turnId?: string }[];
   /** Every steer captured (companion.chat.messages.steer). */
   steerCalls: { sessionId: string; body: string }[];
+  /** Every sessions.toolCalls.cancel POST captured. */
+  toolCallCancelCalls: { sessionId: string; callId: string }[];
+  /** The current queued-messages store for a session (sessions.queuedMessages.*). */
+  queuedMessagesOf: (sessionId: string) => { id: string; queuedAt: number; text: string }[];
 }
 
 export interface ChatMockOptions {
@@ -72,6 +76,12 @@ export interface ChatMockOptions {
    * unset (no metadata at all, matching a daemon that never stamps this).
    */
   assistantReplyMemoryRecordIds?: readonly string[];
+  /**
+   * Seed for sessions.queuedMessages.list/edit/delete (SDK 1.8.0's
+   * interaction-wins round), keyed by sessionId. Default {} (no session has any
+   * queued messages).
+   */
+  queuedMessages?: Readonly<Record<string, readonly { id: string; queuedAt: number; text: string }[]>>;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -89,6 +99,12 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
   const titleUpdates: { sessionId: string; title: string }[] = [];
   const cancelCalls: { sessionId: string; turnId?: string }[] = [];
   const steerCalls: { sessionId: string; body: string }[] = [];
+  const toolCallCancelCalls: { sessionId: string; callId: string }[] = [];
+  // sessions.queuedMessages.* in-memory store, keyed by sessionId.
+  const queuedMessagesBySession = new Map<string, { id: string; queuedAt: number; text: string }[]>();
+  for (const [sessionId, seeded] of Object.entries(options.queuedMessages ?? {})) {
+    queuedMessagesBySession.set(sessionId, seeded.map((m) => ({ ...m })));
+  }
   // sessionId -> the user message whose reply is being held (an "active turn").
   const heldTurns = new Map<string, string>();
   let clock = 1_000;
@@ -259,6 +275,42 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { messageId: userMsg.id });
     }
 
+    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round) — stop one
+    // running tool call mid-flight; the turn continues (this mock never ends it).
+    const toolCallCancelMatch = path.match(/^\/api\/sessions\/([^/]+)\/tool-calls\/([^/]+)\/cancel$/);
+    if (method === 'POST' && toolCallCancelMatch) {
+      const sessionId = decodeURIComponent(toolCallCancelMatch[1]);
+      const callId = decodeURIComponent(toolCallCancelMatch[2]);
+      toolCallCancelCalls.push({ sessionId, callId });
+      return json(route, { sessionId, callId, cancelled: true });
+    }
+
+    // sessions.queuedMessages.list/edit/delete (SDK 1.8.0's interaction-wins round).
+    const queuedMessageItemMatch = path.match(/^\/api\/sessions\/([^/]+)\/queued-messages\/([^/]+)$/);
+    if (queuedMessageItemMatch) {
+      const sessionId = decodeURIComponent(queuedMessageItemMatch[1]);
+      const messageId = decodeURIComponent(queuedMessageItemMatch[2]);
+      const queued = queuedMessagesBySession.get(sessionId) ?? [];
+      if (method === 'POST') {
+        const editBody = (body ?? {}) as { text?: string };
+        const existing = queued.find((m) => m.id === messageId);
+        if (existing) existing.text = editBody.text ?? existing.text;
+        return json(route, { sessionId, id: messageId, text: existing?.text ?? editBody.text ?? '' });
+      }
+      if (method === 'DELETE') {
+        const index = queued.findIndex((m) => m.id === messageId);
+        const deleted = index >= 0;
+        if (deleted) queued.splice(index, 1);
+        queuedMessagesBySession.set(sessionId, queued);
+        return json(route, { sessionId, id: messageId, deleted });
+      }
+    }
+    const queuedMessagesListMatch = path.match(/^\/api\/sessions\/([^/]+)\/queued-messages$/);
+    if (method === 'GET' && queuedMessagesListMatch) {
+      const sessionId = decodeURIComponent(queuedMessagesListMatch[1]);
+      return json(route, { sessionId, messages: queuedMessagesBySession.get(sessionId) ?? [] });
+    }
+
     // POST /turns/cancel — resolve the held turn as a cancelled partial.
     const cancelMatch = path.match(/^\/api\/companion\/chat\/sessions\/([^/]+)\/turns\/cancel$/);
     if (method === 'POST' && cancelMatch) {
@@ -401,5 +453,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
     messagesOf: (sessionId: string) => messages.get(sessionId) ?? [],
     cancelCalls,
     steerCalls,
+    toolCallCancelCalls,
+    queuedMessagesOf: (sessionId: string) => queuedMessagesBySession.get(sessionId) ?? [],
   };
 }

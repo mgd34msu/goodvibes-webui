@@ -5,7 +5,7 @@ import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
 import { queryKeys } from '../lib/queries';
 import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
 import { shouldSteerComposerKey, shouldSubmitComposerKey } from '../lib/composer-keys';
-import { isSessionNotFoundError } from '../lib/errors';
+import { isSessionNotFoundError, formatError } from '../lib/errors';
 import {
   companionSessionFromDetail,
   companionMessagesFromListResponse,
@@ -16,6 +16,7 @@ import { SessionHeader } from './chat/SessionHeader';
 import { MessageList } from './chat/MessageList';
 import { Composer } from './chat/Composer';
 import { ChatSearch } from './chat/ChatSearch';
+import { QueuedMessagesPanel } from './chat/QueuedMessagesPanel';
 import { useChatSend } from './chat/useChatSend';
 import { useChatStream } from './chat/useChatStream';
 import '../styles/components/chat-view.css';
@@ -181,7 +182,7 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
-  const { isStreaming, stop, retryStream } = useChatStream({
+  const { isStreaming, stop, retryStream, activeToolCalls, cancelToolCall: cancelToolCallRaw } = useChatStream({
     activeSessionId,
     liveTextRef,
     onSessionMissing,
@@ -194,6 +195,21 @@ export function ChatView({
     onAuthExpired: onChatAuthExpired,
     turnState,
   });
+
+  // Cancel ONE running tool call — the turn continues (unlike stop(), which ends the
+  // whole turn). A refusal or transport failure surfaces through the same turnError
+  // banner the rest of the composer already renders.
+  const cancelToolCall = useCallback(
+    async (callId: string) => {
+      try {
+        const result = await cancelToolCallRaw(callId);
+        if (!result.cancelled) setTurnError('Could not cancel that tool call — it may have already finished.');
+      } catch (error) {
+        setTurnError(formatError(error));
+      }
+    },
+    [cancelToolCallRaw, setTurnError],
+  );
 
   const send = useChatSend({
     activeSessionId,
@@ -482,7 +498,10 @@ export function ChatView({
         onRegenerateFrom={regenerateFrom}
         onEditMessage={editAndResend}
         onStop={stop}
+        activeToolCalls={activeToolCalls}
+        onCancelToolCall={(callId) => void cancelToolCall(callId)}
       />
+      {activeSessionId && <QueuedMessagesPanel sessionId={activeSessionId} active={isStreaming} />}
       <Composer
         draft={draft}
         attachedFiles={attachedFiles}

@@ -21,6 +21,7 @@ import { PeekProvider } from '../../components/peek/PeekPanel';
 import { ToastProvider } from '../../lib/toast';
 import type { LineageNode } from './lineage';
 import type { ChatMessage } from './types';
+import type { ActiveToolCall } from './useChatStream';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,7 +44,12 @@ const baseProps = {
   onRegenerateFrom: noop as (messageId: string) => void,
 };
 
-function renderMessageList(props: Partial<typeof baseProps & { isStreaming?: boolean; onStop?: () => void }> = {}) {
+function renderMessageList(props: Partial<typeof baseProps & {
+  isStreaming?: boolean;
+  onStop?: () => void;
+  activeToolCalls?: readonly ActiveToolCall[];
+  onCancelToolCall?: (callId: string) => void;
+}> = {}) {
   const merged = { ...baseProps, ...props };
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -282,6 +288,82 @@ describe('MessageList — reduced-motion class', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
     const caret = container.querySelector('.stream-caret');
     expect(caret?.classList.contains('stream-caret--reduced')).toBe(true);
+    unmount();
+  });
+});
+
+describe('MessageList — running tool calls + cancel (SDK 1.8.0 interaction-wins round)', () => {
+  test('no active-tool-calls list renders when activeToolCalls is empty', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
+    expect(container.querySelector('.active-tool-calls')).toBeNull();
+    unmount();
+  });
+
+  test('a running tool call renders with a Cancel button', () => {
+    const { container, unmount } = renderMessageList({
+      isStreaming: true,
+      liveText: 'typing...',
+      activeToolCalls: [{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }],
+      onCancelToolCall: noop as (callId: string) => void,
+    });
+    const item = container.querySelector('.active-tool-call');
+    expect(item?.textContent).toContain('Running: bash');
+    const cancelBtn = item?.querySelector('.active-tool-call__cancel');
+    expect(cancelBtn).not.toBeNull();
+    expect(cancelBtn?.getAttribute('aria-label')).toBe('Cancel tool call bash');
+    unmount();
+  });
+
+  test('clicking Cancel calls onCancelToolCall with the toolCallId', () => {
+    const calls: string[] = [];
+    const { container, unmount } = renderMessageList({
+      isStreaming: true,
+      liveText: 'typing...',
+      activeToolCalls: [{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }],
+      onCancelToolCall: (callId: string) => { calls.push(callId); },
+    });
+    const cancelBtn = container.querySelector('.active-tool-call__cancel') as HTMLButtonElement;
+    flushSync(() => { cancelBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+    expect(calls).toEqual(['call-1']);
+    unmount();
+  });
+
+  test('a cancelled tool call shows "Cancelled" and no Cancel button', () => {
+    const { container, unmount } = renderMessageList({
+      isStreaming: true,
+      liveText: 'typing...',
+      activeToolCalls: [{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: true }],
+      onCancelToolCall: noop as (callId: string) => void,
+    });
+    const item = container.querySelector('.active-tool-call');
+    expect(item?.textContent).toContain('Cancelled: bash');
+    expect(item?.querySelector('.active-tool-call__cancel')).toBeNull();
+    unmount();
+  });
+
+  test('multiple concurrent tool calls each render their own row', () => {
+    const { container, unmount } = renderMessageList({
+      isStreaming: true,
+      liveText: 'typing...',
+      activeToolCalls: [
+        { turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false },
+        { turnId: 't1', toolCallId: 'call-2', toolName: 'read', cancelled: false },
+      ],
+      onCancelToolCall: noop as (callId: string) => void,
+    });
+    expect(container.querySelectorAll('.active-tool-call').length).toBe(2);
+    unmount();
+  });
+
+  test('the Cancel button clears the 44px phone-width tap-target floor via its CSS class', () => {
+    const { container, unmount } = renderMessageList({
+      isStreaming: true,
+      liveText: 'typing...',
+      activeToolCalls: [{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }],
+      onCancelToolCall: noop as (callId: string) => void,
+    });
+    const cancelBtn = container.querySelector('.active-tool-call__cancel');
+    expect(cancelBtn?.className).toContain('active-tool-call__cancel');
     unmount();
   });
 });

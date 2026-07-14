@@ -341,7 +341,7 @@ export function fleetGraphResponse(workstreamId: string) {
       { id: 'wi-5', title: 'Tighten the timeout constant', state: 'passed', files: ['src/config.ts'], orphaned: false, remainingDepth: 0, stalled: false },
     ],
     edges: [{ from: 'wi-3', to: 'wi-1' }],
-    pool: { ready: 1, running: 2, atCap: true, capKey: 'fleet.maxSize', maxSize: 2, refusal: 'at cap' },
+    pool: { ready: 1, running: 2, atCap: true, capKey: 'fleet.maxSize', maxSize: 2, refusal: 'new spawns wait for a running agent to free a slot' },
   };
 }
 

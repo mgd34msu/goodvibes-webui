@@ -1,0 +1,105 @@
+/*
+ * QueuedMessagesPanel layout. Colors come from the shared token layer
+ * (src/styles/tokens.css); this file is layout only, no new palette.
+ */
+
+.queued-messages-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  margin: var(--space-2, 8px) 0;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.queued-messages-panel__note {
+  margin: 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--text-tertiary);
+}
+
+.queued-messages-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.queued-message {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-subtle);
+}
+
+.queued-message__text {
+  flex: 1;
+  font-size: var(--text-sm, 13px);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.queued-message__actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.queued-message__edit,
+.queued-message__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px; /* phone-width tap target */
+  min-height: 44px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.queued-message__delete:hover {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+  background: var(--status-danger-soft);
+}
+
+.queued-message__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  width: 100%;
+}
+
+.queued-message__edit-form textarea {
+  width: 100%;
+  min-height: 44px;
+  resize: vertical;
+}
+
+.queued-message__edit-actions {
+  display: flex;
+  gap: var(--space-2, 8px);
+}
+
+.queued-message__save,
+.queued-message__cancel-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px; /* phone-width tap target */
+  padding: 0 var(--space-2, 8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+}

@@ -89,3 +89,42 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+/* Running tool calls — cancel one call without ending the turn. */
+.active-tool-calls {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.active-tool-call {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.active-tool-call__cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px; /* phone-width tap target */
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.active-tool-call__cancel:hover {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+  background: var(--status-danger-soft);
+}

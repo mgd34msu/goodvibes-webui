@@ -5,7 +5,16 @@
     "": {
       "name": "goodvibes-webui",
       "dependencies": {
-        "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-sdk-1.8.0.tgz",
+        "@pellux/goodvibes-contracts": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-contracts-1.8.0.tgz",
+        "@pellux/goodvibes-daemon-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-daemon-sdk-1.8.0.tgz",
+        "@pellux/goodvibes-errors": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-errors-1.8.0.tgz",
+        "@pellux/goodvibes-operator-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-operator-sdk-1.8.0.tgz",
+        "@pellux/goodvibes-peer-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-peer-sdk-1.8.0.tgz",
+        "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-sdk-1.8.0.tgz",
+        "@pellux/goodvibes-terminal-shell": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-terminal-shell-1.8.0.tgz",
+        "@pellux/goodvibes-transport-core": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-core-1.8.0.tgz",
+        "@pellux/goodvibes-transport-http": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-http-1.8.0.tgz",
+        "@pellux/goodvibes-transport-realtime": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-realtime-1.8.0.tgz",
         "@tanstack/react-query": "^5.100.11",
         "highlight.js": "^11.11.1",
         "lucide-react": "^1.16.0",
@@ -38,16 +47,16 @@
     },
   },
   "overrides": {
-    "@pellux/goodvibes-contracts": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-contracts-1.8.0.tgz",
-    "@pellux/goodvibes-daemon-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-daemon-sdk-1.8.0.tgz",
-    "@pellux/goodvibes-errors": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-errors-1.8.0.tgz",
-    "@pellux/goodvibes-operator-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-operator-sdk-1.8.0.tgz",
-    "@pellux/goodvibes-peer-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-peer-sdk-1.8.0.tgz",
-    "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-sdk-1.8.0.tgz",
-    "@pellux/goodvibes-terminal-shell": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-terminal-shell-1.8.0.tgz",
-    "@pellux/goodvibes-transport-core": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-core-1.8.0.tgz",
-    "@pellux/goodvibes-transport-http": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-http-1.8.0.tgz",
-    "@pellux/goodvibes-transport-realtime": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-realtime-1.8.0.tgz",
+    "@pellux/goodvibes-contracts": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-contracts-1.8.0.tgz",
+    "@pellux/goodvibes-daemon-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-daemon-sdk-1.8.0.tgz",
+    "@pellux/goodvibes-errors": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-errors-1.8.0.tgz",
+    "@pellux/goodvibes-operator-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-operator-sdk-1.8.0.tgz",
+    "@pellux/goodvibes-peer-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-peer-sdk-1.8.0.tgz",
+    "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-sdk-1.8.0.tgz",
+    "@pellux/goodvibes-terminal-shell": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-terminal-shell-1.8.0.tgz",
+    "@pellux/goodvibes-transport-core": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-core-1.8.0.tgz",
+    "@pellux/goodvibes-transport-http": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-http-1.8.0.tgz",
+    "@pellux/goodvibes-transport-realtime": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-realtime-1.8.0.tgz",
   },
   "packages": {
     "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@0.21.1", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-ZTLH+o9QxcZDLX/9ww+W7C2iExnXFM+vD/uGFVSlR61Kzj9FaxUqBC6Rv/kwgA7qVWYUEI9c5ZNqCuO9PM4rKg=="],
@@ -272,23 +281,25 @@
 
     "@oxc-project/types": ["@oxc-project/types@0.139.0", "", {}, "sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw=="],
 
-    "@pellux/goodvibes-contracts": ["@pellux/goodvibes-contracts@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-contracts-1.8.0.tgz", { "dependencies": { "zod": "^4.3.6" } }, "sha512-4L3LvUqKNzwExk1UH8mTdGdbW4aXqpS6MAKGAzffb0VvcEu6+XwThiL8xsiwnSoc9IfItvLZrxUQWFCbfjsONw=="],
+    "@pellux/goodvibes-contracts": ["@pellux/goodvibes-contracts@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-contracts-1.8.0.tgz", { "dependencies": { "zod": "^4.3.6" } }, "sha512-1NfmguR0ZH0oUU1NOfU2jOoWtoauUyNbZDiEwlH4an5ERIWJuf/Qg4cbAXbnbye3Z1aoweRGynGJMNWU3isUNw=="],
 
-    "@pellux/goodvibes-daemon-sdk": ["@pellux/goodvibes-daemon-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-daemon-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-transport-core": "1.7.0" }, "bin": { "goodvibes-relay": "./dist/relay-server-entry.js" } }, "sha512-89XbFnoJ0EwEXwqNP07XoabqK1vuuGelnqQ67zia6FOV290kquAVJkHC4KNxLVQ5S5fMWLdgmIkmTLJcTU01dg=="],
+    "@pellux/goodvibes-daemon-sdk": ["@pellux/goodvibes-daemon-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-daemon-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-transport-core": "workspace:*" }, "bin": { "goodvibes-relay": "./dist/relay-server-entry.js" } }, "sha512-Qc/SgMbin5EoaaymeOCHIcPObhSDUGciFCQMVsm6Zzy0/5uNx8e14E8zlWd0nKHKKzEEsQ/EyV0bmbl88rahEg=="],
 
-    "@pellux/goodvibes-errors": ["@pellux/goodvibes-errors@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-errors-1.8.0.tgz", {}, "sha512-Sb6Ru9cAqyp593kV+710TLVk7Zqr+KgyoxMBqLZLnKBIjz8WGHdy2V3B/X9JwyNGdnhECww8t0QX6UF8S0GFrg=="],
+    "@pellux/goodvibes-errors": ["@pellux/goodvibes-errors@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-errors-1.8.0.tgz", {}, "sha512-qBeHZitZISanT2YxCAHo+CyDcoruomrbc36nkvZzFQSXCwM3FLtshFu4NSnUN6O9yZ7Xfg3p9DpWpZ4Ns7PK0w=="],
 
-    "@pellux/goodvibes-operator-sdk": ["@pellux/goodvibes-operator-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-operator-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-transport-http": "1.7.0", "zod": "^4.3.6" } }, "sha512-DcOyDWib6S90vTe4GVj5FuG0q0vCpO8rLyIKgbJu0BZ/IjMLGFuxrTyOqQq2D+hBv7Z1reGw0GwjdBQ+jITMWA=="],
+    "@pellux/goodvibes-operator-sdk": ["@pellux/goodvibes-operator-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-operator-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-transport-http": "workspace:*", "zod": "^4.3.6" } }, "sha512-qKCjmzZdKAEkx1Jk7cFLKG8FbiCG9jsVSQ4mxndDtYy2HFz/r7yZMimIGZ7EnoFBjXdm2y5IrTgt3Oe7xt8dUw=="],
 
-    "@pellux/goodvibes-peer-sdk": ["@pellux/goodvibes-peer-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-peer-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-transport-http": "1.7.0" } }, "sha512-FuPl5/t752f6Ug6tQjCLUxlLhj4lDlcBacMVgtbJ5XK/92DPbGM295urCE3qN5HZf2bZhhfMlBS0pgb88fJ5wA=="],
+    "@pellux/goodvibes-peer-sdk": ["@pellux/goodvibes-peer-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-peer-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-transport-http": "workspace:*" } }, "sha512-v/5Oviogg2FlBG6yaYKbdAQADyDFbZA1EtMBMzt5NyxZXVCw9Pl7T1KlDBaJ5Ct0srfDpxI3tXpqzRkHqZQR4Q=="],
 
-    "@pellux/goodvibes-sdk": ["@pellux/goodvibes-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-daemon-sdk": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-operator-sdk": "1.7.0", "@pellux/goodvibes-peer-sdk": "1.7.0", "@pellux/goodvibes-transport-core": "1.7.0", "@pellux/goodvibes-transport-http": "1.7.0", "@pellux/goodvibes-transport-realtime": "1.7.0" }, "optionalDependencies": { "@agentclientprotocol/sdk": "^0.21.0", "@anthropic-ai/bedrock-sdk": "^0.29.1", "@anthropic-ai/sdk": "^0.92.0", "@ast-grep/napi": "^0.42.0", "@mozilla/readability": "^0.6.0", "bash-language-server": "^5.6.0", "bplist-parser": "^0.3.2", "cloudflare": "6.0.0", "fuse.js": "^7.1.0", "google-auth-library": "10.6.2", "graphql": "^16.13.2", "jsdom": "^29.1.0", "jszip": "^3.10.1", "node-edge-tts": "^1.2.10", "openai": "6.46.0", "pdfjs-dist": "5.7.284", "pyright": "^1.1.408", "simple-git": "^3.33.0", "sql.js": "^1.14.1", "sqlite-vec": "^0.1.9", "tree-sitter-css": "^0.25.0", "tree-sitter-javascript": "^0.25.0", "tree-sitter-json": "^0.24.8", "tree-sitter-python": "^0.25.0", "tree-sitter-typescript": "^0.23.2", "typescript-language-server": "^5.1.3", "vscode-langservers-extracted": "^4.10.0", "web-tree-sitter": "^0.26.7", "zustand": "^5.0.12" }, "peerDependencies": { "expo-secure-store": ">=13.0.0", "react-native-keychain": ">=8.0.0" }, "optionalPeers": ["expo-secure-store", "react-native-keychain"] }, "sha512-KuCpeGoHSMySwDU7cjohZN5GnhBl2a9A4+MOJjsjane8EyFcLw99S5h4uu7DHp/dpzebdIzSI5UC/xqpLgXMvw=="],
+    "@pellux/goodvibes-sdk": ["@pellux/goodvibes-sdk@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-sdk-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-daemon-sdk": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-operator-sdk": "workspace:*", "@pellux/goodvibes-peer-sdk": "workspace:*", "@pellux/goodvibes-transport-core": "workspace:*", "@pellux/goodvibes-transport-http": "workspace:*", "@pellux/goodvibes-transport-realtime": "workspace:*" }, "optionalDependencies": { "@agentclientprotocol/sdk": "^0.21.0", "@anthropic-ai/bedrock-sdk": "^0.29.1", "@anthropic-ai/sdk": "^0.92.0", "@ast-grep/napi": "^0.42.0", "@mozilla/readability": "^0.6.0", "bash-language-server": "^5.6.0", "bplist-parser": "^0.3.2", "cloudflare": "6.0.0", "fuse.js": "^7.1.0", "google-auth-library": "10.6.2", "graphql": "^16.13.2", "jsdom": "^29.1.0", "jszip": "^3.10.1", "node-edge-tts": "^1.2.10", "openai": "6.46.0", "pdfjs-dist": "5.7.284", "pyright": "^1.1.408", "simple-git": "^3.33.0", "sql.js": "^1.14.1", "sqlite-vec": "^0.1.9", "tree-sitter-css": "^0.25.0", "tree-sitter-javascript": "^0.25.0", "tree-sitter-json": "^0.24.8", "tree-sitter-python": "^0.25.0", "tree-sitter-typescript": "^0.23.2", "typescript-language-server": "^5.1.3", "vscode-langservers-extracted": "^4.10.0", "web-tree-sitter": "^0.26.7", "zustand": "^5.0.12" }, "peerDependencies": { "expo-secure-store": ">=13.0.0", "react-native-keychain": ">=8.0.0" }, "optionalPeers": ["expo-secure-store", "react-native-keychain"] }, "sha512-6Jk9VJ3TO3uNCc4M35RInT6yiwK5korwdX3cuD7S/Jr6ug1uy5sWWGxd1KRoTiZ6mZmZFSIHUbmutuUKejTHnQ=="],
 
-    "@pellux/goodvibes-transport-core": ["@pellux/goodvibes-transport-core@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-core-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-errors": "1.7.0" } }, "sha512-T6t3A2RWC4Bxcrt54R4km14ypKh95C5vIBNGn1ql7XJFzNdGTJAoMwgNRKv1YrLKLEWRi9EwK5fkO6dtzePlxg=="],
+    "@pellux/goodvibes-terminal-shell": ["@pellux/goodvibes-terminal-shell@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-terminal-shell-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-sdk": "workspace:*" } }, "sha512-4sxhmFoKfyoaqO3jOJoXwuh00/cezNmMKQgi1gq9jiY026N4AcC3ikzNAC3EPn63eT3r43jprVXFwRa+YaRQbw=="],
 
-    "@pellux/goodvibes-transport-http": ["@pellux/goodvibes-transport-http@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-http-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-transport-core": "1.7.0", "zod": "^4.3.6" } }, "sha512-rJVOejjX2CWsP2WJF7FZCgPINJKhfbEtUxZhrqsYfy2Nfhm03Ifd+vuQyM3pET+NOkdsO2q0wLIux19dFCvNPQ=="],
+    "@pellux/goodvibes-transport-core": ["@pellux/goodvibes-transport-core@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-core-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-errors": "workspace:*" } }, "sha512-rJPMyg+XVciILVkbIBAokaXeRPgPGdAsIj6l4IF+nI1dVgGJwSXx38TEoU8OAfTQSHPbnj7g5rtk4ZppSleLpw=="],
 
-    "@pellux/goodvibes-transport-realtime": ["@pellux/goodvibes-transport-realtime@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-3bddf143/pellux-goodvibes-transport-realtime-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "1.7.0", "@pellux/goodvibes-errors": "1.7.0", "@pellux/goodvibes-transport-core": "1.7.0", "@pellux/goodvibes-transport-http": "1.7.0" } }, "sha512-lgXym6MNdInMvq8o09rygoyVvOLu+4xJsXQx5hb66d6p4EGmMisUhs+FZVavYJ1MWtFw91aHdCP90uAPuWMxyw=="],
+    "@pellux/goodvibes-transport-http": ["@pellux/goodvibes-transport-http@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-http-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-transport-core": "workspace:*", "zod": "^4.3.6" } }, "sha512-bECXZ2mH6jViDqqlHELSQ2NGJHqqruoKkPW6lRGSDfizbJwjfU0NonGVAauKAMlkKsUnmXCGaac1NTG3gDJrIg=="],
+
+    "@pellux/goodvibes-transport-realtime": ["@pellux/goodvibes-transport-realtime@/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-64c67eaf/pellux-goodvibes-transport-realtime-1.8.0.tgz", { "dependencies": { "@pellux/goodvibes-contracts": "workspace:*", "@pellux/goodvibes-errors": "workspace:*", "@pellux/goodvibes-transport-core": "workspace:*", "@pellux/goodvibes-transport-http": "workspace:*" } }, "sha512-+T3Ta/MpfYI22jGhHC/HbJnznj7atgdSc5Qy5pWDSFBHvY2rfhJiqzoF6xAdjpfzSTBbQRUAZ/luGb2pVkjHNQ=="],
 
     "@playwright/test": ["@playwright/test@1.61.1", "", { "dependencies": { "playwright": "1.61.1" }, "bin": { "playwright": "cli.js" } }, "sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig=="],
 

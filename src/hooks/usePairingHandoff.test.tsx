@@ -23,11 +23,15 @@ const { usePairingHandoff, resetPairingCaptureForTest } = await import('./usePai
 
 let lastStatus = '';
 let lastError: unknown = null;
+let lastOffers: readonly string[] = [];
+let dismiss: (() => void) | null = null;
 
 function Probe() {
-  const { status, error } = usePairingHandoff();
+  const { status, error, offers, dismissOffers } = usePairingHandoff();
   lastStatus = status;
   lastError = error;
+  lastOffers = offers;
+  dismiss = dismissOffers;
   return null;
 }
 
@@ -54,6 +58,8 @@ beforeEach(() => {
   tokenShouldReject = false;
   lastStatus = '';
   lastError = null;
+  lastOffers = [];
+  dismiss = null;
   // The token is captured once at module scope — reset it, and set the URL, BEFORE
   // each render so every case starts from a clean, un-captured state.
   resetPairingCaptureForTest();
@@ -96,6 +102,48 @@ describe('usePairingHandoff', () => {
     expect(tokenCalls).toEqual(['bad']);
     expect(lastStatus).toBe('error');
     expect(lastError).toBeInstanceOf(Error);
+    unmount();
+  });
+
+  test('a plain token link (no offers key) never populates offers', async () => {
+    window.history.replaceState(null, '', '/#pair=tok_live');
+    const unmount = render();
+    await tick();
+    expect(lastStatus).toBe('idle');
+    expect(lastOffers).toEqual([]);
+    unmount();
+  });
+
+  test('a hand-off bundle publishes its offer set once the token validates', async () => {
+    window.history.replaceState(null, '', '/#pair=tok_live&offers=passkey,notifications');
+    const unmount = render();
+    expect(lastStatus).toBe('pending');
+    // The offers key is stripped alongside pair, synchronously.
+    expect(window.location.hash).toBe('');
+    await tick();
+    expect(lastStatus).toBe('idle');
+    expect(lastOffers).toEqual(['notifications', 'passkey']);
+    unmount();
+  });
+
+  test('dismissOffers clears the offer set once the decision UI is done', async () => {
+    window.history.replaceState(null, '', '/#pair=tok_live&offers=relay');
+    const unmount = render();
+    await tick();
+    expect(lastOffers).toEqual(['relay']);
+    dismiss?.();
+    await tick();
+    expect(lastOffers).toEqual([]);
+    unmount();
+  });
+
+  test('a rejected token never publishes offers', async () => {
+    tokenShouldReject = true;
+    window.history.replaceState(null, '', '/#pair=bad&offers=relay');
+    const unmount = render();
+    await tick();
+    expect(lastStatus).toBe('error');
+    expect(lastOffers).toEqual([]);
     unmount();
   });
 });

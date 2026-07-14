@@ -15,6 +15,7 @@
 
 import { sdk } from '../goodvibes';
 import type { PublicPushSubscription, PushReconcileDrift } from '../goodvibes';
+import { formatError } from '../errors';
 import { detectPushSupport, urlBase64ToUint8Array } from './push-support';
 
 export type PushSubscribeFailure =
@@ -31,6 +32,30 @@ export class PushSubscribeError extends Error {
     this.name = 'PushSubscribeError';
     this.reason = reason;
   }
+}
+
+/**
+ * Plain-language message for a push-subscription failure — shared by
+ * NotificationSettings (the settings toggle) and PairingHandoffOffers (the
+ * hand-off bundle's notifications offer), so the same failure reads the same
+ * way regardless of which surface triggered it.
+ */
+export function describePushSubscribeError(error: unknown): string {
+  if (error instanceof PushSubscribeError) {
+    switch (error.reason) {
+      case 'insecure-context':
+        return 'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home machine, `tailscale serve` fronts the daemon with an HTTPS hostname.';
+      case 'permission-denied':
+        return 'Notifications are blocked for this site. Re-enable them in your browser’s site settings, then try again.';
+      case 'unsupported':
+        return 'This browser does not support Web Push. On iOS, install the app to the Home Screen first (iOS 16.4+ delivers push only to an installed app).';
+      case 'no-registration':
+        return 'The service worker is not ready yet. Reload the page and try again.';
+      default:
+        return 'Could not complete the push subscription. Please try again.';
+    }
+  }
+  return formatError(error);
 }
 
 /** The endpoint + key material extracted from a browser PushSubscription. */
@@ -77,7 +102,7 @@ function forgetSubscriptionId(): void {
 export const PUSH_DEVICE_ID_STORAGE_KEY = 'goodvibes.webui.push.deviceId';
 const DEVICE_ID_KEY = PUSH_DEVICE_ID_STORAGE_KEY;
 
-function ensureDeviceId(): string {
+export function ensureDeviceId(): string {
   try {
     const existing = window.localStorage.getItem(DEVICE_ID_KEY);
     if (existing) return existing;
@@ -153,11 +178,14 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 }
 
 /**
- * Subscribe this device: prompt for notification permission if needed, create
- * (or reuse) a PushManager subscription against the daemon's VAPID key, and
- * register it with the daemon. Returns the redacted daemon-side view.
+ * Prompt for notification permission if needed, then create (or reuse) a
+ * PushManager subscription against the daemon's VAPID key and return the
+ * extracted endpoint/keys. Pure browser-side work — does NOT register
+ * anything with the daemon; callers decide how (subscribeToPush registers via
+ * push.subscriptions.create, the pairing hand-off flow hands the same payload
+ * to pairing.handoff.complete's notifications accept instead).
  */
-export async function subscribeToPush(): Promise<PublicPushSubscription> {
+export async function ensureBrowserPushSubscription(): Promise<PushSubscriptionPayload> {
   const support = detectPushSupport();
   if (support === 'insecure-context') {
     throw new PushSubscribeError('insecure-context', 'Web Push needs a secure (HTTPS) connection.');
@@ -191,7 +219,16 @@ export async function subscribeToPush(): Promise<PublicPushSubscription> {
     }
   }
 
-  const payload = extractSubscriptionPayload(subscription.toJSON());
+  return extractSubscriptionPayload(subscription.toJSON());
+}
+
+/**
+ * Subscribe this device: prompt for notification permission if needed, create
+ * (or reuse) a PushManager subscription against the daemon's VAPID key, and
+ * register it with the daemon. Returns the redacted daemon-side view.
+ */
+export async function subscribeToPush(): Promise<PublicPushSubscription> {
+  const payload = await ensureBrowserPushSubscription();
   const { subscription: stored } = await sdk.operator.push.subscribe({ ...payload, deviceId: ensureDeviceId() });
   rememberSubscriptionId(stored.id);
   return stored;

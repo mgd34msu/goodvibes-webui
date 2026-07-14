@@ -2455,6 +2455,20 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "validationHint": "number in [0.1, 0.99]"
   },
   {
+    "key": "agents.maxTurns",
+    "type": "number",
+    "default": 50,
+    "description": "Default per-agent turn budget: the hard cap on how many turns one agent run may take before it terminates as a max-turns failure (a machine-readable turn-budget-exhausted outcome, distinct from an infrastructure error). A per-spawn override may lower or raise this, but never past agents.maxTurnsCap. Prevents an unbounded agent loop.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "agents.maxTurnsCap",
+    "type": "number",
+    "default": 200,
+    "description": "The upper bound a per-spawn maxTurns override cannot exceed. When a spawn requests more turns than this, the cap wins and the applied budget is reported as policy-bound. Keeps a caller from lifting the turn ceiling without limit.",
+    "validationHint": "integer in [1, 100000]"
+  },
+  {
     "key": "permissions.engine",
     "type": "enum",
     "default": "baseline",
@@ -2620,6 +2634,27 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "type": "boolean",
     "default": true,
     "description": "Device-push fan-out for the completion class: a tracked run reaching a terminal state (done/failed/killed) pushes to every paired push target. On by default with zero setup; the toggle only silences. Read live per event."
+  },
+  {
+    "key": "notifications.blockedEscalationGraceMs",
+    "type": "number",
+    "default": 300000,
+    "description": "How long a fleet node blocked on the operator may wait for a HUMAN response before a device push is sent REGARDLESS of an attached surface. Presence (an open TUI, a heartbeat) suppresses only the immediate push, never this escalation — a process being attended is not a human answer. A real interaction that clears the block cancels the escalation. Read live when a block is first tracked.",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "notifications.blockedEscalationFollowUpMs",
+    "type": "number",
+    "default": 300000,
+    "description": "Interval between the bounded follow-up reminders that fire after the first blocked-too-long escalation, while the block remains unanswered. Read live per reminder.",
+    "validationHint": "integer in [0, 86400000]"
+  },
+  {
+    "key": "notifications.blockedEscalationMaxFollowUps",
+    "type": "number",
+    "default": 2,
+    "description": "Upper bound on follow-up reminders after the first blocked-too-long escalation (0 = escalate exactly once, no reminders). Keeps a long-unanswered block from becoming an unbounded stream of pushes.",
+    "validationHint": "integer in [0, 100]"
   },
   {
     "key": "pricing.modelPrices",

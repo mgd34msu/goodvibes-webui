@@ -1,2 +1,11 @@
+[install]
+# Hoisted, not bun's isolated linker: tsconfig.json's "types": ["bun-types", ...]
+# needs a literal top-level node_modules/bun-types (a transitive dep of
+# @types/bun) to resolve — the isolated linker nests it under
+# node_modules/.bun/node_modules instead and tsc silently can't find it
+# (TS2688). Pinning this keeps every install (this repo, CI, the SDK dev-link
+# tarball overrides) on the same reproducible layout.
+linker = "hoisted"
+
 [test]
 preload = ["./src/test-setup.ts"]

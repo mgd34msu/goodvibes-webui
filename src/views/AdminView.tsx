@@ -20,6 +20,7 @@ import { ErrorState } from '../components/feedback/ErrorState';
 import { SkeletonBlock } from '../components/feedback/SkeletonBlock';
 import { SettingsModal } from '../components/settings/SettingsModal';
 import { NotificationSettings } from '../components/settings/NotificationSettings';
+import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
 import '../styles/components/admin.css';
 
 interface AdminViewProps {
@@ -204,6 +205,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         </div>
 
         <NotificationSettings />
+
+        <PairingTokensSettings />
 
         <section className="panel">
           <div className="panel-title">

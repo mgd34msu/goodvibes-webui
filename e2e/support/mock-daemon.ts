@@ -40,6 +40,29 @@ import {
   type SeedSession,
 } from './seed';
 
+/**
+ * Shared, mutable pairing-token state for pairing.tokens.* — a plain object
+ * (not per-call closure state) so TWO installMockDaemon calls (two Playwright
+ * pages/contexts, standing in for two devices) can be pointed at the SAME
+ * store and observe each other's writes: revoke one device's token from page A
+ * and page B's next request — bearing that same token — genuinely 401s,
+ * proving revoke actually signs the device out, while page A's own (different)
+ * token keeps working untouched. Create with createMockPairingStore(); pass to
+ * installMockDaemon via { pairingStore }.
+ */
+export interface MockPairingStore {
+  tokens: { id: string; name: string; token: string; createdAt: number; lastSeenAt?: number }[];
+  legacySharedRevoked: boolean;
+  /** Raw token VALUES (not ids) that pairing.tokens.delete has revoked — checked on every request. */
+  revokedTokenValues: Set<string>;
+}
+
+export function createMockPairingStore(
+  seed: readonly { id: string; name: string; token: string; createdAt: number; lastSeenAt?: number }[] = [],
+): MockPairingStore {
+  return { tokens: [...seed], legacySharedRevoked: false, revokedTokenValues: new Set() };
+}
+
 export interface MockDaemonOptions {
   /** Seed a stored token so the app boots signed-in. Default true. */
   signedIn?: boolean;
@@ -147,6 +170,13 @@ export interface MockDaemonOptions {
    * to heal it. Default [] (no prior device registration).
    */
   pushSeed?: readonly { id: string; deviceId?: string; endpointOrigin: string; endpointHash: string; createdAt: number }[];
+  /**
+   * The pairing.tokens.* backing store. Defaults to a fresh, empty
+   * createMockPairingStore() private to this installMockDaemon call. Pass the
+   * SAME store to two calls (two pages/devices) to prove cross-device revoke —
+   * see MockPairingStore's own header comment.
+   */
+  pairingStore?: MockPairingStore;
 }
 
 export interface MockDaemon {
@@ -249,6 +279,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     localSessionId = 's-agent-live',
     pushSeed = [],
   } = options;
+  const pairingStore = options.pairingStore ?? createMockPairingStore();
   // sessions.permissionMode.get/set + sessions.contextUsage.get in-memory state — a
   // fresh copy per installMockDaemon call, mutated by set() exactly like the daemon's
   // real single-writer config value.
@@ -409,6 +440,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   let pushSubscriptions: { id: string; principalId: string; deviceId?: string; endpointOrigin: string; endpointHash: string; createdAt: number }[] =
     pushSeed.map((s) => ({ ...s, principalId: 'operator' }));
   let pushIdCounter = 0;
+  let pairingIdCounter = 0;
 
   // Mutable server-side state for the two round-trip surfaces this brief adds:
   // the current model slot (models.current/models.select) and the config tree
@@ -525,6 +557,16 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     const url = new URL(request.url());
     const path = url.pathname;
     const accept = request.headers()['accept'] ?? '';
+
+    // A revoked pairing token (pairing.tokens.delete) 401s EVERY request that
+    // presents it, immediately — proving revoke actually signs a device out —
+    // while a request bearing any OTHER token is untouched. Checked before
+    // every other branch below, including the auth probe.
+    const revokeGuardAuthz = request.headers()['authorization'] ?? '';
+    const revokeGuardBearer = /^Bearer\s+(.+)$/i.exec(revokeGuardAuthz)?.[1]?.trim();
+    if (revokeGuardBearer && pairingStore.revokedTokenValues.has(revokeGuardBearer)) {
+      return json(route, { error: 'This pairing token has been revoked.', code: 'UNAUTHENTICATED' }, 401);
+    }
 
     // Streams: an EventSource/fetch stream (text/event-stream).
     if (accept.includes('text/event-stream') || path.includes('/events')) {
@@ -1276,6 +1318,52 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           pushSubscriptions = [...pushSubscriptions, subscription];
         }
         return json(route, { subscription, drift });
+      }
+      // ── Pairing tokens (pairing.tokens.*, SDK 1.8.0) — per-device revocable
+      //    tokens. `token` (the literal secret) is stored HERE ONLY (never
+      //    reflected back from list/rename/delete — real custody), so a test
+      //    can capture it from create/migrate's response and use it as this
+      //    "device"'s Authorization bearer on a second page/context. ──────────
+      if (methodId === 'pairing.tokens.list') {
+        return json(route, {
+          tokens: pairingStore.tokens.map(({ id, name, createdAt, lastSeenAt }) => ({ id, name, createdAt, lastSeenAt })),
+          legacySharedRevoked: pairingStore.legacySharedRevoked,
+        });
+      }
+      if (methodId === 'pairing.tokens.create' || methodId === 'pairing.tokens.migrate') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { name?: string } };
+        const name = body.body?.name ?? 'Device';
+        pairingIdCounter += 1;
+        const minted = {
+          id: `pairing_e2e_${pairingIdCounter}`,
+          name,
+          token: `e2e-pairing-token-${pairingIdCounter}`,
+          createdAt: Date.now(),
+        };
+        pairingStore.tokens = [...pairingStore.tokens, minted];
+        return json(route, { token: minted });
+      }
+      if (methodId === 'pairing.tokens.rename') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string; name?: string } };
+        const id = body.body?.id ?? '';
+        const name = body.body?.name ?? '';
+        const found = pairingStore.tokens.find((t) => t.id === id);
+        if (found) found.name = name;
+        return json(route, { id, renamed: Boolean(found) });
+      }
+      if (methodId === 'pairing.tokens.delete') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { id?: string } };
+        const id = body.body?.id ?? '';
+        const found = pairingStore.tokens.find((t) => t.id === id);
+        if (found) {
+          pairingStore.revokedTokenValues.add(found.token);
+          pairingStore.tokens = pairingStore.tokens.filter((t) => t.id !== id);
+        }
+        return json(route, { id, revoked: Boolean(found) });
+      }
+      if (methodId === 'pairing.tokens.revokeShared') {
+        pairingStore.legacySharedRevoked = true;
+        return json(route, { legacySharedRevoked: true });
       }
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures

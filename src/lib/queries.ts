@@ -96,6 +96,10 @@ export const queryKeys = {
   // manual-refresh story as ci.*/checkin.* above.
   principals: ['principals'] as const,
   channelProfiles: ['channels', 'profiles'] as const,
+  // pairing.tokens.* (SDK 1.8.0) — per-device revocable pairing tokens. No wire event
+  // exists for this domain yet, so PairingTokensSettings polls/refetches manually —
+  // same standing gap fleet.*/checkpoints.*/memory.*/ci.* document above.
+  pairingTokens: ['pairing', 'tokens'] as const,
 };
 
 export async function loadBootSnapshot() {

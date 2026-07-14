@@ -700,11 +700,40 @@ export const FLEET_EVENT_NODE = {
   capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
 };
 
+// 'pick' and 'conflict' (SDK 1.8.0) — the SAME waiting-on-human class as 'input' above,
+// with their own reason-specific label. A ready best-of-N group and a merge-conflicted
+// work item, respectively. Both started BEFORE FLEET_BLOCKED_NODE (startedAt 50) so the
+// existing "blocked node floats to the top" proof still holds: among attention-tied
+// siblings the newest-started wins the tie-break, and blocked stays newest of the three.
+export const FLEET_PICK_NODE = {
+  id: 'workstream-pick-3',
+  kind: 'workstream',
+  label: 'Ready to pick a winner',
+  state: 'idle',
+  elapsedMs: 0,
+  startedAt: 30,
+  costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  needsAttention: { reason: 'pick' },
+};
+
+export const FLEET_CONFLICT_NODE = {
+  id: 'work-item-conflict-4',
+  kind: 'work-item',
+  label: 'Merge conflict in the checkout flow',
+  state: 'stalled',
+  elapsedMs: 0,
+  startedAt: 20,
+  costState: 'unpriced',
+  capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+  needsAttention: { reason: 'conflict', detail: 'merge conflict in src/checkout.ts' },
+};
+
 export const FLEET_SNAPSHOT = {
   capturedAt: 1000,
   truncated: false,
-  totalCount: 3,
-  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE],
+  totalCount: 5,
+  nodes: [FLEET_AGENT_NODE, FLEET_WATCHER_NODE, FLEET_BLOCKED_NODE, FLEET_PICK_NODE, FLEET_CONFLICT_NODE],
 };
 
 export const PENDING_APPROVAL = {

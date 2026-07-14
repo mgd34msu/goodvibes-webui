@@ -245,11 +245,43 @@ describe('attention (needs-a-human) helpers', () => {
     expect(attentionCount([])).toBe(0);
   });
 
+  // 'pick' and 'conflict' (SDK 1.8.0) are the SAME waiting-on-human class as
+  // approval/input — attentionCount already treats every reason identically (it only
+  // checks `needsAttention` truthiness), so both are counted with no code change.
+  test('attentionCount counts pick and conflict nodes exactly like approval/input', () => {
+    const nodes = [
+      node({ id: 'a', needsAttention: { reason: 'pick' } }),
+      node({ id: 'b', needsAttention: { reason: 'conflict', detail: 'merge conflict in src/foo.ts' } }),
+      node({ id: 'c' }),
+    ];
+    expect(attentionCount(nodes)).toBe(2);
+  });
+
   test('attentionReasonLabel maps known reasons and renders an unknown one verbatim', () => {
     expect(attentionReasonLabel('approval')).toBe('Needs approval');
     expect(attentionReasonLabel('input')).toBe('Needs input');
+    expect(attentionReasonLabel('pick')).toBe('Needs your pick');
+    expect(attentionReasonLabel('conflict')).toBe('Merge conflict waiting on you');
     expect(attentionReasonLabel('future-reason')).toBe('future-reason');
     expect(attentionReasonLabel('')).toBe('Needs attention');
+  });
+
+  test('a pick-blocked node floats to the top of its sibling group exactly like approval/input', () => {
+    const nodes = [
+      node({ id: 'root-a', startedAt: 100 }),
+      node({ id: 'child-a', parentId: 'root-a', startedAt: 10 }),
+      node({ id: 'child-b', parentId: 'root-a', startedAt: 90, needsAttention: { reason: 'pick' } }),
+    ];
+    const rows = buildFleetRows(nodes);
+    const childRows = rows.filter((r) => r.node.parentId === 'root-a');
+    expect(childRows[0]?.node.id).toBe('child-b');
+  });
+});
+
+describe('acp-agent node kind (SDK 1.8.0)', () => {
+  test('is a known kind — renders with the honest generic KindBadge, not the unknown-kind warning', () => {
+    expect(isKnownProcessKind('acp-agent')).toBe(true);
+    expect(kindLabel('acp-agent')).toBe('acp-agent');
   });
 });
 

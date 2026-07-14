@@ -15,7 +15,13 @@
 import type { ApprovalRecord, FleetProcessNode } from './goodvibes';
 import { asRecord } from './object';
 
-/** PROCESS_KIND_SCHEMA (operator-contract-schemas-fleet.ts) at the time this was written. */
+/**
+ * PROCESS_KIND_SCHEMA (operator-contract-schemas-fleet.ts) at the time this was written.
+ * 'acp-agent' (SDK 1.8.0): a third-party coding agent spawned via acp.spawn, hosted as a
+ * daemon session — a steerable/stoppable fleet row like any other agent kind. This client
+ * renders it with the same generic KindBadge every other kind gets (kindLabel just prints
+ * the string) — the honest minimal treatment; a dedicated spawn UX is a later round.
+ */
 export const KNOWN_PROCESS_KINDS = [
   'agent',
   'wrfc-chain',
@@ -28,6 +34,7 @@ export const KNOWN_PROCESS_KINDS = [
   'workstream',
   'phase',
   'work-item',
+  'acp-agent',
   'code-index',
 ] as const;
 
@@ -82,13 +89,21 @@ export function isAwaitingApprovalState(state: string): boolean {
 // ─── Attention (needs-a-human) ────────────────────────────────────────────────
 //
 // fleet.snapshot nodes now carry a DERIVED `needsAttention` marker
-// ({ reason: 'approval' | 'input', detail? }) — a projection of the node's
-// blocked-on-a-human state, recomputed on every snapshot and never persisted
+// ({ reason: 'approval' | 'input' | 'pick' | 'conflict', detail? }) — a projection of
+// the node's blocked-on-a-human state, recomputed on every snapshot and never persisted
 // (ProcessAttention, platform/runtime/fleet/types.ts). We read it straight off
 // the snapshot rather than accumulating our own store: the SDK's registry is "a
 // view, not a second source of truth", and so is this surface. A daemon that
 // predates the marker simply omits it — every reader below degrades to "no
 // attention" rather than crashing.
+//
+// 'pick' and 'conflict' (SDK 1.8.0) are ONE waiting-on-human class alongside
+// 'approval'/'input' — a ready best-of-N group (every reader below, and the count/badge/
+// jump machinery they feed, is already reason-agnostic) and a merge conflict both flag
+// their node exactly like an approval or an input ask does. Only the human-facing LABEL
+// is reason-specific; everything else (attentionCount, buildFleetRows' attention-first
+// sort, the fleet nav badge, a needs-input push deep link) already treats every reason
+// identically and needed no change to "inherit" these two.
 
 /** True when the daemon flagged this node as blocked waiting on a human. */
 export function needsAttention(node: FleetProcessNode): boolean {
@@ -99,6 +114,8 @@ export function needsAttention(node: FleetProcessNode): boolean {
 export function attentionReasonLabel(reason: string): string {
   if (reason === 'approval') return 'Needs approval';
   if (reason === 'input') return 'Needs input';
+  if (reason === 'pick') return 'Needs your pick';
+  if (reason === 'conflict') return 'Merge conflict waiting on you';
   return reason.trim() || 'Needs attention';
 }
 

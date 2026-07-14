@@ -278,6 +278,57 @@ describe('FleetView rendering', () => {
     unmount();
   });
 
+  // 'pick' and 'conflict' (SDK 1.8.0) are the SAME waiting-on-human class as
+  // approval/input — this proves the badge/count/jump machinery already inherited them
+  // with only the human-facing reason text added (attentionReasonLabel).
+  test('a pick-blocked workstream and a conflict-blocked item each show their own reason-specific attention badge', () => {
+    const seed = {
+      capturedAt: 1000,
+      truncated: false,
+      totalCount: 2,
+      nodes: [
+        {
+          id: 'ws-1', kind: 'workstream', label: 'Ready best-of-N group', state: 'idle', elapsedMs: 100,
+          startedAt: 10, costState: 'unpriced',
+          capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+          needsAttention: { reason: 'pick' },
+        },
+        {
+          id: 'item-1', kind: 'work-item', label: 'Merged worktree item', state: 'stalled', elapsedMs: 100,
+          startedAt: 20, costState: 'unpriced',
+          capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
+          needsAttention: { reason: 'conflict', detail: 'merge conflict in src/foo.ts' },
+        },
+      ],
+    };
+    const { el, unmount } = render(seed);
+    const badges = [...el.querySelectorAll('.fleet-row .badge.attention')];
+    const byReason = new Map(badges.map((b) => [b.getAttribute('data-attention-reason'), b.textContent]));
+    expect(byReason.get('pick')).toBe('Needs your pick');
+    expect(byReason.get('conflict')).toBe('Merge conflict waiting on you');
+    unmount();
+  });
+
+  test('an acp-agent node kind renders with the honest generic kind badge, not the unknown-kind warning', () => {
+    const seed = {
+      capturedAt: 1000,
+      truncated: false,
+      totalCount: 1,
+      nodes: [
+        {
+          id: 'acp-1', kind: 'acp-agent', label: 'Third-party agent', state: 'executing-tool', elapsedMs: 100,
+          startedAt: 10, costState: 'unpriced',
+          capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
+        },
+      ],
+    };
+    const { el, unmount } = render(seed);
+    const kindBadge = [...el.querySelectorAll('.fleet-row .badge')].find((b) => b.textContent === 'acp-agent');
+    expect(kindBadge).not.toBeUndefined();
+    expect(kindBadge?.className).not.toContain('warning');
+    unmount();
+  });
+
   test('a needs-input deep link focuses the node on mount and scrubs the fragment', async () => {
     // A push tap lands here: /?view=fleet#fleet-node=child-task&fleet-session=...
     window.history.replaceState(null, '', '/?view=fleet#fleet-node=child-task&fleet-session=s-child');

@@ -182,6 +182,22 @@ export function isConflictError(error: unknown): boolean {
   return status === 409;
 }
 
+/**
+ * True for the daemon's honest 501 refusal on memory.consolidation.receipts when this
+ * runtime has no consolidation scheduler wired at all (method-catalog-runtime.ts's
+ * own description: "a runtime without the consolidation scheduler answers an honest
+ * 501") — distinct from `isMethodUnavailableError`'s 404 (the verb id itself is
+ * unregistered on an older daemon build): here the verb IS registered, but this
+ * daemon build genuinely never runs the scheduler. Status-only, same pattern as
+ * `isConflictError` — no machine `code` is documented for this refusal.
+ */
+export function isConsolidationUnavailableError(error: unknown): boolean {
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 501;
+}
+
 export function isMethodUnavailableError(error: unknown): boolean {
   const serialized = serializeError(error);
   const transport = asRecord(serialized.transport);

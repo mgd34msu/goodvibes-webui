@@ -265,6 +265,7 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
       'checkpoints.revertHunkPreview', 'checkpoints.revertHunk', 'rewind.plan', 'rewind.apply',
       'sessions.search', 'sessions.changes.get', 'cost.attribution.get',
       'push.vapid.get', 'push.subscriptions.create', 'push.subscriptions.list', 'push.subscriptions.delete', 'push.subscriptions.verify',
+      'tailscale.get', 'tailscale.serve.run',
     ];
     for (const id of usedWsInvokeIds) {
       expect(WEBUI_METHOD_DISPOSITION[id], `${id} should be ws-invoke in the generated disposition`).toBe('ws-invoke');
@@ -709,9 +710,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'power' added for SDK 1.8.0's host sleep-ownership work (power.status.get,
     // power.keepAwake.set — both real REST routes, resolving through
     // EXTRA_METHOD_ROUTES like config.* above).
+    // 'tailscale' added for SDK 1.8.0's one-action https affordance (tailscale.get,
+    // tailscale.serve.run — both ws-only, resolving through invokeGatewayMethod like
+    // fleet.*/permissions.rules.* above).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.tailscale exposes the one-action https verbs', () => {
+    expect(Object.keys(sdk.operator.tailscale).sort()).toEqual(['get', 'serveRun'].sort());
   });
 
   test('sdk.operator.power exposes status and setKeepAwake', () => {
@@ -742,10 +750,17 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.pairing.posture).sort()).toEqual(['get'].sort());
   });
 
-  test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs', () => {
+  test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs plus consolidation', () => {
+    // 'consolidation' added for SDK 1.8.0's memory.consolidation.receipts (retained
+    // consolidation run receipts + pending judgment proposals) — surfaced in
+    // ConsolidationReceipts.
     expect(Object.keys(sdk.operator.memory).sort()).toEqual(
-      ['add', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
+      ['add', 'consolidation', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
     );
+  });
+
+  test('sdk.operator.memory.consolidation exposes exactly the receipts verb', () => {
+    expect(Object.keys(sdk.operator.memory.consolidation).sort()).toEqual(['receipts'].sort());
   });
 
   test('sdk.operator.voice exposes the wire voice verbs', () => {

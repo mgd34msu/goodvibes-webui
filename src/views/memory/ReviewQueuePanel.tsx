@@ -10,18 +10,28 @@ interface ReviewQueueRowProps {
   record: MemoryRecord;
   saving: boolean;
   onSave: (input: MemoryUpdateReviewInput) => void;
+  /** True when a consolidation proposal's "Review" jump referenced this exact record. */
+  highlighted?: boolean;
 }
 
 /** One review-queue row's own draft state — reviewState/confidence/staleReason are only
  * committed to the daemon when the operator explicitly hits Save (memory.records.update-review). */
-function ReviewQueueRow({ record, saving, onSave }: ReviewQueueRowProps) {
+function ReviewQueueRow({ record, saving, onSave, highlighted }: ReviewQueueRowProps) {
   const [state, setState] = useState(record.reviewState);
   const [confidence, setConfidence] = useState(record.confidence);
   const [staleReason, setStaleReason] = useState(record.staleReason ?? '');
   const flagged = isFlaggedReviewState(state);
 
   return (
-    <li className="memory-review-row">
+    <li
+      className={highlighted ? 'memory-review-row memory-review-row--highlighted' : 'memory-review-row'}
+      data-record-id={record.id}
+    >
+      {highlighted && (
+        <p className="memory-review-row__highlight-note" role="status">
+          Referenced by a consolidation proposal
+        </p>
+      )}
       <div className="memory-review-row__summary">
         <strong>{record.summary}</strong>
         <span className="memory-review-row__meta">
@@ -89,9 +99,12 @@ interface ReviewQueuePanelProps {
   onRetry: () => void;
   savingId: string | null;
   onSave: (id: string, input: MemoryUpdateReviewInput) => void;
+  /** Record ids a consolidation proposal's "Review" jump referenced — highlighted, never filtered
+   * out (a jump must land on the row, not hide the rest of the queue). */
+  highlightIds?: ReadonlySet<string>;
 }
 
-export function ReviewQueuePanel({ records, isPending, error, onRetry, savingId, onSave }: ReviewQueuePanelProps) {
+export function ReviewQueuePanel({ records, isPending, error, onRetry, savingId, onSave, highlightIds }: ReviewQueuePanelProps) {
   if (isPending) {
     return (
       <div className="memory-skeleton-group">
@@ -123,6 +136,7 @@ export function ReviewQueuePanel({ records, isPending, error, onRetry, savingId,
           record={record}
           saving={savingId === record.id}
           onSave={(input) => onSave(record.id, input)}
+          highlighted={highlightIds?.has(record.id)}
         />
       ))}
     </ul>

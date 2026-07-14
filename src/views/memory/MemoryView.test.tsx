@@ -88,6 +88,10 @@ let reviewQueueImpl: () => Promise<unknown> = () => Promise.resolve({ records: [
 let addImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
 let deleteImpl: (id: string) => Promise<unknown> = (id) => Promise.resolve({ id, deleted: true });
 let updateReviewImpl: (id: string, input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
+// memory.consolidation.receipts (SDK 1.8.0) — MemoryView renders ConsolidationReceipts,
+// which calls this on mount; default to the honest "nothing yet" empty state so the
+// existing search/review-queue-focused tests below are unaffected by its presence.
+let consolidationReceiptsImpl: () => Promise<unknown> = () => Promise.resolve({ receipts: [], pendingProposals: [] });
 
 mock.module('../../lib/goodvibes', () => ({
   VIBE_PERSONA_TAG: 'vibe',
@@ -104,6 +108,9 @@ mock.module('../../lib/goodvibes', () => ({
         delete: (id: string) => deleteImpl(id),
         updateReview: (id: string, input: unknown) => updateReviewImpl(id, input),
         reviewQueue: () => reviewQueueImpl(),
+        consolidation: {
+          receipts: () => consolidationReceiptsImpl(),
+        },
       },
     },
   },
@@ -134,6 +141,12 @@ function render() {
   };
 }
 
+function click(el: Element | null | undefined): void {
+  flushSync(() => {
+    el?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  });
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -151,6 +164,7 @@ afterEach(() => {
   addImpl = () => Promise.resolve({ record: memoryRecord() });
   deleteImpl = (id) => Promise.resolve({ id, deleted: true });
   updateReviewImpl = () => Promise.resolve({ record: memoryRecord() });
+  consolidationReceiptsImpl = () => Promise.resolve({ receipts: [], pendingProposals: [] });
 });
 
 describe('MemoryView — results state', () => {
@@ -283,6 +297,38 @@ describe('MemoryView — chat-provenance setting (owner-ruled, default OFF)', ()
     expect(toggle.checked).toBe(true);
     const stored = JSON.parse(window.localStorage.getItem('goodvibes.webui.preferences') ?? '{}');
     expect(stored.memoryProvenanceChipEnabled).toBe(true);
+    unmount();
+  });
+});
+
+describe('MemoryView — consolidation receipts route to the review queue (SDK 1.8.0)', () => {
+  test('a pending proposal\'s "Review" jump highlights exactly its referenced record in the queue', async () => {
+    consolidationReceiptsImpl = () => Promise.resolve({
+      receipts: [],
+      pendingProposals: [{
+        kind: 'contradiction',
+        ids: ['r1'],
+        route: 'memory action:"curator" query:"consolidation"',
+        reason: 'Same-summary records disagree and neither is a clearly-newer verified winner.',
+      }],
+    });
+    reviewQueueImpl = () => Promise.resolve({ records: [memoryRecord({ id: 'r1' }), memoryRecord({ id: 'r2' })] });
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('Same-summary records disagree'));
+    click([...el.querySelectorAll('.consolidation-proposal-row button')].find((b) => b.textContent?.includes('Review')));
+    await waitFor(() => Boolean(el.querySelector('.memory-review-row--highlighted')));
+    const highlighted = [...el.querySelectorAll('.memory-review-row--highlighted')];
+    expect(highlighted).toHaveLength(1);
+    expect(highlighted[0]?.getAttribute('data-record-id')).toBe('r1');
+    // The OTHER queued record is untouched — a jump highlights, it never filters.
+    expect(el.querySelector('[data-record-id="r2"]')?.classList.contains('memory-review-row--highlighted')).toBe(false);
+    unmount();
+  });
+
+  test('a daemon build with no consolidation scheduler renders the honest "does not run consolidation" state', async () => {
+    consolidationReceiptsImpl = () => Promise.reject(Object.assign(new Error('not available'), { status: 501 }));
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('This daemon does not run consolidation'));
     unmount();
   });
 });

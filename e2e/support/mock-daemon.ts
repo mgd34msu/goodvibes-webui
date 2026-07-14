@@ -158,6 +158,17 @@ export interface MockDaemonOptions {
    * Default false (a semantic request succeeds as semantic). */
   memoryIndexUnavailable?: boolean;
   /**
+   * memory.consolidation.receipts (SDK 1.8.0) behavior. 'available' (default) answers
+   * one seeded run with a pending contradiction proposal referencing two real seeded
+   * memory record ids (mem-fact-1, mem-review-1 — both already in the mock review
+   * queue), proving the receipts-are-actionable round trip end to end. 'unavailable'
+   * answers the daemon's own honest 501 (no consolidation scheduler wired — distinct
+   * from memoryAvailable:false's 404, which means the memory.* family itself is
+   * absent). 'empty' answers zero receipts and zero pending proposals — the genuinely
+   * different "nothing has run yet" honest state.
+   */
+  consolidationReceipts?: 'available' | 'unavailable' | 'empty';
+  /**
    * calendar.* handler behavior. 'configured' (default) answers the honest seeded
    * event fixtures for every calendar.* route. 'unconfigured' answers the daemon's
    * real 412 CALENDAR_NOT_CONFIGURED shape (caldav-client.ts's resolveCalDavConfig
@@ -274,7 +285,39 @@ export interface MockDaemonOptions {
    * workstreamId 404s (unknown to this daemon), matching the real verb.
    */
   fleetGraph?: Readonly<Record<string, unknown>>;
+  /**
+   * Seed for tailscale.get / tailscale.serve.run (SDK 1.8.0's LAN-http posture
+   * work — the one-action https affordance). Default: tailscale absent
+   * (available:false) — the honest, quiet baseline (TailscaleSettings renders
+   * nothing). Pass a partial to prove the usable-environment panel (available,
+   * loggedIn, magicDnsName, httpsUrl) or a seeded prior serve receipt.
+   */
+  tailscale?: Partial<MockTailscaleState>;
 }
+
+/** tailscale.get's real shape (see MockDaemonOptions.tailscale above). */
+export interface MockTailscaleState {
+  available: boolean;
+  loggedIn: boolean;
+  magicDnsName?: string;
+  httpsUrl?: string;
+  detail: string;
+  lastServe?: { at: number; command: string; ok: boolean; url?: string; detail: string };
+  /**
+   * Test-only seed knob (never part of the real wire shape — stripped before this
+   * daemon answers tailscale.get): forces the NEXT tailscale.serve.run to fail with
+   * this detail text even though the environment otherwise reports usable — proves
+   * a genuine mid-setup failure (e.g. a permission error) renders the daemon's own
+   * receipt detail, not a generic error.
+   */
+  serveFailsWith?: string;
+}
+
+const DEFAULT_TAILSCALE_STATE: MockTailscaleState = {
+  available: false,
+  loggedIn: false,
+  detail: 'tailscale binary not found',
+};
 
 /** power.status.get's `work` shape (see MockDaemonOptions.power above). */
 export interface MockPowerWorkState {
@@ -444,6 +487,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     credentials = 'available',
     memoryAvailable = true,
     memoryIndexUnavailable = false,
+    consolidationReceipts = 'available',
     calendar = 'configured',
     config = 'ok',
     packet = 'complete',
@@ -487,6 +531,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     work: { ...DEFAULT_POWER_WORK_STATE, ...options.power?.work },
     keepAwake: { ...DEFAULT_POWER_KEEP_AWAKE_STATE, ...options.power?.keepAwake },
   };
+  // tailscale.get / tailscale.serve.run in-memory state — a fresh copy per
+  // installMockDaemon call, mutated by serve.run exactly like the real daemon's
+  // single-writer state (lastServe records the most recent attempt either way).
+  const tailscaleState: MockTailscaleState = { ...DEFAULT_TAILSCALE_STATE, ...options.tailscale };
   // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
   // per installMockDaemon call, mutated by edit/delete.
   const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
@@ -1170,6 +1218,40 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // was removed.
       return json(route, { id, deleted: memoryRecords.length < before });
     }
+    // memory.consolidation.receipts (SDK 1.8.0) — the retained consolidation run
+    // receipts + pending judgment proposals. 'unavailable' answers the daemon's own
+    // honest 501 (no consolidation scheduler wired) — DISTINCT from memoryAvailable's
+    // 404 (the memory.* family itself absent); both render the same honest "not
+    // available" state client-side (ConsolidationReceipts checks both).
+    if (path === '/api/memory/consolidation/receipts' && method === 'GET') {
+      if (!memoryAvailable) return methodNotFound(route);
+      if (consolidationReceipts === 'unavailable') {
+        return json(route, { error: 'No memory consolidation scheduler is wired on this runtime', code: 'CONSOLIDATION_UNAVAILABLE' }, 501);
+      }
+      if (consolidationReceipts === 'empty') {
+        return json(route, { receipts: [], pendingProposals: [] });
+      }
+      const proposal = {
+        kind: 'contradiction' as const,
+        ids: ['mem-fact-1', 'mem-review-1'],
+        route: 'memory action:"curator" query:"consolidation"',
+        reason: 'Same-summary records disagree and neither is a clearly-newer verified winner.',
+      };
+      const receipt = {
+        runId: 'mcon-e2e-1',
+        ranAt: new Date(1_700_000_100_000).toISOString(),
+        trigger: 'idle',
+        idle: true,
+        scanned: memoryRecords.length,
+        merged: [],
+        archived: [],
+        decayed: [],
+        proposed: [proposal],
+        usageSignalAvailable: true,
+        note: 'Idle consolidation performs only reversible merges (loser marked stale, not deleted) and never-referenced-first decay. New memories and deletes are proposed through the existing confirmation-gated routes, never written silently.',
+      };
+      return json(route, { receipts: [receipt], pendingProposals: [proposal] });
+    }
 
     // ── Knowledge map / status ─────────────────────────────────────────────
     if (path.includes('/knowledge') || path.includes('knowledge')) {
@@ -1678,6 +1760,24 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const body = (route.request().postDataJSON?.() ?? {}) as { body?: { origin?: string } };
         const origin = body.body?.origin ?? 'http://127.0.0.1:4318';
         return json(route, { posture: describeOriginPostureForMock(origin) });
+      }
+      // ── Tailscale one-action https (tailscale.get / tailscale.serve.run,
+      //    SDK 1.8.0). get is read-only; serve.run is the one state-changing
+      //    action, recorded into tailscaleState.lastServe either way — a
+      //    genuinely unusable environment (no httpsUrl) answers an honest
+      //    failure receipt rather than pretending to serve. ──────────────────
+      if (methodId === 'tailscale.get') {
+        const { serveFailsWith: _serveFailsWith, ...wireState } = tailscaleState;
+        return json(route, wireState);
+      }
+      if (methodId === 'tailscale.serve.run') {
+        const receipt = tailscaleState.serveFailsWith
+          ? { at: Date.now(), command: 'tailscale serve --bg 3421', ok: false, detail: tailscaleState.serveFailsWith }
+          : tailscaleState.available && tailscaleState.loggedIn && tailscaleState.httpsUrl
+            ? { at: Date.now(), command: 'tailscale serve --bg 3421', ok: true, url: tailscaleState.httpsUrl, detail: `tailscale serve is fronting port 3421 at ${tailscaleState.httpsUrl}` }
+            : { at: Date.now(), command: 'tailscale serve --bg 3421', ok: false, detail: tailscaleState.detail };
+        tailscaleState.lastServe = receipt;
+        return json(route, { receipt, publicBaseUrlUpdated: receipt.ok });
       }
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures

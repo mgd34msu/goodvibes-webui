@@ -15,6 +15,7 @@
  */
 
 import type { Page, Route } from '@playwright/test';
+import { describeOriginPostureForMock } from './mock-daemon';
 
 const TOKEN_KEY = 'goodvibes.webui.token';
 
@@ -352,7 +353,20 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
 
     // Generic invoke + fallback.
     const invokeMatch = path.match(/^\/api\/control-plane\/methods\/([^/]+)\/invoke$/);
-    if (method === 'POST' && invokeMatch) return json(route, {});
+    if (method === 'POST' && invokeMatch) {
+      const methodId = decodeURIComponent(invokeMatch[1]);
+      // pairing.posture.get (SDK 1.8.0) — computed from the SAME algorithm the real
+      // daemon runs, keyed off the caller's own origin (useOriginPosture/
+      // usePairingHandoff always pass window.location.origin), so a spec served from a
+      // real private-network address (lan-origin-posture.e2e.ts) gets the exact daemon
+      // wording here too, not just from the baseline installMockDaemon.
+      if (methodId === 'pairing.posture.get') {
+        const invokeBody = (body as { body?: { origin?: string } } | undefined)?.body;
+        const origin = invokeBody?.origin ?? 'http://127.0.0.1:4318';
+        return json(route, { posture: describeOriginPostureForMock(origin) });
+      }
+      return json(route, {});
+    }
     return json(route, {});
   });
 

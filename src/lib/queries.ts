@@ -104,6 +104,20 @@ export const queryKeys = {
   // posture of THIS surface's own origin. An origin's posture never changes within a
   // session (see useOriginPosture), so this is fetched once and never invalidated.
   originPosture: ['pairing', 'posture'] as const,
+  // power.status.get / power.keepAwake.set (SDK 1.8.0's host sleep-ownership work).
+  // OPS_POWER_STATE_CHANGED rides the 'ops' runtime domain — useRealtimeInvalidation
+  // invalidates this key on that frame, so the always-visible "sleep disabled" chip and
+  // the admin Power panel both refetch on the real event, not only on the next poll.
+  power: ['power', 'status'] as const,
+  // sessions.queuedMessages.list (SDK 1.8.0's interaction-wins round). No wire event
+  // exists for this verb yet, so the Composer's queued-messages panel refetches
+  // manually/on mutation success — same standing gap fleet.*/checkpoints.*/memory.*
+  // document elsewhere in this file.
+  sessionQueuedMessages: (sessionId: string) => ['sessions', sessionId, 'queued-messages'] as const,
+  // fleet.graph.get (SDK 1.8.0's fix-phase workstream rework). No wire event exists for
+  // this verb yet either — same standing gap. Keyed by workstreamId so switching the
+  // selected workstream refetches honestly rather than serving a stale graph.
+  fleetGraph: (workstreamId: string) => ['fleet', 'graph', workstreamId] as const,
 };
 
 export async function loadBootSnapshot() {

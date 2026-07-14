@@ -1435,6 +1435,22 @@ export const sdk = {
       get: () => invokeOperator('config.get'),
       set: (key: string, value: unknown) => invokeOperator('config.set', { key, value }),
     },
+    // Power (power.status.get / power.keepAwake.set, SDK 1.8.0's host sleep-ownership
+    // work): both carry real generated OperatorMethodInputMap/OutputMap entries and a
+    // real `http` route binding (GET /api/power/status, POST /api/power/keep-awake —
+    // read:health / write:config), so both resolve through EXTRA_METHOD_ROUTES with no
+    // bridge override needed, like channels.profiles.* above. status/keepAwake.set
+    // return the SAME shape: `work` (the automatic inhibitor — held, grantedClasses,
+    // deniedClasses, live "held because X" reasons, cap/expiry) and `keepAwake` (the
+    // owner toggle — enabled, held, grantedClasses/deniedClasses, and an honest `note`
+    // when part of the requested coverage was refused, e.g. lid-close suspend the OS
+    // controls directly). Both emit runtime.ops OPS_POWER_STATE_CHANGED, which
+    // useRealtimeInvalidation invalidates queryKeys.power on — see that hook's
+    // DOMAIN_INVALIDATIONS map.
+    power: {
+      status: () => invokeOperator('power.status.get', {}),
+      setKeepAwake: (enabled: boolean) => invokeOperator('power.keepAwake.set', { enabled }),
+    },
     // Voice (SDK 1.1.0). status/providers/voices are read:voice; stt/tts are write:voice.
     // ttsStream returns the RAW streamed-audio Response (not JSON) — the Web Audio player
     // reads its bytes. All resolve through EXTRA_METHOD_ROUTES (except ttsStream, which is
@@ -1664,6 +1680,19 @@ export const sdk = {
         judge: (groupId: string) =>
           invokeGatewayMethod<'fleet.attempts.judge', FleetAttemptsJudgeResult>('fleet.attempts.judge', { groupId }),
       },
+      // graph.get (SDK 1.8.0's fix-phase workstream rework): the dependency-graph view
+      // of one workstream — nodes (id, title, state, cluster, files, merge state,
+      // blocked reason, orphaned flag, deepest-remaining-path depth, stalled tell,
+      // agent), edges (from depends-on to), and the elastic-pool state (ready/running
+      // counts, at-cap, cap key + size, any spawn refusal). Unlike its fleet.* siblings
+      // above (ws-only, generic-invoke), this carries a real generated I/O map AND a
+      // real `http` route (GET /api/fleet/workstreams/{workstreamId}/graph,
+      // read:fleet) — resolves through EXTRA_METHOD_ROUTES like power.*/toolCalls.*/
+      // queuedMessages.* above, with workstreamId interpolated as a path param. 404s
+      // when the workstreamId is unknown to this daemon.
+      graph: {
+        get: (workstreamId: string) => invokeOperator('fleet.graph.get', { workstreamId }),
+      },
     },
     checkpoints: {
       list: (input?: CheckpointsListInput) => invokeGatewayMethod<'checkpoints.list', CheckpointsListResult>('checkpoints.list', input ?? {}),
@@ -1738,6 +1767,29 @@ export const sdk = {
       inputs: {
         list: (sessionId: string) => invokeOperator('sessions.inputs.list', { sessionId }),
         cancel: (sessionId: string, inputId: string) => invokeOperator('sessions.inputs.cancel', { sessionId, inputId }),
+      },
+      // toolCalls.cancel (SDK 1.8.0's interaction-wins round): stop ONE running tool
+      // call mid-flight without ending the turn — the turn continues (e.g. the model
+      // sees a cancelled tool result and can respond to it), unlike
+      // companion.chat.turns.cancel which stops the whole turn. Real generated I/O map
+      // (`{sessionId, callId} -> {sessionId, callId, cancelled}`), real `http` route
+      // (POST /api/sessions/{sessionId}/tool-calls/{callId}/cancel, write:sessions) —
+      // resolves through EXTRA_METHOD_ROUTES with both ids interpolated as path params.
+      toolCalls: {
+        cancel: (sessionId: string, callId: string) => invokeOperator('sessions.toolCalls.cancel', { sessionId, callId }),
+      },
+      // queuedMessages.list/edit/delete (SDK 1.8.0's interaction-wins round): a message
+      // posted while another turn is still running sits queued (not yet delivered to the
+      // model) until that turn ends. This lets a caller review, edit, or drop a queued
+      // message before it is ever sent — real generated I/O maps and real `http` routes
+      // throughout (GET/POST/DELETE /api/sessions/{sessionId}/queued-messages(/{messageId}),
+      // read:sessions / write:sessions), all resolving through EXTRA_METHOD_ROUTES.
+      queuedMessages: {
+        list: (sessionId: string) => invokeOperator('sessions.queuedMessages.list', { sessionId }),
+        edit: (sessionId: string, messageId: string, text: string) =>
+          invokeOperator('sessions.queuedMessages.edit', { sessionId, messageId, text }),
+        delete: (sessionId: string, messageId: string) =>
+          invokeOperator('sessions.queuedMessages.delete', { sessionId, messageId }),
       },
       // detach (WEBUI-FLEET-DEPTH): remove ONE participant (surfaceId) from a shared
       // session, WITHOUT closing or killing it — detach != close != kill. Idempotent:

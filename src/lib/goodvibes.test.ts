@@ -693,7 +693,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, pairing, ci, checkin, channels, principals, cost, stepup, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, pairing, ci, checkin, channels, principals, cost, stepup, power, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
@@ -704,9 +704,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
     // 'permissions' added for the durable approval rules (permissions.rules.*).
+    // 'power' added for SDK 1.8.0's host sleep-ownership work (power.status.get,
+    // power.keepAwake.set — both real REST routes, resolving through
+    // EXTRA_METHOD_ROUTES like config.* above).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.power exposes status and setKeepAwake', () => {
+    expect(Object.keys(sdk.operator.power).sort()).toEqual(['status', 'setKeepAwake'].sort());
   });
 
   test('sdk.operator.stepup exposes the step-up ceremony verbs', () => {
@@ -751,15 +758,23 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
   });
 
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), and changes (SDK 1.6.1)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), and toolCalls/queuedMessages (SDK 1.8.0)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'reopen', 'search', 'steer'].sort(),
+      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'queuedMessages', 'reopen', 'search', 'steer', 'toolCalls'].sort(),
     );
   });
 
   test('sdk.operator.sessions.permissionMode/contextUsage expose exactly the session-scoped verbs', () => {
     expect(Object.keys(sdk.operator.sessions.permissionMode).sort()).toEqual(['get', 'set'].sort());
     expect(Object.keys(sdk.operator.sessions.contextUsage).sort()).toEqual(['get']);
+  });
+
+  test('sdk.operator.sessions.toolCalls exposes exactly cancel', () => {
+    expect(Object.keys(sdk.operator.sessions.toolCalls).sort()).toEqual(['cancel']);
+  });
+
+  test('sdk.operator.sessions.queuedMessages exposes list/edit/delete', () => {
+    expect(Object.keys(sdk.operator.sessions.queuedMessages).sort()).toEqual(['delete', 'edit', 'list'].sort());
   });
 
   test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH — fleet is a reader, not a watcher-authoring surface)', () => {
@@ -792,12 +807,14 @@ describe('sdk facade shape — byte-compatible surface', () => {
   });
 
   test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
-    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees)
-    // and the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit.
+    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees),
+    // the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit, and
+    // the task-graph read (graph.get) with the 1.8.0 fix-phase workstream rework.
     expect(Object.keys(sdk.operator.fleet).sort()).toEqual(
-      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts'].sort(),
+      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts', 'graph'].sort(),
     );
     expect(Object.keys(sdk.operator.fleet.attempts).sort()).toEqual(['list', 'pick', 'judge'].sort());
+    expect(Object.keys(sdk.operator.fleet.graph).sort()).toEqual(['get']);
     // checkpoints gains the per-hunk revert preview/apply pair with the 1.6.1 review cockpit.
     expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(
       ['create', 'diff', 'list', 'restore', 'restorePreview', 'revertHunkPreview', 'revertHunk'].sort(),

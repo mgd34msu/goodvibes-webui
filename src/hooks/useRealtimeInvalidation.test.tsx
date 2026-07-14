@@ -147,6 +147,13 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
+  test('an `ops` frame (OPS_POWER_STATE_CHANGED) invalidates the power query', () => {
+    const { invalidate, unmount } = renderHook();
+    capturedHandlers?.onEvent?.('ops', { payload: { type: 'OPS_POWER_STATE_CHANGED', inhibited: true, keepAwake: true, workReasons: [] } });
+    expect(invalidatedKeys(invalidate)).toEqual([['power', 'status']]);
+    unmount();
+  });
+
   test('an unknown domain frame is ignored (no invalidation)', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('session', {});

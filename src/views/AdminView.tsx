@@ -21,6 +21,7 @@ import { SkeletonBlock } from '../components/feedback/SkeletonBlock';
 import { SettingsModal } from '../components/settings/SettingsModal';
 import { NotificationSettings } from '../components/settings/NotificationSettings';
 import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
+import { PowerSettings } from '../components/settings/PowerSettings';
 import '../styles/components/admin.css';
 
 interface AdminViewProps {
@@ -207,6 +208,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         <NotificationSettings />
 
         <PairingTokensSettings />
+
+        <PowerSettings />
 
         <section className="panel">
           <div className="panel-title">

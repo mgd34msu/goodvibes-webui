@@ -1,0 +1,46 @@
+/*
+ * PowerSettings layout. Colors come from the shared token layer
+ * (src/styles/tokens.css); this file is layout only, no new palette.
+ */
+
+.power-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.power-panel__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 13px);
+  align-self: flex-start;
+}
+
+.power-panel__state--danger {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+  border: 1px solid var(--status-danger);
+}
+
+.power-panel__note {
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.power-panel__work {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.power-panel__held-because {
+  margin: 0;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+}

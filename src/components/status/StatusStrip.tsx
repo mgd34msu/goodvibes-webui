@@ -10,6 +10,7 @@ import {
 } from '../../lib/daemon-health';
 import { contractGlyphForConnection } from '../../lib/presentation-bridge';
 import { ConnectionDot } from './ConnectionDot';
+import { PowerChip } from './PowerChip';
 import '../../styles/components/status.css';
 
 /**
@@ -123,6 +124,10 @@ export function StatusStrip() {
         <Radio className="status-strip__icon" aria-hidden="true" size={11} />
         <span className="status-strip__label">{sseLabel(sse)}</span>
       </div>
+
+      {/* Sleep-disabled chip — absent unless the owner's keep-awake toggle actually
+          holds (see PowerChip's own header comment for the danger-idiom rationale). */}
+      <PowerChip />
 
       {/* Model name (rightmost, optional) */}
       {modelName !== null && (

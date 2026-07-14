@@ -157,6 +157,23 @@
   white-space: nowrap;
 }
 
+/* PowerChip — "sleep disabled" — danger idiom (matches checkpoints.css's
+ * destructive-restore chip): an active override the owner should notice, not
+ * ambient status. */
+.status-strip__segment--power {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+}
+
+.status-strip__segment--power .status-strip__icon {
+  color: var(--status-danger);
+}
+
+.status-strip__segment--power .status-strip__label {
+  color: var(--status-danger);
+  font-weight: 600;
+}
+
 /* Pulse animation for reconnecting dot */
 @keyframes status-strip-pulse {
   from { opacity: 1; }

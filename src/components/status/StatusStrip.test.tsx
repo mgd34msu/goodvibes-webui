@@ -36,6 +36,12 @@ import { mock } from 'bun:test';
 mock.module('../../hooks/useDaemonHealth', () => ({
   useDaemonHealth: () => _mockHealth,
 }));
+// PowerChip (rendered inside StatusStrip) calls usePowerStatus, which needs a
+// QueryClientProvider this test tree does not set up — mocked out here, same as
+// useDaemonHealth above. PowerChip.test.tsx below covers its own states in isolation.
+mock.module('../../hooks/usePowerStatus', () => ({
+  usePowerStatus: () => ({ data: undefined, isPending: false, isError: false }),
+}));
 
 // Import after mock registration
 const { StatusStrip } = await import('./StatusStrip');

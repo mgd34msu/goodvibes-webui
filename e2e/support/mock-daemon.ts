@@ -248,6 +248,101 @@ export interface MockDaemonOptions {
    * see MockPairingStore's own header comment.
    */
   pairingStore?: MockPairingStore;
+  /**
+   * Seed for power.status.get / power.keepAwake.set (SDK 1.8.0's host
+   * sleep-ownership work). Default: keep-awake off/unheld, work inhibitor not
+   * held — the honest baseline (PowerChip renders nothing, PowerSettings shows
+   * the toggle off). Pass a partial to prove a held state (danger chip, "held
+   * because X") or the honest lid-split note.
+   */
+  power?: {
+    work?: Partial<MockPowerWorkState>;
+    keepAwake?: Partial<MockPowerKeepAwakeState>;
+  };
+  /**
+   * Seed for sessions.queuedMessages.list/edit/delete (SDK 1.8.0's
+   * interaction-wins round), keyed by sessionId. Default {} (no session has any
+   * queued messages).
+   */
+  queuedMessages?: Readonly<Record<string, readonly { id: string; queuedAt: number; text: string }[]>>;
+  /**
+   * Seed for fleet.graph.get (SDK 1.8.0's fix-phase workstream rework), keyed by
+   * workstreamId. Default: one representative graph under FLEET_GRAPH_WORKSTREAM_ID
+   * (see that constant below) with a ready node, a running node, a
+   * blocked-dependency node ("waiting on: X"), a stalled node, and an at-cap pool
+   * state — proving every state tell the task-graph panel renders. Any OTHER
+   * workstreamId 404s (unknown to this daemon), matching the real verb.
+   */
+  fleetGraph?: Readonly<Record<string, unknown>>;
+}
+
+/** power.status.get's `work` shape (see MockDaemonOptions.power above). */
+export interface MockPowerWorkState {
+  held: boolean;
+  grantedClasses: readonly string[];
+  deniedClasses: readonly string[];
+  reasons: readonly string[];
+  heldSince: number | null;
+  capMinutes: number;
+  capExpiresAt: number | null;
+  capExpired: boolean;
+}
+
+/** power.status.get's `keepAwake` shape (see MockDaemonOptions.power above). */
+export interface MockPowerKeepAwakeState {
+  enabled: boolean;
+  held: boolean;
+  grantedClasses: readonly string[];
+  deniedClasses: readonly string[];
+  note: string | null;
+}
+
+const DEFAULT_POWER_WORK_STATE: MockPowerWorkState = {
+  held: false, grantedClasses: [], deniedClasses: [], reasons: [], heldSince: null, capMinutes: 0, capExpiresAt: null, capExpired: false,
+};
+const DEFAULT_POWER_KEEP_AWAKE_STATE: MockPowerKeepAwakeState = {
+  enabled: false, held: false, grantedClasses: [], deniedClasses: [], note: null,
+};
+
+/**
+ * power.status.get/keepAwake.set's real shape (platform + work + keepAwake), with a
+ * held-and-refused-lid-switch example — the honest lid-split case, not the all-off
+ * default. Exported so assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function powerStatusResponse() {
+  return {
+    platform: 'linux',
+    work: { held: true, grantedClasses: ['idle', 'sleep'], deniedClasses: [], reasons: ['active turn in session s-agent-live'], heldSince: 1_700_000_000_000, capMinutes: 120, capExpiresAt: 1_700_007_200_000, capExpired: false },
+    keepAwake: {
+      enabled: true, held: true, grantedClasses: ['idle', 'sleep'], deniedClasses: ['handle-lid-switch'],
+      note: 'idle sleep blocked; lid-close suspend is controlled by your OS here',
+    },
+  };
+}
+
+/** The one workstream id the default fleetGraph seed answers for — see MockDaemonOptions.fleetGraph. */
+export const FLEET_GRAPH_WORKSTREAM_ID = 'ws-e2e-graph';
+
+/**
+ * The default fleet.graph.get fixture: one node per state tell the task-graph
+ * panel renders (ready/running/blocked/stalled/done), plus an at-cap pool state
+ * — a real, representative graph, not an all-idle stub. Exported so
+ * assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function fleetGraphResponse(workstreamId: string) {
+  return {
+    workstreamId,
+    title: 'Fix findings from the review',
+    nodes: [
+      { id: 'wi-1', title: 'Fix null-check in session close', state: 'pending', files: ['src/session.ts'], orphaned: false, remainingDepth: 2, stalled: false },
+      { id: 'wi-2', title: 'Add regression test for the race', state: 'in-phase', files: ['src/session.test.ts'], orphaned: false, remainingDepth: 1, stalled: false, agentId: 'agent-e2e-1' },
+      { id: 'wi-3', title: 'Update the changelog entry', state: 'blocked-dependency', blockedReason: 'waiting on: Fix null-check in session close', files: ['CHANGELOG.md'], orphaned: false, remainingDepth: 0, stalled: false },
+      { id: 'wi-4', title: 'Refactor the retry loop', state: 'in-phase', files: ['src/retry.ts'], orphaned: false, remainingDepth: 0, stalled: true, agentId: 'agent-e2e-2' },
+      { id: 'wi-5', title: 'Tighten the timeout constant', state: 'passed', files: ['src/config.ts'], orphaned: false, remainingDepth: 0, stalled: false },
+    ],
+    edges: [{ from: 'wi-3', to: 'wi-1' }],
+    pool: { ready: 1, running: 2, atCap: true, capKey: 'fleet.maxSize', maxSize: 2, refusal: 'at cap' },
+  };
 }
 
 export interface MockDaemon {
@@ -261,6 +356,10 @@ export interface MockDaemon {
   watcherStopRequests: string[];
   /** Every approvals.{approve,deny,claim,cancel} POST captured, in order. */
   approvalActions: { approvalId: string; action: 'approve' | 'deny' | 'claim' | 'cancel'; body: unknown }[];
+  /** Every power.keepAwake.set POST captured, in order (the `enabled` value sent). */
+  keepAwakeSetRequests: boolean[];
+  /** Every sessions.toolCalls.cancel POST captured, in order. */
+  toolCallCancelRequests: { sessionId: string; callId: string }[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -374,7 +473,27 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     detachRequests: [],
     watcherStopRequests: [],
     approvalActions: [],
+    keepAwakeSetRequests: [],
+    toolCallCancelRequests: [],
   };
+  // power.status.get / power.keepAwake.set in-memory state — a fresh copy per
+  // installMockDaemon call, mutated by keepAwake.set exactly like the daemon's
+  // real single-writer state.
+  const powerState = {
+    platform: 'linux',
+    work: { ...DEFAULT_POWER_WORK_STATE, ...options.power?.work },
+    keepAwake: { ...DEFAULT_POWER_KEEP_AWAKE_STATE, ...options.power?.keepAwake },
+  };
+  // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
+  // per installMockDaemon call, mutated by edit/delete.
+  const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
+  for (const [sessionId, messages] of Object.entries(options.queuedMessages ?? {})) {
+    queuedMessagesBySession[sessionId] = messages.map((m) => ({ ...m }));
+  }
+  // fleet.graph.get seed — defaults to the one representative graph fixture.
+  const fleetGraphs: Record<string, unknown> = options.fleetGraph
+    ? { ...options.fleetGraph }
+    : { [FLEET_GRAPH_WORKSTREAM_ID]: fleetGraphResponse(FLEET_GRAPH_WORKSTREAM_ID) };
   // Mutable so approve/deny/claim/cancel genuinely change what a subsequent
   // approvals.list() sees (WEBUI-FLEET-DEPTH) — a fresh copy per installMockDaemon
   // call so tests never leak state into each other.
@@ -689,6 +808,27 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { ok: true, mode: 'local', authenticated: true });
     }
 
+    // ── Power (power.status.get / power.keepAwake.set, SDK 1.8.0) ─────────
+    if (method === 'GET' && path === '/api/power/status') {
+      return json(route, powerState);
+    }
+    if (method === 'POST' && path === '/api/power/keep-awake') {
+      const body = (request.postDataJSON?.() ?? {}) as { enabled?: boolean };
+      const enabled = body.enabled === true;
+      daemon.keepAwakeSetRequests.push(enabled);
+      powerState.keepAwake = { ...powerState.keepAwake, enabled, held: enabled };
+      return json(route, powerState);
+    }
+
+    // ── Fleet task graph (fleet.graph.get, SDK 1.8.0's fix-phase workstream rework) ──
+    const fleetGraphMatch = path.match(/^\/api\/fleet\/workstreams\/([^/]+)\/graph$/);
+    if (method === 'GET' && fleetGraphMatch) {
+      const workstreamId = decodeURIComponent(fleetGraphMatch[1]);
+      const graph = fleetGraphs[workstreamId];
+      if (!graph) return json(route, { error: `workstream ${workstreamId} not found`, code: 'NOT_FOUND' }, 404);
+      return json(route, graph);
+    }
+
     // ── Capability probe: sessions.delete (GET /api/control-plane/methods/{id}) ──
     if (method === 'GET' && /\/api\/control-plane\/methods\/[^/]+$/.test(path)) {
       const methodId = decodeURIComponent(path.split('/').pop() ?? '');
@@ -717,6 +857,44 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         : '';
       return json(route, dispatchOutcome(session, 'steer', dispatchedBody, `in-${daemon.steerRequests.length}`));
     }
+    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round) — stop one running
+    // tool call mid-flight; the turn continues (this mock never ends it).
+    const toolCallCancelMatch = path.match(/^\/api\/sessions\/([^/]+)\/tool-calls\/([^/]+)\/cancel$/);
+    if (method === 'POST' && toolCallCancelMatch) {
+      const sessionId = decodeURIComponent(toolCallCancelMatch[1]);
+      const callId = decodeURIComponent(toolCallCancelMatch[2]);
+      daemon.toolCallCancelRequests.push({ sessionId, callId });
+      return json(route, { sessionId, callId, cancelled: true });
+    }
+
+    // sessions.queuedMessages.list/edit/delete (SDK 1.8.0's interaction-wins round) —
+    // a message posted while a turn is running sits queued until that turn ends;
+    // review/edit/drop it before it is ever sent.
+    const queuedMessageItemMatch = path.match(/^\/api\/sessions\/([^/]+)\/queued-messages\/([^/]+)$/);
+    if (queuedMessageItemMatch) {
+      const sessionId = decodeURIComponent(queuedMessageItemMatch[1]);
+      const messageId = decodeURIComponent(queuedMessageItemMatch[2]);
+      const messages = queuedMessagesBySession[sessionId] ?? [];
+      if (method === 'POST') {
+        const body = (request.postDataJSON?.() ?? {}) as { text?: string };
+        const existing = messages.find((m) => m.id === messageId);
+        if (existing) existing.text = body.text ?? existing.text;
+        return json(route, { sessionId, id: messageId, text: existing?.text ?? body.text ?? '' });
+      }
+      if (method === 'DELETE') {
+        const index = messages.findIndex((m) => m.id === messageId);
+        const deleted = index >= 0;
+        if (deleted) messages.splice(index, 1);
+        queuedMessagesBySession[sessionId] = messages;
+        return json(route, { sessionId, id: messageId, deleted });
+      }
+    }
+    const queuedMessagesListMatch = path.match(/^\/api\/sessions\/([^/]+)\/queued-messages$/);
+    if (method === 'GET' && queuedMessagesListMatch) {
+      const sessionId = decodeURIComponent(queuedMessagesListMatch[1]);
+      return json(route, { sessionId, messages: queuedMessagesBySession[sessionId] ?? [] });
+    }
+
     // sessions.detach (WEBUI-FLEET-DEPTH) — remove one participant surfaceId from a
     // session WITHOUT closing/killing it. Idempotent success regardless of whether the
     // surface was actually attached, matching the real verb's own idempotency contract.

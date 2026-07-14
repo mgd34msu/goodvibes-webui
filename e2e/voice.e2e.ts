@@ -134,6 +134,32 @@ test('a blocked microphone shows an honest try-again pointer, not a dead button'
   await expect(page.locator('.voice-mic-note')).toContainText('Microphone access was blocked', { timeout: 15_000 });
 });
 
+test('the provider selection shows local beside elevenlabs (SDK 1.8.0 voice.local.* adoption)', async ({ page }) => {
+  await installChatMockDaemon(page);
+  await installVoiceRoutes(page, {
+    providers: [
+      { id: 'elevenlabs', label: 'ElevenLabs', configured: true, capabilities: ['tts', 'tts-stream', 'stt', 'voice-list'] },
+      { id: 'local', label: 'Local engines (free, offline)', configured: true, capabilities: ['tts', 'tts-stream', 'stt'] },
+    ],
+  });
+
+  await page.goto('/?view=chat');
+  await expect(page.locator('.app-shell')).toBeVisible();
+
+  await page.locator('.voice-settings-btn').click();
+  const providerSelect = page.locator('.voice-settings-popover label')
+    .filter({ has: page.locator('span', { hasText: /^Provider$/ }) })
+    .locator('select');
+  await expect(providerSelect).toBeVisible();
+  const optionLabels = await providerSelect.locator('option').allTextContents();
+  expect(optionLabels).toEqual(['ElevenLabs', 'Local engines (free, offline)']);
+
+  // Selecting local writes tts.provider through the same shared-config path.
+  const configWrite = page.waitForRequest((req) => req.method() === 'POST' && req.url().includes('/config'));
+  await providerSelect.selectOption('local');
+  await configWrite;
+});
+
 test.describe('Voice settings — phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 

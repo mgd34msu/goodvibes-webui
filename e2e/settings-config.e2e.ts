@@ -33,6 +33,23 @@ test.describe('phone: the modal is a near-fullscreen sheet (MOBILE-ADAPT)', () =
   });
 });
 
+test('voice.local.* and fleet.maxSize (SDK 1.8.0) render under their real domain tabs, not misfiled', async ({ page }) => {
+  await page.getByRole('button', { name: 'Open Settings' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Voice' }).click();
+  const voiceKeys = ['voice.local.sttEngine', 'voice.local.sttBinary', 'voice.local.sttModelPath', 'voice.local.ttsEngine', 'voice.local.ttsBinary', 'voice.local.ttsModelPath'];
+  for (const key of voiceKeys) {
+    await expect(dialog.getByText(key, { exact: true })).toBeVisible();
+  }
+
+  await dialog.getByRole('button', { name: 'Fleet' }).click();
+  await expect(dialog.getByText('fleet.maxSize', { exact: true })).toBeVisible();
+
+  await expectNoHorizontalScroll(page);
+});
+
 test('opens from the "Open Settings" launcher and shows domain categories — no enablement bucket', async ({ page }) => {
   await page.getByRole('button', { name: 'Open Settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });

@@ -29,6 +29,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDaemonHealth } from './hooks/useDaemonHealth';
 import { usePairingHandoff } from './hooks/usePairingHandoff';
 import { useRelayPairingHandoff } from './hooks/useRelayPairingHandoff';
+import { usePushSubscriptionReconcile } from './hooks/usePushSubscriptionReconcile';
 import { useRealtimeInvalidation } from './hooks/useRealtimeInvalidation';
 import { useSessionRealtime } from './hooks/useSessionRealtime';
 import { StepUpHost } from './components/auth/StepUpHost';
@@ -160,6 +161,10 @@ export default function App() {
   // auth.isSuccess opens it only once authenticated and re-opens it on every auth
   // transition (sign-in, and a re-auth after a token expiry flips isSuccess back true).
   const realtimeError = useRealtimeInvalidation(auth.isSuccess);
+  // Push self-heal: on every rising edge into connected+signed-in (first open, or a
+  // reconnect after an outage), compare this browser's live push subscription against
+  // the daemon's own record and heal any drift in place. See usePushSubscriptionReconcile.
+  usePushSubscriptionReconcile(health.connection === 'connected' && auth.isSuccess);
   // The fleet subscription rides the SAME multiplexed stream as the invalidation
   // hook above; realtimeError == null means that stream is live, so fleet events are
   // flowing and the poll can recede to a safety cadence (FleetView reads this to gate

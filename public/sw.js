@@ -245,6 +245,66 @@ function linkForNotification(data, action) {
   return '/';
 }
 
+// ─── Push subscription self-heal (pushsubscriptionchange) ────────────
+//
+// The browser fires this when it rotates a push endpoint on its own (a
+// certificate/key rollover on the push service, or a browser-side expiry) —
+// NOT something the app or daemon requested. Per the Push API spec, this can
+// fire even while no app tab is open, so the SW is the only code that ever
+// sees it.
+//
+// WHAT THE SW CAN DO ALONE: re-subscribe using event.oldSubscription.options
+// (the same userVisibleOnly/applicationServerKey the original subscribe used —
+// no cached VAPID key needed) so the browser side never goes dark.
+//
+// WHAT THE SW CANNOT DO ALONE: tell the daemon about the new endpoint. The
+// daemon's push.subscriptions.reconcile call needs the operator's auth token,
+// which lives in the page's localStorage — a Service Worker has no access to
+// another context's localStorage (it is a separate global scope; there is no
+// synchronous cross-context storage API for this). So the SW best-effort
+// notifies any ALREADY-OPEN tab via postMessage, which reconciles with its own
+// authenticated sdk client. If no tab is open, this rotation is picked up the
+// next time the app opens: reconcilePushSubscriptionOnOpen
+// (src/lib/push/push-client.ts) compares the live subscription (now the
+// rotated one) against the daemon's stale record and heals it then. A rotation
+// that happens while the app stays closed for a long stretch is therefore only
+// eventually healed, not instantly — an honest limit of what a page-less
+// context can authenticate, not a bug to paper over.
+//
+// A REAL rotation cannot be produced in a headless test browser (there is no
+// way to make the OS push service actually rotate a live endpoint), so this is
+// exercised as: a unit test drives handlePushSubscriptionChange directly with a
+// fake event (src/lib/push/sw.test.ts) proving the re-subscribe + postMessage
+// call shape; nothing here verifies an ACTUAL browser-triggered rotation.
+async function handlePushSubscriptionChange(event) {
+  const oldSubscription = event.oldSubscription;
+  const options = oldSubscription && oldSubscription.options
+    ? oldSubscription.options
+    : { userVisibleOnly: true };
+  let subscription;
+  try {
+    subscription = await self.registration.pushManager.subscribe(options);
+  } catch {
+    // The browser refused to re-subscribe (e.g. permission was revoked in the
+    // interim). Nothing more this handler can do; a future app-open's own
+    // subscribe/reconcile flow is the recovery path.
+    return;
+  }
+  const json = subscription.toJSON();
+  const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clientList) {
+    client.postMessage({
+      type: 'goodvibes-push-subscription-changed',
+      endpoint: json.endpoint,
+      keys: json.keys,
+    });
+  }
+}
+
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(handlePushSubscriptionChange(event));
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = linkForNotification(event.notification.data || {}, event.action);

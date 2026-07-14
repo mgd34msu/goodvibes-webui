@@ -693,17 +693,19 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
   });
 
-  test('sdk.operator keys gain memory, watchers, calendar, push, ci, checkin, channels, principals, cost, stepup, and the voice + config reads', () => {
+  test('sdk.operator keys gain memory, watchers, calendar, push, pairing, ci, checkin, channels, principals, cost, stepup, and the voice + config reads', () => {
     // 'calendar' added here: calendar.* has real HTTP routes but no
     // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
+    // 'pairing' added for SDK 1.8.0's per-device pairing tokens + hand-off bundle
+    // (pairing.tokens.*, pairing.handoff.*) — same ws-only generic-invoke family.
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
     // 'permissions' added for the durable approval rules (permissions.rules.*).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'permissions', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -718,8 +720,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
 
   test('sdk.operator.push exposes the Web Push lifecycle verbs', () => {
     expect(Object.keys(sdk.operator.push).sort()).toEqual(
-      ['list', 'subscribe', 'unsubscribe', 'vapidKey', 'verify'].sort(),
+      ['list', 'reconcile', 'subscribe', 'unsubscribe', 'vapidKey', 'verify'].sort(),
     );
+  });
+
+  test('sdk.operator.pairing exposes the per-device token + hand-off verbs', () => {
+    expect(Object.keys(sdk.operator.pairing).sort()).toEqual(['tokens', 'handoff'].sort());
+    expect(Object.keys(sdk.operator.pairing.tokens).sort()).toEqual(
+      ['list', 'create', 'migrate', 'rename', 'delete', 'revokeShared'].sort(),
+    );
+    expect(Object.keys(sdk.operator.pairing.handoff).sort()).toEqual(['create', 'complete'].sort());
   });
 
   test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs', () => {

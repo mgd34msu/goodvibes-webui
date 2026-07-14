@@ -1124,11 +1124,19 @@ export interface PushSubscriptionKeys {
 export interface PublicPushSubscription {
   readonly id: string;
   readonly principalId: string;
+  /** The device identity this record is reconciled on, when known (SDK 1.8.0). */
+  readonly deviceId?: string;
   readonly endpointOrigin: string;
+  /**
+   * Short, stable hash of the full endpoint (SDK 1.8.0). A client compares this
+   * against its own live endpoint's hash to detect that the daemon holds a stale
+   * one (drift) — see reconcilePushSubscriptionOnOpen in push-client.ts.
+   */
   readonly endpointHash: string;
   readonly createdAt: number;
   readonly lastDeliveryAt?: number;
   readonly lastOutcome?: string;
+  readonly consecutiveFailures?: number;
 }
 
 /** An honest per-subscription delivery receipt from a verify/test push. */
@@ -1149,6 +1157,8 @@ export interface PushVapidKeyResult {
 // does not (the same shape the fleet/checkpoints bridge inputs rely on).
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- must be a type alias (not interface) so it satisfies invokeGatewayMethod's index-signature input constraint
 export type PushSubscriptionCreateInput = {
+  /** Stable per-install device identity (SDK 1.8.0); absent falls back to the legacy endpoint-keyed record. */
+  readonly deviceId?: string;
   readonly endpoint: string;
   readonly keys: PushSubscriptionKeys;
 };
@@ -1164,6 +1174,107 @@ export interface PushSubscriptionDeleteResult {
 }
 export interface PushVerifyResult {
   readonly receipt: PushDeliveryReceipt;
+}
+
+// push.subscriptions.reconcile (SDK 1.8.0): the reconcile-on-open self-heal verb.
+// Unlike subscribe/create (register-or-refresh), reconcile REQUIRES deviceId — it
+// is the verb a client calls when it already knows its own device identity and
+// wants the daemon's record healed to match its current live endpoint/keys,
+// reporting what (if anything) had drifted.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- must be a type alias, see PushSubscriptionCreateInput above
+export type PushSubscriptionReconcileInput = {
+  readonly deviceId: string;
+  readonly endpoint: string;
+  readonly keys: PushSubscriptionKeys;
+};
+/** Whether reconcile changed the daemon's record for this device, and how. */
+export type PushReconcileDrift = 'created' | 'endpoint-updated' | 'keys-updated' | 'unchanged';
+export interface PushSubscriptionReconcileResult {
+  readonly subscription: PublicPushSubscription;
+  readonly drift: PushReconcileDrift;
+}
+
+// ─── Pairing (pairing.tokens.*, pairing.handoff.*, SDK 1.8.0) ─────────
+//
+// See the sdk.operator.pairing facade block below for the custody/transport
+// notes; these are the wire shapes it types against.
+
+/** The redacted, wire-safe view of a pairing token — never the secret itself. */
+export interface PublicPairingToken {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: number;
+  readonly lastSeenAt?: number;
+}
+export interface PairingTokensListResult {
+  readonly tokens: readonly PublicPairingToken[];
+  /** Whether the legacy single shared token has been revoked (a one-way action). */
+  readonly legacySharedRevoked: boolean;
+}
+/** A freshly minted token. CUSTODY: `token` is the literal secret, shown exactly once. */
+export interface MintedPairingToken {
+  readonly id: string;
+  readonly name: string;
+  readonly token: string;
+  readonly createdAt: number;
+}
+export interface PairingTokensCreateResult {
+  readonly token: MintedPairingToken;
+}
+export interface PairingTokensRenameResult {
+  readonly id: string;
+  readonly renamed: boolean;
+}
+export interface PairingTokensDeleteResult {
+  readonly id: string;
+  readonly revoked: boolean;
+}
+export interface PairingTokensRevokeSharedResult {
+  readonly legacySharedRevoked: boolean;
+}
+
+/** The set-up steps a pairing hand-off can offer. Each is independently declinable. */
+export type PairingHandoffOfferKind = 'notifications' | 'relay' | 'passkey';
+export interface PairingHandoffOffer {
+  readonly kind: string;
+  readonly available: boolean;
+  /** Present only for the 'notifications' offer when it is available. */
+  readonly vapidPublicKey?: string;
+}
+export interface PairingHandoffCreateResult {
+  readonly token: MintedPairingToken;
+  readonly offers: readonly PairingHandoffOffer[];
+  /** The `#pair=<token>&offers=<kinds>` fragment content — see lib/pairing.ts. */
+  readonly fragment: string;
+  /** The fragment prefixed with a known web origin, when the daemon knows one. */
+  readonly deepLink?: string;
+}
+export interface PairingHandoffCompleteNotificationsAccept {
+  readonly endpoint: string;
+  readonly keys: PushSubscriptionKeys;
+  readonly deviceId?: string;
+}
+export interface PairingHandoffCompletePasskeyAccept {
+  readonly rpId: string;
+  readonly origin: string;
+  readonly credentialId: string;
+  readonly publicKeyCose: string;
+}
+export interface PairingHandoffCompleteInput {
+  readonly accept?: {
+    readonly notifications?: PairingHandoffCompleteNotificationsAccept;
+    readonly relay?: boolean;
+    readonly passkey?: PairingHandoffCompletePasskeyAccept;
+  };
+}
+/** Honest per-offer outcome — never silently half-applied. */
+export interface PairingHandoffOutcome {
+  readonly kind: string;
+  readonly status: string;
+  readonly detail?: string;
+}
+export interface PairingHandoffCompleteResult {
+  readonly results: readonly PairingHandoffOutcome[];
 }
 
 // ─── WebAuthn step-up (stepup.*) ──────────────────────────────────────
@@ -1642,6 +1753,67 @@ export const sdk = {
         invokeGatewayMethod<'push.subscriptions.delete', PushSubscriptionDeleteResult>('push.subscriptions.delete', { subscriptionId }),
       verify: (subscriptionId: string) =>
         invokeGatewayMethod<'push.subscriptions.verify', PushVerifyResult>('push.subscriptions.verify', { subscriptionId }),
+      // reconcile (SDK 1.8.0): the reconcile-on-open self-heal call — see
+      // reconcilePushSubscriptionOnOpen in lib/push/push-client.ts. Requires
+      // deviceId (unlike subscribe, where it is optional) because reconcile's
+      // whole point is healing the record already keyed on this device's identity.
+      reconcile: (input: PushSubscriptionReconcileInput) =>
+        invokeGatewayMethod<'push.subscriptions.reconcile', PushSubscriptionReconcileResult>(
+          'push.subscriptions.reconcile',
+          input,
+        ),
+    },
+    // ─── Pairing (pairing.tokens.*, pairing.handoff.*, SDK 1.8.0) ───────────
+    //
+    // Per-device revocable pairing tokens replace the old single shared token:
+    // each paired surface (a phone, a second laptop, …) gets its OWN named
+    // token, so revoking one device never signs out every other device.
+    // Generic-invoke-only (ws transport, no REST route), same family as push.*
+    // above — but unlike push.*, these DO carry real generated
+    // OperatorMethodInputMap/OutputMap entries (contracts 1.8.0), so the
+    // explicit TOutput below is a cross-check, not a required fallback.
+    //
+    // CUSTODY: the daemon hands back the literal token STRING only once, from
+    // tokens.create/tokens.migrate/handoff.create, at mint time — list/rename/
+    // delete never see it again (the redacted PublicPairingToken view carries
+    // id/name/timestamps only).
+    //
+    // handoff.* is the QR/deep-link bundle: create mints a per-device token AND
+    // an offer set (notifications/relay/passkey, each independently declinable)
+    // in one pass; complete drives the accepted offers. See usePairingHandoff
+    // (src/hooks/usePairingHandoff.ts) for the client flow.
+    pairing: {
+      tokens: {
+        list: () => invokeGatewayMethod<'pairing.tokens.list', PairingTokensListResult>('pairing.tokens.list', {}),
+        create: (name: string) =>
+          invokeGatewayMethod<'pairing.tokens.create', PairingTokensCreateResult>('pairing.tokens.create', { name }),
+        // migrate: mint a new per-device token for an operator still on the legacy
+        // shared token, without yet revoking it — a bridge step before revokeShared.
+        migrate: (name: string) =>
+          invokeGatewayMethod<'pairing.tokens.migrate', PairingTokensCreateResult>('pairing.tokens.migrate', { name }),
+        rename: (id: string, name: string) =>
+          invokeGatewayMethod<'pairing.tokens.rename', PairingTokensRenameResult>('pairing.tokens.rename', { id, name }),
+        delete: (id: string) =>
+          invokeGatewayMethod<'pairing.tokens.delete', PairingTokensDeleteResult>('pairing.tokens.delete', { id }),
+        // revokeShared: a one-way action — once every device has its own token,
+        // this permanently disables the legacy shared token so it can never sign
+        // in again. legacySharedRevoked also comes back on tokens.list, so a
+        // caller can render whether this has already happened.
+        revokeShared: () =>
+          invokeGatewayMethod<'pairing.tokens.revokeShared', PairingTokensRevokeSharedResult>(
+            'pairing.tokens.revokeShared',
+            {},
+          ),
+      },
+      handoff: {
+        create: (name: string, offers?: readonly string[]) =>
+          invokeGatewayMethod<'pairing.handoff.create', PairingHandoffCreateResult>(
+            'pairing.handoff.create',
+            offers && offers.length > 0 ? { name, offers } : { name },
+          ),
+        complete: (input: PairingHandoffCompleteInput) =>
+          invokeGatewayMethod<'pairing.handoff.complete', PairingHandoffCompleteResult>('pairing.handoff.complete', input),
+      },
     },
     // cost.attribution.get (SDK 1.6.1): windowed (24h/7d), cache-aware-priced cost
     // attribution grouped by a dimension (agent/tool/hook/mcp/model/provider/session).

@@ -139,6 +139,14 @@ export interface MockDaemonOptions {
    * (spawns succeed and mint a real, servable session).
    */
   ciFixSessionError?: string;
+  /**
+   * Seed the in-memory push-subscription store (push.subscriptions.list/reconcile)
+   * with existing records — e.g. a stale record for a specific deviceId, so a test
+   * can prove the reconcile-on-open flow (usePushSubscriptionReconcile) detects
+   * the drift against the served endpointHash and calls push.subscriptions.reconcile
+   * to heal it. Default [] (no prior device registration).
+   */
+  pushSeed?: readonly { id: string; deviceId?: string; endpointOrigin: string; endpointHash: string; createdAt: number }[];
 }
 
 export interface MockDaemon {
@@ -239,6 +247,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     packet = 'complete',
     fleetEvents = [],
     localSessionId = 's-agent-live',
+    pushSeed = [],
   } = options;
   // sessions.permissionMode.get/set + sessions.contextUsage.get in-memory state — a
   // fresh copy per installMockDaemon call, mutated by set() exactly like the daemon's
@@ -397,7 +406,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // daemon. `pushVapidKey` is a syntactically-valid base64url stand-in — enough
   // for urlBase64ToUint8Array to decode without a real keypair.
   const pushVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBO_2H6ipYIF3PBhTvbP7z4c';
-  let pushSubscriptions: { id: string; principalId: string; endpointOrigin: string; endpointHash: string; createdAt: number }[] = [];
+  let pushSubscriptions: { id: string; principalId: string; deviceId?: string; endpointOrigin: string; endpointHash: string; createdAt: number }[] =
+    pushSeed.map((s) => ({ ...s, principalId: 'operator' }));
   let pushIdCounter = 0;
 
   // Mutable server-side state for the two round-trip surfaces this brief adds:
@@ -1193,8 +1203,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         return json(route, { publicKey: pushVapidKey });
       }
       if (methodId === 'push.subscriptions.create') {
-        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { endpoint?: string } };
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { endpoint?: string; deviceId?: string } };
         const endpoint = body.body?.endpoint ?? 'https://push.example/endpoint';
+        const deviceId = body.body?.deviceId;
         let origin = 'https://push.example';
         try {
           origin = new URL(endpoint).origin;
@@ -1205,6 +1216,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const subscription = {
           id: `push_e2e_${pushIdCounter}`,
           principalId: 'operator',
+          ...(deviceId ? { deviceId } : {}),
           endpointOrigin: origin,
           endpointHash: `hash-${pushIdCounter}`,
           createdAt: Date.now(),
@@ -1230,6 +1242,40 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const found = pushSubscriptions.find((s) => s.id === id);
         if (!found) return json(route, { error: 'Subscription not found', code: 'SUBSCRIPTION_NOT_FOUND' }, 404);
         return json(route, { receipt: { subscriptionId: id, endpointOrigin: found.endpointOrigin, outcome: 'delivered' } });
+      }
+      // reconcile (SDK 1.8.0): heal-in-place by deviceId, honestly reporting what
+      // drifted — mirrors the real daemon's push/subscription-store.ts reconcile().
+      // The mock's endpointHash is a placeholder string (never the real sha256 the
+      // client computes), so a reconcilePushSubscriptionOnOpen call against a
+      // pushSeed record always reports genuine drift, exactly like a real stale
+      // record would — there is no accidental false "unchanged" here.
+      if (methodId === 'push.subscriptions.reconcile') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { endpoint?: string; deviceId?: string } };
+        const endpoint = body.body?.endpoint ?? 'https://push.example/endpoint';
+        const deviceId = body.body?.deviceId ?? '';
+        let origin = 'https://push.example';
+        try {
+          origin = new URL(endpoint).origin;
+        } catch {
+          /* keep the fallback origin */
+        }
+        const existingIndex = pushSubscriptions.findIndex((s) => s.deviceId === deviceId);
+        pushIdCounter += 1;
+        const drift = existingIndex >= 0 ? 'endpoint-updated' : 'created';
+        const subscription = {
+          id: existingIndex >= 0 ? pushSubscriptions[existingIndex].id : `push_e2e_${pushIdCounter}`,
+          principalId: 'operator',
+          deviceId,
+          endpointOrigin: origin,
+          endpointHash: `hash-reconciled-${pushIdCounter}`,
+          createdAt: existingIndex >= 0 ? pushSubscriptions[existingIndex].createdAt : Date.now(),
+        };
+        if (existingIndex >= 0) {
+          pushSubscriptions = pushSubscriptions.map((s, i) => (i === existingIndex ? subscription : s));
+        } else {
+          pushSubscriptions = [...pushSubscriptions, subscription];
+        }
+        return json(route, { subscription, drift });
       }
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures

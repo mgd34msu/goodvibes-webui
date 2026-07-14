@@ -14,7 +14,7 @@
  */
 
 import { sdk } from '../goodvibes';
-import type { PublicPushSubscription } from '../goodvibes';
+import type { PublicPushSubscription, PushReconcileDrift } from '../goodvibes';
 import { detectPushSupport, urlBase64ToUint8Array } from './push-support';
 
 export type PushSubscribeFailure =
@@ -64,6 +64,58 @@ function forgetSubscriptionId(): void {
   } catch {
     /* non-fatal */
   }
+}
+
+// A stable per-install device identity (SDK 1.8.0's deviceId), so a browser
+// whose push endpoint rotates presents the SAME identity with a NEW endpoint —
+// the daemon heals its one record in place (push.subscriptions.reconcile)
+// instead of accumulating a stale duplicate. Generated once and persisted;
+// unlike STORE_KEY (the daemon-assigned record id) this is minted client-side
+// and never changes for the life of this browser profile. Exported (not just
+// the constant, its NAME) so tests can seed/assert a specific device identity
+// rather than depend on an unpredictable generated uuid.
+export const PUSH_DEVICE_ID_STORAGE_KEY = 'goodvibes.webui.push.deviceId';
+const DEVICE_ID_KEY = PUSH_DEVICE_ID_STORAGE_KEY;
+
+function ensureDeviceId(): string {
+  try {
+    const existing = window.localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const minted = crypto.randomUUID();
+    window.localStorage.setItem(DEVICE_ID_KEY, minted);
+    return minted;
+  } catch {
+    // Storage unavailable (private mode): fall back to a per-call id. Reconcile
+    // still functions this session; it just cannot recognize itself across a
+    // reload, so a later reload registers as a distinct device.
+    return crypto.randomUUID();
+  }
+}
+
+/**
+ * Base64url-encode raw digest bytes — no padding, `+`/`/` swapped for `-`/`_`.
+ * Matches Node's `Buffer.from(digest).toString('base64url')`, which is how the
+ * daemon computes `endpointHash` (subscription-store.ts) — this must produce
+ * byte-identical output or every comparison would report false drift.
+ */
+function base64UrlFromDigest(digest: ArrayBuffer): string {
+  const bytes = new Uint8Array(digest);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * The short, stable hash a client computes over its OWN live endpoint to
+ * compare against the daemon's redacted `endpointHash` — reproduces
+ * subscription-store.ts's `endpointHash()` (sha256, base64url, first 16 chars)
+ * exactly, so a match here means the daemon's record is genuinely current, not
+ * an artifact of a different hashing scheme.
+ */
+export async function computeEndpointHash(endpoint: string): Promise<string> {
+  const data = new TextEncoder().encode(endpoint);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlFromDigest(digest).slice(0, 16);
 }
 
 /**
@@ -140,7 +192,7 @@ export async function subscribeToPush(): Promise<PublicPushSubscription> {
   }
 
   const payload = extractSubscriptionPayload(subscription.toJSON());
-  const { subscription: stored } = await sdk.operator.push.subscribe(payload);
+  const { subscription: stored } = await sdk.operator.push.subscribe({ ...payload, deviceId: ensureDeviceId() });
   rememberSubscriptionId(stored.id);
   return stored;
 }
@@ -166,6 +218,73 @@ export async function unsubscribeFromPush(): Promise<void> {
       forgetSubscriptionId();
     }
   }
+}
+
+/** The outcome of a reconcile-on-open pass, for a caller that wants to react to it (e.g. a debug log). */
+export interface PushReconcileOnOpenOutcome {
+  /** 'not-subscribed' when this browser holds no live PushManager subscription at all — not an error. */
+  readonly drift: PushReconcileDrift | 'not-subscribed';
+  readonly subscription: PublicPushSubscription | null;
+}
+
+/**
+ * Reconcile-on-open: called once per connected+signed-in edge (see
+ * usePushSubscriptionReconcile). Compares this browser's LIVE PushManager
+ * subscription against the daemon's served record for this device (deviceId +
+ * endpointHash, both on the redacted PublicPushSubscription view) and calls
+ * push.subscriptions.reconcile only when they actually differ — heal-in-place,
+ * never a duplicate record, and no needless daemon write when nothing drifted.
+ *
+ * This is the DURABLE convergence point for the self-heal story: a real
+ * `pushsubscriptionchange` rotation (public/sw.js) re-subscribes the browser
+ * side and best-effort notifies any already-open tab, but the browser can also
+ * rotate the endpoint while this app is fully closed, with no tab to notify —
+ * the next time the operator opens the app, this catches that drift by
+ * comparing against the daemon's own record, which the SW alone cannot
+ * authenticate to update. A closed-app rotation with no reconcile is a real gap
+ * this function does not fully close (see public/sw.js's header) — it converges
+ * as soon as the app is next opened, which is the same "durable eventually,
+ * not instantly" promise the rest of the self-heal story keeps.
+ *
+ * A missing/unreadable live subscription is not an error (never subscribed, or
+ * the permission was revoked) — it reports 'not-subscribed' and does nothing.
+ */
+export async function reconcilePushSubscriptionOnOpen(): Promise<PushReconcileOnOpenOutcome> {
+  if (detectPushSupport() !== 'ok') return { drift: 'not-subscribed', subscription: null };
+
+  let subscription: PushSubscription | null;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    subscription = await registration.pushManager.getSubscription();
+  } catch {
+    return { drift: 'not-subscribed', subscription: null };
+  }
+  if (!subscription) return { drift: 'not-subscribed', subscription: null };
+
+  const deviceId = ensureDeviceId();
+  const payload = extractSubscriptionPayload(subscription.toJSON());
+
+  // Read the daemon's own record for this device before writing anything — an
+  // unchanged device costs one read, never a needless reconcile write. A list
+  // failure (e.g. a transient daemon hiccup) falls through to reconcile itself,
+  // which is the authoritative call either way.
+  let served: PublicPushSubscription | undefined;
+  try {
+    served = (await sdk.operator.push.list()).subscriptions.find((s) => s.deviceId === deviceId);
+  } catch {
+    served = undefined;
+  }
+  if (served) {
+    const liveHash = await computeEndpointHash(payload.endpoint);
+    if (liveHash === served.endpointHash) {
+      rememberSubscriptionId(served.id);
+      return { drift: 'unchanged', subscription: served };
+    }
+  }
+
+  const { subscription: stored, drift } = await sdk.operator.push.reconcile({ ...payload, deviceId });
+  rememberSubscriptionId(stored.id);
+  return { drift, subscription: stored };
 }
 
 /** Send a live test push to this device's registered subscription. */

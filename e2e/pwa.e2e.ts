@@ -73,64 +73,78 @@ test('the service worker registers in the browser', async ({ page }) => {
  * loads, so the push client runs its real logic (VAPID fetch → subscribe →
  * register with the daemon) against controllable fakes. `permission` seeds
  * Notification.permission and what requestPermission() resolves to.
+ *
+ * `preSubscribed` seeds an ALREADY-ACTIVE browser subscription (as if a prior
+ * session had subscribed) so a test can drive the reconcile-on-open path —
+ * usePushSubscriptionReconcile fires only when getSubscription() already
+ * returns something; the plain subscribe flow above covers the empty case.
  */
-async function mockPushApis(page: Page, permission: 'granted' | 'denied' | 'default'): Promise<void> {
-  await page.addInitScript((perm) => {
-    let current: unknown = null;
-    const fakeSubscription = {
-      endpoint: 'https://push.example.test/endpoint-abc',
-      toJSON() {
-        return {
-          endpoint: 'https://push.example.test/endpoint-abc',
-          keys: { p256dh: 'fake-p256dh-key', auth: 'fake-auth-key' },
-        };
-      },
-      async unsubscribe() {
-        current = null;
-        return true;
-      },
-    };
-    const fakeRegistration = {
-      active: {},
-      pushManager: {
-        async getSubscription() {
-          return current;
+async function mockPushApis(
+  page: Page,
+  permission: 'granted' | 'denied' | 'default',
+  options: { preSubscribed?: boolean; endpoint?: string } = {},
+): Promise<void> {
+  const { preSubscribed = false, endpoint = 'https://push.example.test/endpoint-abc' } = options;
+  await page.addInitScript(
+    ({ perm, preSub, ep }) => {
+      let current: unknown = null;
+      const fakeSubscription = {
+        endpoint: ep,
+        toJSON() {
+          return {
+            endpoint: ep,
+            keys: { p256dh: 'fake-p256dh-key', auth: 'fake-auth-key' },
+          };
         },
-        async subscribe() {
-          current = fakeSubscription;
-          return fakeSubscription;
+        async unsubscribe() {
+          current = null;
+          return true;
         },
-      },
-    };
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {
-        ready: Promise.resolve(fakeRegistration),
-        controller: {},
-        async register() {
-          return fakeRegistration;
+      };
+      if (preSub) current = fakeSubscription;
+      const fakeRegistration = {
+        active: {},
+        pushManager: {
+          async getSubscription() {
+            return current;
+          },
+          async subscribe() {
+            current = fakeSubscription;
+            return fakeSubscription;
+          },
         },
-        addEventListener() {
-          /* the stand-in service worker never emits events */
+      };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          ready: Promise.resolve(fakeRegistration),
+          controller: {},
+          async register() {
+            return fakeRegistration;
+          },
+          addEventListener() {
+            /* the stand-in service worker never emits events */
+          },
         },
-      },
-    });
-    // A stand-in PushManager + Notification so detectPushSupport() reports 'ok'.
-    (window as unknown as { PushManager: unknown }).PushManager = function () {
-      /* presence-only stand-in — detectPushSupport checks the constructor exists */
-    };
-    (window as unknown as { Notification: unknown }).Notification = Object.assign(
-      function () {
-        /* presence-only stand-in — never constructed by the shell */
-      },
-      {
-        permission: perm,
-        async requestPermission() {
-          return perm;
+      });
+      // A stand-in PushManager + Notification so detectPushSupport() reports 'ok'.
+      (window as unknown as { PushManager: unknown }).PushManager = function () {
+        /* presence-only stand-in — detectPushSupport checks the constructor exists */
+      };
+      (window as unknown as { Notification: unknown }).Notification = Object.assign(
+        function () {
+          /* presence-only stand-in — never constructed by the shell */
         },
-      },
-    );
-  }, permission);
+        {
+          permission: perm,
+          async requestPermission() {
+            return perm;
+          },
+        },
+      );
+    },
+    { perm: permission, preSub: preSubscribed, ep: endpoint },
+  );
 }
 
 async function openNotificationSettings(page: Page): Promise<void> {
@@ -163,6 +177,42 @@ test('subscribe → the client fetches the VAPID key and registers the subscript
   await page.getByRole('button', { name: /Turn off notifications/ }).click();
   await expect(page.getByRole('button', { name: /Turn on notifications/ })).toBeVisible();
   expect(invokeCalls).toContain('push.subscriptions.delete');
+});
+
+test('reconcile-on-open heals a drifted push record when the app opens already-subscribed', async ({ page }) => {
+  // Seed the device identity BEFORE any app script runs, so ensureDeviceId()
+  // reads this fixed id instead of minting a fresh uuid — the mock daemon's
+  // pushSeed record below is keyed on the SAME id.
+  const deviceId = 'device-e2e-reconcile';
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(key, 'device-e2e-reconcile');
+  }, 'goodvibes.webui.push.deviceId');
+  await mockPushApis(page, 'granted', { preSubscribed: true, endpoint: 'https://push.example.test/rotated-endpoint' });
+  await installMockDaemon(page, {
+    pushSeed: [
+      {
+        id: 'push_e2e_seed',
+        deviceId,
+        endpointOrigin: 'https://push.example.test',
+        // A placeholder hash that can never equal the real sha256 the client
+        // computes over its live endpoint — the daemon's record is stale.
+        endpointHash: 'stale-hash-from-a-prior-session',
+        createdAt: 1_700_000_000_000,
+      },
+    ],
+  });
+
+  const invokeCalls: string[] = [];
+  page.on('request', (req) => {
+    const m = req.url().match(/\/api\/control-plane\/methods\/(push\.[^/]+)\/invoke$/);
+    if (m) invokeCalls.push(m[1]);
+  });
+
+  // App open, already signed in and already subscribed at the browser level —
+  // reconcile-on-open should fire without the operator touching any control.
+  await page.goto('/?view=chat');
+  await expect.poll(() => invokeCalls).toContain('push.subscriptions.list');
+  await expect.poll(() => invokeCalls).toContain('push.subscriptions.reconcile');
 });
 
 test('blocked notifications render an honest state, not a dead toggle', async ({ page }) => {

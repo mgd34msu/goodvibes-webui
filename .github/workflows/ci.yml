@@ -93,7 +93,12 @@ jobs:
     # SDK or agent repos' release flows.
     name: E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Headroom above the suite's real runtime: the phone + desktop + lan-origin
+    # projects run sequentially (workers:1, fullyParallel:false) and the suite has
+    # grown past the old 15-minute cap as coverage expanded (memory diagnostics,
+    # one-act local voice setup). 25 leaves margin for runner variance without
+    # being effectively unbounded.
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v5

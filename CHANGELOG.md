@@ -6,6 +6,31 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-16
+
+Ships against `@pellux/goodvibes-sdk` 1.10.0. This release adds the admin
+memory diagnostics panel and the one-act local voice setup flow, and re-pins
+from the local dev-link build onto the published 1.10.0 package.
+
+### Added
+
+- **Memory diagnostics panel.** The admin Memory panel renders `ops.memory.get`:
+  the daemon's live memory records surfaced for inspection rather than left
+  opaque.
+- **One-act local voice setup.** The voice-settings popover offers a single-action
+  setup for a local speech runtime, with size-labeled components before install,
+  live per-component install progress polled from the daemon's status, an install
+  receipt on completion, an honest reason plus a Retry action on a retriable
+  download failure, an honest report on an unsupported platform instead of an
+  install that cannot succeed, and honest omission of the local section entirely
+  against an older daemon build whose `voice.local.status` 404s.
+
+### Changed
+
+- Re-pinned `@pellux/goodvibes-sdk` from the local dev-link build to the published
+  `1.10.0` registry package; removed the dev-link `file:` overrides so all nested
+  `@pellux` resolutions come from the registry.
+
 ## [1.6.0] - 2026-07-14
 
 Ships against `@pellux/goodvibes-sdk` 1.9.0. This release rolls up the pairing,

@@ -22,7 +22,16 @@ import {
   STEERABLE_SESSION,
   unionListResponse,
 } from './seed';
-import { dispatchOutcome, fleetGraphResponse, FLEET_GRAPH_WORKSTREAM_ID, methodInfoResponse, powerStatusResponse } from './mock-daemon';
+import {
+  dispatchOutcome,
+  fleetGraphResponse,
+  FLEET_GRAPH_WORKSTREAM_ID,
+  methodInfoResponse,
+  opsMemoryResponse,
+  powerStatusResponse,
+  voiceLocalInstallResponse,
+  voiceLocalStatusResponse,
+} from './mock-daemon';
 
 describe('e2e fixtures conform to the SDK operator contract', () => {
   test('providers.list: providersResponse() conforms', () => {
@@ -80,6 +89,19 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
   test('power.status.get / power.keepAwake.set: powerStatusResponse() conforms — the held, honest lid-split case', () => {
     expect(() => assertFixtureMatchesOperatorContract('power.status.get', powerStatusResponse())).not.toThrow();
     expect(() => assertFixtureMatchesOperatorContract('power.keepAwake.set', powerStatusResponse())).not.toThrow();
+  });
+
+  test('ops.memory.get: opsMemoryResponse() conforms — the elevated tier with caches, a paused job, and tripwire state', () => {
+    expect(() => assertFixtureMatchesOperatorContract('ops.memory.get', opsMemoryResponse())).not.toThrow();
+  });
+
+  test('voice.local.status: voiceLocalStatusResponse() conforms — the size-labeled not-provisioned offer', () => {
+    expect(() => assertFixtureMatchesOperatorContract('voice.local.status', voiceLocalStatusResponse())).not.toThrow();
+  });
+
+  test('voice.local.install: both receipt outcomes conform (provisioned, retriable download failure)', () => {
+    expect(() => assertFixtureMatchesOperatorContract('voice.local.install', voiceLocalInstallResponse('provisioned'))).not.toThrow();
+    expect(() => assertFixtureMatchesOperatorContract('voice.local.install', voiceLocalInstallResponse('download-failed'))).not.toThrow();
   });
 
   // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the mock

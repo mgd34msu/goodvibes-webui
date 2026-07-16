@@ -185,6 +185,28 @@
   margin: 0;
 }
 
+/* Local voice setup section — a distinct sub-block below the provider/voice
+   selects, not a new popover shape (see VoiceSettings.tsx's header comment). */
+.voice-settings-local {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.voice-settings-local-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.voice-settings-local-receipt p {
+  margin: 0;
+}
+
 /* Shared spinner for loading/transcribing states. */
 .voice-spin {
   animation: voice-rotate 0.9s linear infinite;

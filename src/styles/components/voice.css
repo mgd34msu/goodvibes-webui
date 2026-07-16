@@ -207,6 +207,37 @@
   margin: 0;
 }
 
+/* Live per-component install progress (voice.local.status's installInProgress). */
+.voice-settings-local-progress {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.voice-settings-local-progress li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.voice-settings-local-progress__name {
+  font-family: var(--font-mono, monospace);
+}
+
+.voice-settings-local-progress li[data-phase='done'] .voice-settings-local-progress__phase {
+  color: var(--status-success);
+}
+
+.voice-settings-local-progress li[data-phase='error'] .voice-settings-local-progress__phase,
+.voice-settings-local-progress__error {
+  color: var(--status-danger);
+}
+
 /* Shared spinner for loading/transcribing states. */
 .voice-spin {
   animation: voice-rotate 0.9s linear infinite;

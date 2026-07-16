@@ -30,6 +30,7 @@ import {
   opsMemoryResponse,
   powerStatusResponse,
   voiceLocalInstallResponse,
+  voiceLocalStatusInProgressResponse,
   voiceLocalStatusResponse,
 } from './mock-daemon';
 
@@ -97,6 +98,10 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
 
   test('voice.local.status: voiceLocalStatusResponse() conforms — the size-labeled not-provisioned offer', () => {
     expect(() => assertFixtureMatchesOperatorContract('voice.local.status', voiceLocalStatusResponse())).not.toThrow();
+  });
+
+  test('voice.local.status: the in-progress variant conforms — the optional installInProgress section of an active install', () => {
+    expect(() => assertFixtureMatchesOperatorContract('voice.local.status', voiceLocalStatusInProgressResponse())).not.toThrow();
   });
 
   test('voice.local.install: both receipt outcomes conform (provisioned, retriable download failure)', () => {

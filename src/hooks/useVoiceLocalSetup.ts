@@ -7,6 +7,13 @@
  * CHANGED) — VoiceSettings refetches manually / on install-mutation success, the same
  * standing gap fleet.*, checkpoints.*, and memory.* document in queries.ts.
  *
+ * Live install progress (SDK 5357f09e): while the install mutation is in flight, the
+ * status query polls on a short refetchInterval — the same react-query polling idiom
+ * FleetView's snapshot uses — because voice.local.status carries an OPTIONAL
+ * `installInProgress` section during an active install (the install verb itself stays
+ * plain request/response; there is no stream). On an older daemon the section is
+ * simply absent and the surface keeps its plain busy state.
+ *
  * A successful install also invalidates the sibling voice caches (['voice','status'],
  * ['voice','config']) — useVoice.ts's own literal query keys, matched here rather than
  * introduced as a second key for the same data — since the install call may newly
@@ -19,7 +26,7 @@ import { sdk } from '../lib/goodvibes';
 import { queryKeys } from '../lib/queries';
 import { readVoiceLocalInstallResult, readVoiceLocalStatus } from '../lib/voice/voice-local-setup';
 
-export function useVoiceLocalStatus(enabled: boolean) {
+export function useVoiceLocalStatus(enabled: boolean, pollForInstallProgress = false) {
   return useQuery({
     queryKey: queryKeys.voiceLocalStatus,
     queryFn: async () => {
@@ -35,6 +42,9 @@ export function useVoiceLocalStatus(enabled: boolean) {
     enabled,
     staleTime: 30_000,
     retry: false,
+    // Poll only while the caller's install is in flight — the window in which the
+    // daemon serves installInProgress (see the header comment).
+    refetchInterval: pollForInstallProgress ? 750 : false,
   });
 }
 

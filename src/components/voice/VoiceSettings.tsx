@@ -37,6 +37,7 @@ import {
   voiceLocalInstallIsRetriable,
   voiceLocalInstallStateLabel,
   voiceLocalNeedsSetup,
+  voiceLocalPhaseLabel,
   voiceLocalStateLabel,
 } from '../../lib/voice/voice-local-setup';
 import { useVoiceLocalInstall, useVoiceLocalStatus } from '../../hooks/useVoiceLocalSetup';
@@ -90,8 +91,12 @@ export function VoiceSettings() {
     },
   });
 
-  const localStatus = useVoiceLocalStatus(open);
   const localInstall = useVoiceLocalInstall();
+  // While the install mutation is in flight the status query polls: the daemon serves
+  // an OPTIONAL installInProgress section during an active install (SDK 5357f09e) and
+  // this is the window it exists in. Absent (an older daemon, or the first poll not
+  // landed yet) the card keeps its plain busy state.
+  const localStatus = useVoiceLocalStatus(open, localInstall.isPending);
   const localUnavailable = localStatus.isError
     && (isMethodUnavailableError(localStatus.error) || isMethodNotInvokableError(localStatus.error));
 
@@ -236,6 +241,34 @@ export function VoiceSettings() {
                           ? 'Installing…'
                           : `Set up local voice${typeof status.offerBytes === 'number' ? ` (~${formatBytes(status.offerBytes)})` : ''}`}
                       </button>
+                    )}
+
+                    {/* Live per-component progress of the ACTIVE install run, from
+                        voice.local.status's installInProgress section (polled while
+                        the mutation is in flight). Absent — an older daemon, or the
+                        first poll not landed yet — the 'Installing…' busy label above
+                        stays the whole story. Bytes render only where the wire
+                        genuinely carries them (completion boundaries; downloads
+                        verify whole-file), never a fabricated live percentage. */}
+                    {localInstall.isPending && status.installInProgress && status.installInProgress.components.length > 0 && (
+                      <ul className="voice-settings-local-progress" data-testid="voice-local-progress" role="status">
+                        {status.installInProgress.components.map((component) => (
+                          <li key={component.component} data-phase={component.phase}>
+                            <span className="voice-settings-local-progress__name">{component.component}</span>
+                            <span className="voice-settings-local-progress__phase">
+                              {voiceLocalPhaseLabel(component.phase)}
+                              {typeof component.bytesDone === 'number' && typeof component.bytesTotal === 'number'
+                                ? ` — ${formatBytes(component.bytesDone)} of ${formatBytes(component.bytesTotal)}`
+                                : typeof component.bytesTotal === 'number'
+                                  ? ` — ${formatBytes(component.bytesTotal)}`
+                                  : ''}
+                            </span>
+                            {component.phase === 'error' && component.message && (
+                              <span className="voice-settings-local-progress__error">{component.message}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     )}
 
                     {localInstall.isError && (

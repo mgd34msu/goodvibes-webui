@@ -53,8 +53,13 @@ let mockLocalInstall: { isPending: boolean; isError: boolean; isSuccess: boolean
   mutate: () => { localInstallMutateCalls += 1; },
 };
 
+let lastStatusPollArg: boolean | undefined;
+
 mock.module('../../hooks/useVoiceLocalSetup', () => ({
-  useVoiceLocalStatus: () => mockLocalStatus,
+  useVoiceLocalStatus: (_enabled: boolean, pollForInstallProgress?: boolean) => {
+    lastStatusPollArg = pollForInstallProgress;
+    return mockLocalStatus;
+  },
   useVoiceLocalInstall: () => mockLocalInstall,
 }));
 
@@ -92,6 +97,7 @@ afterEach(() => {
   mockLocalStatus = { isPending: false, isError: false, isSuccess: false, data: undefined };
   localInstallMutateCalls = 0;
   mockLocalInstall = { isPending: false, isError: false, isSuccess: false, data: undefined, mutate: () => { localInstallMutateCalls += 1; } };
+  lastStatusPollArg = undefined;
 });
 
 const NOT_PROVISIONED_STATUS = {
@@ -233,6 +239,105 @@ describe('VoiceSettings — local voice setup', () => {
     cleanup = unmount;
     openPopover(el);
     expect(el.textContent).toContain('Installing…');
+  });
+
+  test('while installing, live per-component progress renders when the daemon serves installInProgress', () => {
+    mockLocalStatus = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      data: {
+        ...NOT_PROVISIONED_STATUS,
+        installInProgress: {
+          startedAt: 1_752_600_000_000,
+          components: [
+            { component: 'piper-voice-onnx', phase: 'done', bytesTotal: 63_201_294, bytesDone: 63_201_294 },
+            { component: 'piper-engine', phase: 'download', bytesTotal: 6_942_130 },
+            { component: 'whisper-model', phase: 'extract' },
+          ],
+        },
+      },
+    };
+    mockLocalInstall = { ...mockLocalInstall, isPending: true };
+    const { el, unmount } = render();
+    cleanup = unmount;
+    openPopover(el);
+    const progress = el.querySelector('[data-testid="voice-local-progress"]');
+    expect(progress).not.toBeNull();
+    expect(progress?.querySelectorAll('li').length).toBe(3);
+    // Completed component: Done with both byte figures.
+    expect(progress?.textContent).toContain('piper-voice-onnx');
+    expect(progress?.textContent).toContain('Done — 60.3 MB of 60.3 MB');
+    // Downloading component: only the pinned total (no fabricated live bytes).
+    expect(progress?.textContent).toContain('Downloading — 6.6 MB');
+    // Byte-less component: just the phase.
+    expect(progress?.textContent).toContain('Extracting');
+  });
+
+  test('an errored progress component shows the daemon message with the error phase', () => {
+    mockLocalStatus = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      data: {
+        ...NOT_PROVISIONED_STATUS,
+        installInProgress: {
+          startedAt: 1,
+          components: [{ component: 'piper-engine', phase: 'error', message: 'network timeout fetching piper.tar.gz' }],
+        },
+      },
+    };
+    mockLocalInstall = { ...mockLocalInstall, isPending: true };
+    const { el, unmount } = render();
+    cleanup = unmount;
+    openPopover(el);
+    const progress = el.querySelector('[data-testid="voice-local-progress"]');
+    expect(progress?.textContent).toContain('Failed');
+    expect(progress?.textContent).toContain('network timeout fetching piper.tar.gz');
+  });
+
+  test('while installing WITHOUT an installInProgress section (older daemon), the plain busy state stays', () => {
+    mockLocalStatus = { isPending: false, isError: false, isSuccess: true, data: NOT_PROVISIONED_STATUS };
+    mockLocalInstall = { ...mockLocalInstall, isPending: true };
+    const { el, unmount } = render();
+    cleanup = unmount;
+    openPopover(el);
+    expect(el.textContent).toContain('Installing…');
+    expect(el.querySelector('[data-testid="voice-local-progress"]')).toBeNull();
+  });
+
+  test('progress never renders outside an in-flight install, even if a stale section lingers in cache', () => {
+    mockLocalStatus = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      data: {
+        ...NOT_PROVISIONED_STATUS,
+        installInProgress: { startedAt: 1, components: [{ component: 'piper-engine', phase: 'download' }] },
+      },
+    };
+    mockLocalInstall = { ...mockLocalInstall, isPending: false };
+    const { el, unmount } = render();
+    cleanup = unmount;
+    openPopover(el);
+    expect(el.querySelector('[data-testid="voice-local-progress"]')).toBeNull();
+  });
+
+  test('the status query is asked to poll exactly while the install is in flight', () => {
+    mockLocalStatus = { isPending: false, isError: false, isSuccess: true, data: NOT_PROVISIONED_STATUS };
+    mockLocalInstall = { ...mockLocalInstall, isPending: false };
+    const first = render();
+    cleanup = first.unmount;
+    openPopover(first.el);
+    expect(lastStatusPollArg).toBe(false);
+    first.unmount();
+    cleanup = null;
+
+    mockLocalInstall = { ...mockLocalInstall, isPending: true };
+    const second = render();
+    cleanup = second.unmount;
+    openPopover(second.el);
+    expect(lastStatusPollArg).toBe(true);
   });
 
   test('a fully-successful install renders both engine outcomes and no retry button', () => {

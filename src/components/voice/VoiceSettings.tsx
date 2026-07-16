@@ -11,15 +11,35 @@
  * the provider list come straight from voice.status, rendered with the shared
  * presentation-contract tone/glyph so the state reads the same as it does on every other
  * surface.
+ *
+ * Local voice setup (SDK 1.9.0-dev's memory-relay-voice-hardening work): the 'local'
+ * provider only appears in the dropdown above once it has at least one configured
+ * capability (provider-registry.ts's `status()` reports `capabilities: []` for a fully
+ * unprovisioned install) — so on a fresh daemon it is invisible there, with nothing
+ * pointing at how to get it. This section is driven independently by
+ * voice.local.status (the managed-runtime provisioning state, distinct from
+ * voice.status's provider-availability posture) and offers the one-act
+ * voice.local.install setup whenever the resting state isn't 'provisioned'. See
+ * lib/voice/voice-local-setup.ts's header comment for the exact wire states rendered
+ * (and this round's adoption note: no streamed per-step progress exists on the wire —
+ * install is a single request/response call).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Settings2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invokeMethod, sdk } from '../../lib/goodvibes';
-import { asRecord } from '../../lib/object';
+import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
+import { asRecord, formatBytes } from '../../lib/object';
 import { classifyBadgeTone, contractGlyphForBadgeTone } from '../../lib/presentation-bridge';
 import { useSharedVoiceConfig, useVoiceStatus } from '../../lib/voice/useVoice';
 import { TTS_UNAVAILABLE_MESSAGE, describeSharedVoice } from '../../lib/voice/voice-config';
+import {
+  voiceLocalInstallIsRetriable,
+  voiceLocalInstallStateLabel,
+  voiceLocalNeedsSetup,
+  voiceLocalStateLabel,
+} from '../../lib/voice/voice-local-setup';
+import { useVoiceLocalInstall, useVoiceLocalStatus } from '../../hooks/useVoiceLocalSetup';
 
 interface VoiceOption {
   id: string;
@@ -69,6 +89,11 @@ export function VoiceSettings() {
       await queryClient.invalidateQueries({ queryKey: ['voice', 'config'] });
     },
   });
+
+  const localStatus = useVoiceLocalStatus(open);
+  const localInstall = useVoiceLocalInstall();
+  const localUnavailable = localStatus.isError
+    && (isMethodUnavailableError(localStatus.error) || isMethodNotInvokableError(localStatus.error));
 
   useEffect(() => {
     if (!open) return;
@@ -156,6 +181,106 @@ export function VoiceSettings() {
             </>
           ) : (
             <p className="voice-settings-unavailable">{TTS_UNAVAILABLE_MESSAGE}</p>
+          )}
+
+          {/* Local voice setup — independent of the provider dropdown above, since a
+              fully-unprovisioned 'local' provider has no capabilities yet and so is
+              invisible there (see this component's header comment). Skipped entirely
+              (not even a "not available" line) only for a daemon build old enough that
+              voice.local.status itself 404s/501s — genuinely nothing to offer there,
+              same honest-omission call ConsolidationReceipts documents for a verb the
+              connected build has never heard of. */}
+          {!localUnavailable && (
+            <div className="voice-settings-local" data-testid="voice-settings-local">
+              <p className="voice-settings-title">Local voice (free, offline)</p>
+
+              {localStatus.isPending && (
+                <p className="voice-settings-hint">Checking local voice…</p>
+              )}
+
+              {localStatus.isError && (
+                <p className="voice-settings-hint" role="alert">
+                  Local voice status unavailable — {formatError(localStatus.error)}
+                </p>
+              )}
+
+              {localStatus.isSuccess && (() => {
+                const status = localStatus.data;
+                const needsSetup = voiceLocalNeedsSetup(status);
+                const result = localInstall.isSuccess ? localInstall.data : null;
+                const retriable = result !== null
+                  && (voiceLocalInstallIsRetriable(result.tts.state) || voiceLocalInstallIsRetriable(result.stt.state));
+
+                return (
+                  <>
+                    {/* The resting line — a successful install's status refetch flips this
+                        to "Installed" live while the receipt below stays visible. */}
+                    {!needsSetup && (
+                      <p className="voice-settings-hint">
+                        {status.state === 'provisioned'
+                          ? `Installed — TTS: ${status.tts.engine}${status.stt.supported ? `, STT: ${status.stt.engine}` : ''}.`
+                          : `${voiceLocalStateLabel(status.state)} — no pinned engine build exists for this host.`}
+                      </p>
+                    )}
+
+                    {/* The one-act setup action. Hidden while a retriable failure's own
+                        Retry (below) is the offered action — one button, not two twins. */}
+                    {needsSetup && !retriable && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={localInstall.isPending}
+                        onClick={() => localInstall.mutate()}
+                      >
+                        {localInstall.isPending
+                          ? 'Installing…'
+                          : `Set up local voice${typeof status.offerBytes === 'number' ? ` (~${formatBytes(status.offerBytes)})` : ''}`}
+                      </button>
+                    )}
+
+                    {localInstall.isError && (
+                      <p className="voice-settings-hint" role="alert">{formatError(localInstall.error)}</p>
+                    )}
+
+                    {/* The install receipt — rendered OUTSIDE the needs-setup gate so a
+                        successful attempt's receipt survives the resting-state flip to
+                        Installed (the whole point of a receipt). */}
+                    {result !== null && (
+                      <div className="voice-settings-local-receipt" role="status">
+                        <p>
+                          TTS ({result.tts.engine}): {voiceLocalInstallStateLabel(result.tts.state)}
+                          {result.tts.reason ? ` — ${result.tts.reason}` : ''}
+                        </p>
+                        <p>
+                          STT ({result.stt.engine}): {voiceLocalInstallStateLabel(result.stt.state)}
+                          {result.stt.reason ? ` — ${result.stt.reason}` : ''}
+                        </p>
+                        {result.configured.set.length > 0 && (
+                          <p className="voice-settings-hint">
+                            Configured: {result.configured.set.map((entry) => entry.key).join(', ')}
+                          </p>
+                        )}
+                        {result.configured.skipped.length > 0 && (
+                          <p className="voice-settings-hint">
+                            Left as you set them: {result.configured.skipped.map((entry) => entry.key).join(', ')}
+                          </p>
+                        )}
+                        {retriable && needsSetup && (
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={localInstall.isPending}
+                            onClick={() => localInstall.mutate()}
+                          >
+                            {localInstall.isPending ? 'Installing…' : 'Retry'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           )}
         </div>
       )}

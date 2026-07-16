@@ -371,6 +371,27 @@ export function voiceLocalStatusResponse() {
 }
 
 /**
+ * voice.local.status's shape DURING an active install (SDK 5357f09e): the same
+ * resting fields plus the optional installInProgress section — one component done
+ * (byte-labeled), one mid-download (pinned total only — bytes land at completion
+ * boundaries, never streamed), one extracting. Exported so
+ * assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function voiceLocalStatusInProgressResponse() {
+  return {
+    ...voiceLocalStatusResponse(),
+    installInProgress: {
+      startedAt: 1_752_600_000_000,
+      components: [
+        { component: 'piper-voice-onnx', phase: 'done', message: 'installed', bytesTotal: 63_201_294, bytesDone: 63_201_294 },
+        { component: 'piper-engine', phase: 'download', message: 'fetching piper.tar.gz', bytesTotal: 6_942_130 },
+        { component: 'whisper-model', phase: 'extract' },
+      ],
+    },
+  };
+}
+
+/**
  * voice.local.install's real receipt shape — fully provisioned by default, or the
  * retriable TTS download failure. Exported so assert-contract-shape.test.ts can bind
  * it without a Page.

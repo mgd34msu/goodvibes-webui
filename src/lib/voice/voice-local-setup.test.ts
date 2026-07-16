@@ -5,6 +5,7 @@ import {
   voiceLocalInstallIsRetriable,
   voiceLocalInstallStateLabel,
   voiceLocalNeedsSetup,
+  voiceLocalPhaseLabel,
   voiceLocalStateLabel,
   type VoiceLocalStatusSnapshot,
 } from './voice-local-setup';
@@ -88,6 +89,64 @@ describe('readVoiceLocalStatus — defensive wire parse', () => {
     expect(parsed?.tts.engine).toBe('piper');
     expect(parsed?.stt.state).toBe('not-provisioned');
     expect(parsed?.offerBytes).toBeNull();
+  });
+});
+
+describe('readVoiceLocalStatus — the optional installInProgress section (SDK 5357f09e)', () => {
+  const IN_PROGRESS = {
+    startedAt: 1_752_600_000_000,
+    components: [
+      { component: 'piper-voice-onnx', phase: 'done', bytesTotal: 63_201_294, bytesDone: 63_201_294 },
+      { component: 'piper-engine', phase: 'download', message: 'fetching piper.tar.gz', bytesTotal: 6_942_130 },
+      { component: 'whisper-model', phase: 'extract' },
+    ],
+  };
+
+  test('a schema-shaped section parses verbatim, bytes where present', () => {
+    const parsed = readVoiceLocalStatus({ ...status(), installInProgress: IN_PROGRESS });
+    expect(parsed?.installInProgress).toBeDefined();
+    expect(parsed?.installInProgress?.startedAt).toBe(1_752_600_000_000);
+    expect(parsed?.installInProgress?.components).toHaveLength(3);
+    expect(parsed?.installInProgress?.components[0]).toMatchObject({ phase: 'done', bytesDone: 63_201_294 });
+    expect(parsed?.installInProgress?.components[1]).toMatchObject({ phase: 'download', message: 'fetching piper.tar.gz' });
+    expect(parsed?.installInProgress?.components[2]?.bytesTotal).toBeUndefined();
+  });
+
+  test('absent section (an older daemon, or no active install) leaves the field undefined', () => {
+    expect(readVoiceLocalStatus(status())?.installInProgress).toBeUndefined();
+  });
+
+  test('a malformed section degrades to undefined without sinking the status read', () => {
+    const parsed = readVoiceLocalStatus({ ...status(), installInProgress: { components: 'nope' } });
+    expect(parsed).not.toBeNull();
+    expect(parsed?.installInProgress).toBeUndefined();
+  });
+
+  test('malformed component entries are dropped individually (unknown phase, missing name)', () => {
+    const parsed = readVoiceLocalStatus({
+      ...status(),
+      installInProgress: {
+        startedAt: 1,
+        components: [
+          { component: 'piper-engine', phase: 'download' },
+          { component: 'bad-phase', phase: 'uploading' },
+          { phase: 'done' },
+        ],
+      },
+    });
+    expect(parsed?.installInProgress?.components).toHaveLength(1);
+    expect(parsed?.installInProgress?.components[0]?.component).toBe('piper-engine');
+  });
+});
+
+describe('voiceLocalPhaseLabel', () => {
+  test('gives a human label for every provisioner phase', () => {
+    expect(voiceLocalPhaseLabel('skip')).toBe('Already present');
+    expect(voiceLocalPhaseLabel('download')).toBe('Downloading');
+    expect(voiceLocalPhaseLabel('verify')).toBe('Verifying');
+    expect(voiceLocalPhaseLabel('extract')).toBe('Extracting');
+    expect(voiceLocalPhaseLabel('done')).toBe('Done');
+    expect(voiceLocalPhaseLabel('error')).toBe('Failed');
   });
 });
 

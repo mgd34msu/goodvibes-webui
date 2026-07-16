@@ -49,6 +49,32 @@ export interface VoiceLocalSttStatus {
   readonly reason?: string;
 }
 
+/** The provisioner's phase vocabulary for one install component (SDK ProvisionPhase). */
+export type VoiceLocalInstallPhase = 'skip' | 'download' | 'verify' | 'extract' | 'done' | 'error';
+
+/** The latest observed state of one component of the ACTIVE install run. */
+export interface VoiceLocalInstallProgressComponent {
+  readonly component: string;
+  readonly phase: VoiceLocalInstallPhase;
+  readonly message?: string;
+  /** The component's pinned size in bytes, where the manifest knows it. */
+  readonly bytesTotal?: number;
+  /** Bytes landed on disk, where known — completion boundaries only (downloads
+   * verify whole-file; bytes are not streamed mid-transfer). */
+  readonly bytesDone?: number;
+}
+
+/**
+ * voice.local.status's OPTIONAL `installInProgress` section (SDK 5357f09e): present
+ * while — and only while — an install run is active, so a surface polling status
+ * during its own install call renders live per-component progress. Absent on an
+ * older daemon (or between installs) — the surface falls back to a plain busy state.
+ */
+export interface VoiceLocalInstallProgress {
+  readonly startedAt: number;
+  readonly components: readonly VoiceLocalInstallProgressComponent[];
+}
+
 export interface VoiceLocalStatusSnapshot {
   readonly platform: string | null;
   readonly state: VoiceLocalRuntimeState;
@@ -57,6 +83,8 @@ export interface VoiceLocalStatusSnapshot {
   /** Size-labeled offer for the one-act install, in bytes — null when no pinned build
    * exists for this platform at all (nothing to offer). */
   readonly offerBytes: number | null;
+  /** Live progress of the ACTIVE install run — see VoiceLocalInstallProgress. */
+  readonly installInProgress?: VoiceLocalInstallProgress;
 }
 
 /** The real wire enum for an install attempt's per-engine terminal state — richer than
@@ -120,13 +148,39 @@ function readOptionalString(value: unknown): string | undefined {
  * Only the load-bearing `state` enum is required; per-engine detail degrades field by
  * field.
  */
+const INSTALL_PHASES: readonly VoiceLocalInstallPhase[] = ['skip', 'download', 'verify', 'extract', 'done', 'error'];
+
+/** Parse the optional installInProgress section, dropping malformed entries rather
+ * than sinking the whole status read (the section is progress decoration, not the
+ * load-bearing runtime state). Undefined when absent or unusable. */
+function readInstallProgress(value: unknown): VoiceLocalInstallProgress | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.startedAt !== 'number' || !Number.isFinite(value.startedAt)) return undefined;
+  const components = (Array.isArray(value.components) ? value.components : [])
+    .filter(isRecord)
+    .flatMap((entry): VoiceLocalInstallProgressComponent[] => {
+      const phase = INSTALL_PHASES.find((p) => p === entry.phase);
+      if (!phase || typeof entry.component !== 'string' || !entry.component) return [];
+      return [{
+        component: entry.component,
+        phase,
+        ...(readOptionalString(entry.message) !== undefined ? { message: readOptionalString(entry.message) } : {}),
+        ...(typeof entry.bytesTotal === 'number' && Number.isFinite(entry.bytesTotal) ? { bytesTotal: entry.bytesTotal } : {}),
+        ...(typeof entry.bytesDone === 'number' && Number.isFinite(entry.bytesDone) ? { bytesDone: entry.bytesDone } : {}),
+      }];
+    });
+  return { startedAt: value.startedAt, components };
+}
+
 export function readVoiceLocalStatus(value: unknown): VoiceLocalStatusSnapshot | null {
   if (!isRecord(value)) return null;
   const state = RUNTIME_STATES.find((s) => s === value.state);
   if (!state) return null;
   const tts = isRecord(value.tts) ? value.tts : {};
   const stt = isRecord(value.stt) ? value.stt : {};
+  const installInProgress = readInstallProgress(value.installInProgress);
   return {
+    ...(installInProgress !== undefined ? { installInProgress } : {}),
     platform: typeof value.platform === 'string' ? value.platform : null,
     state,
     tts: {
@@ -241,4 +295,16 @@ export function voiceLocalInstallStateLabel(state: VoiceLocalInstallEngineState)
  * fixed by clicking the same button again. */
 export function voiceLocalInstallIsRetriable(state: VoiceLocalInstallEngineState): boolean {
   return state === 'download-failed' || state === 'checksum-mismatch';
+}
+
+/** Human label for a live install component's phase. */
+export function voiceLocalPhaseLabel(phase: VoiceLocalInstallPhase): string {
+  switch (phase) {
+    case 'skip': return 'Already present';
+    case 'download': return 'Downloading';
+    case 'verify': return 'Verifying';
+    case 'extract': return 'Extracting';
+    case 'done': return 'Done';
+    case 'error': return 'Failed';
+  }
 }

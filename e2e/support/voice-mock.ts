@@ -11,7 +11,7 @@
  * handlers win for the voice/config paths.
  */
 import type { Page, Route } from '@playwright/test';
-import { voiceLocalInstallResponse, voiceLocalStatusResponse } from './mock-daemon';
+import { voiceLocalInstallResponse, voiceLocalStatusInProgressResponse, voiceLocalStatusResponse } from './mock-daemon';
 
 export interface VoiceProviderSeed {
   id: string;
@@ -37,6 +37,13 @@ export interface VoiceMockOptions {
   /** The voice.local.install receipt outcome. Default 'provisioned' (flips the
    * resting state, exactly like the real one-act flow). */
   localInstallOutcome?: 'provisioned' | 'download-failed';
+  /**
+   * How long the install POST stays in flight, in ms (default 0 — answers
+   * immediately). While it is in flight, voice.local.status serves the
+   * installInProgress section (SDK 5357f09e) — set this to a couple of poll
+   * intervals to prove the live-progress rendering end to end.
+   */
+  localInstallDurationMs?: number;
 }
 
 export interface VoiceMock {
@@ -114,6 +121,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
   // voice.local.status / voice.local.install in-memory state — install flips the
   // resting state to provisioned (unless seeded to the retriable download failure,
   // which keeps nothing), exactly like the real one-act flow.
+  let installActive = false;
   const localRuntime = options.localRuntime ?? 'not-provisioned';
   let voiceLocalState = localRuntime === 'unavailable'
     ? null
@@ -154,13 +162,25 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     const path = new URL(request.url()).pathname;
 
     // Managed local voice (voice.local.status / voice.local.install, SDK 1.9.0-dev).
+    // While an install POST is in flight, status carries the installInProgress
+    // section (SDK 5357f09e) — present during, and only during, the active run,
+    // exactly like the daemon's single-flight tracker.
     if (method === 'GET' && path === '/api/voice/local/status') {
       if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      if (installActive) {
+        return json(route, { ...voiceLocalState, installInProgress: voiceLocalStatusInProgressResponse().installInProgress });
+      }
       return json(route, voiceLocalState);
     }
     if (method === 'POST' && path === '/api/voice/local/install') {
       if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
       mock.localInstallRequests += 1;
+      const durationMs = options.localInstallDurationMs ?? 0;
+      if (durationMs > 0) {
+        installActive = true;
+        await new Promise((resolve) => setTimeout(resolve, durationMs));
+        installActive = false;
+      }
       const receipt = voiceLocalInstallResponse(options.localInstallOutcome ?? 'provisioned');
       if (receipt.provisioned) {
         voiceLocalState = {

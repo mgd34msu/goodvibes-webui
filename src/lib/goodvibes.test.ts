@@ -713,9 +713,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'tailscale' added for SDK 1.8.0's one-action https affordance (tailscale.get,
     // tailscale.serve.run — both ws-only, resolving through invokeGatewayMethod like
     // fleet.*/permissions.rules.* above).
+    // 'ops' added for SDK 1.9.0-dev's memory-relay-voice-hardening work (ops.memory.get
+    // — a real REST route, resolving through EXTRA_METHOD_ROUTES like power.* above).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.ops exposes exactly the memory-governance verb', () => {
+    expect(Object.keys(sdk.operator.ops).sort()).toEqual(['memory'].sort());
+    expect(Object.keys(sdk.operator.ops.memory).sort()).toEqual(['get'].sort());
   });
 
   test('sdk.operator.tailscale exposes the one-action https verbs', () => {
@@ -764,9 +771,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
   });
 
   test('sdk.operator.voice exposes the wire voice verbs', () => {
+    // 'local' added for SDK 1.9.0-dev's managed local-voice provisioning
+    // (voice.local.status/install — both real REST routes, resolving through
+    // EXTRA_METHOD_ROUTES like the rest of this namespace).
     expect(Object.keys(sdk.operator.voice).sort()).toEqual(
-      ['providers', 'status', 'stt', 'tts', 'ttsStream', 'voices'].sort(),
+      ['local', 'providers', 'status', 'stt', 'tts', 'ttsStream', 'voices'].sort(),
     );
+  });
+
+  test('sdk.operator.voice.local exposes exactly the status and install verbs', () => {
+    expect(Object.keys(sdk.operator.voice.local).sort()).toEqual(['status', 'install'].sort());
   });
 
   test('sdk.operator.calendar keys are events and ics', () => {

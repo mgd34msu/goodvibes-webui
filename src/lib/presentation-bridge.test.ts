@@ -4,9 +4,11 @@ import {
   contractGlyph,
   contractGlyphForBadgeTone,
   contractGlyphForConnection,
+  contractGlyphForMemoryTier,
   contractStateForAuth,
   contractStateForBadgeTone,
   contractStateForConnection,
+  contractStateForMemoryTier,
   contractStateForSse,
   contractStateForWorking,
 } from './presentation-bridge';
@@ -89,5 +91,19 @@ describe('daemon-health axis mappings (StatusStrip) — genuine severity corresp
     expect(contractStateForSse('connecting')).toBe('info');
     expect(contractStateForSse('error')).toBe('bad');
     expect(contractStateForSse('disabled')).toBe('info');
+  });
+
+  test('MemoryTier: normal=good, elevated=info (notice, not yet a fault), high=warn, critical=bad', () => {
+    expect(contractStateForMemoryTier('normal')).toBe('good');
+    expect(contractStateForMemoryTier('elevated')).toBe('info');
+    expect(contractStateForMemoryTier('high')).toBe('warn');
+    expect(contractStateForMemoryTier('critical')).toBe('bad');
+  });
+
+  test('contractGlyphForMemoryTier resolves to the matching STATE_GLYPHS value', () => {
+    expect(contractGlyphForMemoryTier('normal')).toBe(CONTRACT_STATE_GLYPHS.good);
+    expect(contractGlyphForMemoryTier('elevated')).toBe(CONTRACT_STATE_GLYPHS.info);
+    expect(contractGlyphForMemoryTier('high')).toBe(CONTRACT_STATE_GLYPHS.warn);
+    expect(contractGlyphForMemoryTier('critical')).toBe(CONTRACT_STATE_GLYPHS.bad);
   });
 });

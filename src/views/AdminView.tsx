@@ -19,6 +19,7 @@ import ErrorBoundary from '../components/feedback/ErrorBoundary';
 import { ErrorState } from '../components/feedback/ErrorState';
 import { SkeletonBlock } from '../components/feedback/SkeletonBlock';
 import { SettingsModal } from '../components/settings/SettingsModal';
+import { MemoryDiagnostics } from '../components/settings/MemoryDiagnostics';
 import { NotificationSettings } from '../components/settings/NotificationSettings';
 import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
 import { PowerSettings } from '../components/settings/PowerSettings';
@@ -211,6 +212,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         <PairingTokensSettings />
 
         <PowerSettings />
+
+        <MemoryDiagnostics />
 
         <TailscaleSettings />
 

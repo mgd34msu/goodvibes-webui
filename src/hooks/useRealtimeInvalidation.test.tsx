@@ -147,10 +147,17 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
-  test('an `ops` frame (OPS_POWER_STATE_CHANGED) invalidates the power query', () => {
+  test('an `ops` frame (OPS_POWER_STATE_CHANGED) invalidates the power AND memory-diagnostics queries', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('ops', { payload: { type: 'OPS_POWER_STATE_CHANGED', inhibited: true, keepAwake: true, workReasons: [] } });
-    expect(invalidatedKeys(invalidate)).toEqual([['power', 'status']]);
+    expect(invalidatedKeys(invalidate)).toEqual([['power', 'status'], ['ops', 'memory']]);
+    unmount();
+  });
+
+  test('an `ops` frame (OPS_MEMORY_PRESSURE) invalidates the SAME two queries — one domain, no separate event feed', () => {
+    const { invalidate, unmount } = renderHook();
+    capturedHandlers?.onEvent?.('ops', { payload: { type: 'OPS_MEMORY_PRESSURE', tier: 'high', previousTier: 'elevated', rssMb: 900, heapMb: 400, budgetMb: 1024, usedPct: 88 } });
+    expect(invalidatedKeys(invalidate)).toEqual([['power', 'status'], ['ops', 'memory']]);
     unmount();
   });
 

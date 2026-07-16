@@ -1,0 +1,84 @@
+/*
+ * MemoryDiagnostics layout. Colors come from the shared token layer
+ * (src/styles/tokens.css) plus the existing `.badge` tone classes
+ * (src/styles.css); this file is layout only, no new palette.
+ */
+
+.memory-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.memory-diagnostics__tier-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.memory-diagnostics__bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.memory-diagnostics__bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+}
+
+.memory-diagnostics__bar-track {
+  height: 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.memory-diagnostics__bar-fill {
+  height: 100%;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--status-success);
+  transition: width 0.2s ease;
+}
+
+.memory-diagnostics__bar-fill--elevated { background: var(--blue); }
+.memory-diagnostics__bar-fill--high { background: var(--status-warning); }
+.memory-diagnostics__bar-fill--critical { background: var(--status-danger); }
+
+.memory-diagnostics__caches {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm, 13px);
+}
+
+.memory-diagnostics__caches th,
+.memory-diagnostics__caches td {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.memory-diagnostics__caches td:not(:first-child),
+.memory-diagnostics__caches th:not(:first-child) {
+  text-align: right;
+}
+
+.memory-diagnostics__paused-jobs {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+}
+
+.memory-diagnostics__tripwire {
+  font-size: var(--text-sm, 13px);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.memory-diagnostics__tripwire--armed {
+  color: var(--status-danger);
+  font-weight: 600;
+}

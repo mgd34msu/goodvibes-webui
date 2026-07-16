@@ -62,8 +62,14 @@ const DOMAIN_INVALIDATIONS: Record<string, readonly (readonly unknown[])[]> = {
   // sleep-ownership work). Invalidating queryKeys.power revalidates the always-visible
   // "sleep disabled" chip (StatusStrip) and the admin Power panel the instant the owner
   // keep-awake toggle or the automatic work inhibitor changes on ANY attached surface,
-  // not only on this one's own mutation success.
-  ops: [queryKeys.power],
+  // not only on this one's own mutation success. OPS_MEMORY_PRESSURE (SDK 1.9.0-dev's
+  // memory-relay-voice-hardening work) rides the SAME 'ops' domain — invalidating
+  // queryKeys.opsMemory here is the whole surfacing story for that event: the admin
+  // Memory panel refetches its tier chip on the real pressure change, exactly the way
+  // PowerChip/PowerSettings already refetch on OPS_POWER_STATE_CHANGED (invalidate off
+  // the frame, re-render the fresh polled state — never a separate attention-item feed;
+  // no such feed exists in this webui today, see MemoryDiagnostics.tsx's header comment).
+  ops: [queryKeys.power, queryKeys.opsMemory],
 };
 
 /** The single multiplexed control-plane stream carrying every domain we invalidate on. */

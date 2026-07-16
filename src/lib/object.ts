@@ -72,6 +72,25 @@ export function formatRelative(value: unknown): string {
   return 'unknown';
 }
 
+/**
+ * Human-readable byte size ("148 KB", "142.9 MB", "1.1 GB"). `null`/`undefined`/negative
+ * render as an em dash — the same "no verdict" convention formatLatency/routeLabel use
+ * (daemon-health.ts) — never a fabricated "0 B". Whole bytes stay a plain integer with a
+ * "B" suffix (no decimal noise for tiny values).
+ */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 export function compactJson(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2);

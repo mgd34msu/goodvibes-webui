@@ -1526,6 +1526,20 @@ export const sdk = {
       status: () => invokeOperator('power.status.get', {}),
       setKeepAwake: (enabled: boolean) => invokeOperator('power.keepAwake.set', { enabled }),
     },
+    // Memory governance (ops.memory.get, SDK 1.9.0-dev's memory-relay-voice-hardening
+    // work): the MemoryGovernor's own observability snapshot — current pressure tier,
+    // budget vs RSS/heap, per-cache footprints the governor can shrink, paused
+    // deferrable jobs, and the leak-tripwire state. Carries a real generated
+    // OperatorMethodInputMap/OutputMap entry and a real `http` route binding (GET
+    // /api/ops/memory, read:health), so it resolves through EXTRA_METHOD_ROUTES with no
+    // bridge override needed, same as power.* above. OPS_MEMORY_PRESSURE rides the 'ops'
+    // runtime domain (see useRealtimeInvalidation's DOMAIN_INVALIDATIONS map) — the same
+    // domain OPS_POWER_STATE_CHANGED already rides.
+    ops: {
+      memory: {
+        get: () => invokeOperator('ops.memory.get', {}),
+      },
+    },
     // Voice (SDK 1.1.0). status/providers/voices are read:voice; stt/tts are write:voice.
     // ttsStream returns the RAW streamed-audio Response (not JSON) — the Web Audio player
     // reads its bytes. All resolve through EXTRA_METHOD_ROUTES (except ttsStream, which is
@@ -1539,6 +1553,19 @@ export const sdk = {
       tts: (input: OperatorMethodInput<'voice.tts'>) => invokeOperator('voice.tts', input),
       ttsStream: (input: OperatorMethodInput<'voice.tts.stream'>, signal?: AbortSignal) =>
         requestStream('/api/voice/tts/stream', input, signal),
+      // Managed local-voice provisioning (voice.local.status / voice.local.install, SDK
+      // 1.9.0-dev). Both carry real generated OperatorMethodInputMap/OutputMap entries
+      // and real `http` route bindings (GET /api/voice/local/status, read:health; POST
+      // /api/voice/local/install, write:config), so both resolve through
+      // EXTRA_METHOD_ROUTES with no bridge override needed. install() is a single
+      // request/response call — the wire contract has NO streamed per-component
+      // progress today (the provisioner's internal onProgress callback is never wired
+      // to a runtime event or a chunked response; see this round's adoption notes) —
+      // callers only ever get the final receipt, never intermediate ticks.
+      local: {
+        status: () => invokeOperator('voice.local.status', {}),
+        install: () => invokeOperator('voice.local.install', {}),
+      },
     },
     // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
     // comment) — the untyped overload is the honest, permanent shape here.

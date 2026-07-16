@@ -109,6 +109,18 @@ export const queryKeys = {
   // invalidates this key on that frame, so the always-visible "sleep disabled" chip and
   // the admin Power panel both refetch on the real event, not only on the next poll.
   power: ['power', 'status'] as const,
+  // ops.memory.get (SDK 1.9.0-dev's memory-relay-voice-hardening work) — the
+  // MemoryGovernor's own observability snapshot. OPS_MEMORY_PRESSURE rides the same
+  // 'ops' runtime domain OPS_POWER_STATE_CHANGED does — useRealtimeInvalidation
+  // invalidates this key on that frame, so the panel refetches on the real tier
+  // change/tripwire event, not only on the next poll.
+  opsMemory: ['ops', 'memory'] as const,
+  // voice.local.status (SDK 1.9.0-dev) — the managed local-voice runtime's own
+  // provisioning state (piper TTS + whisper.cpp STT binaries/models on disk), distinct
+  // from voice.status's provider-availability posture. No wire event exists for this
+  // verb yet, so VoiceSettings refetches manually/on install-mutation success — same
+  // standing gap fleet.*/checkpoints.*/memory.* document elsewhere in this file.
+  voiceLocalStatus: ['voice', 'local', 'status'] as const,
   // sessions.queuedMessages.list (SDK 1.8.0's interaction-wins round). No wire event
   // exists for this verb yet, so the Composer's queued-messages panel refetches
   // manually/on mutation success — same standing gap fleet.*/checkpoints.*/memory.*

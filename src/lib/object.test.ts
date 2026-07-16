@@ -10,6 +10,7 @@ import {
   firstArray,
   firstArrayAtPath,
   firstString,
+  formatBytes,
   readPath,
 } from './object';
 
@@ -52,5 +53,17 @@ describe('object helpers', () => {
 
   test('serializes compact debug JSON', () => {
     expect(compactJson({ ok: true })).toContain('"ok": true');
+  });
+
+  test('formats byte sizes honestly, never fabricating a value for a missing one', () => {
+    expect(formatBytes(0)).toBe('0 B');
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(151_396)).toBe('147.8 KB');
+    expect(formatBytes(149_815_296)).toBe('142.9 MB');
+    expect(formatBytes(1_181_116_006)).toBe('1.1 GB');
+    expect(formatBytes(null)).toBe('—');
+    expect(formatBytes(undefined)).toBe('—');
+    expect(formatBytes(-1)).toBe('—');
+    expect(formatBytes(Number.NaN)).toBe('—');
   });
 });

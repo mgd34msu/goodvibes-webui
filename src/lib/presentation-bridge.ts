@@ -29,6 +29,7 @@
 import { CONTRACT_GLYPHS, CONTRACT_STATE_GLYPHS } from './generated/presentation-tokens';
 import type { ContractStatusState } from './generated/presentation-tokens';
 import type { AuthState, ConnectionState, SseState, WorkingState } from './daemon-health';
+import type { MemoryTier } from './memory-governance';
 
 export type { ContractStatusState };
 
@@ -176,4 +177,30 @@ const SSE_TO_CONTRACT_STATE: Record<SseState, ContractStatusState> = {
 /** Contract severity bucket for the realtime-stream axis (SseState). */
 export function contractStateForSse(state: SseState): ContractStatusState {
   return SSE_TO_CONTRACT_STATE[state];
+}
+
+// ---------------------------------------------------------------------------
+// Memory pressure tier (ops.memory.get, SDK 1.9.0-dev) <-> contract severity bucket
+// ---------------------------------------------------------------------------
+
+const MEMORY_TIER_TO_CONTRACT_STATE: Record<MemoryTier, ContractStatusState> = {
+  // 'normal' is a genuine good — the governor is not shedding anything.
+  normal: 'good',
+  // 'elevated' is the one tier between "fine" and "a real warning": still working,
+  // worth a glance, not yet a fault — the contract's own "not a fault" bucket is the
+  // honest analogue (matches memory-governance.ts's memoryTierBadgeClass mapping to
+  // the webui's '.badge.info' tone for the same reason).
+  elevated: 'info',
+  high: 'warn',
+  critical: 'bad',
+};
+
+/** Contract glyph for the memory-pressure tier axis (MemoryTier). */
+export function contractGlyphForMemoryTier(tier: MemoryTier): string {
+  return CONTRACT_STATE_GLYPHS[MEMORY_TIER_TO_CONTRACT_STATE[tier]];
+}
+
+/** Contract severity bucket for the memory-pressure tier axis (MemoryTier). */
+export function contractStateForMemoryTier(tier: MemoryTier): ContractStatusState {
+  return MEMORY_TIER_TO_CONTRACT_STATE[tier];
 }

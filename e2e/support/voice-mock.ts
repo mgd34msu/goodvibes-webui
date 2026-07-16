@@ -11,6 +11,7 @@
  * handlers win for the voice/config paths.
  */
 import type { Page, Route } from '@playwright/test';
+import { voiceLocalInstallResponse, voiceLocalStatusResponse } from './mock-daemon';
 
 export interface VoiceProviderSeed {
   id: string;
@@ -27,12 +28,22 @@ export interface VoiceMockOptions {
   /** Shared tts.provider/tts.voice config.get reports. */
   ttsProvider?: string;
   ttsVoice?: string;
+  /**
+   * voice.local.status's resting state (SDK 1.9.0-dev's managed provisioning).
+   * Default 'not-provisioned' (the size-labeled setup offer). 'unavailable' answers
+   * the honest 404 of an older daemon build (the section stays absent entirely).
+   */
+  localRuntime?: 'not-provisioned' | 'provisioned' | 'unsupported-platform' | 'unavailable';
+  /** The voice.local.install receipt outcome. Default 'provisioned' (flips the
+   * resting state, exactly like the real one-act flow). */
+  localInstallOutcome?: 'provisioned' | 'download-failed';
 }
 
 export interface VoiceMock {
   ttsRequests: { body: unknown }[];
   sttRequests: { body: unknown }[];
   configWrites: { key: unknown; value: unknown }[];
+  localInstallRequests: number;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -98,7 +109,30 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
   const transcript = options.transcript ?? 'hello from voice input';
   const ttsProvider = options.ttsProvider ?? 'elevenlabs';
   const ttsVoice = options.ttsVoice ?? 'rachel';
-  const mock: VoiceMock = { ttsRequests: [], sttRequests: [], configWrites: [] };
+  const mock: VoiceMock = { ttsRequests: [], sttRequests: [], configWrites: [], localInstallRequests: 0 };
+
+  // voice.local.status / voice.local.install in-memory state — install flips the
+  // resting state to provisioned (unless seeded to the retriable download failure,
+  // which keeps nothing), exactly like the real one-act flow.
+  const localRuntime = options.localRuntime ?? 'not-provisioned';
+  let voiceLocalState = localRuntime === 'unavailable'
+    ? null
+    : localRuntime === 'unsupported-platform'
+      ? {
+          ...voiceLocalStatusResponse(),
+          platform: null,
+          state: 'unsupported-platform' as const,
+          stt: { ...voiceLocalStatusResponse().stt, supported: false, state: 'unsupported-platform' as const },
+          offerBytes: null,
+        }
+      : localRuntime === 'provisioned'
+        ? {
+            ...voiceLocalStatusResponse(),
+            state: 'provisioned' as const,
+            tts: { ...voiceLocalStatusResponse().tts, binaryPresent: true, voicePresent: true },
+            stt: { ...voiceLocalStatusResponse().stt, state: 'provisioned' as const, binaryPresent: true, modelPresent: true },
+          }
+        : voiceLocalStatusResponse();
 
   // config.get / config.set live at /config (no /api segment).
   await page.route('**/config', async (route) => {
@@ -118,6 +152,26 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     const request = route.request();
     const method = request.method();
     const path = new URL(request.url()).pathname;
+
+    // Managed local voice (voice.local.status / voice.local.install, SDK 1.9.0-dev).
+    if (method === 'GET' && path === '/api/voice/local/status') {
+      if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      return json(route, voiceLocalState);
+    }
+    if (method === 'POST' && path === '/api/voice/local/install') {
+      if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      mock.localInstallRequests += 1;
+      const receipt = voiceLocalInstallResponse(options.localInstallOutcome ?? 'provisioned');
+      if (receipt.provisioned) {
+        voiceLocalState = {
+          ...voiceLocalState,
+          state: 'provisioned',
+          tts: { ...voiceLocalState.tts, binaryPresent: true, voicePresent: true },
+          stt: { ...voiceLocalState.stt, state: 'provisioned', binaryPresent: true, modelPresent: true },
+        };
+      }
+      return json(route, receipt);
+    }
 
     if (method === 'GET' && path === '/api/voice') {
       return json(route, {

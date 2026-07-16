@@ -293,6 +293,121 @@ export interface MockDaemonOptions {
    * loggedIn, magicDnsName, httpsUrl) or a seeded prior serve receipt.
    */
   tailscale?: Partial<MockTailscaleState>;
+  /**
+   * Seed for ops.memory.get (SDK 1.9.0-dev's memory-governance observability).
+   * Default: the representative 'elevated' snapshot opsMemoryResponse() answers (one
+   * tier above normal so the chip, bar, caches, paused jobs, and tripwire all render
+   * meaningfully). Pass a partial to prove other tiers / an armed tripwire.
+   * 'unavailable' answers the 404 an older daemon build gives (the verb id absent),
+   * proving the honest "does not serve memory diagnostics" state.
+   */
+  opsMemory?: Partial<ReturnType<typeof opsMemoryResponse>> | 'unavailable';
+  /**
+   * Seed for voice.local.status / voice.local.install (SDK 1.9.0-dev's managed
+   * local-voice provisioning). Default: not-provisioned with a real offer size —
+   * the state that renders the size-labeled "Set up local voice" action. install
+   * mutates this state to provisioned and answers the receipt, exactly like the
+   * real one-act flow. `installOutcome: 'download-failed'` forces the install
+   * receipt's TTS engine to the retriable failure instead (state stays
+   * unprovisioned). 'unavailable' answers the 404 of an older daemon build.
+   */
+  voiceLocal?: {
+    status?: Partial<ReturnType<typeof voiceLocalStatusResponse>>;
+    installOutcome?: 'provisioned' | 'download-failed';
+  } | 'unavailable';
+}
+
+/**
+ * ops.memory.get's real shape (tier/budget/rss/heap/usage + caches + pausedJobs +
+ * tripwire + thresholds), at the representative 'elevated' tier. Exported so
+ * assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function opsMemoryResponse() {
+  return {
+    tier: 'elevated' as 'normal' | 'elevated' | 'high' | 'critical',
+    budgetMb: 1024,
+    rssMb: 700,
+    heapUsedMb: 320,
+    heapTotalMb: 512,
+    usedPct: 68,
+    refusingExpensiveWork: false,
+    caches: [
+      { id: 'knowledge-embeddings', name: 'Knowledge embeddings', entries: 4200, estimatedBytes: 15_728_640 },
+      { id: 'session-index', name: 'Session index', entries: 128, estimatedBytes: 262_144 },
+    ],
+    pausedJobs: ['knowledge.reindex'],
+    tripwire: { armed: false, sustainedSec: 60, rateMbPerSec: 25 },
+    thresholds: { elevatedPct: 60, highPct: 80, criticalPct: 95 },
+  };
+}
+
+/**
+ * voice.local.status's real shape at the not-provisioned baseline (a size-labeled
+ * offer, STT supported on this linux-x64 fixture host). Exported so
+ * assert-contract-shape.test.ts can bind it without a Page.
+ */
+export function voiceLocalStatusResponse() {
+  return {
+    platform: 'linux-x64' as string | null,
+    state: 'not-provisioned' as 'not-provisioned' | 'partial' | 'provisioned' | 'unsupported-platform',
+    tts: {
+      engine: 'piper',
+      binaryPresent: false,
+      voicePresent: false,
+      binaryPath: '/home/e2e/.goodvibes/voice/engines/piper/piper',
+      modelPath: '/home/e2e/.goodvibes/voice/models/en_US-lessac-medium.onnx',
+    },
+    stt: {
+      engine: 'whisper-cpp',
+      supported: true,
+      state: 'not-provisioned' as 'not-provisioned' | 'partial' | 'provisioned' | 'unsupported-platform',
+      binaryPresent: false,
+      modelPresent: false,
+      binaryPath: '/home/e2e/.goodvibes/voice/engines/whisper/whisper-cli',
+      modelPath: '/home/e2e/.goodvibes/voice/models/ggml-base.en.bin',
+    },
+    offerBytes: 219_152_211,
+  };
+}
+
+/**
+ * voice.local.install's real receipt shape — fully provisioned by default, or the
+ * retriable TTS download failure. Exported so assert-contract-shape.test.ts can bind
+ * it without a Page.
+ */
+export function voiceLocalInstallResponse(outcome: 'provisioned' | 'download-failed' = 'provisioned') {
+  const base = voiceLocalStatusResponse();
+  if (outcome === 'download-failed') {
+    return {
+      provisioned: false,
+      platform: base.platform,
+      tts: { engine: 'piper', state: 'download-failed', reason: 'network timeout fetching piper.tar.gz' },
+      stt: { engine: 'whisper-cpp', state: 'download-failed', reason: 'skipped after the TTS engine download failed' },
+      components: [{ id: 'piper-voice-onnx', state: 'failed', error: 'network timeout fetching piper.tar.gz' }],
+      configured: { set: [], skipped: [] },
+    };
+  }
+  return {
+    provisioned: true,
+    platform: base.platform,
+    tts: { engine: 'piper', state: 'provisioned', binaryPath: base.tts.binaryPath, modelPath: base.tts.modelPath },
+    stt: { engine: 'whisper-cpp', state: 'provisioned', binaryPath: base.stt.binaryPath, modelPath: base.stt.modelPath },
+    components: [
+      { id: 'piper-voice-onnx', state: 'installed', bytes: 63_201_294 },
+      { id: 'piper-voice-json', state: 'installed', bytes: 4_882 },
+      { id: 'piper-engine', state: 'installed', bytes: 6_942_130 },
+      { id: 'whisper-engine', state: 'installed', bytes: 1_121_557 },
+      { id: 'whisper-model', state: 'installed', bytes: 147_964_211 },
+    ],
+    configured: {
+      set: [
+        { key: 'voice.local.ttsEngine', value: 'piper' },
+        { key: 'voice.local.ttsBinary', value: base.tts.binaryPath },
+        { key: 'voice.local.ttsModelPath', value: base.tts.modelPath },
+      ],
+      skipped: [{ key: 'voice.local.sttBinary', reason: 'already set to a custom value' }],
+    },
+  };
 }
 
 /** tailscale.get's real shape (see MockDaemonOptions.tailscale above). */
@@ -535,6 +650,19 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // installMockDaemon call, mutated by serve.run exactly like the real daemon's
   // single-writer state (lastServe records the most recent attempt either way).
   const tailscaleState: MockTailscaleState = { ...DEFAULT_TAILSCALE_STATE, ...options.tailscale };
+  // ops.memory.get in-memory state — a fresh copy per installMockDaemon call.
+  const opsMemoryState = options.opsMemory === 'unavailable'
+    ? null
+    : { ...opsMemoryResponse(), ...options.opsMemory };
+  // voice.local.status / voice.local.install in-memory state — install flips the
+  // resting state to provisioned exactly like the real one-act flow (unless the
+  // seeded outcome is the retriable download failure, which keeps nothing).
+  const voiceLocalUnavailable = options.voiceLocal === 'unavailable';
+  const voiceLocalSeed = voiceLocalUnavailable || options.voiceLocal === undefined ? {} : options.voiceLocal;
+  const voiceLocalInstallOutcome = ('installOutcome' in voiceLocalSeed ? voiceLocalSeed.installOutcome : undefined) ?? 'provisioned';
+  let voiceLocalState = voiceLocalUnavailable
+    ? null
+    : { ...voiceLocalStatusResponse(), ...('status' in voiceLocalSeed ? voiceLocalSeed.status : undefined) };
   // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
   // per installMockDaemon call, mutated by edit/delete.
   const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
@@ -857,6 +985,32 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (path === '/api/local-auth') {
       return json(route, { ok: true, mode: 'local', authenticated: true });
+    }
+
+    // ── Memory governance (ops.memory.get, SDK 1.9.0-dev) ─────────────────
+    if (method === 'GET' && path === '/api/ops/memory') {
+      if (!opsMemoryState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      return json(route, opsMemoryState);
+    }
+
+    // ── Managed local voice (voice.local.status / voice.local.install, SDK 1.9.0-dev) ──
+    if (method === 'GET' && path === '/api/voice/local/status') {
+      if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      return json(route, voiceLocalState);
+    }
+    if (method === 'POST' && path === '/api/voice/local/install') {
+      if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      const receipt = voiceLocalInstallResponse(voiceLocalInstallOutcome);
+      if (receipt.provisioned) {
+        // The real one-act flow: a successful install flips the resting status.
+        voiceLocalState = {
+          ...voiceLocalState,
+          state: 'provisioned',
+          tts: { ...voiceLocalState.tts, binaryPresent: true, voicePresent: true },
+          stt: { ...voiceLocalState.stt, state: 'provisioned', binaryPresent: true, modelPresent: true },
+        };
+      }
+      return json(route, receipt);
     }
 
     // ── Power (power.status.get / power.keepAwake.set, SDK 1.8.0) ─────────

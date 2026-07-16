@@ -6,6 +6,17 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-07-16
+
+Ships against `@pellux/goodvibes-sdk` 1.10.1. Alignment patch: the SDK's 1.10.1
+release contains type-level additions only, with no wire-contract changes
+affecting this repo.
+
+### Changed
+
+- Updated `@pellux/goodvibes-sdk` to `1.10.1` (fresh lockfile from the registry;
+  generated config schema verified unchanged).
+
 ## [1.7.0] - 2026-07-16
 
 Ships against `@pellux/goodvibes-sdk` 1.10.0. This release adds the admin

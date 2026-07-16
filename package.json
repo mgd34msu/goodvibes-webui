@@ -34,7 +34,7 @@
     "prepublishOnly": "bun run release:gate"
   },
   "dependencies": {
-    "@pellux/goodvibes-sdk": "1.9.0",
+    "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-sdk-1.9.0.tgz",
     "@tanstack/react-query": "^5.100.11",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.16.0",
@@ -43,6 +43,18 @@
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1"
+  },
+  "overrides": {
+    "@pellux/goodvibes-contracts": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-contracts-1.9.0.tgz",
+    "@pellux/goodvibes-daemon-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-daemon-sdk-1.9.0.tgz",
+    "@pellux/goodvibes-errors": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-errors-1.9.0.tgz",
+    "@pellux/goodvibes-operator-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-operator-sdk-1.9.0.tgz",
+    "@pellux/goodvibes-peer-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-peer-sdk-1.9.0.tgz",
+    "@pellux/goodvibes-sdk": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-sdk-1.9.0.tgz",
+    "@pellux/goodvibes-terminal-shell": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-terminal-shell-1.9.0.tgz",
+    "@pellux/goodvibes-transport-core": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-transport-core-1.9.0.tgz",
+    "@pellux/goodvibes-transport-http": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-transport-http-1.9.0.tgz",
+    "@pellux/goodvibes-transport-realtime": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarballs-webui-efc1b380/pellux-goodvibes-transport-realtime-1.9.0.tgz"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -6,6 +6,15 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-07-17
+
+Ships against `@pellux/goodvibes-sdk` 1.11.3. Compaction-continuation user
+messages — the compactor's re-injected instruction handoff after every
+automatic compaction — now render as a closed "Compaction handoff" disclosure
+in session transcripts instead of the full multi-kilobyte instruction wall.
+The detection header is pinned byte-for-byte against the SDK's
+`COMPACTION_HANDOFF_HEADER` export by a contract test.
+
 ## [1.7.3] - 2026-07-17
 
 Ships against `@pellux/goodvibes-sdk` 1.11.2, which now carries the shared

@@ -62,6 +62,13 @@
     "prettier": "3.8.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "8.61.1",
-    "vite": "^8.0.13"
+    "vite": "^8.0.13",
+    "@pellux/goodvibes-toolchain": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarball-toolchain-webui-20093d41/pellux-goodvibes-toolchain-1.10.1.tgz"
+  },
+  "overridesRationale": {
+    "@pellux/goodvibes-toolchain": "TOOLCHAIN-PIN: dev-link tarball built from the goodvibes-sdk checkout at 20093d41 (packages/toolchain, version 1.10.1) — the toolchain package is not yet published to npm. The runtime @pellux/goodvibes-sdk dependency stays pinned to the registry release (1.10.1) untouched. When the SDK repo publishes @pellux/goodvibes-toolchain, the release train must re-pin this devDependency and this override to the registry version and delete both entries here."
+  },
+  "overrides": {
+    "@pellux/goodvibes-toolchain": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarball-toolchain-webui-20093d41/pellux-goodvibes-toolchain-1.10.1.tgz"
   }
 }

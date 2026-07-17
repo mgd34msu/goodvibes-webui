@@ -161,3 +161,81 @@ jobs:
             e2e/.artifacts/test-output
           retention-days: 14
           if-no-files-found: ignore
+
+  auto-release:
+    # Zero-touch release: a green push-CI run on main is the only thing that
+    # gates a release. This repo ships no artifacts (see CHANGELOG.md) — the
+    # git tag plus the GitHub release page, cut here from CHANGELOG.md, is the
+    # entire "release." No separate workflow, no manual dispatch, no human
+    # step after the other three jobs go green.
+    name: Auto Release
+    needs: [test, lint, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Read version from package.json
+        id: version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Read version ${VERSION} from package.json"
+
+      - name: Check whether the release tag already exists
+        id: check-tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q .; then
+            echo "Tag v${VERSION} already exists on origin — nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push release tag
+        if: steps.check-tag.outputs.exists != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "v${VERSION}" "${{ github.sha }}"
+          git push origin "refs/tags/v${VERSION}"
+
+      - name: Extract changelog section
+        if: steps.check-tag.outputs.exists != 'true'
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES_FILE="release-notes.md"
+          awk -v ver="$VERSION" '
+            $0 ~ ("^## \\[" ver "\\]") { found=1; next }
+            found && /^## \[/ { found=0 }
+            found { print }
+          ' CHANGELOG.md > "$NOTES_FILE"
+          echo "notes_file=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.check-tag.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists — nothing to do."
+            exit 0
+          fi
+          for attempt in $(seq 1 8); do
+            if gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "${{ steps.changelog.outputs.notes_file }}" --verify-tag; then
+              echo "Release v${VERSION} created."
+              exit 0
+            fi
+            echo "gh release create attempt ${attempt} failed (try ${attempt}/8), retrying..."
+            sleep 10
+          done
+          echo "gh release create failed after 8 attempts"
+          exit 1

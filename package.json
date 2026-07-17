@@ -34,7 +34,7 @@
     "prepublishOnly": "bun run release:gate"
   },
   "dependencies": {
-    "@pellux/goodvibes-sdk": "1.11.0",
+    "@pellux/goodvibes-sdk": "1.11.1",
     "@tanstack/react-query": "^5.100.11",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.16.0",
@@ -63,6 +63,6 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "8.61.1",
     "vite": "^8.0.13",
-    "@pellux/goodvibes-toolchain": "1.11.0"
+    "@pellux/goodvibes-toolchain": "1.11.1"
   }
 }

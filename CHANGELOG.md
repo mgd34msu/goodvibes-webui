@@ -8,11 +8,11 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [1.7.2] - 2026-07-17
 
-Ships against `@pellux/goodvibes-sdk` 1.11.0 and adopts the platform's shared
+Ships against `@pellux/goodvibes-sdk` 1.11.1 and adopts the platform's shared
 CI/CD system: the local release gate is a thin wrapper over the published
 `@pellux/goodvibes-toolchain` (sdk-pin-gate), CI single-sources its Bun
 version, and a workflow-shape test suite pins the pipeline's structure. The
-SDK 1.11.0 release is release-engineering only — no wire-contract changes
+SDK 1.11.x releases are release-engineering only — no wire-contract changes
 affecting the WebUI.
 
 ## [1.7.1] - 2026-07-16

@@ -6,6 +6,17 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-07-17
+
+Ships against `@pellux/goodvibes-sdk` 1.11.2, which now carries the shared
+release toolchain (`@pellux/goodvibes-toolchain`) as a dependency of its own —
+the separate direct toolchain pin in this repo's `devDependencies` is gone;
+`release-gate.ts` resolves the toolchain transitively through the SDK
+package instead. Releases are now zero-touch: a green CI run on a release
+commit pushed to `main` tags the commit and creates the GitHub release page
+itself, with no manual step afterward. SDK 1.11.x remains release-engineering
+only — no wire-contract changes affecting the WebUI.
+
 ## [1.7.2] - 2026-07-17
 
 Ships against `@pellux/goodvibes-sdk` 1.11.1 and adopts the platform's shared

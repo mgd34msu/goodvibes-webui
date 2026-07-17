@@ -10,6 +10,7 @@ import { MemoryProvenanceChip } from './MemoryProvenanceChip';
 import { readMemoryProvenanceIds } from '../../lib/memory-provenance';
 import { useWebUiPreferences } from '../../lib/ui-preferences';
 import { asRecord } from '../../lib/object';
+import { isCompactionHandoffMessage } from '../../lib/compaction';
 import {
   attachmentLabel,
   attachmentMeta,
@@ -159,7 +160,17 @@ export function MessageItem({
           </div>
         ) : (
           <>
-            {text && <MarkdownMessage content={text} />}
+            {text && tone === 'user' && isCompactionHandoffMessage(text) ? (
+              // Compactor-authored continuation, not typed input: folded by
+              // default so the re-injected instruction wall doesn't repeat in
+              // the transcript after every automatic compaction.
+              <details className="message-compaction-handoff">
+                <summary>Compaction handoff — context re-injected after auto-compaction ({text.split('\n').length} lines)</summary>
+                <MarkdownMessage content={text} />
+              </details>
+            ) : (
+              text && <MarkdownMessage content={text} />
+            )}
             {attachments.length > 0 && (
               <div className="message-attachments">
                 {attachments.map((attachment, attachmentIndex) => (

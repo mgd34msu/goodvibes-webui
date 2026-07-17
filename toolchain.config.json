@@ -1,0 +1,11 @@
+{
+  "packageName": "goodvibes-webui",
+  "sdkPin": {
+    "sdkPackage": "@pellux/goodvibes-sdk",
+    "pinSource": "dependencies",
+    "lockfile": "bun.lock",
+    "overlayMarker": "node_modules/@pellux/goodvibes-sdk/.local-sdk-overlay.json",
+    "sourceRoots": ["src"],
+    "enforceExportsMap": true
+  }
+}

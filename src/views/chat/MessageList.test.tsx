@@ -367,3 +367,40 @@ describe('MessageList — running tool calls + cancel (SDK 1.8.0 interaction-win
     unmount();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Compaction-handoff folding — a compactor-authored user message folds to a
+// <details> disclosure instead of rendering the re-injected instruction wall.
+// ---------------------------------------------------------------------------
+
+describe('compaction handoff folding', () => {
+  const handoffContent = [
+    'IMPORTANT: This session is not new! Context was compacted, please read the following for proper handoff so you may resume work!',
+    '',
+    '## Standing Instructions (re-injected)',
+    ...Array.from({ length: 40 }, (_, i) => `- ALWAYS follow directive number ${i}`),
+  ].join('\n');
+
+  test('handoff message renders folded with a summary, not the full wall', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'msg-h', role: 'user', content: handoffContent } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    const details = container.querySelector('details.message-compaction-handoff');
+    expect(details).not.toBeNull();
+    expect(details?.querySelector('summary')?.textContent ?? '').toContain('Compaction handoff');
+    // Folded by default: the <details> is closed.
+    expect((details as HTMLDetailsElement).open).toBe(false);
+    unmount();
+  });
+
+  test('an ordinary user message does not fold', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'msg-p', role: 'user', content: 'plain question about compaction' } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('details.message-compaction-handoff')).toBeNull();
+    expect(container.textContent).toContain('plain question about compaction');
+    unmount();
+  });
+});

@@ -27,6 +27,21 @@
 
 import { asRecord } from './object';
 
+/**
+ * The mandatory first line of every compaction-continuation user message
+ * (SDK: `COMPACTION_HANDOFF_HEADER` in platform/core/compaction-sections).
+ * Duplicated here as a literal because the SDK's platform/core barrel is not
+ * a browser-safe import for the vite bundle; compaction-handoff-contract.test.ts
+ * pins this copy byte-for-byte against the SDK's export.
+ */
+export const COMPACTION_HANDOFF_HEADER =
+  'IMPORTANT: This session is not new! Context was compacted, please read the following for proper handoff so you may resume work!';
+
+/** True when a user-role message is the compactor's continuation handoff, not typed input. */
+export function isCompactionHandoffMessage(text: string): boolean {
+  return text.startsWith(COMPACTION_HANDOFF_HEADER);
+}
+
 export type CompactionTrigger = 'auto' | 'manual';
 export type CompactionOutcome = 'applied' | 'kept-original' | 'failed';
 

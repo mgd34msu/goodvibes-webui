@@ -66,7 +66,7 @@
     "@pellux/goodvibes-toolchain": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarball-toolchain-webui-20093d41/pellux-goodvibes-toolchain-1.10.1.tgz"
   },
   "overridesRationale": {
-    "@pellux/goodvibes-toolchain": "TOOLCHAIN-PIN: dev-link tarball built from the goodvibes-sdk checkout at 20093d41 (packages/toolchain, version 1.10.1) — the toolchain package is not yet published to npm. The runtime @pellux/goodvibes-sdk dependency stays pinned to the registry release (1.10.1) untouched. When the SDK repo publishes @pellux/goodvibes-toolchain, the release train must re-pin this devDependency and this override to the registry version and delete both entries here."
+    "@pellux/goodvibes-toolchain": "TOOLCHAIN-PIN: dev-link tarball built from the goodvibes-sdk checkout at 20093d41 (packages/toolchain, version 1.10.1) — the toolchain package is not yet published to npm. The runtime @pellux/goodvibes-sdk dependency stays pinned to the registry release (1.10.1) untouched. At train time, once @pellux/goodvibes-toolchain is published: replace the file: tarball path with the published exact registry version in the devDependencies entry, drop the overrides entry (the exact-version devDependency alone pins it — the override only existed to force the file: tarball over any registry resolution), delete this rationale entry, regenerate the lockfile with `bun install`, and verify `bun run release:gate` still passes 6/6. scripts/release-gate.ts require.resolves the devDependency, so that entry must never be deleted — only re-pointed at the registry version."
   },
   "overrides": {
     "@pellux/goodvibes-toolchain": "file:/home/buzzkill/.claude/jobs/e28eaafb/tmp/tarball-toolchain-webui-20093d41/pellux-goodvibes-toolchain-1.10.1.tgz"

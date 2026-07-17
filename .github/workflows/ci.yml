@@ -8,6 +8,16 @@ on:
     branches:
       - main
 
+env:
+  # Single source of truth for the Bun version across all three jobs below
+  # (test, lint, e2e) — one place to bump instead of three drifting copies.
+  # TRAIN NOTE: this repo can't `uses:` the SDK's composite
+  # `.github/actions/setup` action until goodvibes-sdk pushes it (cross-repo
+  # `uses:` needs a pushed ref to resolve); once it does, adopt that action
+  # here instead of this inlined block. See
+  # goodvibes-sdk/docs/release-and-publishing.md ("Shared Toolchain").
+  BUN_VERSION: "1.3.14"
+
 permissions:
   contents: read
 
@@ -15,6 +25,7 @@ jobs:
   test:
     name: Test, Typecheck, Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -22,10 +33,11 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          # Pinned to the locally-verified toolchain. The DOM test harness
-          # (happy-dom global-registrator + `bun test --isolate`) is
-          # version-sensitive; 1.3.10 produced `window is not defined`.
-          bun-version: 1.3.14
+          # Pinned via the BUN_VERSION env var above (single source across
+          # all three jobs). The DOM test harness (happy-dom
+          # global-registrator + `bun test --isolate`) is version-sensitive;
+          # 1.3.10 produced `window is not defined`.
+          bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -68,6 +80,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -75,7 +88,9 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
+          # See the "test" job above for why the version comes from the
+          # shared BUN_VERSION env var.
+          bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
       - name: Install dependencies
@@ -106,7 +121,9 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
+          # See the "test" job above for why the version comes from the
+          # shared BUN_VERSION env var.
+          bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
       - name: Install dependencies

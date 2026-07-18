@@ -6,6 +6,12 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-07-18
+
+Ships against `@pellux/goodvibes-sdk` 1.11.4, which closes the secrets-store
+key-mismatch class (race-safe key generation, pre-write key revalidation,
+key fingerprints in store envelopes). No webui-side code changes.
+
 ## [1.7.4] - 2026-07-17
 
 Ships against `@pellux/goodvibes-sdk` 1.11.3. Compaction-continuation user

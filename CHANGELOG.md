@@ -6,6 +6,26 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-07-24
+
+Ships against `@pellux/goodvibes-sdk` 1.12.0, which introduces declare-once
+product storage surfaces, the ask-then-retire recovery lifecycle, and the
+cross-process workspace-checkpoint lock. No webui behavior depends on those
+paths (verified: the webui holds no session-persistence call sites), so this
+release carries the platform pin plus documentation.
+
+### Changed
+
+- README rewritten around the screenshot tour: accurate cross-machine access
+  story (Tailscale or same-LAN with firewall policy), honest release-model
+  note, corrected version badges, descriptive alt text on all screenshots.
+
+### Added
+
+- MIT `LICENSE` file and a `license` field in `package.json` — the repo
+  claimed MIT in its badge without shipping the license text.
+
+
 ## [1.7.5] - 2026-07-18
 
 Ships against `@pellux/goodvibes-sdk` 1.11.4, which closes the secrets-store

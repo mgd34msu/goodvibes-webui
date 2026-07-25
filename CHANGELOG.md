@@ -6,6 +6,24 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-25
+
+Tool activity now stays with the message that produced it. Previously the tool
+calls a turn made were visible only while the turn was running and then
+disappeared once it finished, leaving an assistant message with no record of
+the work behind it. Completed tool calls are now folded into the assistant
+message itself: a single-tool turn renders one compact entry, and a multi-tool
+turn folds behind an expandable summary that counts what actually ran ("3
+tools · read×2, exec") rather than an invented total. Long results show a
+preview with the full text behind a second expand, and failed calls are marked
+as errors.
+
+Because this record is built from the stream this browser tab watched live, it
+is present only for turns that ran while the tab was open; it is never
+reconstructed or guessed for older turns.
+
+Ships against `@pellux/goodvibes-sdk` 1.13.0.
+
 ## [1.7.7] - 2026-07-25
 
 Ships against `@pellux/goodvibes-sdk` 1.12.1, which makes crash-recovery

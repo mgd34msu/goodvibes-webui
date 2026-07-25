@@ -118,9 +118,16 @@ export function buildLineage(messages: readonly ChatMessage[]): LineageNode[] {
   return nodes;
 }
 
-/** Stable key for a lineage node, falling back to its ordinal when the id is missing. */
+/**
+ * Stable key for a lineage node — the message's real id alone when present, so the node
+ * does NOT remount (losing any open <details> disclosure — retained-history reveal, the
+ * compaction-handoff fold, or a folded tool-activity group) if the list re-renders with
+ * the same message at a different array position (an optimistic-to-fetched merge can do
+ * this). Falls back to an ordinal-based key, clearly shaped so it can never collide with
+ * a real id, only when the message truly has none.
+ */
 export function lineageNodeKey(node: LineageNode, index: number): string {
-  return `${bestId(node.message) || index}-${index}`;
+  return bestId(node.message) || `node-${index}`;
 }
 
 /** A human, honest label for a retained-history run given its reason and size. */

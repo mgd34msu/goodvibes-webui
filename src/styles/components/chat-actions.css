@@ -202,6 +202,102 @@
   font-style: italic;
 }
 
+/* ── Folded tool activity ─────────────────────────────────────
+   Completed tool calls for a turn, folded into the assistant message that
+   produced them (see useChatStream's toolActivityByMessageId / ToolActivityGroup).
+   Single-tool turns render one compact entry inline; multi-tool turns fold
+   behind a <details>/<summary> disclosure, the same idiom as the compaction-
+   handoff fold above. */
+
+.message-tool-activity {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.message-tool-activity--single {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+details.message-tool-activity--group > summary {
+  cursor: pointer;
+  color: var(--text-tertiary);
+  list-style: none;
+}
+
+details.message-tool-activity--group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.message-tool-activity__list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.message-tool-activity__item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-sunken);
+  padding: var(--space-2);
+}
+
+.message-tool-activity__item--error {
+  border-color: var(--status-danger);
+}
+
+.message-tool-activity__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.message-tool-activity__label {
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: var(--text-xs);
+}
+
+.message-tool-activity__arg {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+.message-tool-activity__error-badge {
+  color: var(--status-danger);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+}
+
+.message-tool-activity__result,
+.message-tool-activity__result-inline {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-tool-activity__result > summary {
+  cursor: pointer;
+  color: var(--text-tertiary);
+}
+
+.message-tool-activity__result pre {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ── Reduced motion ────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

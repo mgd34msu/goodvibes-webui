@@ -7,6 +7,7 @@ import { useArtifactsPanel } from './ArtifactsPanel';
 import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { SpeakButton } from '../../components/voice/SpeakButton';
 import { MemoryProvenanceChip } from './MemoryProvenanceChip';
+import { ToolActivityGroup } from './ToolActivityGroup';
 import { readMemoryProvenanceIds } from '../../lib/memory-provenance';
 import { useWebUiPreferences } from '../../lib/ui-preferences';
 import { asRecord } from '../../lib/object';
@@ -185,6 +186,9 @@ export function MessageItem({
               </div>
             )}
             {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
+            {tone === 'assistant' && message.toolActivity && message.toolActivity.length > 0 && (
+              <ToolActivityGroup toolActivity={message.toolActivity} />
+            )}
           </>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { asRecord, bestId, firstArray, firstString, formatRelative } from '../../lib/object';
+import { asRecord, bestId, compactJson, firstArray, firstString, formatRelative } from '../../lib/object';
 
 export function messageText(message: unknown): string {
   const direct = firstString(message, ['body', 'content', 'text', 'message', 'delta']);
@@ -139,3 +139,74 @@ export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '
 }
 
 export { bestId };
+
+/**
+ * A completed tool call folded into an assistant message once its turn ends —
+ * built client-side from the live `turn.tool_call` / `turn.tool_result` stream
+ * events (see useChatStream's toolActivityByMessageId). This is NOT part of
+ * the daemon's persisted message shape (CompanionChatMessage carries no tool
+ * fields), so it is only ever present for a turn this browser tab actually
+ * watched run live — never fabricated for history fetched from the server.
+ */
+export interface CompletedToolCall {
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly toolInput?: unknown;
+  readonly result?: unknown;
+  readonly isError: boolean;
+}
+
+/** Common tool names mapped to the short, human label used in the folded summary line. */
+const TOOL_FRIENDLY_LABELS: Readonly<Record<string, string>> = {
+  read: 'read',
+  write: 'write',
+  edit: 'edit',
+  bash: 'exec',
+  exec: 'exec',
+  grep: 'search',
+  glob: 'search',
+  websearch: 'web search',
+  webfetch: 'web fetch',
+  task: 'agent',
+};
+
+/** A short, human label for a tool name — falls back to the raw name when unrecognized. */
+export function toolFriendlyLabel(toolName: string): string {
+  const normalized = toolName.trim().toLowerCase();
+  return TOOL_FRIENDLY_LABELS[normalized] ?? (toolName.trim() || 'tool');
+}
+
+/**
+ * Compact "N tools · read×2, exec" style summary of a completed turn's tool
+ * calls, grouped by friendly label with real counts — never an invented total.
+ */
+export function summarizeToolActivity(calls: readonly Pick<CompletedToolCall, 'toolName'>[]): string {
+  const counts = new Map<string, number>();
+  for (const call of calls) {
+    const label = toolFriendlyLabel(call.toolName);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => (count > 1 ? `${label}×${count}` : label))
+    .join(', ');
+}
+
+/** Common argument keys, checked in order, used to surface a tool call's one key argument. */
+const KEY_ARG_FIELDS = ['file_path', 'filePath', 'path', 'command', 'pattern', 'query', 'url', 'prompt'];
+
+/** The single most identifying argument of a tool call's input, for the compact fold line. */
+export function toolKeyArg(toolInput: unknown): string {
+  const record = asRecord(toolInput);
+  for (const field of KEY_ARG_FIELDS) {
+    const value = record[field];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/** A tool result rendered as honest text — strings pass through, anything else is compact JSON. */
+export function toolResultText(result: unknown): string {
+  if (result === undefined || result === null) return '';
+  if (typeof result === 'string') return result;
+  return compactJson(result);
+}

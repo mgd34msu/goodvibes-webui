@@ -11,11 +11,13 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildLineage,
   isSuperseded,
+  lineageNodeKey,
   revisionOf,
   retainedHistoryLabel,
   supersededReason,
 } from './lineage';
 import type { ChatMessage } from './types';
+import type { LineageNode } from './lineage';
 
 function msg(id: string, role: string, content: string, extra: Partial<ChatMessage> = {}): ChatMessage {
   return { id, role, content, sessionId: 's1', createdAt: 1_000, ...extra };
@@ -116,5 +118,29 @@ describe('retainedHistoryLabel', () => {
     expect(retainedHistoryLabel('edit', 1)).toContain('original');
     expect(retainedHistoryLabel('regenerate', 1)).toContain('previous');
     expect(retainedHistoryLabel('regenerate', 3)).toContain('3');
+  });
+});
+
+describe('lineageNodeKey', () => {
+  function node(message: ChatMessage): LineageNode {
+    return { message, priorMessages: [] };
+  }
+
+  test('uses the message id alone, with no index baked in', () => {
+    expect(lineageNodeKey(node(msg('msg-7', 'assistant', 'hi')), 3)).toBe('msg-7');
+  });
+
+  test('the key does NOT change when the same message moves to a different array position', () => {
+    // A merge (optimistic local copy -> server-fetched history) can re-render the same
+    // message at a different index; the key must stay stable so an open <details> fold
+    // (retained history, compaction handoff, or a folded tool-activity group) survives
+    // the re-render instead of being remounted closed.
+    const message = msg('msg-stable', 'assistant', 'hi');
+    expect(lineageNodeKey(node(message), 0)).toBe(lineageNodeKey(node(message), 5));
+  });
+
+  test('falls back to a clearly-ordinal key, shaped so it can never collide with a real id, when the message has no id', () => {
+    const noIdMessage = { role: 'assistant', content: 'hi', createdAt: 1 } as ChatMessage;
+    expect(lineageNodeKey(node(noIdMessage), 2)).toBe('node-2');
   });
 });

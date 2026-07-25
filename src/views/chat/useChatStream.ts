@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState, RefObject } from 'react';
 import { sdk, DEFAULT_SSE_RECONNECT } from '../../lib/goodvibes';
-import { firstString } from '../../lib/object';
+import { asRecord, firstString } from '../../lib/object';
 import { RELAY_OVERFLOW_EVENT, noteRelayOverflow, readDroppedCount } from '../../lib/relay-stream-overflow';
 import { isSessionNotFoundError, isAuthExpiredError, isMethodUnavailableError, isNoActiveTurnError } from '../../lib/errors';
 import { LocalCompanionMessage } from '../../lib/companion-chat';
@@ -8,7 +8,32 @@ import {
   ACTIVE_TURN_STATES,
   assistantContentFromCompletedTurn,
   companionEventType,
+  type CompletedToolCall,
 } from './message-utils';
+
+/**
+ * Cap on how many completed turns' tool activity are retained in
+ * toolActivityByMessageId at once — an insertion-ordered Map, oldest evicted
+ * first. Purely a memory ceiling for a very long-lived tab; unrelated to any
+ * server-side retention (this state never touches the daemon).
+ */
+const MAX_TOOL_ACTIVITY_ENTRIES = 200;
+
+function withToolActivity(
+  current: ReadonlyMap<string, readonly CompletedToolCall[]>,
+  messageId: string,
+  calls: readonly CompletedToolCall[],
+): ReadonlyMap<string, readonly CompletedToolCall[]> {
+  if (!messageId || calls.length === 0) return current;
+  const next = new Map(current);
+  next.set(messageId, calls);
+  while (next.size > MAX_TOOL_ACTIVITY_ENTRIES) {
+    const oldestKey = next.keys().next().value;
+    if (oldestKey === undefined) break;
+    next.delete(oldestKey);
+  }
+  return next;
+}
 
 interface UseChatStreamOptions {
   activeSessionId: string;
@@ -77,6 +102,17 @@ export interface UseChatStreamResult {
    *  a 'tooling' window and cleared on every terminal turn event. */
   activeToolCalls: readonly ActiveToolCall[];
   /**
+   * Completed tool calls (name, input, result) for every turn this browser tab has
+   * watched finish live, keyed by the assistant message id the turn produced —
+   * ChatView attaches these onto the matching rendered message (whether it came
+   * from local optimistic state or the server-fetched history) so the fold
+   * renders regardless of which source produced that message object. Built
+   * purely from turn.tool_call/turn.tool_result/turn.completed stream events;
+   * never present for a turn this tab did not watch live (server history has no
+   * tool data — see CompletedToolCall's doc comment).
+   */
+  toolActivityByMessageId: ReadonlyMap<string, readonly CompletedToolCall[]>;
+  /**
    * Cancel ONE running tool call (sessions.toolCalls.cancel) — the turn itself
    * continues; only this one call is stopped. Marks the local entry
    * `cancelled: true` on a `{cancelled: true}` response; a `{cancelled: false}`
@@ -113,6 +149,19 @@ export function useChatStream({
   const [retryNonce, setRetryNonce] = useState(0);
   // Tool calls currently in flight for this turn — see ActiveToolCall's own doc comment.
   const [activeToolCalls, setActiveToolCalls] = useState<readonly ActiveToolCall[]>([]);
+  // Completed tool calls, keyed by the assistant message id of the turn that produced
+  // them — see toolActivityByMessageId's own doc comment on UseChatStreamResult.
+  const [toolActivityByMessageId, setToolActivityByMessageId] = useState<
+    ReadonlyMap<string, readonly CompletedToolCall[]>
+  >(new Map());
+  // Accumulates completed tool calls for the turn CURRENTLY in flight — flushed into
+  // toolActivityByMessageId (keyed by assistantMessageId) on turn.completed/
+  // turn.cancelled, and discarded on turn.error (no assistant message to attach to).
+  const turnToolActivityRef = useRef<CompletedToolCall[]>([]);
+  // toolCallId -> {toolName, toolInput} captured at turn.tool_call time, so the
+  // matching turn.tool_result can build a full CompletedToolCall without the daemon
+  // having to repeat the input back on the result event.
+  const pendingToolInputRef = useRef<Map<string, { toolName: string; toolInput: unknown }>>(new Map());
 
   // Forward state updates to the caller's authoritative turnState.
   const syncedSetTurnState: Dispatch<SetStateAction<string>> = useCallback(
@@ -187,6 +236,8 @@ export function useChatStream({
     liveTextRef.current = '';
     setTurnError('');
     setActiveToolCalls([]);
+    turnToolActivityRef.current = [];
+    pendingToolInputRef.current.clear();
 
     // True once a drop has been reported for THIS connection instance (an onReconnect
     // fired). Lets onReady tell "the very first connect" (say nothing, turnState is
@@ -243,6 +294,11 @@ export function useChatStream({
         const type = companionEventType(eventName, payload);
 
         if (type === 'turn.started') {
+          // Fresh turn: drop any leftover tool-activity bookkeeping from a turn that
+          // never reached a terminal event (should not happen, but never carry a
+          // prior turn's tool calls into this one's fold).
+          turnToolActivityRef.current = [];
+          pendingToolInputRef.current.clear();
           syncedSetTurnState('running');
           void invalidateChatState(activeSessionId);
           return;
@@ -268,6 +324,9 @@ export function useChatStream({
                 ? current
                 : [...current, { turnId, toolCallId, toolName, cancelled: false }]
             ));
+            // Captured so the matching turn.tool_result (which does not repeat the
+            // input back) can still build a full CompletedToolCall for the fold.
+            pendingToolInputRef.current.set(toolCallId, { toolName, toolInput: asRecord(payload).toolInput });
           }
           syncedSetTurnState('tooling');
           return;
@@ -280,18 +339,32 @@ export function useChatStream({
           const toolCallId = firstString(payload, ['toolCallId']);
           if (toolCallId) {
             setActiveToolCalls((current) => current.filter((c) => c.toolCallId !== toolCallId));
+            const pending = pendingToolInputRef.current.get(toolCallId);
+            pendingToolInputRef.current.delete(toolCallId);
+            const resultRecord = asRecord(payload);
+            turnToolActivityRef.current = [
+              ...turnToolActivityRef.current,
+              {
+                toolCallId,
+                toolName: pending?.toolName ?? firstString(payload, ['toolName']),
+                toolInput: pending?.toolInput,
+                result: resultRecord.result,
+                isError: Boolean(resultRecord.isError),
+              },
+            ];
           }
           syncedSetTurnState('tooling');
           return;
         }
 
         if (type === 'turn.completed') {
+          const assistantMessageId = firstString(payload, ['assistantMessageId', 'messageId']);
           const assistantContent = assistantContentFromCompletedTurn(payload, liveTextRef.current);
           if (assistantContent) {
             setLocalMessages((current) => [
               ...current,
               {
-                id: firstString(payload, ['assistantMessageId', 'messageId']) || `assistant-${firstString(payload, ['turnId']) || Date.now()}`,
+                id: assistantMessageId || `assistant-${firstString(payload, ['turnId']) || Date.now()}`,
                 sessionId: activeSessionId,
                 role: 'assistant' as const,
                 content: assistantContent,
@@ -304,6 +377,16 @@ export function useChatStream({
           } else {
             syncedSetTurnState('syncing');
           }
+          // Fold this turn's completed tool calls onto the message they produced —
+          // matched by id whether the message renders from this optimistic local
+          // copy or from the server-fetched history that invalidateChatState below
+          // brings in (both end up with the same assistantMessageId).
+          const completedCalls = turnToolActivityRef.current;
+          if (completedCalls.length) {
+            setToolActivityByMessageId((current) => withToolActivity(current, assistantMessageId, completedCalls));
+          }
+          turnToolActivityRef.current = [];
+          pendingToolInputRef.current.clear();
           setLiveText('');
           liveTextRef.current = '';
           setActiveToolCalls([]);
@@ -316,6 +399,13 @@ export function useChatStream({
           // already persisted the honest partial (deliveryState 'cancelled')
           // when partialPersisted is true; the refetch below renders it with
           // its badge, so no optimistic local copy is needed.
+          const assistantMessageId = firstString(payload, ['assistantMessageId']);
+          const completedCalls = turnToolActivityRef.current;
+          if (assistantMessageId && completedCalls.length) {
+            setToolActivityByMessageId((current) => withToolActivity(current, assistantMessageId, completedCalls));
+          }
+          turnToolActivityRef.current = [];
+          pendingToolInputRef.current.clear();
           setPendingUserMessageId('');
           syncedSetTurnState('stopped');
           setLiveText('');
@@ -326,6 +416,10 @@ export function useChatStream({
         }
 
         if (type === 'turn.error') {
+          // No assistant message was produced — the accumulated tool activity has
+          // nothing to attach to and is honestly discarded, not held onto.
+          turnToolActivityRef.current = [];
+          pendingToolInputRef.current.clear();
           syncedSetTurnState('error');
           setTurnError(firstString(payload, ['error']) || 'Companion chat turn failed.');
           setActiveToolCalls([]);
@@ -441,5 +535,5 @@ export function useChatStream({
     [activeSessionId],
   );
 
-  return { isStreaming, stop, retryStream, activeToolCalls, cancelToolCall };
+  return { isStreaming, stop, retryStream, activeToolCalls, toolActivityByMessageId, cancelToolCall };
 }

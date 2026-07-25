@@ -16,12 +16,27 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { MessageList } from './MessageList';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PeekProvider } from '../../components/peek/PeekPanel';
 import { ToastProvider } from '../../lib/toast';
 import type { LineageNode } from './lineage';
 import type { ChatMessage } from './types';
 import type { ActiveToolCall } from './useChatStream';
+
+// Assistant-tone messages with text mount SpeakButton (useTts -> sdk.operator.voice.status /
+// config.get, both routed through react-query). Mocked here — never a real network call —
+// and MessageList is imported dynamically AFTER this mock so the module graph never loads
+// the real goodvibes.ts first (mock.module only wins if it runs before the first import).
+mock.module('../../lib/goodvibes', () => ({
+  sdk: {
+    operator: {
+      voice: { status: () => Promise.resolve({ ttsAvailable: false, sttAvailable: false }) },
+      config: { get: () => Promise.resolve({}) },
+    },
+  },
+}));
+
+const { MessageList } = await import('./MessageList');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -54,18 +69,24 @@ function renderMessageList(props: Partial<typeof baseProps & {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   flushSync(() => {
     // MessageItem calls useArtifactsPanel unconditionally (for its "View
     // artifacts" affordance), which needs ToastProvider + PeekProvider
     // ancestors whenever `nodes` is non-empty — most existing tests here pass
     // nodes: [] and never actually mount a MessageItem, but the highlight
-    // tests below do.
+    // tests below do. QueryClientProvider is needed too: an assistant message
+    // with text mounts SpeakButton -> useTts -> react-query (mocked above).
     root.render(
       React.createElement(
-        ToastProvider,
-        null,
-        React.createElement(PeekProvider, null, React.createElement(MessageList, merged)),
+        QueryClientProvider,
+        { client: queryClient },
+        React.createElement(
+          ToastProvider,
+          null,
+          React.createElement(PeekProvider, null, React.createElement(MessageList, merged)),
+        ),
       ),
     );
   });
@@ -372,6 +393,75 @@ describe('MessageList — running tool calls + cancel (SDK 1.8.0 interaction-win
 // Compaction-handoff folding — a compactor-authored user message folds to a
 // <details> disclosure instead of rendering the re-injected instruction wall.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tool-activity folding — a completed turn's tool calls, attached to the
+// assistant message that produced them (ChatMessage.toolActivity, populated by
+// useChatStream's toolActivityByMessageId), render folded rather than
+// vanishing once the turn ends.
+// ---------------------------------------------------------------------------
+
+describe('tool activity folding (rendered through MessageItem)', () => {
+  test('an assistant message with one completed tool call renders one compact entry, not a fold', () => {
+    const nodes: LineageNode[] = [
+      {
+        message: {
+          id: 'msg-tool-1', role: 'assistant', content: 'Here is the file.',
+          toolActivity: [{ toolCallId: 'call-1', toolName: 'read', toolInput: { file_path: '/a.ts' }, result: 'contents', isError: false }],
+        } as ChatMessage,
+        priorMessages: [],
+      },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('details.message-tool-activity--group')).toBeNull();
+    expect(container.querySelector('.message-tool-activity__label')?.textContent).toBe('read');
+    unmount();
+  });
+
+  test('an assistant message with multiple completed tool calls folds behind a counted summary', () => {
+    const nodes: LineageNode[] = [
+      {
+        message: {
+          id: 'msg-tool-2', role: 'assistant', content: 'Done.',
+          toolActivity: [
+            { toolCallId: 'call-1', toolName: 'read', result: 'a', isError: false },
+            { toolCallId: 'call-2', toolName: 'bash', result: 'b', isError: false },
+          ],
+        } as ChatMessage,
+        priorMessages: [],
+      },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    const details = container.querySelector('details.message-tool-activity--group');
+    expect(details).not.toBeNull();
+    expect(details?.querySelector('summary')?.textContent).toBe('2 tools · read, exec — expand');
+    unmount();
+  });
+
+  test('a user message never renders tool activity, even if the field were present', () => {
+    const nodes: LineageNode[] = [
+      {
+        message: {
+          id: 'msg-tool-3', role: 'user', content: 'question',
+          toolActivity: [{ toolCallId: 'call-1', toolName: 'read', result: 'x', isError: false }],
+        } as ChatMessage,
+        priorMessages: [],
+      },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('.message-tool-activity')).toBeNull();
+    unmount();
+  });
+
+  test('an assistant message with no toolActivity field renders no fold at all', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'msg-tool-4', role: 'assistant', content: 'plain reply' } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('.message-tool-activity')).toBeNull();
+    unmount();
+  });
+});
 
 describe('compaction handoff folding', () => {
   const handoffContent = [

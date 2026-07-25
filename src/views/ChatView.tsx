@@ -182,7 +182,9 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
-  const { isStreaming, stop, retryStream, activeToolCalls, cancelToolCall: cancelToolCallRaw } = useChatStream({
+  const {
+    isStreaming, stop, retryStream, activeToolCalls, toolActivityByMessageId, cancelToolCall: cancelToolCallRaw,
+  } = useChatStream({
     activeSessionId,
     liveTextRef,
     onSessionMissing,
@@ -230,10 +232,20 @@ export function ChatView({
 
   const messageItems = companionMessagesFromListResponse(messages.data);
 
-  const renderedMessageItems = useMemo(
-    () => mergeCompanionMessages(messageItems, localMessages, activeSessionId) as ChatMessage[],
-    [activeSessionId, localMessages, messageItems],
-  );
+  const renderedMessageItems = useMemo(() => {
+    const merged = mergeCompanionMessages(messageItems, localMessages, activeSessionId) as ChatMessage[];
+    // Fold in tool activity observed live by this browser tab (see useChatStream's
+    // toolActivityByMessageId doc comment): attached by message id regardless of
+    // whether the message came from local optimistic state or the server-fetched
+    // history — both end up with the same id once the turn completes. A message
+    // whose id has no entry (older history, or a full page reload) simply renders
+    // without a fold, honestly, rather than fabricating one.
+    if (toolActivityByMessageId.size === 0) return merged;
+    return merged.map((message) => {
+      const toolActivity = toolActivityByMessageId.get(bestId(message));
+      return toolActivity ? { ...message, toolActivity } : message;
+    });
+  }, [activeSessionId, localMessages, messageItems, toolActivityByMessageId]);
 
   // The honest-lineage render model: active messages as nodes, with any superseded
   // (retained) history attached to the node that heads its fork. Derived purely from

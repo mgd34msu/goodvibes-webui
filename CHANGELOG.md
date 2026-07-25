@@ -22,7 +22,7 @@ Because this record is built from the stream this browser tab watched live, it
 is present only for turns that ran while the tab was open; it is never
 reconstructed or guessed for older turns.
 
-Ships against `@pellux/goodvibes-sdk` 1.13.0.
+Ships against `@pellux/goodvibes-sdk` 1.13.1.
 
 ## [1.7.7] - 2026-07-25
 

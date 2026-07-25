@@ -95,15 +95,10 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
   },
   {
     "key": "provider.reasoningEffort",
-    "type": "enum",
+    "type": "string",
     "default": "medium",
     "description": "Reasoning effort level for models that support it",
-    "enumValues": [
-      "instant",
-      "low",
-      "medium",
-      "high"
-    ]
+    "validationHint": "a reasoning level the current model supports — run /effort to list them"
   },
   {
     "key": "provider.model",

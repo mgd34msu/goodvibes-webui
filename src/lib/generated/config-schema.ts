@@ -952,6 +952,29 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Static asset directory for the embedded web surface"
   },
   {
+    "key": "conversationGate.mode",
+    "type": "enum",
+    "default": "propose",
+    "description": "How inbound channel messages are treated. propose (default): a message gets a conversational reply, and anything that reads as a work request is proposed and waits for your agreement over the same channel. confirm-all: every inbound message is confirmed before any agent runs. off: an inbound message starts work immediately (pre-1.14 behavior). Never applies to goodvibes-tui, and never to already-authorized work such as schedules, triggers, and on-exit chains.",
+    "enumValues": [
+      "propose",
+      "confirm-all",
+      "off"
+    ]
+  },
+  {
+    "key": "conversationGate.proposalTtlMs",
+    "type": "number",
+    "default": 1800000,
+    "description": "How long an unanswered work proposal stays answerable, in milliseconds. After this it expires and a late reply is reported as expired rather than starting stale work. Clamped to 1 minute - 24 hours."
+  },
+  {
+    "key": "conversationGate.maxPendingProposals",
+    "type": "number",
+    "default": 20,
+    "description": "Maximum work proposals awaiting an answer at once across all channels. The oldest is dropped past this cap. Clamped to 1 - 200."
+  },
+  {
     "key": "atRest.redactionEnabled",
     "type": "boolean",
     "default": true,

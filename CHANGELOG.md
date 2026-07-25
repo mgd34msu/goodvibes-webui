@@ -6,6 +6,13 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.7.7] - 2026-07-25
+
+Ships against `@pellux/goodvibes-sdk` 1.12.1, which makes crash-recovery
+offers respect live writers and makes snapshot retirement act on exactly one
+identified snapshot. No webui-side code changes.
+
+
 ## [1.7.6] - 2026-07-24
 
 Ships against `@pellux/goodvibes-sdk` 1.12.0, which introduces declare-once

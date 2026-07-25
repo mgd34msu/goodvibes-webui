@@ -6,6 +6,19 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-07-25
+
+Updated the bundled GoodVibes platform runtime to 1.14.0, keeping the web
+interface on the same platform version as the rest of the products.
+
+That update changes how messages arriving from connected channels are handled:
+they now get a conversational answer, and work is proposed and confirmed rather
+than started automatically. It also stops progress notifications from resending
+the whole accumulated log, stops one incoming message from starting two agents,
+and makes notification links point at an address another device can reach.
+
+The web interface's own behavior is unchanged in this release.
+
 ## [1.8.0] - 2026-07-25
 
 Tool activity now stays with the message that produced it. Previously the tool

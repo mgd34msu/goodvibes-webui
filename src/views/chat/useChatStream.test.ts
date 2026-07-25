@@ -1103,3 +1103,191 @@ describe('useChatStream — cancelToolCall()', () => {
     if (container.parentNode) container.parentNode.removeChild(container);
   });
 });
+
+// ---------------------------------------------------------------------------
+// toolActivityByMessageId — completed tool calls folded onto the message that
+// produced them, instead of evaporating once the turn ends (the platform-wide
+// "keep tool results, fold them" fix, webui idiom).
+// ---------------------------------------------------------------------------
+
+describe('useChatStream — toolActivityByMessageId', () => {
+  test('a completed tool call is attached to the turn\'s assistant message id on turn.completed', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-1' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-1', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls' },
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-1', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'file.txt', isError: false,
+      });
+    });
+    // Not attached yet — the turn has not reached a terminal event.
+    expect(ctx.result.toolActivityByMessageId.size).toBe(0);
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.completed', {
+        type: 'turn.completed', sessionId: 'session-activity-1', turnId: 't1', assistantMessageId: 'a1',
+        envelope: { sessionId: 'session-activity-1', messageId: 'a1', body: 'done', source: 'companion-chat-assistant', timestamp: 1 },
+      });
+    });
+
+    const activity = ctx.result.toolActivityByMessageId.get('a1');
+    expect(activity).toEqual([
+      { toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls' }, result: 'file.txt', isError: false },
+    ]);
+
+    ctx.unmount();
+  });
+
+  test('multiple tool calls in one turn are all attached, in order, to the same message id', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-2' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-2', turnId: 't1', toolCallId: 'call-1', toolName: 'read', toolInput: { file_path: '/a.ts' },
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-2', turnId: 't1', toolCallId: 'call-1', toolName: 'read', result: 'contents', isError: false,
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-2', turnId: 't1', toolCallId: 'call-2', toolName: 'bash', toolInput: { command: 'ls' },
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-2', turnId: 't1', toolCallId: 'call-2', toolName: 'bash', result: '', isError: true,
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.completed', {
+        type: 'turn.completed', sessionId: 'session-activity-2', turnId: 't1', assistantMessageId: 'a2',
+        envelope: { sessionId: 'session-activity-2', messageId: 'a2', body: 'done', source: 'companion-chat-assistant', timestamp: 1 },
+      });
+    });
+
+    const activity = ctx.result.toolActivityByMessageId.get('a2');
+    expect(activity?.map((c) => c.toolCallId)).toEqual(['call-1', 'call-2']);
+    expect(activity?.[1]).toEqual({ toolCallId: 'call-2', toolName: 'bash', toolInput: { command: 'ls' }, result: '', isError: true });
+
+    ctx.unmount();
+  });
+
+  test('turn.error discards accumulated tool activity — no assistant message was produced to attach it to', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-3' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-3', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-3', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'oops', isError: true,
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.error', {
+        type: 'turn.error', sessionId: 'session-activity-3', turnId: 't1', error: 'boom',
+      });
+    });
+
+    expect(ctx.result.toolActivityByMessageId.size).toBe(0);
+
+    ctx.unmount();
+  });
+
+  test('turn.cancelled with an assistantMessageId (partial persisted) attaches the tool activity observed before the stop', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-4' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-4', turnId: 't1', toolCallId: 'call-1', toolName: 'grep',
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-4', turnId: 't1', toolCallId: 'call-1', toolName: 'grep', result: 'match', isError: false,
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.cancelled', {
+        type: 'turn.cancelled', sessionId: 'session-activity-4', turnId: 't1', stoppedBy: 'user', partialPersisted: true, assistantMessageId: 'a4',
+        envelope: { sessionId: 'session-activity-4', messageId: 'a4', body: 'partial', source: 'companion-chat-assistant', timestamp: 1 },
+      });
+    });
+
+    expect(ctx.result.toolActivityByMessageId.get('a4')?.map((c) => c.toolCallId)).toEqual(['call-1']);
+
+    ctx.unmount();
+  });
+
+  test('turn.cancelled with no assistantMessageId (no partial persisted) discards the tool activity — nothing to attach it to', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-5' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
+        type: 'turn.tool_call', sessionId: 'session-activity-5', turnId: 't1', toolCallId: 'call-1', toolName: 'bash',
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
+        type: 'turn.tool_result', sessionId: 'session-activity-5', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: '', isError: false,
+      });
+    });
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.cancelled', {
+        type: 'turn.cancelled', sessionId: 'session-activity-5', turnId: 't1', stoppedBy: 'user', partialPersisted: false,
+      });
+    });
+
+    expect(ctx.result.toolActivityByMessageId.size).toBe(0);
+
+    ctx.unmount();
+  });
+
+  test('a turn with no tool calls at all leaves toolActivityByMessageId empty', async () => {
+    const ctx = renderHookHelper({ activeSessionId: 'session-activity-6' });
+    const ctrl = activeStreamControl;
+    ctrl!.resolveFn(ctrl!.disconnect);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    flushSync(() => {
+      ctrl!.options.onEvent?.('companion-chat.turn.completed', {
+        type: 'turn.completed', sessionId: 'session-activity-6', turnId: 't1', assistantMessageId: 'a6',
+        envelope: { sessionId: 'session-activity-6', messageId: 'a6', body: 'done', source: 'companion-chat-assistant', timestamp: 1 },
+      });
+    });
+
+    expect(ctx.result.toolActivityByMessageId.size).toBe(0);
+
+    ctx.unmount();
+  });
+});

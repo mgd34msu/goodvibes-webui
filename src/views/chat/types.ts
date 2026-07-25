@@ -1,3 +1,5 @@
+import type { CompletedToolCall } from './message-utils';
+
 /**
  * Represents a chat message as it flows through the UI layer.
  *
@@ -52,6 +54,15 @@ export interface ChatMessage {
   /** Alternative timestamp keys. */
   timestamp?: number;
   time?: number;
+  /**
+   * Completed tool calls for the turn that produced this message, populated
+   * client-side from the live event stream (see useChatStream's
+   * toolActivityByMessageId). Present only for a turn this browser tab
+   * watched run live in the current stream session — absent (not empty) for
+   * any message rehydrated purely from server history, since the daemon's
+   * persisted message shape carries no tool data.
+   */
+  toolActivity?: readonly CompletedToolCall[];
   /** Allow additional server-provided fields without `any`. */
   [key: string]: unknown;
 }

@@ -769,10 +769,10 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "validationHint": "integer port in [1, 65535]"
   },
   {
-    "key": "controlPlane.baseUrl",
+    "key": "controlPlane.publicBaseUrl",
     "type": "string",
-    "default": "http://127.0.0.1:3421",
-    "description": "Public base URL used by route bindings and link generation"
+    "default": "",
+    "description": "Override for a genuinely external control-plane address (tunnel or reverse proxy). Leave empty — the everyday base URL is derived from hostMode/host/port/tls.mode, so it cannot drift. Set this only when an off-box address differs from the bind."
   },
   {
     "key": "controlPlane.streamMode",
@@ -1459,6 +1459,34 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": 8,
     "description": "How many phones may be paired as device nodes at once. Each paired phone is a separate identity with its own grants; this bounds how many can be outstanding before an old one has to be unpaired.",
     "validationHint": "integer in [1, 64]"
+  },
+  {
+    "key": "push.vapidSubject",
+    "type": "string",
+    "default": "",
+    "description": "Who a push service contacts when it has a problem delivering your notifications. Every push the daemon sends is signed with this address in it (the VAPID \"sub\" claim), and it is the only way Apple, Google, or Mozilla can reach you about, say, a malformed payload or a rate limit. Set it to a mailto: address you read, or an https: page with contact details on it. Left empty it falls back to mailto:goodvibes-push@localhost, which is well-formed and accepted but reaches nobody — push still works, you just never hear about a problem.",
+    "validationHint": "empty, or a mailto: address or an https: URL a push service can use to reach you"
+  },
+  {
+    "key": "push.subscriptions.warnAbovePerPrincipal",
+    "type": "number",
+    "default": 50,
+    "description": "How many registered push devices one operator can hold before housekeeping starts saying so. This is a WARNING line, not a limit: passing it logs the count and writes it into the housekeeping disclosure, and every subscription is kept. A working device is NEVER removed to make room for a new one — registering a new phone always succeeds, even when that puts you over this number, because dropping a quiet-but-live device would stop its notifications with nothing to tell you and no way back but resubscribing. Devices leave only when something proves them dead (the push service reports the endpoint gone, or refuses it repeatedly).",
+    "validationHint": "integer in [1, 100000]"
+  },
+  {
+    "key": "push.subscriptions.failureThreshold",
+    "type": "number",
+    "default": 5,
+    "description": "How many deliveries in a row a push service must refuse before the daemon treats that endpoint as dead and removes it. A 404 or 410 removes it immediately — that is the push service saying the subscription is gone — so this bound is for the murkier case of an endpoint that only ever errors or times out. Any single success resets the count to zero. Raise it if you have a flaky network and would rather keep retrying; lower it to clear out dead endpoints faster.",
+    "validationHint": "integer in [1, 100]"
+  },
+  {
+    "key": "push.subscriptions.sweepIntervalMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "How often housekeeping re-reads the stored push subscriptions while the daemon is up, looking for records that are provably dead — unreadable key material, a torn record, or an endpoint past the refusal threshold. A sweep also runs at every start; this interval is what keeps a daemon that stays up for weeks from going that long without one. Each sweep writes what it removed and the evidence, so a removal is never indistinguishable from data loss.",
+    "validationHint": "integer in [1, 1440]"
   },
   {
     "key": "fleet.maxSize",
@@ -3818,7 +3846,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
       "controlPlane.hostMode",
       "controlPlane.host",
       "controlPlane.port",
-      "controlPlane.baseUrl",
+      "controlPlane.publicBaseUrl",
       "controlPlane.streamMode",
       "controlPlane.allowRemote",
       "controlPlane.trustProxy",

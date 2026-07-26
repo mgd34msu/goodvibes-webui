@@ -6,7 +6,7 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-07-25
+## [1.9.0] - 2026-07-26
 
 A phone can now be a set of things the agent is able to ask for, and this web
 interface is how you do it. Open the new Phone view on a phone, pair it once,

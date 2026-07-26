@@ -94,7 +94,10 @@ describe('buildSettingsModel — domain grouping (dissolved feature model)', () 
 });
 
 describe('buildSettingsModel — enablement state from domain settings keys', () => {
-  test('a stock config resolves every feature to its ruled default (40 on / 15 dark)', () => {
+  // 41 on: the paired-phone capability family ships enabled, with every
+  // capability asking before it runs (device.capabilities.mode honor-grants).
+  // 17 dark: the two wake-word features landing alongside it ship dark.
+  test('a stock config resolves every feature to its ruled default (41 on / 17 dark)', () => {
     const groups = buildSettingsModel({});
     const units = groups.flatMap((g) => g.featureUnits);
     expect(units.length).toBe(FEATURE_SETTINGS.length);
@@ -102,8 +105,8 @@ describe('buildSettingsModel — enablement state from domain settings keys', ()
       expect(unit.enabled).toBe(unit.feature.defaultEnabled);
       expect(unit.explicit).toBe(false);
     }
-    expect(units.filter((u) => u.enabled).length).toBe(40);
-    expect(units.filter((u) => !u.enabled).length).toBe(15);
+    expect(units.filter((u) => u.enabled).length).toBe(41);
+    expect(units.filter((u) => !u.enabled).length).toBe(17);
   });
 
   test('a boolean feature reads its live domain key', () => {
@@ -344,5 +347,46 @@ describe('voice.local.* and fleet.maxSize (SDK 1.8.0) — grouping verification'
     const fleetGroup = groups.find((g) => g.id === 'fleet');
     expect(voiceGroup?.label).toBe('Voice');
     expect(fleetGroup?.label).toBe('Fleet');
+  });
+});
+
+describe('daemonOwned metadata — config-ownership.ts surfaced onto every row', () => {
+  test('a surfaces.* field is flagged daemonOwned; a display.* field is not', () => {
+    const groups = buildSettingsModel({ surfaces: { slack: { botToken: 'x' } } });
+    const slackUnit = groupById(groups, 'surfaces')?.featureUnits.find((u) => u.feature.id === 'slack-surface');
+    expect(slackUnit).toBeDefined();
+    expect(slackUnit!.fields.every((f) => f.daemonOwned)).toBe(true);
+    // The feature unit itself is flagged when every settings key it owns is daemon-owned.
+    expect(slackUnit!.daemonOwned).toBe(true);
+
+    const display = groupById(groups, 'display');
+    const themeField = display?.plainRows.find((f) => f.key === 'display.theme');
+    expect(themeField?.daemonOwned).toBe(false);
+  });
+
+  test('a boolean feature whose domain key is daemon-owned (web-surface) flags its enablement field too', () => {
+    const groups = buildSettingsModel({});
+    const web = groupById(groups, 'web')?.featureUnits.find((u) => u.feature.id === 'web-surface');
+    expect(web?.enablementField?.daemonOwned).toBe(true);
+    expect(web?.daemonOwned).toBe(true);
+  });
+
+  test('a client-owned feature (behavior.hitlMode) is never flagged daemonOwned', () => {
+    const groups = buildSettingsModel({});
+    const hitl = groupById(groups, 'behavior')?.featureUnits.find((u) => u.feature.id === 'hitl-ux-modes');
+    expect(hitl?.enablementField?.daemonOwned).toBe(false);
+    expect(hitl?.daemonOwned).toBe(false);
+  });
+
+  test('an unschema\'d raw row under a daemon-owned namespace is flagged daemonOwned too', () => {
+    const groups = buildSettingsModel({ surfaces: { mysteryBot: { unknownKnob: 'held-by-daemon' } } });
+    const surfaces = groupById(groups, 'surfaces');
+    const row = surfaces?.rawRows.find((r) => r.key === 'surfaces.mysteryBot.unknownKnob');
+    expect(row).toBeDefined();
+    expect(row!.daemonOwned).toBe(true);
+
+    const mysteryGroups = buildSettingsModel({ mysteryDomain: { unknownKnob: 'x' } });
+    const mysteryRow = groupById(mysteryGroups, 'mysteryDomain')?.rawRows.find((r) => r.key === 'mysteryDomain.unknownKnob');
+    expect(mysteryRow?.daemonOwned).toBe(false);
   });
 });

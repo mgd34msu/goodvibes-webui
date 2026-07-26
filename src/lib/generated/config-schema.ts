@@ -1171,6 +1171,296 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Absolute path to the local TTS voice model (e.g. en_US-lessac-low.onnx with its .json beside it). The user downloads this explicitly — nothing auto-downloads."
   },
   {
+    "key": "voice.wake.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "NOT AVAILABLE IN THIS BUILD — turning this on does nothing yet. The detector is complete (model, front end, scoring, provisioning) but no surface captures microphone audio or supplies it an inference runtime, so nothing is listening. The setting is remembered and takes effect in the release that adds capture; until then the wake-word-detection feature reports itself unavailable rather than pretending to run. What it will do: run the wake-word detector, listening continuously for the wake phrase on the configured input device. Off by default because an always-on microphone must be an explicit act, not something a user discovers after the fact — the same posture as voice.local.*, where nothing auto-downloads and nothing auto-starts. Turning it on will start a supervised capture process; turning it off stops it and releases the device."
+  },
+  {
+    "key": "voice.wake.models",
+    "type": "string",
+    "default": "hey_goodvibes",
+    "description": "Comma-separated wake-word models to run concurrently, by id. Default \"hey_goodvibes\" is the model the SDK pins, hosts, and verifies by checksum. Additional ids resolve against voice.wake.customModelDir. Each model costs one classifier inference per 80 ms frame — the shared melspectrogram and speech-embedding front end is computed once regardless of how many models are listed, so a second model is far cheaper than a second detector. An empty list disables detection without stopping the service."
+  },
+  {
+    "key": "voice.wake.threshold",
+    "type": "number",
+    "default": 0.9,
+    "description": "Score, 0 to 1, a frame must reach for the wake phrase to count as heard. DELIBERATELY 0.9, NOT openWakeWord's upstream default of 0.5 and not the 0.5 originally accepted for this row: measurement on the shipped hey_goodvibes model showed 0.5 fires on 34.5% of never-trained minimal-pair phrases (\"hey good vibe check\", \"hey goodbye vibes\" — ordinary English a user will actually say) at 99.2% recall, while 0.9 cuts that to 24.7% for 96.8% recall. Trading 2.4 points of recall to remove roughly a third of the wrong wakes is the better default for a microphone that is always on. Lower it toward 0.5 if the detector misses you; raise it above 0.9 if it fires when you did not speak to it. Recall figures here are synthetic-only — no human has recorded the phrase.",
+    "validationHint": "number in [0, 1]"
+  },
+  {
+    "key": "voice.wake.patienceFrames",
+    "type": "number",
+    "default": 2,
+    "description": "Consecutive 80 ms frames that must all score above voice.wake.threshold before the wake fires. Two frames is about 160 ms of agreement, which removes most single-frame false accepts for one extra frame of latency. Set to 1 for the fastest possible trigger at the cost of more spurious wakes.",
+    "validationHint": "integer in [1, 10]"
+  },
+  {
+    "key": "voice.wake.cooldownMs",
+    "type": "number",
+    "default": 2000,
+    "description": "Milliseconds after a confirmed wake during which further detections are ignored, so one spoken phrase cannot fire twice as it passes through the detector's rolling window. Applied after patience confirms a hit. 0 disables the cooldown and lets every confirmed frame fire.",
+    "validationHint": "integer in [0, 60000]"
+  },
+  {
+    "key": "voice.wake.vadThreshold",
+    "type": "number",
+    "default": 0,
+    "description": "Speech-probability floor, 0 to 1, from a voice-activity detector run ahead of the wake classifier; frames below it are discarded before scoring. 0 means the VAD stage is off, which is the shipped default: it costs an extra model download and per-frame inference, and there is no measured false-accept evidence yet that justifies it. Raise it above 0 if the detector fires on music or non-speech noise.",
+    "validationHint": "number in [0, 1]"
+  },
+  {
+    "key": "voice.wake.noiseSuppression",
+    "type": "enum",
+    "default": "none",
+    "description": "Noise suppression applied to captured audio before detection. \"none\" ships by default because \"speex\" requires libspeexdsp on the host, which the platform does not install or manage; when it is selected and the library is absent the service reports honestly unavailable rather than silently running unfiltered.",
+    "enumValues": [
+      "none",
+      "speex"
+    ]
+  },
+  {
+    "key": "voice.wake.inputDevice",
+    "type": "string",
+    "default": "",
+    "description": "Capture device to listen on. Empty means the operating system default source. Device identifiers are host-specific — list real ones with `pactl list short sources`, `arecord -L`, or navigator.mediaDevices in a browser."
+  },
+  {
+    "key": "voice.wake.captureCommand",
+    "type": "enum",
+    "default": "auto",
+    "description": "Which recorder feeds the detector. \"auto\" probes for pw-record, parecord, arecord, ffmpeg, then sox and uses the first present, mirroring how local audio playback discovers its player. Name one explicitly to pin the choice on a host where the probe picks a device-starved backend.",
+    "enumValues": [
+      "auto",
+      "pw-record",
+      "parecord",
+      "arecord",
+      "ffmpeg",
+      "sox"
+    ]
+  },
+  {
+    "key": "voice.wake.surfaces.tui",
+    "type": "boolean",
+    "default": true,
+    "description": "Deliver wake events to the terminal UI. On by default: once wake detection is enabled the terminal is the primary surface, and a wake that reaches no surface is a detector that appears broken."
+  },
+  {
+    "key": "voice.wake.surfaces.agent",
+    "type": "boolean",
+    "default": false,
+    "description": "Deliver wake events to the agent surface. Off by default because two terminal surfaces both acting on one spoken utterance is a confusing default; turn it on when the agent is the surface you actually talk to."
+  },
+  {
+    "key": "voice.wake.surfaces.webui",
+    "type": "boolean",
+    "default": false,
+    "description": "Deliver wake events to the web UI, which runs the detector in the browser tab. Off by default because browser capture is a separate stack with its own per-origin microphone permission prompt — it is opted into per browser, not inherited from the host."
+  },
+  {
+    "key": "voice.wake.activationSound",
+    "type": "enum",
+    "default": "chime",
+    "description": "Sound played the moment a wake is confirmed. \"chime\" by default because audible confirmation is how a user knows the microphone acted — a silent wake is the behaviour people distrust. \"custom\" plays voice.wake.activationSoundPath; \"none\" is silent and leaves voice.wake.indicator as the only feedback.",
+    "enumValues": [
+      "none",
+      "chime",
+      "custom"
+    ]
+  },
+  {
+    "key": "voice.wake.activationSoundPath",
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the audio file played on wake. Read only when voice.wake.activationSound is \"custom\"; ignored otherwise."
+  },
+  {
+    "key": "voice.wake.indicator",
+    "type": "enum",
+    "default": "statusline",
+    "description": "How the surface shows that the microphone is live. \"statusline\" keeps a persistent listening marker for as long as the detector runs — not only at the moment of a wake — so an always-on microphone is never invisible. \"banner\" is more prominent; \"off\" removes the marker entirely and is not the default for that reason.",
+    "enumValues": [
+      "off",
+      "statusline",
+      "banner"
+    ]
+  },
+  {
+    "key": "voice.wake.preRollMs",
+    "type": "number",
+    "default": 500,
+    "description": "Milliseconds of audio kept from BEFORE the wake fired and prepended to the speech-to-text request, so a phrase run straight into the command (\"hey goodvibes, what's—\") is not clipped at the front. 500 ms covers the detector's own confirmation latency plus a fast speaker. 0 starts capture at the moment of detection.",
+    "validationHint": "integer in [0, 2000]"
+  },
+  {
+    "key": "voice.wake.captureMaxSeconds",
+    "type": "number",
+    "default": 10,
+    "description": "Hard ceiling on how long post-wake capture runs before it stops on its own. Bounds memory and guarantees a stuck or silent stream cannot hold the microphone open indefinitely.",
+    "validationHint": "integer in [1, 120]"
+  },
+  {
+    "key": "voice.wake.silenceStopMs",
+    "type": "number",
+    "default": 1200,
+    "description": "Milliseconds of silence that end post-wake capture, so the request is sent when the user stops talking rather than at the voice.wake.captureMaxSeconds ceiling. Raise it if capture cuts off mid-sentence during natural pauses.",
+    "validationHint": "integer in [100, 10000]"
+  },
+  {
+    "key": "voice.wake.autoSubmit",
+    "type": "boolean",
+    "default": false,
+    "description": "Submit the transcribed text as a turn automatically instead of placing it in the input for review. Off by default, matching the never-auto-send posture of the existing voice input: a misheard transcript must not become a submitted turn without a human seeing it first."
+  },
+  {
+    "key": "voice.wake.retainAudio",
+    "type": "enum",
+    "default": "none",
+    "description": "Whether captured audio is written to disk. \"none\" by default — nothing is stored, which is the only setting under which the microphone leaves no recording behind. \"session-temp\" keeps clips in a session-scoped directory that is deleted when the session ends and swept on recovery, and exists to debug a bad transcript, not as a recording feature.",
+    "enumValues": [
+      "none",
+      "session-temp"
+    ]
+  },
+  {
+    "key": "voice.wake.customModelDir",
+    "type": "string",
+    "default": "",
+    "description": "Directory searched for wake models whose ids are not the pinned default. Empty uses the managed wake model directory under the surface storage root. Set it to keep your own models outside the managed tree; files there are loaded as-is and are not checksum-pinned, unlike the managed download."
+  },
+  {
+    "key": "voice.wake.maxRestarts",
+    "type": "number",
+    "default": 3,
+    "description": "How many times the supervisor restarts a crashed detector process inside voice.wake.crashWindowSeconds before it stops trying and reports the failure. Matches the restart ceiling used for MCP clients. 0 disables restarts, so any crash is terminal and immediately visible.",
+    "validationHint": "integer in [0, 20]"
+  },
+  {
+    "key": "voice.wake.restartBackoffMs",
+    "type": "number",
+    "default": 2000,
+    "description": "Base delay before restarting a crashed detector, multiplied by the attempt number for linear backoff (2 s, 4 s, 6 s). Stops a process that fails instantly from becoming a restart storm.",
+    "validationHint": "integer in [0, 60000]"
+  },
+  {
+    "key": "voice.wake.crashWindowSeconds",
+    "type": "number",
+    "default": 60,
+    "description": "Rolling window in which repeated crashes count toward voice.wake.maxRestarts. Exceeding the ceiling inside this window latches the supervisor off so a detector that cannot stay up stops consuming the device; a clean run past the window resets the count.",
+    "validationHint": "integer in [1, 3600]"
+  },
+  {
+    "key": "voice.wake.browserBackend",
+    "type": "enum",
+    "default": "wasm",
+    "description": "Execution backend for the detector inside a browser tab. \"wasm\" is the default and the measured configuration: the per-frame cost already beats real time by a wide margin, and WebGPU cannot run the front end without splitting the graph across devices, which costs more in transfers than it saves. \"webgpu\" is available for hosts that measure otherwise.",
+    "enumValues": [
+      "wasm",
+      "webgpu"
+    ]
+  },
+  {
+    "key": "device.capabilities.mode",
+    "type": "enum",
+    "default": "honor-grants",
+    "description": "How a paired phone's camera, screen, location, clipboard, and device commands are reached. honor-grants (stock): every capability asks the first time and every time after, unless you chose \"always allow\" for that one capability on that one phone. ask-every-time: the prompt appears on every single request and no durable grant is ever consulted or offered — use it when someone else is holding the phone. off: no capability request reaches any paired device at all.",
+    "enumValues": [
+      "off",
+      "ask-every-time",
+      "honor-grants"
+    ]
+  },
+  {
+    "key": "device.capabilities.allowAlwaysOffer",
+    "type": "enum",
+    "default": "every-capability",
+    "description": "Which capabilities may offer a durable \"always allow\" on their confirmation prompt. every-capability (stock): all of them, front camera, screen capture, precise location, and clipboard included. standard-only: the elevated ones (front camera, screen capture, precise location, clipboard read) still ask every time and never offer a grant, while everyday ones can be granted. never: no durable grant is ever offered anywhere; existing grants stop being honoured.",
+    "enumValues": [
+      "every-capability",
+      "standard-only",
+      "never"
+    ]
+  },
+  {
+    "key": "device.capabilities.requestTimeoutSeconds",
+    "type": "number",
+    "default": 60,
+    "description": "How long the agent waits for a phone to answer one capability request before giving up. A phone that is asleep or off the network usually answers within a few seconds of waking; a long timeout keeps a slow wake from failing, a short one keeps the agent from stalling.",
+    "validationHint": "integer in [5, 600]"
+  },
+  {
+    "key": "device.location.precision",
+    "type": "enum",
+    "default": "precise-grantable",
+    "description": "How exact a location the phone will report. precise-grantable (stock): both approximate and street-level fixes are available, and either may be granted durably. ask-precise: street-level fixes are available but always ask, and never offer \"always allow\". coarse-only: street-level fixes are refused entirely; only city-scale approximate location is served.",
+    "enumValues": [
+      "coarse-only",
+      "ask-precise",
+      "precise-grantable"
+    ]
+  },
+  {
+    "key": "device.clipboard.readMode",
+    "type": "enum",
+    "default": "grantable",
+    "description": "Whether the agent can read what is on the phone's clipboard. grantable (stock): it asks every time and offers \"always allow\", like every other capability. ask-only: it asks every time and never offers a durable grant. off: clipboard reads are refused; putting text ON the clipboard is unaffected.",
+    "enumValues": [
+      "off",
+      "ask-only",
+      "grantable"
+    ]
+  },
+  {
+    "key": "device.capture.retentionHours",
+    "type": "number",
+    "default": 24,
+    "description": "How long a picture taken by the phone's camera or screen capture is kept before it is deleted and the deletion recorded. Stock is 24 hours: long enough for the work the picture was taken for, short enough that a photo of your desk is not still on disk next week.",
+    "validationHint": "integer in [1, 720]"
+  },
+  {
+    "key": "device.capture.maxArtifacts",
+    "type": "number",
+    "default": 200,
+    "description": "How many captures are kept at once across all paired phones. Past this count the oldest are deleted even while inside the retention window, so a burst of captures cannot fill the disk between sweeps.",
+    "validationHint": "integer in [1, 5000]"
+  },
+  {
+    "key": "device.capture.sweepIntervalMinutes",
+    "type": "number",
+    "default": 30,
+    "description": "How often housekeeping runs over stored captures and grants while the runtime is up. A sweep also runs at every start; this interval is what keeps a long-running daemon from going days without one. Each sweep writes what it removed and why.",
+    "validationHint": "integer in [1, 1440]"
+  },
+  {
+    "key": "device.grants.expiryDays",
+    "type": "number",
+    "default": 90,
+    "description": "How long an \"always allow\" grant lasts before it expires and the capability starts asking again. Nothing is granted forever: an expired grant is removed by housekeeping and is never honoured in the meantime.",
+    "validationHint": "integer in [1, 3650]"
+  },
+  {
+    "key": "device.grants.maxPerNode",
+    "type": "number",
+    "default": 64,
+    "description": "How many \"always allow\" grants one phone may hold at once. Past this count the oldest grants for that phone are removed, so a paired device cannot accumulate authority indefinitely.",
+    "validationHint": "integer in [1, 512]"
+  },
+  {
+    "key": "device.grants.auditRetentionDays",
+    "type": "number",
+    "default": 30,
+    "description": "How long the grants ledger keeps its record of grants given, used, revoked, and expired. This is what the grants surface shows you when you ask what a phone has been allowed to do and when.",
+    "validationHint": "integer in [1, 365]"
+  },
+  {
+    "key": "device.nodes.maxPaired",
+    "type": "number",
+    "default": 8,
+    "description": "How many phones may be paired as device nodes at once. Each paired phone is a separate identity with its own grants; this bounds how many can be outstanding before an old one has to be unpaired.",
+    "validationHint": "integer in [1, 64]"
+  },
+  {
     "key": "fleet.maxSize",
     "type": "number",
     "default": 8,
@@ -1406,7 +1696,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "surfaces.telegram.botUsername",
     "type": "string",
     "default": "",
-    "description": "Telegram bot username used for targeting and setup hints"
+    "description": "Telegram bot username (@handle) used for mention matching, command stripping, and targeting. Discovered automatically from the bot token via getMe when left blank; setting it explicitly wins over discovery."
+  },
+  {
+    "key": "surfaces.telegram.discoveredBotTokenId",
+    "type": "string",
+    "default": "",
+    "description": "Bot id the cached botUsername was discovered for. Managed automatically so a rotated bot token re-resolves its identity instead of running under the previous bot’s handle."
   },
   {
     "key": "surfaces.telegram.mode",
@@ -2211,6 +2507,141 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "validationHint": "integer in [0, 10000000]"
   },
   {
+    "key": "watchers.triggers.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the trigger family: stream watchers over long-lived commands, model-free condition checks, and one-shot on-exit process triggers. Off by default because a trigger launches and supervises real processes on your machine without a person watching — turning it on is a deliberate choice, not a fallback. With it on and no triggers defined, the supervisor idles and consumes nothing."
+  },
+  {
+    "key": "watchers.triggers.backoffLadderMs",
+    "type": "string",
+    "default": "30000,60000,300000,900000,3600000",
+    "description": "Comma-separated retry ladder in milliseconds, walked one rung per consecutive failure of a trigger check. The default climbs 30s, 60s, 5m, 15m, 60m so a briefly unreachable endpoint recovers fast while a genuinely broken one stops hammering. The last rung repeats until the breaker opens.",
+    "validationHint": "comma-separated integers, each 1000..86400000 ms"
+  },
+  {
+    "key": "watchers.triggers.breakerStrikes",
+    "type": "number",
+    "default": 5,
+    "description": "Consecutive check failures that open the trigger's breaker. An open breaker parks the trigger in a visible circuit-open state with the last error attached instead of retrying forever; the operator resets it explicitly. Raise it for a flaky-but-recoverable source, lower it to fail fast.",
+    "validationHint": "integer in [1, 50]"
+  },
+  {
+    "key": "watchers.triggers.defaultCheckIntervalMs",
+    "type": "number",
+    "default": 60000,
+    "description": "Cadence used by a condition trigger that does not declare its own interval. This is the steady-state polling rate; the backoff ladder overrides it while a trigger is failing.",
+    "validationHint": "integer in [1000, 86400000]"
+  },
+  {
+    "key": "watchers.triggers.probeTimeoutMs",
+    "type": "number",
+    "default": 15000,
+    "description": "Ceiling on one probe execution (http request, file read, command run, or sdk-tool call) before it is abandoned and counted as a failed check. Keeps a hung endpoint from stalling the whole check queue.",
+    "validationHint": "integer in [250, 600000]"
+  },
+  {
+    "key": "watchers.triggers.maxConcurrentChecks",
+    "type": "number",
+    "default": 4,
+    "description": "How many condition checks may execute at the same moment. Checks beyond this wait their turn, so a large trigger set cannot saturate the machine or a rate-limited API.",
+    "validationHint": "integer in [1, 64]"
+  },
+  {
+    "key": "watchers.triggers.observationRingSize",
+    "type": "number",
+    "default": 200,
+    "description": "Observations kept per trigger in its persisted ring buffer. Every rule — change, transition, rate-of-change, windowed aggregation — is a pure function over this buffer, so this is the memory depth available to them. Larger windows need a larger ring.",
+    "validationHint": "integer in [2, 10000]"
+  },
+  {
+    "key": "watchers.triggers.runHistoryLimit",
+    "type": "number",
+    "default": 50,
+    "description": "Run records kept per trigger (when it ran, what it observed, whether it fired, what the action returned). Bounded on purpose: an append-only history is a disk leak with a nicer name.",
+    "validationHint": "integer in [1, 5000]"
+  },
+  {
+    "key": "watchers.triggers.runHistoryTtlHours",
+    "type": "number",
+    "default": 168,
+    "description": "Age ceiling in hours on retained run history. Records older than this are reaped by the recovery sweep even when the count limit has not been reached, and the sweep reports how many it removed.",
+    "validationHint": "integer in [1, 8760]"
+  },
+  {
+    "key": "watchers.triggers.eventLogLimit",
+    "type": "number",
+    "default": 500,
+    "description": "Entries retained in the shared event log that cross-watcher correlation rules read. This log is the only channel through which one trigger can observe another, and it is bounded so correlation cannot grow without limit.",
+    "validationHint": "integer in [10, 50000]"
+  },
+  {
+    "key": "watchers.triggers.eventLogTtlHours",
+    "type": "number",
+    "default": 24,
+    "description": "Age ceiling in hours on the shared correlation event log. Correlation windows longer than this cannot see the older side of the pair, so raise it together with any long correlation window.",
+    "validationHint": "integer in [1, 2160]"
+  },
+  {
+    "key": "watchers.triggers.sweepIntervalMs",
+    "type": "number",
+    "default": 300000,
+    "description": "Cadence of the recurring housekeeping sweep: reap records whose owning process or session is gone, retire fired one-shot triggers, enforce the count and age bounds, and re-validate persisted state by content. A daemon that only sweeps at boot never sweeps.",
+    "validationHint": "integer in [10000, 86400000]"
+  },
+  {
+    "key": "watchers.triggers.supervisionTickMs",
+    "type": "number",
+    "default": 1000,
+    "description": "How often the supervisor checks whether a supervised on-exit child has terminated and whether any condition check is due. This is the floor on how quickly an on-exit trigger notices its process ended; raise it to trade detection latency for less polling on a machine running long builds.",
+    "validationHint": "integer in [250, 300000]"
+  },
+  {
+    "key": "watchers.triggers.streamQueueLimit",
+    "type": "number",
+    "default": 1000,
+    "description": "Matched lines a stream watcher may hold before the oldest are dropped. The queue is bounded so a chatty log cannot exhaust memory; every drop is counted and reported on the trigger record rather than being silent.",
+    "validationHint": "integer in [1, 1000000]"
+  },
+  {
+    "key": "watchers.triggers.streamBatchLines",
+    "type": "number",
+    "default": 25,
+    "description": "Matched lines gathered into one payload before an agent is invoked. Batching is what keeps a stream watcher from starting one agent turn per log line.",
+    "validationHint": "integer in [1, 10000]"
+  },
+  {
+    "key": "watchers.triggers.streamBatchIntervalMs",
+    "type": "number",
+    "default": 1000,
+    "description": "How long a partially filled stream batch waits before it is flushed anyway, so a slow trickle of matches still reaches an agent promptly instead of waiting for the batch to fill.",
+    "validationHint": "integer in [50, 3600000]"
+  },
+  {
+    "key": "watchers.triggers.onExitMaxDurationMs",
+    "type": "number",
+    "default": 21600000,
+    "description": "Hard ceiling on a supervised on-exit child. When it is reached the child is terminated and the trigger fires with an explicit timed-out termination state, so a process waiting on a prompt that will never come cannot hang forever. The six-hour default is sized for a long build.",
+    "validationHint": "integer in [1000, 604800000]"
+  },
+  {
+    "key": "watchers.triggers.onExitStdin",
+    "type": "enum",
+    "default": "none",
+    "description": "Standard input handed to a supervised on-exit child. \"none\" closes stdin so a password-prompting process gets EOF and exits instead of blocking forever; \"empty\" attaches an immediately-closed empty pipe for programs that require a readable stdin handle. There is deliberately no interactive option — nobody is at the keyboard.",
+    "enumValues": [
+      "none",
+      "empty"
+    ]
+  },
+  {
+    "key": "watchers.triggers.outputTailBytes",
+    "type": "number",
+    "default": 8192,
+    "description": "Bytes of trailing child output carried in an on-exit termination payload. Exit is not success, so the payload always includes this tail for the agent prompt to inspect alongside the exit code and signal.",
+    "validationHint": "integer in [0, 1048576]"
+  },
+  {
     "key": "update.auto",
     "type": "boolean",
     "default": true,
@@ -2880,6 +3311,39 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
       "runtime.unifiedTasks"
     ],
     "restartRequired": true,
+    "defaultEnabled": false
+  },
+  {
+    "id": "watcher-triggers",
+    "name": "Trigger Family",
+    "description": "Enables three unattended watcher kinds over one supervision spine: stream watchers that regex-filter and batch a long-lived command's output; model-free condition checks running a declarative probe/extract/rule pipeline with no LLM in the loop; and one-shot on-exit triggers where GoodVibes launches a command and fires exactly one payload when it terminates (daemon-owned, so a six-hour build does not hold an agent turn open). A firing trigger runs an agent turn or a pre-registered digest-pinned action grant — never a command composed at fire time. Off by default: a trigger launches and supervises real processes with nobody watching, so turning it on is a deliberate choice; with it on and no triggers defined the supervisor idles and consumes nothing. Tune the backoff ladder, strike breaker, retention bounds, batching and process caps via the watchers.triggers.* settings.",
+    "domain": "watchers",
+    "enablement": {
+      "key": "watchers.triggers.enabled",
+      "kind": "boolean"
+    },
+    "settings": [
+      "watchers.triggers.enabled",
+      "watchers.triggers.backoffLadderMs",
+      "watchers.triggers.breakerStrikes",
+      "watchers.triggers.defaultCheckIntervalMs",
+      "watchers.triggers.probeTimeoutMs",
+      "watchers.triggers.maxConcurrentChecks",
+      "watchers.triggers.observationRingSize",
+      "watchers.triggers.runHistoryLimit",
+      "watchers.triggers.runHistoryTtlHours",
+      "watchers.triggers.eventLogLimit",
+      "watchers.triggers.eventLogTtlHours",
+      "watchers.triggers.sweepIntervalMs",
+      "watchers.triggers.supervisionTickMs",
+      "watchers.triggers.streamQueueLimit",
+      "watchers.triggers.streamBatchLines",
+      "watchers.triggers.streamBatchIntervalMs",
+      "watchers.triggers.onExitMaxDurationMs",
+      "watchers.triggers.onExitStdin",
+      "watchers.triggers.outputTailBytes"
+    ],
+    "restartRequired": false,
     "defaultEnabled": false
   },
   {
@@ -3847,5 +4311,74 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
     ],
     "restartRequired": false,
     "defaultEnabled": true
+  },
+  {
+    "id": "paired-device-capabilities",
+    "name": "Paired Phone Capabilities",
+    "description": "Lets the agent use a PAIRED phone as a tool: either camera, its screen, its location, its clipboard, and a small set of device commands (notification, link, buzz). It rides the existing peer transport as a native contract — never an MCP server — so a web app node and a native app node are the same kind of peer. Every capture and every effect asks the person first; choosing \"always allow\" on that prompt writes ONE durable grant for that one capability on that one phone, listed and revocable in the grants surface, with an age TTL and a count cap so nothing is granted forever. Pictures the phone takes are kept for 24 hours by default and then deleted, and every housekeeping sweep discloses exactly what it removed and why. Configure the whole posture through device.* — device.capabilities.mode chooses between off, ask-every-time, and honouring grants; device.capabilities.allowAlwaysOffer chooses which capabilities may be granted durably; device.capture.retentionHours sets how long a picture lives.",
+    "domain": "device",
+    "enablement": {
+      "key": "device.capabilities.mode",
+      "kind": "enum",
+      "enabledValues": [
+        "ask-every-time",
+        "honor-grants"
+      ]
+    },
+    "settings": [
+      "device.capabilities.mode",
+      "device.capabilities.allowAlwaysOffer",
+      "device.capabilities.requestTimeoutSeconds",
+      "device.location.precision",
+      "device.clipboard.readMode",
+      "device.capture.retentionHours",
+      "device.capture.maxArtifacts",
+      "device.capture.sweepIntervalMinutes",
+      "device.grants.expiryDays",
+      "device.grants.maxPerNode",
+      "device.grants.auditRetentionDays",
+      "device.nodes.maxPaired"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": true
+  },
+  {
+    "id": "wake-word-detection",
+    "name": "Wake-Word Detection",
+    "description": "Listens continuously on a capture device for a spoken wake phrase and hands the utterance that follows to speech-to-text. Detection runs the pinned \"hey goodvibes\" classifier behind a melspectrogram computed in code and Google's Apache-2.0 speech-embedding model, both on a WASM backend, so the same detector runs in a daemon child process and in a browser tab. Disabled by default because holding a microphone open must be an explicit act; enabling it starts a supervised capture process and shows a persistent listening indicator for as long as it runs. Tuned through voice.wake.*, whose threshold, patience and cooldown rows govern how readily it fires, and whose supervisor rows bound how a crashing detector is retried. The model's published recall figures are measured on synthesised speech only — no human recording of the phrase exists — while its false-accept figures are measured on real speech.",
+    "domain": "voice",
+    "enablement": {
+      "key": "voice.wake.enabled",
+      "kind": "boolean"
+    },
+    "settings": [
+      "voice.wake.enabled",
+      "voice.wake.models",
+      "voice.wake.threshold",
+      "voice.wake.patienceFrames",
+      "voice.wake.cooldownMs",
+      "voice.wake.vadThreshold",
+      "voice.wake.noiseSuppression",
+      "voice.wake.inputDevice",
+      "voice.wake.captureCommand",
+      "voice.wake.surfaces.tui",
+      "voice.wake.surfaces.agent",
+      "voice.wake.surfaces.webui",
+      "voice.wake.activationSound",
+      "voice.wake.activationSoundPath",
+      "voice.wake.indicator",
+      "voice.wake.preRollMs",
+      "voice.wake.captureMaxSeconds",
+      "voice.wake.silenceStopMs",
+      "voice.wake.autoSubmit",
+      "voice.wake.retainAudio",
+      "voice.wake.customModelDir",
+      "voice.wake.maxRestarts",
+      "voice.wake.restartBackoffMs",
+      "voice.wake.crashWindowSeconds",
+      "voice.wake.browserBackend"
+    ],
+    "restartRequired": false,
+    "defaultEnabled": false
   }
 ] as const;

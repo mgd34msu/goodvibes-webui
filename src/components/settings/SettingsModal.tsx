@@ -32,7 +32,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { Modal } from '../modal/Modal';
-import { sdk } from '../../lib/goodvibes';
+import { sdk, type ConfigSetOutcome } from '../../lib/goodvibes';
 import { formatError, serializeError } from '../../lib/errors';
 import { asRecord } from '../../lib/object';
 import { useToast } from '../../lib/toast';
@@ -69,6 +69,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   // marker at the point of change. Held at modal level so switching category
   // tabs never drops a marker.
   const [pendingRestartIds, setPendingRestartIds] = useState<ReadonlySet<string>>(new Set());
+  // What the daemon reported back for the last successful config.set of each key this
+  // session (persistedTo / tier / daemonOwned) — never fabricated from config.get, which
+  // returns the persisted tree only and carries none of these fields. Cleared implicitly
+  // whenever the modal remounts; not persisted across sessions.
+  const [persistedByKey, setPersistedByKey] = useState<Readonly<Record<string, ConfigSetOutcome>>>({});
   const [rawKey, setRawKey] = useState('');
   const [rawValue, setRawValue] = useState('');
   const [rawError, setRawError] = useState('');
@@ -88,13 +93,27 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const refused = config.isError && isAdminRequiredError(config.error);
   const degraded = config.isError && !refused;
 
-  /** Single write path: config.set one key, reconcile via refetch, surface errors. */
+  /**
+   * Single write path: config.set one key, reconcile via refetch, surface errors.
+   *
+   * config.set REJECTS on a non-2xx or network failure (requestJson throws) — nothing
+   * here catches that and reports success anyway; the catch below re-throws so the
+   * calling SettingsField/FeatureUnitCard row keeps its edit state and shows the failure
+   * inline (its own onCommit awaits this and displays `error`), on top of the toast here.
+   * config.get is NOT invalidated on failure, so the row keeps showing the value the
+   * daemon actually holds, never an optimistically-applied one.
+   */
   const commitConfig = useCallback(
     async (key: string, value: unknown): Promise<void> => {
       try {
-        await sdk.operator.config.set(key, value);
+        const outcome = await sdk.operator.config.set(key, value);
+        setPersistedByKey((prev) => ({ ...prev, [key]: outcome }));
         await queryClient.invalidateQueries({ queryKey: ['config'] });
-        toast({ title: 'Config saved', description: `${key} updated.`, tone: 'success' });
+        toast({
+          title: 'Config saved',
+          description: outcome.persistedTo ? `${key} updated — stored in ${outcome.persistedTo}.` : `${key} updated.`,
+          tone: 'success',
+        });
       } catch (error) {
         toast({ title: 'Failed to save config', description: formatError(error), tone: 'danger' });
         throw error;
@@ -186,6 +205,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       key={unit.feature.id}
                       unit={unit}
                       onCommit={commitConfig}
+                      persistedByKey={persistedByKey}
                       pendingRestart={pendingRestartIds.has(unit.feature.id)}
                       onEnablementCommitted={() => {
                         if (!unit.feature.restartRequired) return;
@@ -196,7 +216,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   {currentGroup.plainRows.length > 0 && (
                     <div className="settings-plain-rows">
                       {currentGroup.plainRows.map((field) => (
-                        <SettingsField key={field.key} field={field} onCommit={commitConfig} />
+                        <SettingsField
+                          key={field.key}
+                          field={field}
+                          onCommit={commitConfig}
+                          persisted={persistedByKey[field.key]}
+                        />
                       ))}
                     </div>
                   )}
@@ -213,6 +238,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <th scope="row">
                                 {row.key}
                                 {row.isSecret && <span className="settings-secret-flag"> (secret)</span>}
+                                {row.daemonOwned && (
+                                  <span
+                                    className="settings-daemon-flag"
+                                    title="Daemon-owned: stored in the daemon's own config and applies to every client."
+                                  >
+                                    {' '}
+                                    (daemon)
+                                  </span>
+                                )}
                               </th>
                               <td className={row.isSecret ? 'settings-value settings-value--secret' : 'settings-value'}>
                                 {displayConfigValue(row.key, row.value)}

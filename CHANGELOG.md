@@ -6,6 +6,42 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-25
+
+A phone can now be a set of things the agent is able to ask for, and this web
+interface is how you do it. Open the new Phone view on a phone, pair it once,
+and that phone's cameras, screen, location, clipboard, and small device actions
+(show a notification, open a link, buzz) become capabilities the agent can
+request. It never takes any of them quietly: every capture and every action asks
+you first, and the page keeps an honest log of everything it actually served.
+What a phone announces is only what that browser can really do — a capability
+whose API is missing, or that the browser withholds on this address, is not
+offered at all, and the desktop says why it is unavailable rather than showing a
+control that would fail.
+
+Saying "always allow" on one of those prompts is now a real, durable answer
+rather than a setting you cannot find again. The new grants panel lists every
+standing permission with the phone it belongs to, the capability it covers, when
+it was given, when it expires, and how often it has been used, each with a
+revoke control. It also shows the recent record of permissions given, used,
+revoked and expired, and lets you run the cleanup sweep and read back exactly
+what it removed. It reads the daemon's own record, so what you see is what is
+actually honoured. Captures are kept for 24 hours by default and then deleted.
+
+Settings gained three new groups, each configurable rather than a bare switch:
+Paired Phone Capabilities (twelve settings covering how permission is asked for,
+location precision, clipboard reading, how long captures are kept, and the
+limits on paired phones and standing permissions), Watchers for the new trigger
+family (nineteen settings — triggers ship off, and nothing watches anything
+until you turn them on), and Voice, which now holds wake-word detection beside
+the local speech engines (twenty-five settings). Wake-word detection is not
+operable in this build and says so in the setting itself rather than appearing
+to work: your choice is remembered for the release that adds microphone capture.
+Every one of those settings is reachable and searchable in the settings
+workspace like the existing ones, which is now pinned by tests.
+
+Ships against `@pellux/goodvibes-sdk` 1.15.0.
+
 ## [1.8.1] - 2026-07-25
 
 Updated the bundled GoodVibes platform runtime to 1.14.0, keeping the web

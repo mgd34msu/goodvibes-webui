@@ -1426,6 +1426,23 @@ export interface StepUpRegisterCredentialResult {
   };
 }
 
+/**
+ * config.set's write outcome. See the `config.set` comment below for why this
+ * exists rather than relying on the pinned contracts package's generated
+ * OperatorMethodOutput<'config.set'> as-is.
+ */
+export interface ConfigSetOutcome {
+  readonly success: boolean;
+  readonly key: string;
+  readonly value?: unknown;
+  /** Absolute path (or daemon base URL, if landed remotely) the value actually landed in. */
+  readonly persistedTo?: string;
+  /** Mirrors the SDK's ConfigKeyTier (platform/config/manager-key-source.ts). */
+  readonly tier?: 'daemon' | 'shared' | 'project' | 'global' | 'default';
+  /** True when the daemon — not this client — is the writer/reader-of-record for this key. */
+  readonly daemonOwned?: boolean;
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -1505,10 +1522,17 @@ export const sdk = {
     // speaks in the same voice as the TUI and agent; the model/config
     // workspace browses the same snapshot — callers there MUST run it through
     // src/lib/config-redaction.ts before rendering, never display it raw.
-    // set() writes one key at a time (the daemon's real /config contract).
+    // set() writes one key at a time (the daemon's real /config contract). The
+    // explicit ConfigSetOutcome override widens the pinned contracts package's
+    // generated OperatorMethodOutput<'config.set'> (just { success, key, value }
+    // plus an open index signature) to the persistedTo/tier/daemonOwned fields
+    // the daemon's postConfig route now reports (system-routes.ts) — the
+    // generated type already permits them at runtime via its index signature,
+    // this just gives callers a typed shape instead of casting per call site.
     config: {
       get: () => invokeOperator('config.get'),
-      set: (key: string, value: unknown) => invokeOperator('config.set', { key, value }),
+      set: (key: string, value: unknown) =>
+        invokeOperator<'config.set', { key: string; value: unknown }, ConfigSetOutcome>('config.set', { key, value }),
     },
     // Power (power.status.get / power.keepAwake.set, SDK 1.8.0's host sleep-ownership
     // work): both carry real generated OperatorMethodInputMap/OutputMap entries and a

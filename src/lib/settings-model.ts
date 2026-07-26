@@ -32,6 +32,7 @@ import {
   type FeatureSettingMeta,
 } from './generated/config-schema';
 import { categoryLabelForKey, CATEGORY_LABELS, isSecretConfigKey } from './config-redaction';
+import { isDaemonOwnedConfigKey } from './config-ownership';
 import { asRecord } from './object';
 
 /** A single typed, editable config field: schema metadata merged with its live value. */
@@ -47,6 +48,10 @@ export interface ConfigFieldModel {
   /** Whether the live config tree actually holds this key (vs. only the schema default). */
   readonly present: boolean;
   readonly isSecret: boolean;
+  /** True when the daemon — not this client — is the writer/reader-of-record for this key
+   *  (config-ownership.ts). A write to a daemon-owned key applies to every connected client,
+   *  not just this browser tab. */
+  readonly daemonOwned: boolean;
 }
 
 /** A live-config key with no schema entry — shown read-only so nothing is hidden. */
@@ -54,6 +59,7 @@ export interface RawRowModel {
   readonly key: string;
   readonly value: unknown;
   readonly isSecret: boolean;
+  readonly daemonOwned: boolean;
 }
 
 /**
@@ -80,6 +86,9 @@ export interface FeatureUnitModel {
   readonly enablementField: ConfigFieldModel | null;
   /** The remaining settings fields the feature owns (enablement key excluded). */
   readonly fields: readonly ConfigFieldModel[];
+  /** True when every settings key this feature owns is daemon-owned (config-ownership.ts) —
+   *  every feature lives in one domain, so this is all-or-nothing in practice. */
+  readonly daemonOwned: boolean;
 }
 
 export interface SettingsGroupModel {
@@ -163,6 +172,7 @@ function buildField(entry: ConfigSchemaEntry, config: unknown): ConfigFieldModel
     liveValue: value,
     present,
     isSecret: isSecretConfigKey(entry.key),
+    daemonOwned: isDaemonOwnedConfigKey(entry.key),
   };
 }
 
@@ -227,6 +237,7 @@ function buildFeatureUnit(feature: FeatureSettingMeta, liveConfig: unknown): Fea
     explicit: present,
     enablementField,
     fields,
+    daemonOwned: feature.settings.length > 0 && feature.settings.every(isDaemonOwnedConfigKey),
   };
 }
 
@@ -292,7 +303,12 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
 
     const rawRows: RawRowModel[] = liveKeys
       .filter((k) => namespaceOf(k) === ns && !schemaKeySet.has(k) && !OWNED_CONFIG_KEYS.has(k))
-      .map((k) => ({ key: k, value: readConfigPath(liveConfig, k).value, isSecret: isSecretConfigKey(k) }));
+      .map((k) => ({
+        key: k,
+        value: readConfigPath(liveConfig, k).value,
+        isSecret: isSecretConfigKey(k),
+        daemonOwned: isDaemonOwnedConfigKey(k),
+      }));
 
     if (featureUnits.length === 0 && plainRows.length === 0 && rawRows.length === 0) continue;
 

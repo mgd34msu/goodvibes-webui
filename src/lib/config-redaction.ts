@@ -137,6 +137,11 @@ export const CATEGORY_LABELS: Record<string, string> = {
   integrations: 'Integrations',
   policy: 'Policy',
   agents: 'Agents',
+  // Covers both voice.local.* (STT/TTS engine paths) and voice.wake.*
+  // (wake-word detection). Wake-word rows render as their own titled feature
+  // unit inside this group, from the SDK's FEATURE_SETTINGS surface.
+  voice: 'Voice',
+  device: 'Paired Phone Capabilities',
   // Features are configured through their domain settings keys (SDK 1.7.1's
   // dissolved feature model) — no enablement bucket exists anymore. An OLDER
   // daemon can still hold the legacy `featureFlags` record, which then renders

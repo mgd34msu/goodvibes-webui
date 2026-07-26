@@ -31,19 +31,31 @@
  */
 import { useState } from 'react';
 import type { FeatureUnitModel } from '../../lib/settings-model';
+import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { SettingsField } from './SettingsField';
 
 interface FeatureUnitCardProps {
   readonly unit: FeatureUnitModel;
   readonly onCommit: (key: string, value: unknown) => Promise<void>;
+  /** What the daemon reported for the last successful config.set of each key this session
+   *  (SettingsModal's persistedByKey) — keyed by config key, looked up here per field and
+   *  for the enablement key itself. */
+  readonly persistedByKey: Readonly<Record<string, ConfigSetOutcome>>;
   /** True when an enablement change was saved this session and awaits a daemon restart. */
   readonly pendingRestart: boolean;
   /** Called after a successful enablement write (toggle or mode change). */
   readonly onEnablementCommitted: () => void;
 }
 
-export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCommitted }: FeatureUnitCardProps) {
-  const { feature, enabled, explicit, enablementField, fields } = unit;
+export function FeatureUnitCard({
+  unit,
+  onCommit,
+  persistedByKey,
+  pendingRestart,
+  onEnablementCommitted,
+}: FeatureUnitCardProps) {
+  const { feature, enabled, explicit, enablementField, fields, daemonOwned } = unit;
+  const enablementPersisted = persistedByKey[feature.enablement.key];
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const kind = feature.enablement.kind;
@@ -107,7 +119,17 @@ export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCo
     <section className="feature-unit" data-feature-id={feature.id} data-feature-enabled={enabled}>
       <header className="feature-unit-head">
         <div className="feature-unit-title">
-          <h3>{feature.name}</h3>
+          <h3>
+            {feature.name}
+            {daemonOwned && (
+              <span
+                className="feature-unit-daemon-badge"
+                title="Daemon-owned: these settings are stored in the daemon's own config and apply to every connected client, not just this browser."
+              >
+                Daemon-owned
+              </span>
+            )}
+          </h3>
           {kind === 'constant' ? (
             <span className="feature-unit-state">Governed by its settings below</span>
           ) : (
@@ -134,6 +156,11 @@ export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCo
       {kind === 'enum' && enablementField?.description && (
         <p className="feature-unit-mode-desc">{enablementField.description}</p>
       )}
+      {enablementPersisted?.persistedTo && (
+        <p className="feature-unit-persisted" role="status">
+          Saved — stored in {enablementPersisted.persistedTo}.
+        </p>
+      )}
       {error && (
         <div className="banner warning" role="alert">
           {error}
@@ -142,7 +169,7 @@ export function FeatureUnitCard({ unit, onCommit, pendingRestart, onEnablementCo
       {fields.length > 0 && (
         <div className="feature-unit-fields">
           {fields.map((field) => (
-            <SettingsField key={field.key} field={field} onCommit={onCommit} />
+            <SettingsField key={field.key} field={field} onCommit={onCommit} persisted={persistedByKey[field.key]} />
           ))}
         </div>
       )}

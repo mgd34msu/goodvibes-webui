@@ -212,6 +212,42 @@
   margin-top: var(--space-2);
 }
 
+/* Daemon-owned badge: this key's config.set writes land in the daemon's own
+   store and apply to every connected client, not just this browser. */
+.settings-field-daemon-badge,
+.feature-unit-daemon-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--surface-raised, var(--surface-base));
+}
+
+.feature-unit-daemon-badge {
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+/* What the daemon reported back (persistedTo) right after a successful save. */
+.settings-field-persisted,
+.feature-unit-persisted {
+  margin: var(--space-1) 0 0;
+  font-size: 0.75rem;
+  color: var(--contract-state-good, var(--text-secondary));
+}
+
+.settings-daemon-flag {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ── Feature unit (flag + its config) ─────────────────────────────────────── */
 .feature-unit {
   padding: var(--space-3);

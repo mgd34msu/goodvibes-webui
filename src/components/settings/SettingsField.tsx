@@ -22,11 +22,16 @@
 import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
 import type { ConfigFieldModel } from '../../lib/settings-model';
+import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { ModelPricesEditor } from './ModelPricesEditor';
 
 interface SettingsFieldProps {
   readonly field: ConfigFieldModel;
   readonly onCommit: (key: string, value: unknown) => Promise<void>;
+  /** What the daemon reported for the last successful config.set of THIS key this
+   *  session (SettingsModal's persistedByKey, looked up by the caller) — undefined
+   *  until this row has been saved at least once. */
+  readonly persisted?: ConfigSetOutcome;
 }
 
 function effectiveValue(field: ConfigFieldModel): unknown {
@@ -41,7 +46,7 @@ function scalarToText(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export function SettingsField({ field, onCommit }: SettingsFieldProps) {
+export function SettingsField({ field, onCommit, persisted }: SettingsFieldProps) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Local draft for text/number/secret; boolean & enum commit without a draft.
@@ -207,9 +212,17 @@ export function SettingsField({ field, onCommit }: SettingsFieldProps) {
   })();
 
   return (
-    <div className="settings-field" data-config-key={field.key}>
+    <div className="settings-field" data-config-key={field.key} data-daemon-owned={field.daemonOwned}>
       <div className="settings-field-head">
         <code className="settings-field-key">{field.key}</code>
+        {field.daemonOwned && (
+          <span
+            className="settings-field-daemon-badge"
+            title="Daemon-owned: stored in the daemon's own config and applies to every connected client, not just this browser."
+          >
+            Daemon-owned
+          </span>
+        )}
         {defaultNote}
         {field.validationHint && field.type === 'number' && (
           <span className="settings-field-hint">{field.validationHint}</span>
@@ -217,6 +230,11 @@ export function SettingsField({ field, onCommit }: SettingsFieldProps) {
       </div>
       {field.description && <p className="settings-field-desc">{field.description}</p>}
       <div className="settings-field-control">{control}</div>
+      {persisted?.persistedTo && (
+        <p className="settings-field-persisted" role="status">
+          Saved — stored in {persisted.persistedTo}.
+        </p>
+      )}
       {error && (
         <div className="banner warning settings-field-error" role="alert">
           {error}

@@ -9,6 +9,11 @@ import { FEATURE_SETTINGS } from '../../lib/generated/config-schema';
 type ConfigOutcome = 'ok' | 'admin-required' | 'network-error';
 let outcome: ConfigOutcome = 'ok';
 const configSetCalls: [string, unknown][] = [];
+// Controls what sdk.operator.config.set does, independent of `outcome` above (which only
+// governs config.get). 'reject' simulates the real requestJson behavior on a non-2xx or
+// network failure — a rejected promise, never a resolved { success: false }.
+type SetOutcome = 'ok' | 'reject';
+let setOutcome: SetOutcome = 'ok';
 
 // Enough of a live config to exercise: a typed string field (display.theme), a
 // typed number field (display.collapseThreshold), a secret owned by a feature
@@ -36,7 +41,22 @@ mock.module('../../lib/goodvibes', () => ({
         },
         set: (key: string, value: unknown) => {
           configSetCalls.push([key, value]);
-          return Promise.resolve({ success: true, key, value });
+          if (setOutcome === 'reject') {
+            return Promise.reject(
+              Object.assign(new Error('POST /config failed: 409 Conflict'), { status: 409 }),
+            );
+          }
+          // daemonOwned surfaces.* keys report a daemon-tier persistedTo; everything
+          // else reports the ordinary client settings path — mirrors system-routes.ts.
+          const daemonOwned = key.startsWith('surfaces.');
+          return Promise.resolve({
+            success: true,
+            key,
+            value,
+            persistedTo: daemonOwned ? '/home/user/.goodvibes/daemon/settings.json' : '/home/user/.goodvibes/webui/settings.json',
+            tier: daemonOwned ? 'daemon' : 'default',
+            daemonOwned,
+          });
         },
       },
     },
@@ -99,6 +119,7 @@ function commitByBlur(input: HTMLInputElement): void {
 
 afterEach(() => {
   outcome = 'ok';
+  setOutcome = 'ok';
   configSetCalls.length = 0;
 });
 
@@ -305,6 +326,84 @@ describe('SettingsModal — object-typed pricing editor', () => {
     expect(field.querySelector('.settings-field-desc')?.textContent).toContain('Manual model prices');
     expect(field.querySelector('[data-testid="model-prices-editor"]')).not.toBeNull();
     expect(field.querySelector('textarea')).toBeNull();
+    unmount();
+  });
+});
+
+describe('SettingsModal — daemon-owned labeling', () => {
+  test('a daemon-owned key (surfaces.slack.botToken) is labeled daemon-owned; a client-owned key is not', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
+    clickCategory(el, 'Surfaces');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="slack-surface"]')));
+    const unit = el.querySelector('[data-feature-id="slack-surface"]') as HTMLElement;
+    // The whole feature unit (every settings key it owns is under surfaces.*) is flagged.
+    expect(unit.querySelector('.feature-unit-daemon-badge')).toBeTruthy();
+    const tokenField = el.querySelector('[data-config-key="surfaces.slack.botToken"]') as HTMLElement;
+    expect(tokenField.getAttribute('data-daemon-owned')).toBe('true');
+    expect(tokenField.querySelector('.settings-field-daemon-badge')).toBeTruthy();
+
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Display')));
+    clickCategory(el, 'Display');
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"]')));
+    const themeField = el.querySelector('[data-config-key="display.theme"]') as HTMLElement;
+    expect(themeField.getAttribute('data-daemon-owned')).toBe('false');
+    expect(themeField.querySelector('.settings-field-daemon-badge')).toBeNull();
+    unmount();
+  });
+
+  test('after a successful save, the row shows what the daemon reported in persistedTo', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
+    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
+    setInputValue(input, 'cyberpunk');
+    commitByBlur(input);
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] .settings-field-persisted')));
+    const note = el.querySelector('[data-config-key="display.theme"] .settings-field-persisted');
+    expect(note?.textContent).toContain('/home/user/.goodvibes/webui/settings.json');
+    unmount();
+  });
+});
+
+describe('SettingsModal — a failed config.set is surfaced, never rendered as saved', () => {
+  test('a rejected config.set keeps the row showing the OLD value and shows an inline error', async () => {
+    setOutcome = 'reject';
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
+    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
+    setInputValue(input, 'cyberpunk');
+    commitByBlur(input);
+    await waitFor(() => configSetCalls.length > 0);
+    // The write was attempted...
+    expect(configSetCalls).toEqual([['display.theme', 'cyberpunk']]);
+    // ...but rejected, so the row surfaces the failure inline rather than pretending success.
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] .settings-field-error')));
+    const errorBanner = el.querySelector('[data-config-key="display.theme"] .settings-field-error');
+    expect(errorBanner?.textContent?.length ?? 0).toBeGreaterThan(0);
+    // No persisted-to note ever appears for a failed write.
+    expect(el.querySelector('[data-config-key="display.theme"] .settings-field-persisted')).toBeNull();
+    unmount();
+  });
+
+  test('a rejected config.set on a boolean feature toggle reverts the visible state, not just the store', async () => {
+    setOutcome = 'reject';
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
+    clickCategory(el, 'Permissions');
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
+    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input') as HTMLInputElement;
+    expect(toggle.checked).toBe(true); // ruled default: on
+    flushSync(() => {
+      toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    });
+    await waitFor(() => configSetCalls.length > 0);
+    // The write was attempted and rejected; the failure surfaces on the unit, and no
+    // pending-restart marker (which only follows a CONFIRMED write) ever appears.
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .banner.warning')));
+    expect(el.querySelector('[data-pending-restart="permissions-simulation"]')).toBeNull();
+    // config.get was never invalidated on failure, so the toggle still reflects the
+    // daemon's actual (unchanged) value, not an optimistically-applied one.
+    expect(toggle.checked).toBe(true);
     unmount();
   });
 });

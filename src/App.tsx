@@ -17,6 +17,7 @@ import {
   Plug,
   ServerCog,
   Settings,
+  Smartphone,
   Trash2,
   Users,
   Workflow,
@@ -48,6 +49,7 @@ import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { CiWatchesView } from './views/ci/CiWatchesView';
 import { CheckInView } from './views/checkin/CheckInView';
 import { PrincipalsView } from './views/principals/PrincipalsView';
+import { PhoneNodeView } from './views/phone/PhoneNodeView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
@@ -95,6 +97,9 @@ const views: {
   // principals.* / channels.profiles.* (SDK 1.6.1's initiative family) — identity
   // registry + per-channel model/permission defaults admin.
   { id: 'principals', label: 'Principals', short: 'Identities', icon: Users },
+  // devices.* — this browser as a paired device node, plus the grants surface
+  // for the durable "always allow" approvals a phone capability can hold.
+  { id: 'phone', label: 'Phone', short: 'Device', icon: Smartphone },
 ];
 
 export default function App() {
@@ -694,6 +699,7 @@ export default function App() {
           {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
           {activeView === 'checkin' && <CheckInView />}
           {activeView === 'principals' && <PrincipalsView />}
+          {activeView === 'phone' && <PhoneNodeView />}
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}

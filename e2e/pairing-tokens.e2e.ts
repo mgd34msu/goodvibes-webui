@@ -24,6 +24,17 @@ async function openPairingSettings(page: import('@playwright/test').Page): Promi
   await expect(page.getByRole('heading', { name: 'Devices & pairing' })).toBeVisible();
 }
 
+/**
+ * The paired-devices panel itself. Device names are asserted inside it rather
+ * than across the whole page: a device may be named after a thing the app also
+ * names elsewhere — "Phone" is both a plausible device name and the navigation
+ * entry for the phone node view — and a page-wide text match would then be
+ * ambiguous, or worse, satisfied by the navigation while the list is empty.
+ */
+function pairingPanel(page: import('@playwright/test').Page) {
+  return page.getByTestId('pairing-tokens');
+}
+
 test('lists paired devices with created/last-seen, never a secret, and renames inline', async ({ page }) => {
   const pairingStore = createMockPairingStore([
     { id: 'tok-phone', name: 'Phone', token: 'e2e-phone-token', createdAt: 1_700_000_000_000, lastSeenAt: 1_700_100_000_000 },
@@ -32,18 +43,18 @@ test('lists paired devices with created/last-seen, never a secret, and renames i
   await installMockDaemon(page, { pairingStore });
   await openPairingSettings(page);
 
-  await expect(page.getByText('Phone', { exact: true })).toBeVisible();
-  await expect(page.getByText('Laptop', { exact: true })).toBeVisible();
-  await expect(page.getByText(/last seen/)).toBeVisible();
-  await expect(page.getByText('never seen')).toBeVisible(); // Laptop has no lastSeenAt
+  await expect(pairingPanel(page).getByText('Phone', { exact: true })).toBeVisible();
+  await expect(pairingPanel(page).getByText('Laptop', { exact: true })).toBeVisible();
+  await expect(pairingPanel(page).getByText(/last seen/)).toBeVisible();
+  await expect(pairingPanel(page).getByText('never seen')).toBeVisible(); // Laptop has no lastSeenAt
   // Never a secret in this list.
-  await expect(page.getByText('e2e-phone-token')).toHaveCount(0);
+  await expect(pairingPanel(page).getByText('e2e-phone-token')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Rename Phone' }).click();
   const input = page.locator('#pairing-token-rename-tok-phone');
   await input.fill('My Phone');
   await input.press('Enter');
-  await expect(page.getByText('My Phone', { exact: true })).toBeVisible();
+  await expect(pairingPanel(page).getByText('My Phone', { exact: true })).toBeVisible();
 });
 
 test('touch targets on the pairing tokens panel clear 44px at phone width', async ({ page }) => {
@@ -82,7 +93,7 @@ test('revoking one device 401s it while the current session (a different token) 
   await expect(page.locator('.confirm-sheet')).toBeVisible();
   await expect(page.locator('.confirm-sheet')).toContainText('signed out immediately');
   await page.locator('.confirm-sheet__confirm').click();
-  await expect(page.getByText('Phone', { exact: true })).toHaveCount(0);
+  await expect(pairingPanel(page).getByText('Phone', { exact: true })).toHaveCount(0);
 
   // The phone's own token is now revoked — its next authenticated call 401s.
   const status = await phonePage.evaluate(async () => {

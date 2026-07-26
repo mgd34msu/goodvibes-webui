@@ -62,7 +62,7 @@ export interface BrowserBindings {
 export function readBrowserBindings(): BrowserBindings {
   const nav = typeof navigator === 'undefined' ? undefined : navigator;
   return {
-    isSecureContext: typeof window !== 'undefined' && window.isSecureContext === true,
+    isSecureContext: typeof window !== 'undefined' && window.isSecureContext,
     mediaDevices: nav?.mediaDevices,
     geolocation: nav?.geolocation,
     clipboard: nav?.clipboard,
@@ -82,7 +82,11 @@ export function readBrowserBindings(): BrowserBindings {
  */
 export function announcedCapabilities(bindings: BrowserBindings): WebNodeCapabilityId[] {
   const ids: WebNodeCapabilityId[] = [];
-  const canCapture = Boolean(bindings.mediaDevices?.getUserMedia) && bindings.isSecureContext;
+  // Probed by type, not by truthiness: reading the method off the object to
+  // test it hands around an unbound reference, which is the same mistake as
+  // calling it detached from navigator.mediaDevices.
+  const canCapture =
+    typeof bindings.mediaDevices?.getUserMedia === 'function' && bindings.isSecureContext;
   if (canCapture) {
     ids.push('device.camera.rear.capture', 'device.camera.front.capture');
   }

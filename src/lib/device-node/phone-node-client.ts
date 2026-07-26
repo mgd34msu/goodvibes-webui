@@ -192,7 +192,7 @@ export class PhoneNodeClient {
       },
       body: JSON.stringify(body ?? {}),
     });
-    let json: unknown = null;
+    let json: unknown;
     try {
       json = await response.json();
     } catch {

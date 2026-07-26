@@ -46,7 +46,7 @@ interface StubCall {
   readonly authorization: string;
 }
 
-function stubFetch(responses: Array<{ status: number; json: unknown }>): { impl: typeof fetch; calls: StubCall[] } {
+function stubFetch(responses: { status: number; json: unknown }[]): { impl: typeof fetch; calls: StubCall[] } {
   const calls: StubCall[] = [];
   let index = 0;
   const impl = (async (input: RequestInfo | URL, init?: RequestInit) => {

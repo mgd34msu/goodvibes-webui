@@ -43,7 +43,7 @@ function defaultLabel(): string {
 }
 
 export function PhoneNodeView() {
-  const label = useMemo(defaultLabel, []);
+  const label = useMemo(() => defaultLabel(), []);
   const clientRef = useRef<PhoneNodeClient | null>(null);
   const [state, setState] = useState<PhoneNodeState | null>(null);
 

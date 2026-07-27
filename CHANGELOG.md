@@ -4,19 +4,21 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
-## [Unreleased]
+## [1.10.0] - 2026-07-27
 
-The platform runtime this interface is built against moved up four releases, from
-1.15.0 to 1.17.2. It had been left behind on every bump since, which meant this
+The platform runtime this interface is built against moved up six releases, from
+1.15.0 to 1.18.1. It had been left behind on every bump since, which meant this
 was the one surface still compiled against months-old types with nobody having
 checked what that cost. It cost one thing: the settings catalogue this app keeps
-in step with the runtime had gone stale by thirteen entries. Regenerated, so the
-eleven settings for letting several of your machines share inbound work, and the
-two for how the daemon times and rolls back its own updates, are now visible and
-editable here like every other setting — with the shared phrase masked, as any
-secret is. Nothing else in the app changed shape; the whole suite, the build and
-the browser tests pass against the new runtime exactly as they did against the
-old one.
+in step with the runtime had gone stale. Regenerated, so the eleven settings for
+letting several of your machines share inbound work, the two for how the daemon
+times and rolls back its own updates, and the twenty-five for the daemon's own
+mailbox and calendar connection are now visible and editable here like every
+other setting — with anything secret masked, as always. That last group is what
+lets you finish mail setup from this interface at all: they were keys the daemon
+read and no surface could show. Nothing else in the app changed shape; the whole
+suite, the build and the browser tests pass against the new runtime exactly as
+they did against the old one.
 
 Mail now has a screen. The daemon has published verbs for reading an inbox,
 opening a message, saving a draft to the account and sending, and nothing in
@@ -32,11 +34,13 @@ it unrendered, so nothing written by a stranger can style, lay out or load
 anything inside the page holding your session. Attachments are listed with their
 type and size and nothing more, because the daemon publishes no way to fetch
 one, and a download button that could not download would be a lie. And when the
-surface cannot answer — either because your daemon has no mail handler at all,
-which is the case on every build today, or because you have not yet given it an
-account — it says which of those it is and what the next step would be, and the
-Send and Save draft controls go inactive with the reason beside them rather than
-staying lit to fail on click.
+surface cannot answer — either because the daemon you are talking to does not
+serve mail, or because you have not yet given it an account — it says which of
+those it is and what the next step would be, and the Send and Save draft
+controls go inactive with the reason beside them rather than staying lit to fail
+on click. As of this release the first case is no longer the normal one: the
+platform serves mail itself now, so a current daemon answers these verbs, and
+"no account connected yet" is the state you should actually expect to see.
 
 Admin gained a panel reporting whether mail and calendar are actually working:
 ready, or the specific thing that is missing. It reports only — there is no

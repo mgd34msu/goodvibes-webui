@@ -52,6 +52,18 @@ describe('MoneyField', () => {
     unmount();
   });
 
+  test('JPY (zero-decimal): renders and commits a whole amount 1:1, never assuming 2 decimals', () => {
+    const { input, unmount } = render({ minorUnits: 5000, currency: 'JPY', onCommit: () => {} });
+    expect(input.value).toBe('5000');
+    unmount();
+
+    const commits: number[] = [];
+    const second = render({ minorUnits: 0, currency: 'JPY', onCommit: (m) => commits.push(m) });
+    typeAndBlur(second.input, '5000');
+    expect(commits).toEqual([5000]);
+    second.unmount();
+  });
+
   test('typing a major-unit amount and blurring commits the exact minor-unit integer', () => {
     const commits: number[] = [];
     const { input, unmount } = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits.push(m) });

@@ -419,14 +419,15 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     expect(field!.daemonOwned, key).toBe(true);
   });
 
-  test('daemon.timezone renders in the daemon group, client-owned, with a description', () => {
+  test('daemon.timezone renders in the daemon group, daemon-owned, with a description', () => {
     const field = daemonGroup?.plainRows.find((f) => f.key === 'daemon.timezone');
     expect(field).toBeDefined();
     expect(field!.description.length).toBeGreaterThan(0);
-    // Mirrors the SDK's own config-ownership.ts: daemon.* is deliberately NOT
-    // daemon-owned (per-installation lifecycle), and there is no special-case
-    // entry for daemon.timezone — see config-ownership.test.ts.
-    expect(field!.daemonOwned).toBe(false);
+    // Ruled and fixed upstream (SDK config-ownership.ts) after this round's
+    // engineering report flagged the omission: daemon.timezone is the one
+    // daemon.* key that is NOT a per-installation switch — see
+    // config-ownership.test.ts.
+    expect(field!.daemonOwned).toBe(true);
   });
 
   test('payments.currency validates 3-letter ISO-4217 codes via its schema validationHint', () => {

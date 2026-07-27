@@ -55,7 +55,18 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
  * Individual daemon-owned keys that do not sit under a daemon-owned domain
  * prefix. Mirrors DAEMON_OWNED_CONFIG_KEYS in the SDK's config-ownership.ts.
  */
-export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = ['danger.httpListener'];
+export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = [
+  'danger.httpListener',
+  // The one `daemon.*` key that is NOT a per-installation switch. The rest of
+  // that prefix answers "does THIS machine run or embed a daemon", which is
+  // rightly client-owned. `daemon.timezone` answers something else entirely:
+  // where the daemon thinks it IS. Anything that resets on a calendar day
+  // reads it, starting with the payment capability's daily budgets — left
+  // client-owned, it would land in whichever surface set it and the daemon
+  // (which actually rolls the budget over at midnight) would never see it and
+  // would keep resetting in UTC. Mirrors the SDK's config-ownership.ts.
+  'daemon.timezone',
+];
 
 const DAEMON_KEY_SET = new Set<string>(DAEMON_OWNED_CONFIG_KEYS);
 

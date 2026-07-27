@@ -26,8 +26,13 @@ describe('isDaemonOwnedConfigKey', () => {
     expect(isDaemonOwnedConfigKey('voice.local.ttsVoicePath')).toBe(true);
   });
 
-  test('recognizes the individual daemon-owned key that sits outside every prefix', () => {
+  test('recognizes the individual daemon-owned keys that sit outside every prefix', () => {
     expect(isDaemonOwnedConfigKey('danger.httpListener')).toBe(true);
+    // The one daemon.* key that is NOT a per-installation switch — the daemon's
+    // own location, which the payment capability's daily budgets roll over
+    // against. Ruled and fixed upstream (SDK config-ownership.ts) after this
+    // round's engineering report flagged it as an open question.
+    expect(isDaemonOwnedConfigKey('daemon.timezone')).toBe(true);
   });
 
   test('an ordinary client-owned key is not flagged', () => {
@@ -36,19 +41,11 @@ describe('isDaemonOwnedConfigKey', () => {
     expect(isDaemonOwnedConfigKey('behavior.hitlMode')).toBe(false);
   });
 
-  test('daemon.* and service.* are deliberately NOT daemon-owned — per-installation lifecycle', () => {
+  test('daemon.* (other than daemon.timezone) and service.* are deliberately NOT daemon-owned — per-installation lifecycle', () => {
     // "does THIS installation run/embed a daemon" is not the daemon's call to make;
     // making it daemon-owned would make one surface's daemon choice bind every other.
     expect(isDaemonOwnedConfigKey('daemon.enabled')).toBe(false);
     expect(isDaemonOwnedConfigKey('service.autostart')).toBe(false);
-    // daemon.timezone sits under the same daemon.* prefix and is, as of this
-    // writing, client-owned by that same rule — mirroring the SDK's own
-    // config-ownership.ts exactly, which has no special-case entry for it.
-    // See this round's engineering report: this reads as an open question
-    // (daemon.timezone is "the daemon's own location", not a per-installation
-    // choice) worth confirming upstream, not something this mirror should
-    // second-guess on its own.
-    expect(isDaemonOwnedConfigKey('daemon.timezone')).toBe(false);
   });
 
   test('voice.wake.* is deliberately NOT daemon-owned — the wake word listens inside each client', () => {
@@ -76,6 +73,6 @@ describe('isDaemonOwnedConfigKey', () => {
       'payments.',
       'voice.local.',
     ]);
-    expect(DAEMON_OWNED_CONFIG_KEYS).toEqual(['danger.httpListener']);
+    expect(DAEMON_OWNED_CONFIG_KEYS).toEqual(['danger.httpListener', 'daemon.timezone']);
   });
 });

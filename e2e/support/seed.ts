@@ -611,6 +611,69 @@ export function calendarEventDetailResponse(eventId: string) {
   };
 }
 
+/**
+ * Email fixtures (email.inbox.list / email.inbox.read). Field-for-field the SDK's
+ * EMAIL_INBOX_MESSAGE_SCHEMA and EMAIL_MESSAGE_DETAIL_SCHEMA — every required key
+ * present, and the optional ones (bodyHtml, attachments) present on exactly one
+ * message so the peek can be proven to list attachments AND to refuse to render an
+ * HTML part, rather than only ever seeing the plain case.
+ */
+export function emailInboxResponse() {
+  return {
+    messages: [
+      {
+        uid: 1002,
+        from: 'ops@example.com',
+        subject: 'Nightly build finished',
+        date: '2026-08-02T06:12:00.000Z',
+        unread: true,
+        bodyPreview: 'All three jobs are green. Artifacts are attached.',
+        messageId: '<build-1002@example.com>',
+      },
+      {
+        uid: 1001,
+        from: 'someone@example.com',
+        subject: 'Re: scheduling next week',
+        date: '2026-08-01T17:40:00.000Z',
+        unread: false,
+        bodyPreview: 'Tuesday afternoon works for me.',
+        messageId: '<sched-1001@example.com>',
+      },
+    ],
+    total: 2,
+  };
+}
+
+export function emailMessageDetailResponse(uid: number) {
+  const summary = emailInboxResponse().messages.find((message) => message.uid === uid);
+  const hasExtras = uid === 1002;
+  return {
+    uid,
+    from: summary?.from ?? 'unknown@example.com',
+    subject: summary?.subject ?? 'Unknown message',
+    date: summary?.date ?? '2026-08-01T00:00:00.000Z',
+    messageId: summary?.messageId ?? `<${uid}@example.com>`,
+    bodyText: 'Seeded e2e fixture body.\nSecond line.',
+    ...(hasExtras
+      ? {
+          bodyHtml: '<p>Seeded <b>HTML</b> alternative that the console must not render.</p>',
+          attachments: [
+            { filename: 'build-log.txt', contentType: 'text/plain', sizeBytes: 2048 },
+          ],
+        }
+      : {}),
+  };
+}
+
+/**
+ * The honest refusal shapes for the email surface. NOT_CONFIGURED is the 412
+ * precondition refusal (an account has not been brought); NOT_INVOKABLE is the 501
+ * every daemon build answers TODAY, because the four email verbs ship
+ * `invokable: false` and no /api/email route is served yet.
+ */
+export const EMAIL_NOT_CONFIGURED_BODY = { error: 'No mail account is configured. Set the mail host and account, and store the app password in the daemon secret tier.', code: 'EMAIL_NOT_CONFIGURED' };
+export const EMAIL_NOT_INVOKABLE_BODY = { error: 'Gateway method is cataloged but not invokable through method dispatch', code: 'METHOD_NOT_INVOKABLE' };
+
 export const CALENDAR_NOT_CONFIGURED_BODY = { error: 'CalDAV is not configured. Set surfaces.calendar.caldavUrl and surfaces.calendar.caldavUser.', code: 'CALENDAR_NOT_CONFIGURED' };
 
 /** A tiny valid SVG for the knowledge map render proof. */

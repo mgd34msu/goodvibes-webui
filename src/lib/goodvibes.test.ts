@@ -715,8 +715,11 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // fleet.*/permissions.rules.* above).
     // 'ops' added for SDK 1.9.0-dev's memory-relay-voice-hardening work (ops.memory.get
     // — a real REST route, resolving through EXTRA_METHOD_ROUTES like power.* above).
+    // 'email' added for the Mail surface (email.inbox.list/read, email.send,
+    // email.draft.create) — its own namespace for the same reason calendar has one:
+    // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 

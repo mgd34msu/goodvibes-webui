@@ -1,0 +1,312 @@
+/**
+ * mail.css — MailView, MailMessagePeek and MailAccountSettings.
+ *
+ * Follows calendar.css: design tokens only (no literal colours), and every wide
+ * element is allowed to shrink so the phone Playwright project's
+ * expectNoHorizontalScroll sweep passes. The message body is the one genuinely
+ * unbounded piece of content here — arbitrary sender text with arbitrary line
+ * lengths — so it wraps rather than scrolling the page sideways.
+ */
+
+.mail-filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.mail-filter-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.mail-filter-controls__check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mail-status-region {
+  min-height: 2rem;
+}
+
+/* The honest-refusal note: informational, never styled as a fault. */
+.mail-note {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+}
+
+.mail-note h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.mail-note p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.mail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mail-list__count {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.mail-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  cursor: pointer;
+  /* 44px touch-target floor the e2e expectTappable helper enforces. */
+  min-height: 44px;
+}
+
+.mail-row:hover,
+.mail-row:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.mail-row--unread {
+  border-left: 3px solid var(--color-accent);
+}
+
+.mail-row__top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+}
+
+.mail-row__from {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mail-row__date {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.mail-row__subject {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.mail-row__unread-pill {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft, var(--color-surface-raised));
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.mail-row__preview {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Composer */
+
+.mail-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mail-composer label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.mail-composer textarea {
+  resize: vertical;
+  min-height: 8rem;
+  font-family: inherit;
+}
+
+.mail-composer__reply-note,
+.mail-composer__blocked {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.mail-composer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.mail-composer__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+/* Peek body */
+
+.mail-peek-loading,
+.mail-peek-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.mail-peek-body h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mail-peek-body__meta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Sender text is arbitrary: wrap it instead of letting it scroll the page. */
+.mail-peek-body__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  max-width: 100%;
+}
+
+.mail-peek-body__html-note,
+.mail-peek-body__attachment-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.mail-peek-body__attachments h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.mail-peek-body__attachments ul {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mail-peek-body__attachments li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+
+.mail-attachment__name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.mail-attachment__meta {
+  color: var(--color-text-muted);
+}
+
+.mail-peek-body__uid {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Settings panel */
+
+.mail-settings__intro {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.mail-settings__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mail-settings__row {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.mail-settings__row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.mail-settings__row-name {
+  font-weight: 600;
+}
+
+.mail-settings__row-detail {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

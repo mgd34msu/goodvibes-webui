@@ -6,6 +6,45 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [Unreleased]
 
+The platform runtime this interface is built against moved up four releases, from
+1.15.0 to 1.17.2. It had been left behind on every bump since, which meant this
+was the one surface still compiled against months-old types with nobody having
+checked what that cost. It cost one thing: the settings catalogue this app keeps
+in step with the runtime had gone stale by thirteen entries. Regenerated, so the
+eleven settings for letting several of your machines share inbound work, and the
+two for how the daemon times and rolls back its own updates, are now visible and
+editable here like every other setting — with the shared phrase masked, as any
+secret is. Nothing else in the app changed shape; the whole suite, the build and
+the browser tests pass against the new runtime exactly as they did against the
+old one.
+
+Mail now has a screen. The daemon has published verbs for reading an inbox,
+opening a message, saving a draft to the account and sending, and nothing in
+this interface had ever shown them — so there is now a Mail view beside Calendar
+with an inbox you can filter by count, date and unread, a reader that opens in
+the side panel, and a composer that can reply, save a draft into the account's
+own Drafts folder, or send. Sending asks you to confirm the recipients first,
+because it cannot be taken back.
+
+It is honest about what it can actually do. A message's plain text is what gets
+shown: if the sender also included an HTML version, the view says so and leaves
+it unrendered, so nothing written by a stranger can style, lay out or load
+anything inside the page holding your session. Attachments are listed with their
+type and size and nothing more, because the daemon publishes no way to fetch
+one, and a download button that could not download would be a lie. And when the
+surface cannot answer — either because your daemon has no mail handler at all,
+which is the case on every build today, or because you have not yet given it an
+account — it says which of those it is and what the next step would be, and the
+Send and Save draft controls go inactive with the reason beside them rather than
+staying lit to fail on click.
+
+Admin gained a panel reporting whether mail and calendar are actually working:
+ready, or the specific thing that is missing. It reports only — there is no
+credential field anywhere in it. Accounts and passwords are set through Settings,
+which writes them to the daemon and its secret store, so what you configure keeps
+running with this browser shut and is the same account the terminal and the agent
+use. No mail or calendar credential is ever sent to, or held by, your browser.
+
 ## [1.9.0] - 2026-07-26
 
 A phone can now be a set of things the agent is able to ask for, and this web

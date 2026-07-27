@@ -22,6 +22,10 @@ import {
   calendarEventDetailResponse,
   calendarEventsResponse,
   configGetResponse,
+  emailInboxResponse,
+  emailMessageDetailResponse,
+  EMAIL_NOT_CONFIGURED_BODY,
+  EMAIL_NOT_INVOKABLE_BODY,
   FLEET_SNAPSHOT,
   FLEET_EVENT_NODE,
   knowledgeCandidateDecideResponse,
@@ -176,6 +180,16 @@ export interface MockDaemonOptions {
    * state instead of a fabricated empty calendar.
    */
   calendar?: 'configured' | 'unconfigured';
+  /**
+   * email.* handler behavior. Defaults to 'not-available' ON PURPOSE, because that is
+   * what every real daemon build answers today: the four email verbs ship
+   * `invokable: false` and the daemon serves no /api/email route at any prefix, so a
+   * 501 is the truthful baseline and any test that wants a working inbox has to ask
+   * for it explicitly rather than inheriting a fiction. 'configured' answers the
+   * seeded inbox fixtures; 'unconfigured' answers the 412 precondition refusal (the
+   * handler exists, no account has been brought).
+   */
+  email?: 'configured' | 'unconfigured' | 'not-available';
   /**
    * GET/POST /config behavior (config.get/config.set — the Settings modal and
    * ModelWorkspaceModal's helper/tool/tts/embeddings targets). 'ok' (default)
@@ -625,6 +639,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     memoryIndexUnavailable = false,
     consolidationReceipts = 'available',
     calendar = 'configured',
+    email = 'not-available',
     config = 'ok',
     packet = 'complete',
     fleetEvents = [],
@@ -2044,6 +2059,39 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (method === 'POST' && path === '/api/calendar/ics/import') {
       return json(route, { imported: 1, eventIds: ['ev-imported'], errors: [] });
+    }
+    return json(route, {});
+  });
+
+  // ── Email (email.inbox.*, email.send, email.draft.create) — its own registration
+  //    for the same reason calendar has one: a genuinely separate REST domain, not a
+  //    knowledge-fallback path. The DEFAULT here is the 501 refusal, matching what a
+  //    real daemon answers today (all four verbs ship `invokable: false` and no
+  //    /api/email route is served), so the honest not-available state is what a test
+  //    sees unless it explicitly asks for a working account. ────────────────────────
+  await page.route('**/api/email/**', async (route) => {
+    if (email === 'not-available') {
+      return json(route, EMAIL_NOT_INVOKABLE_BODY, 501);
+    }
+    if (email === 'unconfigured') {
+      return json(route, EMAIL_NOT_CONFIGURED_BODY, 412);
+    }
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+
+    if (method === 'GET' && path === '/api/email/inbox') {
+      return json(route, emailInboxResponse());
+    }
+    const readMatch = path.match(/^\/api\/email\/inbox\/([^/]+)$/);
+    if (method === 'GET' && readMatch) {
+      return json(route, emailMessageDetailResponse(Number(decodeURIComponent(readMatch[1]))));
+    }
+    if (method === 'POST' && path === '/api/email/send') {
+      return json(route, { messageId: '<sent-e2e@example.com>', sentAt: new Date(0).toISOString() });
+    }
+    if (method === 'POST' && path === '/api/email/drafts') {
+      return json(route, { uid: 9001, draftId: 'draft-e2e' });
     }
     return json(route, {});
   });

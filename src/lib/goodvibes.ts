@@ -897,6 +897,101 @@ export interface CalendarIcsExportResult {
 }
 
 /**
+ * Email (email.*) — the daemon's IMAP/SMTP verbs. Same hand-authored-shape situation
+ * as calendar.* above: the four ids ARE in OPERATOR_METHOD_IDS and DO carry generated
+ * REST rows in WEBUI_METHOD_ROUTES (so EXTRA_METHOD_ROUTES routes them with no wiring
+ * of ours), but they have no OperatorMethodInputMap/OutputMap entry, so
+ * OperatorMethodInput/Output<'email.*'> would degrade to the generic fallback.
+ *
+ * These shapes are transcribed field-by-field from the SDK's own catalog —
+ * EMAIL_INBOX_MESSAGE_SCHEMA / EMAIL_MESSAGE_DETAIL_SCHEMA / EMAIL_ATTACHMENT_SCHEMA
+ * and the four inputSchemas in
+ * @pellux/goodvibes-sdk/platform/control-plane/method-catalog-email — not guessed and
+ * not copied from another surface. Optionality mirrors each schema's `required` list
+ * exactly, which is why bodyHtml/attachments are optional on the detail shape while
+ * bodyText is not.
+ *
+ * CAPABILITY REALITY (the reason every view over these renders a not-available state
+ * as a first-class outcome rather than an error): all four ship `invokable: false`,
+ * and the SDK catalog's own comment states there is no /api/email surface on the
+ * daemon router at any prefix yet. Cataloged, not served. Identical to how calendar.*
+ * shipped, and the honest states are what makes that shippable rather than a dead end.
+ */
+export interface EmailInboxMessage {
+  readonly uid: number;
+  readonly from: string;
+  readonly subject: string;
+  readonly date: string;
+  readonly unread: boolean;
+  readonly bodyPreview: string;
+  readonly messageId: string;
+}
+
+export interface EmailAttachment {
+  readonly filename: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+}
+
+export interface EmailMessageDetail {
+  readonly uid: number;
+  readonly from: string;
+  readonly subject: string;
+  readonly date: string;
+  readonly messageId: string;
+  readonly bodyText: string;
+  readonly bodyHtml?: string;
+  readonly attachments?: readonly EmailAttachment[];
+}
+
+export interface EmailInboxListInput {
+  readonly limit?: number;
+  readonly since?: string;
+  readonly unreadOnly?: boolean;
+}
+
+export interface EmailInboxListResult {
+  readonly messages: readonly EmailInboxMessage[];
+  readonly total: number;
+}
+
+/**
+ * `confirm` is required and literal-true: the SDK marks email.send `dangerous: true`
+ * with the description "Irreversible external send; requires confirm: true and
+ * explicit user review of recipients and body." Typing it as the literal rather than
+ * `boolean` means a caller cannot forget it or pass false and discover the refusal at
+ * runtime — and the view pairs it with a real confirmation sheet, so the flag is
+ * never set on the operator's behalf without them having seen the recipients.
+ */
+export interface EmailSendInput {
+  readonly to: string;
+  readonly subject: string;
+  readonly body: string;
+  readonly inReplyTo?: string;
+  readonly confirm: true;
+}
+
+export interface EmailSendResult {
+  readonly messageId: string;
+  readonly sentAt: string;
+}
+
+/** Drafts append to the IMAP Drafts folder — distinct from the local channel draft
+ * store, and notably NOT gated on a `confirm` flag (nothing leaves the account). */
+export interface EmailDraftCreateInput {
+  readonly to: string;
+  readonly subject: string;
+  readonly body: string;
+  readonly inReplyTo?: string;
+  readonly references?: string;
+}
+
+export interface EmailDraftCreateResult {
+  readonly uid: number;
+  readonly draftId: string;
+}
+
+/**
  * SessionDeleteResult — the honest hard-delete outcome shape shared by
  * `operator.sessions.delete` and `chat.sessions.delete`: `deleted: true` means the
  * record and its messages/inputs were actually removed, not merely closed. Neither
@@ -1637,6 +1732,31 @@ export const sdk = {
         import: (input: CalendarIcsImportInput) =>
           invokeOperator<'calendar.ics.import', CalendarIcsImportInput, CalendarIcsImportResult>(
             'calendar.ics.import',
+            input,
+          ),
+      },
+    },
+    // Email (email.*). Routed entirely by the generated WEBUI_METHOD_ROUTES rows that
+    // EXTRA_METHOD_ROUTES derives itself — this block adds no route and no transport,
+    // only the ergonomic + typing layer over invokeOperator, exactly as calendar.* does.
+    // Explicit type params throughout because this family has no generated I/O map (see
+    // the EmailInboxMessage section header above for the transcription provenance).
+    email: {
+      inbox: {
+        list: (input?: EmailInboxListInput) =>
+          invokeOperator<'email.inbox.list', EmailInboxListInput, EmailInboxListResult>(
+            'email.inbox.list',
+            input ?? {},
+          ),
+        read: (uid: number) =>
+          invokeOperator<'email.inbox.read', { uid: number }, EmailMessageDetail>('email.inbox.read', { uid }),
+      },
+      send: (input: EmailSendInput) =>
+        invokeOperator<'email.send', EmailSendInput, EmailSendResult>('email.send', input),
+      draft: {
+        create: (input: EmailDraftCreateInput) =>
+          invokeOperator<'email.draft.create', EmailDraftCreateInput, EmailDraftCreateResult>(
+            'email.draft.create',
             input,
           ),
       },

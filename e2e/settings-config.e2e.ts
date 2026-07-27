@@ -285,9 +285,12 @@ test.describe('daemon.timezone — searchable IANA picker', () => {
     await dialog.getByRole('button', { name: 'Daemon' }).click();
     const select = dialog.locator('[data-config-key="daemon.timezone"]').getByLabel('daemon.timezone');
     await select.selectOption('Asia/Tokyo');
-    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(page.getByText('Config saved').last()).toBeVisible();
     await select.selectOption('');
-    await expect(page.getByText('Config saved')).toBeVisible();
+    // .last(): the first save's toast may still be visible (5s auto-dismiss),
+    // so two "Config saved" toasts can be stacked at once — scope to the most
+    // recent one rather than a bare getByText, which strict-mode-fails on 2 matches.
+    await expect(page.getByText('Config saved').last()).toBeVisible();
     await expect(select).toHaveValue('');
   });
 });
@@ -330,12 +333,14 @@ test.describe('payments.* — budget money fields and the cvvHandling trade-off 
     await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toHaveCount(0);
 
     await select.selectOption('prompt');
-    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(page.getByText('Config saved').last()).toBeVisible();
     await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toBeVisible();
     await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toContainText('disables unattended purchasing');
 
     await select.selectOption('stored');
-    await expect(page.getByText('Config saved')).toBeVisible();
+    // .last(): the first save's toast may still be on screen (5s auto-dismiss),
+    // so two "Config saved" toasts can be stacked — scope to the most recent one.
+    await expect(page.getByText('Config saved').last()).toBeVisible();
     await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toHaveCount(0);
     await expectNoHorizontalScroll(page);
   });

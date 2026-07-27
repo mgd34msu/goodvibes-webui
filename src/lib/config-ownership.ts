@@ -41,6 +41,13 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   'checkin.',
   'integrations.',
   'atRest.',
+  // The daemon is the process that holds the card and charges it, with every
+  // surface closed and across restarts. Card material and budgets left
+  // client-owned would live in whichever surface happened to enter them and
+  // the daemon would charge against defaults — the failure mode the budget
+  // exists to prevent. Mirrors the SDK's config-ownership.ts (see its own
+  // comment there, which cites docs/payments.md §3).
+  'payments.',
   'voice.local.',
 ];
 

@@ -9,6 +9,7 @@ import {
   type SettingsGroupModel,
 } from './settings-model';
 import { FEATURE_SETTINGS } from './generated/config-schema';
+import { isCardMaterialKey } from './card-material';
 
 function groupById(groups: SettingsGroupModel[], id: string): SettingsGroupModel | undefined {
   return groups.find((g) => g.id === id);
@@ -388,5 +389,90 @@ describe('daemonOwned metadata — config-ownership.ts surfaced onto every row',
     const mysteryGroups = buildSettingsModel({ mysteryDomain: { unknownKnob: 'x' } });
     const mysteryRow = groupById(mysteryGroups, 'mysteryDomain')?.rawRows.find((r) => r.key === 'mysteryDomain.unknownKnob');
     expect(mysteryRow?.daemonOwned).toBe(false);
+  });
+});
+
+describe('payments.* and daemon.timezone (payment capability round)', () => {
+  const groups = buildSettingsModel({});
+  const paymentsGroup = groupById(groups, 'payments');
+  const daemonGroup = groupById(groups, 'daemon');
+
+  test.each([
+    'payments.enabled',
+    'payments.defaultCardId',
+    'payments.currency',
+    'payments.cvvHandling',
+    'payments.budget.dailyItemCents',
+    'payments.budget.dailyOverageCents',
+    'payments.budget.perPurchaseCeilingEnabled',
+    'payments.budget.perPurchaseCeilingCents',
+    'payments.budget.overageToleranceEnabled',
+    'payments.budget.overageToleranceDailyAllowanceCents',
+    'payments.shipping.preferredTier',
+    'payments.windows.vetoMinutes',
+    'payments.windows.approvalMinutes',
+    'payments.notifyChannels',
+  ])('%s renders as a plain row in the payments group, daemon-owned, with a description', (key) => {
+    const field = paymentsGroup?.plainRows.find((f) => f.key === key);
+    expect(field, key).toBeDefined();
+    expect(field!.description.length, key).toBeGreaterThan(0);
+    expect(field!.daemonOwned, key).toBe(true);
+  });
+
+  test('daemon.timezone renders in the daemon group, client-owned, with a description', () => {
+    const field = daemonGroup?.plainRows.find((f) => f.key === 'daemon.timezone');
+    expect(field).toBeDefined();
+    expect(field!.description.length).toBeGreaterThan(0);
+    // Mirrors the SDK's own config-ownership.ts: daemon.* is deliberately NOT
+    // daemon-owned (per-installation lifecycle), and there is no special-case
+    // entry for daemon.timezone — see config-ownership.test.ts.
+    expect(field!.daemonOwned).toBe(false);
+  });
+
+  test('payments.currency validates 3-letter ISO-4217 codes via its schema validationHint', () => {
+    const field = paymentsGroup?.plainRows.find((f) => f.key === 'payments.currency');
+    expect(field?.validationHint?.length ?? 0).toBeGreaterThan(0);
+    expect(field?.default).toBe('USD');
+  });
+
+  test('the budget/window/enablement defaults match the schema (owner ruling: default to most safe)', () => {
+    const byKey = new Map(paymentsGroup?.plainRows.map((f) => [f.key, f]));
+    expect(byKey.get('payments.enabled')?.default).toBe(false);
+    expect(byKey.get('payments.cvvHandling')?.default).toBe('stored');
+    expect(byKey.get('payments.budget.dailyItemCents')?.default).toBe(0);
+    expect(byKey.get('payments.budget.perPurchaseCeilingEnabled')?.default).toBe(true);
+    expect(byKey.get('payments.budget.overageToleranceEnabled')?.default).toBe(false);
+    expect(byKey.get('payments.windows.vetoMinutes')?.default).toBe(10);
+    expect(byKey.get('payments.windows.approvalMinutes')?.default).toBe(60);
+  });
+
+  test('no field anywhere in the model is keyed to card material (cvv/pan/cardNumber)', () => {
+    // Belt-and-suspenders: CONFIG_SCHEMA never declares such a key, but a stray
+    // one in the LIVE config must still never surface — not as a plain row, not
+    // as a feature-owned field, not as a raw row.
+    const withStrayCardMaterial = buildSettingsModel({
+      payments: {
+        cards: { visa: { cvv: '123', pan: '4111111111111111', cardNumber: '4111111111111111' } },
+      },
+    });
+    const everyKey = withStrayCardMaterial.flatMap((g) => [
+      ...g.plainRows.map((f) => f.key),
+      ...g.rawRows.map((r) => r.key),
+      ...g.featureUnits.flatMap((u) => [
+        ...(u.enablementField ? [u.enablementField.key] : []),
+        ...u.fields.map((f) => f.key),
+      ]),
+    ]);
+    // Every remaining key passes the same card-material test that filtered the
+    // stray keys out in the first place — i.e. the filtering is total, nothing
+    // isCardMaterialKey would flag survives into the rendered model. (Its own
+    // correctness — including that this must NOT flag payments.cvvHandling or
+    // payments.defaultCardId — is independently unit-tested in
+    // card-material.test.ts.)
+    expect(everyKey.some((k) => isCardMaterialKey(k))).toBe(false);
+    // payments.defaultCardId (a card REFERENCE, not material) still renders.
+    expect(everyKey).toContain('payments.defaultCardId');
+    // payments.cvvHandling (the policy setting, not the CVV itself) still renders.
+    expect(everyKey).toContain('payments.cvvHandling');
   });
 });

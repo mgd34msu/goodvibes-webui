@@ -13,6 +13,23 @@
  *             future object-typed key falls back to a validating JSON form
  *             that at least round-trips honestly until it gets its own editor
  *
+ * A few keys get a specialized editor ahead of the generic type dispatch:
+ *   daemon.timezone        → TimezonePicker, a searchable IANA-zone select
+ *                             (never free text) with an explicit "UTC (unset)"
+ *                             option that writes ''.
+ *   payments.cvvHandling   → CvvHandlingField, an enum select that surfaces
+ *                             CVV_PROMPT_TRADEOFF_WARNING the moment 'prompt'
+ *                             is selected.
+ *   payments.budget.*Cents → MoneyField: entered in major units, converted to
+ *                             the schema's minor units (cents) with exact
+ *                             integer arithmetic (lib/money.ts), never a float
+ *                             multiply/divide.
+ *
+ * Card material (a card number, expiry, or CVV) never reaches this component:
+ * CONFIG_SCHEMA never declares such a key (schema-domain-payments.ts's own
+ * header), and settings-model.ts drops any matching key it finds in the live
+ * config too (lib/card-material.ts) before it ever becomes a field or row.
+ *
  * Commits call onCommit(key, value); it resolves on success (the parent
  * reconciles via a config refetch) and rejects on daemon rejection, which this
  * row surfaces inline (plus the parent's toast). Nothing is faked: an unset key
@@ -21,9 +38,13 @@
  */
 import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
+import { isMoneyConfigKey } from '../../lib/money';
 import type { ConfigFieldModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { ModelPricesEditor } from './ModelPricesEditor';
+import { TimezonePicker } from './TimezonePicker';
+import { MoneyField } from './MoneyField';
+import { CvvHandlingField } from './CvvHandlingField';
 
 interface SettingsFieldProps {
   readonly field: ConfigFieldModel;
@@ -32,6 +53,10 @@ interface SettingsFieldProps {
    *  session (SettingsModal's persistedByKey, looked up by the caller) — undefined
    *  until this row has been saved at least once. */
   readonly persisted?: ConfigSetOutcome;
+  /** The live `payments.currency` value, used only by money (`...Cents`) fields
+   *  to label the amount input; defaults to the schema's own default ('USD')
+   *  when the caller does not pass one. */
+  readonly currency?: string;
 }
 
 function effectiveValue(field: ConfigFieldModel): unknown {
@@ -46,7 +71,7 @@ function scalarToText(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export function SettingsField({ field, onCommit, persisted }: SettingsFieldProps) {
+export function SettingsField({ field, onCommit, persisted, currency }: SettingsFieldProps) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Local draft for text/number/secret; boolean & enum commit without a draft.
@@ -82,6 +107,42 @@ export function SettingsField({ field, onCommit, persisted }: SettingsFieldProps
         return <ModelPricesEditor value={effectiveValue(field)} onCommit={(next) => onCommit(field.key, next)} />;
       }
       return <ObjectJsonField field={field} saving={saving} onCommit={(value) => void commit(value)} />;
+    }
+
+    // daemon.timezone — a searchable IANA-zone picker, never free text.
+    if (field.key === 'daemon.timezone') {
+      const current = effectiveValue(field);
+      const value = typeof current === 'string' ? current : '';
+      return <TimezonePicker value={value} disabled={saving} onCommit={(next) => void commit(next)} />;
+    }
+
+    // payments.cvvHandling — an enum select that surfaces the trade-off
+    // warning at the moment 'prompt' is selected.
+    if (field.type === 'enum' && field.key === 'payments.cvvHandling' && field.enumValues) {
+      const current = effectiveValue(field);
+      const value = typeof current === 'string' ? current : '';
+      return (
+        <CvvHandlingField
+          value={value}
+          enumValues={field.enumValues}
+          disabled={saving}
+          onCommit={(next) => void commit(next)}
+        />
+      );
+    }
+
+    // payments.budget.*Cents — entered in major units, stored in minor units.
+    if (field.type === 'number' && isMoneyConfigKey(field.key)) {
+      const current = effectiveValue(field);
+      const minorUnits = typeof current === 'number' ? current : 0;
+      return (
+        <MoneyField
+          minorUnits={minorUnits}
+          currency={currency ?? 'USD'}
+          disabled={saving}
+          onCommit={(minor) => void commit(minor)}
+        />
+      );
     }
 
     // Secret string — masked, write-only replace.

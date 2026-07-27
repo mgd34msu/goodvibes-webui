@@ -247,3 +247,108 @@ test.describe('pricing.modelPrices — the structured per-model price editor', (
     await expect(page.getByText('Config saved')).toHaveCount(0);
   });
 });
+
+test.describe('daemon.timezone — searchable IANA picker', () => {
+  test('renders a search box, an explicit "UTC (unset)" option, and real zone names', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Daemon' }).click();
+    const field = dialog.locator('[data-config-key="daemon.timezone"]');
+    await expect(field).toBeVisible();
+    const picker = field.locator('[data-testid="timezone-picker"]');
+    await expect(picker).toBeVisible();
+    await expect(picker.getByLabel('Search timezones')).toBeVisible();
+    const select = picker.getByLabel('daemon.timezone');
+    await expect(select.locator('option', { hasText: 'UTC (unset)' })).toHaveCount(1);
+    await expect(select.locator('option[value="America/New_York"]')).toHaveCount(1);
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('selecting a real zone writes that exact IANA name and it survives reopen', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    let dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Daemon' }).click();
+    const select = dialog.locator('[data-config-key="daemon.timezone"]').getByLabel('daemon.timezone');
+    await select.selectOption('Europe/London');
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Daemon' }).click();
+    await expect(dialog.locator('[data-config-key="daemon.timezone"]').getByLabel('daemon.timezone')).toHaveValue('Europe/London');
+  });
+
+  test('selecting "UTC (unset)" writes the empty string', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Daemon' }).click();
+    const select = dialog.locator('[data-config-key="daemon.timezone"]').getByLabel('daemon.timezone');
+    await select.selectOption('Asia/Tokyo');
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await select.selectOption('');
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(select).toHaveValue('');
+  });
+});
+
+test.describe('payments.* — budget money fields and the cvvHandling trade-off warning', () => {
+  test('a budget field is entered in major units and stored/round-tripped as exact minor units', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    let dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Payments' }).click();
+    const field = dialog.locator('[data-config-key="payments.budget.dailyItemCents"]');
+    await expect(field).toBeVisible();
+    const moneyField = field.locator('[data-testid="money-field"]');
+    await expect(moneyField).toBeVisible();
+    const amount = moneyField.getByLabel(/Amount in USD/);
+    await amount.fill('19.99');
+    await amount.blur();
+    await expect(page.getByText('Config saved')).toBeVisible();
+    // The stored minor-unit value is shown honestly alongside the major-unit input.
+    await expect(moneyField).toContainText('1999');
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    // Reopen: the mock daemon's mutable config tree round-trips the minor-unit
+    // integer back into the same major-unit decimal string, exactly.
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Payments' }).click();
+    const reopened = dialog.locator('[data-config-key="payments.budget.dailyItemCents"] [data-testid="money-field"]');
+    await expect(reopened.getByLabel(/Amount in USD/)).toHaveValue('19.99');
+    await expect(reopened).toContainText('1999');
+  });
+
+  test('cvvHandling: selecting "prompt" surfaces the trade-off warning; "stored" shows none', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Payments' }).click();
+    const field = dialog.locator('[data-config-key="payments.cvvHandling"]');
+    await expect(field).toBeVisible();
+    const select = field.locator('[data-testid="cvv-handling-field"]').getByLabel('payments.cvvHandling');
+    await expect(select).toHaveValue('stored'); // schema default
+    await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toHaveCount(0);
+
+    await select.selectOption('prompt');
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toBeVisible();
+    await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toContainText('disables unattended purchasing');
+
+    await select.selectOption('stored');
+    await expect(page.getByText('Config saved')).toBeVisible();
+    await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('no card material (cvv/pan/cardNumber) ever renders anywhere in the Payments group', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open Settings' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    await dialog.getByRole('button', { name: 'Payments' }).click();
+    const group = dialog.locator('.settings-entries');
+    await expect(group.locator('[data-config-key*="cvv" i]:not([data-config-key="payments.cvvHandling"])')).toHaveCount(0);
+    await expect(group.locator('[data-config-key*="pan" i]')).toHaveCount(0);
+    await expect(group.locator('[data-config-key*="cardNumber" i]')).toHaveCount(0);
+    // payments.defaultCardId (a reference, not material) is expected to render.
+    await expect(group.locator('[data-config-key="payments.defaultCardId"]')).toBeVisible();
+  });
+});

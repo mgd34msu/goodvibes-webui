@@ -520,3 +520,58 @@
 .settings-field-object .primary-button {
   align-self: flex-start;
 }
+
+/* daemon.timezone — searchable IANA zone picker. */
+.timezone-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 14rem;
+  max-width: 100%;
+}
+
+.timezone-picker-search {
+  width: 100%;
+}
+
+.timezone-picker-select {
+  width: 100%;
+}
+
+/* payments.budget.*Cents — currency-labeled major-unit amount input. */
+.money-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.money-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.money-field-currency {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-width: 3ch;
+}
+
+.money-field-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* payments.cvvHandling — enum select plus the trade-off warning on 'prompt'. */
+.cvv-handling-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.cvv-prompt-warning {
+  max-width: 42rem;
+}

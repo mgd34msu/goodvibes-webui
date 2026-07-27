@@ -17,7 +17,15 @@
  *   - Schema keys owned by no feature render as typed "plain" rows under their
  *     namespace group.
  *   - Keys present in the LIVE config but absent from the schema still render (as
- *     read-only raw rows) so nothing the daemon actually holds becomes invisible.
+ *     read-only raw rows) so nothing the daemon actually holds becomes invisible —
+ *     EXCEPT a key card-material.ts's isCardMaterialKey() matches (a card number,
+ *     PAN, or CVV/CVC). That is the one deliberate exception to "nothing becomes
+ *     invisible": card material must never be entered or displayed on this surface
+ *     at all, so a matching key is dropped from every row source (plain, feature-
+ *     owned, and raw) rather than rendered — masked or otherwise. In practice
+ *     CONFIG_SCHEMA never declares such a key (schema-domain-payments.ts keeps card
+ *     material in the daemon's secret store only), so this filter only ever catches
+ *     a stray live-config key the schema does not know about.
  *
  * Grouping SOURCE is SDK metadata (CONFIG_SCHEMA namespaces + each feature's
  * domain), never a hand-copied category list — so cross-surface parity with the
@@ -33,6 +41,7 @@ import {
 } from './generated/config-schema';
 import { categoryLabelForKey, CATEGORY_LABELS, isSecretConfigKey } from './config-redaction';
 import { isDaemonOwnedConfigKey } from './config-ownership';
+import { isCardMaterialKey } from './card-material';
 import { asRecord } from './object';
 
 /** A single typed, editable config field: schema metadata merged with its live value. */
@@ -220,10 +229,11 @@ function buildFeatureUnit(feature: FeatureSettingMeta, liveConfig: unknown): Fea
   // For boolean/enum enablement the enablement key is the feature-level
   // control, so it does not repeat in the field list; constant features keep
   // every settings key (enablement key first) as ordinary typed fields.
-  const fieldKeys =
+  const fieldKeys = (
     feature.enablement.kind === 'constant'
       ? feature.settings
-      : feature.settings.filter((k) => k !== feature.enablement.key);
+      : feature.settings.filter((k) => k !== feature.enablement.key)
+  ).filter((k) => !isCardMaterialKey(k));
   const fields = fieldKeys
     .map((k) => SCHEMA_BY_KEY.get(k))
     .filter((e): e is ConfigSchemaEntry => Boolean(e))
@@ -298,11 +308,13 @@ export function buildSettingsModel(liveConfig: unknown): SettingsGroupModel[] {
     const featureUnits = unitsByNamespace.get(ns) ?? [];
 
     const plainRows = CONFIG_SCHEMA_ENTRIES.filter(
-      (e) => namespaceOf(e.key) === ns && !OWNED_CONFIG_KEYS.has(e.key),
+      (e) => namespaceOf(e.key) === ns && !OWNED_CONFIG_KEYS.has(e.key) && !isCardMaterialKey(e.key),
     ).map((e) => buildField(e, liveConfig));
 
     const rawRows: RawRowModel[] = liveKeys
-      .filter((k) => namespaceOf(k) === ns && !schemaKeySet.has(k) && !OWNED_CONFIG_KEYS.has(k))
+      .filter(
+        (k) => namespaceOf(k) === ns && !schemaKeySet.has(k) && !OWNED_CONFIG_KEYS.has(k) && !isCardMaterialKey(k),
+      )
       .map((k) => ({
         key: k,
         value: readConfigPath(liveConfig, k).value,

@@ -9,6 +9,7 @@ import {
   Gauge,
   GitBranch,
   History,
+  Inbox,
   KeyRound,
   MessageSquare,
   Network,
@@ -55,6 +56,7 @@ import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
 import { KnowledgeView } from './views/KnowledgeView';
 import { MemoryView } from './views/memory/MemoryView';
 import { CalendarView } from './views/calendar/CalendarView';
+import { MailView } from './views/mail/MailView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { attentionCount } from './lib/fleet';
@@ -83,6 +85,10 @@ const views: {
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'memory', label: 'Memory', short: 'Recall', icon: Database },
   { id: 'calendar', label: 'Calendar', short: 'Events', icon: CalendarDays },
+  // email.* — the inbox, reader and composer over the daemon's mail verbs. Sits next
+  // to Calendar because they are the same kind of thing: a personal account the
+  // daemon holds, which every surface reads through the daemon rather than its own.
+  { id: 'mail', label: 'Mail', short: 'Inbox', icon: Inbox },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
   // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
@@ -703,6 +709,7 @@ export default function App() {
           {activeView === 'knowledge' && <KnowledgeView />}
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}
+          {activeView === 'mail' && <MailView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>

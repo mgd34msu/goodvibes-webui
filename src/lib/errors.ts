@@ -290,6 +290,53 @@ export function isMethodNotInvokableError(error: unknown): boolean {
 }
 
 /**
+ * True for the daemon's honest refusals on the email surface — the operator has an
+ * account to bring but has not brought it yet (no IMAP host / SMTP host / account
+ * address / app password in daemon config and the daemon secret tier).
+ *
+ * GROUNDING NOTE, deliberately explicit because it differs from most helpers here:
+ * the installed SDK defines no EMAIL_, IMAP_ or SMTP_ prefixed error-code literals at
+ * all (verified by sweeping @pellux/goodvibes-sdk/dist — only the three
+ * EMAIL_..._SCHEMA shape names appear). The named codes below are ANTICIPATED, as
+ * `isCalendarUnconfiguredError`'s CALENDAR_NOT_CONFIGURED is anticipated — that
+ * literal is likewise absent from the SDK. So correctness here does not rest on
+ * guessing a string right: the structural backstop is HTTP 412, which is what a
+ * precondition refusal ("configure the surface first") is by definition. Any 412 on
+ * an email call reads as not-configured whether or not its code matches, so a daemon
+ * that ships a code none of these names anticipates still gets the calm setup pointer
+ * rather than a red failure. Tighten the literals once a real handler ships one.
+ */
+export function isEmailUnconfiguredError(error: unknown): boolean {
+  const code = errorCode(error);
+  if (
+    code === 'EMAIL_NOT_CONFIGURED'
+    || code === 'EMAIL_CREDENTIALS_MISSING'
+    || code === 'IMAP_NOT_CONFIGURED'
+    || code === 'SMTP_NOT_CONFIGURED'
+  ) {
+    return true;
+  }
+  const serialized = serializeError(error);
+  const transport = asRecord(serialized.transport);
+  const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
+  return status === 412;
+}
+
+/**
+ * True when the operator DID configure a mail account but the IMAP/SMTP server
+ * rejected the stored credentials — the app password was revoked, or the account
+ * moved. Distinct from `isEmailUnconfiguredError`: there is something to fix, not
+ * something to set up. Same anticipated-literal caveat as above; here the structural
+ * backstop is deliberately NOT a bare status check, because 401 on an email call is
+ * ambiguous (it is also what an expired *daemon* session returns, which
+ * `isAuthExpiredError` already owns and must keep owning).
+ */
+export function isEmailAuthFailedError(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === 'EMAIL_AUTH_FAILED' || code === 'IMAP_AUTH_FAILED' || code === 'SMTP_AUTH_FAILED';
+}
+
+/**
  * True for the daemon's step-up refusal on a mutating call that arrived over the relay
  * (evaluateStepUp in @pellux/goodvibes-sdk's relay step-up policy — a fail-closed hook:
  * consumers wire a real WebAuthn verifier, and until one is wired every mutating relay

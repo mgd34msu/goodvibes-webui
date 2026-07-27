@@ -23,6 +23,7 @@ import { MemoryDiagnostics } from '../components/settings/MemoryDiagnostics';
 import { NotificationSettings } from '../components/settings/NotificationSettings';
 import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
 import { PowerSettings } from '../components/settings/PowerSettings';
+import { MailAccountSettings } from '../components/settings/MailAccountSettings';
 import { TailscaleSettings } from '../components/settings/TailscaleSettings';
 import '../styles/components/admin.css';
 
@@ -216,6 +217,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         <MemoryDiagnostics />
 
         <TailscaleSettings />
+
+        <MailAccountSettings />
 
         <section className="panel">
           <div className="panel-title">

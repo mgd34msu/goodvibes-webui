@@ -85,6 +85,16 @@ export const queryKeys = {
   // than serving a stale window from cache.
   calendarEvents: (from: string, to: string, calendarId: string) =>
     ['calendar', 'events', from, to, calendarId] as const,
+  // email.* — the inbox listing is keyed on the filters that change what the daemon
+  // fetches from IMAP (limit, unread-only, since), so toggling a filter refetches
+  // rather than re-rendering a window that no longer matches the controls. No wire
+  // event exists for this domain either, so MailView refetches manually — same
+  // standing gap fleet.*/checkpoints.*/memory.*/calendar.* document.
+  emailInbox: (limit: number, unreadOnly: boolean, since: string) =>
+    ['email', 'inbox', limit, unreadOnly, since] as const,
+  // Keyed per IMAP UID: the peek body for one message is its own cache entry, so
+  // reopening a message already read is instant and closing does not evict the list.
+  emailMessage: (uid: number) => ['email', 'message', uid] as const,
   // ci.* (SDK 1.6.1's initiative family). No wire event exists for this domain yet, so
   // CiWatchesView polls/refetches manually rather than riding useRealtimeInvalidation —
   // same standing gap fleet.*/checkpoints.*/memory.* document above.

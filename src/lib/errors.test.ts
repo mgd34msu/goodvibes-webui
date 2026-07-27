@@ -3,6 +3,8 @@ import {
   formatError,
   isAuthExpiredError,
   isConflictError,
+  isEmailAuthFailedError,
+  isEmailUnconfiguredError,
   isMethodUnavailableError,
   isSessionActiveError,
   isSessionNotFoundError,
@@ -152,5 +154,39 @@ describe('error formatting', () => {
   test('SESSION_NOT_LOCAL is not confused with SESSION_NOT_FOUND (both 404, different meanings)', () => {
     expect(isSessionNotLocalError({ status: 404, body: { code: 'SESSION_NOT_FOUND', error: 'Session not found' } })).toBe(false);
     expect(isSessionNotFoundError({ status: 404, body: { code: 'SESSION_NOT_LOCAL' } })).toBe(false);
+  });
+});
+
+describe('isEmailUnconfiguredError (412 precondition refusal, structural backstop)', () => {
+  test('true for the named EMAIL_NOT_CONFIGURED code', () => {
+    expect(isEmailUnconfiguredError({ status: 412, body: { code: 'EMAIL_NOT_CONFIGURED', error: 'No mail account is configured.' } })).toBe(true);
+  });
+
+  test('true for a bare HTTP 412 with a code none of the anticipated literals name — the structural backstop', () => {
+    // The whole point of the backstop: correctness must not rest on guessing the
+    // daemon's exact code string right. A 412 with an unrecognized code still reads
+    // as "not configured yet" rather than falling through to a scary generic error.
+    expect(isEmailUnconfiguredError({ status: 412, body: { code: 'SOME_FUTURE_CODE_NOT_YET_NAMED' } })).toBe(true);
+    expect(isEmailUnconfiguredError({ status: 412, body: {} })).toBe(true);
+  });
+
+  test('false for a 404 (capability-absent, a different honest signal entirely)', () => {
+    expect(isEmailUnconfiguredError({ status: 404, body: { code: 'METHOD_NOT_FOUND' } })).toBe(false);
+  });
+
+  test('false for a 501 (cataloged but not invokable, not a precondition refusal)', () => {
+    expect(isEmailUnconfiguredError({ status: 501, body: { code: 'METHOD_NOT_INVOKABLE' } })).toBe(false);
+  });
+});
+
+describe('isEmailAuthFailedError (configured account, rejected credentials)', () => {
+  test('true for EMAIL_AUTH_FAILED and IMAP_AUTH_FAILED', () => {
+    expect(isEmailAuthFailedError({ body: { code: 'EMAIL_AUTH_FAILED' } })).toBe(true);
+    expect(isEmailAuthFailedError({ body: { code: 'IMAP_AUTH_FAILED' } })).toBe(true);
+  });
+
+  test('false for a plain 401 — must not swallow daemon-session expiry, which isAuthExpiredError already owns', () => {
+    expect(isEmailAuthFailedError({ status: 401, category: 'authentication' })).toBe(false);
+    expect(isEmailAuthFailedError(Object.assign(new Error('Unauthorized'), { status: 401 }))).toBe(false);
   });
 });

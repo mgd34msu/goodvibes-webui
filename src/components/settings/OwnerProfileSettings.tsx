@@ -65,7 +65,7 @@ import {
   useUndoOwnerProfile,
 } from '../../hooks/useOwnerProfile';
 import {
-  deletedWhat,
+  forgetReportLine,
   profileDisabledLine,
   profileStateBadgeClass,
   profileStateLabel,
@@ -78,7 +78,6 @@ import {
   type ProfileProseLine,
   type ProfileSection,
   type ProfileTarget,
-  type ProfileWriteOutcome,
 } from '../../lib/owner-profile';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { EmptyState } from '../feedback/EmptyState';
@@ -259,9 +258,21 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
 // A prose line (§4.4) — rendered as the prose it is
 // ---------------------------------------------------------------------------
 
-function ProseRow({ line, actions }: { line: ProfileProseLine; actions: RowActions }) {
+function ProseRow({
+  section,
+  line,
+  actions,
+}: {
+  section: ProfileSection;
+  line: ProfileProseLine;
+  actions: RowActions;
+}) {
   const [provenanceOpen, setProvenanceOpen] = useState(false);
-  const target: ProfileTarget = { kind: 'line', lineIndex: line.lineIndex };
+  // Addressed by content, never by position (§9.2). The section comes from the heading
+  // this row is rendered under rather than the line's own `section` field: the heading is
+  // what the file actually reads and what profile.append matches on, and it is guaranteed
+  // non-empty by the parser.
+  const target: ProfileTarget = { kind: 'line', section: section.heading, text: line.text };
 
   return (
     <li className="owner-profile__line" data-testid={`profile-line-${String(line.lineIndex)}`}>
@@ -366,7 +377,7 @@ function SectionBlock({
       {section.prose.length > 0 && (
         <ul className="owner-profile__lines">
           {section.prose.map((line) => (
-            <ProseRow key={line.lineIndex} line={line} actions={actions} />
+            <ProseRow key={line.lineIndex} section={section} line={line} actions={actions} />
           ))}
         </ul>
       )}
@@ -457,20 +468,6 @@ export function OwnerProfileSettings() {
     });
   }
 
-  /** A delete that happened names what went; one that did not relays the daemon's reason. */
-  function reportForget(outcome: ProfileWriteOutcome | null, label: string): ActionReport {
-    if (outcome === null) {
-      return {
-        tone: 'warning',
-        text: `The daemon answered, but did not say whether ${label} was deleted. Check the profile below before assuming it went.`,
-      };
-    }
-    if (!outcome.ok) {
-      return { tone: 'info', text: outcome.reason ?? `Nothing was deleted, and the daemon did not say why.` };
-    }
-    return { tone: 'ok', text: `Deleted ${deletedWhat(outcome, label)} from your profile.` };
-  }
-
   async function onForget(target: ProfileTarget, label: string) {
     const confirmed = await confirm.ask({
       title: 'Forget this permanently',
@@ -482,7 +479,7 @@ export function OwnerProfileSettings() {
     });
     if (!confirmed) return;
     forget.mutate(target, {
-      onSuccess: (outcome) => { setReport(reportForget(outcome, label)); },
+      onSuccess: (outcome) => { setReport(forgetReportLine(outcome, label)); },
       onError: (error) => { setReport({ tone: 'warning', text: formatError(error) }); },
     });
   }

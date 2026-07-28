@@ -66,7 +66,7 @@ interface Harness {
   setField: (fieldId: string, value: string) => void;
   appendLine: (section: string, text: string) => void;
   forgetField: (fieldId: string) => void;
-  forgetLine: (lineIndex: number) => void;
+  forgetLine: (section: string, text: string) => void;
   undoField: (fieldId: string) => void;
 }
 
@@ -88,7 +88,7 @@ function render(): void {
       setField: (fieldId, value) => { setField.mutate({ fieldId, value }); },
       appendLine: (section, text) => { appendLine.mutate({ section, text }); },
       forgetField: (fieldId) => { forget.mutate({ kind: 'field', fieldId }); },
-      forgetLine: (lineIndex) => { forget.mutate({ kind: 'line', lineIndex }); },
+      forgetLine: (section, text) => { forget.mutate({ kind: 'line', section, text }); },
       undoField: (fieldId) => { undo.mutate(fieldId); },
     };
     return null;
@@ -163,12 +163,19 @@ describe('every profile write states its authority', () => {
     expect(call.input).toEqual({ fieldId: 'contact.phone', authority: AUTHORITY });
   });
 
-  test('profile.forget sends authority owner-direct alongside a line target', async () => {
+  test('profile.forget names a note by section and exact text, with no lineIndex', async () => {
     render();
-    harness?.forgetLine(41);
+    harness?.forgetLine('People', 'Sarah, sister, sarah@example.com');
     const call = await nextCall();
     expect(call.verb).toBe('forget');
-    expect(call.input).toEqual({ lineIndex: 41, authority: AUTHORITY });
+    expect(call.input).toEqual({
+      section: 'People',
+      text: 'Sarah, sister, sarah@example.com',
+      authority: AUTHORITY,
+    });
+    // A position captured at render time may name a different line by click time (§9.2),
+    // so the verb refuses one outright — nothing here may send it.
+    expect('lineIndex' in (call.input as Record<string, unknown>)).toBe(false);
   });
 
   test('profile.undo sends authority owner-direct', async () => {
@@ -197,5 +204,79 @@ describe('every profile write states its authority', () => {
       expect(input.authority, `${call.verb} omitted authority`).toBe(AUTHORITY);
       expect('explicitUserRequest' in input, `${call.verb} sent explicitUserRequest`).toBe(false);
     }
+  });
+});
+
+/**
+ * The hazard content addressing exists to prevent (§9.2, §3).
+ *
+ * The owner is a concurrent writer, and a settings page is exactly where a stale index
+ * happens: he opens the card, walks away, edits the file in his editor, comes back and
+ * clicks delete on a row rendered from the pre-edit read. These tests drive a fake
+ * document that removes by CONTENT the way forgetProseByText does, and prove the two
+ * outcomes that matter — the right line goes even though every index moved, and a line
+ * that is gone takes nothing with it.
+ */
+describe('a document that changed under the view', () => {
+  /** Prose lines as they sit in the file, in order. Index N is position N. */
+  let people: string[] = [];
+
+  /** Mirrors forgetProseByText: match on trimmed text, refuse when it is not there. */
+  function forgetByContent(section: string, text: string): unknown {
+    if (section !== 'People') {
+      return { ok: false, reason: `Your profile has no ${section} section, so there was nothing to forget.`, changes: [], disclosure: '' };
+    }
+    const wanted = text.trim();
+    const matches = people.filter((line) => line.trim() === wanted);
+    if (matches.length === 0) {
+      return { ok: false, reason: `That line is not in People any more, so nothing was removed.`, changes: [], disclosure: '' };
+    }
+    if (matches.length > 1) {
+      return { ok: false, reason: `${matches.length} lines in People read exactly that, so it is not clear which one you mean.`, changes: [], disclosure: '' };
+    }
+    people = people.filter((line) => line.trim() !== wanted);
+    return { ok: true, reason: null, changes: [{ kind: 'forget', fieldId: null, section: 'People', label: 'note', superseded: false }], disclosure: '' };
+  }
+
+  async function forgetAndRead(section: string, text: string): Promise<Record<string, unknown>> {
+    calls = [];
+    harness?.forgetLine(section, text);
+    const call = await nextCall();
+    return forgetByContent(
+      (call.input as { section: string }).section,
+      (call.input as { text: string }).text,
+    ) as Record<string, unknown>;
+  }
+
+  test('the right line is removed even though its position moved since the read', async () => {
+    // Rendered from this read: "Dave" sits at index 1.
+    people = ['Sarah, sister, sarah@example.com', 'Dave from work, handles the Pellux contracts'];
+    render();
+
+    // He edits the file meanwhile — a new first line pushes everything down by one.
+    people = ['Ken, neighbour', 'Sarah, sister, sarah@example.com', 'Dave from work, handles the Pellux contracts'];
+
+    // He clicks delete on the Dave row, still rendered from the pre-edit read.
+    const outcome = await forgetAndRead('People', 'Dave from work, handles the Pellux contracts');
+
+    expect(outcome.ok).toBe(true);
+    // Dave went, and nothing else did. A positional delete carrying the rendered index 1
+    // would have removed Sarah — this asserts exactly that it did not.
+    expect(people).toEqual(['Ken, neighbour', 'Sarah, sister, sarah@example.com']);
+  });
+
+  test('a line that is gone takes nothing with it, and is not reported as a deletion', async () => {
+    people = ['Sarah, sister, sarah@example.com', 'Dave from work, handles the Pellux contracts'];
+    render();
+
+    // He deletes the Dave line in his editor meanwhile.
+    people = ['Sarah, sister, sarah@example.com'];
+
+    const outcome = await forgetAndRead('People', 'Dave from work, handles the Pellux contracts');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toContain('not in People any more');
+    // The survivor is untouched — nothing was removed in its place.
+    expect(people).toEqual(['Sarah, sister, sarah@example.com']);
   });
 });

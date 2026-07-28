@@ -1827,9 +1827,10 @@ export const sdk = {
       provenance: (fieldId: string) => invokeOperator('profile.provenance', { fieldId }),
       set: (input: OperatorMethodInput<'profile.set'>) => invokeOperator('profile.set', input),
       append: (input: OperatorMethodInput<'profile.append'>) => invokeOperator('profile.append', input),
-      // Narrower than OperatorMethodInput<'profile.forget'>, whose fieldId, lineIndex AND
-      // authority are all optional: the daemon 400s on a body missing a target or missing
-      // an authority, so this makes both a compile error instead of a round trip.
+      // Narrower than OperatorMethodInput<'profile.forget'>, which still declares the
+      // RETIRED lineIndex and makes every property optional: the daemon 400s on a body
+      // missing a target, missing an authority, or carrying a lineIndex at all. A prose
+      // line is named by its section and exact text, never its position (§9.2).
       forget: (input: ProfileForgetInput) => invokeOperator('profile.forget', input),
       undo: (input: OperatorMethodInput<'profile.undo'>) => invokeOperator('profile.undo', input),
       status: () => invokeOperator('profile.status', {}),

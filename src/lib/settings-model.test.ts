@@ -297,6 +297,27 @@ describe('new settings keys from the snapshot schema', () => {
       expect(field!.isSecret, key).toBe(true);
     }
   });
+
+  test('secret-store-only-config-keys.ts flags the mail/calendar passwords, not ordinary secret-shaped keys', () => {
+    const findField = (key: string) =>
+      groups.flatMap((g) => [...g.plainRows, ...g.featureUnits.flatMap((u) => u.fields)]).find((f) => f.key === key);
+
+    for (const key of [
+      'surfaces.email.password',
+      'surfaces.email.imapPassword',
+      'surfaces.calendar.caldavPassword',
+    ]) {
+      const field = findField(key);
+      expect(field, key).toBeDefined();
+      expect(field!.isSecret, key).toBe(true);
+      expect(field!.secretStoreOnly, key).toBe(true);
+    }
+
+    // A secret-shaped key that IS genuinely configurable through config.set
+    // (surfaces.slack.botToken supports a literal value) must not be flagged.
+    const slackToken = findField('surfaces.slack.botToken');
+    expect(slackToken?.secretStoreOnly).toBe(false);
+  });
 });
 
 describe('voice.local.* and fleet.maxSize (SDK 1.8.0) — grouping verification', () => {

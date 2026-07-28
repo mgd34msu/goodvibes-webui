@@ -20,7 +20,14 @@ let setOutcome: SetOutcome = 'ok';
 // unit (surfaces.slack.botToken → slack-surface), and a flag override read.
 const CONFIG_FIXTURE = {
   display: { theme: 'vaporwave', collapseThreshold: 30 },
-  surfaces: { slack: { botToken: 'xoxb-super-secret-value-1234' } },
+  surfaces: {
+    slack: { botToken: 'xoxb-super-secret-value-1234' },
+    // secret-store-only-config-keys.ts: the daemon's mail connector never reads
+    // this value from config (surface-config.ts resolves the password only
+    // from the secret store) — used below to prove the field refuses to write
+    // it rather than offering a Replace flow that cannot work.
+    email: { password: 'nine-nine-nine-plaintext' },
+  },
   behavior: { hitlMode: 'balanced' },
 };
 
@@ -287,6 +294,48 @@ describe('SettingsModal — honest degraded states', () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Config unavailable') ?? false);
     expect(el.textContent).not.toContain('Admin access required');
+    unmount();
+  });
+});
+
+describe('SettingsModal — secret-store-only credentials refuse a config.set write', () => {
+  test('surfaces.email.password is masked but offers no Replace flow — it names the real command instead', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
+    clickCategory(el, 'Surfaces');
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="surfaces.email.password"]')));
+    const field = el.querySelector('[data-config-key="surfaces.email.password"]') as HTMLElement;
+    // Never the raw value.
+    expect(field.textContent).not.toContain('nine-nine-nine-plaintext');
+    // No write path at all for this key — no Replace button, no password input.
+    expect(field.querySelector('.settings-field-replace')).toBeNull();
+    expect(field.querySelector('input[type="password"]')).toBeNull();
+    // Names the real command.
+    expect(field.textContent).toContain('/secrets set GOODVIBES_SURFACES_EMAIL_PASSWORD');
+    unmount();
+  });
+
+  test('the Advanced escape hatch refuses a secret-store-only key too, and never calls config.set', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('.settings-advanced input')));
+    const keyInput = el.querySelector('.settings-advanced input') as HTMLInputElement;
+    const valueTextarea = el.querySelector('.settings-advanced textarea') as HTMLTextAreaElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(keyInput, 'surfaces.calendar.caldavPassword');
+      keyInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+      const taSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      taSetter?.call(valueTextarea, '"a-plaintext-caldav-password"');
+      valueTextarea.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.settings-advanced form') as HTMLFormElement;
+    flushSync(() => {
+      form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await waitFor(() => Boolean(el.querySelector('.settings-advanced .banner.warning')));
+    expect(configSetCalls).toEqual([]);
+    const banner = el.querySelector('.settings-advanced .banner.warning');
+    expect(banner?.textContent).toContain('/secrets set GOODVIBES_SURFACES_CALENDAR_CALDAV_PASSWORD');
     unmount();
   });
 });

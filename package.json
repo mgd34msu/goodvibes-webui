@@ -18,6 +18,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 3423 --strictPort",
     "pretest": "bun run scripts/sweep-stale-temp.ts",
     "test": "bun test --isolate",
+    "coverage": "bun run scripts/coverage.ts",
     "pretest:live": "bun run scripts/sweep-stale-temp.ts",
     "test:live": "bun run scripts/live-daemon-smoke.ts",
     "test:e2e": "playwright test",

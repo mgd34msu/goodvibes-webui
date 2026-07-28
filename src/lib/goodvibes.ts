@@ -1872,6 +1872,17 @@ export const sdk = {
     },
     // Principals (principals.*, SDK 1.6.1): the named-identity registry. Real generated
     // I/O maps throughout.
+    //
+    // On the `{ id, ...input }` spread form used here and by sessions.steer / followUp /
+    // messages.create: a property arriving THROUGH a spread is not excess-property
+    // checked, so a stale key in the spread source compiles clean no matter how the
+    // parameter is typed (measured — see the guard block above invokeOperatorUncheckedInput).
+    // These four are safe for a structural reason rather than a checked one: every spread
+    // source is DERIVED from the contract (OperatorMethodInput<…>, or an Omit of it), so it
+    // cannot hold a key the contract does not, and a retirement removes it from both sides
+    // in the same regeneration. Replace any of these sources with a hand-authored type and
+    // that protection is gone silently — such a type needs its own OnlyDeclaredKeys guard,
+    // which is exactly why profile.forget has one.
     principals: {
       list: () => invokeOperator('principals.list', {}),
       get: (principalId: string) => invokeOperator('principals.get', { principalId }),
@@ -2141,6 +2152,15 @@ export const sdk = {
       // Callers MUST pair this with a capability check (operator.control.methodInfo) or
       // a proof-of-gone reconcile — never assume a 200 means the record is truly gone
       // on every daemon build.
+      //
+      // THE CAST BELOW IS NOT REDUNDANT, though tsc stays silent if you delete it.
+      // OperatorMethodOutput<'sessions.delete'> is `{sessionId}` — it has no `deleted`.
+      // The cast widens the result to this module's `{sessionId, deleted}`, and `deleted`
+      // is the entire point of the verb (actually removed, not merely closed). Removing
+      // it type-checks clean only because the one test that reads the result compares it
+      // with toEqual rather than reading the field, so nothing forces the property to
+      // exist — a later `if (result.deleted)` would then fail to compile. Retire the cast
+      // when the generated output gains `deleted`, not before.
       delete: (sessionId: string) => invokeOperator('sessions.delete', { sessionId }) as Promise<SessionDeleteResult>,
       // sessions.search (typed-client scaffold, first consumer of the search facade):
       // in the OperatorMethodId union but routeless (no browser/EXTRA_METHOD_ROUTES

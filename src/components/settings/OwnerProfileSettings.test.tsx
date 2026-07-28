@@ -512,8 +512,8 @@ describe('OwnerProfileSettings', () => {
 
     const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
     expect(report).toContain('That line is not in People any more, so nothing was removed.');
-    expect(report).toContain('out of date');
-    expect(report).toContain('Reloading it now.');
+    expect(report).toContain('may no longer match the file');
+    expect(report).toContain('reloading it');
     expect(report).not.toContain('Deleted');
     // Warning tone, not the quiet informational one a plain no-op would get.
     expect(el.querySelector('.owner-profile__report .banner')?.className).toContain('warning');

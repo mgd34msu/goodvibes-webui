@@ -10,6 +10,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   deletedWhat,
+  forgetReportLine,
   forgetTargetInput,
   profileDisabledLine,
   profileStateBadgeClass,
@@ -22,6 +23,7 @@ import {
   readProfileStatus,
   readProfileWriteOutcome,
   sectionHoldsThirdPartyData,
+  STALE_VIEW_NOTE,
   tierNote,
   writeReportLine,
   type ProfileSection,
@@ -405,9 +407,77 @@ describe('targets', () => {
     expect(profileTargetId({ kind: 'field', fieldId: 'commerce.currency' })).toBe('field:commerce.currency');
   });
 
-  test('a prose line target sends only a line index — the verb takes no section', () => {
-    expect(forgetTargetInput({ kind: 'line', lineIndex: 41 })).toEqual({ lineIndex: 41 });
-    expect(profileTargetId({ kind: 'line', lineIndex: 41 })).toBe('line:41');
+  test('a prose line target sends its section and exact text — never a position', () => {
+    const target = { kind: 'line', section: 'People', text: 'Sarah, sister, sarah@example.com' } as const;
+    expect(forgetTargetInput(target)).toEqual({ section: 'People', text: 'Sarah, sister, sarah@example.com' });
+    expect(profileTargetId(target)).toBe('line:People:Sarah, sister, sarah@example.com');
+  });
+
+  test('no target input carries a lineIndex — the verb refuses one outright', () => {
+    const inputs = [
+      forgetTargetInput({ kind: 'field', fieldId: 'contact.phone' }),
+      forgetTargetInput({ kind: 'line', section: 'Notes', text: 'Allergic to shellfish' }),
+    ];
+    for (const input of inputs) {
+      expect('lineIndex' in input).toBe(false);
+    }
+  });
+});
+
+describe('forgetReportLine', () => {
+  test('a deletion names what actually went and says nothing about staleness', () => {
+    const line = forgetReportLine(
+      {
+        ok: true,
+        changes: [{ kind: 'forget', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: false }],
+        disclosure: '',
+      },
+      'phone',
+    );
+    expect(line).toEqual({ tone: 'ok', text: 'Deleted phone from your profile.' });
+    expect(line.text).not.toContain(STALE_VIEW_NOTE);
+  });
+
+  test('a note that is no longer there relays the reason AND flags the view as stale', () => {
+    const line = forgetReportLine(
+      {
+        ok: false,
+        reason: 'That line is not in People any more, so nothing was removed.',
+        changes: [],
+        disclosure: '',
+      },
+      'Sarah, sister',
+    );
+    expect(line.tone).toBe('warning');
+    expect(line.text).toContain('That line is not in People any more, so nothing was removed.');
+    expect(line.text).toContain(STALE_VIEW_NOTE);
+    expect(line.text).not.toContain('Deleted');
+  });
+
+  test('two identical notes the daemon will not guess between also flags staleness', () => {
+    const line = forgetReportLine(
+      { ok: false, reason: '2 lines in Notes read exactly that, so it is not clear which one you mean.', changes: [], disclosure: '' },
+      'a note',
+    );
+    expect(line.text).toContain('not clear which one you mean');
+    expect(line.text).toContain(STALE_VIEW_NOTE);
+  });
+
+  test('an absent field flags staleness too — the row was rendered from a stale read', () => {
+    const line = forgetReportLine(
+      { ok: false, reason: 'Your profile has no phone recorded, so there was nothing to forget.', changes: [], disclosure: '' },
+      'phone',
+    );
+    expect(line.text).toContain('there was nothing to forget');
+    expect(line.text).toContain(STALE_VIEW_NOTE);
+  });
+
+  test('a body that never said ok is unsaid, never a deletion and never a staleness claim', () => {
+    const line = forgetReportLine(null, 'phone');
+    expect(line.tone).toBe('warning');
+    expect(line.text).toContain('did not say whether phone was deleted');
+    expect(line.text).not.toContain('Deleted phone from');
+    expect(line.text).not.toContain(STALE_VIEW_NOTE);
   });
 });
 

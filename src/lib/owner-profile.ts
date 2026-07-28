@@ -83,7 +83,14 @@ export interface ProfileField {
 
 /** A prose line — a bullet or a paragraph, preserved as written (§4.4). */
 export interface ProfileProseLine {
-  /** Index into the raw line array — the only address `profile.forget` takes for prose. */
+  /**
+   * Position in the raw line array. The in-memory model is legitimately positional (§5.1)
+   * and this is a stable react key and the document order, so it is kept — but it must
+   * NEVER reach a verb. `profile.forget` refuses a `lineIndex` outright (400), because a
+   * position taken from an earlier read may be a different line by the time the owner
+   * clicks: he edits this file himself, and a settings page left open is exactly where a
+   * stale index happens.
+   */
   readonly lineIndex: number;
   readonly section: string;
   readonly text: string;
@@ -170,23 +177,33 @@ export interface ProfileWriteOutcome {
 }
 
 /**
- * What a mutating verb is being asked about. A mechanical field is addressed by its
- * `fieldId`; a prose line only by its index into the raw line array. `profile.forget`
- * takes either; `profile.provenance` and `profile.undo` take a fieldId only, which is why
- * prose lines get neither a lookup nor an undo (§9.1: prose bullets are not superseded).
+ * What a mutating verb is being asked about.
+ *
+ * A mechanical field is addressed by its `fieldId`. A prose line is addressed by its
+ * CONTENT — the section it sits in plus its exact text — never by its position (§9.2).
+ * The owner is a concurrent writer: he can edit the file in his editor while this page is
+ * open, so an index captured at render time may name a different line by the time he
+ * clicks. Content addressing degrades honestly instead, matching nothing and removing
+ * nothing when the document has moved on.
+ *
+ * `profile.provenance` and `profile.undo` take a fieldId only, which is why prose lines
+ * get neither a lookup nor an undo (§9.1: prose bullets are not superseded).
  */
 export type ProfileTarget =
   | { readonly kind: 'field'; readonly fieldId: string }
-  | { readonly kind: 'line'; readonly lineIndex: number };
+  | { readonly kind: 'line'; readonly section: string; readonly text: string };
 
 /** The wire input `profile.forget` takes for a target. */
-export type ProfileForgetTarget = { readonly fieldId: string } | { readonly lineIndex: number };
+export type ProfileForgetTarget =
+  | { readonly fieldId: string }
+  | { readonly section: string; readonly text: string };
 
 /**
  * The full `profile.forget` body: a target plus the required authority claim. Narrower
- * than the generated input, whose `fieldId`, `lineIndex` AND `authority` are all optional
- * — the daemon 400s on a body missing a target or missing an authority, so this type makes
- * both a compile error here rather than a round trip.
+ * than the generated input, which still declares the retired `lineIndex` and makes every
+ * property optional — the daemon 400s on a body missing a target, missing an authority, or
+ * carrying a lineIndex at all, so this type makes each of those a compile error here
+ * rather than a round trip.
  */
 export type ProfileForgetInput = ProfileForgetTarget & { readonly authority: string };
 
@@ -440,14 +457,16 @@ export function readProfileWriteOutcome(value: unknown): ProfileWriteOutcome | n
 // Targets
 // ---------------------------------------------------------------------------
 
-/** The wire input `profile.forget` takes: a field id, or a raw line index. */
+/** The wire input `profile.forget` takes: a field id, or a section plus the exact text. */
 export function forgetTargetInput(target: ProfileTarget): ProfileForgetTarget {
-  return target.kind === 'field' ? { fieldId: target.fieldId } : { lineIndex: target.lineIndex };
+  return target.kind === 'field'
+    ? { fieldId: target.fieldId }
+    : { section: target.section, text: target.text };
 }
 
 /** A stable string for react keys and query keys. Never rendered to the operator. */
 export function profileTargetId(target: ProfileTarget): string {
-  return target.kind === 'field' ? `field:${target.fieldId}` : `line:${String(target.lineIndex)}`;
+  return target.kind === 'field' ? `field:${target.fieldId}` : `line:${target.section}:${target.text}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -547,6 +566,46 @@ export function writeReportLine(
 export function deletedWhat(outcome: ProfileWriteOutcome, fallbackLabel: string): string {
   const labels = outcome.changes.map((change) => change.label).filter((label) => label.length > 0);
   return labels.length > 0 ? labels.join(', ') : fallbackLabel;
+}
+
+/**
+ * Appended whenever a delete finds nothing to delete.
+ *
+ * A forget names a row this page rendered from an earlier read. If the daemon cannot find
+ * it, the file has moved on since that read — he edited it himself, or another surface did
+ * — so what he is looking at is not what is on disk. Saying only "nothing was removed"
+ * would be true and useless; the useful part is that the view is stale and is being
+ * refreshed. The refetch is deliberately NOT conditional on classifying why the delete
+ * failed: re-reading after any failed delete is always correct, and claiming a specific
+ * cause would mean sniffing a reason string the SDK is free to reword.
+ */
+export const STALE_VIEW_NOTE =
+  'What you are looking at is out of date — the file changed since this page read it. Reloading it now.';
+
+/**
+ * What a delete did, in one line.
+ *
+ * Success names what actually went, from the daemon's own change list. Every failure —
+ * an absent field, a note whose text is no longer there, a section renamed away, or two
+ * identical notes the daemon will not guess between — relays the daemon's own sentence and
+ * adds the staleness note, because in all of them the row he clicked no longer matches the
+ * document. A body that never said `ok` is reported as unsaid, never as a deletion.
+ */
+export function forgetReportLine(
+  outcome: ProfileWriteOutcome | null,
+  label: string,
+): { readonly tone: 'ok' | 'info' | 'warning'; readonly text: string } {
+  if (outcome === null) {
+    return {
+      tone: 'warning',
+      text: `The daemon answered, but did not say whether ${label} was deleted. Check the profile below before assuming it went.`,
+    };
+  }
+  if (!outcome.ok) {
+    const reason = outcome.reason ?? 'Nothing was deleted, and the daemon did not say why.';
+    return { tone: 'warning', text: `${reason} ${STALE_VIEW_NOTE}` };
+  }
+  return { tone: 'ok', text: `Deleted ${deletedWhat(outcome, label)} from your profile.` };
 }
 
 /** The `said` a settings-surface write carries (§7 layer 3, §9.3). */

@@ -430,7 +430,7 @@ describe('OwnerProfileSettings', () => {
 
     expect(forgetCalls).toEqual([{ kind: 'field', fieldId: 'contact.phone' }]);
     const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toBe('Your profile has no phone recorded, so there was nothing to forget.');
+    expect(report).toContain('Your profile has no phone recorded, so there was nothing to forget.');
     expect(report).not.toContain('Deleted');
   });
 
@@ -478,7 +478,7 @@ describe('OwnerProfileSettings', () => {
     expect(forgetCalls.length).toBe(0);
   });
 
-  test('forgetting a note sends its line index — the verb takes no section for prose', async () => {
+  test('forgetting a note names it by section and exact text, never by position', async () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
@@ -487,7 +487,36 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
     await settle();
 
-    expect(forgetCalls).toEqual([{ kind: 'line', lineIndex: 41 }]);
+    expect(forgetCalls).toEqual([
+      { kind: 'line', section: 'People', text: 'Sarah, sister, sarah@example.com' },
+    ]);
+  });
+
+  // The staleness case, at the surface: a delete that found nothing means the page is
+  // showing an older version of the file, and saying only "nothing was removed" would be
+  // true and useless.
+  test('a note that is no longer there surfaces the staleness rather than a success', async () => {
+    mockDocument = successQuery(LOADED);
+    forgetResult = {
+      ok: false,
+      reason: 'That line is not in People any more, so nothing was removed.',
+      changes: [],
+      disclosure: '',
+    };
+    const { el, unmount } = render();
+    cleanup = unmount;
+
+    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-line-41"]'), 'Forget').click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    await settle();
+
+    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
+    expect(report).toContain('That line is not in People any more, so nothing was removed.');
+    expect(report).toContain('out of date');
+    expect(report).toContain('Reloading it now.');
+    expect(report).not.toContain('Deleted');
+    // Warning tone, not the quiet informational one a plain no-op would get.
+    expect(el.querySelector('.owner-profile__report .banner')?.className).toContain('warning');
   });
 
   test('provenance is reachable per field, and asks only for the field it was opened on', () => {

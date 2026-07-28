@@ -18,6 +18,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { OPERATOR_CONTRACT } from '@pellux/goodvibes-contracts/generated/operator-contract';
 
 interface WireCall {
   readonly verb: string;
@@ -278,5 +279,83 @@ describe('a document that changed under the view', () => {
     expect(outcome.reason).toContain('not in People any more');
     // The survivor is untouched — nothing was removed in its place.
     expect(people).toEqual(['Sarah, sister, sarah@example.com']);
+  });
+});
+
+/**
+ * Every profile mutation's body conforms to the input the CONTRACT declares for its id.
+ *
+ * The check reads OPERATOR_CONTRACT's own `inputSchema` rather than a list written here,
+ * so it re-derives itself on every pin bump: when the SDK renames, retires or requires a
+ * property, this fails without anyone remembering to update an expectation. That is the
+ * point — the two contract changes that broke this surface (`authority` becoming required,
+ * and `forget` moving off `lineIndex`) both produced zero type errors, because the
+ * generated input for an id can be a catch-all and because excess properties are only
+ * rejected on fresh object literals.
+ *
+ * Note `additionalProperties: false` on these schemas: a property the contract does not
+ * declare is a rejection, not a harmless extra.
+ */
+describe('the request bodies conform to the declared contract input', () => {
+  interface JsonSchema {
+    properties?: Record<string, unknown>;
+    required?: readonly string[];
+    additionalProperties?: boolean;
+  }
+
+  function inputSchemaFor(methodId: string): JsonSchema {
+    const method = OPERATOR_CONTRACT.operator.methods.find((entry) => entry.id === methodId);
+    if (!method) throw new Error(`${methodId} is not in the operator contract`);
+    return (method.inputSchema ?? {}) as JsonSchema;
+  }
+
+  function assertConforms(methodId: string, body: unknown): void {
+    const schema = inputSchemaFor(methodId);
+    const declared = new Set(Object.keys(schema.properties ?? {}));
+    const sent = Object.keys(body as Record<string, unknown>);
+    for (const key of sent) {
+      expect(declared.has(key), `${methodId} sends "${key}", which its input schema does not declare`).toBe(true);
+    }
+    for (const key of schema.required ?? []) {
+      expect(sent.includes(key), `${methodId} omits required "${key}"`).toBe(true);
+    }
+  }
+
+  test('profile.set', async () => {
+    render();
+    harness?.setField('contact.phone', '+1 517 555 0199');
+    assertConforms('profile.set', (await nextCall()).input);
+  });
+
+  test('profile.append', async () => {
+    render();
+    harness?.appendLine('People', 'Ken, neighbour');
+    assertConforms('profile.append', (await nextCall()).input);
+  });
+
+  test('profile.forget, addressing a mechanical field', async () => {
+    render();
+    harness?.forgetField('contact.phone');
+    assertConforms('profile.forget', (await nextCall()).input);
+  });
+
+  test('profile.forget, addressing a note by its content', async () => {
+    render();
+    harness?.forgetLine('People', 'Sarah, sister, sarah@example.com');
+    assertConforms('profile.forget', (await nextCall()).input);
+  });
+
+  test('profile.undo', async () => {
+    render();
+    harness?.undoField('commerce.shippingAddress');
+    assertConforms('profile.undo', (await nextCall()).input);
+  });
+
+  test('the schemas this asserts against really are strict about unknown properties', () => {
+    // If additionalProperties ever stopped being false, the assertions above would still
+    // pass while the daemon quietly accepted junk — so the strictness itself is pinned.
+    for (const id of ['profile.set', 'profile.append', 'profile.forget', 'profile.undo']) {
+      expect(inputSchemaFor(id).additionalProperties, `${id} input schema`).toBe(false);
+    }
   });
 });

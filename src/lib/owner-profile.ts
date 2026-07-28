@@ -1,235 +1,186 @@
 /**
- * owner-profile.ts — the local response shapes and defensive wire readers for the
- * daemon's owner-profile verbs (profile.read / .get / .person / .provenance / .set /
- * .append / .forget / .undo / .status), per docs/owner-profile.md §11.1.
+ * owner-profile.ts — the view types and wire readers for the daemon's owner-profile
+ * verbs (profile.read / .get / .person / .provenance / .set / .append / .forget / .undo
+ * / .status), per docs/owner-profile.md §11.1.
  *
- * WHY THESE TYPES ARE LOCAL, AND FOR HOW LONG
- * The installed @pellux/goodvibes-contracts (npm 1.18.1) has no `profile.*` method ids
- * yet, so there is no OperatorMethodInput/OutputMap entry to type these against — the
- * same standing situation memory-governance.ts and contract-bridge-types.ts already
- * document for their own verbs. Every interface below is a restatement of the design
- * document's own shapes (§5.1's ProfileLine/ProfileFieldValue, §11.1's verb table),
- * kept here so the hook/component/test files import a named type rather than reaching
- * into `unknown`. When the regenerated contracts package lands, swap the bodies of the
- * readers for the generated types and keep the names — every consumer imports from
- * here, so the swap is one file.
+ * BOUND TO THE GENERATED CONTRACT
+ * Every shape below is derived from `OperatorMethodOutput<'profile.*'>` in the installed
+ * @pellux/goodvibes-contracts — not from prose. The `Wire*` aliases at the top ARE the
+ * generated types, so a future contract change that alters a field name breaks this file
+ * at compile time instead of silently reading `undefined`. The named view types exist for
+ * the same reason memory-governance.ts's MemoryGovernanceSnapshot does: the hook, the
+ * component and the tests need a name to import, and two of the generated fields are
+ * open `string`s this surface must narrow (`state.kind` and `section.tier`).
  *
- * WHY EVERY READER RETURNS null RATHER THAN CASTING
- * The brief's boundary rule is: an explicit narrowing plus a runtime shape check, never
- * a bare `any` and never an unchecked cast that lets a malformed daemon response blank
- * the page. Each reader narrows the raw value to a wire envelope whose members are all
- * `unknown` (the `as unknown as ...Wire` line, guarded by an isRecord check immediately
- * above it) and then reads every member defensively, exactly the stance
- * readMemoryGovernanceSnapshot takes: a 200 whose body does not actually carry a profile
- * is an honest error the caller renders as "could not read", never an empty profile and
- * never a crash on `undefined.length`.
+ * WHY A RUNTIME PARSE SURVIVES THE GENERATED TYPES
+ * The generated type is a compile-time promise about a well-behaved daemon; it is not a
+ * runtime guarantee. `invokeOperator` performs no schema validation on the wire (its own
+ * doc comment says so), so a 200 from an intermediary, an older build, or a proxy can
+ * still carry anything. Each reader therefore narrows the body to its generated output
+ * type with an explicit `as unknown as Wire…` immediately after an `isRecord` guard, then
+ * checks the load-bearing fields before projecting. A body that is not a profile returns
+ * null, which the caller renders as an honest error — never an empty profile, and never a
+ * crash on `undefined.length`.
  *
- * WHY THE READERS ARE LENIENT ABOUT FIELD NAMES
- * The SDK lane is being written concurrently with this one, so the exact wire key for
- * (say) a provenance quote is not yet fixed. The readers accept the small set of names
- * the design document itself uses and degrade each optional part individually. This is
- * leniency about SHAPE only — nothing is ever fabricated, and a missing part renders as
- * absent rather than as a plausible-looking default.
+ * The alias tolerance the pre-contract version of this file carried (accepting `key` or
+ * `id` or `field`, `lines` or `prose` or `bullets`, and so on) is GONE. The names are
+ * known now, so guessing at them would only hide a real mismatch.
  *
  * CONTAINMENT (§10, §11.3)
- * Nothing in this module logs. No profile value is written to any store, and the
- * `People` section — facts about people who never agreed to be in a database — is
- * marked here (sectionHoldsThirdPartyData) so the rendering surface can keep it out of
- * copy/export affordances. `readProfileStatus` deliberately extracts state, path,
- * section NAMES, counts and invalid-field reasons and nothing else: the status verb is
- * the diagnostic one, and a diagnostic that carried values would defeat the point.
+ * Nothing here logs, and nothing here persists. `readProfileStatus` reads state, path,
+ * section NAMES, counts and invalid-field reasons — the generated `profile.status` output
+ * has no `value` property anywhere, which is what makes that verb safe in a diagnostics
+ * bundle, and this reader does not reintroduce one. `sectionHoldsThirdPartyData` marks the
+ * `People` section so the rendering surface can keep it out of copy/export affordances.
  */
+import type { OperatorMethodOutput } from '@pellux/goodvibes-sdk/contracts';
+
+// The generated output shapes, named once. profile.set / .append / .forget / .undo all
+// answer the same write result, so one alias covers the four.
+type WireReadOutput = OperatorMethodOutput<'profile.read'>;
+type WireStatusOutput = OperatorMethodOutput<'profile.status'>;
+type WireProvenanceOutput = OperatorMethodOutput<'profile.provenance'>;
+type WireWriteOutput = OperatorMethodOutput<'profile.set'>;
 
 // ---------------------------------------------------------------------------
-// Response shapes (§11.1)
+// View types
 // ---------------------------------------------------------------------------
 
-/** Load state every verb answers with — a stated state, never an empty profile (§4.4, §12). */
+/**
+ * The load state, narrowed from the wire's open `state.kind` string. These three are the
+ * states the daemon's own store produces (§4.4, §12); a `kind` outside them means this
+ * surface is talking to a build it does not understand, and the readers answer null
+ * rather than picking whichever of the three looks closest.
+ */
 export type ProfileState = 'loaded' | 'disabled' | 'unavailable';
 
 /**
- * The provenance suffix a learned line carries (§4.2): which surface, when, and his
- * verbatim words. Every part is optional because a line he edited by hand carries none,
- * and a part that is absent is rendered as absent rather than guessed at.
+ * Which tier a section belongs to (§11.2), narrowed from the wire's open `tier` string.
+ * Open-tier content is injected into the agent's context each turn; closed-tier content
+ * is reachable only through a named call, and every read of it is disclosed.
  */
+export type ProfileTier = 'open' | 'closed';
+
+/** The provenance suffix a learned line carries (§4.2). All three parts are required by
+ *  the contract — a line with no suffix carries no provenance object at all. */
 export interface ProfileProvenance {
-  readonly surface?: string;
-  readonly date?: string;
-  readonly said?: string;
+  readonly surface: string;
+  readonly date: string;
+  readonly said: string;
 }
 
-/** A mechanical field (§4.3) — the only things parsed into typed values. */
+/** A mechanical field (§4.3). `valid: false` still carries the value, verbatim. */
 export interface ProfileField {
-  /** Dotted address, e.g. `commerce.shippingAddress`. The verbs' `key` argument. */
-  readonly key: string;
+  /** The verbs' `fieldId` argument, e.g. `commerce.shippingAddress`. */
+  readonly fieldId: string;
   /** The label as written in the document, e.g. `shipping address`. */
   readonly label: string;
   readonly value: string;
-  /** False when the value is preserved verbatim but did not validate (§4.3). */
   readonly valid: boolean;
   readonly invalidReason?: string;
   readonly provenance?: ProfileProvenance;
-  /** How many `<!-- was: … -->` predecessors exist — undo is offered only above zero (§9.1). */
-  readonly supersededCount: number;
 }
 
-/** A prose line — a bullet, a paragraph, anything that is not a mechanical field (§4.4). */
+/** A prose line — a bullet or a paragraph, preserved as written (§4.4). */
 export interface ProfileProseLine {
-  /** The line minus its provenance suffix, exactly as he wrote it. */
+  /** Index into the raw line array — the only address `profile.forget` takes for prose. */
+  readonly lineIndex: number;
+  readonly section: string;
   readonly text: string;
   readonly provenance?: ProfileProvenance;
-  /** Present when the daemon gives this line an addressable key of its own. */
-  readonly key?: string;
-  /** Index into the raw line array (§5.1) — the fallback address when there is no key. */
-  readonly lineIndex?: number;
 }
 
 export interface ProfileSection {
   /** The heading text as written — his renames are respected (§4.5). */
-  readonly name: string;
-  /** The canonical section id when the daemon supplies one, else the written name. */
-  readonly id: string;
+  readonly heading: string;
+  readonly tier: ProfileTier;
   readonly fields: readonly ProfileField[];
-  readonly lines: readonly ProfileProseLine[];
+  readonly prose: readonly ProfileProseLine[];
 }
 
-/** `profile.read` — the whole document, by section (§8.3). */
+/** `profile.read` — the whole document, by section (§8.3), with its load state flattened. */
 export interface ProfileDocument {
   readonly state: ProfileState;
   /** Why it could not be read, when state is 'unavailable' (§4.4). */
   readonly reason?: string;
-  readonly path?: string;
+  readonly path: string;
   readonly sections: readonly ProfileSection[];
 }
 
 export interface ProfileInvalidField {
-  readonly key: string;
+  readonly fieldId: string;
   readonly reason: string;
 }
 
-/** `profile.status` — load state, path, section names, counts, invalid fields. No values (§11.3). */
+/** `profile.status` — the diagnostic answer. State, path, names, counts, reasons. No values. */
 export interface ProfileStatus {
   readonly state: ProfileState;
   readonly reason?: string;
-  readonly path?: string;
-  readonly sectionNames: readonly string[];
+  readonly path: string;
+  readonly exists?: boolean;
+  readonly sections: readonly string[];
   readonly lineCount?: number;
   readonly fieldCount?: number;
+  readonly proseLineCount?: number;
   readonly invalidFields: readonly ProfileInvalidField[];
 }
 
-/** One `<!-- was: … -->` predecessor (§9.1), as `profile.provenance` reads them. */
+/** One `<!-- was: … -->` predecessor (§9.1) — what `profile.undo` would promote back. */
 export interface ProfileSupersededValue {
-  readonly value?: string;
+  readonly fieldId: string;
+  readonly section: string;
+  readonly value: string;
+  readonly supersededOn: string;
   readonly provenance?: ProfileProvenance;
-  readonly supersededOn?: string;
 }
 
 /** `profile.provenance` — surface, date, verbatim, and superseded predecessors (§8.3). */
 export interface ProfileProvenanceAnswer {
-  /** Whether the line is in the document at all. */
-  readonly found: boolean;
+  readonly fieldId: string;
+  /** Whether the field is in the document at all. */
+  readonly present: boolean;
   /**
-   * True when the line exists but carries no provenance suffix — he wrote or edited it
-   * by hand, and the honest answer is to say so rather than dress it up as a source (§4.2).
+   * True when the field exists but carries no provenance suffix — he wrote or edited it
+   * by hand, and §4.2's honest answer is to say so rather than dress it up as a source.
    */
   readonly handEdited: boolean;
   readonly provenance?: ProfileProvenance;
   readonly superseded: readonly ProfileSupersededValue[];
 }
 
-/** `profile.set` / `.append` / `.undo` — did anything change, and what the daemon said. */
-export interface ProfileWriteOutcome {
-  readonly changed: boolean;
-  /** True when the daemon stated the outcome explicitly rather than us inferring it from a 200. */
-  readonly stated: boolean;
-  readonly key?: string;
-  /** describeProfileWrite's one-line receipt (§8.2), when the daemon returns one. */
-  readonly disclosure?: string;
+/** One thing a write did. Names the field; never repeats the value. */
+export interface ProfileChange {
+  readonly kind: string;
+  readonly fieldId: string | null;
+  readonly section: string;
+  readonly label: string;
+  readonly superseded: boolean;
 }
 
 /**
- * `profile.forget` — three-way, deliberately. 'unclear' exists because a delete that
- * cannot say whether it deleted must not be rendered as a success (§9.2:
- * "Forgetting something that was not there reports that it was not there — it does not
- * report success").
+ * What every write verb answers. `ok: false` always carries the daemon's own reason —
+ * which is how "there was nothing to forget" and "that write was refused" stay two
+ * different sentences without this surface having to guess which one it is looking at.
  */
-export type ProfileForgetVerdict = 'deleted' | 'not-present' | 'unclear';
-
-export interface ProfileForgetOutcome {
-  readonly verdict: ProfileForgetVerdict;
-  readonly key?: string;
-  /** What actually went, as the daemon names it. */
-  readonly removed: readonly string[];
-  readonly message?: string;
+export interface ProfileWriteOutcome {
+  readonly ok: boolean;
+  readonly reason?: string;
+  readonly changes: readonly ProfileChange[];
+  readonly disclosure: string;
 }
 
 /**
- * What a verb is being asked about. A mechanical field is addressed by its dotted key;
- * a prose line by its section plus its index into the raw line array (§5.1) when the
- * daemon does not give it a key of its own.
+ * What a mutating verb is being asked about. A mechanical field is addressed by its
+ * `fieldId`; a prose line only by its index into the raw line array. `profile.forget`
+ * takes either; `profile.provenance` and `profile.undo` take a fieldId only, which is why
+ * prose lines get neither a lookup nor an undo (§9.1: prose bullets are not superseded).
  */
 export type ProfileTarget =
-  | { readonly kind: 'field'; readonly key: string }
-  | { readonly kind: 'line'; readonly section: string; readonly lineIndex: number };
+  | { readonly kind: 'field'; readonly fieldId: string }
+  | { readonly kind: 'line'; readonly lineIndex: number };
 
-// ---------------------------------------------------------------------------
-// Wire envelopes — the narrowing boundary
-// ---------------------------------------------------------------------------
-
-interface ProfileReadWire {
-  readonly state?: unknown;
-  readonly status?: unknown;
-  readonly enabled?: unknown;
-  readonly available?: unknown;
-  readonly reason?: unknown;
-  readonly error?: unknown;
-  readonly path?: unknown;
-  readonly sections?: unknown;
-  readonly profile?: unknown;
-}
-
-interface ProfileStatusWire extends ProfileReadWire {
-  readonly sectionNames?: unknown;
-  readonly lineCount?: unknown;
-  readonly lines?: unknown;
-  readonly fieldCount?: unknown;
-  readonly fields?: unknown;
-  readonly invalidFields?: unknown;
-  readonly invalid?: unknown;
-}
-
-interface ProfileProvenanceWire {
-  readonly found?: unknown;
-  readonly present?: unknown;
-  readonly handEdited?: unknown;
-  readonly provenance?: unknown;
-  readonly superseded?: unknown;
-  readonly predecessors?: unknown;
-  readonly history?: unknown;
-}
-
-interface ProfileWriteWire {
-  readonly changed?: unknown;
-  readonly written?: unknown;
-  readonly updated?: unknown;
-  readonly restored?: unknown;
-  readonly ok?: unknown;
-  readonly key?: unknown;
-  readonly field?: unknown;
-  readonly disclosure?: unknown;
-  readonly message?: unknown;
-}
-
-interface ProfileForgetWire {
-  readonly deleted?: unknown;
-  readonly forgotten?: unknown;
-  readonly key?: unknown;
-  readonly field?: unknown;
-  readonly removed?: unknown;
-  readonly removedLines?: unknown;
-  readonly message?: unknown;
-}
+/** The wire input `profile.forget` takes for a target. */
+export type ProfileForgetTarget = { readonly fieldId: string } | { readonly lineIndex: number };
 
 // ---------------------------------------------------------------------------
 // Primitive readers
@@ -240,155 +191,82 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+  return typeof value === 'string' ? value : undefined;
 }
 
 function readNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function readBoolean(value: unknown): boolean | undefined {
-  return typeof value === 'boolean' ? value : undefined;
-}
-
-/** A scalar rendered as text. Numbers and booleans are real mechanical values (§4.3's
- *  `approval window` is integer minutes), so they are read rather than dropped. */
-function readScalar(value: unknown): string | undefined {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  return undefined;
-}
-
-function firstString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {
-  for (const key of keys) {
-    const found = readString(record[key]);
-    if (found !== undefined) return found;
-  }
-  return undefined;
-}
-
-function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-}
-
 const STATES: readonly ProfileState[] = ['loaded', 'disabled', 'unavailable'];
 
-/**
- * The load state. Read from an explicit field where the daemon states one, then from
- * the two booleans the design's own wording implies (`enabled: false` is §12's disabled
- * state; `available: false` is §4.4's unavailable state). Undefined when the answer
- * says nothing — the caller decides, and never guesses 'loaded' for an empty body.
- */
-function readState(wire: ProfileReadWire): ProfileState | undefined {
-  const raw = readString(wire.state) ?? readString(wire.status);
-  if (raw !== undefined) {
-    const exact = STATES.find((state) => state === raw);
-    if (exact) return exact;
-    if (raw === 'ok' || raw === 'ready' || raw === 'available') return 'loaded';
-    if (raw === 'off' || raw === 'disabled') return 'disabled';
-    if (raw === 'error' || raw === 'unreadable' || raw === 'failed') return 'unavailable';
-  }
-  if (wire.enabled === false) return 'disabled';
-  if (wire.available === false) return 'unavailable';
-  return undefined;
+function readState(kind: unknown): ProfileState | undefined {
+  return STATES.find((state) => state === kind);
 }
 
-export function readProvenance(value: unknown): ProfileProvenance | undefined {
+function readTier(tier: unknown): ProfileTier {
+  // An unrecognised tier is read as closed. This is the one place a guess is made, and it
+  // is made in the containing direction: a section this surface cannot classify is treated
+  // as the more protected of the two, never as freely-injected open-tier content.
+  return tier === 'open' ? 'open' : 'closed';
+}
+
+function readProvenanceValue(value: unknown): ProfileProvenance | undefined {
   if (!isRecord(value)) return undefined;
-  const surface = firstString(value, ['surface', 'source']);
-  const date = firstString(value, ['date', 'recordedAt', 'on']);
-  const said = firstString(value, ['said', 'quote', 'verbatim', 'utterance']);
-  if (surface === undefined && date === undefined && said === undefined) return undefined;
-  return {
-    ...(surface !== undefined ? { surface } : {}),
-    ...(date !== undefined ? { date } : {}),
-    ...(said !== undefined ? { said } : {}),
-  };
+  const surface = readString(value.surface);
+  const date = readString(value.date);
+  const said = readString(value.said);
+  if (surface === undefined || date === undefined || said === undefined) return undefined;
+  return { surface, date, said };
 }
 
 // ---------------------------------------------------------------------------
 // profile.read
 // ---------------------------------------------------------------------------
 
-/** `shipping address` from `commerce.shippingAddress`, when the daemon sends no label. */
-export function labelFromKey(key: string): string {
-  const last = key.split('.').pop() ?? key;
-  return last
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .toLowerCase();
-}
-
 function readField(value: unknown): ProfileField | null {
   if (!isRecord(value)) return null;
-  const key = firstString(value, ['key', 'id', 'field']);
-  if (key === undefined) return null;
-  const text = readScalar(value.value) ?? readScalar(value.text);
-  if (text === undefined) return null;
-  const label = firstString(value, ['label', 'name']) ?? labelFromKey(key);
-  const invalidReason = firstString(value, ['invalidReason', 'reason']);
-  const provenance = readProvenance(value.provenance);
-  const superseded = Array.isArray(value.superseded) ? value.superseded.length : undefined;
+  const fieldId = readString(value.fieldId);
+  const label = readString(value.label);
+  const text = readString(value.value);
+  if (fieldId === undefined || label === undefined || text === undefined) return null;
+  const invalidReason = readString(value.invalidReason);
+  const provenance = readProvenanceValue(value.provenance);
   return {
-    key,
+    fieldId,
     label,
     value: text,
     valid: value.valid !== false,
     ...(invalidReason !== undefined ? { invalidReason } : {}),
     ...(provenance !== undefined ? { provenance } : {}),
-    supersededCount: readNumber(value.supersededCount) ?? superseded ?? 0,
   };
 }
 
 function readProseLine(value: unknown): ProfileProseLine | null {
-  if (typeof value === 'string') {
-    return value.trim().length > 0 ? { text: value } : null;
-  }
   if (!isRecord(value)) return null;
-  const text = firstString(value, ['text', 'line', 'value']);
-  if (text === undefined) return null;
-  const provenance = readProvenance(value.provenance);
-  const key = firstString(value, ['key', 'id']);
-  const lineIndex = readNumber(value.lineIndex) ?? readNumber(value.index);
+  const lineIndex = readNumber(value.lineIndex);
+  const text = readString(value.text);
+  if (lineIndex === undefined || text === undefined) return null;
+  const provenance = readProvenanceValue(value.provenance);
   return {
+    lineIndex,
+    section: readString(value.section) ?? '',
     text,
     ...(provenance !== undefined ? { provenance } : {}),
-    ...(key !== undefined ? { key } : {}),
-    ...(lineIndex !== undefined ? { lineIndex } : {}),
   };
 }
 
-function readSection(value: unknown, fallbackName?: string): ProfileSection | null {
+function readSection(value: unknown): ProfileSection | null {
   if (!isRecord(value)) return null;
-  const name = firstString(value, ['name', 'section', 'heading', 'title']) ?? fallbackName;
-  if (name === undefined) return null;
-  const id = firstString(value, ['id', 'canonicalName']) ?? name;
-  const rawFields = Array.isArray(value.fields) ? value.fields : Array.isArray(value.values) ? value.values : [];
-  const rawLines = Array.isArray(value.lines)
-    ? value.lines
-    : Array.isArray(value.prose)
-      ? value.prose
-      : Array.isArray(value.bullets)
-        ? value.bullets
-        : [];
-  const fields = rawFields.map(readField).filter((field): field is ProfileField => field !== null);
-  const lines = rawLines.map(readProseLine).filter((line): line is ProfileProseLine => line !== null);
-  return { name, id, fields, lines };
-}
-
-function readSections(value: unknown): ProfileSection[] {
-  if (Array.isArray(value)) {
-    return value.map((entry) => readSection(entry)).filter((section): section is ProfileSection => section !== null);
-  }
-  // A record keyed by section name is the other plausible serialization of "by section".
-  if (isRecord(value)) {
-    return Object.entries(value)
-      .map(([name, body]) => readSection(isRecord(body) ? body : { lines: body }, name))
-      .filter((section): section is ProfileSection => section !== null);
-  }
-  return [];
+  const heading = readString(value.heading);
+  if (heading === undefined) return null;
+  const fields = (Array.isArray(value.fields) ? value.fields : [])
+    .map(readField)
+    .filter((field): field is ProfileField => field !== null);
+  const prose = (Array.isArray(value.prose) ? value.prose : [])
+    .map(readProseLine)
+    .filter((line): line is ProfileProseLine => line !== null);
+  return { heading, tier: readTier(value.tier), fields, prose };
 }
 
 /**
@@ -396,30 +274,27 @@ function readSections(value: unknown): ProfileSection[] {
  *
  * Null means "render the honest cannot-read state" — it is NOT an empty profile, and the
  * distinction is the whole point of §4.4: "I could not open the file" and "I know nothing
- * about you" are different sentences.
+ * about you" are different sentences. Sections are dropped for a non-loaded state, so a
+ * disabled or unreadable profile can never render content beneath its own banner.
  */
 export function readProfileDocument(value: unknown): ProfileDocument | null {
   if (!isRecord(value)) return null;
-  const outer = value as unknown as ProfileReadWire;
-  // A `{ profile: { … } }` envelope carries the state on either level; read the outer
-  // first and let the inner fill what the outer did not say.
-  const inner = isRecord(outer.profile) ? (outer.profile as unknown as ProfileReadWire) : undefined;
-  const state = readState(outer) ?? (inner ? readState(inner) : undefined);
-  const rawSections = outer.sections ?? inner?.sections;
-  const sections = readSections(rawSections);
-  const reason = readString(outer.reason) ?? readString(outer.error) ?? (inner ? readString(inner.reason) : undefined);
-  const path = readString(outer.path) ?? (inner ? readString(inner.path) : undefined);
-
-  // The load-bearing core: either the daemon stated a state, or it sent sections (which
-  // can only mean 'loaded'). An answer with neither is not a profile — return null.
-  const resolved: ProfileState | undefined = state ?? (rawSections !== undefined ? 'loaded' : undefined);
-  if (resolved === undefined) return null;
-
+  const wire = value as unknown as WireReadOutput;
+  if (!isRecord(wire.state)) return null;
+  const state = readState(wire.state.kind);
+  const path = readString(wire.state.path);
+  if (state === undefined || path === undefined) return null;
+  const reason = readString(wire.state.reason);
+  const sections = state === 'loaded'
+    ? (Array.isArray(wire.sections) ? wire.sections : [])
+      .map(readSection)
+      .filter((section): section is ProfileSection => section !== null)
+    : [];
   return {
-    state: resolved,
-    ...(reason !== undefined ? { reason } : {}),
-    ...(path !== undefined ? { path } : {}),
-    sections: resolved === 'loaded' ? sections : [],
+    state,
+    ...(reason !== undefined && reason.length > 0 ? { reason } : {}),
+    path,
+    sections,
   };
 }
 
@@ -427,50 +302,43 @@ export function readProfileDocument(value: unknown): ProfileDocument | null {
 // profile.status
 // ---------------------------------------------------------------------------
 
-function readInvalidFields(value: unknown): ProfileInvalidField[] {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry): ProfileInvalidField | null => {
-        if (!isRecord(entry)) return null;
-        const key = firstString(entry, ['key', 'field', 'name']);
-        if (key === undefined) return null;
-        return { key, reason: firstString(entry, ['reason', 'invalidReason', 'message']) ?? 'no reason given' };
-      })
-      .filter((entry): entry is ProfileInvalidField => entry !== null);
-  }
-  if (isRecord(value)) {
-    return Object.entries(value).map(([key, reason]) => ({
-      key,
-      reason: readString(reason) ?? 'no reason given',
-    }));
-  }
-  return [];
+function readInvalidField(value: unknown): ProfileInvalidField | null {
+  if (!isRecord(value)) return null;
+  const fieldId = readString(value.fieldId);
+  if (fieldId === undefined) return null;
+  return { fieldId, reason: readString(value.reason) ?? 'no reason given' };
 }
 
 /**
  * `profile.status` → the diagnostic answer, or null when the body does not carry one.
- * Values are deliberately not read here even if a daemon build were to send them (§11.3).
+ * The generated output shape has no `value` property anywhere and this reader adds none:
+ * that is what makes the verb safe to put in a support bundle (§11.3).
  */
 export function readProfileStatus(value: unknown): ProfileStatus | null {
   if (!isRecord(value)) return null;
-  const wire = value as unknown as ProfileStatusWire;
-  const state = readState(wire);
-  if (state === undefined) return null;
-  const reason = readString(wire.reason) ?? readString(wire.error);
+  const wire = value as unknown as WireStatusOutput;
+  const state = readState(wire.kind);
   const path = readString(wire.path);
-  const sectionNames = readStringArray(wire.sectionNames).length
-    ? readStringArray(wire.sectionNames)
-    : readStringArray(wire.sections);
-  const lineCount = readNumber(wire.lineCount) ?? readNumber(wire.lines);
-  const fieldCount = readNumber(wire.fieldCount) ?? readNumber(wire.fields);
+  if (state === undefined || path === undefined) return null;
+  const reason = readString(wire.reason);
+  const exists = typeof wire.exists === 'boolean' ? wire.exists : undefined;
+  const lineCount = readNumber(wire.lineCount);
+  const fieldCount = readNumber(wire.fieldCount);
+  const proseLineCount = readNumber(wire.proseLineCount);
   return {
     state,
-    ...(reason !== undefined ? { reason } : {}),
-    ...(path !== undefined ? { path } : {}),
-    sectionNames,
+    ...(reason !== undefined && reason.length > 0 ? { reason } : {}),
+    path,
+    ...(exists !== undefined ? { exists } : {}),
+    sections: (Array.isArray(wire.sections) ? wire.sections : []).filter(
+      (name): name is string => typeof name === 'string',
+    ),
     ...(lineCount !== undefined ? { lineCount } : {}),
     ...(fieldCount !== undefined ? { fieldCount } : {}),
-    invalidFields: readInvalidFields(wire.invalidFields ?? wire.invalid),
+    ...(proseLineCount !== undefined ? { proseLineCount } : {}),
+    invalidFields: (Array.isArray(wire.invalidFields) ? wire.invalidFields : [])
+      .map(readInvalidField)
+      .filter((entry): entry is ProfileInvalidField => entry !== null),
   };
 }
 
@@ -478,94 +346,85 @@ export function readProfileStatus(value: unknown): ProfileStatus | null {
 // profile.provenance
 // ---------------------------------------------------------------------------
 
-function readSupersededValues(value: unknown): ProfileSupersededValue[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry): ProfileSupersededValue | null => {
-      if (typeof entry === 'string') return entry.trim().length > 0 ? { value: entry } : null;
-      if (!isRecord(entry)) return null;
-      const text = firstString(entry, ['value', 'text', 'was']);
-      const provenance = readProvenance(entry.provenance) ?? readProvenance(entry);
-      const supersededOn = firstString(entry, ['supersededOn', 'supersededAt', 'superseded']);
-      if (text === undefined && provenance === undefined) return null;
-      return {
-        ...(text !== undefined ? { value: text } : {}),
-        ...(provenance !== undefined ? { provenance } : {}),
-        ...(supersededOn !== undefined ? { supersededOn } : {}),
-      };
-    })
-    .filter((entry): entry is ProfileSupersededValue => entry !== null);
+function readSupersededValue(value: unknown): ProfileSupersededValue | null {
+  if (!isRecord(value)) return null;
+  const fieldId = readString(value.fieldId);
+  const text = readString(value.value);
+  if (fieldId === undefined || text === undefined) return null;
+  const provenance = readProvenanceValue(value.provenance);
+  return {
+    fieldId,
+    section: readString(value.section) ?? '',
+    value: text,
+    supersededOn: readString(value.supersededOn) ?? '',
+    ...(provenance !== undefined ? { provenance } : {}),
+  };
 }
 
 /**
- * `profile.provenance` → where a line came from, or null when the body carries nothing
- * recognisable. A line that exists with no suffix is reported as hand-edited, which is
- * §4.2's own honest answer ("no provenance recorded; you edited this line by hand") —
- * never dressed up as a recorded source.
+ * `profile.provenance` → where a field came from, or null when the body carries nothing
+ * recognisable. A field that exists with no suffix comes back `handEdited: true` with no
+ * provenance, which is §4.2's own answer ("no provenance recorded; you edited this line
+ * by hand") — never dressed up as a recorded source.
  */
 export function readProfileProvenanceAnswer(value: unknown): ProfileProvenanceAnswer | null {
   if (!isRecord(value)) return null;
-  const wire = value as unknown as ProfileProvenanceWire;
-  const provenance = readProvenance(wire.provenance);
-  const superseded = readSupersededValues(wire.superseded ?? wire.predecessors ?? wire.history);
-  const statedFound = readBoolean(wire.found) ?? readBoolean(wire.present);
-  const statedHandEdited = readBoolean(wire.handEdited);
-  if (statedFound === undefined && provenance === undefined && superseded.length === 0 && statedHandEdited === undefined) {
-    return null;
-  }
-  const found = statedFound ?? true;
+  const wire = value as unknown as WireProvenanceOutput;
+  const fieldId = readString(wire.fieldId);
+  if (fieldId === undefined || typeof wire.present !== 'boolean') return null;
+  const provenance = readProvenanceValue(wire.provenance);
   return {
-    found,
-    handEdited: statedHandEdited ?? (found && provenance === undefined),
+    fieldId,
+    present: wire.present,
+    // The generated type says this is a boolean, so a `=== true` compare reads as
+    // redundant to the linter — but the wire is not the type, and a body missing the flag
+    // must not read as "hand edited". typeof keeps the runtime check without the compare.
+    handEdited: typeof wire.handEdited === 'boolean' ? wire.handEdited : false,
     ...(provenance !== undefined ? { provenance } : {}),
-    superseded,
+    superseded: (Array.isArray(wire.superseded) ? wire.superseded : [])
+      .map(readSupersededValue)
+      .filter((entry): entry is ProfileSupersededValue => entry !== null),
   };
 }
 
 // ---------------------------------------------------------------------------
-// profile.set / .append / .undo / .forget
+// profile.set / .append / .forget / .undo
 // ---------------------------------------------------------------------------
 
-/**
- * `profile.set` / `.append` / `.undo` → what happened. A daemon that states the outcome
- * is believed; one that answers a bare 200 is reported as changed-but-not-stated, which
- * the surface renders as a plainer sentence than a stated receipt.
- */
-export function readProfileWriteOutcome(value: unknown): ProfileWriteOutcome {
-  if (!isRecord(value)) return { changed: true, stated: false };
-  const wire = value as unknown as ProfileWriteWire;
-  const stated =
-    readBoolean(wire.changed) ?? readBoolean(wire.written) ?? readBoolean(wire.updated) ?? readBoolean(wire.restored) ?? readBoolean(wire.ok);
-  const key = firstString(value, ['key', 'field']);
-  const disclosure = firstString(value, ['disclosure', 'message']);
+function readChange(value: unknown): ProfileChange | null {
+  if (!isRecord(value)) return null;
+  const section = readString(value.section);
+  const label = readString(value.label);
+  if (section === undefined || label === undefined) return null;
   return {
-    changed: stated ?? true,
-    stated: stated !== undefined,
-    ...(key !== undefined ? { key } : {}),
-    ...(disclosure !== undefined ? { disclosure } : {}),
+    kind: readString(value.kind) ?? '',
+    fieldId: readString(value.fieldId) ?? null,
+    section,
+    label,
+    superseded: value.superseded === true,
   };
 }
 
 /**
- * `profile.forget` → deleted / not-present / unclear.
+ * Every write verb's answer, or null when the body does not carry one.
  *
- * The default is 'unclear', not 'deleted'. A delete verb that does not say whether it
- * deleted has not told us it deleted, and §9.2 is explicit that forgetting something
- * that was not there must not report success. The surface renders all three differently.
+ * `ok` is required by the contract, so its absence is a malformed answer rather than a
+ * failure — and the two are reported differently. Null must never be rendered as a
+ * success: for a delete in particular, a daemon that did not say it deleted has not told
+ * us it deleted (§9.2).
  */
-export function readProfileForgetOutcome(value: unknown): ProfileForgetOutcome {
-  if (!isRecord(value)) return { verdict: 'unclear', removed: [] };
-  const wire = value as unknown as ProfileForgetWire;
-  const deleted = readBoolean(wire.deleted) ?? readBoolean(wire.forgotten);
-  const removed = readStringArray(wire.removed).length ? readStringArray(wire.removed) : readStringArray(wire.removedLines);
-  const key = firstString(value, ['key', 'field']);
-  const message = readString(wire.message);
-  const verdict: ProfileForgetVerdict = deleted === true ? 'deleted' : deleted === false ? 'not-present' : 'unclear';
+export function readProfileWriteOutcome(value: unknown): ProfileWriteOutcome | null {
+  if (!isRecord(value)) return null;
+  const wire = value as unknown as WireWriteOutput;
+  if (typeof wire.ok !== 'boolean') return null;
+  const reason = readString(wire.reason);
   return {
-    verdict,
-    ...(key !== undefined ? { key } : {}),
-    removed,
-    ...(message !== undefined ? { message } : {}),
+    ok: wire.ok,
+    ...(reason !== undefined && reason.length > 0 ? { reason } : {}),
+    changes: (Array.isArray(wire.changes) ? wire.changes : [])
+      .map(readChange)
+      .filter((change): change is ProfileChange => change !== null),
+    disclosure: readString(wire.disclosure) ?? '',
   };
 }
 
@@ -573,51 +432,14 @@ export function readProfileForgetOutcome(value: unknown): ProfileForgetOutcome {
 // Targets
 // ---------------------------------------------------------------------------
 
-/**
- * The wire input a target-taking verb (`profile.provenance` / `.forget` / `.undo`)
- * carries: a dotted key, or a section plus a line index.
- */
-export type ProfileVerbTarget =
-  | { readonly key: string }
-  | { readonly section: string; readonly lineIndex: number };
-
-/** Input for `profile.set` — a supersede, with §9.3's settings-surface provenance. */
-export interface ProfileSetInput {
-  readonly key: string;
-  readonly value: string;
-  readonly surface: string;
-  readonly said: string;
-}
-
-/** Input for `profile.append` — a new prose bullet in a prose-only section (§6). */
-export interface ProfileAppendInput {
-  readonly section: string;
-  readonly text: string;
-  readonly surface: string;
-  readonly said: string;
-}
-
-/** The input a verb takes for a target — a dotted key, or a section plus a line index. */
-export function profileTargetInput(target: ProfileTarget): ProfileVerbTarget {
-  return target.kind === 'field'
-    ? { key: target.key }
-    : { section: target.section, lineIndex: target.lineIndex };
+/** The wire input `profile.forget` takes: a field id, or a raw line index. */
+export function forgetTargetInput(target: ProfileTarget): ProfileForgetTarget {
+  return target.kind === 'field' ? { fieldId: target.fieldId } : { lineIndex: target.lineIndex };
 }
 
 /** A stable string for react keys and query keys. Never rendered to the operator. */
 export function profileTargetId(target: ProfileTarget): string {
-  return target.kind === 'field' ? `field:${target.key}` : `line:${target.section}:${String(target.lineIndex)}`;
-}
-
-/**
- * The address of a prose line, or null when this daemon build gives the line neither a
- * key nor an index. Null means the per-line provenance/forget actions are genuinely not
- * available for that line, and the surface says so rather than sending a guess.
- */
-export function targetForProseLine(section: ProfileSection, line: ProfileProseLine): ProfileTarget | null {
-  if (line.key !== undefined) return { kind: 'field', key: line.key };
-  if (line.lineIndex !== undefined) return { kind: 'line', section: section.id, lineIndex: line.lineIndex };
-  return null;
+  return target.kind === 'field' ? `field:${target.fieldId}` : `line:${String(target.lineIndex)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -625,17 +447,21 @@ export function targetForProseLine(section: ProfileSection, line: ProfileProseLi
 // ---------------------------------------------------------------------------
 
 /**
- * Sections holding facts about people who never agreed to be in a database. Matched on
- * the canonical section id (or, for a heading he renamed, the heading text) with case
- * and surrounding whitespace collapsed — a section he renamed to something this set does
- * not know is NOT recognised, which is a real limit of matching by name and is stated in
- * the panel rather than papered over.
+ * Headings match case-insensitively with whitespace collapsed — the same rule the
+ * daemon's own `canonicalProfileSection` applies, so this surface classifies a heading
+ * exactly the way the store does. A heading the owner has renamed outside the canonical
+ * set is recognised by neither, which is a property of the design rather than a gap here:
+ * the store treats such a section as one of his own.
  */
-export const THIRD_PARTY_SECTION_IDS: ReadonlySet<string> = new Set(['people']);
+function normalizeHeading(heading: string): string {
+  return heading.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** The section holding facts about people who never agreed to be in a database (§10). */
+export const THIRD_PARTY_SECTION_HEADINGS: ReadonlySet<string> = new Set(['people']);
 
 export function sectionHoldsThirdPartyData(section: ProfileSection): boolean {
-  return THIRD_PARTY_SECTION_IDS.has(section.id.trim().toLowerCase())
-    || THIRD_PARTY_SECTION_IDS.has(section.name.trim().toLowerCase());
+  return THIRD_PARTY_SECTION_HEADINGS.has(normalizeHeading(section.heading));
 }
 
 // ---------------------------------------------------------------------------
@@ -659,16 +485,22 @@ export function profileStateBadgeClass(state: ProfileState): 'ok' | 'neutral' | 
   }
 }
 
+/** One line saying what a section's tier means for the agent, in plain terms (§11.2). */
+export function tierNote(tier: ProfileTier): string {
+  return tier === 'open'
+    ? 'Open — this is in the agent’s context every turn, so it never has to ask.'
+    : 'Closed — never put in the agent’s context. It is read only when something asks for it by name, and every read is disclosed.';
+}
+
 /**
- * §4.4's own sentence, verbatim in shape: "Your profile could not be read: <reason>
- * (<path>)". A daemon that gives no reason gets an honest sentence saying so rather than
- * an invented one.
+ * §4.4's own sentence, in shape: "Your profile could not be read: <reason> (<path>)". A
+ * daemon that gives no reason gets an honest sentence saying so rather than an invented one.
  */
-export function profileUnavailableLine(reason?: string, path?: string): string {
+export function profileUnavailableLine(reason: string | undefined, path: string): string {
   const head = reason !== undefined
     ? `Your profile could not be read: ${reason}`
     : 'Your profile could not be read, and the daemon did not give a reason';
-  return path !== undefined ? `${head} (${path})` : `${head}.`;
+  return `${head} (${path})`;
 }
 
 /** §12's stated disabled state — never an empty profile. */
@@ -678,13 +510,43 @@ export function profileDisabledLine(): string {
 
 /** One line for a provenance record: which surface, when, and his words (§4.2). */
 export function provenanceSummary(provenance: ProfileProvenance): string {
-  const parts = [provenance.surface, provenance.date].filter((part): part is string => part !== undefined);
-  const head = parts.length > 0 ? parts.join(', ') : 'source not recorded';
-  return provenance.said !== undefined ? `${head} — "${provenance.said}"` : head;
+  return `${provenance.surface}, ${provenance.date} — "${provenance.said}"`;
+}
+
+/**
+ * What a write actually did, in one line.
+ *
+ * A refusal is reported in the DAEMON's own words. That matters most for `forget`: the
+ * store answers `ok: false` with "Your profile has no <label> recorded, so there was
+ * nothing to forget" for an absent field and with a trust refusal for a blocked one, and
+ * relaying its sentence keeps those two distinct without this surface guessing which it
+ * is looking at. A no-op is never rendered as a success (§9.2).
+ */
+export function writeReportLine(
+  outcome: ProfileWriteOutcome | null,
+  fallbackSuccess: string,
+  malformed: string,
+): { readonly tone: 'ok' | 'info' | 'warning'; readonly text: string } {
+  if (outcome === null) return { tone: 'warning', text: malformed };
+  if (!outcome.ok) {
+    return { tone: 'info', text: outcome.reason ?? 'The daemon refused that, without saying why.' };
+  }
+  const disclosure = outcome.disclosure.length > 0 ? outcome.disclosure : undefined;
+  return { tone: 'ok', text: disclosure ?? fallbackSuccess };
+}
+
+/** What a delete actually removed, named from the daemon's own change list (§9.2). */
+export function deletedWhat(outcome: ProfileWriteOutcome, fallbackLabel: string): string {
+  const labels = outcome.changes.map((change) => change.label).filter((label) => label.length > 0);
+  return labels.length > 0 ? labels.join(', ') : fallbackLabel;
 }
 
 /** The `said` a settings-surface write carries (§7 layer 3, §9.3). */
 export const SETTINGS_EDIT_UTTERANCE = '(edited in settings)';
 
-/** The surface name a write from this app declares (§4.2's provenance suffix). */
+/**
+ * The surface name a write from this app declares. One of the daemon's own
+ * `ProfileSurface` values (tui | agent | webui | voice | hand-edit) — anything else is a
+ * 400 from routes/owner-profile.ts's readSurface, never a silent default.
+ */
 export const WEBUI_PROFILE_SURFACE = 'webui';

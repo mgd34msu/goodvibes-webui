@@ -1,49 +1,57 @@
 /**
  * OwnerProfileSettings — the owner-profile surface for this webui
- * (profile.* verbs, docs/owner-profile.md). Mounted in AdminView beside PowerSettings
- * and MemoryDiagnostics, and built the same non-schema-driven way they are: these verbs
- * carry no CONFIG_SCHEMA entry, so they get a bespoke panel rather than a SettingsModal
- * row. (The `profile.*` CONFIG keys — enabled, autonomousWrites, discloseWrites and the
- * rest of §12 — do go through the schema-driven modal, under the "Owner Profile" group
- * label added in config-redaction.ts.)
+ * (profile.* verbs, docs/owner-profile.md). Mounted in AdminView beside PowerSettings and
+ * MemoryDiagnostics, and built the same non-schema-driven way they are: these verbs carry
+ * no CONFIG_SCHEMA entry, so they get a bespoke panel rather than a SettingsModal row.
+ * (The `profile.*` CONFIG keys — enabled, autonomousWrites, discloseWrites and the rest of
+ * §12 — do go through the schema-driven modal, under the "Owner Profile" group label added
+ * in config-redaction.ts.)
  *
  * The panel answers §8.3's three questions on this surface:
  *
  *   "what do you know about me?"  — profile.read, rendered by section. Mechanical fields
  *      (§4.3) render as labelled values; everything else renders as the prose it is. His
- *      prose is NOT restyled into a table — the file is a document he wrote, and the
- *      writer never normalises it (§4.5), so neither does this reader.
- *   "where did you get that?"     — profile.provenance, per line, reached from that
- *      line's own button. Each line already shows its compact suffix (§4.2: surface,
- *      date, his verbatim words); the button adds the `<!-- was: … -->` predecessors.
- *      Deliberately per line rather than one bulk dump.
- *   "forget that"                 — profile.forget, behind a confirm, then a report of
- *      what actually went. Deleting is permanent (§9.2 and
+ *      prose is NOT restyled into a table — the file is a document he wrote, and the writer
+ *      never normalises it (§4.5), so neither does this reader.
+ *   "where did you get that?"     — profile.provenance, per field, from that field's own
+ *      button. Every learned line already shows its compact suffix (§4.2: surface, date,
+ *      his verbatim words); the button adds the `<!-- was: … -->` predecessors. Per line,
+ *      never one bulk dump.
+ *   "forget that"                 — profile.forget, behind a confirm, then a report of what
+ *      actually went. Deleting is permanent (§9.2 and
  *      docs/decisions/2026-07-06-delete-means-delete.md): no tombstone, no retention
- *      window, and the history that would have made it undoable goes with it. A forget
- *      of something that was not there reports that it was not there — it never renders
- *      as a success.
+ *      window, and the history that would have made it undoable goes with it. A forget of
+ *      something that was not there comes back `ok: false` with the store's own sentence,
+ *      which this panel relays verbatim — it never renders as a success.
  *
- * Editing a field calls profile.set, which is a SUPERSEDE, not an overwrite (§9.3): the
- * previous value stays in the file as a `<!-- was: … -->` comment and profile.undo
- * promotes it back. Undo is offered on any field that has one.
+ * WHERE UNDO LIVES, AND WHY. profile.read carries no superseded count, so the only honest
+ * source for "does an earlier value exist" is profile.provenance. Undo therefore sits
+ * INSIDE the provenance disclosure, directly under the earlier values it would restore —
+ * so the button appears exactly where a superseded value has been shown to exist, rather
+ * than on every field as a mostly-dead affordance.
  *
- * HONEST STATES. `profile.status`'s three answers are rendered as three different things:
- * loaded, turned off, and could-not-be-read-with-a-reason. An unavailable profile never
- * renders as an empty one, because "I could not open the file" and "I know nothing about
- * you" are different sentences (§4.4). A daemon build that does not serve these verbs at
- * all (404/501) gets its own honest state, the same way MemoryDiagnostics does.
+ * WHY PROSE LINES HAVE NO LOOKUP AND NO UNDO. profile.provenance and profile.undo take a
+ * fieldId; profile.forget also takes a raw lineIndex, which is what prose gets. That is
+ * not a gap: a bullet's whole provenance is the suffix already on the line, and §9.1 says
+ * prose bullets are never superseded, so there is no predecessor list to fetch and nothing
+ * to restore. The panel states that rather than offering a button that cannot work.
+ *
+ * HONEST STATES. profile.status's three answers render as three different things: loaded,
+ * turned off, and could-not-be-read-with-a-reason. An unavailable profile never renders as
+ * an empty one, because "I could not open the file" and "I know nothing about you" are
+ * different sentences (§4.4). A daemon build that does not serve these verbs at all
+ * (404/501) gets its own honest state, the same way MemoryDiagnostics does.
  *
  * THIRD-PARTY PERSONAL DATA (§10). The People section holds facts about people who never
  * agreed to be in a database. This repo has no existing marker convention for such
  * material to reuse — its nearest analogues are config-redaction.ts (secret-shaped config
- * values are masked, and SettingsField renders them write-only) and MemoryRecordDetail
- * (a sensitive-looking ref renders as plain inert text, never a link, never fetched).
- * Neither is a containment marker for third-party data, so this panel uses the most
- * conservative rendering available: the section is marked in the DOM
- * (`data-third-party="true"`), carries a visible containment note, renders as plain inert
- * text with no link/copy/export affordance, and never reaches DataBlock, compactJson or
- * any diagnostic block. Nothing in this file logs a profile value.
+ * values are masked, and SettingsField renders them write-only) and MemoryRecordDetail (a
+ * sensitive-looking ref renders as plain inert text, never a link, never fetched). Neither
+ * is a containment marker for third-party data, so this panel uses the most conservative
+ * rendering available: the section is marked in the DOM (`data-third-party="true"`),
+ * carries a visible containment note, renders as plain inert text with no link/copy/export
+ * affordance, and never reaches DataBlock, compactJson or any diagnostic block. Nothing in
+ * this file logs a profile value.
  */
 import { useState, type SyntheticEvent } from 'react';
 import { UserRound } from 'lucide-react';
@@ -57,17 +65,20 @@ import {
   useUndoOwnerProfile,
 } from '../../hooks/useOwnerProfile';
 import {
+  deletedWhat,
   profileDisabledLine,
   profileStateBadgeClass,
   profileStateLabel,
   profileUnavailableLine,
   provenanceSummary,
   sectionHoldsThirdPartyData,
-  targetForProseLine,
+  tierNote,
+  writeReportLine,
   type ProfileField,
   type ProfileProseLine,
   type ProfileSection,
   type ProfileTarget,
+  type ProfileWriteOutcome,
 } from '../../lib/owner-profile';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { EmptyState } from '../feedback/EmptyState';
@@ -86,25 +97,17 @@ interface ActionReport {
 interface RowActions {
   readonly onSave: (field: ProfileField, value: string) => void;
   readonly onForget: (target: ProfileTarget, label: string) => void;
-  readonly onUndo: (target: ProfileTarget, label: string) => void;
+  readonly onUndo: (fieldId: string, label: string) => void;
   readonly busy: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Provenance disclosure — "where did you get that?", per line
+// Provenance disclosure — "where did you get that?", per field
 // ---------------------------------------------------------------------------
 
-function ProvenanceDisclosure({ target }: { target: ProfileTarget | null }) {
-  const query = useOwnerProfileProvenance(target);
+function FieldProvenance({ field, actions }: { field: ProfileField; actions: RowActions }) {
+  const query = useOwnerProfileProvenance(field.fieldId);
 
-  if (!target) {
-    return (
-      <p className="form-note owner-profile__provenance-detail">
-        This daemon build gives this line no address of its own, so its provenance cannot be
-        looked up from here. The line itself is shown above exactly as it is written.
-      </p>
-    );
-  }
   if (query.isPending) {
     return (
       <p className="form-note owner-profile__provenance-detail" aria-busy="true">
@@ -125,29 +128,40 @@ function ProvenanceDisclosure({ target }: { target: ProfileTarget | null }) {
 
   const answer = query.data;
   return (
-    <div className="owner-profile__provenance-detail" data-testid="profile-provenance-detail">
-      {!answer.found && <p>This line is not in your profile.</p>}
-      {answer.found && answer.provenance && <p>{provenanceSummary(answer.provenance)}</p>}
-      {answer.found && !answer.provenance && (
+    <div className="owner-profile__provenance-detail" data-testid={`profile-provenance-${field.fieldId}`}>
+      {!answer.present && <p>This is not in your profile.</p>}
+      {answer.present && answer.provenance && <p>{provenanceSummary(answer.provenance)}</p>}
+      {answer.present && !answer.provenance && (
         <p>No provenance recorded — you wrote or edited this line by hand.</p>
       )}
-      {answer.superseded.length > 0 && (
+
+      {answer.superseded.length > 0 ? (
         <>
           <p className="form-note">Earlier values, still kept in the file:</p>
           <ol className="owner-profile__superseded">
             {answer.superseded.map((entry, index) => (
-              <li key={`${entry.value ?? 'unrecorded'}-${String(index)}`}>
-                <span className="owner-profile__value">{entry.value ?? '(value not recorded)'}</span>
+              <li key={`${entry.value}-${String(index)}`}>
+                <span className="owner-profile__value">{entry.value}</span>
                 {entry.provenance && (
                   <span className="owner-profile__provenance"> — {provenanceSummary(entry.provenance)}</span>
                 )}
-                {entry.supersededOn !== undefined && (
+                {entry.supersededOn.length > 0 && (
                   <span className="form-note"> (superseded {entry.supersededOn})</span>
                 )}
               </li>
             ))}
           </ol>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={actions.busy}
+            onClick={() => { actions.onUndo(field.fieldId, field.label); }}
+          >
+            Undo — put the most recent earlier value back
+          </button>
         </>
+      ) : (
+        <p className="form-note">No earlier values kept, so there is nothing to undo.</p>
       )}
     </div>
   );
@@ -161,7 +175,7 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(field.value);
   const [provenanceOpen, setProvenanceOpen] = useState(false);
-  const target: ProfileTarget = { kind: 'field', key: field.key };
+  const target: ProfileTarget = { kind: 'field', fieldId: field.fieldId };
 
   function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -170,7 +184,7 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
   }
 
   return (
-    <div className="owner-profile__field" data-testid={`profile-field-${field.key}`}>
+    <div className="owner-profile__field" data-testid={`profile-field-${field.fieldId}`}>
       <dt className="owner-profile__field-label">{field.label}</dt>
       <dd className="owner-profile__field-body">
         {editing ? (
@@ -224,16 +238,6 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
               >
                 Where did you get that?
               </button>
-              {field.supersededCount > 0 && (
-                <button
-                  className="secondary-button"
-                  type="button"
-                  disabled={actions.busy}
-                  onClick={() => { actions.onUndo(target, field.label); }}
-                >
-                  Undo{field.supersededCount > 1 ? ` (${String(field.supersededCount)} earlier values kept)` : ' (1 earlier value kept)'}
-                </button>
-              )}
               <button
                 className="secondary-button owner-profile__danger"
                 type="button"
@@ -245,7 +249,7 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
             </div>
           </>
         )}
-        {provenanceOpen && <ProvenanceDisclosure target={target} />}
+        {provenanceOpen && <FieldProvenance field={field} actions={actions} />}
       </dd>
     </div>
   );
@@ -255,20 +259,12 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
 // A prose line (§4.4) — rendered as the prose it is
 // ---------------------------------------------------------------------------
 
-function ProseRow({
-  section,
-  line,
-  actions,
-}: {
-  section: ProfileSection;
-  line: ProfileProseLine;
-  actions: RowActions;
-}) {
+function ProseRow({ line, actions }: { line: ProfileProseLine; actions: RowActions }) {
   const [provenanceOpen, setProvenanceOpen] = useState(false);
-  const target = targetForProseLine(section, line);
+  const target: ProfileTarget = { kind: 'line', lineIndex: line.lineIndex };
 
   return (
-    <li className="owner-profile__line">
+    <li className="owner-profile__line" data-testid={`profile-line-${String(line.lineIndex)}`}>
       <p className="owner-profile__prose">
         {line.text}
         {line.provenance && (
@@ -284,18 +280,26 @@ function ProseRow({
         >
           Where did you get that?
         </button>
-        {target && (
-          <button
-            className="secondary-button owner-profile__danger"
-            type="button"
-            disabled={actions.busy}
-            onClick={() => { actions.onForget(target, line.text); }}
-          >
-            Forget
-          </button>
-        )}
+        <button
+          className="secondary-button owner-profile__danger"
+          type="button"
+          disabled={actions.busy}
+          onClick={() => { actions.onForget(target, line.text); }}
+        >
+          Forget
+        </button>
       </div>
-      {provenanceOpen && <ProvenanceDisclosure target={target} />}
+      {provenanceOpen && (
+        <div className="owner-profile__provenance-detail">
+          {line.provenance
+            ? <p>{provenanceSummary(line.provenance)}</p>
+            : <p>No provenance recorded — you wrote or edited this line by hand.</p>}
+          <p className="form-note">
+            That is the whole answer for a note: notes keep no earlier versions, so there is
+            nothing further to look up and nothing to undo.
+          </p>
+        </div>
+      )}
     </li>
   );
 }
@@ -316,7 +320,7 @@ function SectionBlock({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const thirdParty = sectionHoldsThirdPartyData(section);
-  const empty = section.fields.length === 0 && section.lines.length === 0;
+  const empty = section.fields.length === 0 && section.prose.length === 0;
 
   function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -330,11 +334,18 @@ function SectionBlock({
   return (
     <section
       className="owner-profile__section"
-      data-testid={`profile-section-${section.id}`}
+      data-testid={`profile-section-${section.heading}`}
+      data-tier={section.tier}
       data-third-party={thirdParty ? 'true' : undefined}
-      aria-label={section.name}
+      aria-label={section.heading}
     >
-      <h3>{section.name}</h3>
+      <div className="owner-profile__section-head">
+        <h3>{section.heading}</h3>
+        <span className={`badge ${section.tier === 'open' ? 'neutral' : 'info'}`}>
+          {section.tier === 'open' ? 'Open' : 'Closed'}
+        </span>
+      </div>
+      <p className="form-note">{tierNote(section.tier)}</p>
 
       {thirdParty && (
         <p className="owner-profile__containment" role="note">
@@ -347,20 +358,15 @@ function SectionBlock({
       {section.fields.length > 0 && (
         <dl className="owner-profile__fields">
           {section.fields.map((field) => (
-            <FieldRow key={field.key} field={field} actions={actions} />
+            <FieldRow key={field.fieldId} field={field} actions={actions} />
           ))}
         </dl>
       )}
 
-      {section.lines.length > 0 && (
+      {section.prose.length > 0 && (
         <ul className="owner-profile__lines">
-          {section.lines.map((line, index) => (
-            <ProseRow
-              key={line.key ?? `${section.id}-${String(line.lineIndex ?? index)}`}
-              section={section}
-              line={line}
-              actions={actions}
-            />
+          {section.prose.map((line) => (
+            <ProseRow key={line.lineIndex} line={line} actions={actions} />
           ))}
         </ul>
       )}
@@ -373,7 +379,7 @@ function SectionBlock({
             className="owner-profile__edit-input"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            aria-label={`New line in ${section.name}`}
+            aria-label={`New line in ${section.heading}`}
             autoComplete="off"
           />
           <button className="primary-button" type="submit" disabled={actions.busy || draft.trim().length === 0}>
@@ -385,7 +391,7 @@ function SectionBlock({
         </form>
       ) : (
         <button className="secondary-button owner-profile__add" type="button" onClick={() => setAdding(true)}>
-          Add a line to {section.name}
+          Add a line to {section.heading}
         </button>
       )}
     </section>
@@ -395,6 +401,9 @@ function SectionBlock({
 // ---------------------------------------------------------------------------
 // The panel
 // ---------------------------------------------------------------------------
+
+const MALFORMED_WRITE =
+  'The daemon answered, but did not say whether anything changed. Check the profile below before assuming it did.';
 
 export function OwnerProfileSettings() {
   const profile = useOwnerProfileDocument();
@@ -413,18 +422,14 @@ export function OwnerProfileSettings() {
 
   function onSave(field: ProfileField, value: string) {
     setField.mutate(
-      { key: field.key, value },
+      { fieldId: field.fieldId, value },
       {
         onSuccess: (outcome) => {
-          setReport(
-            outcome.changed
-              ? {
-                tone: 'ok',
-                text: outcome.disclosure
-                    ?? `Saved ${field.label}. The previous value is kept in the file, and Undo puts it back.`,
-              }
-              : { tone: 'warning', text: `The daemon reported no change to ${field.label}.` },
-          );
+          setReport(writeReportLine(
+            outcome,
+            `Saved ${field.label}. The previous value is kept in the file, and Undo puts it back.`,
+            MALFORMED_WRITE,
+          ));
         },
         onError: (error) => { setReport({ tone: 'warning', text: formatError(error) }); },
       },
@@ -433,31 +438,37 @@ export function OwnerProfileSettings() {
 
   function onAppend(section: ProfileSection, text: string) {
     appendLine.mutate(
-      { section: section.id, text },
+      { section: section.heading, text },
       {
         onSuccess: (outcome) => {
-          setReport(
-            outcome.changed
-              ? { tone: 'ok', text: outcome.disclosure ?? `Added a line to ${section.name}.` }
-              : { tone: 'warning', text: `The daemon reported no change to ${section.name}.` },
-          );
+          setReport(writeReportLine(outcome, `Added a line to ${section.heading}.`, MALFORMED_WRITE));
         },
         onError: (error) => { setReport({ tone: 'warning', text: formatError(error) }); },
       },
     );
   }
 
-  function onUndo(target: ProfileTarget, label: string) {
-    undo.mutate(target, {
+  function onUndo(fieldId: string, label: string) {
+    undo.mutate(fieldId, {
       onSuccess: (outcome) => {
-        setReport(
-          outcome.changed
-            ? { tone: 'ok', text: outcome.disclosure ?? `Restored the previous value of ${label}.` }
-            : { tone: 'info', text: `Nothing to restore — ${label} has no earlier value kept.` },
-        );
+        setReport(writeReportLine(outcome, `Restored the previous value of ${label}.`, MALFORMED_WRITE));
       },
       onError: (error) => { setReport({ tone: 'warning', text: formatError(error) }); },
     });
+  }
+
+  /** A delete that happened names what went; one that did not relays the daemon's reason. */
+  function reportForget(outcome: ProfileWriteOutcome | null, label: string): ActionReport {
+    if (outcome === null) {
+      return {
+        tone: 'warning',
+        text: `The daemon answered, but did not say whether ${label} was deleted. Check the profile below before assuming it went.`,
+      };
+    }
+    if (!outcome.ok) {
+      return { tone: 'info', text: outcome.reason ?? `Nothing was deleted, and the daemon did not say why.` };
+    }
+    return { tone: 'ok', text: `Deleted ${deletedWhat(outcome, label)} from your profile.` };
   }
 
   async function onForget(target: ProfileTarget, label: string) {
@@ -471,24 +482,17 @@ export function OwnerProfileSettings() {
     });
     if (!confirmed) return;
     forget.mutate(target, {
-      onSuccess: (outcome) => {
-        if (outcome.verdict === 'deleted') {
-          const what = outcome.removed.length > 0 ? outcome.removed.join(', ') : label;
-          setReport({ tone: 'ok', text: `Deleted ${what} from your profile.` });
-        } else if (outcome.verdict === 'not-present') {
-          setReport({ tone: 'info', text: `Nothing to forget — ${label} was not in your profile.` });
-        } else {
-          setReport({
-            tone: 'warning',
-            text: `The daemon answered, but did not say whether ${label} was deleted. Check the profile below before assuming it went.`,
-          });
-        }
-      },
+      onSuccess: (outcome) => { setReport(reportForget(outcome, label)); },
       onError: (error) => { setReport({ tone: 'warning', text: formatError(error) }); },
     });
   }
 
-  const actions: RowActions = { onSave, onForget: (target, label) => { void onForget(target, label); }, onUndo, busy };
+  const actions: RowActions = {
+    onSave,
+    onForget: (target, label) => { void onForget(target, label); },
+    onUndo,
+    busy,
+  };
 
   return (
     <section className="panel owner-profile" aria-label="Owner profile" data-testid="owner-profile-settings">
@@ -514,16 +518,17 @@ export function OwnerProfileSettings() {
           <span className={`badge ${profileStateBadgeClass(status.data.state)}`}>
             {profileStateLabel(status.data.state)}
           </span>
-          {status.data.path !== undefined && (
-            /* Inert text, never a link and never fetched — the same stance
-               MemoryRecordDetail takes with a path-shaped provenance ref. */
-            <span className="owner-profile__path">{status.data.path}</span>
-          )}
+          {/* Inert text, never a link and never fetched — the same stance MemoryRecordDetail
+              takes with a path-shaped provenance ref. */}
+          <span className="owner-profile__path">{status.data.path}</span>
           {status.data.lineCount !== undefined && (
             <span className="form-note">{status.data.lineCount} lines</span>
           )}
           {status.data.fieldCount !== undefined && (
             <span className="form-note">{status.data.fieldCount} fields</span>
+          )}
+          {status.data.proseLineCount !== undefined && (
+            <span className="form-note">{status.data.proseLineCount} notes</span>
           )}
         </div>
       )}
@@ -533,7 +538,7 @@ export function OwnerProfileSettings() {
           <strong>Values kept as written but not valid</strong>
           <ul>
             {status.data.invalidFields.map((entry) => (
-              <li key={entry.key}>{entry.key} — {entry.reason}</li>
+              <li key={entry.fieldId}>{entry.fieldId} — {entry.reason}</li>
             ))}
           </ul>
         </div>
@@ -588,7 +593,7 @@ export function OwnerProfileSettings() {
       {profile.isSuccess && profile.data.state === 'loaded' && profile.data.sections.length > 0 && (
         <div className="owner-profile__sections">
           {profile.data.sections.map((section) => (
-            <SectionBlock key={section.id} section={section} actions={actions} onAppend={onAppend} />
+            <SectionBlock key={section.heading} section={section} actions={actions} onAppend={onAppend} />
           ))}
         </div>
       )}

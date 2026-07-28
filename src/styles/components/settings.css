@@ -575,3 +575,49 @@
 .cvv-prompt-warning {
   max-width: 42rem;
 }
+
+/* ── Card entry ────────────────────────────────────────────────────────────
+   The panel where a card number, expiry, security code and cardholder name
+   are typed. See PaymentCardEntry.tsx for the six conditions the owner's
+   ruling carried; the only one with a stylesheet half is the concealment
+   below. */
+.settings-card-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.settings-card-note {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.settings-card-list {
+  width: 100%;
+}
+
+.settings-card-form {
+  width: 100%;
+}
+
+/*
+  Visual concealment for the number and security code while they are typed.
+
+  Deliberately NOT type="password": a password input is the strongest single
+  signal a password manager looks for, and "must not present as a field a
+  manager offers to save" is a condition of the ruling, which outranks a nicer
+  mask. -webkit-text-security gets the same look with none of the semantics.
+
+  Stated honestly: this is cosmetic, and a browser without the property shows
+  the characters as typed. It is not what keeps the value safe — the value's
+  safety is that it goes out over the authenticated daemon channel in a POST
+  body, is never returned by any method, and is cleared from component state on
+  submit.
+*/
+.settings-card-concealed {
+  -webkit-text-security: disc;
+  text-security: disc;
+}

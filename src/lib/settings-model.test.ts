@@ -477,3 +477,68 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     expect(everyKey).toContain('payments.cvvHandling');
   });
 });
+
+/**
+ * The realistic leak path, as opposed to the hypothetical one.
+ *
+ * The existing card-material test above uses a nested `payments.cards.visa.*`
+ * shape. What the card-entry surfaces actually write is four FLAT keys under
+ * `payments.` — the TUI's /payments card flow and this app's own card panel
+ * both land there — and in practice they hold a `goodvibes://secrets/...`
+ * reference rather than a value, because the value goes to the daemon secret
+ * store. Both halves are asserted here: the keys never render, and a stray raw
+ * value under one of them never renders either.
+ */
+describe('the four flat card keys the entry surfaces write never reach the model', () => {
+  const CARD_KEYS = ['payments.cardNumber', 'payments.cardExpiry', 'payments.cardCvv', 'payments.cardholderName'];
+
+  function keysOf(groups: SettingsGroupModel[]): string[] {
+    return groups.flatMap((g) => [
+      ...g.plainRows.map((f) => f.key),
+      ...g.rawRows.map((r) => r.key),
+      ...g.featureUnits.flatMap((u) => [
+        ...(u.enablementField ? [u.enablementField.key] : []),
+        ...u.fields.map((f) => f.key),
+      ]),
+    ]);
+  }
+
+  test('none of the four render, even holding raw values', () => {
+    const groups = buildSettingsModel({
+      payments: {
+        cardNumber: '4000056655665556',
+        cardExpiry: '09/29',
+        cardCvv: '731',
+        cardholderName: 'Jane Q. Fakename',
+      },
+    });
+    const rendered = keysOf(groups);
+    for (const key of CARD_KEYS) {
+      expect(rendered).not.toContain(key);
+    }
+  });
+
+  test('no raw card value survives anywhere in the built model', () => {
+    const groups = buildSettingsModel({
+      payments: {
+        cardNumber: '4000056655665556',
+        cardCvv: '731',
+        cardholderName: 'Jane Q. Fakename',
+      },
+    });
+    const serialized = JSON.stringify(groups);
+    expect(serialized).not.toContain('4000056655665556');
+    expect(serialized).not.toContain('731');
+    expect(serialized).not.toContain('Jane Q. Fakename');
+  });
+
+  test('the billing and shipping address fields beside them still render — the filter is scoped, not a blanket', () => {
+    const groups = buildSettingsModel({
+      payments: { cardNumber: '4000056655665556', billingAddress: { name: 'Jane Q. Fakename' } },
+    });
+    const rendered = keysOf(groups);
+    expect(rendered).toContain('payments.billingAddress.name');
+    expect(rendered).toContain('payments.shippingAddress.line1');
+    expect(rendered).not.toContain('payments.cardNumber');
+  });
+});

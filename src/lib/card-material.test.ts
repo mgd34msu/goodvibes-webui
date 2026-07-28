@@ -54,3 +54,35 @@ describe('isCardMaterialKey', () => {
     expect(isCardMaterialKey('payments.cards.visa.CardNumber')).toBe(true);
   });
 });
+
+/**
+ * The four keys the card-entry surfaces actually write.
+ *
+ * "Never rendered back after entry" is a condition of the owner's card-entry
+ * ruling, and it has to hold for every card field — not only the two whose
+ * names happen to end in a word the trailing-token rule already catches.
+ * payments.cardExpiry and payments.cardholderName end in "expiry" and "name",
+ * which must never become token rules (a "name" token would hide
+ * payments.billingAddress.name and every other *.name key in the schema), so
+ * they are matched by their full key instead.
+ */
+describe('the four card-material keys the entry surfaces write', () => {
+  test('all four are non-displayable', () => {
+    expect(isCardMaterialKey('payments.cardNumber')).toBe(true);
+    expect(isCardMaterialKey('payments.cardExpiry')).toBe(true);
+    expect(isCardMaterialKey('payments.cardCvv')).toBe(true);
+    expect(isCardMaterialKey('payments.cardholderName')).toBe(true);
+  });
+
+  test('the exact-key rule does not spill onto ordinary keys ending in the same words', () => {
+    // These are real, displayable settings. A trailing-word rule for "name" or
+    // "expiry" would have hidden them — which is why the two card keys above
+    // are matched whole rather than by their last word.
+    expect(isCardMaterialKey('payments.billingAddress.name')).toBe(false);
+    expect(isCardMaterialKey('payments.shippingAddress.name')).toBe(false);
+    expect(isCardMaterialKey('surfaces.slack.displayName')).toBe(false);
+    expect(isCardMaterialKey('relay.tokenExpiry')).toBe(false);
+    expect(isCardMaterialKey('cardExpiry')).toBe(false);
+    expect(isCardMaterialKey('other.cardholderName')).toBe(false);
+  });
+});

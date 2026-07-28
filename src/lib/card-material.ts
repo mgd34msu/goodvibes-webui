@@ -40,6 +40,30 @@
 /** Trailing word tokens (after camelCase/separator splitting) that mean card material. */
 const CARD_MATERIAL_WORD_TOKENS: ReadonlySet<string> = new Set(['cvv', 'cvv2', 'cvc', 'cvc2', 'pan']);
 
+/**
+ * Whole keys that are card material but whose LAST word is an ordinary one.
+ *
+ * `payments.cardExpiry` and `payments.cardholderName` end in "expiry" and
+ * "name" — words that must never become trailing-token rules, because
+ * `payments.billingAddress.name` is a legitimate, displayable setting and a
+ * "name" token would hide it (along with every other `*.name` key in the
+ * schema). Matching these two by their FULL key instead keeps the rule exact:
+ * all four card-material fields the card-entry surface writes
+ * (payments.cardNumber, payments.cardExpiry, payments.cardCvv,
+ * payments.cardholderName) are non-displayable, and nothing else moves.
+ *
+ * They are here because "never rendered back after entry" is a condition of the
+ * owner's card-entry ruling, and it has to hold for every card field rather
+ * than only the two whose names happen to trip a word rule. In practice these
+ * keys hold a `goodvibes://secrets/...` reference rather than a value — the
+ * daemon secret store holds the value — so this is the belt-and-suspenders
+ * layer, not the primary one.
+ */
+const CARD_MATERIAL_EXACT_KEYS: ReadonlySet<string> = new Set([
+  'payments.cardExpiry',
+  'payments.cardholderName',
+]);
+
 /** Whole-segment (fully concatenated, case-insensitive) forms of "card number". */
 const CARD_MATERIAL_COMPOUND_SEGMENTS: ReadonlySet<string> = new Set(['cardnumber', 'cardnum', 'cardno']);
 
@@ -63,6 +87,7 @@ function wordsOfLastSegment(key: string): string[] {
  * "company") correctly do not match.
  */
 export function isCardMaterialKey(key: string): boolean {
+  if (CARD_MATERIAL_EXACT_KEYS.has(key)) return true;
   const lastSegment = key.split('.').pop() ?? key;
   const compound = lastSegment.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
   if (CARD_MATERIAL_COMPOUND_SEGMENTS.has(compound)) return true;

@@ -1538,6 +1538,44 @@ export interface ConfigSetOutcome {
   readonly daemonOwned?: boolean;
 }
 
+/**
+ * A stored card as every surface is allowed to see it: METADATA ONLY.
+ *
+ * There is no field here for the number, the expiry as typed, the CVV or the
+ * cardholder name, and that is the point — the daemon has no method that
+ * returns them. `last4` and `materialComplete` exist so a surface can render
+ * "Visa ···4242, security code set" without the daemon ever emitting a value.
+ */
+export interface PaymentCardMetadata {
+  readonly id: string;
+  readonly label: string;
+  readonly brand: string;
+  readonly last4: string;
+  readonly kind: 'virtual' | 'real';
+  readonly expiryMonth: number;
+  readonly expiryYear: number;
+  /** Declared by the owner, unverifiable by us, never treated as an enforcement layer. */
+  readonly issuerCapMinorUnits: number | null;
+  readonly addedAt: string;
+  /** Whether every required secret field is present — never which, never the values. */
+  readonly materialComplete: boolean;
+}
+
+/**
+ * What `payments.cards.create` accepts. Card material goes IN through here and
+ * never comes back out; see the method comment on sdk.operator.payments.
+ */
+export interface PaymentCardCreateRequest {
+  readonly label: string;
+  readonly kind: 'virtual' | 'real';
+  readonly number: string;
+  readonly expiryMonth: number;
+  readonly expiryYear: number;
+  readonly cvv: string;
+  readonly cardholderName: string;
+  readonly issuerCapMinorUnits: number | null;
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -1628,6 +1666,44 @@ export const sdk = {
       get: () => invokeOperator('config.get'),
       set: (key: string, value: unknown) =>
         invokeOperator<'config.set', { key: string; value: unknown }, ConfigSetOutcome>('config.set', { key, value }),
+    },
+    // payments.cards.* — the ONLY path card material takes off this surface.
+    //
+    // create() carries the number, expiry, CVV and cardholder name to the
+    // daemon, which puts them in its own secret store encrypted at rest, under
+    // keys derived from the config path — daemon scope, so the daemon can read
+    // them for an unattended purchase with every surface closed. That is the
+    // owner's standing rule: anything configured on a surface stays available
+    // to the daemon after that surface is gone.
+    //
+    // Both methods are REST-routed by the pinned contracts facade
+    // (WEBUI_METHOD_ROUTES already carries payments.cards.*), so they resolve
+    // through EXTRA_METHOD_ROUTES with no hand-written row — and create()'s
+    // route is POST, which is what puts the card in the request BODY.
+    // invokeOperator sends a GET method's input as a query string; a route
+    // flipped to GET would therefore put a card number in a URL, in browser
+    // history and in every server log along the way. payments-cards.test.ts
+    // asserts the method stays POST for exactly that reason.
+    //
+    // There is deliberately NO read method for card material. list() answers
+    // with metadata only (id, label, brand, last four, kind, expiry month/year,
+    // declared issuer cap, and a materialComplete flag), and create()'s own
+    // response is that same metadata — it never echoes what was submitted,
+    // because an echo would be a read path and no read path exists.
+    payments: {
+      cards: {
+        list: () => invokeOperator<'payments.cards.list', Record<string, never>, { cards: PaymentCardMetadata[] }>('payments.cards.list', {}),
+        create: (input: PaymentCardCreateRequest) =>
+          invokeOperator<'payments.cards.create', PaymentCardCreateRequest, { card: PaymentCardMetadata }>(
+            'payments.cards.create',
+            input,
+          ),
+        delete: (id: string) =>
+          invokeOperator<'payments.cards.delete', { id: string }, { id: string; deleted: boolean; secretsCleared: number }>(
+            'payments.cards.delete',
+            { id },
+          ),
+      },
     },
     // Power (power.status.get / power.keepAwake.set, SDK 1.8.0's host sleep-ownership
     // work): both carry real generated OperatorMethodInputMap/OutputMap entries and a

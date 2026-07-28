@@ -106,6 +106,24 @@ describe('the six conditions the ruling carried', () => {
     expect(CARD_ENTRY_CONDITIONS).toHaveLength(6);
   });
 
+  test('the mirrored copy is character-for-character the SDK\'s', async () => {
+    // The mirror exists because the pinned SDK version has no
+    // WEBUI_CARD_ENTRY_CONDITIONS export, so importing it would not compile.
+    // Hand-verified equality is the duplicated-constant drift class: the two
+    // look identical at every call site right up until one is edited.
+    //
+    // The local SDK overlay DOES carry the export, so when it is present this
+    // asserts equality automatically instead of by eye. It skips against a
+    // published pin rather than failing, because the mirror is legitimate
+    // until that pin catches up — and the moment it does, this stops skipping
+    // and the mirror can be deleted.
+    const sdk = await import('@pellux/goodvibes-sdk/platform/payments')
+      .catch(() => null) as { WEBUI_CARD_ENTRY_CONDITIONS?: readonly string[] } | null;
+    const fromSdk = sdk?.WEBUI_CARD_ENTRY_CONDITIONS;
+    if (!fromSdk) return;
+    expect([...CARD_ENTRY_CONDITIONS]).toEqual([...fromSdk]);
+  });
+
   test('each names the requirement it is, so a reviewer has the list without a transcript', () => {
     const joined = CARD_ENTRY_CONDITIONS.join('\n');
     expect(joined).toContain('authenticated daemon channel');

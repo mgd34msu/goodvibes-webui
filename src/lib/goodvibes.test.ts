@@ -273,6 +273,30 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
+  test('the nine profile.* verbs arrive DERIVED — real REST rows from the generated artifact, no hand-written row', () => {
+    // The owner profile added no route wiring to goodvibes.ts at all: every row below comes
+    // from WEBUI_METHOD_ROUTES via buildExtraMethodRoutes. This pins that they are present,
+    // that they are REST (not ws-invoke), and that each resolves to the generated path — so
+    // a future contract change to any of these paths fails here rather than at runtime.
+    const expected = {
+      'profile.read': { method: 'GET', path: '/api/profile' },
+      'profile.get': { method: 'GET', path: '/api/profile/fields/{fieldId}' },
+      'profile.person': { method: 'POST', path: '/api/profile/person' },
+      'profile.provenance': { method: 'GET', path: '/api/profile/fields/{fieldId}/provenance' },
+      'profile.set': { method: 'POST', path: '/api/profile/set' },
+      'profile.append': { method: 'POST', path: '/api/profile/append' },
+      'profile.forget': { method: 'POST', path: '/api/profile/forget' },
+      'profile.undo': { method: 'POST', path: '/api/profile/undo' },
+      'profile.status': { method: 'GET', path: '/api/profile/status' },
+    } as const;
+    for (const [id, route] of Object.entries(expected)) {
+      expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
+      expect(isExtraRoutedMethod(id)).toBe(true);
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
+      expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
+    }
+  });
+
   test('WEBUI_METHOD_SAMPLES carries an input/output fixture for every bridged ws-invoke method (the mock daemon default-seed source)', () => {
     for (const id of BRIDGE_TYPED_METHOD_IDS) {
       const sample = WEBUI_METHOD_SAMPLES[id];

@@ -7,11 +7,11 @@ import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/kno
 import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import { routedFetch } from './relay-connection';
-// Local input shapes for the profile.* verbs — the installed contracts package has no
-// 'profile.*' method ids yet, so these come from lib/owner-profile.ts (which also owns
-// the response readers) rather than from OperatorMethodInputMap. Type-only import: no
-// runtime dependency is added to this module.
-import type { ProfileAppendInput, ProfileSetInput, ProfileVerbTarget } from './owner-profile';
+// The union profile.forget accepts as a target (a field id OR a raw line index), named in
+// lib/owner-profile.ts beside the readers for the same verbs' output. The generated
+// OperatorMethodInput<'profile.forget'> has both properties optional, so this narrower
+// type is what stops a caller passing neither. Type-only import: no runtime dependency.
+import type { ProfileForgetTarget } from './owner-profile';
 import type {
   OperatorMethodId,
   OperatorMethodInput,
@@ -1805,33 +1805,33 @@ export const sdk = {
     // Markdown document at daemon scope holding what the platform knows about the owner
     // — identity, contact, location, commerce, preferences, people, places, work, notes.
     //
-    // ROUTING: these ids carry real REST bindings in the contract, so once the
-    // regenerated @pellux/goodvibes-contracts lands they resolve through
+    // ROUTING: all nine carry real REST bindings, so they resolve through
     // EXTRA_METHOD_ROUTES with no wiring here — that table is DERIVED from the generated
-    // webui-facade artifact and pinned by the drift test, so a hand-written row is not
-    // allowed and is not needed. Against the currently pinned 1.18.1 contracts (which has
-    // no 'profile.*' ids at all) these calls fall through to the generic invoke path and
-    // the daemon answers honestly; the panel renders that refusal rather than an empty
-    // profile.
+    // webui-facade artifact and pinned by the drift test, so a hand-written row is neither
+    // allowed nor needed. Real generated I/O maps throughout.
     //
-    // TYPING: no OperatorMethodInput/OutputMap entry exists for these ids yet, so the
-    // inputs are the local interfaces in lib/owner-profile.ts and the outputs are
-    // `unknown`, narrowed at the boundary by that module's readProfile* readers — the
-    // same stance memory.* takes for its six hand-authored ids above. Swap to the
-    // generated I/O maps when the pin bumps.
+    // AUTHORITY AND USER-REQUEST: neither is sent. routes/owner-profile.ts reads an absent
+    // `authority` as owner-direct and an absent `explicitUserRequest` as no claim either
+    // way, both because no live transport populates them; declaring either from here would
+    // be this surface asserting something it cannot know. The gates that do NOT trust the
+    // caller's self-description — the derivation check against the untrusted-content
+    // ledger, and the requirement that a verbatim owner utterance exists — still run.
     //
     // CONTAINMENT: `person` takes a NAME and there is deliberately no enumerate-all
     // counterpart (§10) — `read` returns everything and is for the owner looking at his
     // own profile, never for a composition path assembling outbound content.
     profile: {
       read: () => invokeOperator('profile.read', {}),
-      get: (key: string) => invokeOperator('profile.get', { key }),
+      get: (fieldId: string) => invokeOperator('profile.get', { fieldId }),
       person: (name: string) => invokeOperator('profile.person', { name }),
-      provenance: (target: ProfileVerbTarget) => invokeOperator('profile.provenance', target),
-      set: (input: ProfileSetInput) => invokeOperator('profile.set', input),
-      append: (input: ProfileAppendInput) => invokeOperator('profile.append', input),
-      forget: (target: ProfileVerbTarget) => invokeOperator('profile.forget', target),
-      undo: (target: ProfileVerbTarget) => invokeOperator('profile.undo', target),
+      provenance: (fieldId: string) => invokeOperator('profile.provenance', { fieldId }),
+      set: (input: OperatorMethodInput<'profile.set'>) => invokeOperator('profile.set', input),
+      append: (input: OperatorMethodInput<'profile.append'>) => invokeOperator('profile.append', input),
+      // Narrower than OperatorMethodInput<'profile.forget'>, whose fieldId and lineIndex
+      // are both optional: the daemon 400s on a call carrying neither, so the union makes
+      // that a compile error here instead of a round trip.
+      forget: (target: ProfileForgetTarget) => invokeOperator('profile.forget', target),
+      undo: (fieldId: string) => invokeOperator('profile.undo', { fieldId }),
       status: () => invokeOperator('profile.status', {}),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job

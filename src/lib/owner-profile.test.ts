@@ -1,121 +1,140 @@
 /**
- * owner-profile.ts — the defensive wire readers for the profile.* verbs.
+ * owner-profile.ts — the wire readers for the profile.* verbs, against the REAL generated
+ * contract shapes (fieldId / heading / tier / state.kind / ok+reason+changes+disclosure).
  *
- * The load-bearing assertions here are the honesty ones: a profile that could not be
- * read must never come back as an empty profile (docs/owner-profile.md §4.4), a forget
- * that did not say it deleted must never come back as a deletion (§9.2), and a status
- * answer must carry names and counts but no values (§11.3).
+ * The load-bearing assertions are the honesty ones: a profile that could not be read must
+ * never come back as an empty profile (docs/owner-profile.md §4.4), a write whose answer
+ * did not say `ok` must never come back as a success (§9.2), and a `profile.status` answer
+ * must carry names, counts and reasons but no values (§11.3).
  */
 import { describe, expect, test } from 'bun:test';
 import {
-  labelFromKey,
+  deletedWhat,
+  forgetTargetInput,
   profileDisabledLine,
   profileStateBadgeClass,
   profileStateLabel,
   profileTargetId,
-  profileTargetInput,
   profileUnavailableLine,
   provenanceSummary,
   readProfileDocument,
-  readProfileForgetOutcome,
   readProfileProvenanceAnswer,
   readProfileStatus,
   readProfileWriteOutcome,
   sectionHoldsThirdPartyData,
-  targetForProseLine,
+  tierNote,
+  writeReportLine,
   type ProfileSection,
 } from './owner-profile';
 
-const LOADED_DOCUMENT = {
-  state: 'loaded',
-  path: '/home/owner/.goodvibes/daemon/owner-profile.md',
+const PROFILE_PATH = '/home/owner/.goodvibes/daemon/owner-profile.md';
+
+const LOADED_READ = {
+  state: {
+    kind: 'loaded',
+    path: PROFILE_PATH,
+    exists: true,
+    lineCount: 42,
+    fieldCount: 11,
+    proseLineCount: 5,
+    sections: ['Identity', 'Commerce', 'People'],
+    invalidFields: [],
+  },
   sections: [
     {
-      id: 'identity',
-      name: 'Identity',
+      heading: 'Identity',
+      tier: 'open',
       fields: [
-        { key: 'identity.name', label: 'name', value: 'Mike Davis', valid: true },
-        { key: 'identity.goesBy', label: 'goes by', value: 'Mike', valid: true },
+        { fieldId: 'identity.name', label: 'name', value: 'Mike Davis', valid: true },
+        { fieldId: 'identity.goesBy', label: 'goes by', value: 'Mike', valid: true },
       ],
-      lines: [],
+      prose: [],
     },
     {
-      id: 'commerce',
-      name: 'Commerce',
+      heading: 'Commerce',
+      tier: 'closed',
       fields: [
         {
-          key: 'commerce.shippingAddress',
+          fieldId: 'commerce.shippingAddress',
           label: 'shipping address',
           value: '200 Office Way, Lansing, MI 48933, US',
           valid: true,
           provenance: { surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' },
-          supersededCount: 1,
         },
       ],
-      lines: [],
+      prose: [],
     },
     {
-      id: 'people',
-      name: 'People',
+      heading: 'People',
+      tier: 'closed',
       fields: [],
-      lines: [
+      prose: [
         {
-          text: 'Sarah, sister, sarah@example.com',
           lineIndex: 41,
+          section: 'People',
+          text: 'Sarah, sister, sarah@example.com',
           provenance: { surface: 'tui', date: '2026-07-27', said: 'my sister Sarah, sarah@example.com' },
         },
-        'Dave from work, handles the Pellux contracts',
+        { lineIndex: 42, section: 'People', text: 'Dave from work, handles the Pellux contracts' },
       ],
     },
   ],
 };
 
 describe('readProfileDocument', () => {
-  test('reads sections, mechanical fields, prose lines and provenance', () => {
-    const document = readProfileDocument(LOADED_DOCUMENT);
+  test('reads sections, tiers, mechanical fields, prose lines and provenance', () => {
+    const document = readProfileDocument(LOADED_READ);
     expect(document).not.toBeNull();
     expect(document?.state).toBe('loaded');
-    expect(document?.path).toBe('/home/owner/.goodvibes/daemon/owner-profile.md');
+    expect(document?.path).toBe(PROFILE_PATH);
     expect(document?.sections.length).toBe(3);
 
-    const commerce = document?.sections.find((section) => section.id === 'commerce');
-    expect(commerce?.fields[0]?.label).toBe('shipping address');
+    const identity = document?.sections[0];
+    expect(identity?.heading).toBe('Identity');
+    expect(identity?.tier).toBe('open');
+    expect(identity?.fields[0]?.fieldId).toBe('identity.name');
+    expect(identity?.fields[0]?.label).toBe('name');
+
+    const commerce = document?.sections[1];
+    expect(commerce?.tier).toBe('closed');
     expect(commerce?.fields[0]?.value).toBe('200 Office Way, Lansing, MI 48933, US');
     expect(commerce?.fields[0]?.provenance?.said).toBe('ship it to my office instead');
-    expect(commerce?.fields[0]?.supersededCount).toBe(1);
 
-    const people = document?.sections.find((section) => section.id === 'people');
-    // A bare string line is a prose line too — his notes, preserved as written.
-    expect(people?.lines.map((line) => line.text)).toEqual([
+    const people = document?.sections[2];
+    expect(people?.prose.map((line) => line.text)).toEqual([
       'Sarah, sister, sarah@example.com',
       'Dave from work, handles the Pellux contracts',
     ]);
-    expect(people?.lines[0]?.lineIndex).toBe(41);
+    // The line index is the only address profile.forget takes for a note.
+    expect(people?.prose[0]?.lineIndex).toBe(41);
+    expect(people?.prose[1]?.provenance).toBeUndefined();
   });
 
-  test('a field with no superseded history reports zero, never a guess', () => {
-    const document = readProfileDocument(LOADED_DOCUMENT);
-    const identity = document?.sections.find((section) => section.id === 'identity');
-    expect(identity?.fields[0]?.supersededCount).toBe(0);
+  test('an unrecognised tier is read as closed, never as open', () => {
+    const document = readProfileDocument({
+      state: { kind: 'loaded', path: PROFILE_PATH },
+      sections: [{ heading: 'Something New', tier: 'restricted', fields: [], prose: [] }],
+    });
+    expect(document?.sections[0]?.tier).toBe('closed');
   });
 
   test('an invalid mechanical value is preserved with its reason, not dropped', () => {
     const document = readProfileDocument({
-      state: 'loaded',
+      state: { kind: 'loaded', path: PROFILE_PATH },
       sections: [
         {
-          id: 'location',
-          name: 'Location',
+          heading: 'Location',
+          tier: 'open',
           fields: [
             {
-              key: 'location.timezone',
+              fieldId: 'location.timezone',
               label: 'timezone',
               value: 'Mars/Olympus',
               valid: false,
               invalidReason: 'not an IANA time zone',
             },
           ],
-          lines: [],
+          prose: [],
         },
       ],
     });
@@ -127,85 +146,99 @@ describe('readProfileDocument', () => {
 
   test('unavailable carries its reason and NO sections — never an empty profile', () => {
     const document = readProfileDocument({
-      state: 'unavailable',
-      reason: 'permission denied',
-      path: '/home/owner/.goodvibes/daemon/owner-profile.md',
-      sections: [{ id: 'identity', name: 'Identity', fields: [], lines: [] }],
+      state: { kind: 'unavailable', path: PROFILE_PATH, reason: 'permission denied' },
+      sections: [{ heading: 'Identity', tier: 'open', fields: [], prose: [] }],
     });
     expect(document?.state).toBe('unavailable');
     expect(document?.reason).toBe('permission denied');
+    expect(document?.path).toBe(PROFILE_PATH);
     expect(document?.sections.length).toBe(0);
   });
 
   test('disabled is a stated state, not an empty profile', () => {
-    const document = readProfileDocument({ state: 'disabled' });
+    const document = readProfileDocument({ state: { kind: 'disabled', path: PROFILE_PATH }, sections: [] });
     expect(document?.state).toBe('disabled');
     expect(document?.sections.length).toBe(0);
-  });
-
-  test('enabled:false is read as disabled even without a state string', () => {
-    expect(readProfileDocument({ enabled: false })?.state).toBe('disabled');
   });
 
   test('a body that carries no profile at all is null, not an empty document', () => {
     expect(readProfileDocument(null)).toBeNull();
     expect(readProfileDocument('nope')).toBeNull();
     expect(readProfileDocument({})).toBeNull();
-    expect(readProfileDocument({ unrelated: true })).toBeNull();
+    expect(readProfileDocument({ sections: [] })).toBeNull();
+    expect(readProfileDocument({ state: { kind: 'loaded' } })).toBeNull();
   });
 
-  test('a { profile: … } envelope is unwrapped', () => {
-    const document = readProfileDocument({ profile: { state: 'loaded', sections: [] } });
-    expect(document?.state).toBe('loaded');
+  test('a state kind this surface does not know is null, not a guess at the closest one', () => {
+    expect(readProfileDocument({ state: { kind: 'partially-loaded', path: PROFILE_PATH }, sections: [] })).toBeNull();
   });
 
-  test('sections keyed by name are read as sections', () => {
+  test('a malformed field or line is dropped, and the rest of the section survives', () => {
     const document = readProfileDocument({
-      state: 'loaded',
-      sections: { Notes: { lines: ['Allergic to shellfish'] } },
+      state: { kind: 'loaded', path: PROFILE_PATH },
+      sections: [
+        {
+          heading: 'Contact',
+          tier: 'closed',
+          fields: [{ fieldId: 'contact.email' }, { fieldId: 'contact.phone', label: 'phone', value: '+1', valid: true }],
+          prose: ['not an object', { lineIndex: 3, section: 'Contact', text: 'kept' }],
+        },
+      ],
     });
-    expect(document?.sections[0]?.name).toBe('Notes');
-    expect(document?.sections[0]?.lines[0]?.text).toBe('Allergic to shellfish');
-  });
-
-  test('numeric and boolean mechanical values are read, not dropped', () => {
-    const document = readProfileDocument({
-      state: 'loaded',
-      sections: [{ id: 'defaults', name: 'Defaults', fields: [{ key: 'defaults.approvalWindow', value: 30 }], lines: [] }],
-    });
-    expect(document?.sections[0]?.fields[0]?.value).toBe('30');
+    expect(document?.sections[0]?.fields.map((field) => field.fieldId)).toEqual(['contact.phone']);
+    expect(document?.sections[0]?.prose.map((line) => line.text)).toEqual(['kept']);
   });
 });
 
 describe('readProfileStatus', () => {
   test('carries state, path, section names, counts and invalid-field reasons', () => {
     const status = readProfileStatus({
-      state: 'loaded',
-      path: '/home/owner/.goodvibes/daemon/owner-profile.md',
-      sectionNames: ['Identity', 'Contact', 'People'],
+      kind: 'loaded',
+      path: PROFILE_PATH,
+      exists: true,
+      sections: ['Identity', 'Contact', 'People'],
       lineCount: 42,
       fieldCount: 11,
-      invalidFields: [{ key: 'location.timezone', reason: 'not an IANA time zone' }],
+      proseLineCount: 5,
+      invalidFields: [{ fieldId: 'location.timezone', reason: 'not an IANA time zone' }],
     });
     expect(status?.state).toBe('loaded');
-    expect(status?.sectionNames).toEqual(['Identity', 'Contact', 'People']);
+    expect(status?.sections).toEqual(['Identity', 'Contact', 'People']);
     expect(status?.lineCount).toBe(42);
+    expect(status?.proseLineCount).toBe(5);
     expect(status?.invalidFields[0]?.reason).toBe('not an IANA time zone');
   });
 
+  test('the parsed status carries no value, from a body that tried to smuggle one', () => {
+    // The generated status output has no `value` property anywhere; this pins that the
+    // reader does not reintroduce one even if a build were to send it (§11.3).
+    const status = readProfileStatus({
+      kind: 'loaded',
+      path: PROFILE_PATH,
+      sections: ['Commerce'],
+      invalidFields: [{ fieldId: 'commerce.shippingAddress', reason: 'bad', value: '200 Office Way' }],
+    });
+    expect(JSON.stringify(status)).not.toContain('200 Office Way');
+  });
+
   test('an invalid field with no reason says so rather than inventing one', () => {
-    const status = readProfileStatus({ state: 'loaded', invalidFields: [{ key: 'commerce.currency' }] });
+    const status = readProfileStatus({
+      kind: 'loaded',
+      path: PROFILE_PATH,
+      invalidFields: [{ fieldId: 'commerce.currency' }],
+    });
     expect(status?.invalidFields[0]?.reason).toBe('no reason given');
   });
 
   test('unavailable keeps its reason', () => {
-    const status = readProfileStatus({ state: 'unavailable', reason: 'not valid UTF-8' });
+    const status = readProfileStatus({ kind: 'unavailable', path: PROFILE_PATH, reason: 'not valid UTF-8' });
     expect(status?.state).toBe('unavailable');
     expect(status?.reason).toBe('not valid UTF-8');
   });
 
-  test('a body with no state is null', () => {
-    expect(readProfileStatus({ sectionNames: ['Identity'] })).toBeNull();
+  test('a body with no kind or no path is null', () => {
+    expect(readProfileStatus({ path: PROFILE_PATH })).toBeNull();
+    expect(readProfileStatus({ kind: 'loaded' })).toBeNull();
     expect(readProfileStatus(42)).toBeNull();
   });
 });
@@ -213,122 +246,198 @@ describe('readProfileStatus', () => {
 describe('readProfileProvenanceAnswer', () => {
   test('returns the suffix plus every superseded predecessor', () => {
     const answer = readProfileProvenanceAnswer({
-      found: true,
+      fieldId: 'commerce.shippingAddress',
+      present: true,
+      handEdited: false,
       provenance: { surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' },
       superseded: [
         {
+          lineIndex: 22,
+          fieldId: 'commerce.shippingAddress',
+          section: 'Commerce',
+          text: 'shipping address: 401 Home St, Lansing, MI 48933, US',
           value: '401 Home St, Lansing, MI 48933, US',
-          provenance: { surface: 'tui', date: '2026-07-20', said: 'ship to 401 Home St' },
           supersededOn: '2026-07-27',
+          previousLine: 'shipping address: 401 Home St, Lansing, MI 48933, US',
+          provenance: { surface: 'tui', date: '2026-07-20', said: 'ship to 401 Home St' },
         },
       ],
     });
-    expect(answer?.found).toBe(true);
+    expect(answer?.present).toBe(true);
     expect(answer?.handEdited).toBe(false);
     expect(answer?.provenance?.said).toBe('ship it to my office instead');
     expect(answer?.superseded[0]?.value).toBe('401 Home St, Lansing, MI 48933, US');
     expect(answer?.superseded[0]?.supersededOn).toBe('2026-07-27');
   });
 
-  test('a line that exists with no suffix is reported as hand-edited', () => {
-    const answer = readProfileProvenanceAnswer({ found: true });
-    expect(answer?.found).toBe(true);
+  test('a field the owner typed by hand reports handEdited with no provenance', () => {
+    const answer = readProfileProvenanceAnswer({
+      fieldId: 'contact.email',
+      present: true,
+      handEdited: true,
+      superseded: [],
+    });
     expect(answer?.handEdited).toBe(true);
     expect(answer?.provenance).toBeUndefined();
   });
 
-  test('a line that is not there is reported as not found', () => {
-    const answer = readProfileProvenanceAnswer({ found: false });
-    expect(answer?.found).toBe(false);
+  test('a field that is not there is reported as not present', () => {
+    const answer = readProfileProvenanceAnswer({
+      fieldId: 'contact.phone',
+      present: false,
+      handEdited: false,
+      superseded: [],
+    });
+    expect(answer?.present).toBe(false);
   });
 
-  test('a body carrying nothing recognisable is null', () => {
-    expect(readProfileProvenanceAnswer({})).toBeNull();
+  test('a body carrying no fieldId or no present flag is null', () => {
+    expect(readProfileProvenanceAnswer({ present: true })).toBeNull();
+    expect(readProfileProvenanceAnswer({ fieldId: 'contact.email' })).toBeNull();
     expect(readProfileProvenanceAnswer(null)).toBeNull();
   });
 });
 
-describe('readProfileForgetOutcome', () => {
-  test('deleted:true is a deletion, and names what went', () => {
-    const outcome = readProfileForgetOutcome({ deleted: true, key: 'contact.phone', removed: ['contact.phone'] });
-    expect(outcome.verdict).toBe('deleted');
-    expect(outcome.removed).toEqual(['contact.phone']);
+describe('readProfileWriteOutcome', () => {
+  test('a successful write carries its changes and its one-line disclosure', () => {
+    const outcome = readProfileWriteOutcome({
+      ok: true,
+      reason: null,
+      changes: [{ kind: 'set', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: true }],
+      disclosure: 'Noted — saved your phone number to your profile.',
+    });
+    expect(outcome?.ok).toBe(true);
+    expect(outcome?.reason).toBeUndefined();
+    expect(outcome?.changes[0]?.label).toBe('phone');
+    expect(outcome?.changes[0]?.superseded).toBe(true);
+    expect(outcome?.disclosure).toBe('Noted — saved your phone number to your profile.');
   });
 
-  test('deleted:false is NOT a success — it is not-present', () => {
-    const outcome = readProfileForgetOutcome({ deleted: false, key: 'contact.phone' });
-    expect(outcome.verdict).toBe('not-present');
+  test('a refusal carries the daemon\'s own reason', () => {
+    const outcome = readProfileWriteOutcome({
+      ok: false,
+      reason: 'Your profile has no phone recorded, so there was nothing to forget.',
+      changes: [],
+      disclosure: '',
+    });
+    expect(outcome?.ok).toBe(false);
+    expect(outcome?.reason).toBe('Your profile has no phone recorded, so there was nothing to forget.');
   });
 
-  test('a response that does not say whether it deleted is unclear, never deleted', () => {
-    expect(readProfileForgetOutcome({}).verdict).toBe('unclear');
-    expect(readProfileForgetOutcome({ key: 'contact.phone' }).verdict).toBe('unclear');
-    expect(readProfileForgetOutcome(null).verdict).toBe('unclear');
-    expect(readProfileForgetOutcome('ok').verdict).toBe('unclear');
+  test('a change naming a section rather than a field keeps a null fieldId', () => {
+    const outcome = readProfileWriteOutcome({
+      ok: true,
+      changes: [{ kind: 'forget', fieldId: null, section: 'People', label: 'note', superseded: false }],
+      disclosure: '',
+    });
+    expect(outcome?.changes[0]?.fieldId).toBeNull();
+  });
+
+  test('a body that never said ok is null — never a success', () => {
+    expect(readProfileWriteOutcome({})).toBeNull();
+    expect(readProfileWriteOutcome({ changes: [], disclosure: '' })).toBeNull();
+    expect(readProfileWriteOutcome(null)).toBeNull();
+    expect(readProfileWriteOutcome('ok')).toBeNull();
   });
 });
 
-describe('readProfileWriteOutcome', () => {
-  test('a stated outcome is believed', () => {
-    const outcome = readProfileWriteOutcome({ changed: true, key: 'contact.phone', disclosure: 'Noted — saved your phone number to your profile.' });
-    expect(outcome.changed).toBe(true);
-    expect(outcome.stated).toBe(true);
-    expect(outcome.disclosure).toBe('Noted — saved your phone number to your profile.');
+describe('writeReportLine', () => {
+  test('a success prefers the daemon\'s own disclosure', () => {
+    const line = writeReportLine(
+      { ok: true, changes: [], disclosure: 'Noted — saved your office address to your profile.' },
+      'fallback',
+      'malformed',
+    );
+    expect(line).toEqual({ tone: 'ok', text: 'Noted — saved your office address to your profile.' });
   });
 
-  test('a stated no-op is reported as a no-op', () => {
-    const outcome = readProfileWriteOutcome({ changed: false });
-    expect(outcome.changed).toBe(false);
-    expect(outcome.stated).toBe(true);
+  test('a success with no disclosure falls back to the caller\'s sentence', () => {
+    expect(writeReportLine({ ok: true, changes: [], disclosure: '' }, 'Saved phone.', 'malformed')).toEqual({
+      tone: 'ok',
+      text: 'Saved phone.',
+    });
   });
 
-  test('a bare 200 is changed-but-not-stated', () => {
-    const outcome = readProfileWriteOutcome({});
-    expect(outcome.changed).toBe(true);
-    expect(outcome.stated).toBe(false);
+  test('a refusal is relayed in the daemon\'s words, and is not toned as a success', () => {
+    const line = writeReportLine(
+      { ok: false, reason: 'Your profile has no phone recorded, so there was nothing to forget.', changes: [], disclosure: '' },
+      'Saved phone.',
+      'malformed',
+    );
+    expect(line.tone).toBe('info');
+    expect(line.text).toBe('Your profile has no phone recorded, so there was nothing to forget.');
+  });
+
+  test('a refusal with no reason says so rather than inventing one', () => {
+    expect(writeReportLine({ ok: false, changes: [], disclosure: '' }, 'Saved.', 'malformed').text).toBe(
+      'The daemon refused that, without saying why.',
+    );
+  });
+
+  test('a malformed answer is a warning, never a success', () => {
+    expect(writeReportLine(null, 'Saved.', 'The daemon did not say.')).toEqual({
+      tone: 'warning',
+      text: 'The daemon did not say.',
+    });
+  });
+});
+
+describe('deletedWhat', () => {
+  test('names what went from the daemon\'s own change list', () => {
+    expect(deletedWhat(
+      {
+        ok: true,
+        changes: [{ kind: 'forget', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: false }],
+        disclosure: '',
+      },
+      'that line',
+    )).toBe('phone');
+  });
+
+  test('falls back to the caller\'s label when the daemon named nothing', () => {
+    expect(deletedWhat({ ok: true, changes: [], disclosure: '' }, 'that line')).toBe('that line');
   });
 });
 
 describe('targets', () => {
-  test('a field target carries its dotted key', () => {
-    expect(profileTargetInput({ kind: 'field', key: 'commerce.currency' })).toEqual({ key: 'commerce.currency' });
-    expect(profileTargetId({ kind: 'field', key: 'commerce.currency' })).toBe('field:commerce.currency');
+  test('a field target sends a fieldId', () => {
+    expect(forgetTargetInput({ kind: 'field', fieldId: 'commerce.currency' })).toEqual({ fieldId: 'commerce.currency' });
+    expect(profileTargetId({ kind: 'field', fieldId: 'commerce.currency' })).toBe('field:commerce.currency');
   });
 
-  test('a prose line target carries its section and line index', () => {
-    expect(profileTargetInput({ kind: 'line', section: 'people', lineIndex: 41 })).toEqual({ section: 'people', lineIndex: 41 });
-    expect(profileTargetId({ kind: 'line', section: 'people', lineIndex: 41 })).toBe('line:people:41');
-  });
-
-  test('a prose line with neither a key nor an index has no address', () => {
-    const section: ProfileSection = { id: 'notes', name: 'Notes', fields: [], lines: [] };
-    expect(targetForProseLine(section, { text: 'Allergic to shellfish' })).toBeNull();
-    expect(targetForProseLine(section, { text: 'x', lineIndex: 7 })).toEqual({ kind: 'line', section: 'notes', lineIndex: 7 });
-    expect(targetForProseLine(section, { text: 'x', key: 'notes.7' })).toEqual({ kind: 'field', key: 'notes.7' });
+  test('a prose line target sends only a line index — the verb takes no section', () => {
+    expect(forgetTargetInput({ kind: 'line', lineIndex: 41 })).toEqual({ lineIndex: 41 });
+    expect(profileTargetId({ kind: 'line', lineIndex: 41 })).toBe('line:41');
   });
 });
 
 describe('third-party personal data', () => {
-  test('the People section is recognised, by id or by heading', () => {
-    expect(sectionHoldsThirdPartyData({ id: 'people', name: 'People', fields: [], lines: [] })).toBe(true);
-    expect(sectionHoldsThirdPartyData({ id: 'People ', name: 'People', fields: [], lines: [] })).toBe(true);
+  function section(heading: string): ProfileSection {
+    return { heading, tier: 'closed', fields: [], prose: [] };
+  }
+
+  test('the People section is recognised, case-insensitively and whitespace-collapsed', () => {
+    expect(sectionHoldsThirdPartyData(section('People'))).toBe(true);
+    expect(sectionHoldsThirdPartyData(section('  people  '))).toBe(true);
+    expect(sectionHoldsThirdPartyData(section('PEOPLE'))).toBe(true);
   });
 
   test('other sections are not', () => {
-    expect(sectionHoldsThirdPartyData({ id: 'places', name: 'Places', fields: [], lines: [] })).toBe(false);
+    expect(sectionHoldsThirdPartyData(section('Places'))).toBe(false);
+    expect(sectionHoldsThirdPartyData(section('Notes'))).toBe(false);
   });
 });
 
 describe('display helpers', () => {
   test('the unavailable line states the reason and the path', () => {
-    expect(profileUnavailableLine('permission denied', '/x/owner-profile.md')).toBe(
-      'Your profile could not be read: permission denied (/x/owner-profile.md)',
+    expect(profileUnavailableLine('permission denied', PROFILE_PATH)).toBe(
+      `Your profile could not be read: permission denied (${PROFILE_PATH})`,
     );
   });
 
   test('a missing reason says so rather than inventing one', () => {
-    expect(profileUnavailableLine()).toBe(
-      'Your profile could not be read, and the daemon did not give a reason.',
+    expect(profileUnavailableLine(undefined, PROFILE_PATH)).toBe(
+      `Your profile could not be read, and the daemon did not give a reason (${PROFILE_PATH})`,
     );
   });
 
@@ -345,20 +454,14 @@ describe('display helpers', () => {
     expect(profileStateBadgeClass('unavailable')).toBe('bad');
   });
 
+  test('the tier note says what each tier means for the agent', () => {
+    expect(tierNote('open')).toContain('context every turn');
+    expect(tierNote('closed')).toContain('never put in the agent');
+  });
+
   test('a provenance summary is surface, date and his words', () => {
     expect(provenanceSummary({ surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' })).toBe(
       'tui, 2026-07-27 — "ship it to my office instead"',
     );
-  });
-
-  test('a partial provenance renders what is there, never a guess', () => {
-    expect(provenanceSummary({ said: 'ship it to my office instead' })).toBe(
-      'source not recorded — "ship it to my office instead"',
-    );
-  });
-
-  test('a label falls back to the key\'s last segment', () => {
-    expect(labelFromKey('commerce.shippingAddress')).toBe('shipping address');
-    expect(labelFromKey('timezone')).toBe('timezone');
   });
 });

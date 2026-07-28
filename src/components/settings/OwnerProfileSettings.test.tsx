@@ -1,18 +1,19 @@
 /**
- * OwnerProfileSettings — the admin owner-profile panel.
+ * OwnerProfileSettings — the admin owner-profile panel, against the REAL contract shapes.
  *
  * The two assertions this file exists for, both honesty rules from
  * docs/owner-profile.md:
  *   - a profile that could not be read renders its REASON, never an empty profile
  *     (§4.4: "I could not open the file" and "I know nothing about you" are different
  *     sentences);
- *   - a forget of something that was not there reports that it was not there, and never
- *     renders as a success (§9.2).
+ *   - a forget of something that was not there reports the daemon's own "there was nothing
+ *     to forget" sentence, and never renders as a success (§9.2).
  *
  * Everything else here covers the states around them: loading, a daemon that does not
  * serve the verbs at all, the turned-off state, the loaded document (mechanical fields as
- * labelled values, his prose as prose), the People section's containment marking, the
- * supersede/undo affordance, and the per-line provenance disclosure.
+ * labelled values, his prose as prose), the People section's containment marking, per-tier
+ * labelling, undo living inside the provenance disclosure where a superseded value is
+ * actually known to exist, and the prose line that honestly has neither lookup nor undo.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -20,7 +21,6 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import type {
   ProfileDocument,
-  ProfileForgetOutcome,
   ProfileProvenanceAnswer,
   ProfileStatus,
   ProfileTarget,
@@ -56,32 +56,34 @@ function errorQuery<T>(error: unknown): QueryLike<T> {
   return { isPending: false, isError: true, isSuccess: false, error, refetch: () => { /* no-op */ } };
 }
 
+type WriteResult = ProfileWriteOutcome | null;
+
 let mockDocument: QueryLike<ProfileDocument> = idleQuery();
 let mockStatus: QueryLike<ProfileStatus> = idleQuery();
 let mockProvenance: QueryLike<ProfileProvenanceAnswer> = idleQuery();
-let provenanceTargets: (ProfileTarget | null)[] = [];
+let provenanceFieldIds: (string | null)[] = [];
 
-let setCalls: { key: string; value: string }[] = [];
-let setResult: ProfileWriteOutcome = { changed: true, stated: true };
+let setCalls: { fieldId: string; value: string }[] = [];
+let setResult: WriteResult = { ok: true, changes: [], disclosure: '' };
 let appendCalls: { section: string; text: string }[] = [];
 let forgetCalls: ProfileTarget[] = [];
-let forgetResult: ProfileForgetOutcome = { verdict: 'deleted', removed: [] };
-let undoCalls: ProfileTarget[] = [];
-let undoResult: ProfileWriteOutcome = { changed: true, stated: true };
+let forgetResult: WriteResult = { ok: true, changes: [], disclosure: '' };
+let undoCalls: string[] = [];
+let undoResult: WriteResult = { ok: true, changes: [], disclosure: '' };
 
-const setMutation: MutationLike<{ key: string; value: string }, ProfileWriteOutcome> = {
+const setMutation: MutationLike<{ fieldId: string; value: string }, WriteResult> = {
   isPending: false,
   mutate: (vars, options) => { setCalls.push(vars); options?.onSuccess?.(setResult); },
 };
-const appendMutation: MutationLike<{ section: string; text: string }, ProfileWriteOutcome> = {
+const appendMutation: MutationLike<{ section: string; text: string }, WriteResult> = {
   isPending: false,
-  mutate: (vars, options) => { appendCalls.push(vars); options?.onSuccess?.({ changed: true, stated: true }); },
+  mutate: (vars, options) => { appendCalls.push(vars); options?.onSuccess?.({ ok: true, changes: [], disclosure: '' }); },
 };
-const forgetMutation: MutationLike<ProfileTarget, ProfileForgetOutcome> = {
+const forgetMutation: MutationLike<ProfileTarget, WriteResult> = {
   isPending: false,
   mutate: (vars, options) => { forgetCalls.push(vars); options?.onSuccess?.(forgetResult); },
 };
-const undoMutation: MutationLike<ProfileTarget, ProfileWriteOutcome> = {
+const undoMutation: MutationLike<string, WriteResult> = {
   isPending: false,
   mutate: (vars, options) => { undoCalls.push(vars); options?.onSuccess?.(undoResult); },
 };
@@ -89,8 +91,8 @@ const undoMutation: MutationLike<ProfileTarget, ProfileWriteOutcome> = {
 mock.module('../../hooks/useOwnerProfile', () => ({
   useOwnerProfileDocument: () => mockDocument,
   useOwnerProfileStatus: () => mockStatus,
-  useOwnerProfileProvenance: (target: ProfileTarget | null) => {
-    provenanceTargets.push(target);
+  useOwnerProfileProvenance: (fieldId: string | null) => {
+    provenanceFieldIds.push(fieldId);
     return mockProvenance;
   },
   useSetOwnerProfileField: () => setMutation,
@@ -116,10 +118,10 @@ function render(): { el: HTMLElement; unmount: () => void } {
 }
 
 /**
- * Let the confirm sheet's promise continuation run and React render the result. The
- * forget flow is genuinely asynchronous — the sheet resolves, THEN the mutation runs —
- * so the state update lands outside any React event handler and needs both a real task
- * tick and an explicit flush before it is observable.
+ * Let the confirm sheet's promise continuation run and React render the result. The forget
+ * flow is genuinely asynchronous — the sheet resolves, THEN the mutation runs — so the
+ * state update lands outside any React event handler and needs both a real task tick and
+ * an explicit flush before it is observable.
  */
 async function settle(): Promise<void> {
   for (let i = 0; i < 3; i += 1) {
@@ -136,6 +138,18 @@ function buttonIn(scope: Element | null, label: string): HTMLButtonElement {
   return found;
 }
 
+function typeInto(input: HTMLInputElement | null | undefined, value: string): void {
+  if (!input) throw new Error('No input to type into');
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+function submitForm(input: HTMLInputElement | null | undefined): void {
+  const form = input?.closest('form');
+  flushSync(() => { form?.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+}
+
 let cleanup: (() => void) | null = null;
 
 afterEach(() => {
@@ -144,51 +158,63 @@ afterEach(() => {
   mockDocument = idleQuery();
   mockStatus = idleQuery();
   mockProvenance = idleQuery();
-  provenanceTargets = [];
+  provenanceFieldIds = [];
   setCalls = [];
-  setResult = { changed: true, stated: true };
+  setResult = { ok: true, changes: [], disclosure: '' };
   appendCalls = [];
   forgetCalls = [];
-  forgetResult = { verdict: 'deleted', removed: [] };
+  forgetResult = { ok: true, changes: [], disclosure: '' };
   undoCalls = [];
-  undoResult = { changed: true, stated: true };
+  undoResult = { ok: true, changes: [], disclosure: '' };
 });
+
+const PROFILE_PATH = '/home/owner/.goodvibes/daemon/owner-profile.md';
 
 const LOADED: ProfileDocument = {
   state: 'loaded',
-  path: '/home/owner/.goodvibes/daemon/owner-profile.md',
+  path: PROFILE_PATH,
   sections: [
     {
-      id: 'contact',
-      name: 'Contact',
+      heading: 'Contact',
+      tier: 'closed',
       fields: [
-        { key: 'contact.email', label: 'email', value: 'owner@example.com', valid: true, supersededCount: 0 },
-        { key: 'contact.phone', label: 'phone', value: '+1 517 555 0134', valid: true, supersededCount: 0 },
+        { fieldId: 'contact.email', label: 'email', value: 'owner@example.com', valid: true },
+        { fieldId: 'contact.phone', label: 'phone', value: '+1 517 555 0134', valid: true },
       ],
-      lines: [],
+      prose: [],
     },
     {
-      id: 'commerce',
-      name: 'Commerce',
+      heading: 'Preferences',
+      tier: 'open',
+      fields: [{ fieldId: 'preferences.units', label: 'units', value: 'imperial', valid: true }],
+      prose: [],
+    },
+    {
+      heading: 'Commerce',
+      tier: 'closed',
       fields: [
         {
-          key: 'commerce.shippingAddress',
+          fieldId: 'commerce.shippingAddress',
           label: 'shipping address',
           value: '200 Office Way, Lansing, MI 48933, US',
           valid: true,
-          supersededCount: 1,
           provenance: { surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' },
         },
       ],
-      lines: [],
+      prose: [],
     },
     {
-      id: 'people',
-      name: 'People',
+      heading: 'People',
+      tier: 'closed',
       fields: [],
-      lines: [
-        { text: 'Sarah, sister, sarah@example.com', lineIndex: 41 },
-        { text: 'Dave from work, handles the Pellux contracts' },
+      prose: [
+        {
+          lineIndex: 41,
+          section: 'People',
+          text: 'Sarah, sister, sarah@example.com',
+          provenance: { surface: 'tui', date: '2026-07-27', said: 'my sister Sarah, sarah@example.com' },
+        },
+        { lineIndex: 42, section: 'People', text: 'Dave from work, handles the Pellux contracts' },
       ],
     },
   ],
@@ -224,14 +250,14 @@ describe('OwnerProfileSettings', () => {
     mockDocument = successQuery<ProfileDocument>({
       state: 'unavailable',
       reason: 'permission denied',
-      path: '/home/owner/.goodvibes/daemon/owner-profile.md',
+      path: PROFILE_PATH,
       sections: [],
     });
     mockStatus = successQuery<ProfileStatus>({
       state: 'unavailable',
       reason: 'permission denied',
-      path: '/home/owner/.goodvibes/daemon/owner-profile.md',
-      sectionNames: [],
+      path: PROFILE_PATH,
+      sections: [],
       invalidFields: [],
     });
     const { el, unmount } = render();
@@ -240,7 +266,7 @@ describe('OwnerProfileSettings', () => {
     const banner = el.querySelector('[data-testid="profile-unavailable"]');
     expect(banner).not.toBeNull();
     expect(banner?.textContent).toContain('Your profile could not be read: permission denied');
-    expect(banner?.textContent).toContain('/home/owner/.goodvibes/daemon/owner-profile.md');
+    expect(banner?.textContent).toContain(PROFILE_PATH);
     expect(el.textContent).toContain('not because your profile is empty');
     // No empty-profile state, and no sections, are rendered in its place.
     expect(el.textContent).not.toContain('Your profile is loaded and empty');
@@ -249,7 +275,7 @@ describe('OwnerProfileSettings', () => {
   });
 
   test('a turned-off profile is a stated state, not an empty one', () => {
-    mockDocument = successQuery<ProfileDocument>({ state: 'disabled', sections: [] });
+    mockDocument = successQuery<ProfileDocument>({ state: 'disabled', path: PROFILE_PATH, sections: [] });
     const { el, unmount } = render();
     cleanup = unmount;
     expect(el.querySelector('[data-testid="profile-disabled"]')?.textContent).toContain('turned off');
@@ -266,7 +292,7 @@ describe('OwnerProfileSettings', () => {
     expect(email?.querySelector('.owner-profile__value')?.textContent).toBe('owner@example.com');
 
     // His prose is rendered as the line he wrote — not split into label/value columns.
-    const people = el.querySelector('[data-testid="profile-section-people"]');
+    const people = el.querySelector('[data-testid="profile-section-People"]');
     expect(people?.querySelectorAll('.owner-profile__field').length).toBe(0);
     expect(people?.textContent).toContain('Sarah, sister, sarah@example.com');
     expect(people?.textContent).toContain('Dave from work, handles the Pellux contracts');
@@ -276,37 +302,48 @@ describe('OwnerProfileSettings', () => {
     expect(shipping?.textContent).toContain('tui, 2026-07-27 — "ship it to my office instead"');
   });
 
+  test('each section states its tier, so it is clear what the agent can already see', () => {
+    mockDocument = successQuery(LOADED);
+    const { el, unmount } = render();
+    cleanup = unmount;
+    const preferences = el.querySelector('[data-testid="profile-section-Preferences"]');
+    const contact = el.querySelector('[data-testid="profile-section-Contact"]');
+    expect(preferences?.getAttribute('data-tier')).toBe('open');
+    expect(preferences?.textContent).toContain('context every turn');
+    expect(contact?.getAttribute('data-tier')).toBe('closed');
+    expect(contact?.textContent).toContain('never put in the agent');
+  });
+
   test('the People section is marked as third-party material and carries its containment note', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
-    const people = el.querySelector('[data-testid="profile-section-people"]');
+    const people = el.querySelector('[data-testid="profile-section-People"]');
     expect(people?.getAttribute('data-third-party')).toBe('true');
     expect(people?.querySelector('.owner-profile__containment')?.textContent).toContain('facts about other people');
     // No link, no copy affordance — plain inert text only.
     expect(people?.querySelector('a')).toBeNull();
-    const contact = el.querySelector('[data-testid="profile-section-contact"]');
-    expect(contact?.getAttribute('data-third-party')).toBeNull();
+    expect(el.querySelector('[data-testid="profile-section-Contact"]')?.getAttribute('data-third-party')).toBeNull();
   });
 
   test('an invalid mechanical value is shown as written, with its reason', () => {
     mockDocument = successQuery<ProfileDocument>({
       state: 'loaded',
+      path: PROFILE_PATH,
       sections: [
         {
-          id: 'location',
-          name: 'Location',
+          heading: 'Location',
+          tier: 'open',
           fields: [
             {
-              key: 'location.timezone',
+              fieldId: 'location.timezone',
               label: 'timezone',
               value: 'Mars/Olympus',
               valid: false,
               invalidReason: 'not an IANA time zone',
-              supersededCount: 0,
             },
           ],
-          lines: [],
+          prose: [],
         },
       ],
     });
@@ -317,7 +354,7 @@ describe('OwnerProfileSettings', () => {
     expect(el.textContent).toContain('falls back as if it were unset');
   });
 
-  test('editing a field calls profile.set and reports the supersede', () => {
+  test('editing a field calls profile.set with its fieldId and reports the supersede', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
@@ -326,38 +363,59 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { buttonIn(row, 'Edit').click(); });
 
     const input = el.querySelector<HTMLInputElement>('[data-testid="profile-field-contact.phone"] input');
-    expect(input).not.toBeNull();
-    const form = input?.closest('form');
-    if (input) {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(input, '+1 517 555 0199');
-      input.dispatchEvent(new window.Event('input', { bubbles: true }));
-    }
-    flushSync(() => { form?.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    typeInto(input, '+1 517 555 0199');
+    submitForm(input);
 
-    expect(setCalls.length).toBe(1);
-    expect(setCalls[0]?.key).toBe('contact.phone');
+    expect(setCalls).toEqual([{ fieldId: 'contact.phone', value: '+1 517 555 0199' }]);
     expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Undo puts it back');
   });
 
-  test('Undo is offered only where a superseded value exists', () => {
+  test('a write the daemon reports as ok:false is relayed in its own words, not as a save', () => {
     mockDocument = successQuery(LOADED);
+    setResult = {
+      ok: false,
+      reason: 'That value appears in a web page read this turn, so it was not recorded.',
+      changes: [],
+      disclosure: '',
+    };
     const { el, unmount } = render();
     cleanup = unmount;
 
-    const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
-    const email = el.querySelector('[data-testid="profile-field-contact.email"]');
-    expect(Array.from(shipping?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(true);
-    expect(Array.from(email?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(false);
+    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Edit').click(); });
+    const input = el.querySelector<HTMLInputElement>('[data-testid="profile-field-contact.phone"] input');
+    typeInto(input, '1 Attacker Way');
+    submitForm(input);
 
-    flushSync(() => { buttonIn(shipping, 'Undo').click(); });
-    expect(undoCalls).toEqual([{ kind: 'field', key: 'commerce.shippingAddress' }]);
+    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
+    expect(report).toBe('That value appears in a web page read this turn, so it was not recorded.');
+    expect(report).not.toContain('Saved');
+  });
+
+  test('a write whose answer never said ok is reported as unsaid, never as a success', () => {
+    mockDocument = successQuery(LOADED);
+    setResult = null;
+    const { el, unmount } = render();
+    cleanup = unmount;
+
+    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Edit').click(); });
+    const input = el.querySelector<HTMLInputElement>('[data-testid="profile-field-contact.phone"] input');
+    typeInto(input, '+1 517 555 0199');
+    submitForm(input);
+
+    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
+    expect(report).toContain('did not say whether anything changed');
+    expect(report).not.toContain('Saved');
   });
 
   // The second load-bearing honesty assertion (§9.2).
-  test('forgetting something that was not there reports that — never a success', async () => {
+  test('forgetting something that was not there relays the daemon\'s sentence — never a success', async () => {
     mockDocument = successQuery(LOADED);
-    forgetResult = { verdict: 'not-present', key: 'contact.phone', removed: [] };
+    forgetResult = {
+      ok: false,
+      reason: 'Your profile has no phone recorded, so there was nothing to forget.',
+      changes: [],
+      disclosure: '',
+    };
     const { el, unmount } = render();
     cleanup = unmount;
 
@@ -370,15 +428,15 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { confirmButton?.click(); });
     await settle();
 
-    expect(forgetCalls).toEqual([{ kind: 'field', key: 'contact.phone' }]);
+    expect(forgetCalls).toEqual([{ kind: 'field', fieldId: 'contact.phone' }]);
     const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toContain('Nothing to forget — phone was not in your profile.');
+    expect(report).toBe('Your profile has no phone recorded, so there was nothing to forget.');
     expect(report).not.toContain('Deleted');
   });
 
-  test('a forget the daemon does not confirm is reported as unclear, not as a deletion', async () => {
+  test('a forget whose answer never said ok is reported as unclear, not as a deletion', async () => {
     mockDocument = successQuery(LOADED);
-    forgetResult = { verdict: 'unclear', removed: [] };
+    forgetResult = null;
     const { el, unmount } = render();
     cleanup = unmount;
 
@@ -391,9 +449,13 @@ describe('OwnerProfileSettings', () => {
     expect(report).not.toContain('Deleted phone');
   });
 
-  test('a real deletion names what actually went', async () => {
+  test('a real deletion names what actually went, from the daemon\'s change list', async () => {
     mockDocument = successQuery(LOADED);
-    forgetResult = { verdict: 'deleted', key: 'contact.phone', removed: ['contact.phone'] };
+    forgetResult = {
+      ok: true,
+      changes: [{ kind: 'forget', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: false }],
+      disclosure: '',
+    };
     const { el, unmount } = render();
     cleanup = unmount;
 
@@ -401,7 +463,7 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
     await settle();
 
-    expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Deleted contact.phone from your profile.');
+    expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Deleted phone from your profile.');
   });
 
   test('cancelling the confirm deletes nothing', async () => {
@@ -416,17 +478,32 @@ describe('OwnerProfileSettings', () => {
     expect(forgetCalls.length).toBe(0);
   });
 
-  test('provenance is reachable per line, and asks only for the line it was opened on', () => {
+  test('forgetting a note sends its line index — the verb takes no section for prose', async () => {
+    mockDocument = successQuery(LOADED);
+    const { el, unmount } = render();
+    cleanup = unmount;
+
+    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-line-41"]'), 'Forget').click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    await settle();
+
+    expect(forgetCalls).toEqual([{ kind: 'line', lineIndex: 41 }]);
+  });
+
+  test('provenance is reachable per field, and asks only for the field it was opened on', () => {
     mockDocument = successQuery(LOADED);
     mockProvenance = successQuery<ProfileProvenanceAnswer>({
-      found: true,
+      fieldId: 'commerce.shippingAddress',
+      present: true,
       handEdited: false,
-      provenance: { surface: 'tui', date: '2026-07-20', said: 'ship to 401 Home St' },
+      provenance: { surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' },
       superseded: [
         {
+          fieldId: 'commerce.shippingAddress',
+          section: 'Commerce',
           value: '401 Home St, Lansing, MI 48933, US',
-          provenance: { surface: 'tui', date: '2026-07-20', said: 'ship to 401 Home St' },
           supersededOn: '2026-07-27',
+          provenance: { surface: 'tui', date: '2026-07-20', said: 'ship to 401 Home St' },
         },
       ],
     });
@@ -434,78 +511,113 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     // Nothing is fetched until it is asked for — no bulk dump on mount.
-    expect(el.querySelector('[data-testid="profile-provenance-detail"]')).toBeNull();
+    expect(el.querySelector('[data-testid="profile-provenance-commerce.shippingAddress"]')).toBeNull();
 
     const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
     flushSync(() => { buttonIn(shipping, 'Where did you get that?').click(); });
 
-    const detail = shipping?.querySelector('[data-testid="profile-provenance-detail"]');
+    const detail = shipping?.querySelector('[data-testid="profile-provenance-commerce.shippingAddress"]');
     expect(detail?.textContent).toContain('401 Home St, Lansing, MI 48933, US');
     expect(detail?.textContent).toContain('superseded 2026-07-27');
-    expect(provenanceTargets).toContainEqual({ kind: 'field', key: 'commerce.shippingAddress' });
-    // Only the opened line was asked about.
-    expect(provenanceTargets.filter((target) => target !== null).length).toBe(1);
+    // Only the opened field was asked about.
+    expect(provenanceFieldIds.filter((id) => id !== null)).toEqual(['commerce.shippingAddress']);
   });
 
-  test('a hand-edited line says so rather than inventing a source', () => {
+  test('undo is offered inside the disclosure, only where a superseded value exists', () => {
     mockDocument = successQuery(LOADED);
-    mockProvenance = successQuery<ProfileProvenanceAnswer>({ found: true, handEdited: true, superseded: [] });
+    mockProvenance = successQuery<ProfileProvenanceAnswer>({
+      fieldId: 'commerce.shippingAddress',
+      present: true,
+      handEdited: false,
+      superseded: [
+        {
+          fieldId: 'commerce.shippingAddress',
+          section: 'Commerce',
+          value: '401 Home St, Lansing, MI 48933, US',
+          supersededOn: '2026-07-27',
+        },
+      ],
+    });
     const { el, unmount } = render();
     cleanup = unmount;
 
-    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.email"]'), 'Where did you get that?').click(); });
-    expect(el.querySelector('[data-testid="profile-provenance-detail"]')?.textContent).toContain(
-      'No provenance recorded — you wrote or edited this line by hand.',
-    );
+    const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
+    // No undo affordance before the earlier value has been shown to exist.
+    expect(Array.from(shipping?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(false);
+
+    flushSync(() => { buttonIn(shipping, 'Where did you get that?').click(); });
+    flushSync(() => { buttonIn(shipping, 'Undo').click(); });
+    expect(undoCalls).toEqual(['commerce.shippingAddress']);
   });
 
-  test('a prose line with no address offers no forget, and says why', () => {
+  test('a field with no earlier value says there is nothing to undo, and offers no button', () => {
+    mockDocument = successQuery(LOADED);
+    mockProvenance = successQuery<ProfileProvenanceAnswer>({
+      fieldId: 'contact.email',
+      present: true,
+      handEdited: true,
+      superseded: [],
+    });
+    const { el, unmount } = render();
+    cleanup = unmount;
+
+    const email = el.querySelector('[data-testid="profile-field-contact.email"]');
+    flushSync(() => { buttonIn(email, 'Where did you get that?').click(); });
+    const detail = email?.querySelector('[data-testid="profile-provenance-contact.email"]');
+    expect(detail?.textContent).toContain('No provenance recorded — you wrote or edited this line by hand.');
+    expect(detail?.textContent).toContain('nothing to undo');
+    expect(Array.from(email?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(false);
+  });
+
+  test('a note answers its own provenance and says why there is nothing further to fetch', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
 
-    const lines = el.querySelectorAll('[data-testid="profile-section-people"] .owner-profile__line');
-    const addressless = lines[1];
-    expect(Array.from(addressless?.querySelectorAll('button') ?? []).some((b) => b.textContent === 'Forget')).toBe(false);
-    flushSync(() => { buttonIn(addressless ?? null, 'Where did you get that?').click(); });
-    expect(addressless?.textContent).toContain('no address of its own');
+    const withSuffix = el.querySelector('[data-testid="profile-line-41"]');
+    flushSync(() => { buttonIn(withSuffix, 'Where did you get that?').click(); });
+    expect(withSuffix?.textContent).toContain('tui, 2026-07-27 — "my sister Sarah, sarah@example.com"');
+    expect(withSuffix?.textContent).toContain('notes keep no earlier versions');
+    // The verb takes a fieldId, so no lookup is issued for a note.
+    expect(provenanceFieldIds.filter((id) => id !== null)).toEqual([]);
+
+    const handWritten = el.querySelector('[data-testid="profile-line-42"]');
+    flushSync(() => { buttonIn(handWritten, 'Where did you get that?').click(); });
+    expect(handWritten?.textContent).toContain('No provenance recorded');
   });
 
   test('the status strip surfaces invalid fields by name and reason, with no values', () => {
     mockDocument = successQuery(LOADED);
     mockStatus = successQuery<ProfileStatus>({
       state: 'loaded',
-      path: '/home/owner/.goodvibes/daemon/owner-profile.md',
-      sectionNames: ['Contact', 'Commerce', 'People'],
+      path: PROFILE_PATH,
+      sections: ['Contact', 'Preferences', 'Commerce', 'People'],
       lineCount: 42,
       fieldCount: 11,
-      invalidFields: [{ key: 'location.timezone', reason: 'not an IANA time zone' }],
+      proseLineCount: 5,
+      invalidFields: [{ fieldId: 'location.timezone', reason: 'not an IANA time zone' }],
     });
     const { el, unmount } = render();
     cleanup = unmount;
     const strip = el.querySelector('[data-testid="profile-status"]');
     expect(strip?.textContent).toContain('Loaded');
     expect(strip?.textContent).toContain('42 lines');
-    const invalid = el.querySelector('.owner-profile__invalid-list');
-    expect(invalid?.textContent).toContain('location.timezone — not an IANA time zone');
+    expect(strip?.textContent).toContain('5 notes');
+    expect(el.querySelector('.owner-profile__invalid-list')?.textContent).toContain(
+      'location.timezone — not an IANA time zone',
+    );
   });
 
-  test('adding a line calls profile.append for that section', () => {
+  test('adding a line calls profile.append with the section heading as written', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
 
-    const notes = el.querySelector('[data-testid="profile-section-people"]');
-    flushSync(() => { buttonIn(notes, 'Add a line to').click(); });
-    const input = notes?.querySelector<HTMLInputElement>('input');
-    if (input) {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(input, 'Ken, neighbour');
-      input.dispatchEvent(new window.Event('input', { bubbles: true }));
-    }
-    flushSync(() => {
-      input?.closest('form')?.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-    });
-    expect(appendCalls).toEqual([{ section: 'people', text: 'Ken, neighbour' }]);
+    const people = el.querySelector('[data-testid="profile-section-People"]');
+    flushSync(() => { buttonIn(people, 'Add a line to').click(); });
+    const input = people?.querySelector<HTMLInputElement>('input');
+    typeInto(input, 'Ken, neighbour');
+    submitForm(input);
+    expect(appendCalls).toEqual([{ section: 'People', text: 'Ken, neighbour' }]);
   });
 });

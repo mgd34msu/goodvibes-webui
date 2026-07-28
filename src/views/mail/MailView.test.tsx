@@ -160,3 +160,48 @@ describe('MailView — populated / empty ("no fourth reading")', () => {
     unmount();
   });
 });
+
+describe('MailView — inbox order is sender-proof (uid, never date)', () => {
+  test('a spoofed far-future Date: header does not pin a message to the top when its uid is lowest', async () => {
+    inboxList = () => Promise.resolve({
+      messages: [
+        // Lowest uid (oldest arrival) but a `Date:` header far in the future — this is
+        // exactly the attacker move: the sender writes any date it wants, so if the
+        // view sorted on `date` this message would render first. It must not.
+        { uid: 1, from: 'attacker@example.com', subject: 'Spoofed future date', date: '2099-01-01T00:00:00Z', unread: false, bodyPreview: 'p1', messageId: '<attacker@x>' },
+        { uid: 2, from: 'a@example.com', subject: 'Real, older uid', date: '2026-01-01T09:00:00Z', unread: false, bodyPreview: 'p2', messageId: '<a@x>' },
+        { uid: 3, from: 'b@example.com', subject: 'Real, newest uid', date: '2026-01-02T09:00:00Z', unread: false, bodyPreview: 'p3', messageId: '<b@x>' },
+      ],
+      total: 3,
+    });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
+
+    const subjects = [...el.querySelectorAll('.mail-row__subject')].map((node) => node.textContent);
+    // Newest-first by uid: 3, 2, 1 — the spoofed-date message (uid 1) is last, not first.
+    expect(subjects[0]).toContain('Real, newest uid');
+    expect(subjects[1]).toContain('Real, older uid');
+    expect(subjects[2]).toContain('Spoofed future date');
+    unmount();
+  });
+
+  test('ordering is stable and correct when two messages carry identical date values', async () => {
+    const sameDate = '2026-01-01T00:00:00Z';
+    inboxList = () => Promise.resolve({
+      messages: [
+        { uid: 10, from: 'a@example.com', subject: 'ten', date: sameDate, unread: false, bodyPreview: 'p', messageId: '<10@x>' },
+        { uid: 30, from: 'b@example.com', subject: 'thirty', date: sameDate, unread: false, bodyPreview: 'p', messageId: '<30@x>' },
+        { uid: 20, from: 'c@example.com', subject: 'twenty', date: sameDate, unread: false, bodyPreview: 'p', messageId: '<20@x>' },
+      ],
+      total: 3,
+    });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
+
+    const subjects = [...el.querySelectorAll('.mail-row__subject')].map((node) => node.textContent);
+    expect(subjects[0]).toContain('thirty');
+    expect(subjects[1]).toContain('twenty');
+    expect(subjects[2]).toContain('ten');
+    unmount();
+  });
+});

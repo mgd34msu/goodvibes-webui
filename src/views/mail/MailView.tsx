@@ -47,6 +47,7 @@ import { useToast } from '../../lib/toast';
 import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
 import { MailMessagePeekBody } from './MailMessagePeek';
 import { mailRefusalNote } from '../../lib/mail-refusal';
+import { sortInboxMessagesByUidDescending } from '../../lib/mail-order';
 import '../../styles/components/mail.css';
 
 /** Trim to the recipient list the daemon will actually use, so the confirmation
@@ -154,10 +155,10 @@ export function MailView() {
   });
 
   const messages = inbox.data?.messages ?? [];
-  const sorted = useMemo(
-    () => [...messages].sort((a, b) => b.date.localeCompare(a.date)),
-    [messages],
-  );
+  // Ordered by `uid` (server-assigned) descending, NEVER by `date` (sender-written —
+  // sorting on it would let a sender pin their message to the top with a far-future
+  // Date: header). Full rationale in mail-order.ts; do not "simplify" this to `date`.
+  const sorted = useMemo(() => sortInboxMessagesByUidDescending(messages), [messages]);
 
   const composerReady = to.trim() !== '' && subject.trim() !== '' && body.trim() !== '';
 

@@ -465,6 +465,23 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
 //
 // AllKeys distributes over the union so each member's keys are checked, not just the
 // keys the members share (plain `keyof` on a union yields only the common ones).
+//
+// DO NOT REPLACE THIS WITH "just type the parameter". Measured against a closed union
+// parameter type, tsc rejects a stale property in only two of the four ways a body gets
+// built:
+//
+//   fresh literal, stale field written inline ......... rejected (excess-property check)
+//   spread + stale field written inline ............... rejected (same check still applies)
+//   built as a variable ............................... SLIPS THROUGH
+//   stale field carried in by the spread .............. SLIPS THROUGH
+//
+// The last row is the one that matters here, because `profile.forget`'s body IS a
+// spread-built literal: `{ ...forgetTargetInput(target), authority }`. If a retired
+// property returns to the spread SOURCE's type, no amount of parameter typing at the call
+// site sees it — and rewriting the call into branched fresh literals does not help either,
+// since the spread still carries it. This guard is what catches that case, and it caught
+// it when tested: seeding the retired `lineIndex` back onto ProfileForgetTarget fails
+// HERE, not at the call site.
 // ---------------------------------------------------------------------------
 type AllKeys<T> = T extends unknown ? keyof T : never;
 

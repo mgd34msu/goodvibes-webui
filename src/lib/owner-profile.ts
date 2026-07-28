@@ -571,16 +571,21 @@ export function deletedWhat(outcome: ProfileWriteOutcome, fallbackLabel: string)
 /**
  * Appended whenever a delete finds nothing to delete.
  *
- * A forget names a row this page rendered from an earlier read. If the daemon cannot find
- * it, the file has moved on since that read — he edited it himself, or another surface did
- * — so what he is looking at is not what is on disk. Saying only "nothing was removed"
- * would be true and useless; the useful part is that the view is stale and is being
- * refreshed. The refetch is deliberately NOT conditional on classifying why the delete
- * failed: re-reading after any failed delete is always correct, and claiming a specific
- * cause would mean sniffing a reason string the SDK is free to reword.
+ * A forget names a row this page rendered from an earlier read, so a failure usually means
+ * the file has moved on since — he edited it himself, or another surface did. Saying only
+ * "nothing was removed" would be true and useless; the useful part is that the page may no
+ * longer match the file, and that it is being re-read.
+ *
+ * The wording says MAY rather than asserting the file changed, because one failure branch
+ * is not staleness at all: matching now ignores the Markdown list marker on both sides, so
+ * a section holding both `- Foo` and a bare `Foo` produces two matches and is refused as
+ * ambiguous. The file is exactly as the page showed it there. Claiming "the file changed"
+ * would be a confident false statement in that case, and this note is appended without
+ * classifying the cause on purpose — deciding which branch fired would mean sniffing a
+ * reason string the SDK is free to reword, and re-reading is correct after any of them.
  */
 export const STALE_VIEW_NOTE =
-  'What you are looking at is out of date — the file changed since this page read it. Reloading it now.';
+  'This page may no longer match the file — reloading it so you can see what is actually there.';
 
 /**
  * What a delete did, in one line.

@@ -18,10 +18,10 @@
  * Run: `bun run test:live`  (or `bun run scripts/live-daemon-smoke.ts`)
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { bootDaemon, type BootedDaemon } from '@pellux/goodvibes-sdk/daemon';
+import { installTestTempRoot, sweepStaleRunRoots } from './test-temp-root';
 
 // The webui token store (createBrowserTokenStore) persists to localStorage. In this headless
 // lane there is no browser, so provide a minimal in-memory localStorage BEFORE importing the
@@ -62,10 +62,89 @@ function sessionsFrom(value: unknown): Record<string, unknown>[] {
   return list.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object');
 }
 
+/**
+ * Scratch space for this lane.
+ *
+ * This lane boots a REAL daemon with its own home directory, so what it creates
+ * is not a couple of empty directories — it is a full daemon tree. It used to
+ * put both under the system temp directory, cleaned by a `finally` block. That
+ * covers a run that finishes (pass or fail) and nothing else: interrupt it with
+ * Ctrl-C or let CI time it out and both trees stayed in the system temp with
+ * nobody to remove them.
+ *
+ * Now both live under one parent inside the repo's gitignored `.test-tmp/run-<pid>`.
+ * Three things remove it, in descending order of reliability:
+ *   1. scripts/live-daemon-smoke-runner.ts, the parent `bun run test:live` starts —
+ *      deterministic, because it deletes after THIS process has fully exited;
+ *   2. the in-process cleanup below (SIGINT/SIGTERM, and an exit handler) — best
+ *      effort, and measured to lose a race against the daemon's teardown flush;
+ *   3. sweepStaleRunRoots() at the start of the next test run, which reaps any
+ *      root whose owning pid is gone.
+ * One parent directory instead of two siblings also means a failure BETWEEN the
+ * two creations can no longer strand the first one.
+ */
+const RUN_ROOT = installTestTempRoot();
+
+function removeRunRoot(): void {
+  rmSync(RUN_ROOT, { recursive: true, force: true });
+}
+
+/**
+ * Remove the scratch tree and try to keep it removed.
+ *
+ * Measured, not assumed: a single rmSync in the `finally` block left
+ * `workdir/.goodvibes/logs/activity.md` on disk on every run — the daemon's
+ * activity logger still has writes in flight when stop() resolves, and the
+ * writer mkdir -p's its way back into the directory just deleted. Repeating
+ * until the tree stays gone across consecutive observations shrinks that window
+ * but does NOT close it (also measured: still 3 of 3 runs leaked). The
+ * deterministic cleanup is the parent process in
+ * scripts/live-daemon-smoke-runner.ts; this is the in-process best effort.
+ */
+async function removeRunRootSettled(): Promise<void> {
+  // Deleting once and checking once is what failed: the tree was gone at the
+  // check and back by process exit. Require it to STAY gone across consecutive
+  // observations, so a flush still in flight gets deleted rather than winning
+  // the race after the last look.
+  let consecutiveClean = 0;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (existsSync(RUN_ROOT)) {
+      removeRunRoot();
+      consecutiveClean = 0;
+    } else {
+      consecutiveClean += 1;
+      if (consecutiveClean >= 3) return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  removeRunRoot();
+}
+
 async function main(): Promise<void> {
-  const home = mkdtempSync(join(tmpdir(), 'gv-live-smoke-home-'));
-  const work = mkdtempSync(join(tmpdir(), 'gv-live-smoke-work-'));
+  sweepStaleRunRoots();
+  const home = join(RUN_ROOT, 'daemon-home');
+  const work = join(RUN_ROOT, 'workdir');
+  mkdirSync(home, { recursive: true });
+  mkdirSync(work, { recursive: true });
   let daemon: BootedDaemon | null = null;
+
+  // An interrupted run must not strand a daemon tree. Ctrl-C and a CI timeout
+  // kill arrive as signals; without a handler the process dies before any
+  // `finally` or exit hook gets to remove the tree, which is the interrupt case
+  // the original code had no answer for at all.
+  const onSignal = (signal: NodeJS.Signals) => {
+    void (async () => {
+      try {
+        if (daemon) await daemon.stop();
+      } finally {
+        await removeRunRootSettled();
+        process.stderr.write(`\nLive-daemon smoke: interrupted by ${signal}; scratch removed\n`);
+        process.exit(130);
+      }
+    })();
+  };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
 
   try {
     process.stdout.write('Live-daemon smoke\n');
@@ -165,16 +244,44 @@ async function main(): Promise<void> {
 
     process.stdout.write('\nLive-daemon smoke: PASS\n');
   } finally {
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
     if (daemon) await daemon.stop();
-    rmSync(home, { recursive: true, force: true });
-    rmSync(work, { recursive: true, force: true });
   }
 }
 
+/**
+ * The in-process removal happens after main() has fully settled rather than
+ * inside its `finally`, which narrows the window the daemon's teardown flush can
+ * use — but does not eliminate it. Measured: the tree was still on disk after
+ * 3 of 3 runs with the removal here. The runner process is what makes it zero.
+ */
+async function finish(code: number): Promise<never> {
+  await removeRunRootSettled();
+  process.exit(code);
+}
+
+/**
+ * Best-effort last word from inside this process. It is NOT what closes the
+ * leak — measured: with only this in place the tree was still on disk after
+ * 3 of 3 runs, because the daemon's activity log is flushed during teardown at
+ * a point this handler cannot reliably follow. `bun run scripts/
+ * live-daemon-smoke-runner.ts` (what `bun run test:live` invokes) is the
+ * deterministic cleanup: it removes the run root from a PARENT process, after
+ * this one has fully exited and nothing is left that could write.
+ *
+ * Kept anyway for the case where someone runs this file directly, and because
+ * exit handlers DO fire under `bun run` (they do not under `bun test`, which is
+ * why the unit lane's cleanup is built on the preload + sweep instead).
+ */
+process.on('exit', () => {
+  removeRunRoot();
+});
+
 main().then(
-  () => process.exit(0),
+  () => finish(0),
   (error: unknown) => {
     process.stderr.write(`\nLive-daemon smoke: FAIL\n${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
-    process.exit(1);
+    return finish(1);
   },
 );

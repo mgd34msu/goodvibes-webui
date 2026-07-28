@@ -15,6 +15,7 @@
  */
 
 import type { Page, Route } from '@playwright/test';
+import type { OperatorMethodOutput } from '../../src/lib/goodvibes';
 import { WEBUI_METHOD_SAMPLES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
   accountsSnapshotResponse,
@@ -41,8 +42,77 @@ import {
   SEED_MEMORY_RECORDS,
   SEED_SESSIONS,
   unionListResponse,
+  type SeedMemoryRecord,
   type SeedSession,
 } from './seed';
+
+/**
+ * The wire shape of one memory record — the single definition the in-memory store,
+ * the add handler, and the review handler all agree on. Sourced from
+ * memoryRecordWire() in seed.ts so it cannot drift from the seed.
+ */
+export type MemoryRecordWire = ReturnType<typeof memoryRecordWire>;
+
+/**
+ * Element types for the mutable in-memory lists installMockDaemon keeps, taken from
+ * the SAME generated operator contract the views read (CiWatchesView, CheckInView and
+ * PrincipalsView each derive their own row type from these exact method outputs).
+ *
+ * Without these annotations each list's element type was inferred from its single
+ * seed literal, `as const` and all — so `lastOverall` was the literal 'passed',
+ * `outcome` the literal 'skipped-quiet-hours', and `channelId`/`prNumber`/`provider`
+ * did not exist at all. Every handler that appended a row with a different state, or
+ * read an optional field, was writing against a type that could not describe the
+ * mock's own behavior.
+ */
+type MockCiWatch = OperatorMethodOutput<'ci.watches.list'>['watches'][number];
+type MockCheckinReceipt = OperatorMethodOutput<'checkin.receipts.list'>['receipts'][number];
+type MockChannelBinding = OperatorMethodOutput<'channels.profiles.list'>['bindings'][number];
+
+const MEMORY_SCOPES: readonly string[] = ['session', 'project', 'team'];
+const MEMORY_REVIEW_STATES: readonly string[] = ['fresh', 'reviewed', 'stale', 'contradicted'];
+
+/**
+ * The add/review handlers below take their values from an arbitrary request body,
+ * so they must narrow those values to the enumerations the real daemon's
+ * MEMORY_RECORD_SCHEMA accepts before storing them. Without this the store would
+ * happily hold a record with, say, scope 'banana' — a state no real daemon can
+ * produce, which would make a test pass against a fiction.
+ */
+function asMemoryScope(value: unknown): SeedMemoryRecord['scope'] {
+  return typeof value === 'string' && MEMORY_SCOPES.includes(value)
+    ? (value as SeedMemoryRecord['scope'])
+    : 'project';
+}
+
+function asMemoryReviewState(
+  value: unknown,
+  fallback: SeedMemoryRecord['reviewState'],
+): SeedMemoryRecord['reviewState'] {
+  return typeof value === 'string' && MEMORY_REVIEW_STATES.includes(value)
+    ? (value as SeedMemoryRecord['reviewState'])
+    : fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
+function asProvenanceArray(value: unknown): { kind: string; ref: string; label?: string }[] {
+  if (!Array.isArray(value)) return [];
+  const out: { kind: string; ref: string; label?: string }[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.kind !== 'string' || typeof record.ref !== 'string') continue;
+    out.push({
+      kind: record.kind,
+      ref: record.ref,
+      ...(typeof record.label === 'string' ? { label: record.label } : {}),
+    });
+  }
+  return out;
+}
 
 /**
  * describeOriginPostureForMock — a byte-for-byte mirror of the daemon's own
@@ -360,6 +430,8 @@ export function opsMemoryResponse() {
  * offer, STT supported on this linux-x64 fixture host). Exported so
  * assert-contract-shape.test.ts can bind it without a Page.
  */
+export type VoiceLocalStatus = ReturnType<typeof voiceLocalStatusResponse>;
+
 export function voiceLocalStatusResponse() {
   return {
     platform: 'linux-x64' as string | null,
@@ -380,7 +452,12 @@ export function voiceLocalStatusResponse() {
       binaryPath: '/home/e2e/.goodvibes/voice/engines/whisper/whisper-cli',
       modelPath: '/home/e2e/.goodvibes/voice/models/ggml-base.en.bin',
     },
-    offerBytes: 219_152_211,
+    // `number | null`, not `number`: the daemon reports no offer size on an
+    // unsupported platform, and src/lib/voice/voice-local-setup.ts declares
+    // `offerBytes: number | null` for exactly that reason. Leaving this inferred
+    // as `number` made the unsupported-platform fixture in voice-mock.ts a type
+    // error against the very shape it is meant to reproduce.
+    offerBytes: 219_152_211 as number | null,
   };
 }
 
@@ -693,12 +770,18 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // voice.local.status / voice.local.install in-memory state — install flips the
   // resting state to provisioned exactly like the real one-act flow (unless the
   // seeded outcome is the retriable download failure, which keeps nothing).
-  const voiceLocalUnavailable = options.voiceLocal === 'unavailable';
-  const voiceLocalSeed = voiceLocalUnavailable || options.voiceLocal === undefined ? {} : options.voiceLocal;
-  const voiceLocalInstallOutcome = ('installOutcome' in voiceLocalSeed ? voiceLocalSeed.installOutcome : undefined) ?? 'provisioned';
-  let voiceLocalState = voiceLocalUnavailable
+  // Split the 'unavailable' sentinel off the seed OBJECT once, with an explicit
+  // annotation, instead of carrying a `'unavailable' | {...} | undefined` union
+  // through `in` checks: the union survived those checks, so the spread below was
+  // spreading a possible string.
+  const voiceLocalOption = options.voiceLocal;
+  const voiceLocalUnavailable = voiceLocalOption === 'unavailable';
+  const voiceLocalSeed: { status?: Partial<VoiceLocalStatus>; installOutcome?: 'provisioned' | 'download-failed' } =
+    voiceLocalOption === undefined || voiceLocalOption === 'unavailable' ? {} : voiceLocalOption;
+  const voiceLocalInstallOutcome = voiceLocalSeed.installOutcome ?? 'provisioned';
+  let voiceLocalState: VoiceLocalStatus | null = voiceLocalUnavailable
     ? null
-    : { ...voiceLocalStatusResponse(), ...('status' in voiceLocalSeed ? voiceLocalSeed.status : undefined) };
+    : { ...voiceLocalStatusResponse(), ...voiceLocalSeed.status };
   // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
   // per installMockDaemon call, mutated by edit/delete.
   const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
@@ -725,7 +808,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // installMockDaemon call, mutated by add/delete/update-review exactly like the real
   // daemon-owned single-writer store (never a second copy diverging from what the UI
   // reads back).
-  let memoryRecords = SEED_MEMORY_RECORDS.map(memoryRecordWire);
+  let memoryRecords: MemoryRecordWire[] = SEED_MEMORY_RECORDS.map(memoryRecordWire);
   let memoryIdCounter = 0;
 
   // Checkpoints (checkpoints.*): one seeded checkpoint so the phone confirm-sheet
@@ -755,7 +838,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
   // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative family): one seeded
   // surface-wide binding so a spec has real selected-detail content to prove against.
-  let channelProfileList = [
+  let channelProfileList: MockChannelBinding[] = [
     { id: 'cp_e2e_1', surfaceKind: 'slack', model: 'claude-sonnet', permissionMode: 'normal' as const, updatedAt: 1_700_000_000_000 },
   ];
   let channelProfileIdCounter = 0;
@@ -765,7 +848,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // seeded receipt for each distinct outcome the wire reports, so ReceiptRow's
   // outcome-label mapping has real content to prove against.
   let checkinConfigState = { enabled: true, cadence: '0 9 * * *', deliveryChannel: 'slack:#daily', quietHours: '22:00-07:00' };
-  let checkinReceiptList = [
+  let checkinReceiptList: MockCheckinReceipt[] = [
     { id: 'ckr_e2e_1', ranAt: 1_700_000_300_000, trigger: 'scheduled' as const, outcome: 'delivered' as const, briefingSummary: 'Three PRs merged, one flaky test flagged.', deliveredMessage: 'Morning update: 3 PRs merged overnight.', deliveryChannel: 'slack:#daily' },
     { id: 'ckr_e2e_2', ranAt: 1_700_000_200_000, trigger: 'scheduled' as const, outcome: 'quiet' as const, briefingSummary: 'Nothing new since the last check-in.', decisionReason: 'No new activity worth surfacing.' },
     { id: 'ckr_e2e_3', ranAt: 1_700_000_100_000, trigger: 'manual' as const, outcome: 'skipped-quiet-hours' as const, briefingSummary: 'Requested during quiet hours.', decisionReason: 'Current time falls within configured quiet hours.' },
@@ -776,7 +859,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // spec has real selected-detail content to prove against, matching the checkpoints
   // seed above. ci.status/ci.watches.run always answer with a real per-job report
   // (two jobs, one continue-on-error) — the honesty-bar shape CiWatchesView renders.
-  let ciWatchList = [
+  let ciWatchList: MockCiWatch[] = [
     {
       id: 'ciw_e2e_1', repo: 'acme/example', ref: 'main', deliveryChannel: 'slack:#ci',
       triggerFixSession: false, lastOverall: 'passed' as const,
@@ -1352,14 +1435,14 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const body = (request.postDataJSON?.() ?? {}) as Record<string, unknown>;
       memoryIdCounter += 1;
       const now = Date.now();
-      const record = {
+      const record: MemoryRecordWire = {
         id: `mem-added-${memoryIdCounter}`,
-        scope: typeof body.scope === 'string' ? body.scope : 'project',
-        cls: body.cls,
-        summary: body.summary,
+        scope: asMemoryScope(body.scope),
+        cls: typeof body.cls === 'string' ? body.cls : '',
+        summary: typeof body.summary === 'string' ? body.summary : '',
         ...(typeof body.detail === 'string' && body.detail ? { detail: body.detail } : {}),
-        tags: Array.isArray(body.tags) ? body.tags : [],
-        provenance: Array.isArray(body.provenance) ? body.provenance : [],
+        tags: asStringArray(body.tags),
+        provenance: asProvenanceArray(body.provenance),
         reviewState: 'fresh',
         confidence: 60,
         createdAt: now,
@@ -1382,7 +1465,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const now = Date.now();
       memoryRecords[index] = {
         ...memoryRecords[index],
-        ...(typeof body.state === 'string' ? { reviewState: body.state } : {}),
+        ...(typeof body.state === 'string'
+          ? { reviewState: asMemoryReviewState(body.state, memoryRecords[index].reviewState) }
+          : {}),
         ...(typeof body.confidence === 'number' ? { confidence: body.confidence } : {}),
         ...(typeof body.reviewedBy === 'string' ? { reviewedBy: body.reviewedBy } : {}),
         ...(typeof body.staleReason === 'string' ? { staleReason: body.staleReason } : {}),

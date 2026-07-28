@@ -475,13 +475,23 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
 //   built as a variable ............................... SLIPS THROUGH
 //   stale field carried in by the spread .............. SLIPS THROUGH
 //
-// The last row is the one that matters here, because `profile.forget`'s body IS a
+// The last two rows are the ones that matter here, because `profile.forget`'s body IS a
 // spread-built literal: `{ ...forgetTargetInput(target), authority }`. If a retired
 // property returns to the spread SOURCE's type, no amount of parameter typing at the call
 // site sees it — and rewriting the call into branched fresh literals does not help either,
-// since the spread still carries it. This guard is what catches that case, and it caught
-// it when tested: seeding the retired `lineIndex` back onto ProfileForgetTarget fails
-// HERE, not at the call site.
+// since the spread still carries it.
+//
+// This guard covers both of them, measured rather than assumed. Seeding the retired
+// `lineIndex` back onto ProfileForgetTarget fails HERE, at this assertion, and does so
+// identically whether the body is spread-built or assigned to a variable first: the guard
+// reads the DECLARED type and never looks at a call site, so how the body is constructed
+// cannot affect it.
+//
+// What it deliberately does not cover: a key invented at one call site and never declared
+// anywhere. That is not contract drift, it is a typo, and the runtime conformance test in
+// hooks/useOwnerProfile.test.tsx catches it by checking each sent body against the
+// contract's own inputSchema — verified, four failures. So the division is:
+// this guard catches the TYPE going stale, that test catches a body going rogue.
 // ---------------------------------------------------------------------------
 type AllKeys<T> = T extends unknown ? keyof T : never;
 

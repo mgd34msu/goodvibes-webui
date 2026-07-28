@@ -446,7 +446,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
           <EmptyState
             icon={<Boxes size={28} />}
             title="No active processes"
-            description="Agents, WRFC chains, workflows, watchers, and background processes will appear here while they run."
+            description="Agents, workstreams, watchers, and background processes will appear here while they run."
           />
         ))}
 

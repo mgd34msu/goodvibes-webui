@@ -113,6 +113,45 @@ export default tseslint.config(
   },
 
   {
+    // Guard against reintroducing the /tmp inode-exhaustion leak this repo
+    // hit for real (1,048,436 of 1,048,576 inodes in use, from ~40 leak
+    // prefixes across this ecosystem's repos): a direct
+    // mkdtemp/mkdtempSync(...tmpdir()...) call scatters scratch directories
+    // across the shared OS tmpfs, and a signal-killed test process (CI
+    // cancellation, a timeout kill) skips afterAll/finally cleanup entirely,
+    // so the directory is never removed. Use makeProjectTempDir or
+    // makeRealTempDir from scripts/helpers/project-temp.ts instead — both
+    // register the directory for exit-hook cleanup, and the stale sweep
+    // (scripts/sweep-stale-temp.ts, run via the `pretest` script) reaps
+    // anything a killed process still leaves behind.
+    //
+    // Scoped to test files plus live-daemon-smoke.ts (the one non-.test.ts
+    // file with the same call-site shape — see that file's own comment for
+    // why it isn't part of the default test glob), and explicitly excludes
+    // scripts/helpers/project-temp.ts itself, which legitimately contains
+    // this exact call as its implementation.
+    files: ["**/*.test.ts", "**/*.test.tsx", "scripts/live-daemon-smoke.ts"],
+    ignores: ["scripts/helpers/project-temp.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.name=/^mkdtemp(Sync)?$/] CallExpression[callee.name='tmpdir']",
+          message:
+            "Do not create scratch directories directly under the real OS tmpdir — use makeProjectTempDir or makeRealTempDir from scripts/helpers/project-temp.ts so a killed process's leftover directory gets swept instead of leaking forever.",
+        },
+        {
+          selector:
+            "CallExpression[callee.name=/^mkdtemp(Sync)?$/] CallExpression[callee.property.name='tmpdir']",
+          message:
+            "Do not create scratch directories directly under the real OS tmpdir — use makeProjectTempDir or makeRealTempDir from scripts/helpers/project-temp.ts so a killed process's leftover directory gets swept instead of leaking forever.",
+        },
+      ],
+    },
+  },
+
+  {
     // The service worker is hand-written plain JS with worker globals; it lives
     // outside tsconfig.json's include, so type-aware linting cannot resolve it.
     files: ["public/sw.js"],

@@ -41,6 +41,7 @@ import { SkeletonBlock } from '../feedback/SkeletonBlock';
 import { StepUpSettings } from './StepUpSettings';
 import { SettingsField } from './SettingsField';
 import { FeatureUnitCard } from './FeatureUnitCard';
+import { PaymentCardEntry } from './PaymentCardEntry';
 import { displayConfigValue } from '../../lib/config-redaction';
 import { buildSettingsModel, filterSettingsModel, readConfigPath } from '../../lib/settings-model';
 import '../../styles/components/settings.css';
@@ -207,6 +208,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <p className="empty-state">No settings match your search.</p>
               ) : (
                 <>
+                  {/*
+                    Card entry sits at the top of the Payments group, above the
+                    budgets and windows that govern how it gets used. It is not
+                    a schema-driven row and cannot be: card material is
+                    deliberately absent from CONFIG_SCHEMA (it lives in the
+                    daemon secret store), so it has no key for buildSettingsModel
+                    to render. The panel gates itself on the SDK's entry-surface
+                    allowlist — see PaymentCardEntry's header for the six
+                    conditions the owner's ruling carried and where each is
+                    implemented.
+                  */}
+                  {currentGroup.id === 'payments' && <PaymentCardEntry currency={currency} />}
                   {currentGroup.featureUnits.map((unit) => (
                     <FeatureUnitCard
                       key={unit.feature.id}

@@ -718,9 +718,23 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'email' added for the Mail surface (email.inbox.list/read, email.send,
     // email.draft.create) — its own namespace for the same reason calendar has one:
     // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
+    // 'payments' added for card entry on this surface (payments.cards.list/create/
+    // delete — real REST routes already carried by the pinned contracts facade, so
+    // they resolve through EXTRA_METHOD_ROUTES like config.* and power.* above).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'payments', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
+  });
+
+  test('sdk.operator.payments exposes cards only, and no method that reads card material back', () => {
+    expect(Object.keys(sdk.operator.payments).sort()).toEqual(['cards']);
+    expect(Object.keys(sdk.operator.payments.cards).sort()).toEqual(['create', 'delete', 'list'].sort());
+    // Named explicitly so a future "just add a getter for the stored card" has to
+    // delete this assertion rather than slip past it. Card material goes IN through
+    // create() and there is no read path, here or in the daemon's method catalog.
+    for (const forbidden of ['get', 'reveal', 'read', 'material', 'number', 'cvv']) {
+      expect(Object.keys(sdk.operator.payments.cards)).not.toContain(forbidden);
+    }
   });
 
   test('sdk.operator.ops exposes exactly the memory-governance verb', () => {

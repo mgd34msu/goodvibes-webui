@@ -19,9 +19,11 @@
  *     schema-driven editor writes those keys through the daemon and badges them
  *     "Daemon-owned" with no bespoke form needed here.
  *   - Secret-shaped keys never round-trip to the browser: config-redaction.ts masks
- *     any key whose last segment matches token/secret/password/apikey, and
- *     SettingsField renders those write-only (an explicit "Replace" that posts a new
- *     value and never displays the stored one).
+ *     every key in its declared SECRET_CONFIG_KEYS set (the mail/calendar passwords
+ *     and secret references among them), plus a last-segment token/secret/password/
+ *     apikey heuristic as an additional safety net, and SettingsField renders those
+ *     write-only (an explicit "Replace" that posts a new value and never displays
+ *     the stored one).
  *
  * So the honest division is: the schema-driven settings modal owns editing, because
  * it already writes through the daemon and masks correctly; this panel owns telling

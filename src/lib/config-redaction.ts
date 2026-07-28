@@ -5,29 +5,71 @@
  * a plain structuredClone with NO field-level redaction anywhere in the daemon
  * (packages/sdk/src/platform/config/manager.ts). Provider API keys are NOT part
  * of this object (they live in the separate SecretsManager store, resolved
- * through api-keys.ts), but several `surfaces.*` integration settings ARE plain
- * config values that are secret-shaped: Slack/Discord/Telegram/WhatsApp/
- * Matrix/etc bot tokens, signing secrets, webhook secrets
- * (schema-domain-surfaces.ts). A web settings surface reading config.get must
- * never render those verbatim.
+ * through api-keys.ts), but several config values ARE plain, secret-shaped
+ * strings the daemon config object carries directly: Slack/Discord/Telegram/
+ * WhatsApp/Matrix/etc bot tokens and signing/webhook secrets
+ * (schema-domain-surfaces.ts), mail and calendar passwords and secret
+ * references (schema-domain-daemon-mailbox.ts,
+ * DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS in config-ownership.ts), the cluster
+ * coordination phrase and key material, and Cloudflare provisioning tokens
+ * (schema-domain-runtime.ts). A web settings surface reading config.get must
+ * never render any of those verbatim.
  *
- * Two layers, belt-and-suspenders:
- *   1. SECRET_CONFIG_KEYS — the TUI's own curated allowlist
- *      (src/config/secret-config.ts's SECRET_CONFIG_KEYS), ported verbatim for
- *      cross-surface parity: the same keys the TUI already treats as secret
- *      render masked here too.
- *   2. A generic last-segment heuristic (token/secret/password/key, case-
- *      insensitive) as a safety net for keys the curated list hasn't caught up
- *      to yet — confirmed gap: schema-domain-surfaces.ts also defines
- *      surfaces.telephony.token/.authToken/.webhookSecret, none of which are in
- *      the TUI's own SECRET_CONFIG_KEYS. Erring toward over-masking a config
- *      value is the honest failure direction here; erring toward under-masking
- *      is not.
+ * DECLARED LIST IS PRIMARY, NOT A NAMING HEURISTIC. This module used to decide
+ * "is this a secret?" mostly by pattern-matching the key's last dot-segment
+ * against /(token|secret|password|apikey|api_key)$/i, with the curated list as
+ * a secondary top-up. That is backwards, and it is a real defect rather than a
+ * style preference: a sibling round found the identical suffix-matching shape
+ * in the agent's support-bundle redactor, and it matched NONE of `cardNumber`,
+ * `cardExpiry`, `cardholderName` — fields that are obviously sensitive to a
+ * person but carry no "token/secret/password" word anywhere in their name. The
+ * same blind spot exists here: `cloudflare.apiTokenRef` ends in "Ref", not
+ * "token"/"secret"/"password", so the suffix pattern let it through; so did
+ * `calendar.google.icsUrl` (a private calendar feed URL that grants read
+ * access to anyone holding it — config-ownership.ts treats it as a credential
+ * for exactly that reason) and `cluster.groupMaterial` (literal key material).
+ * A key that merely LOOKS naming-convention-compliant is not the same thing as
+ * a key a person has actually decided is safe to show — only enumeration does
+ * that.
+ *
+ * So the order of authority is now:
+ *   1. SECRET_CONFIG_KEYS — the declared, enumerated set below. This is the
+ *      thing that actually decides "mask this." It carries every mail/calendar
+ *      credential and secret-reference, every `surfaces.<channel>.*` token or
+ *      secret-shaped field (including surfaces.telephony's, previously
+ *      missing), the Cloudflare provisioning tokens, and the cluster
+ *      coordination secret/key material — and any payments/card field this
+ *      repo defines (none exist in the current schema; see
+ *      config-redaction.test.ts for the scan that would catch one arriving
+ *      undeclared, to the extent a naming scan can).
+ *   2. SECRET_KEY_SUFFIX — kept as an ADDITIONAL safety net, not the decision
+ *      maker: a key the declared list has not caught up to yet, but whose last
+ *      segment still looks secret-shaped, is also masked. This can never
+ *      UNDER-mask relative to declared-list-only; it only ever adds more
+ *      masking.
+ *   3. Neither is a promise of completeness for a case the brief itself names:
+ *      a field whose CONTENT is sensitive but whose NAME carries no signal at
+ *      all (card numbers, expiry, cardholder name) cannot be caught by any
+ *      naming scan, declared or heuristic. config-redaction.test.ts runs a
+ *      broad, test-only content scan (keyword search anywhere in the dotted
+ *      key, not just the last segment) over every real schema key and every
+ *      daemon-owned non-schema path, and fails the moment one matches that
+ *      broad net without being in SECRET_CONFIG_KEYS — so a new field that
+ *      merely CONTAINS "secret"/"token"/"password"/"credential" anywhere is
+ *      reported by a test rather than silently rendered. A field with no
+ *      naming signal whatsoever is the one class this cannot catch
+ *      automatically; there is no such field in this repo's schema today.
  */
 import { asRecord } from './object';
 
-/** Ported verbatim from goodvibes-tui's src/config/secret-config.ts SECRET_CONFIG_KEYS. */
+/**
+ * The declared, enumerated set of config keys that hold secret-shaped values.
+ * This is the PRIMARY classifier — SECRET_KEY_SUFFIX below is an additional
+ * safety net, not a substitute for naming a key here.
+ */
 export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
+  // Chat/notification surface tokens and signing secrets — ported from
+  // goodvibes-tui's src/config/secret-config.ts SECRET_CONFIG_KEYS.
   'surfaces.slack.signingSecret',
   'surfaces.slack.botToken',
   'surfaces.slack.appToken',
@@ -48,9 +90,53 @@ export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'surfaces.bluebubbles.password',
   'surfaces.mattermost.botToken',
   'surfaces.matrix.accessToken',
+  // Telephony surface — confirmed gap: schema-domain-surfaces.ts defines these
+  // three, none of which were in the TUI's ported list or caught by name alone
+  // once considered as a set rather than case-by-case.
+  'surfaces.telephony.token',
+  'surfaces.telephony.authToken',
+  'surfaces.telephony.webhookSecret',
+  // Mail and calendar credentials — schema-domain-daemon-mailbox.ts.
+  'surfaces.email.password',
+  'surfaces.email.imapPassword',
+  'surfaces.email.imap.password',
+  'surfaces.email.smtp.password',
+  'surfaces.calendar.caldavPassword',
+  // Mail/calendar secret references and the credential-shaped calendar feed
+  // URL — DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS in the SDK's config-ownership.ts
+  // (app-layer paths, not CONFIG_SCHEMA scalars, so they never showed up in
+  // any suffix scan over the schema).
+  'email.passwordRef',
+  'calendar.google.clientSecretRef',
+  'calendar.microsoft.clientSecretRef',
+  'calendar.google.icsUrl',
+  'google.oauth.refreshToken',
+  // Cluster coordination — cluster.secret is the shared signing phrase;
+  // cluster.groupMaterial is literal key material (config-ownership.ts calls
+  // it exactly that). cluster.secret already happened to match the old suffix
+  // pattern; cluster.groupMaterial did not.
+  'cluster.secret',
+  'cluster.groupMaterial',
+  // Cloudflare provisioning tokens — schema-domain-runtime.ts. Every one of
+  // these ends in "...Ref" (a reference into the secret store), not
+  // "token"/"secret"/"password", so the old suffix-only heuristic masked none
+  // of them. Deliberately NOT here: cloudflare.accessServiceTokenId (the
+  // resource id, not the secret value — same shape as calendar.google.clientId)
+  // and cloudflare.secretsStoreName/secretsStoreId (which store to use, not a
+  // secret itself).
+  'cloudflare.apiTokenRef',
+  'cloudflare.workerTokenRef',
+  'cloudflare.workerClientTokenRef',
+  'cloudflare.tunnelTokenRef',
+  'cloudflare.accessServiceTokenRef',
 ]);
 
-/** The generic safety-net pattern: the key's last dot-segment looks secret-shaped. */
+/**
+ * Additional safety net: the key's last dot-segment looks secret-shaped. Never
+ * the decision-maker (see the module header) — a key that needs masking
+ * belongs in SECRET_CONFIG_KEYS above; this only ever adds masking on top of
+ * that, for a key the declared list has not caught up to yet.
+ */
 const SECRET_KEY_SUFFIX = /(token|secret|password|apikey|api_key)$/i;
 
 export function isSecretConfigKey(key: string): boolean {

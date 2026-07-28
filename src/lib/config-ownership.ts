@@ -12,45 +12,45 @@
  *
  * Source of truth: the SDK's
  * `packages/sdk/src/platform/config/config-ownership.ts`
- * (`DAEMON_OWNED_CONFIG_PREFIXES` / `DAEMON_OWNED_CONFIG_KEYS`). That module
- * is not imported directly here: importing `@pellux/goodvibes-sdk/platform/config`
- * for a value (not just a type) pulls its whole config barrel — SecretsManager,
- * OAuth listeners, google-auth, node-only code — into the browser bundle (the
- * same reason scripts/generate-config-schema.ts snapshots CONFIG_SCHEMA at
- * build time instead of importing it live). This is therefore a maintained
- * MIRROR of the two lists, not a re-export — keep it in sync by hand when the
- * SDK's list changes; config-ownership.test.ts pins the exact prefixes/keys
- * below so drift is at least caught here, even though it cannot be imported
- * structurally.
+ * (`DAEMON_OWNED_CONFIG_PREFIXES` / `DAEMON_OWNED_CONFIG_KEYS` /
+ * `DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS`). This module used to hand-copy those
+ * three lists as a comment-enforced "keep in sync by hand" mirror, and it
+ * drifted: it was missing the `conversationGate.` and `cluster.` prefixes, and
+ * it never carried the non-schema path list at all — so credential paths like
+ * `email.passwordRef` and `calendar.google.icsUrl`, which the SDK treats as
+ * daemon-owned because the daemon is the only process that can resolve and use
+ * them, read as NOT daemon-owned here.
+ *
+ * That drift never broke routing (routing happens server-side, in the
+ * daemon's own daemon-config-route.ts, driven by the SDK's real lists, not
+ * this file) — it only made the "Daemon-owned" badge in this UI lie to the
+ * operator about which settings the daemon owns.
+ *
+ * The fix is a build-time generator, not a better comment:
+ * `scripts/generate-config-ownership.ts` imports the three lists from the
+ * installed `@pellux/goodvibes-sdk/platform/config` at build time (a script
+ * that runs under bun, never inside the Vite bundle — the same reason
+ * scripts/generate-config-schema.ts snapshots CONFIG_SCHEMA that way instead
+ * of importing it live) and snapshots them into
+ * `src/lib/generated/config-ownership.ts`. This module re-exports that
+ * snapshot and layers the same derived predicate the SDK exposes
+ * (`isDaemonOwnedConfigKey`) on top of it, so the browser bundle never pulls
+ * in SecretsManager / OAuth / google-auth, and the data itself can no longer
+ * silently drift: `bun run config-ownership:check` fails the build the moment
+ * the checked-in snapshot disagrees with a fresh regeneration from the
+ * installed SDK, exactly like `config-schema:check` already does for
+ * CONFIG_SCHEMA.
  */
+import {
+  DAEMON_OWNED_CONFIG_KEYS,
+  DAEMON_OWNED_CONFIG_PREFIXES,
+  DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS,
+} from './generated/config-ownership';
 
-/**
- * Whole config domains the daemon executes unattended. A key is daemon-owned
- * when it starts with one of these prefixes. Mirrors
- * DAEMON_OWNED_CONFIG_PREFIXES in the SDK's config-ownership.ts exactly.
- */
-export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
-  'surfaces.',
-  'controlPlane.',
-  'httpListener.',
-  'web.',
-  'relay.',
-  'watchers.',
-  'device.',
-  'automation.',
-  'checkin.',
-  'integrations.',
-  'atRest.',
-  'voice.local.',
-];
-
-/**
- * Individual daemon-owned keys that do not sit under a daemon-owned domain
- * prefix. Mirrors DAEMON_OWNED_CONFIG_KEYS in the SDK's config-ownership.ts.
- */
-export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = ['danger.httpListener'];
+export { DAEMON_OWNED_CONFIG_KEYS, DAEMON_OWNED_CONFIG_PREFIXES, DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS };
 
 const DAEMON_KEY_SET = new Set<string>(DAEMON_OWNED_CONFIG_KEYS);
+const DAEMON_NON_SCHEMA_PATH_SET = new Set<string>(DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS);
 
 /**
  * True when the daemon is the single writer and reader-of-record for `key` —
@@ -58,8 +58,14 @@ const DAEMON_KEY_SET = new Set<string>(DAEMON_OWNED_CONFIG_KEYS);
  * every client connected to it, and (per daemon-config-route.ts on the SDK
  * side) fails loudly rather than landing silently in a per-client file when
  * the daemon cannot be reached.
+ *
+ * Mirrors the SDK's own `isDaemonOwnedConfigKey` exactly: a key is
+ * daemon-owned if it is one of the individual daemon-owned keys, one of the
+ * non-scalar daemon-owned paths, or starts with one of the daemon-owned
+ * prefixes.
  */
 export function isDaemonOwnedConfigKey(key: string): boolean {
   if (DAEMON_KEY_SET.has(key)) return true;
+  if (DAEMON_NON_SCHEMA_PATH_SET.has(key)) return true;
   return DAEMON_OWNED_CONFIG_PREFIXES.some((prefix) => key.startsWith(prefix));
 }

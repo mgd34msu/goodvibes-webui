@@ -33,6 +33,7 @@ import {
 } from './generated/config-schema';
 import { categoryLabelForKey, CATEGORY_LABELS, isSecretConfigKey } from './config-redaction';
 import { isDaemonOwnedConfigKey } from './config-ownership';
+import { isSecretStoreOnlyConfigKey } from './secret-store-only-config-keys';
 import { asRecord } from './object';
 
 /** A single typed, editable config field: schema metadata merged with its live value. */
@@ -52,6 +53,12 @@ export interface ConfigFieldModel {
    *  (config-ownership.ts). A write to a daemon-owned key applies to every connected client,
    *  not just this browser tab. */
   readonly daemonOwned: boolean;
+  /** True when this key's real value is resolved ONLY from the daemon's secret
+   *  store (secret-store-only-config-keys.ts) — a config.set write here is inert
+   *  (never read by the connector that uses it) and leaves a plaintext, unused
+   *  copy of the value in the daemon's config file. SettingsField refuses to
+   *  write these and names the real command instead. */
+  readonly secretStoreOnly: boolean;
 }
 
 /** A live-config key with no schema entry — shown read-only so nothing is hidden. */
@@ -173,6 +180,7 @@ function buildField(entry: ConfigSchemaEntry, config: unknown): ConfigFieldModel
     present,
     isSecret: isSecretConfigKey(entry.key),
     daemonOwned: isDaemonOwnedConfigKey(entry.key),
+    secretStoreOnly: isSecretStoreOnlyConfigKey(entry.key),
   };
 }
 

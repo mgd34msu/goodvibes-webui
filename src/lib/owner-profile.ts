@@ -182,6 +182,14 @@ export type ProfileTarget =
 /** The wire input `profile.forget` takes for a target. */
 export type ProfileForgetTarget = { readonly fieldId: string } | { readonly lineIndex: number };
 
+/**
+ * The full `profile.forget` body: a target plus the required authority claim. Narrower
+ * than the generated input, whose `fieldId`, `lineIndex` AND `authority` are all optional
+ * — the daemon 400s on a body missing a target or missing an authority, so this type makes
+ * both a compile error here rather than a round trip.
+ */
+export type ProfileForgetInput = ProfileForgetTarget & { readonly authority: string };
+
 // ---------------------------------------------------------------------------
 // Primitive readers
 // ---------------------------------------------------------------------------
@@ -550,3 +558,24 @@ export const SETTINGS_EDIT_UTTERANCE = '(edited in settings)';
  * 400 from routes/owner-profile.ts's readSurface, never a silent default.
  */
 export const WEBUI_PROFILE_SURFACE = 'webui';
+
+/**
+ * The authority every write from this surface claims (§7 layer 1).
+ *
+ * This is a CLAIM about where the fact came from, and this surface can make it honestly:
+ * the only thing that reaches a profile write here is the owner typing into his own
+ * settings page. No page content, no message body and no document composes these calls,
+ * so `owner-direct` is the true answer rather than the convenient one.
+ *
+ * It is stated on every write because the daemon requires every caller to say where a
+ * fact came from: routes/owner-profile.ts's readAuthority refuses an absent or
+ * unrecognised value with a 400. It refuses rather than defaulting because §7 gives
+ * `forget` and `undo` an authority check and nothing else — an unstated authority on a
+ * delete would not be a weakened gate, it would be no gate, and a caller sending none
+ * could delete the owner's shipping address.
+ *
+ * This is the honest answer for THIS surface only. The agent must not hardcode it: it can
+ * genuinely receive a purported fact from an email, a web page or a channel message, and
+ * it has to state which so the SDK can refuse.
+ */
+export const WEBUI_PROFILE_AUTHORITY = 'owner-direct';

@@ -11,7 +11,7 @@ import { routedFetch } from './relay-connection';
 // lib/owner-profile.ts beside the readers for the same verbs' output. The generated
 // OperatorMethodInput<'profile.forget'> has both properties optional, so this narrower
 // type is what stops a caller passing neither. Type-only import: no runtime dependency.
-import type { ProfileForgetTarget } from './owner-profile';
+import type { ProfileForgetInput } from './owner-profile';
 import type {
   OperatorMethodId,
   OperatorMethodInput,
@@ -1827,11 +1827,11 @@ export const sdk = {
       provenance: (fieldId: string) => invokeOperator('profile.provenance', { fieldId }),
       set: (input: OperatorMethodInput<'profile.set'>) => invokeOperator('profile.set', input),
       append: (input: OperatorMethodInput<'profile.append'>) => invokeOperator('profile.append', input),
-      // Narrower than OperatorMethodInput<'profile.forget'>, whose fieldId and lineIndex
-      // are both optional: the daemon 400s on a call carrying neither, so the union makes
-      // that a compile error here instead of a round trip.
-      forget: (target: ProfileForgetTarget) => invokeOperator('profile.forget', target),
-      undo: (fieldId: string) => invokeOperator('profile.undo', { fieldId }),
+      // Narrower than OperatorMethodInput<'profile.forget'>, whose fieldId, lineIndex AND
+      // authority are all optional: the daemon 400s on a body missing a target or missing
+      // an authority, so this makes both a compile error instead of a round trip.
+      forget: (input: ProfileForgetInput) => invokeOperator('profile.forget', input),
+      undo: (input: OperatorMethodInput<'profile.undo'>) => invokeOperator('profile.undo', input),
       status: () => invokeOperator('profile.status', {}),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job

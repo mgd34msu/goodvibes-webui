@@ -9,14 +9,26 @@
  * response carrying `state.kind: 'unavailable'` and a reason — not a query error —
  * because §4.4 requires that state to be stated rather than rendered as an empty profile.
  *
- * WHAT THE WRITES DO NOT SEND. `authority` and `explicitUserRequest` are both omitted, on
- * purpose. routes/owner-profile.ts reads an absent authority as owner-direct and
- * routes/explicit-user-request.ts refuses only an explicit `false`, both because no live
- * transport populates either field — so sending one would be this surface asserting
- * something it cannot know, and sending `explicitUserRequest: false` would refuse the
- * owner's own click. What every write DOES send is §9.3's pair: `surface: 'webui'` and
- * `said: '(edited in settings)'`, which is what keeps the resulting line's provenance
- * answerable.
+ * WHAT EVERY WRITE STATES. Three things, all claims this surface can make honestly:
+ *
+ *   `authority: 'owner-direct'` — where the fact came from. The daemon requires every
+ *      caller to say: routes/owner-profile.ts's readAuthority 400s on an absent or
+ *      unrecognised value, and it refuses rather than defaulting because §7 gives forget
+ *      and undo an authority check and nothing else, so an unstated authority on a delete
+ *      would be no gate at all. This surface can claim owner-direct truthfully because
+ *      the only thing that reaches these calls is the owner typing into his own settings
+ *      page — no page content, no message body and no document composes them. The agent
+ *      must NOT hardcode this; it can genuinely be handed a purported fact by an email or
+ *      a web page, and has to state which so the SDK can refuse.
+ *   `surface: 'webui'` and `said: '(edited in settings)'` — §9.3's pair, which is what
+ *      keeps the resulting line's provenance answerable.
+ *
+ * `explicitUserRequest` is deliberately NOT sent, and that is not the same call as
+ * authority. It lives in an invocation context no transport populates, and
+ * refuseNonUserRequest() refuses only an explicit `false` — so sending one would assert
+ * something this surface cannot know, and sending `false` would refuse the owner's own
+ * click. Authority is a body parameter every caller is already constructing, which is
+ * exactly why stating it costs one word and closes a hole.
  *
  * No wire event exists for this domain, so nothing rides useRealtimeInvalidation; each
  * mutation invalidates the whole owner-profile key prefix.
@@ -36,6 +48,7 @@ import {
   readProfileStatus,
   readProfileWriteOutcome,
   SETTINGS_EDIT_UTTERANCE,
+  WEBUI_PROFILE_AUTHORITY,
   WEBUI_PROFILE_SURFACE,
   type ProfileDocument,
   type ProfileProvenanceAnswer,
@@ -115,6 +128,7 @@ export function useSetOwnerProfileField() {
         value,
         surface: WEBUI_PROFILE_SURFACE,
         said: SETTINGS_EDIT_UTTERANCE,
+        authority: WEBUI_PROFILE_AUTHORITY,
       }),
     ),
     onSettled: async () => { await invalidateProfile(queryClient); },
@@ -131,6 +145,7 @@ export function useAppendOwnerProfileLine() {
         text,
         surface: WEBUI_PROFILE_SURFACE,
         said: SETTINGS_EDIT_UTTERANCE,
+        authority: WEBUI_PROFILE_AUTHORITY,
       }),
     ),
     onSettled: async () => { await invalidateProfile(queryClient); },
@@ -148,7 +163,7 @@ export function useForgetOwnerProfile() {
   const queryClient = useQueryClient();
   return useMutation<ProfileWriteOutcome | null, unknown, ProfileTarget>({
     mutationFn: async (target) => readProfileWriteOutcome(
-      await sdk.operator.profile.forget(forgetTargetInput(target)),
+      await sdk.operator.profile.forget({ ...forgetTargetInput(target), authority: WEBUI_PROFILE_AUTHORITY }),
     ),
     onSettled: async () => { await invalidateProfile(queryClient); },
   });
@@ -158,7 +173,9 @@ export function useForgetOwnerProfile() {
 export function useUndoOwnerProfile() {
   const queryClient = useQueryClient();
   return useMutation<ProfileWriteOutcome | null, unknown, string>({
-    mutationFn: async (fieldId) => readProfileWriteOutcome(await sdk.operator.profile.undo(fieldId)),
+    mutationFn: async (fieldId) => readProfileWriteOutcome(
+      await sdk.operator.profile.undo({ fieldId, authority: WEBUI_PROFILE_AUTHORITY }),
+    ),
     onSettled: async () => { await invalidateProfile(queryClient); },
   });
 }

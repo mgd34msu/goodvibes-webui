@@ -718,8 +718,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'email' added for the Mail surface (email.inbox.list/read, email.send,
     // email.draft.create) — its own namespace for the same reason calendar has one:
     // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
+    // 'profile' added for the owner profile (docs/owner-profile.md §11.1) — the nine
+    // profile.* verbs over the one hand-editable Markdown document at daemon scope.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+    );
+  });
+
+  test('sdk.operator.profile exposes exactly the nine owner-profile verbs', () => {
+    expect(Object.keys(sdk.operator.profile).sort()).toEqual(
+      ['append', 'forget', 'get', 'person', 'provenance', 'read', 'set', 'status', 'undo'].sort(),
     );
   });
 

@@ -24,6 +24,7 @@ import { NotificationSettings } from '../components/settings/NotificationSetting
 import { PairingTokensSettings } from '../components/settings/PairingTokensSettings';
 import { PowerSettings } from '../components/settings/PowerSettings';
 import { MailAccountSettings } from '../components/settings/MailAccountSettings';
+import { OwnerProfileSettings } from '../components/settings/OwnerProfileSettings';
 import { TailscaleSettings } from '../components/settings/TailscaleSettings';
 import '../styles/components/admin.css';
 
@@ -215,6 +216,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
         <PowerSettings />
 
         <MemoryDiagnostics />
+
+        <OwnerProfileSettings />
 
         <TailscaleSettings />
 

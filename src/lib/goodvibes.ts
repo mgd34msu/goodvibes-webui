@@ -7,6 +7,11 @@ import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/kno
 import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import { routedFetch } from './relay-connection';
+// Local input shapes for the profile.* verbs — the installed contracts package has no
+// 'profile.*' method ids yet, so these come from lib/owner-profile.ts (which also owns
+// the response readers) rather than from OperatorMethodInputMap. Type-only import: no
+// runtime dependency is added to this module.
+import type { ProfileAppendInput, ProfileSetInput, ProfileVerbTarget } from './owner-profile';
 import type {
   OperatorMethodId,
   OperatorMethodInput,
@@ -1795,6 +1800,39 @@ export const sdk = {
         invokeOperator('principals.update', { principalId, ...input }),
       delete: (principalId: string) => invokeOperator('principals.delete', { principalId }),
       resolve: (input: OperatorMethodInput<'principals.resolve'>) => invokeOperator('principals.resolve', input),
+    },
+    // Owner profile (profile.*, docs/owner-profile.md §11.1): the one hand-editable
+    // Markdown document at daemon scope holding what the platform knows about the owner
+    // — identity, contact, location, commerce, preferences, people, places, work, notes.
+    //
+    // ROUTING: these ids carry real REST bindings in the contract, so once the
+    // regenerated @pellux/goodvibes-contracts lands they resolve through
+    // EXTRA_METHOD_ROUTES with no wiring here — that table is DERIVED from the generated
+    // webui-facade artifact and pinned by the drift test, so a hand-written row is not
+    // allowed and is not needed. Against the currently pinned 1.18.1 contracts (which has
+    // no 'profile.*' ids at all) these calls fall through to the generic invoke path and
+    // the daemon answers honestly; the panel renders that refusal rather than an empty
+    // profile.
+    //
+    // TYPING: no OperatorMethodInput/OutputMap entry exists for these ids yet, so the
+    // inputs are the local interfaces in lib/owner-profile.ts and the outputs are
+    // `unknown`, narrowed at the boundary by that module's readProfile* readers — the
+    // same stance memory.* takes for its six hand-authored ids above. Swap to the
+    // generated I/O maps when the pin bumps.
+    //
+    // CONTAINMENT: `person` takes a NAME and there is deliberately no enumerate-all
+    // counterpart (§10) — `read` returns everything and is for the owner looking at his
+    // own profile, never for a composition path assembling outbound content.
+    profile: {
+      read: () => invokeOperator('profile.read', {}),
+      get: (key: string) => invokeOperator('profile.get', { key }),
+      person: (name: string) => invokeOperator('profile.person', { name }),
+      provenance: (target: ProfileVerbTarget) => invokeOperator('profile.provenance', target),
+      set: (input: ProfileSetInput) => invokeOperator('profile.set', input),
+      append: (input: ProfileAppendInput) => invokeOperator('profile.append', input),
+      forget: (target: ProfileVerbTarget) => invokeOperator('profile.forget', target),
+      undo: (target: ProfileVerbTarget) => invokeOperator('profile.undo', target),
+      status: () => invokeOperator('profile.status', {}),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job
     // list — see ci.status's own description) and standing watches. Real generated I/O

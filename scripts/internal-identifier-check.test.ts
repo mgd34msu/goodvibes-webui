@@ -5,7 +5,7 @@
  * violation fails with the owner doctrine quoted and that untracked files
  * (build artifacts) are never scanned.
  */
-import { describe, test, expect, afterEach } from 'bun:test';
+import { describe, test, expect, afterEach, afterAll } from 'bun:test';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -18,7 +18,14 @@ import {
   EXEMPT_FILES,
   EXEMPT_PREFIXES,
 } from './internal-identifier-check';
-import { makeProjectTempDir } from './helpers/project-temp';
+import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
+
+// process.on('exit') (makeProjectTempDir's fallback cleanup) never fires
+// under bun:test's runner — only afterAll does. This repo's own afterEach
+// below already rmSync's every fixture dir per-test, so this is
+// belt-and-suspenders against a future test in this file that forgets to,
+// not the only thing standing between this file and a leak.
+installTestCleanup(afterAll);
 
 const SCRIPT_PATH = resolve(import.meta.dir, 'internal-identifier-check.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');

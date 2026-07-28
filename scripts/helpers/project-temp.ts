@@ -85,21 +85,39 @@ export const STALE_AGE_MS = 60 * 60 * 1000;
 const registeredForCleanup: string[] = [];
 let exitHookInstalled = false;
 
+/**
+ * Remove every directory registered via `register` below and clear the
+ * registry. Idempotent (an empty registry is a no-op) and safe to call
+ * multiple times or from multiple call sites (the `process.on('exit')`
+ * handler and a `bun:test` `afterAll` both call this same function).
+ */
+function drainRegistered(): void {
+  for (const dir of registeredForCleanup.splice(0)) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Best-effort. sweepStaleProjectTempDirs is the real backstop for
+      // anything this leaves behind (e.g. a signal-killed process that
+      // skips both this and any 'exit'/afterAll handler entirely).
+    }
+  }
+}
+
+/**
+ * Best-effort fallback cleanup for plain `bun run` invocations (e.g.
+ * live-daemon-smoke.ts). Empirically verified: Bun's TEST RUNNER never
+ * fires `process.on('exit')` handlers — a `bun test` file that registers
+ * one never sees it run, while the identical handler in a plain
+ * `bun run some-script.ts` fires correctly. So this hook is a real cleanup
+ * mechanism for a script invoked directly, but is silently inert under
+ * `bun test`. `.test.ts` files MUST NOT rely on this alone — see
+ * `installTestCleanup` below, which uses `bun:test`'s `afterAll` instead
+ * (confirmed to fire reliably under the test runner).
+ */
 function installExitHook(): void {
   if (exitHookInstalled) return;
   exitHookInstalled = true;
-  process.on('exit', () => {
-    for (const dir of registeredForCleanup.splice(0)) {
-      try {
-        rmSync(dir, { recursive: true, force: true });
-      } catch {
-        // Best-effort: process is exiting, nothing left to do with an error
-        // here. sweepStaleProjectTempDirs is the real backstop for anything
-        // this leaves behind (e.g. a signal-killed process that skips this
-        // handler entirely).
-      }
-    }
-  });
+  process.on('exit', drainRegistered);
 }
 
 function register(dir: string): string {
@@ -109,12 +127,36 @@ function register(dir: string): string {
 }
 
 /**
+ * Wire this registry's cleanup into `bun:test`'s `afterAll` lifecycle hook,
+ * which — unlike `process.on('exit')` — Bun's test runner actually drives.
+ *
+ * Call this ONCE at module top level in every `.test.ts` file that uses
+ * `makeProjectTempDir`, passing `afterAll` imported from `bun:test`:
+ *
+ *   import { afterAll, test, expect } from 'bun:test';
+ *   import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
+ *   installTestCleanup(afterAll);
+ *
+ * This module does not import `bun:test` itself and call `afterAll`
+ * directly, because this file is also imported by live-daemon-smoke.ts — a
+ * plain script, not a test — where `bun:test` lifecycle hooks do not apply
+ * and importing them would be a lie about what this module is.
+ */
+export function installTestCleanup(afterAllFn: (fn: () => void) => void): void {
+  afterAllFn(drainRegistered);
+}
+
+/**
  * Create a scratch directory under the in-repo `.test-tmp/` root (gitignored)
- * and register it for best-effort removal on normal process exit.
+ * and register it for best-effort removal.
  *
  * Use this for scratch dirs that never boot a real daemon or otherwise
  * depend on living outside the checkout — today that's
- * internal-identifier-check.test.ts and sdk-dev.test.ts.
+ * internal-identifier-check.test.ts and sdk-dev.test.ts. Both of those are
+ * `.test.ts` files, so BOTH must also call `installTestCleanup(afterAll)`
+ * once at module top level (see that function's doc comment) — the
+ * `process.on('exit')` fallback registered here does not fire under
+ * `bun test` and exists only for non-test-runner callers.
  */
 export function makeProjectTempDir(prefix: string): string {
   mkdirSync(PROJECT_TEMP_ROOT, { recursive: true });
@@ -126,7 +168,15 @@ export function makeProjectTempDir(prefix: string): string {
  * and register it for best-effort removal on normal process exit.
  *
  * live-daemon-smoke.ts's home/work directories use this instead of
- * `makeProjectTempDir`.
+ * `makeProjectTempDir`. Unlike `makeProjectTempDir`, this does NOT need
+ * `installTestCleanup` — live-daemon-smoke.ts is invoked as a plain script
+ * (`bun run scripts/live-daemon-smoke.ts`, wired as the `test:live` npm
+ * script), never picked up by `bun test --isolate`, and the
+ * `process.on('exit')` fallback this registers is empirically confirmed to
+ * fire correctly for a plain `bun run` invocation (it is only inert under
+ * `bun test`). live-daemon-smoke.ts also has its own explicit
+ * `finally { rmSync(...) }` cleanup independent of this hook, so in
+ * practice this is defense-in-depth, not the only cleanup path.
  *
  * WHY: the analogous fix in goodvibes-sdk's own repo hit a real bug from
  * rooting a similar daemon-test scratch dir in-repo — a tool walked upward

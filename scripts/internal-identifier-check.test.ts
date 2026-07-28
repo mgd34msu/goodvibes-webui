@@ -7,8 +7,7 @@
  */
 import { describe, test, expect, afterEach } from 'bun:test';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
@@ -19,6 +18,7 @@ import {
   EXEMPT_FILES,
   EXEMPT_PREFIXES,
 } from './internal-identifier-check';
+import { makeProjectTempDir } from './helpers/project-temp';
 
 const SCRIPT_PATH = resolve(import.meta.dir, 'internal-identifier-check.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');
@@ -119,7 +119,7 @@ describe('CLI end-to-end', () => {
   });
 
   function buildGitFixture(): string {
-    const dir = mkdtempSync(join(tmpdir(), 'internal-id-check-'));
+    const dir = makeProjectTempDir('internal-id-check-');
     fixtureDirs.push(dir);
     execFileSync('git', ['init', '--quiet'], { cwd: dir });
     return dir;

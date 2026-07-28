@@ -18,10 +18,9 @@
  * Run: `bun run test:live`  (or `bun run scripts/live-daemon-smoke.ts`)
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import { bootDaemon, type BootedDaemon } from '@pellux/goodvibes-sdk/daemon';
+import { makeRealTempDir } from './helpers/project-temp';
 
 // The webui token store (createBrowserTokenStore) persists to localStorage. In this headless
 // lane there is no browser, so provide a minimal in-memory localStorage BEFORE importing the
@@ -63,8 +62,8 @@ function sessionsFrom(value: unknown): Record<string, unknown>[] {
 }
 
 async function main(): Promise<void> {
-  const home = mkdtempSync(join(tmpdir(), 'gv-live-smoke-home-'));
-  const work = mkdtempSync(join(tmpdir(), 'gv-live-smoke-work-'));
+  const home = makeRealTempDir('gv-live-smoke-home-');
+  const work = makeRealTempDir('gv-live-smoke-work-');
   let daemon: BootedDaemon | null = null;
 
   try {

@@ -28,7 +28,8 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   "voice.local.",
   "conversationGate.",
   "cluster.",
-  "profile."
+  "profile.",
+  "occasions."
 ] as const;
 
 export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = [

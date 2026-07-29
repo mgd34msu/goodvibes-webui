@@ -60,13 +60,35 @@ export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/presentation-tokens.
 // the npm package itself.
 // ---------------------------------------------------------------------------
 
+/**
+ * Keep the SDK contract's STRUCTURE (every key, nesting, and array-ness) while
+ * widening its leaf VALUES from the exact literals the package declares
+ * (`'✓'`, `'#22c55e'`, …) to plain string/number/boolean.
+ *
+ * The renderers below only ever read these leaves as strings, and the drift half of
+ * the test suite has to build a snapshot whose glyph or tone color DIFFERS from the
+ * installed one — that is the whole point of a drift gate. With the literal types in
+ * place that mutated snapshot was not constructible, so the drift test could only
+ * ever have been written against the exact value it was trying to change.
+ * Structure is still pinned: a renamed or removed contract key is still an error here.
+ */
+type WidenLiterals<T> = T extends string
+  ? string
+  : T extends number
+    ? number
+    : T extends boolean
+      ? boolean
+      : T extends readonly (infer U)[]
+        ? readonly WidenLiterals<U>[]
+        : { readonly [K in keyof T]: WidenLiterals<T[K]> };
+
 export interface PresentationContractSnapshot {
-  readonly glyphs: typeof GLYPHS;
-  readonly stateGlyphs: typeof STATE_GLYPHS;
-  readonly toneDark: typeof TONE_TOKENS;
-  readonly toneLight: ReturnType<typeof resolveTones>;
-  readonly spinnerFrames: typeof SPINNER_FRAMES;
-  readonly thinkingPhrases: typeof THINKING_PHRASES;
+  readonly glyphs: WidenLiterals<typeof GLYPHS>;
+  readonly stateGlyphs: WidenLiterals<typeof STATE_GLYPHS>;
+  readonly toneDark: WidenLiterals<typeof TONE_TOKENS>;
+  readonly toneLight: WidenLiterals<ReturnType<typeof resolveTones>>;
+  readonly spinnerFrames: WidenLiterals<typeof SPINNER_FRAMES>;
+  readonly thinkingPhrases: WidenLiterals<typeof THINKING_PHRASES>;
 }
 
 /** Read the real contract from the installed @pellux/goodvibes-sdk. */

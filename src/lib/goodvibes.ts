@@ -1916,6 +1916,48 @@ export const sdk = {
           ),
       },
     },
+    // Occasions and plans (occasions.*, docs/occasions.md). Real generated I/O maps
+    // throughout — no bridge overrides needed, same as checkin/principals above (unlike
+    // calendar.*/email.* just above, which predate a generated map for their family).
+    // Sixteen verbs, every one a real REST route (table-routed through
+    // EXTRA_METHOD_ROUTES, same as checkin.*/ci.*/principals.*): occasions.confirm,
+    // occasions.plans.confirm and occasions.remove write to the owner's profile and take
+    // `authority` — callers pass the SAME WEBUI_PROFILE_AUTHORITY/WEBUI_PROFILE_SURFACE
+    // owner-profile.ts exports (docs/occasions.md §7: these three verbs "write to the
+    // owner's profile ... go through the profile's own write gate", the identical gate
+    // profile.set/append/forget/undo answer to). Nothing here computes a proximity word,
+    // a lead-time adjustment or a nudge date — every one of those stays server-side
+    // (docs/occasions.md §7's own governing line: "a consumer that computed anything
+    // beyond calling these and rendering the answers would be a second implementation of
+    // a rule that lives in the daemon").
+    occasions: {
+      list: () => invokeOperator('occasions.list', {}),
+      pending: () => invokeOperator('occasions.pending', {}),
+      propose: (input: OperatorMethodInput<'occasions.propose'>) => invokeOperator('occasions.propose', input),
+      confirm: (input: OperatorMethodInput<'occasions.confirm'>) => invokeOperator('occasions.confirm', input),
+      remove: (input: OperatorMethodInput<'occasions.remove'>) => invokeOperator('occasions.remove', input),
+      answer: (input: OperatorMethodInput<'occasions.answer'>) => invokeOperator('occasions.answer', input),
+      gifts: (occasionId: string) => invokeOperator('occasions.gifts', { occasionId }),
+      sweep: () => invokeOperator('occasions.sweep', {}),
+      state: () => invokeOperator('occasions.state', {}),
+      conflict: {
+        resolve: (occasionId: string) => invokeOperator('occasions.conflict.resolve', { occasionId }),
+      },
+      interview: {
+        get: (interviewId: string) => invokeOperator('occasions.interview.get', { interviewId }),
+        answer: (input: OperatorMethodInput<'occasions.interview.answer'>) =>
+          invokeOperator('occasions.interview.answer', input),
+        record: (input: OperatorMethodInput<'occasions.interview.record'>) =>
+          invokeOperator('occasions.interview.record', input),
+      },
+      plans: {
+        list: () => invokeOperator('occasions.plans.list', {}),
+        propose: (input: OperatorMethodInput<'occasions.plans.propose'>) =>
+          invokeOperator('occasions.plans.propose', input),
+        confirm: (input: OperatorMethodInput<'occasions.plans.confirm'>) =>
+          invokeOperator('occasions.plans.confirm', input),
+      },
+    },
     // Channel profiles (channels.profiles.*, SDK 1.6.1). Real generated I/O maps
     // throughout — no bridge overrides needed, unlike Approvals/Tasks above.
     channels: {

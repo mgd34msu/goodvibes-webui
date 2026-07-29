@@ -7,7 +7,12 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
-import { FLEET_AGENT_NODE, FLEET_OBSERVED_STEERABLE_NODE, FLEET_OBSERVED_NO_CHANNEL_NODE } from './support/seed';
+import {
+  FLEET_AGENT_NODE,
+  FLEET_OBSERVED_STEERABLE_NODE,
+  FLEET_OBSERVED_NO_CHANNEL_NODE,
+  FLEET_OBSERVED_NO_CHANNEL_REASON,
+} from './support/seed';
 import { expectNoHorizontalScroll, expectTappable, only, PHONE } from './support/app';
 
 let daemon: MockDaemon;
@@ -50,7 +55,7 @@ test('the steerable observed row: drill-in shows pid + channel and steer reaches
 test('the no-channel observed row renders the honest reason, never a dead send button', async ({ page }) => {
   await page.locator('.fleet-row', { hasText: FLEET_OBSERVED_NO_CHANNEL_NODE.label }).click();
   await expect(page.locator('.fleet-detail__observed-steer')).toHaveCount(0);
-  await expect(page.locator('.fleet-detail__observed-no-channel')).toHaveText(FLEET_OBSERVED_NO_CHANNEL_NODE.observed.steer.reason);
+  await expect(page.locator('.fleet-detail__observed-no-channel')).toHaveText(FLEET_OBSERVED_NO_CHANNEL_REASON);
   await expect(page.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
 });
 

@@ -16,6 +16,31 @@
  * once already (see providersResponse()'s header below).
  */
 
+import type { FleetProcessNode } from '../../src/lib/contract-bridge-types';
+
+/**
+ * The fleet node fixtures below are annotated with the app's own FleetProcessNode
+ * (= FleetSnapshotResult['nodes'][number], generated from the SDK's operator
+ * contract) rather than left to inference. Left inferred, the array in
+ * FLEET_SNAPSHOT.nodes collapsed to the handful of properties every node shares,
+ * so `needsAttention`, `observed`, `sessionRef`, `usage`, `provider`/`model` were
+ * invisible to the compiler — assert-contract-shape.test.ts's
+ * `blocked?.needsAttention` assertion referenced a property TypeScript did not
+ * believe existed, and mock-daemon's withManualPricing() could not be applied to
+ * the array at all.
+ *
+ * `WithRequired` re-states, at the type level, the fact each fixture's comment
+ * already claims: this specific node always carries this optional field. Specs
+ * read those fields directly, so the fixture — not every call site — is where the
+ * guarantee belongs.
+ */
+type WithRequired<T, K extends keyof T> = T & { [P in K]-?: NonNullable<T[P]> };
+
+/** The daemon's honest reason when an observed agent has no steer channel. Shared
+ *  by the fixture and fleet-observed.e2e.ts so the spec asserts the exact string the
+ *  fixture serves, with no optional-property indirection between them. */
+export const FLEET_OBSERVED_NO_CHANNEL_REASON = 'no controlling tty found for this process';
+
 export interface SeedMessage {
   id: string;
   role: string;
@@ -694,7 +719,7 @@ export function knowledgeMapResponse() {
 // (hero-steer-from-phone.e2e.ts) already steers, and PENDING_APPROVAL.sessionId
 // matches it too, so lib/fleet.ts's approvalsForNode correlation fires for real.
 
-export const FLEET_AGENT_NODE = {
+export const FLEET_AGENT_NODE: WithRequired<FleetProcessNode, 'sessionRef'> = {
   id: 'agent-42',
   kind: 'agent',
   label: 'Refactor the session spine',
@@ -719,7 +744,7 @@ export const FLEET_AGENT_NODE = {
   stall: { since: 1_700_000_000_000, quietForMs: 6 * 60_000 },
 };
 
-export const FLEET_WATCHER_NODE = {
+export const FLEET_WATCHER_NODE: FleetProcessNode = {
   id: 'watcher-docs',
   kind: 'watcher',
   label: 'Docs watcher',
@@ -735,7 +760,7 @@ export const FLEET_WATCHER_NODE = {
 // distinct session with no pending approval so it does not correlate with
 // PENDING_APPROVAL (the reason is 'input', not 'approval'). This node is also the
 // needs-input deep-link target (fleet-focus-link).
-export const FLEET_BLOCKED_NODE = {
+export const FLEET_BLOCKED_NODE: WithRequired<FleetProcessNode, 'sessionRef' | 'needsAttention'> = {
   id: 'agent-blocked-7',
   kind: 'agent',
   label: 'Waiting on your answer',
@@ -752,7 +777,7 @@ export const FLEET_BLOCKED_NODE = {
 // only AFTER a fleet event has been delivered over the subscription (see
 // installMockDaemon's fleetEvents option), so an e2e can prove the subscription
 // drove a live tree update rather than a poll.
-export const FLEET_EVENT_NODE = {
+export const FLEET_EVENT_NODE: FleetProcessNode = {
   id: 'agent-live-99',
   kind: 'agent',
   label: 'Started via a fleet event',
@@ -768,7 +793,7 @@ export const FLEET_EVENT_NODE = {
 // work item, respectively. Both started BEFORE FLEET_BLOCKED_NODE (startedAt 50) so the
 // existing "blocked node floats to the top" proof still holds: among attention-tied
 // siblings the newest-started wins the tie-break, and blocked stays newest of the three.
-export const FLEET_PICK_NODE = {
+export const FLEET_PICK_NODE: FleetProcessNode = {
   id: 'workstream-pick-3',
   kind: 'workstream',
   label: 'Ready to pick a winner',
@@ -780,7 +805,7 @@ export const FLEET_PICK_NODE = {
   needsAttention: { reason: 'pick' },
 };
 
-export const FLEET_CONFLICT_NODE = {
+export const FLEET_CONFLICT_NODE: FleetProcessNode = {
   id: 'work-item-conflict-4',
   kind: 'work-item',
   label: 'Merge conflict in the checkout flow',
@@ -797,7 +822,7 @@ export const FLEET_CONFLICT_NODE = {
 // mock-daemon.ts imports FROM this module) — opening it in WorkstreamView/FleetView
 // triggers fleet.graph.get for an id the mock actually answers (the representative
 // fleetGraphResponse() fixture), proving the task-graph panel end to end.
-export const FLEET_GRAPH_WORKSTREAM_NODE = {
+export const FLEET_GRAPH_WORKSTREAM_NODE: FleetProcessNode = {
   id: 'ws-e2e-graph',
   kind: 'workstream',
   label: 'Fix findings from the review',
@@ -816,7 +841,7 @@ export const FLEET_GRAPH_WORKSTREAM_NODE = {
 // channel) and a no-channel one (the daemon's own honest reason, never a dead button).
 // Never killable/interruptible/pausable/resumable, and excluded from the toolbar's
 // own-agent counts (lib/fleet.ts's activeCount/ownNodeCount/observedNodeCount).
-export const FLEET_OBSERVED_STEERABLE_NODE = {
+export const FLEET_OBSERVED_STEERABLE_NODE: WithRequired<FleetProcessNode, 'observed'> = {
   id: 'observed:4242',
   kind: 'observed-external',
   label: 'Claude Code (external)',
@@ -836,7 +861,7 @@ export const FLEET_OBSERVED_STEERABLE_NODE = {
   },
 };
 
-export const FLEET_OBSERVED_NO_CHANNEL_NODE = {
+export const FLEET_OBSERVED_NO_CHANNEL_NODE: WithRequired<FleetProcessNode, 'observed'> = {
   id: 'observed:9001',
   kind: 'observed-external',
   label: 'Codex (external)',
@@ -854,7 +879,7 @@ export const FLEET_OBSERVED_NO_CHANNEL_NODE = {
       state: 'quiet', cpuSeconds: 3.1,
       detail: 'No CPU time observed since the last check — this does not prove the agent is idle',
     },
-    steer: { kind: 'none', reason: 'no controlling tty found for this process' },
+    steer: { kind: 'none', reason: FLEET_OBSERVED_NO_CHANNEL_REASON },
     steerDrillInOnly: true,
   },
 };

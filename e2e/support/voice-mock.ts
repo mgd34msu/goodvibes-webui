@@ -11,7 +11,12 @@
  * handlers win for the voice/config paths.
  */
 import type { Page, Route } from '@playwright/test';
-import { voiceLocalInstallResponse, voiceLocalStatusInProgressResponse, voiceLocalStatusResponse } from './mock-daemon';
+import {
+  voiceLocalInstallResponse,
+  voiceLocalStatusInProgressResponse,
+  voiceLocalStatusResponse,
+  type VoiceLocalStatus,
+} from './mock-daemon';
 
 export interface VoiceProviderSeed {
   id: string;
@@ -123,22 +128,26 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
   // which keeps nothing), exactly like the real one-act flow.
   let installActive = false;
   const localRuntime = options.localRuntime ?? 'not-provisioned';
-  let voiceLocalState = localRuntime === 'unavailable'
+  // Declared as the ONE status shape (or null for the older-daemon 404) rather than
+  // letting the ternary infer a union of three mutually incompatible literal shapes:
+  // the install handler below reassigns this variable, and against an inferred union
+  // every reassignment is a type error even though the runtime value is correct.
+  let voiceLocalState: VoiceLocalStatus | null = localRuntime === 'unavailable'
     ? null
     : localRuntime === 'unsupported-platform'
       ? {
           ...voiceLocalStatusResponse(),
           platform: null,
-          state: 'unsupported-platform' as const,
-          stt: { ...voiceLocalStatusResponse().stt, supported: false, state: 'unsupported-platform' as const },
+          state: 'unsupported-platform',
+          stt: { ...voiceLocalStatusResponse().stt, supported: false, state: 'unsupported-platform' },
           offerBytes: null,
         }
       : localRuntime === 'provisioned'
         ? {
             ...voiceLocalStatusResponse(),
-            state: 'provisioned' as const,
+            state: 'provisioned',
             tts: { ...voiceLocalStatusResponse().tts, binaryPresent: true, voicePresent: true },
-            stt: { ...voiceLocalStatusResponse().stt, state: 'provisioned' as const, binaryPresent: true, modelPresent: true },
+            stt: { ...voiceLocalStatusResponse().stt, state: 'provisioned', binaryPresent: true, modelPresent: true },
           }
         : voiceLocalStatusResponse();
 

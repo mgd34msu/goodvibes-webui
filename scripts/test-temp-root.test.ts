@@ -43,6 +43,15 @@ describe('the temp redirect is actually in effect during this test run', () => {
   });
 
   test('a directory created the ordinary way lands inside the repo run root', () => {
+    // The mkdtemp-under-tmpdir call below IS the subject of this test. The rule that
+    // bans that shape (eslint.config.js) exists because it scatters scratch dirs across
+    // the shared OS tmpfs — and the preload under test is exactly what makes that untrue
+    // here, since tmpdir() now resolves to .test-tmp/run-<pid>. Rewriting it to
+    // makeProjectTempDir would assert nothing: the expectation below would then hold by
+    // construction, whether or not the redirect ran. If the redirect ever DOES break,
+    // this line lands in the real tmpdir, the expectation fails, the finally removes it,
+    // and 'temp-root-proof-' is in KNOWN_TEMP_PREFIXES so a killed run's copy is swept.
+    // eslint-disable-next-line no-restricted-syntax -- the call under test; see above
     const dir = mkdtempSync(join(tmpdir(), 'temp-root-proof-'));
     try {
       expect(isInsideTestTmp(dir, REPO_ROOT)).toBe(true);

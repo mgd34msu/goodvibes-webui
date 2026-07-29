@@ -22,10 +22,18 @@
  * restore cycle is proven once against a real checkout in the SDK's own
  * suite / its manual consolidation proof, not duplicated here.
  */
-import { describe, test, expect } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { describe, test, expect, afterAll } from 'bun:test';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
+
+// process.on('exit') (makeProjectTempDir's fallback cleanup) never fires
+// under bun:test's runner — only afterAll does. Both tests below already
+// rmSync their own dir in a try/finally, so this is belt-and-suspenders
+// against a future test in this file that forgets to, not the only thing
+// standing between this file and a leak.
+installTestCleanup(afterAll);
 
 const SCRIPT_PATH = resolve(import.meta.dir, 'sdk-dev.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');
@@ -47,7 +55,7 @@ function run(args: string[], opts: { cwd?: string; env?: Record<string, string> 
 
 describe('sdk-dev alias', () => {
   test('fails fast and names the missing checkout when GOODVIBES_SDK_PATH does not exist', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
+    const dir = makeProjectTempDir('webui-sdk-dev-');
     try {
       const missingPath = join(dir, 'does-not-exist');
       const { exitCode, output } = run(['status'], { env: { GOODVIBES_SDK_PATH: missingPath } });
@@ -60,7 +68,7 @@ describe('sdk-dev alias', () => {
   });
 
   test('fails with a distinct message when the checkout exists but has no scripts/sdk-dev.ts', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'webui-sdk-dev-'));
+    const dir = makeProjectTempDir('webui-sdk-dev-');
     try {
       mkdirSync(join(dir, 'scripts'), { recursive: true }); // no sdk-dev.ts inside
       const { exitCode, output } = run(['status'], { env: { GOODVIBES_SDK_PATH: dir } });

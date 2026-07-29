@@ -35,7 +35,7 @@ import { SyntheticEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Inbox, Mail, MailPlus, Send } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { EmailDraftCreateInput, EmailSendInput } from '../../lib/goodvibes';
+import type { EmailDraftCreateInput, EmailSendInput, EmailUnreadableMessage } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -52,6 +52,34 @@ import '../../styles/components/mail.css';
 
 /** Trim to the recipient list the daemon will actually use, so the confirmation
  * sheet shows the operator the same string that goes on the wire. */
+/**
+ * The messages the daemon could not parse, and why.
+ *
+ * Rendered rather than counted: "3 messages could not be read" tells an operator
+ * nothing they can act on, while the per-message detail the daemon already sends
+ * ("unsupported encoding", "malformed header") is the thing that says whether it
+ * is one broken sender or a whole account misconfigured. `uid` is optional on the
+ * wire — a message can fail before its uid is known — so it is only shown when
+ * present rather than rendered as "undefined".
+ */
+function UnreadableNote({ items }: { items: readonly EmailUnreadableMessage[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mail-note mail-note--unreadable" role="status" data-testid="mail-unreadable">
+      <h3>
+        {items.length === 1 ? '1 message could not be read' : `${String(items.length)} messages could not be read`}
+      </h3>
+      <ul>
+        {items.map((item, index) => (
+          <li key={item.uid ?? `no-uid-${String(index)}`}>
+            {item.uid === undefined ? item.detail : `uid ${String(item.uid)}: ${item.detail}`}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function normalizeRecipients(value: string): string {
   return value.split(',').map((part) => part.trim()).filter(Boolean).join(', ');
 }
@@ -159,6 +187,12 @@ export function MailView() {
   // sorting on it would let a sender pin their message to the top with a far-future
   // Date: header). Full rationale in mail-order.ts; do not "simplify" this to `date`.
   const sorted = useMemo(() => sortInboxMessagesByUidDescending(messages), [messages]);
+  // Messages the account returned but the daemon could not parse, each with its own
+  // reason. The contract has always carried this list; the hand-written result type
+  // this view used to read omitted it, so these messages were dropped in silence —
+  // including in the case that matters most, where every message in the window is
+  // unreadable and the view below would otherwise report a normal empty inbox.
+  const unreadable = inbox.data?.unreadable ?? [];
 
   const composerReady = to.trim() !== '' && subject.trim() !== '' && body.trim() !== '';
 
@@ -257,20 +291,26 @@ export function MailView() {
             ) : inbox.error ? (
               <ErrorState error={inbox.error} onRetry={() => void inbox.refetch()} title="Inbox failed to load" />
             ) : sorted.length === 0 ? (
-              <EmptyState
-                icon={<Mail size={20} aria-hidden="true" />}
-                title="Nothing in the inbox"
-                description={
-                  unreadOnly
-                    ? 'No unread messages match this window. Clear the unread filter to see the rest.'
-                    : 'The account answered normally with no messages in this window.'
-                }
-              />
+              <>
+                <EmptyState
+                  icon={<Mail size={20} aria-hidden="true" />}
+                  title={unreadable.length > 0 ? 'Nothing readable in the inbox' : 'Nothing in the inbox'}
+                  description={
+                    unreadable.length > 0
+                      ? 'Every message in this window failed to parse. They are listed below with the reason each one gave.'
+                      : unreadOnly
+                        ? 'No unread messages match this window. Clear the unread filter to see the rest.'
+                        : 'The account answered normally with no messages in this window.'
+                  }
+                />
+                <UnreadableNote items={unreadable} />
+              </>
             ) : (
               <>
                 <p className="mail-list__count">
                   Showing {sorted.length} of {inbox.data?.total ?? sorted.length} messages the account reported.
                 </p>
+                <UnreadableNote items={unreadable} />
                 <ul className="mail-list" data-testid="mail-list">
                   {sorted.map((message) => (
                     <li key={message.uid}>

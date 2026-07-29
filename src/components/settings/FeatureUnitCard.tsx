@@ -45,6 +45,9 @@ interface FeatureUnitCardProps {
   readonly pendingRestart: boolean;
   /** Called after a successful enablement write (toggle or mode change). */
   readonly onEnablementCommitted: () => void;
+  /** The live `payments.currency` value, forwarded to any owned field that is a
+   *  money (`...Cents`) key — see SettingsField's `currency` prop. */
+  readonly currency?: string;
 }
 
 export function FeatureUnitCard({
@@ -53,6 +56,7 @@ export function FeatureUnitCard({
   persistedByKey,
   pendingRestart,
   onEnablementCommitted,
+  currency,
 }: FeatureUnitCardProps) {
   const { feature, enabled, explicit, enablementField, fields, daemonOwned } = unit;
   const enablementPersisted = persistedByKey[feature.enablement.key];
@@ -169,7 +173,13 @@ export function FeatureUnitCard({
       {fields.length > 0 && (
         <div className="feature-unit-fields">
           {fields.map((field) => (
-            <SettingsField key={field.key} field={field} onCommit={onCommit} persisted={persistedByKey[field.key]} />
+            <SettingsField
+              key={field.key}
+              field={field}
+              onCommit={onCommit}
+              persisted={persistedByKey[field.key]}
+              currency={currency}
+            />
           ))}
         </div>
       )}

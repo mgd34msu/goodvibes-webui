@@ -55,6 +55,30 @@
   line-height: 1.5;
 }
 
+/*
+ * The messages the daemon could not parse. Sits between the list and a plain
+ * note in weight on purpose: this is not an error — the request succeeded — but
+ * part of the inbox is genuinely missing, so it must not read as decoration
+ * either. Reasons are full text and wrap; truncating them would throw away the
+ * only part an operator can act on.
+ */
+.mail-note--unreadable {
+  margin-block: var(--space-3);
+  border-color: var(--color-warning-border, var(--color-border));
+}
+
+.mail-note--unreadable ul {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.mail-note--unreadable li {
+  overflow-wrap: anywhere;
+}
+
 .mail-list {
   list-style: none;
   margin: 0;

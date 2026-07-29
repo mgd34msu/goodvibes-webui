@@ -47,6 +47,27 @@ import {
   DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS,
 } from './generated/config-ownership';
 
+/**
+ * MERGE NOTE (payments round): wo/payments-webui added `payments.` to the
+ * prefixes and `daemon.timezone` to the keys by hand, in the hand-mirrored
+ * lists this module carried at the time. Those lists are exactly what the
+ * generator above replaced, so the hand-written copies are not carried
+ * forward — the two entries now arrive from the SDK's own tables via
+ * src/lib/generated/config-ownership.ts, which is where they belong and where
+ * `bun run config-ownership:check` can keep them honest.
+ *
+ * Their reasoning, recorded here because a generated file has nowhere to put
+ * it: the daemon is the process that holds the card and charges it, with
+ * every surface closed and across restarts, so card material and budgets left
+ * client-owned would live in whichever surface entered them while the daemon
+ * charged against defaults. And `daemon.timezone` is the one `daemon.*` key
+ * that is not a per-installation switch — the rest of that prefix answers
+ * "does THIS machine run a daemon", while the timezone answers where the
+ * daemon thinks it is, which is what rolls a daily budget over at midnight.
+ *
+ * config-ownership.test.ts asserts both are present in the generated
+ * snapshot, so dropping the hand-written lists cannot silently drop them.
+ */
 export { DAEMON_OWNED_CONFIG_KEYS, DAEMON_OWNED_CONFIG_PREFIXES, DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS };
 
 const DAEMON_KEY_SET = new Set<string>(DAEMON_OWNED_CONFIG_KEYS);

@@ -13,7 +13,7 @@ import { PeekProvider } from '../../components/peek/PeekPanel';
 import { ToastProvider } from '../../lib/toast';
 import { ToastViewport } from '../../components/toast/ToastViewport';
 
-type InboxListImpl = () => Promise<{ messages: unknown[]; total: number }>;
+type InboxListImpl = () => Promise<{ messages: unknown[]; total: number; unreadable?: { uid?: number; detail: string }[] }>;
 
 let inboxList: InboxListImpl = () => Promise.resolve({ messages: [], total: 0 });
 
@@ -202,6 +202,90 @@ describe('MailView — inbox order is sender-proof (uid, never date)', () => {
     expect(subjects[0]).toContain('thirty');
     expect(subjects[1]).toContain('twenty');
     expect(subjects[2]).toContain('ten');
+    unmount();
+  });
+});
+
+describe('MailView — messages the daemon could not read', () => {
+  test('an inbox where every message failed to parse does NOT render as a normal empty inbox', async () => {
+    // The state this exists to catch. Before the 1.19.1 re-pin the inbox-list result
+    // type omitted `unreadable` entirely, so this response reached the view as
+    // "messages: [], total: 0" and rendered "The account answered normally with no
+    // messages in this window" — a sentence that is false in exactly the situation
+    // an operator most needs the truth.
+    inboxList = () =>
+      Promise.resolve({
+        messages: [],
+        total: 0,
+        unreadable: [
+          { uid: 41, detail: 'unsupported transfer encoding' },
+          { detail: 'malformed header, uid unknown' },
+        ],
+      });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-unreadable"]')));
+
+    expect(el.textContent).toContain('Nothing readable in the inbox');
+    expect(el.textContent).not.toContain('The account answered normally');
+    expect(el.textContent).toContain('2 messages could not be read');
+    // The per-message reason, not just a count — a count tells an operator nothing
+    // about whether it is one broken sender or a misconfigured account.
+    expect(el.textContent).toContain('uid 41: unsupported transfer encoding');
+    // A failure with no uid renders its reason alone, never "uid undefined".
+    expect(el.textContent).toContain('malformed header, uid unknown');
+    expect(el.textContent).not.toContain('undefined');
+    unmount();
+  });
+
+  test('unreadable messages are reported alongside a list that DID load', async () => {
+    inboxList = () =>
+      Promise.resolve({
+        messages: [
+          {
+            uid: 7,
+            from: 'a@example.com',
+            subject: 'Readable',
+            date: '2026-01-01T00:00:00Z',
+            unread: false,
+            bodyPreview: 'hi',
+            messageId: '<a@example.com>',
+          },
+        ],
+        total: 2,
+        unreadable: [{ uid: 8, detail: 'attachment decode failed' }],
+      });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
+
+    expect(el.querySelector('[data-testid="mail-unreadable"]')).not.toBeNull();
+    expect(el.textContent).toContain('1 message could not be read');
+    expect(el.textContent).toContain('uid 8: attachment decode failed');
+    unmount();
+  });
+
+  test('a clean inbox renders no unreadable note at all', async () => {
+    // The negative case: without this, the two assertions above would pass against a
+    // note that is always present.
+    inboxList = () =>
+      Promise.resolve({
+        messages: [
+          {
+            uid: 7,
+            from: 'a@example.com',
+            subject: 'Readable',
+            date: '2026-01-01T00:00:00Z',
+            unread: false,
+            bodyPreview: 'hi',
+            messageId: '<a@example.com>',
+          },
+        ],
+        total: 1,
+      });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
+
+    expect(el.querySelector('[data-testid="mail-unreadable"]')).toBeNull();
+    expect(el.textContent).not.toContain('could not be read');
     unmount();
   });
 });

@@ -273,6 +273,30 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
+  test('the nine profile.* verbs arrive DERIVED — real REST rows from the generated artifact, no hand-written row', () => {
+    // The owner profile added no route wiring to goodvibes.ts at all: every row below comes
+    // from WEBUI_METHOD_ROUTES via buildExtraMethodRoutes. This pins that they are present,
+    // that they are REST (not ws-invoke), and that each resolves to the generated path — so
+    // a future contract change to any of these paths fails here rather than at runtime.
+    const expected = {
+      'profile.read': { method: 'GET', path: '/api/profile' },
+      'profile.get': { method: 'GET', path: '/api/profile/fields/{fieldId}' },
+      'profile.person': { method: 'POST', path: '/api/profile/person' },
+      'profile.provenance': { method: 'GET', path: '/api/profile/fields/{fieldId}/provenance' },
+      'profile.set': { method: 'POST', path: '/api/profile/set' },
+      'profile.append': { method: 'POST', path: '/api/profile/append' },
+      'profile.forget': { method: 'POST', path: '/api/profile/forget' },
+      'profile.undo': { method: 'POST', path: '/api/profile/undo' },
+      'profile.status': { method: 'GET', path: '/api/profile/status' },
+    } as const;
+    for (const [id, route] of Object.entries(expected)) {
+      expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
+      expect(isExtraRoutedMethod(id)).toBe(true);
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
+      expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
+    }
+  });
+
   test('WEBUI_METHOD_SAMPLES carries an input/output fixture for every bridged ws-invoke method (the mock daemon default-seed source)', () => {
     for (const id of BRIDGE_TYPED_METHOD_IDS) {
       const sample = WEBUI_METHOD_SAMPLES[id];
@@ -718,8 +742,16 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'email' added for the Mail surface (email.inbox.list/read, email.send,
     // email.draft.create) — its own namespace for the same reason calendar has one:
     // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
+    // 'profile' added for the owner profile (docs/owner-profile.md §11.1) — the nine
+    // profile.* verbs over the one hand-editable Markdown document at daemon scope.
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+    );
+  });
+
+  test('sdk.operator.profile exposes exactly the nine owner-profile verbs', () => {
+    expect(Object.keys(sdk.operator.profile).sort()).toEqual(
+      ['append', 'forget', 'get', 'person', 'provenance', 'read', 'set', 'status', 'undo'].sort(),
     );
   });
 

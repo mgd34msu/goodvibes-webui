@@ -23,6 +23,7 @@ import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
 import type { ConfigFieldModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
+import { secretStoreSetCommandFor } from '../../lib/secret-store-only-config-keys';
 import { ModelPricesEditor } from './ModelPricesEditor';
 
 interface SettingsFieldProps {
@@ -82,6 +83,26 @@ export function SettingsField({ field, onCommit, persisted }: SettingsFieldProps
         return <ModelPricesEditor value={effectiveValue(field)} onCommit={(next) => onCommit(field.key, next)} />;
       }
       return <ObjectJsonField field={field} saving={saving} onCommit={(value) => void commit(value)} />;
+    }
+
+    // Secret string whose real value the daemon resolves ONLY from its own
+    // secret store (secret-store-only-config-keys.ts) — never editable here.
+    // A config.set write would save a plaintext copy the mail/calendar
+    // connector never reads, while reporting success. Refuse and name the
+    // real command instead of offering a write that cannot work.
+    if (field.isSecret && field.type === 'string' && field.secretStoreOnly) {
+      const raw = effectiveValue(field);
+      const masked = typeof raw === 'string' && raw ? maskSecretValue(raw) : '(unset)';
+      return (
+        <div className="settings-field-secret settings-field-secret--store-only">
+          <span className="settings-value settings-value--secret">{masked}</span>
+          <p className="settings-field-secret-store-only-note" role="note">
+            Only readable from the daemon's own secret store — a value saved here would never be
+            used. Run <code>{secretStoreSetCommandFor(field.key)}</code> from a terminal with daemon
+            access to set it.
+          </p>
+        </div>
+      );
     }
 
     // Secret string — masked, write-only replace.

@@ -43,6 +43,7 @@ import { SettingsField } from './SettingsField';
 import { FeatureUnitCard } from './FeatureUnitCard';
 import { displayConfigValue } from '../../lib/config-redaction';
 import { buildSettingsModel, filterSettingsModel } from '../../lib/settings-model';
+import { isSecretStoreOnlyConfigKey, secretStoreSetCommandFor } from '../../lib/secret-store-only-config-keys';
 import '../../styles/components/settings.css';
 
 export interface SettingsModalProps {
@@ -126,6 +127,19 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     mutationFn: () => {
       const key = rawKey.trim();
       if (!key) throw new Error('Config key is required');
+      // secret-store-only-config-keys.ts: these keys' real value is resolved
+      // exclusively from the daemon's secret store — a config.set write here
+      // would leave a plaintext, never-read copy in the daemon's config file
+      // and configure nothing (verified against the SDK's mail/calendar
+      // connector code, cited in that module). Refuse rather than send it,
+      // and name the real command instead of reporting a false success.
+      if (isSecretStoreOnlyConfigKey(key)) {
+        throw new Error(
+          `${key} is only ever read from the daemon's secret store, never from config — writing it here `
+          + `would save a plaintext copy that the mail/calendar connector ignores. Run `
+          + `"${secretStoreSetCommandFor(key)}" from a terminal with daemon access instead.`,
+        );
+      }
       let parsed: unknown = rawValue;
       if (rawValue.trim()) {
         try {

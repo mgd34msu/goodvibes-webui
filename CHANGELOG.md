@@ -4,6 +4,65 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.11.0] - 2026-07-29
+
+You can give the daemon a payment card from this interface now. Settings has a
+card entry form that takes the number, expiry, security code and cardholder
+name, sends them once to the daemon's own secret store, and never reads them
+back — there is no method anywhere that returns them, so nothing can display
+them again, here or elsewhere. What you see afterwards is the brand, the last
+four digits, the expiry month and year, and whether every required field is
+filled. A virtual card with a hard issuer cap bounds what any leak could cost to
+one number you can cancel; a real card number cannot be capped by anything this
+software does, and the form says so where you choose.
+
+With the card comes the spending it is bounded by. The payment settings — daily
+limits, per-purchase ceilings, how long a purchase waits before it goes through,
+which channels get told, and how the security code is handled — are editable
+here, with money entered in ordinary units (12.50, not 1250) and converted using
+the right number of decimal places for your currency rather than assuming two.
+The daemon's timezone is now set from a searchable list of real zones instead of
+typed as free text, because that is the setting that decides when a daily budget
+rolls over, and a typo in it silently means "UTC".
+
+The owner profile has a home. The daemon keeps a single document describing you
+— how you like to be addressed, the people and places it should recognise, the
+standing preferences it should apply — and until now nothing in this browser
+could show it. Admin has it now: you can read it, edit it, see which entries the
+daemon wrote itself versus which you wrote, and undo a change. Every write says
+who made it and on whose authority.
+
+Mail no longer hides messages it could not read. When your account returns a
+message the daemon cannot parse — a broken encoding, a malformed header — the
+inbox now lists it with the reason it gave, instead of leaving it out. This
+matters most in the case that used to be worst: a window where every message
+failed to parse looked exactly like an empty inbox, and the screen told you the
+account had answered normally with nothing in it. It now says nothing was
+readable and shows you why, message by message.
+
+The inbox is also ordered correctly. Messages sort by the sequence number the
+server assigns, not by the date written into the message by whoever sent it —
+so nobody can pin their mail to the top of your inbox by putting a date far in
+the future in it.
+
+Secrets you had not been told about are masked. The platform split the mail
+password reference into separate incoming and outgoing ones, and the outgoing
+one was new enough that nothing here knew to hide it; it would have been shown
+in full in Settings. It is masked now. The way this was found is the part worth
+keeping: this app checks every setting the daemon declares against the list of
+things it treats as secret and fails its own build when something credential-
+shaped is not on it, rather than relying on anyone noticing.
+
+Under all of it, the platform runtime moved from 1.18.1 to 1.19.1, and that
+release stopped letting this app guess. Requests that were missing a field the
+daemon requires used to compile here and be refused there, and the refusal
+arrived as a generic failure with nothing to say which field was wrong. Those
+requests are now checked before they are sent. Two were genuinely broken: the
+knowledge wiki could ask for a page in a form the daemon always rejected, and
+the payment card list quietly dropped which card the daemon would actually
+charge. Both are fixed, and where this interface is talking to a daemon newer
+than itself, it now says so plainly instead of sending something that fails.
+
 ## [1.10.0] - 2026-07-27
 
 The platform runtime this interface is built against moved up six releases, from

@@ -82,6 +82,29 @@ function sessionsFrom(value: unknown): Record<string, unknown>[] {
  *      root whose owning pid is gone.
  * One parent directory instead of two siblings also means a failure BETWEEN the
  * two creations can no longer strand the first one.
+ *
+ * ROOTING A REAL-DAEMON SCRATCH TREE INSIDE THE CHECKOUT IS NOT FREE, and was
+ * checked rather than assumed. goodvibes-sdk's own repo hit a real bug from the
+ * same move: a tool walked upward from an in-repo test fixture looking for
+ * `tsconfig.json`, found the REAL repo's tsconfig sitting above it instead of
+ * finding none, and corrupted that test's expectations. Why that cannot happen
+ * here:
+ *   - ConfigManager (@pellux/goodvibes-sdk dist/platform/config/manager.js)
+ *     builds settings.json paths by joining directly under the given
+ *     workingDir/homeDirectory. It never walks upward.
+ *   - Nothing in bootDaemon's construction/start path (dist/platform/daemon/
+ *     boot.js, facade.js, facade-composition.js) calls `detectProject`
+ *     (dist/platform/tools/inspect/project.js — the function that reads
+ *     package.json/tsconfig.json). That function is reached only from the
+ *     "inspect project" agent tool's executor, and this smoke is deliberately
+ *     model-free: it never drives an agent turn, a tool call, or a hook.
+ *   - Measured against the real (unlinked, npm) package: the only file the
+ *     daemon wrote under the scratch dir was its own
+ *     `.goodvibes/logs/activity.md`.
+ * The third bullet is what makes the in-repo root safe TODAY. If this smoke
+ * ever starts driving real tool or hook invocations, it reaches the
+ * upward-walking path and this decision has to be re-made — that is the one
+ * change to this file that must not be waved through.
  */
 const RUN_ROOT = installTestTempRoot();
 

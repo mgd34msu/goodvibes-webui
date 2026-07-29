@@ -50,7 +50,7 @@ jobs:
         run: bun run test
 
       - name: Coverage
-        run: bun test --isolate --coverage 2>&1 | tee coverage-summary.txt
+        run: bun run coverage 2>&1 | tee coverage-summary.txt
 
       - name: Upload coverage summary
         uses: actions/upload-artifact@v4

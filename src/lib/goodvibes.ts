@@ -7,6 +7,11 @@ import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/kno
 import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import { routedFetch } from './relay-connection';
+// The union profile.forget accepts as a target (a field id OR a raw line index), named in
+// lib/owner-profile.ts beside the readers for the same verbs' output. The generated
+// OperatorMethodInput<'profile.forget'> has both properties optional, so this narrower
+// type is what stops a caller passing neither. Type-only import: no runtime dependency.
+import type { ProfileForgetInput } from './owner-profile';
 import type {
   OperatorMethodId,
   OperatorMethodInput,
@@ -397,12 +402,17 @@ export function webuiRouteFor(methodId: string): RouteDefinition | undefined {
  *
  * Overload 1 covers every id in the installed `OperatorMethodId` union (every row in
  * EXTRA_METHOD_ROUTES except models.* — see overload 2 — plus every sessions.* id that
- * falls through to scopedSdk.operator.invoke below): TInput/TOutput default to
- * `OperatorMethodInput/OperatorMethodOutput<TMethodId>`, so a caller gets the REAL
- * generated shape for free and a wrong-shaped input is a compile error, with no `as
- * never` at the call site. Callers with a known, tested divergence from the generated
- * shape (see the Approvals/Tasks section comments above) pass explicit TInput/TOutput
- * overrides instead of the defaults.
+ * falls through to scopedSdk.operator.invoke below). The `input` parameter is typed
+ * `OperatorMethodInput<TMethodId>` DIRECTLY, which is the whole point: an earlier
+ * signature took a free `TInput` type parameter defaulting to that same type, and a
+ * default is not a constraint — TypeScript infers it from the argument whenever one is
+ * passed, so the generated shape was discarded and any object compiled. Two breaking
+ * contract changes reached this app through that gap without producing one type error.
+ * `TOutput` keeps its default because an output override never weakens a request.
+ *
+ * A caller whose body genuinely cannot be checked against the generated input uses
+ * `invokeOperatorUncheckedInput` instead — named, documented, and enumerable, rather than
+ * every call site in this file opting out in silence.
  *
  * Overload 2 is the honest fallback for models.* — CORRECTED (2026-07): the earlier
  * gap-note this replaced claimed the pinned 0.38 contracts package had no typed method
@@ -414,17 +424,10 @@ export function webuiRouteFor(methodId: string): RouteDefinition | undefined {
  * This is a standing gap, not a pin-bump-pending one — flag it again if a future
  * contracts generation adds models.* ids.
  */
-/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters -- TInput is
-   deliberately independent of TMethodId: call sites with a known, tested divergence
-   from OperatorMethodInput<TMethodId> (see the Approvals section above) override it
-   explicitly (e.g. `{ approvalId: string } & ApprovalApproveInput`) without needing to
-   widen TMethodId itself. */
 async function invokeOperator<
   TMethodId extends OperatorMethodId,
-  TInput = OperatorMethodInput<TMethodId>,
   TOutput = OperatorMethodOutput<TMethodId>,
->(methodId: TMethodId, input?: TInput): Promise<TOutput>;
-/* eslint-enable @typescript-eslint/no-unnecessary-type-parameters */
+>(methodId: TMethodId, input?: OperatorMethodInput<TMethodId>): Promise<TOutput>;
 async function invokeOperator(methodId: string, input?: unknown): Promise<unknown>;
 async function invokeOperator(methodId: string, input?: unknown): Promise<unknown> {
   const route = EXTRA_METHOD_ROUTES[methodId];
@@ -443,6 +446,98 @@ async function invokeOperator(methodId: string, input?: unknown): Promise<unknow
   if (route.method === 'GET') return requestJson(path, { method: route.method, query: rest });
   if (route.method === 'DELETE' && !Object.keys(rest).length) return requestJson(path, { method: route.method });
   return requestJson(path, { method: route.method, body: rest });
+}
+
+// ---------------------------------------------------------------------------
+// Compile-time conformance for the profile write bodies.
+//
+// `profile.forget` is the one profile verb whose body is a local type rather than the
+// generated input (the generated one makes fieldId, section and text all optional, so it
+// cannot express "a target is required"). These two guards close the gap that let two
+// breaking changes land silently:
+//
+//   * OnlyDeclaredKeys catches a property we send that the contract does not declare —
+//     which is exactly how the retired `lineIndex` would have surfaced, and how a future
+//     retirement will. Assignability alone does NOT catch this: excess properties are
+//     only rejected on fresh object literals, and these bodies are built as variables.
+//   * The assignment below catches the other direction — a required property we omit,
+//     which is how the newly-required `authority` would have surfaced.
+//
+// AllKeys distributes over the union so each member's keys are checked, not just the
+// keys the members share (plain `keyof` on a union yields only the common ones).
+//
+// DO NOT REPLACE THIS WITH "just type the parameter". Measured against a closed union
+// parameter type, tsc rejects a stale property in only two of the four ways a body gets
+// built:
+//
+//   fresh literal, stale field written inline ......... rejected (excess-property check)
+//   spread + stale field written inline ............... rejected (same check still applies)
+//   built as a variable ............................... SLIPS THROUGH
+//   stale field carried in by the spread .............. SLIPS THROUGH
+//
+// The last two rows are the ones that matter here, because `profile.forget`'s body IS a
+// spread-built literal: `{ ...forgetTargetInput(target), authority }`. If a retired
+// property returns to the spread SOURCE's type, no amount of parameter typing at the call
+// site sees it — and rewriting the call into branched fresh literals does not help either,
+// since the spread still carries it.
+//
+// This guard covers both of them, measured rather than assumed. Seeding the retired
+// `lineIndex` back onto ProfileForgetTarget fails HERE, at this assertion, and does so
+// identically whether the body is spread-built or assigned to a variable first: the guard
+// reads the DECLARED type and never looks at a call site, so how the body is constructed
+// cannot affect it.
+//
+// What it deliberately does not cover: a key invented at one call site and never declared
+// anywhere. That is not contract drift, it is a typo, and the runtime conformance test in
+// hooks/useOwnerProfile.test.tsx catches it by checking each sent body against the
+// contract's own inputSchema — verified, four failures. So the division is:
+// this guard catches the TYPE going stale, that test catches a body going rogue.
+// ---------------------------------------------------------------------------
+type AllKeys<T> = T extends unknown ? keyof T : never;
+
+type OnlyDeclaredKeys<TMethodId extends OperatorMethodId, TBody> =
+  [Exclude<AllKeys<TBody>, keyof OperatorMethodInput<TMethodId>>] extends [never] ? true : never;
+
+const PROFILE_FORGET_SENDS_ONLY_DECLARED_KEYS: OnlyDeclaredKeys<'profile.forget', ProfileForgetInput> = true;
+void PROFILE_FORGET_SENDS_ONLY_DECLARED_KEYS;
+
+const PROFILE_FORGET_BODY_IS_ACCEPTED: OperatorMethodInput<'profile.forget'> = {} as ProfileForgetInput;
+void PROFILE_FORGET_BODY_IS_ACCEPTED;
+
+/**
+ * invokeOperatorUncheckedInput — the ONE deliberate way to send a body the generated
+ * input type cannot check, and the visible inventory of which ids need it.
+ *
+ * Every other call goes through `invokeOperator`, whose `input` parameter is typed
+ * `OperatorMethodInput<TMethodId>` directly. That matters: an earlier signature took a
+ * free `TInput` type parameter DEFAULTING to the generated input, and a default is not a
+ * constraint — TypeScript infers it from the argument whenever one is passed, so the
+ * generated shape was discarded and any object compiled. Two breaking contract changes
+ * reached this app through that gap (a required `authority`, and `profile.forget` moving
+ * from `lineIndex` to `section`+`text`), neither of which produced a single type error.
+ *
+ * Two distinct reasons an id lands here, and they are worth telling apart:
+ *
+ *  1. THE GENERATED INPUT IS A CATCH-ALL. calendar.*, email.* and memory.* generate as
+ *     `{ readonly [key: string]: unknown }`, which declares nothing and which a local
+ *     interface cannot satisfy anyway (TypeScript gives interfaces no implicit index
+ *     signature). The hand-authored input types at these call sites are strictly MORE
+ *     precise than the contract, so nothing is lost by not checking against it — but the
+ *     list below is then an honest inventory of where the contract says nothing useful.
+ *  2. THE GENERATED INPUT IS WRONG. stepup.credentials.register and approvals.approve
+ *     both carry real, tested divergences the generated map does not reflect (see their
+ *     own section comments). These are the ones to re-check on every pin bump: when the
+ *     contract catches up, the call moves back to `invokeOperator` and the divergence
+ *     comment goes with it.
+ *
+ * The single `as` here is the price of the escape, paid once in one named place instead
+ * of silently at every call site in the file.
+ */
+async function invokeOperatorUncheckedInput<TOutput>(
+  methodId: OperatorMethodId,
+  input: unknown,
+): Promise<TOutput> {
+  return await invokeOperator(methodId as string, input) as TOutput;
 }
 
 /**
@@ -1602,9 +1697,9 @@ export const sdk = {
     // StepUpMintChallengeResult comment above) and resolve through invokeOperator.
     stepup: {
       mintChallenge: (input?: { rendezvousId?: string; sessionId?: string; ttlMs?: number }) =>
-        invokeOperator<'stepup.challenge.mint', typeof input, StepUpMintChallengeResult>('stepup.challenge.mint', input ?? {}),
+        invokeOperator<'stepup.challenge.mint', StepUpMintChallengeResult>('stepup.challenge.mint', input ?? {}),
       registerCredential: (input: StepUpRegisterCredentialInput) =>
-        invokeOperator<'stepup.credentials.register', StepUpRegisterCredentialInput, StepUpRegisterCredentialResult>(
+        invokeOperatorUncheckedInput<StepUpRegisterCredentialResult>(
           'stepup.credentials.register',
           input,
         ),
@@ -1627,7 +1722,7 @@ export const sdk = {
     config: {
       get: () => invokeOperator('config.get'),
       set: (key: string, value: unknown) =>
-        invokeOperator<'config.set', { key: string; value: unknown }, ConfigSetOutcome>('config.set', { key, value }),
+        invokeOperator<'config.set', ConfigSetOutcome>('config.set', { key, value }),
     },
     // Power (power.status.get / power.keepAwake.set, SDK 1.8.0's host sleep-ownership
     // work): both carry real generated OperatorMethodInputMap/OutputMap entries and a
@@ -1696,7 +1791,7 @@ export const sdk = {
     tasks: {
       // Local TaskSnapshotResult diverges from OperatorMethodOutput<'tasks.list'> only
       // by adding `cancellable` (see the Tasks section comment) — explicit override.
-      list: () => invokeOperator<'tasks.list', OperatorMethodInput<'tasks.list'>, TaskSnapshotResult>('tasks.list'),
+      list: () => invokeOperator<'tasks.list', TaskSnapshotResult>('tasks.list'),
       create: (input: TaskCreateInput) => invokeOperator('tasks.create', input),
       cancel: (taskId: string) => invokeOperator('tasks.cancel', { taskId }),
       retry: (taskId: string) => invokeOperator('tasks.retry', { taskId }),
@@ -1708,29 +1803,29 @@ export const sdk = {
     calendar: {
       events: {
         list: (input?: CalendarEventsListInput) =>
-          invokeOperator<'calendar.events.list', CalendarEventsListInput, CalendarEventsListResult>(
+          invokeOperatorUncheckedInput<CalendarEventsListResult>(
             'calendar.events.list',
             input ?? {},
           ),
         get: (eventId: string, calendarId?: string) =>
-          invokeOperator<'calendar.events.get', { eventId: string; calendarId?: string }, CalendarEventDetail>(
+          invokeOperator<'calendar.events.get', CalendarEventDetail>(
             'calendar.events.get',
             { eventId, ...(calendarId ? { calendarId } : {}) },
           ),
         create: (input: CalendarEventCreateInput) =>
-          invokeOperator<'calendar.events.create', CalendarEventCreateInput, CalendarEventCreateResult>(
+          invokeOperatorUncheckedInput<CalendarEventCreateResult>(
             'calendar.events.create',
             input,
           ),
       },
       ics: {
         export: (input?: CalendarIcsExportInput) =>
-          invokeOperator<'calendar.ics.export', CalendarIcsExportInput, CalendarIcsExportResult>(
+          invokeOperatorUncheckedInput<CalendarIcsExportResult>(
             'calendar.ics.export',
             input ?? {},
           ),
         import: (input: CalendarIcsImportInput) =>
-          invokeOperator<'calendar.ics.import', CalendarIcsImportInput, CalendarIcsImportResult>(
+          invokeOperatorUncheckedInput<CalendarIcsImportResult>(
             'calendar.ics.import',
             input,
           ),
@@ -1744,18 +1839,18 @@ export const sdk = {
     email: {
       inbox: {
         list: (input?: EmailInboxListInput) =>
-          invokeOperator<'email.inbox.list', EmailInboxListInput, EmailInboxListResult>(
+          invokeOperatorUncheckedInput<EmailInboxListResult>(
             'email.inbox.list',
             input ?? {},
           ),
         read: (uid: number) =>
-          invokeOperator<'email.inbox.read', { uid: number }, EmailMessageDetail>('email.inbox.read', { uid }),
+          invokeOperator<'email.inbox.read', EmailMessageDetail>('email.inbox.read', { uid }),
       },
       send: (input: EmailSendInput) =>
-        invokeOperator<'email.send', EmailSendInput, EmailSendResult>('email.send', input),
+        invokeOperatorUncheckedInput<EmailSendResult>('email.send', input),
       draft: {
         create: (input: EmailDraftCreateInput) =>
-          invokeOperator<'email.draft.create', EmailDraftCreateInput, EmailDraftCreateResult>(
+          invokeOperatorUncheckedInput<EmailDraftCreateResult>(
             'email.draft.create',
             input,
           ),
@@ -1787,6 +1882,17 @@ export const sdk = {
     },
     // Principals (principals.*, SDK 1.6.1): the named-identity registry. Real generated
     // I/O maps throughout.
+    //
+    // On the `{ id, ...input }` spread form used here and by sessions.steer / followUp /
+    // messages.create: a property arriving THROUGH a spread is not excess-property
+    // checked, so a stale key in the spread source compiles clean no matter how the
+    // parameter is typed (measured — see the guard block above invokeOperatorUncheckedInput).
+    // These four are safe for a structural reason rather than a checked one: every spread
+    // source is DERIVED from the contract (OperatorMethodInput<…>, or an Omit of it), so it
+    // cannot hold a key the contract does not, and a retirement removes it from both sides
+    // in the same regeneration. Replace any of these sources with a hand-authored type and
+    // that protection is gone silently — such a type needs its own OnlyDeclaredKeys guard,
+    // which is exactly why profile.forget has one.
     principals: {
       list: () => invokeOperator('principals.list', {}),
       get: (principalId: string) => invokeOperator('principals.get', { principalId }),
@@ -1795,6 +1901,40 @@ export const sdk = {
         invokeOperator('principals.update', { principalId, ...input }),
       delete: (principalId: string) => invokeOperator('principals.delete', { principalId }),
       resolve: (input: OperatorMethodInput<'principals.resolve'>) => invokeOperator('principals.resolve', input),
+    },
+    // Owner profile (profile.*, docs/owner-profile.md §11.1): the one hand-editable
+    // Markdown document at daemon scope holding what the platform knows about the owner
+    // — identity, contact, location, commerce, preferences, people, places, work, notes.
+    //
+    // ROUTING: all nine carry real REST bindings, so they resolve through
+    // EXTRA_METHOD_ROUTES with no wiring here — that table is DERIVED from the generated
+    // webui-facade artifact and pinned by the drift test, so a hand-written row is neither
+    // allowed nor needed. Real generated I/O maps throughout.
+    //
+    // AUTHORITY AND USER-REQUEST: neither is sent. routes/owner-profile.ts reads an absent
+    // `authority` as owner-direct and an absent `explicitUserRequest` as no claim either
+    // way, both because no live transport populates them; declaring either from here would
+    // be this surface asserting something it cannot know. The gates that do NOT trust the
+    // caller's self-description — the derivation check against the untrusted-content
+    // ledger, and the requirement that a verbatim owner utterance exists — still run.
+    //
+    // CONTAINMENT: `person` takes a NAME and there is deliberately no enumerate-all
+    // counterpart (§10) — `read` returns everything and is for the owner looking at his
+    // own profile, never for a composition path assembling outbound content.
+    profile: {
+      read: () => invokeOperator('profile.read', {}),
+      get: (fieldId: string) => invokeOperator('profile.get', { fieldId }),
+      person: (name: string) => invokeOperator('profile.person', { name }),
+      provenance: (fieldId: string) => invokeOperator('profile.provenance', { fieldId }),
+      set: (input: OperatorMethodInput<'profile.set'>) => invokeOperator('profile.set', input),
+      append: (input: OperatorMethodInput<'profile.append'>) => invokeOperator('profile.append', input),
+      // Narrower than OperatorMethodInput<'profile.forget'>, which still declares the
+      // RETIRED lineIndex and makes every property optional: the daemon 400s on a body
+      // missing a target, missing an authority, or carrying a lineIndex at all. A prose
+      // line is named by its section and exact text, never its position (§9.2).
+      forget: (input: ProfileForgetInput) => invokeOperator('profile.forget', input),
+      undo: (input: OperatorMethodInput<'profile.undo'>) => invokeOperator('profile.undo', input),
+      status: () => invokeOperator('profile.status', {}),
     },
     // CI (ci.*, SDK 1.6.1): per-job CI status polling (never a rollup without the job
     // list — see ci.status's own description) and standing watches. Real generated I/O
@@ -1812,28 +1952,28 @@ export const sdk = {
       // Local ApprovalSnapshotResult/ApprovalRecord diverge from the generated contract
       // (open strings, optional audit — see the Approvals section comment) — explicit
       // overrides throughout this group.
-      list: () => invokeOperator<'approvals.list', OperatorMethodInput<'approvals.list'>, ApprovalSnapshotResult>('approvals.list'),
+      list: () => invokeOperator<'approvals.list', ApprovalSnapshotResult>('approvals.list'),
       // selectedHunks: an index array into the pending approval's own
       // edit list. Omit it to approve the whole request. The daemon computes
       // modifiedArgs server-side — this call never carries a computed diff.
       // selectedHunks is not in OperatorMethodInputMap['approvals.approve'] yet — a
       // real, tested wire field the generated 0.38 map does not cover.
       approve: (approvalId: string, input?: ApprovalApproveInput) =>
-        invokeOperator<'approvals.approve', { approvalId: string } & ApprovalApproveInput, ApprovalActionResult>(
+        invokeOperatorUncheckedInput<ApprovalActionResult>(
           'approvals.approve',
           { approvalId, ...input },
         ),
       cancel: (approvalId: string) =>
-        invokeOperator<'approvals.cancel', OperatorMethodInput<'approvals.cancel'>, ApprovalActionResult>('approvals.cancel', { approvalId }),
+        invokeOperator<'approvals.cancel', ApprovalActionResult>('approvals.cancel', { approvalId }),
       claim: (approvalId: string) =>
-        invokeOperator<'approvals.claim', OperatorMethodInput<'approvals.claim'>, ApprovalActionResult>('approvals.claim', { approvalId }),
+        invokeOperator<'approvals.claim', ApprovalActionResult>('approvals.claim', { approvalId }),
       // deny carries the optional reason as BOTH `note` (lands in the audit
       // trail via today's HTTP route) and `reason` (the broker's structured
       // user-declined feedback field) — one text, both fields, so whichever
       // the daemon honors, nothing typed is silently dropped. Input override
       // for the same reason approve has one (reason is not in the generated map).
       deny: (approvalId: string, input?: ApprovalDenyInput) =>
-        invokeOperator<'approvals.deny', { approvalId: string } & ApprovalDenyInput, ApprovalActionResult>(
+        invokeOperator<'approvals.deny', ApprovalActionResult>(
           'approvals.deny',
           { approvalId, ...(input?.note ? { note: input.note } : {}), ...(input?.reason ? { reason: input.reason } : {}) },
         ),
@@ -1868,23 +2008,23 @@ export const sdk = {
     // explicit TInput/TOutput overrides throughout, same pattern as Approvals/Tasks.
     memory: {
       search: (input?: MemorySearchInput) =>
-        invokeOperator<'memory.records.search', MemorySearchInput, MemorySearchResult>(
+        invokeOperatorUncheckedInput<MemorySearchResult>(
           'memory.records.search',
           input ?? {},
         ),
       add: (input: MemoryAddInput) =>
-        invokeOperator<'memory.records.add', MemoryAddInput, MemoryRecordEntityResult>('memory.records.add', input),
+        invokeOperatorUncheckedInput<MemoryRecordEntityResult>('memory.records.add', input),
       get: (id: string) =>
-        invokeOperator<'memory.records.get', { id: string }, MemoryRecordEntityResult>('memory.records.get', { id }),
+        invokeOperator<'memory.records.get', MemoryRecordEntityResult>('memory.records.get', { id }),
       updateReview: (id: string, input: MemoryUpdateReviewInput) =>
-        invokeOperator<'memory.records.update-review', { id: string } & MemoryUpdateReviewInput, MemoryRecordEntityResult>(
+        invokeOperator<'memory.records.update-review', MemoryRecordEntityResult>(
           'memory.records.update-review',
           { id, ...input },
         ),
       delete: (id: string) =>
-        invokeOperator<'memory.records.delete', { id: string }, MemoryRecordDeleteResult>('memory.records.delete', { id }),
+        invokeOperator<'memory.records.delete', MemoryRecordDeleteResult>('memory.records.delete', { id }),
       reviewQueue: (input?: MemoryReviewQueueInput) =>
-        invokeOperator<'memory.review-queue', MemoryReviewQueueInput, MemoryReviewQueueResult>(
+        invokeOperatorUncheckedInput<MemoryReviewQueueResult>(
           'memory.review-queue',
           input ?? {},
         ),
@@ -1894,7 +2034,7 @@ export const sdk = {
       // rather than the generated catch-all `{} & Record<string, unknown>`.
       consolidation: {
         receipts: () =>
-          invokeOperator<'memory.consolidation.receipts', Record<string, never>, MemoryConsolidationReceiptsResult>(
+          invokeOperator<'memory.consolidation.receipts', MemoryConsolidationReceiptsResult>(
             'memory.consolidation.receipts',
             {},
           ),
@@ -2022,6 +2162,15 @@ export const sdk = {
       // Callers MUST pair this with a capability check (operator.control.methodInfo) or
       // a proof-of-gone reconcile — never assume a 200 means the record is truly gone
       // on every daemon build.
+      //
+      // THE CAST BELOW IS NOT REDUNDANT, though tsc stays silent if you delete it.
+      // OperatorMethodOutput<'sessions.delete'> is `{sessionId}` — it has no `deleted`.
+      // The cast widens the result to this module's `{sessionId, deleted}`, and `deleted`
+      // is the entire point of the verb (actually removed, not merely closed). Removing
+      // it type-checks clean only because the one test that reads the result compares it
+      // with toEqual rather than reading the field, so nothing forces the property to
+      // exist — a later `if (result.deleted)` would then fail to compile. Retire the cast
+      // when the generated output gains `deleted`, not before.
       delete: (sessionId: string) => invokeOperator('sessions.delete', { sessionId }) as Promise<SessionDeleteResult>,
       // sessions.search (typed-client scaffold, first consumer of the search facade):
       // in the OperatorMethodId union but routeless (no browser/EXTRA_METHOD_ROUTES
@@ -2068,7 +2217,7 @@ export const sdk = {
       // receiving live updates for a process you're done watching without touching the
       // process itself or any other surface attached to it (e.g. the TUI).
       detach: (sessionId: string, surfaceId: string) =>
-        invokeOperator<'sessions.detach', SessionsDetachInput, SessionsDetachResult>('sessions.detach', { sessionId, surfaceId }),
+        invokeOperator<'sessions.detach', SessionsDetachResult>('sessions.detach', { sessionId, surfaceId }),
       // permissionMode.get/set + contextUsage.get (SDK 1.6.1): session-scoped, real
       // generated I/O maps, typed through the same invokeOperator overload as
       // close/reopen above — no bridge override needed. Both answer honestly only for
@@ -2104,7 +2253,7 @@ export const sdk = {
     // not a watcher-authoring surface).
     watchers: {
       stop: (watcherId: string) =>
-        invokeOperator<'watchers.stop', { watcherId: string }, WatcherActionResult>('watchers.stop', { watcherId }),
+        invokeOperator<'watchers.stop', WatcherActionResult>('watchers.stop', { watcherId }),
     },
     // push.* (Web Push) — generic-invoke-only (see the Web Push section comment
     // above). The PWA reads the public VAPID key, registers/lists/removes its own

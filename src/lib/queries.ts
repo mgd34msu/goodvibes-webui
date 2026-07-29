@@ -149,6 +149,20 @@ export const queryKeys = {
   // + pending judgment proposals. No wire event exists for this verb yet either —
   // same standing gap; the panel refetches manually/on demand.
   memoryConsolidationReceipts: ['memory', 'consolidation', 'receipts'] as const,
+  // profile.* (docs/owner-profile.md §11.1) — the owner profile document, its load
+  // state, and per-line provenance. No wire event exists for this domain, so
+  // OwnerProfileSettings refetches on its own mutations — same standing gap
+  // pairingTokens/tailscale/fleetGraph document above.
+  //
+  // These entries hold profile CONTENT in react-query's in-memory cache for the life of
+  // the page and nowhere else: this app installs no query-cache persister (mount-app.tsx
+  // constructs a plain QueryClient), so nothing here outlives the session, which is what
+  // §11.3's containment rule requires of this surface.
+  ownerProfile: ['owner-profile', 'document'] as const,
+  ownerProfileStatus: ['owner-profile', 'status'] as const,
+  // Keyed per target so each line's "where did you get that" is its own cache entry —
+  // provenance is reachable per line, never as one bulk dump (§8.3).
+  ownerProfileProvenance: (targetId: string) => ['owner-profile', 'provenance', targetId] as const,
 };
 
 export async function loadBootSnapshot() {

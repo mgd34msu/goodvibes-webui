@@ -223,6 +223,14 @@ export const CATEGORY_LABELS: Record<string, string> = {
   integrations: 'Integrations',
   policy: 'Policy',
   agents: 'Agents',
+  // profile.* (docs/owner-profile.md §12.1) — the owner profile's own settings
+  // (enabled, autonomousWrites, discloseWrites, injectOpenTier, …). The webui derives
+  // its groups from the schema with no hand-maintained category list, so this domain
+  // cannot be dropped the way the TUI and the agent can drop one; the entry here exists
+  // so the group renders with a real name instead of a Title-Cased "Profile", which
+  // would collide in the reader's mind with platform/profiles' saved display/provider
+  // presets — a different thing entirely.
+  profile: 'Owner Profile',
   // Covers both voice.local.* (STT/TTS engine paths) and voice.wake.*
   // (wake-word detection). Wake-word rows render as their own titled feature
   // unit inside this group, from the SDK's FEATURE_SETTINGS surface.

@@ -31,9 +31,24 @@ const CONFIG_FIXTURE = {
   behavior: { hitlMode: 'balanced' },
 };
 
+// Card material never appears in this fixture and never can: the daemon exposes
+// no method that returns it, so cards.list answers with metadata only. The card
+// panel under Payments calls list() on mount, which is why it is stubbed here.
+const cardsListCalls: string[] = [];
+
 mock.module('../../lib/goodvibes', () => ({
   sdk: {
     operator: {
+      payments: {
+        cards: {
+          list: () => {
+            cardsListCalls.push('list');
+            return Promise.resolve({ cards: [] });
+          },
+          create: () => Promise.resolve({ card: null }),
+          delete: () => Promise.resolve({ id: '', deleted: true, secretsCleared: 0 }),
+        },
+      },
       config: {
         get: () => {
           if (outcome === 'admin-required') {
@@ -453,6 +468,72 @@ describe('SettingsModal — a failed config.set is surfaced, never rendered as s
     // config.get was never invalidated on failure, so the toggle still reflects the
     // daemon's actual (unchanged) value, not an optimistically-applied one.
     expect(toggle.checked).toBe(true);
+    unmount();
+  });
+});
+
+/**
+ * Card entry is actually reachable in the real settings surface.
+ *
+ * Without this, PaymentCardEntry could be a correct component nobody can get
+ * to — every one of its own tests would still pass. These drive the real modal:
+ * open it, click the Payments category, and check the panel is there, that it
+ * is scoped to that category, and that no card value is displayed.
+ */
+describe('the Payments category offers card entry', () => {
+  test('the card panel renders under Payments', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
+    clickCategory(el, 'Payments');
+    await waitFor(() => Boolean(el.querySelector('[data-testid="payment-card-entry"]')));
+
+    expect(el.querySelector('[data-testid="payment-card-entry"]')).not.toBeNull();
+    // The panel is live, not inert markup: it asked the daemon for the cards on file.
+    expect(cardsListCalls.length).toBeGreaterThan(0);
+    // All four card fields are present and typeable.
+    for (const id of ['gv-card-number', 'gv-card-expiry', 'gv-card-cvv', 'gv-card-holder']) {
+      const input = el.querySelector(`#${id}`) as HTMLInputElement | null;
+      expect(input).not.toBeNull();
+      expect(input!.disabled).toBe(false);
+      expect(input!.getAttribute('autocomplete')).toBe('off');
+    }
+    unmount();
+  });
+
+  test('the panel belongs to Payments only — it does not follow you to another category', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
+    clickCategory(el, 'Payments');
+    await waitFor(() => Boolean(el.querySelector('[data-testid="payment-card-entry"]')));
+
+    clickCategory(el, 'Display');
+    expect(el.querySelector('[data-testid="payment-card-entry"]')).toBeNull();
+    unmount();
+  });
+
+  test('the Payments category shows the card panel and the ordinary payment settings together', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
+    clickCategory(el, 'Payments');
+    await waitFor(() => Boolean(el.querySelector('[data-testid="payment-card-entry"]')));
+
+    // The card panel sits alongside the settings the previous round shipped —
+    // it did not displace them.
+    expect(el.textContent).toContain('Payment card');
+    expect(el.textContent).toContain('payments.cvvHandling');
+    unmount();
+  });
+
+  test('no card-material config key renders as a row anywhere in the modal', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
+    clickCategory(el, 'Payments');
+    await waitFor(() => Boolean(el.querySelector('[data-testid="payment-card-entry"]')));
+
+    const text = el.textContent ?? '';
+    for (const key of ['payments.cardNumber', 'payments.cardCvv', 'payments.cardExpiry', 'payments.cardholderName']) {
+      expect(text).not.toContain(key);
+    }
     unmount();
   });
 });

@@ -520,3 +520,104 @@
 .settings-field-object .primary-button {
   align-self: flex-start;
 }
+
+/* daemon.timezone — searchable IANA zone picker. */
+.timezone-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 14rem;
+  max-width: 100%;
+}
+
+.timezone-picker-search {
+  width: 100%;
+}
+
+.timezone-picker-select {
+  width: 100%;
+}
+
+/* payments.budget.*Cents — currency-labeled major-unit amount input. */
+.money-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.money-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.money-field-currency {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-width: 3ch;
+}
+
+.money-field-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* payments.cvvHandling — enum select plus the trade-off warning on 'prompt'. */
+.cvv-handling-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.cvv-prompt-warning {
+  max-width: 42rem;
+}
+
+/* ── Card entry ────────────────────────────────────────────────────────────
+   The panel where a card number, expiry, security code and cardholder name
+   are typed. See PaymentCardEntry.tsx for the six conditions the owner's
+   ruling carried; the only one with a stylesheet half is the concealment
+   below. */
+.settings-card-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.settings-card-note {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.settings-card-list {
+  width: 100%;
+}
+
+.settings-card-form {
+  width: 100%;
+}
+
+/*
+  Visual concealment for the number and security code while they are typed.
+
+  Deliberately NOT type="password": a password input is the strongest single
+  signal a password manager looks for, and "must not present as a field a
+  manager offers to save" is a condition of the ruling, which outranks a nicer
+  mask. -webkit-text-security gets the same look with none of the semantics.
+
+  Stated honestly: this is cosmetic, and a browser without the property shows
+  the characters as typed. It is not what keeps the value safe — the value's
+  safety is that it goes out over the authenticated daemon channel in a POST
+  body, is never returned by any method, and is cleared from component state on
+  submit.
+*/
+.settings-card-concealed {
+  -webkit-text-security: disc;
+  text-security: disc;
+}

@@ -555,15 +555,33 @@ async function invokeOperatorUncheckedInput<TOutput>(
  * have).
  *
  * TYPED BY THE CONTRACT ID: `methodId: TMethodId extends OperatorMethodId` — these ids
- * ARE in the installed 0.38 union (verified: operator-method-ids.ts lists fleet.*,
- * checkpoints.*, sessions.search, sessions.detach). `body` is constrained to
- * `OperatorMethodInput<TMethodId>`, which today resolves to the generic
- * `{ [k: string]: unknown }` fallback for this family (no `OperatorMethodInputMap` entry
- * yet) — every bridge input type in contract-bridge-types.ts is a plain object with an
- * optional-properties shape, which IS assignable to that index signature, so no cast is
- * needed at any call site below. TOutput has no useful default (`OperatorMethodOutput<M>`
- * is plain `unknown` for this family today) — every call site supplies the real
- * contract-bridge-types.ts shape explicitly.
+ * ARE in the installed union (operator-method-ids.ts lists fleet.*, checkpoints.*,
+ * sessions.search, sessions.detach). `body` is constrained to
+ * `OperatorMethodInput<TMethodId>`.
+ *
+ * WHAT THAT CONSTRAINT MEANS CHANGED AT THE 1.19.1 RE-PIN, and this comment used to
+ * say the opposite. It read: "`OperatorMethodInput<TMethodId>` today resolves to the
+ * generic `{ [k: string]: unknown }` fallback for this family (no
+ * `OperatorMethodInputMap` entry yet) — every bridge input type is a plain object with
+ * an optional-properties shape, which IS assignable to that index signature, so no cast
+ * is needed at any call site." That fallback is gone. `OperatorMethodInput` is now a
+ * plain indexed access, `OperatorMethodInputMap[TMethodId]`, every catalogued verb has
+ * a rendered entry, and those entries carry their real `required` arrays.
+ *
+ * Measured against the installed 1.19.1 rather than estimated: this function is called
+ * with 41 distinct method ids, and 25 of them now enforce at least one field that was
+ * previously unenforced (checkpoints.create's `kind`, rewind.apply/plan's `sessionId`
+ * and `scope`, push.subscriptions.reconcile's `deviceId`/`endpoint`/`keys`, and so on).
+ * No call site needed a fix and no bridge type needed widening, because the bridge
+ * types in contract-bridge-types.ts are already aliases OF `OperatorMethodInput<...>`
+ * rather than hand-written optional-field copies — so the newly-required fields arrived
+ * through them automatically, and every wrapper below already supplies them (mostly by
+ * taking them as mandatory function parameters). That is a property worth stating
+ * because it is not obvious from the diff: the re-pin was silent here on purpose, not
+ * by luck, and the way to keep it silent is to keep those bridges as aliases.
+ *
+ * TOutput still has no useful default for the ids whose OutputMap entry is `unknown`,
+ * so most call sites below supply the real result shape explicitly.
  */
 async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput = OperatorMethodOutput<TMethodId>>(
   methodId: TMethodId,
@@ -899,13 +917,17 @@ export type TaskCreateInput = OperatorMethodInput<'tasks.create'>;
 export type TaskCreateResult = OperatorMethodOutput<'tasks.create'>;
 
 // ─── Watchers (watchers.stop only — WEBUI-FLEET-DEPTH) ────────────────────────
-// watchers.stop has no OperatorMethodInputMap/OutputMap entry in the installed
-// contracts package (same pre-SWAP situation as sessions.detach in
-// contract-bridge-types.ts), so this is hand-authored against the wire schema. `kind`/
-// `state` are open strings, matching lib/fleet.ts's defensive-parsing stance for the
-// same reason (a daemon newer than this client may report a state this client has
-// never seen — render it verbatim, never drop it). Only the fields FleetView actually
-// reads are typed; the real response carries far more (source, metadata, timestamps).
+// CORRECTED AT THE 1.19.1 RE-PIN: this comment used to say watchers.stop "has no
+// OperatorMethodInputMap/OutputMap entry in the installed contracts package". It has
+// one now — every catalogued verb does — and the entry confirms what was hand-authored
+// here: id/kind/label/state, all four required, `kind` and `state` as open strings.
+//
+// Kept as a hand-written SUBSET rather than aliased to OperatorMethodOutput<'watchers.stop'>
+// because the contract's shape carries much more (source, metadata, intervalMs,
+// heartbeat and lag fields) and FleetView reads exactly these four. Typing only what a
+// caller uses is this file's existing stance, and unlike the email/calendar shapes
+// below there is no field here whose absence hid information from a view. If FleetView
+// ever needs the rest, alias the contract type instead of extending this by hand.
 export interface WatcherActionResult {
   readonly id: string;
   readonly kind: string;
@@ -914,43 +936,38 @@ export interface WatcherActionResult {
 }
 
 /**
- * Calendar (calendar.*, SDK 1.1.0) — like models.*, fleet.*, checkpoints.* above, these
- * ids have NO OperatorMethodInputMap/OutputMap entry in the installed contracts package
- * (verified: grepping the generated foundation-client-types.d.ts for "calendar" returns
- * nothing), so OperatorMethodInput/Output<'calendar.*'> would resolve to the generic
- * `{[k:string]: unknown}` / `unknown` fallback. These hand-authored shapes are cross-
- * checked field-by-field against the SDK's own CALENDAR_EVENT_SUMMARY_SCHEMA /
- * CALENDAR_EVENT_DETAIL_SCHEMA / create-output / import-output / export-output
- * (method-catalog-calendar.ts) — a permanent divergence (no generated map to converge
- * with), not a pin-bump-pending gap.
+ * Calendar (calendar.*, SDK 1.1.0).
+ *
+ * CORRECTED AT THE 1.19.1 RE-PIN. This comment used to claim these ids have "NO
+ * OperatorMethodInputMap/OutputMap entry in the installed contracts package (verified:
+ * grepping the generated foundation-client-types.d.ts for 'calendar' returns nothing)"
+ * and concluded the hand-authored shapes were "a permanent divergence (no generated map
+ * to converge with)". Both halves are now false: the installed map carries
+ * calendar.events.create/get/list and calendar.ics.export/import.
+ *
+ * The result shapes below are now derived from the contract. The INPUT shapes for the
+ * two writes are not, and deliberately: the contract types their `confirm` field as
+ * `boolean`, while this client types it as literal `true` so a caller cannot satisfy
+ * the type with `confirm: false` and meet the daemon's refusal at runtime instead. That
+ * is a narrowing of the contract, which is safe, rather than a divergence from it.
  */
-export interface CalendarEventSummary {
-  readonly id: string;
-  readonly title: string;
-  readonly start: string;
-  readonly end: string;
-  readonly location?: string;
-  readonly description?: string;
-  readonly attendees?: readonly string[];
-}
+export type CalendarEventsListResult = OperatorMethodOutput<'calendar.events.list'>;
+export type CalendarEventSummary = CalendarEventsListResult['events'][number];
+export type CalendarEventsListInput = OperatorMethodInput<'calendar.events.list'>;
 
 export interface CalendarEventDetail extends CalendarEventSummary {
   readonly uid: string;
   readonly recurrence?: string;
 }
 
-export interface CalendarEventsListInput {
-  readonly calendarId?: string;
-  readonly from?: string;
-  readonly to?: string;
-  readonly limit?: number;
-}
-
-export interface CalendarEventsListResult {
-  readonly events: readonly CalendarEventSummary[];
-}
-
-/** `confirm` is required — the SDK schema's own explicit-confirmation gate for a write. */
+/**
+ * `confirm` is required AND literal-true, which is deliberately stricter than the
+ * contract. OperatorMethodInput<'calendar.events.create'> types it `confirm: boolean`,
+ * so aliasing this type to the contract would let a caller pass `confirm: false` and
+ * meet the type while the daemon refuses the write. Same stance as EmailSendInput
+ * below. Every other field here is field-for-field the contract's own; only the
+ * narrowing is ours.
+ */
 export interface CalendarEventCreateInput {
   readonly title: string;
   readonly start: string;
@@ -962,11 +979,7 @@ export interface CalendarEventCreateInput {
   readonly confirm: true;
 }
 
-export interface CalendarEventCreateResult {
-  readonly eventId: string;
-  readonly uid: string;
-  readonly createdAt: string;
-}
+export type CalendarEventCreateResult = OperatorMethodOutput<'calendar.events.create'>;
 
 export interface CalendarIcsImportInput {
   readonly icsContent: string;
@@ -974,11 +987,7 @@ export interface CalendarIcsImportInput {
   readonly confirm: true;
 }
 
-export interface CalendarIcsImportResult {
-  readonly imported: number;
-  readonly eventIds: readonly string[];
-  readonly errors: readonly string[];
-}
+export type CalendarIcsImportResult = OperatorMethodOutput<'calendar.ics.import'>;
 
 export interface CalendarIcsExportInput {
   readonly calendarId?: string;
@@ -986,25 +995,23 @@ export interface CalendarIcsExportInput {
   readonly to?: string;
 }
 
-export interface CalendarIcsExportResult {
-  readonly icsContent: string;
-  readonly eventCount: number;
-}
+export type CalendarIcsExportResult = OperatorMethodOutput<'calendar.ics.export'>;
 
 /**
- * Email (email.*) — the daemon's IMAP/SMTP verbs. Same hand-authored-shape situation
- * as calendar.* above: the four ids ARE in OPERATOR_METHOD_IDS and DO carry generated
- * REST rows in WEBUI_METHOD_ROUTES (so EXTRA_METHOD_ROUTES routes them with no wiring
- * of ours), but they have no OperatorMethodInputMap/OutputMap entry, so
- * OperatorMethodInput/Output<'email.*'> would degrade to the generic fallback.
+ * Email (email.*) — the daemon's IMAP/SMTP verbs.
  *
- * These shapes are transcribed field-by-field from the SDK's own catalog —
- * EMAIL_INBOX_MESSAGE_SCHEMA / EMAIL_MESSAGE_DETAIL_SCHEMA / EMAIL_ATTACHMENT_SCHEMA
- * and the four inputSchemas in
- * @pellux/goodvibes-sdk/platform/control-plane/method-catalog-email — not guessed and
- * not copied from another surface. Optionality mirrors each schema's `required` list
- * exactly, which is why bodyHtml/attachments are optional on the detail shape while
- * bodyText is not.
+ * NO LONGER HAND-AUTHORED, as of the 1.19.1 re-pin. These shapes used to be transcribed
+ * field-by-field from the SDK's catalog because, as the comment here put it, the ids
+ * "have no OperatorMethodInputMap/OutputMap entry, so OperatorMethodInput/Output<'email.*'>
+ * would degrade to the generic fallback". They have entries now, so the types below are
+ * derived from the contract and the transcription cannot drift from it.
+ *
+ * The transcription HAD already drifted, in a way that reached the UI: the hand-written
+ * inbox-list result declared `messages` and `total` and stopped there, while the
+ * contract also carries `unreadable` — the messages the account returned that the daemon
+ * could not parse, each with its own reason. MailView could not render what it could not
+ * see, so a window in which every message failed to parse displayed as a normal empty
+ * inbox. MailView renders that list now (see UnreadableNote there).
  *
  * CAPABILITY REALITY (the reason every view over these renders a not-available state
  * as a first-class outcome rather than an error): all four ship `invokable: false`,
@@ -1012,43 +1019,18 @@ export interface CalendarIcsExportResult {
  * daemon router at any prefix yet. Cataloged, not served. Identical to how calendar.*
  * shipped, and the honest states are what makes that shippable rather than a dead end.
  */
-export interface EmailInboxMessage {
-  readonly uid: number;
-  readonly from: string;
-  readonly subject: string;
-  readonly date: string;
-  readonly unread: boolean;
-  readonly bodyPreview: string;
-  readonly messageId: string;
-}
-
-export interface EmailAttachment {
-  readonly filename: string;
-  readonly contentType: string;
-  readonly sizeBytes: number;
-}
-
-export interface EmailMessageDetail {
-  readonly uid: number;
-  readonly from: string;
-  readonly subject: string;
-  readonly date: string;
-  readonly messageId: string;
-  readonly bodyText: string;
-  readonly bodyHtml?: string;
-  readonly attachments?: readonly EmailAttachment[];
-}
-
-export interface EmailInboxListInput {
-  readonly limit?: number;
-  readonly since?: string;
-  readonly unreadOnly?: boolean;
-}
-
-export interface EmailInboxListResult {
-  readonly messages: readonly EmailInboxMessage[];
-  readonly total: number;
-}
+export type EmailInboxListInput = OperatorMethodInput<'email.inbox.list'>;
+export type EmailInboxListResult = OperatorMethodOutput<'email.inbox.list'>;
+export type EmailInboxMessage = EmailInboxListResult['messages'][number];
+/**
+ * Messages the daemon could not read, each with the reason. Optional on the
+ * wire, and the hand-written EmailInboxListResult this replaced omitted it
+ * entirely — so the Mail view had no way to tell an operator that part of the
+ * inbox failed to load. MailView renders it now.
+ */
+export type EmailUnreadableMessage = NonNullable<EmailInboxListResult['unreadable']>[number];
+export type EmailMessageDetail = OperatorMethodOutput<'email.inbox.read'>;
+export type EmailAttachment = NonNullable<EmailMessageDetail['attachments']>[number];
 
 /**
  * `confirm` is required and literal-true: the SDK marks email.send `dangerous: true`
@@ -1380,17 +1362,20 @@ export interface PushDeliveryReceipt {
 export interface PushVapidKeyResult {
   readonly publicKey: string;
 }
-// A `type` (not `interface`) so it is assignable to invokeGatewayMethod's
-// generic `{ readonly [k: string]: unknown }` input constraint — an object-
-// literal type alias carries an implicit index signature there, an interface
-// does not (the same shape the fleet/checkpoints bridge inputs rely on).
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- must be a type alias (not interface) so it satisfies invokeGatewayMethod's index-signature input constraint
-export type PushSubscriptionCreateInput = {
+// Plainly an interface again. It was a `type` alias, with an eslint-disable, because
+// invokeGatewayMethod's input constraint used to be the permissive
+// `{ readonly [k: string]: unknown }` fallback: an object-literal type alias carries an
+// implicit index signature and satisfies that, an interface does not. The 1.19.1 re-pin
+// removed the fallback — the parameter is now the contract's own concrete shape for
+// this id, which an interface satisfies — so both the alias and the suppression were
+// scaffolding for a constraint that no longer exists. Verified by compiling it as an
+// interface before changing it, not assumed from reading the type.
+export interface PushSubscriptionCreateInput {
   /** Stable per-install device identity (SDK 1.8.0); absent falls back to the legacy endpoint-keyed record. */
   readonly deviceId?: string;
   readonly endpoint: string;
   readonly keys: PushSubscriptionKeys;
-};
+}
 export interface PushSubscriptionCreateResult {
   readonly subscription: PublicPushSubscription;
 }
@@ -1410,12 +1395,12 @@ export interface PushVerifyResult {
 // is the verb a client calls when it already knows its own device identity and
 // wants the daemon's record healed to match its current live endpoint/keys,
 // reporting what (if anything) had drifted.
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- must be a type alias, see PushSubscriptionCreateInput above
-export type PushSubscriptionReconcileInput = {
+// An interface for the same reason PushSubscriptionCreateInput is one again; see there.
+export interface PushSubscriptionReconcileInput {
   readonly deviceId: string;
   readonly endpoint: string;
   readonly keys: PushSubscriptionKeys;
-};
+}
 /** Whether reconcile changed the daemon's record for this device, and how. */
 export type PushReconcileDrift = 'created' | 'endpoint-updated' | 'keys-updated' | 'unchanged';
 export interface PushSubscriptionReconcileResult {
@@ -1633,6 +1618,43 @@ export interface ConfigSetOutcome {
   readonly daemonOwned?: boolean;
 }
 
+/**
+ * A stored card as every surface is allowed to see it: METADATA ONLY.
+ *
+ * There is no field here for the number, the expiry as typed, the CVV or the
+ * cardholder name, and that is the point — the daemon has no method that
+ * returns them. `last4` and `materialComplete` exist so a surface can render
+ * "Visa ···4242, security code set" without the daemon ever emitting a value.
+ *
+ * Derived from the contract's own payments.cards.list output rather than
+ * hand-written, so it cannot drift from what the daemon actually sends. The
+ * hand-written version this replaced had already drifted in the direction that
+ * matters least visibly: it was a faithful copy of the card object, but the
+ * result type it sat inside omitted the sibling `defaultCardId` field, so no
+ * caller could see which card the daemon would actually charge.
+ *
+ * Field notes worth keeping, since a derived type carries no comments of its
+ * own: `issuerCapMinorUnits` is declared by the owner, unverifiable by us, and
+ * never treated as an enforcement layer; `materialComplete` says whether every
+ * required secret field is present — never which, and never the values.
+ */
+export type PaymentCardMetadata = OperatorMethodOutput<'payments.cards.list'>['cards'][number];
+
+/**
+ * What `payments.cards.create` accepts. Card material goes IN through here and
+ * never comes back out; see the method comment on sdk.operator.payments.
+ */
+export interface PaymentCardCreateRequest {
+  readonly label: string;
+  readonly kind: 'virtual' | 'real';
+  readonly number: string;
+  readonly expiryMonth: number;
+  readonly expiryYear: number;
+  readonly cvv: string;
+  readonly cardholderName: string;
+  readonly issuerCapMinorUnits: number | null;
+}
+
 const scopedSdk = createBrowserKnowledgeSdk({
   baseUrl: GOODVIBES_BASE_URL,
   tokenStore,
@@ -1723,6 +1745,44 @@ export const sdk = {
       get: () => invokeOperator('config.get'),
       set: (key: string, value: unknown) =>
         invokeOperator<'config.set', ConfigSetOutcome>('config.set', { key, value }),
+    },
+    // payments.cards.* — the ONLY path card material takes off this surface.
+    //
+    // create() carries the number, expiry, CVV and cardholder name to the
+    // daemon, which puts them in its own secret store encrypted at rest, under
+    // keys derived from the config path — daemon scope, so the daemon can read
+    // them for an unattended purchase with every surface closed. That is the
+    // owner's standing rule: anything configured on a surface stays available
+    // to the daemon after that surface is gone.
+    //
+    // Both methods are REST-routed by the pinned contracts facade
+    // (WEBUI_METHOD_ROUTES already carries payments.cards.*), so they resolve
+    // through EXTRA_METHOD_ROUTES with no hand-written row — and create()'s
+    // route is POST, which is what puts the card in the request BODY.
+    // invokeOperator sends a GET method's input as a query string; a route
+    // flipped to GET would therefore put a card number in a URL, in browser
+    // history and in every server log along the way. payments-cards.test.ts
+    // asserts the method stays POST for exactly that reason.
+    //
+    // There is deliberately NO read method for card material. list() answers
+    // with metadata only (id, label, brand, last four, kind, expiry month/year,
+    // declared issuer cap, and a materialComplete flag), and create()'s own
+    // response is that same metadata — it never echoes what was submitted,
+    // because an echo would be a read path and no read path exists.
+    payments: {
+      cards: {
+        // No hand-supplied TInput/TOutput on any of the three: invokeOperator no
+        // longer takes a TInput type argument at all (it types `input` as
+        // OperatorMethodInput<TMethodId> directly), and all three ids carry real
+        // generated OperatorMethodInputMap/OutputMap entries, so the defaults ARE
+        // the contract. The hand-written triples these replaced were written when
+        // the third type argument still existed; one of them had already drifted —
+        // it declared list's result as `{ cards: PaymentCardMetadata[] }` and so
+        // hid `defaultCardId`, which the daemon has been returning all along.
+        list: () => invokeOperator<'payments.cards.list'>('payments.cards.list', {}),
+        create: (input: PaymentCardCreateRequest) => invokeOperator<'payments.cards.create'>('payments.cards.create', input),
+        delete: (id: string) => invokeOperator<'payments.cards.delete'>('payments.cards.delete', { id }),
+      },
     },
     // Power (power.status.get / power.keepAwake.set, SDK 1.8.0's host sleep-ownership
     // work): both carry real generated OperatorMethodInputMap/OutputMap entries and a

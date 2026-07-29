@@ -107,6 +107,12 @@ export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
   // (app-layer paths, not CONFIG_SCHEMA scalars, so they never showed up in
   // any suffix scan over the schema).
   'email.passwordRef',
+  // Arrived with the 1.19.1 SDK, which split the single mail password reference
+  // into an IMAP one and this SMTP one. Caught by the content scan in
+  // config-redaction.test.ts rather than by anyone noticing — which is what that
+  // scan is for. Undeclared, it would have rendered the operator's outgoing-mail
+  // credential reference verbatim in the settings surface.
+  'email.smtpPasswordRef',
   'calendar.google.clientSecretRef',
   'calendar.microsoft.clientSecretRef',
   'calendar.google.icsUrl',

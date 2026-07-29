@@ -744,8 +744,11 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
     // 'profile' added for the owner profile (docs/owner-profile.md §11.1) — the nine
     // profile.* verbs over the one hand-editable Markdown document at daemon scope.
+    // 'payments' added for card entry on this surface (payments.cards.list/create/
+    // delete — real REST routes already carried by the pinned contracts facade, so
+    // they resolve through EXTRA_METHOD_ROUTES like config.* and power.* above).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'payments', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -753,6 +756,17 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.profile).sort()).toEqual(
       ['append', 'forget', 'get', 'person', 'provenance', 'read', 'set', 'status', 'undo'].sort(),
     );
+  });
+
+  test('sdk.operator.payments exposes cards only, and no method that reads card material back', () => {
+    expect(Object.keys(sdk.operator.payments).sort()).toEqual(['cards']);
+    expect(Object.keys(sdk.operator.payments.cards).sort()).toEqual(['create', 'delete', 'list'].sort());
+    // Named explicitly so a future "just add a getter for the stored card" has to
+    // delete this assertion rather than slip past it. Card material goes IN through
+    // create() and there is no read path, here or in the daemon's method catalog.
+    for (const forbidden of ['get', 'reveal', 'read', 'material', 'number', 'cvv']) {
+      expect(Object.keys(sdk.operator.payments.cards)).not.toContain(forbidden);
+    }
   });
 
   test('sdk.operator.ops exposes exactly the memory-governance verb', () => {

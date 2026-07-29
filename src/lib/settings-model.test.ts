@@ -9,6 +9,7 @@ import {
   type SettingsGroupModel,
 } from './settings-model';
 import { FEATURE_SETTINGS } from './generated/config-schema';
+import { isCardMaterialKey } from './card-material';
 
 function groupById(groups: SettingsGroupModel[], id: string): SettingsGroupModel | undefined {
   return groups.find((g) => g.id === id);
@@ -409,5 +410,156 @@ describe('daemonOwned metadata — config-ownership.ts surfaced onto every row',
     const mysteryGroups = buildSettingsModel({ mysteryDomain: { unknownKnob: 'x' } });
     const mysteryRow = groupById(mysteryGroups, 'mysteryDomain')?.rawRows.find((r) => r.key === 'mysteryDomain.unknownKnob');
     expect(mysteryRow?.daemonOwned).toBe(false);
+  });
+});
+
+describe('payments.* and daemon.timezone (payment capability round)', () => {
+  const groups = buildSettingsModel({});
+  const paymentsGroup = groupById(groups, 'payments');
+  const daemonGroup = groupById(groups, 'daemon');
+
+  test.each([
+    'payments.enabled',
+    'payments.defaultCardId',
+    'payments.currency',
+    'payments.cvvHandling',
+    'payments.budget.dailyItemCents',
+    'payments.budget.dailyOverageCents',
+    'payments.budget.perPurchaseCeilingEnabled',
+    'payments.budget.perPurchaseCeilingCents',
+    'payments.budget.overageToleranceEnabled',
+    'payments.budget.overageToleranceDailyAllowanceCents',
+    'payments.shipping.preferredTier',
+    'payments.windows.vetoMinutes',
+    'payments.windows.approvalMinutes',
+    'payments.notifyChannels',
+  ])('%s renders as a plain row in the payments group, daemon-owned, with a description', (key) => {
+    const field = paymentsGroup?.plainRows.find((f) => f.key === key);
+    expect(field, key).toBeDefined();
+    expect(field!.description.length, key).toBeGreaterThan(0);
+    expect(field!.daemonOwned, key).toBe(true);
+  });
+
+  test('daemon.timezone renders in the daemon group, daemon-owned, with a description', () => {
+    const field = daemonGroup?.plainRows.find((f) => f.key === 'daemon.timezone');
+    expect(field).toBeDefined();
+    expect(field!.description.length).toBeGreaterThan(0);
+    // Ruled and fixed upstream (SDK config-ownership.ts) after this round's
+    // engineering report flagged the omission: daemon.timezone is the one
+    // daemon.* key that is NOT a per-installation switch — see
+    // config-ownership.test.ts.
+    expect(field!.daemonOwned).toBe(true);
+  });
+
+  test('payments.currency validates 3-letter ISO-4217 codes via its schema validationHint', () => {
+    const field = paymentsGroup?.plainRows.find((f) => f.key === 'payments.currency');
+    expect(field?.validationHint?.length ?? 0).toBeGreaterThan(0);
+    expect(field?.default).toBe('USD');
+  });
+
+  test('the budget/window/enablement defaults match the schema (owner ruling: default to most safe)', () => {
+    const byKey = new Map(paymentsGroup?.plainRows.map((f) => [f.key, f]));
+    expect(byKey.get('payments.enabled')?.default).toBe(false);
+    expect(byKey.get('payments.cvvHandling')?.default).toBe('stored');
+    expect(byKey.get('payments.budget.dailyItemCents')?.default).toBe(0);
+    expect(byKey.get('payments.budget.perPurchaseCeilingEnabled')?.default).toBe(true);
+    expect(byKey.get('payments.budget.overageToleranceEnabled')?.default).toBe(false);
+    expect(byKey.get('payments.windows.vetoMinutes')?.default).toBe(10);
+    expect(byKey.get('payments.windows.approvalMinutes')?.default).toBe(60);
+  });
+
+  test('no field anywhere in the model is keyed to card material (cvv/pan/cardNumber)', () => {
+    // Belt-and-suspenders: CONFIG_SCHEMA never declares such a key, but a stray
+    // one in the LIVE config must still never surface — not as a plain row, not
+    // as a feature-owned field, not as a raw row.
+    const withStrayCardMaterial = buildSettingsModel({
+      payments: {
+        cards: { visa: { cvv: '123', pan: '4111111111111111', cardNumber: '4111111111111111' } },
+      },
+    });
+    const everyKey = withStrayCardMaterial.flatMap((g) => [
+      ...g.plainRows.map((f) => f.key),
+      ...g.rawRows.map((r) => r.key),
+      ...g.featureUnits.flatMap((u) => [
+        ...(u.enablementField ? [u.enablementField.key] : []),
+        ...u.fields.map((f) => f.key),
+      ]),
+    ]);
+    // Every remaining key passes the same card-material test that filtered the
+    // stray keys out in the first place — i.e. the filtering is total, nothing
+    // isCardMaterialKey would flag survives into the rendered model. (Its own
+    // correctness — including that this must NOT flag payments.cvvHandling or
+    // payments.defaultCardId — is independently unit-tested in
+    // card-material.test.ts.)
+    expect(everyKey.some((k) => isCardMaterialKey(k))).toBe(false);
+    // payments.defaultCardId (a card REFERENCE, not material) still renders.
+    expect(everyKey).toContain('payments.defaultCardId');
+    // payments.cvvHandling (the policy setting, not the CVV itself) still renders.
+    expect(everyKey).toContain('payments.cvvHandling');
+  });
+});
+
+/**
+ * The realistic leak path, as opposed to the hypothetical one.
+ *
+ * The existing card-material test above uses a nested `payments.cards.visa.*`
+ * shape. What the card-entry surfaces actually write is four FLAT keys under
+ * `payments.` — the TUI's /payments card flow and this app's own card panel
+ * both land there — and in practice they hold a `goodvibes://secrets/...`
+ * reference rather than a value, because the value goes to the daemon secret
+ * store. Both halves are asserted here: the keys never render, and a stray raw
+ * value under one of them never renders either.
+ */
+describe('the four flat card keys the entry surfaces write never reach the model', () => {
+  const CARD_KEYS = ['payments.cardNumber', 'payments.cardExpiry', 'payments.cardCvv', 'payments.cardholderName'];
+
+  function keysOf(groups: SettingsGroupModel[]): string[] {
+    return groups.flatMap((g) => [
+      ...g.plainRows.map((f) => f.key),
+      ...g.rawRows.map((r) => r.key),
+      ...g.featureUnits.flatMap((u) => [
+        ...(u.enablementField ? [u.enablementField.key] : []),
+        ...u.fields.map((f) => f.key),
+      ]),
+    ]);
+  }
+
+  test('none of the four render, even holding raw values', () => {
+    const groups = buildSettingsModel({
+      payments: {
+        cardNumber: '4000056655665556',
+        cardExpiry: '09/29',
+        cardCvv: '731',
+        cardholderName: 'Jane Q. Fakename',
+      },
+    });
+    const rendered = keysOf(groups);
+    for (const key of CARD_KEYS) {
+      expect(rendered).not.toContain(key);
+    }
+  });
+
+  test('no raw card value survives anywhere in the built model', () => {
+    const groups = buildSettingsModel({
+      payments: {
+        cardNumber: '4000056655665556',
+        cardCvv: '731',
+        cardholderName: 'Jane Q. Fakename',
+      },
+    });
+    const serialized = JSON.stringify(groups);
+    expect(serialized).not.toContain('4000056655665556');
+    expect(serialized).not.toContain('731');
+    expect(serialized).not.toContain('Jane Q. Fakename');
+  });
+
+  test('the billing and shipping address fields beside them still render — the filter is scoped, not a blanket', () => {
+    const groups = buildSettingsModel({
+      payments: { cardNumber: '4000056655665556', billingAddress: { name: 'Jane Q. Fakename' } },
+    });
+    const rendered = keysOf(groups);
+    expect(rendered).toContain('payments.billingAddress.name');
+    expect(rendered).toContain('payments.shippingAddress.line1');
+    expect(rendered).not.toContain('payments.cardNumber');
   });
 });

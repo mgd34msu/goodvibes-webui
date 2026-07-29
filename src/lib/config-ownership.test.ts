@@ -27,14 +27,21 @@ describe('isDaemonOwnedConfigKey', () => {
     expect(isDaemonOwnedConfigKey('checkin.cadence')).toBe(true);
     expect(isDaemonOwnedConfigKey('integrations.someProvider.enabled')).toBe(true);
     expect(isDaemonOwnedConfigKey('atRest.retentionDays')).toBe(true);
+    expect(isDaemonOwnedConfigKey('payments.enabled')).toBe(true);
+    expect(isDaemonOwnedConfigKey('payments.budget.dailyItemCents')).toBe(true);
     expect(isDaemonOwnedConfigKey('voice.local.ttsVoicePath')).toBe(true);
     // Previously missing from the hand-maintained mirror (the drift this round fixes).
     expect(isDaemonOwnedConfigKey('conversationGate.mode')).toBe(true);
     expect(isDaemonOwnedConfigKey('cluster.enabled')).toBe(true);
   });
 
-  test('recognizes the individual daemon-owned key that sits outside every prefix', () => {
+  test('recognizes the individual daemon-owned keys that sit outside every prefix', () => {
     expect(isDaemonOwnedConfigKey('danger.httpListener')).toBe(true);
+    // The one daemon.* key that is NOT a per-installation switch — the daemon's
+    // own location, which the payment capability's daily budgets roll over
+    // against. Ruled and fixed upstream (SDK config-ownership.ts) after this
+    // round's engineering report flagged it as an open question.
+    expect(isDaemonOwnedConfigKey('daemon.timezone')).toBe(true);
   });
 
   test('recognizes every non-schema daemon-owned path — array-valued settings and the mail/calendar credential paths', () => {
@@ -69,7 +76,7 @@ describe('isDaemonOwnedConfigKey', () => {
     expect(isDaemonOwnedConfigKey('behavior.hitlMode')).toBe(false);
   });
 
-  test('daemon.* and service.* are deliberately NOT daemon-owned — per-installation lifecycle', () => {
+  test('daemon.* (other than daemon.timezone) and service.* are deliberately NOT daemon-owned — per-installation lifecycle', () => {
     // "does THIS installation run/embed a daemon" is not the daemon's call to make;
     // making it daemon-owned would make one surface's daemon choice bind every other.
     expect(isDaemonOwnedConfigKey('daemon.enabled')).toBe(false);
@@ -107,23 +114,29 @@ describe('the generated mirror matches the installed SDK exactly', () => {
     expect(DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS).toEqual(SDK_DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS);
   });
 
-  test('the mirrored prefix list is exactly what this module documents', () => {
-    expect(DAEMON_OWNED_CONFIG_PREFIXES).toEqual([
-      'surfaces.',
-      'controlPlane.',
-      'httpListener.',
-      'web.',
-      'relay.',
-      'watchers.',
-      'device.',
-      'automation.',
-      'checkin.',
-      'integrations.',
-      'atRest.',
-      'voice.local.',
-      'conversationGate.',
-      'cluster.',
-    ]);
-    expect(DAEMON_OWNED_CONFIG_KEYS).toEqual(['danger.httpListener']);
+  // MERGE NOTE (payments round): this used to be a whole-list literal, asserting
+  // the mirrored arrays element-for-element in a fixed order. Two things killed
+  // that shape. First, the lists are no longer hand-written here — they are
+  // generated from the installed SDK, so a literal restates the generated file
+  // rather than checking anything the three "matches the SDK" tests above do not
+  // already check, and it churns on every SDK addition. Second, merging
+  // credscope-webui with wo/payments-webui produced a literal NEITHER branch
+  // wrote: git interleaved payments' 'payments.' with credscope's
+  // 'conversationGate.'/'cluster.' in an order no one chose, and toEqual on an
+  // array is order-sensitive, so it would have been asserting a guess.
+  //
+  // What is worth pinning is narrower and order-free: the specific entries these
+  // two branches each argued for must survive the move to the generated
+  // snapshot. If a regeneration ever drops one, that is a real ownership
+  // regression — a card budget or a daemon timezone silently readable as
+  // client-owned — and it fails here by name instead of inside a list diff.
+  test('the entries the payments round added survive in the generated snapshot', () => {
+    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('payments.');
+    expect(DAEMON_OWNED_CONFIG_KEYS).toContain('daemon.timezone');
+  });
+
+  test('the entries the credential-scope round added survive in the generated snapshot', () => {
+    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('conversationGate.');
+    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('cluster.');
   });
 });

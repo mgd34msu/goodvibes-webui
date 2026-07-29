@@ -41,8 +41,9 @@ import { SkeletonBlock } from '../feedback/SkeletonBlock';
 import { StepUpSettings } from './StepUpSettings';
 import { SettingsField } from './SettingsField';
 import { FeatureUnitCard } from './FeatureUnitCard';
+import { PaymentCardEntry } from './PaymentCardEntry';
 import { displayConfigValue } from '../../lib/config-redaction';
-import { buildSettingsModel, filterSettingsModel } from '../../lib/settings-model';
+import { buildSettingsModel, filterSettingsModel, readConfigPath } from '../../lib/settings-model';
 import { isSecretStoreOnlyConfigKey, secretStoreSetCommandFor } from '../../lib/secret-store-only-config-keys';
 import '../../styles/components/settings.css';
 
@@ -88,6 +89,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const allGroups = useMemo(() => buildSettingsModel(config.data), [config.data]);
   const groups = useMemo(() => filterSettingsModel(allGroups, search), [allGroups, search]);
+  // payments.currency's live value, for MoneyField's currency label — read
+  // directly from the live config rather than the built model, since it may
+  // sit in a different group than the money field being rendered.
+  const currency = useMemo(() => {
+    const { present, value } = readConfigPath(config.data, 'payments.currency');
+    return present && typeof value === 'string' && value ? value : 'USD';
+  }, [config.data]);
   const currentGroup =
     groups.length > 0 ? (groups.find((g) => g.id === activeGroup) ?? groups[0]) : null;
 
@@ -214,6 +222,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <p className="empty-state">No settings match your search.</p>
               ) : (
                 <>
+                  {/*
+                    Card entry sits at the top of the Payments group, above the
+                    budgets and windows that govern how it gets used. It is not
+                    a schema-driven row and cannot be: card material is
+                    deliberately absent from CONFIG_SCHEMA (it lives in the
+                    daemon secret store), so it has no key for buildSettingsModel
+                    to render. The panel gates itself on the SDK's entry-surface
+                    allowlist — see PaymentCardEntry's header for the six
+                    conditions the owner's ruling carried and where each is
+                    implemented.
+                  */}
+                  {currentGroup.id === 'payments' && <PaymentCardEntry currency={currency} />}
                   {currentGroup.featureUnits.map((unit) => (
                     <FeatureUnitCard
                       key={unit.feature.id}
@@ -221,6 +241,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       onCommit={commitConfig}
                       persistedByKey={persistedByKey}
                       pendingRestart={pendingRestartIds.has(unit.feature.id)}
+                      currency={currency}
                       onEnablementCommitted={() => {
                         if (!unit.feature.restartRequired) return;
                         setPendingRestartIds((prev) => new Set(prev).add(unit.feature.id));
@@ -235,6 +256,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                           field={field}
                           onCommit={commitConfig}
                           persisted={persistedByKey[field.key]}
+                          currency={currency}
                         />
                       ))}
                     </div>

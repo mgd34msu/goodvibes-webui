@@ -8,6 +8,7 @@ import { DataBlock } from '../components/DataBlock';
 import { MarkdownMessage } from '../components/MarkdownMessage';
 import { RecordList } from '../components/RecordList';
 import { bestTitle, countFrom, firstArray, firstString, readPath } from '../lib/object';
+import { asProjectionKind, projectionPayload, type ProjectionKind } from '../lib/knowledge-projection';
 import { EmptyState } from '../components/feedback/EmptyState';
 import { ErrorState } from '../components/feedback/ErrorState';
 import { SkeletonBlock } from '../components/feedback/SkeletonBlock';
@@ -34,7 +35,14 @@ function pageSlice<T>(items: T[], page: number, pageSize: number): T[] {
 
 interface ProjectionSelection {
   key: string;
+  /**
+   * Verbatim from the daemon, NOT narrowed — a target from a daemon newer than
+   * this client still appears in the list with its real name, rather than
+   * vanishing. `renderableKind` is what decides whether it can be sent.
+   */
   kind: string;
+  /** The same kind, narrowed to what the pinned contract accepts, or null. */
+  renderableKind: ProjectionKind | null;
   id?: string;
   target: unknown;
 }
@@ -50,6 +58,7 @@ function projectionSelection(target: unknown): ProjectionSelection | null {
   return {
     key: `${kind}:${id}`,
     kind,
+    renderableKind: asProjectionKind(kind),
     ...(id ? { id } : {}),
     target,
   };
@@ -57,14 +66,6 @@ function projectionSelection(target: unknown): ProjectionSelection | null {
 
 function isProjectionSelection(item: ProjectionSelection | null): item is ProjectionSelection {
   return item !== null;
-}
-
-function projectionPayload(selection: ProjectionSelection, limit = 25): OperatorMethodInput<'knowledge.projection.render'> {
-  return {
-    kind: selection.kind,
-    ...(selection.id ? { id: selection.id } : {}),
-    limit,
-  };
 }
 
 function markdownTextFromValue(value: unknown): string {
@@ -576,7 +577,12 @@ export function KnowledgeView() {
                 <button
                   className="primary-button"
                   type="button"
-                  disabled={!selectedProjection || renderProjection.isPending}
+                  disabled={!selectedProjection?.renderableKind || renderProjection.isPending}
+                  title={
+                    selectedProjection && !selectedProjection.renderableKind
+                      ? `This web UI cannot request a "${selectedProjection.kind}" projection.`
+                      : undefined
+                  }
                   aria-busy={renderProjection.isPending}
                   onClick={() => renderProjection.mutate()}
                 >
@@ -585,7 +591,12 @@ export function KnowledgeView() {
                 <button
                   className="secondary-button"
                   type="button"
-                  disabled={!selectedProjection || materializeProjection.isPending}
+                  disabled={!selectedProjection?.renderableKind || materializeProjection.isPending}
+                  title={
+                    selectedProjection && !selectedProjection.renderableKind
+                      ? `This web UI cannot request a "${selectedProjection.kind}" projection.`
+                      : undefined
+                  }
                   aria-busy={materializeProjection.isPending}
                   onClick={() => materializeProjection.mutate()}
                 >

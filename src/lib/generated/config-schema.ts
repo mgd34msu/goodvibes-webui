@@ -995,6 +995,226 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "validationHint": "integer in [1, 1048576]"
   },
   {
+    "key": "payments.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Master switch for the payment capability. Default OFF. While false the daemon will not price, reserve, or charge anything, and the payments operator methods refuse. Turning it on does not by itself allow a purchase — the daily budgets below start at 0, so nothing goes through until you set an amount."
+  },
+  {
+    "key": "payments.defaultCardId",
+    "type": "string",
+    "default": "",
+    "description": "Which configured card to use when a purchase does not name one. Refers to a card id from payments.cards.list; the card NUMBER, expiry and CVV live in the daemon secret store and never in config."
+  },
+  {
+    "key": "payments.currency",
+    "type": "string",
+    "default": "USD",
+    "description": "ISO-4217 code your budgets are denominated in. A checkout priced in any other currency is REFUSED rather than converted — the issuer converts at its own rate on its own date, so any number shown to you before the charge would not be the number you are charged.",
+    "validationHint": "a three-letter ISO-4217 code such as USD, GBP or EUR"
+  },
+  {
+    "key": "payments.cvvHandling",
+    "type": "enum",
+    "default": "stored",
+    "description": "How the card verification value is handled at checkout. 'stored' (DEFAULT) keeps it in the daemon secret store beside the card number, encrypted at rest, so a purchase within budget completes while you are away — which is what autonomous action requires. Choosing 'prompt' stores nothing and stops every purchase to ask you for the code, which DISABLES UNATTENDED PURCHASING; surfaces show CVV_PROMPT_TRADEOFF_WARNING at the moment you select it. Provisioning a virtual card with a hard issuer cap bounds what any leak of stored card material could cost; a real card number does not.",
+    "enumValues": [
+      "stored",
+      "prompt"
+    ]
+  },
+  {
+    "key": "payments.budget.dailyItemCents",
+    "type": "number",
+    "default": 0,
+    "description": "Most that may be spent on ITEM PRICES in one calendar day, in minor units (cents). The item price alone is checked against this; tax, mandatory fees and delivery draw on the separate overage budget below. Resets at midnight in daemon.timezone (UTC when unset) — the boundary is real, so $100 at 23:59 and $100 at 00:00 both go through. Default 0: nothing is bought until you set this.",
+    "validationHint": "integer in [0, 100000000]"
+  },
+  {
+    "key": "payments.budget.dailyOverageCents",
+    "type": "number",
+    "default": 0,
+    "description": "Daily allowance in minor units for charges that CANNOT BE AVOIDED on a purchase you already approved: sales tax, mandatory handling or booking fees, and the delivery option actually used. Discretionary add-ons — expedited shipping beyond what the ladder picks, insurance, gift wrap, extended warranties — are purchase decisions, not delivery costs, and never draw on this. Default 0.",
+    "validationHint": "integer in [0, 100000000]"
+  },
+  {
+    "key": "payments.budget.perPurchaseCeilingEnabled",
+    "type": "boolean",
+    "default": true,
+    "description": "When true (DEFAULT), no single purchase may exceed payments.budget.perPurchaseCeilingCents no matter how much of the daily budget is left. A separate question from the daily budget: both must pass. Turn it off only if you want one purchase to be able to consume the whole day at once."
+  },
+  {
+    "key": "payments.budget.perPurchaseCeilingCents",
+    "type": "number",
+    "default": 0,
+    "description": "The per-purchase ceiling in minor units, applied when perPurchaseCeilingEnabled is true. Default 0, so with the ceiling on and this unset every purchase needs your explicit approval — the safe direction until you choose a number.",
+    "validationHint": "integer in [0, 100000000]"
+  },
+  {
+    "key": "payments.budget.overageToleranceEnabled",
+    "type": "boolean",
+    "default": false,
+    "description": "When true, a purchase whose unavoidable charges cannot fit the overage budget even at the CHEAPEST delivery option may draw the shortfall from the tolerance allowance below instead of being refused. Default FALSE. Enabling it alone changes nothing — the allowance also starts at 0."
+  },
+  {
+    "key": "payments.budget.overageToleranceDailyAllowanceCents",
+    "type": "number",
+    "default": 0,
+    "description": "Daily tolerance allowance in minor units, used only when overageToleranceEnabled is true. This is a third pool, drawn on only after the shipping ladder has stepped delivery all the way down and the unavoidable charges still do not fit. Every use is recorded in the purchase audit record.",
+    "validationHint": "integer in [0, 100000000]"
+  },
+  {
+    "key": "payments.shipping.preferredTier",
+    "type": "enum",
+    "default": "normal",
+    "description": "Preferred delivery tier, ordinal against WHAT THE CHECKOUT ACTUALLY OFFERS rather than delivery-day promises: its options are ranked cheapest-first and this indexes into that ranking. The chosen tier draws on the overage budget; when the budget cannot cover it, delivery steps down ONE tier at a time until it fits, stopping at the cheapest. A step-down needs no approval (it is within budget) but is recorded and shown to you, so you never learn about it from a late package. Default 'normal'.",
+    "enumValues": [
+      "normal",
+      "fast",
+      "fastest"
+    ]
+  },
+  {
+    "key": "payments.billingAddress.name",
+    "type": "string",
+    "default": "",
+    "description": "Full name as it appears on the card statement. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.line1",
+    "type": "string",
+    "default": "",
+    "description": "Street address, first line. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.line2",
+    "type": "string",
+    "default": "",
+    "description": "Second address line (apartment, suite); leave empty when unused. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.city",
+    "type": "string",
+    "default": "",
+    "description": "City or town. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.region",
+    "type": "string",
+    "default": "",
+    "description": "State, province or region. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.postalCode",
+    "type": "string",
+    "default": "",
+    "description": "Postal or ZIP code. Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.billingAddress.country",
+    "type": "string",
+    "default": "",
+    "description": "Country, as the checkout expects it (an ISO two-letter code is safest). Part of the billing address the card issuer checks against (address verification). Stored in daemon-owned config rather than the secret store because surfaces must display and edit it — but note it sits beside stored card material, so anyone holding both has everything a card-not-present charge needs. A virtual card with a hard issuer cap is what bounds that."
+  },
+  {
+    "key": "payments.shippingAddress.name",
+    "type": "string",
+    "default": "",
+    "description": "Recipient name. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.line1",
+    "type": "string",
+    "default": "",
+    "description": "Street address, first line. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.line2",
+    "type": "string",
+    "default": "",
+    "description": "Second address line (apartment, suite); leave empty when unused. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.city",
+    "type": "string",
+    "default": "",
+    "description": "City or town. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.region",
+    "type": "string",
+    "default": "",
+    "description": "State, province or region. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.postalCode",
+    "type": "string",
+    "default": "",
+    "description": "Postal or ZIP code. Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.shippingAddress.country",
+    "type": "string",
+    "default": "",
+    "description": "Country, as the checkout expects it (an ISO two-letter code is safest). Where purchases are delivered. A purchase is REFUSED while the shipping address is incomplete — there is nowhere to send it, and guessing an address is not a thing this should do."
+  },
+  {
+    "key": "payments.windows.vetoMinutes",
+    "type": "number",
+    "default": 10,
+    "description": "How long you get to STOP an in-budget purchase, in minutes, starting once the final total is known and before payment. This is a VETO, not an approval: if you say nothing, the purchase GOES AHEAD. One word cancels it. The window always runs its full length wherever you are — no presence, focus or activity signal shortens it — and an explicit acknowledgement buys immediately.",
+    "validationHint": "integer in [1, 1440]"
+  },
+  {
+    "key": "payments.windows.approvalMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "How long an ABOVE-BUDGET purchase waits for your explicit approval, in minutes. This is the opposite of the veto window: if you say nothing, the purchase is DENIED. Denial is the recoverable outcome — ask again and it goes through — so a short window costs friction while a long one leaves a cart holding a price that may drift. Default 60, which survives a meeting or a commute; raise it if you are away for long stretches.",
+    "validationHint": "integer in [1, 10080]"
+  },
+  {
+    "key": "payments.majorRetailersAdditional",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated REGISTRABLE domains (eTLD+1, e.g. 'microcenter.com', not 'www.microcenter.com') to add to the recognised-retailer list. A purchase at a recognised retailer gets the veto window — you are told and it goes ahead unless you object. Everything else asks for your yes. The test is recourse: is there a real path to remedy if it goes wrong. Additions are yours alone — nothing is learned onto this list, inferred from a page, or added by an agent, because a page that could argue itself onto it could buy from itself unattended.",
+    "validationHint": "a comma-separated list of registrable domains"
+  },
+  {
+    "key": "payments.majorRetailersExcluded",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated registrable domains to REMOVE from the shipped recognised-retailer list, so purchases there ask for your yes instead of proceeding on silence. A domain listed in both this and the additions is kept, since the addition is the more specific instruction.",
+    "validationHint": "a comma-separated list of registrable domains"
+  },
+  {
+    "key": "payments.ebayMinSellerFeedbackCount",
+    "type": "number",
+    "default": 100,
+    "description": "Minimum feedback ratings earned AS A SELLER before an eBay Buy It Now listing proceeds on silence. eBay's headline score combines buying and selling, so an account with a large number can have earned all of it buying — only the seller-side figure counts. Below this, the purchase asks for your yes. Auctions and Best Offer listings are refused outright regardless, because there is no final price to show you before paying.",
+    "validationHint": "integer in [0, 1000000]"
+  },
+  {
+    "key": "payments.ebayMinSellerPositivePercent",
+    "type": "number",
+    "default": 98,
+    "description": "Minimum positive feedback percentage AS A SELLER before an eBay Buy It Now listing proceeds on silence. Read from eBay's own feedback widget, never from the seller's listing text — if the figures cannot be attributed to eBay with confidence, the purchase asks for your yes rather than assuming.",
+    "validationHint": "integer in [0, 100]"
+  },
+  {
+    "key": "payments.notifyChannels",
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated, ordered list of surfaces that receive approval and veto prompts and may answer them: 'tui', 'agent-terminal', 'telegram'. EMAIL IS NOT AND WILL NEVER BE ACCEPTED HERE — an inbound email is content anyone can write and cannot authorize spending. An unrecognised name is rejected rather than ignored, because a channel you believe will reach you and does not is worse than none. Empty means an above-budget purchase has nowhere to ask and is refused, while an in-budget one proceeds unannounced.",
+    "validationHint": "a comma-separated list drawn from 'tui', 'agent-terminal', 'telegram'"
+  },
+  {
+    "key": "daemon.timezone",
+    "type": "string",
+    "default": "",
+    "description": "IANA timezone name the daemon reckons CALENDAR DAYS in — e.g. 'America/New_York', 'Europe/London'. Empty means UTC. This is the daemon's own location, not a display preference and not a per-schedule zone (schedules keep their own). Anything that resets daily reads it: the payment capability's daily budgets roll over at midnight in this zone. Changing it does not refill a spent budget — daily totals are recomputed from each record's UTC instant rather than carried as a counter.",
+    "validationHint": "empty (UTC) or an IANA timezone name like 'America/New_York'"
+  },
+  {
     "key": "learning.consolidation.enabled",
     "type": "boolean",
     "default": true,
@@ -2339,6 +2559,137 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "type": "boolean",
     "default": true,
     "description": "Connect to SMTP over TLS"
+  },
+  {
+    "key": "surfaces.email.inbound.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Turns on continuous IMAP watching of the configured inbound accounts below. Off by default — reading the owner's mail continuously is not a thing to start doing without being asked. Turn on after configuring at least one account in surfaces.email.inbound.accounts."
+  },
+  {
+    "key": "surfaces.email.inbound.accounts",
+    "type": "string",
+    "default": "[]",
+    "description": "JSON array of configured mailbox account identifiers to watch for inbound mail, e.g. [\"primary\"]. Empty means no mailbox is watched even when enabled is true. A list rather than a single switch because one address for signups and another for the owner's real mail is the expected shape."
+  },
+  {
+    "key": "surfaces.email.inbound.source",
+    "type": "enum",
+    "default": "auto",
+    "description": "Which mechanism reads the mailbox. \"auto\" uses Gmail when Google credentials have been adopted and the configured mail account is a Gmail account, and IMAP otherwise — so connecting Google is the whole of the setup and no IMAP host, username or app password has to be found. \"gmail\" and \"imap\" force one of them. The two are not equivalent and the difference is a real cost: IMAP holds an IDLE connection, which is true push and delivers in under a second, while Gmail has no push available to a daemon on a home machine and is POLLED on a timer — its worst-case delay is the whole poll interval below, never less. Forcing \"gmail\" without adopted Google credentials, or on an account that is not a Gmail account, is refused rather than quietly served over IMAP.",
+    "enumValues": [
+      "auto",
+      "gmail",
+      "imap"
+    ]
+  },
+  {
+    "key": "surfaces.email.inbound.gmailPollSecondsExpecting",
+    "type": "number",
+    "default": 5,
+    "description": "How often the Gmail source asks Google what changed while something is actually being waited for — a signup mid-flight whose verification mail has not arrived yet. This is polling, not push: mail can sit unnoticed for up to this many seconds, and no setting makes Gmail faster than the interval. Five seconds is the floor worth having for a person watching a signup form; the underlying call costs 2 quota units against a daily budget in the billions, so a shorter interval buys latency rather than saving quota. Ignored entirely when the IMAP source is in use, which pushes instead.",
+    "validationHint": "integer in [2, 60]"
+  },
+  {
+    "key": "surfaces.email.inbound.gmailPollSecondsIdle",
+    "type": "number",
+    "default": 60,
+    "description": "How often the Gmail source asks Google what changed when nothing is being waited for. Again polling, not push: with nothing pending, mail is noticed up to this many seconds after it arrives. A minute keeps the daemon from asking Google every five seconds all week for mail nobody is waiting on; lowering it narrows that gap at the cost of a request every few seconds around the clock. Ignored entirely when the IMAP source is in use.",
+    "validationHint": "integer in [10, 3600]"
+  },
+  {
+    "key": "surfaces.email.inbound.mode",
+    "type": "enum",
+    "default": "auto",
+    "description": "How the IMAP source receives new mail: \"idle\" holds a persistent IMAP IDLE connection, \"poll\" checks on a timer, \"auto\" uses IDLE when the server advertises it and falls back to polling when it does not. Leave at auto unless a specific provider needs to be forced one way. Applies only to the IMAP source; the Gmail source has no IDLE to hold and is always polled, on the two intervals above.",
+    "enumValues": [
+      "idle",
+      "poll",
+      "auto"
+    ]
+  },
+  {
+    "key": "surfaces.email.inbound.pollIntervalSeconds",
+    "type": "number",
+    "default": 120,
+    "description": "How often the fallback poller checks the mailbox when IDLE is unavailable. Lower is more responsive but closer to a provider's rate limit; higher delays notice of new mail by up to this many seconds. Only applies when the connection is not using IDLE.",
+    "validationHint": "integer in [30, 3600]"
+  },
+  {
+    "key": "surfaces.email.inbound.idleReissueMinutes",
+    "type": "number",
+    "default": 27,
+    "description": "How often an open IDLE connection is torn down and re-issued. RFC 2177 advises re-issuing at least every 29 minutes, or the server may silently log the connection off; raising this toward 29 trims reconnect churn but leaves less margin against a slow round trip.",
+    "validationHint": "integer in [5, 29]"
+  },
+  {
+    "key": "surfaces.email.inbound.reconnect.maxBackoffSeconds",
+    "type": "number",
+    "default": 300,
+    "description": "Ceiling on the exponential reconnect backoff after a dropped connection or provider error. Raising it tolerates a longer provider outage without hammering it; lowering it shortens the worst-case silence after a disconnect at the cost of retrying a still-down server more often.",
+    "validationHint": "integer in [10, 3600]"
+  },
+  {
+    "key": "surfaces.email.inbound.notice.route",
+    "type": "string",
+    "default": "default",
+    "description": "Where the owner is told about inbound mail: the literal \"default\" inherits the owner's existing notice route binding; a specific route binding id sends inbound-mail notices somewhere else. A second place to configure \"where to reach me\" is a second place to get it wrong, so most installations should leave this at default."
+  },
+  {
+    "key": "surfaces.email.inbound.notice.mode",
+    "type": "enum",
+    "default": "all",
+    "description": "How much inbound mail generates an owner notice: \"all\" announces every message, \"expected-only\" announces only mail matching a registered expectation (quieter for a high-volume mailbox), \"none\" announces nothing. Choosing \"none\" means mail can arrive with no notice at all — a deliberate but silent choice.",
+    "enumValues": [
+      "all",
+      "expected-only",
+      "none"
+    ]
+  },
+  {
+    "key": "surfaces.email.inbound.expectationWindowMinutes",
+    "type": "number",
+    "default": 15,
+    "description": "Default lifetime, in minutes, of a verification expectation opened for inbound-mail matching (for example an account signup awaiting its confirmation email). Raising it gives a slower-to-arrive confirmation more time to match; lowering it shrinks how long a stale expectation can be satisfied by a late message. Hard-capped at 60 to match MAX_VERIFICATION_WINDOW_MS.",
+    "validationHint": "integer in [1, 60]"
+  },
+  {
+    "key": "surfaces.email.inbound.dedupTtlMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "How long an inbound message's identity is remembered, inside the running daemon, so an overlapping poll or a retried pass does not process it twice. This cache lives in memory only: a restart destroys it rather than expiring it, so no value here prevents a duplicate across a restart — the inbound record store does that, by remembering which messages were already announced. Seconds would be enough for what this covers; a larger value only costs a little memory.",
+    "validationHint": "integer in [5, 1440]"
+  },
+  {
+    "key": "surfaces.email.inbound.retentionDays",
+    "type": "number",
+    "default": 30,
+    "description": "How many days an inbound mail record (sender, subject, delivery evidence, link verdicts — never the full body) is kept before it is reaped. Longer keeps a longer history to explain \"why did I get that message\"; shorter bounds how much of the owner's mail metadata the daemon retains.",
+    "validationHint": "integer in [1, 365]"
+  },
+  {
+    "key": "surfaces.email.inbound.maxRecords",
+    "type": "number",
+    "default": 5000,
+    "description": "Hard cap on the number of inbound mail records kept regardless of age. Whichever of this and retentionDays is reached first wins, so this bounds worst-case storage even under a burst of mail.",
+    "validationHint": "integer in [100, 100000]"
+  },
+  {
+    "key": "surfaces.email.inbound.capabilityRecheckMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "How often a mailbox that reported it cannot do what inbound mail requires (for example a Gmail grant that authorizes listing but not reading message bodies, or a mailbox that does not exist) is re-probed. Long enough that a refused account is not hammered in a tight loop; short enough that fixing the underlying scope or account problem is noticed without a daemon restart.",
+    "validationHint": "integer in [5, 1440]"
+  },
+  {
+    "key": "surfaces.email.inbound.onInsufficientCapability",
+    "type": "enum",
+    "default": "refuse-and-notify",
+    "description": "\"refuse-and-notify\" stops the watcher for that account and tells the owner once, naming what is missing and the exact step to fix it — the account is not watched again until the recheck above finds it fixed. \"notice-only\" is a deliberate downgrade: it keeps announcing that mail arrived using envelope fields alone (sender, subject, delivery evidence), stating plainly in every notice that bodies are unavailable, and it can never satisfy a verification expectation while degraded — an account signup or order confirmation will not work under it. \"notice-only\" applies to exactly one condition: a Google grant that authorizes message headers and excludes message bodies (the gmail.metadata scope), which is the only case where mail can be seen arriving without being readable. Every other insufficient condition — no stored password, a refused sign-in, a mailbox that will not open, a lost cursor, a refused or unreadable fetch — leaves no envelope fields to announce, so \"notice-only\" behaves as \"refuse-and-notify\" there and the notice says which one is in force.",
+    "enumValues": [
+      "refuse-and-notify",
+      "notice-only"
+    ]
   },
   {
     "key": "surfaces.calendar.caldavUrl",

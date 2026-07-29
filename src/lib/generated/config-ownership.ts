@@ -24,13 +24,16 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   "checkin.",
   "integrations.",
   "atRest.",
+  "payments.",
   "voice.local.",
   "conversationGate.",
-  "cluster."
+  "cluster.",
+  "profile."
 ] as const;
 
 export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = [
-  "danger.httpListener"
+  "danger.httpListener",
+  "daemon.timezone"
 ] as const;
 
 export const DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS: readonly string[] = [
@@ -38,6 +41,7 @@ export const DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS: readonly string[] = [
   "cluster.peers",
   "cluster.groupMaterial",
   "email.passwordRef",
+  "email.smtpPasswordRef",
   "calendar.google.clientSecretRef",
   "calendar.microsoft.clientSecretRef",
   "google.oauth.refreshToken",

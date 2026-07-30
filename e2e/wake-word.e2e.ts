@@ -266,15 +266,16 @@ test('the per-origin opt-in writes voice.wake.surfaces.webui and really starts l
   expect(await gumCalls(page)).toBe(1);
 });
 
-test('a row a browser cannot honour is shown verbatim, and nothing listens', async ({ page }) => {
+test('a row this tab cannot honour yet is shown verbatim, and nothing listens', async ({ page }) => {
   await countGetUserMedia(page);
   await installFakeAudio(page);
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, {
-    wake: { provisioned: true },
-    // No surface applies the speex stage (the platform ships no libspeexdsp
-    // bindings), so the resolver BLOCKS rather than skipping it.
-    wakeConfig: { ...WAKE_ON, noiseSuppression: 'speex' },
+    // The wake models are provisioned; the SPEECH GATE's own artifact is not. A
+    // voice-activity floor would then send frames to the classifier unscreened
+    // while the row says they are being screened, so the resolver BLOCKS.
+    wake: { provisioned: true, vadProvisioned: false },
+    wakeConfig: { ...WAKE_ON, vadThreshold: 0.5 },
   });
 
   await page.goto('/?view=chat');
@@ -282,10 +283,34 @@ test('a row a browser cannot honour is shown verbatim, and nothing listens', asy
   await page.locator('.voice-settings-btn').click();
 
   const blockers = page.locator('[data-testid="wake-blockers"]');
-  await expect(blockers).toContainText('voice.wake.noiseSuppression');
-  await expect(blockers).toContainText('no surface applies speex suppression');
+  await expect(blockers).toContainText('voice.wake.vadThreshold');
+  await expect(blockers).toContainText('has not loaded the speech gate');
 
   expect(await gumCalls(page)).toBe(0);
+});
+
+test('speex is honoured rather than blocked: the tab listens with the filter on', async ({ page }) => {
+  await countGetUserMedia(page);
+  // Deliberately NOT installFakeAudio: that shim replaces AudioContext with a
+  // playback-only fake for the TTS tests, and capture needs a real audio graph
+  // (Chromium's, over the fake media device from the launch args) to reach
+  // listening at all — the same setup the other listening tests use.
+  await installChatMockDaemon(page);
+  await installVoiceRoutes(page, {
+    wake: { provisioned: true },
+    // The filter is a WebAssembly module the SDK carries, so a browser runs it.
+    wakeConfig: { ...WAKE_ON, noiseSuppression: 'speex' },
+  });
+
+  await page.goto('/?view=chat');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('[data-wake-phase]').first())
+    .toHaveAttribute('data-wake-phase', 'listening', { timeout: 45_000 });
+  expect(await gumCalls(page)).toBe(1);
+
+  await page.locator('.voice-settings-btn').click();
+  // Nothing is refused, so no blocker list is rendered at all.
+  await expect(page.locator('[data-testid="wake-blockers"]')).toHaveCount(0);
 });
 
 test('a daemon without the wake verbs shows no wake section at all', async ({ page }) => {

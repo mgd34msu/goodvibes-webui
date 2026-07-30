@@ -142,6 +142,13 @@ export function useTts(): UseTtsResult {
  * — that is what `voice.wake.inputDevice`'s description means by "shared by BOTH
  * microphone consumers").
  */
+/**
+ * The `voice.wake.status` cache key. Defined here rather than in useWake.ts
+ * because that module imports this one, and both read this endpoint — two keys
+ * for one read would mean two fetches and two answers that can disagree.
+ */
+export const WAKE_STATUS_QUERY_KEY = ['voice', 'wake', 'status'] as const;
+
 export function useWakeSettings(): { settings: WakeRuntimeSettings; isLoading: boolean } {
   const query = useQuery({
     queryKey: ['voice', 'config'],
@@ -149,10 +156,23 @@ export function useWakeSettings(): { settings: WakeRuntimeSettings; isLoading: b
     staleTime: 30_000,
     retry: false,
   });
+  // Whether the daemon has the SPEECH GATE on disk. Its own artifact and its own
+  // read, because `voice.wake.vadThreshold` above 0 must block while it is missing
+  // rather than let the tab score frames ungated behind a row that says otherwise.
+  // A failed or absent read leaves it false, which is the safe direction.
+  const gate = useQuery({
+    queryKey: WAKE_STATUS_QUERY_KEY,
+    queryFn: () => sdk.operator.voice.wake.status(),
+    staleTime: 30_000,
+    retry: false,
+  });
   // No tree yet resolves to the SHIPPED defaults (enabled false, surfaces.webui
   // false) rather than to zeroes — so a tab that has not loaded its config never
   // opens a device on the strength of a blank read.
-  const settings = useMemo(() => resolveWebuiWakeSettings(query.data ?? {}), [query.data]);
+  const settings = useMemo(
+    () => resolveWebuiWakeSettings(query.data ?? {}, gate.data?.vadReady === true),
+    [query.data, gate.data?.vadReady],
+  );
   return { settings, isLoading: query.isLoading };
 }
 

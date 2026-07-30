@@ -91,23 +91,30 @@ describe('the surface this tab resolves as', () => {
 });
 
 describe('what a browser tab cannot do, said out loud', () => {
-  // Not a browser-only refusal: no surface applies the speex stage, because the
-  // platform ships no libspeexdsp bindings. `none` is the only value that runs
-  // anywhere, and this asserts the tab reports that rather than skipping it.
-  test('speex noise suppression BLOCKS, because audio would flow unfiltered through a configured stage', () => {
+  // The speex stage is a WebAssembly module the SDK carries, so a tab runs it: the
+  // row is honoured rather than refused, and this asserts the capability is asked
+  // of the SDK instead of being declared false here.
+  test('speex noise suppression is HONOURED: a tab has WebAssembly, so the filter runs', () => {
     const settings = resolveWebuiWakeSettings({
       voice: { wake: { enabled: true, surfaces: { webui: true }, noiseSuppression: 'speex' } },
     });
-    expect(settings.active).toBe(false);
-    expect(settings.blockers.map((blocker) => blocker.key)).toContain('voice.wake.noiseSuppression');
+    expect(settings.active).toBe(true);
+    expect(settings.blockers.map((blocker) => blocker.key)).not.toContain('voice.wake.noiseSuppression');
+    expect(settings.capture.noiseSuppression).toBe('speex');
   });
 
-  test('a voice-activity floor BLOCKS, because no VAD model is pinned on any surface', () => {
-    const settings = resolveWebuiWakeSettings({
-      voice: { wake: { enabled: true, surfaces: { webui: true }, vadThreshold: 0.5 } },
-    });
-    expect(settings.active).toBe(false);
-    expect(settings.blockers.map((blocker) => blocker.key)).toContain('voice.wake.vadThreshold');
+  test('a voice-activity floor BLOCKS while the gate is not provisioned, and RUNS once it is', () => {
+    const tree = { voice: { wake: { enabled: true, surfaces: { webui: true }, vadThreshold: 0.5 } } };
+    // The gate is its own pinned artifact: without it, frames would reach the
+    // classifier unscreened while the row says they are being screened.
+    const unprovisioned = resolveWebuiWakeSettings(tree);
+    expect(unprovisioned.active).toBe(false);
+    expect(unprovisioned.blockers.map((blocker) => blocker.key)).toContain('voice.wake.vadThreshold');
+    // Provisioned, the same configuration runs and carries the threshold through.
+    const provisioned = resolveWebuiWakeSettings(tree, true);
+    expect(provisioned.active).toBe(true);
+    expect(provisioned.blockers).toEqual([]);
+    expect(provisioned.vadThreshold).toBe(0.5);
   });
 
   test('retaining audio is a LIMITATION: the detector runs and says retention is not happening', () => {

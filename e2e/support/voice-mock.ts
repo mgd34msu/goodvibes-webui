@@ -20,6 +20,8 @@ import {
   wakeStatusResponse,
   WAKE_MODEL_CHUNK_BYTES,
   type VoiceLocalStatus,
+  isWakeModelComponentId,
+  WAKE_MODEL_COMPONENT_IDS,
 } from './mock-daemon';
 
 export interface VoiceProviderSeed {
@@ -67,6 +69,8 @@ export interface VoiceMockOptions {
    */
   wake?: {
     provisioned?: boolean;
+    /** Seeds the SPEECH GATE's own artifact as verified. Default false. */
+    vadProvisioned?: boolean;
     chunkBytes?: number;
     corruptSha?: boolean;
   } | 'unavailable';
@@ -164,6 +168,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     ? null
     : {
       provisioned: wakeOption?.provisioned ?? false,
+      vadProvisioned: wakeOption?.vadProvisioned ?? false,
       chunkBytes: wakeOption?.chunkBytes ?? WAKE_MODEL_CHUNK_BYTES,
       corruptSha: wakeOption?.corruptSha ?? false,
     };
@@ -303,7 +308,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     // the assembled bytes against the sha256 the response states.
     if (method === 'GET' && path === '/api/voice/wake/status') {
       if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
-      return json(route, wakeStatusResponse(wakeState.provisioned));
+      return json(route, wakeStatusResponse(wakeState.provisioned, wakeState.vadProvisioned));
     }
     if (method === 'POST' && path === '/api/voice/wake/provision') {
       if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
@@ -315,8 +320,12 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
       if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
       const params = new URL(request.url()).searchParams;
       const component = params.get('component');
-      if (component !== 'classifier' && component !== 'embedding' && component !== 'notice') {
-        return json(route, { error: 'component must be classifier, embedding or notice' }, 400);
+      // Validated against the contract-derived set, so a component the daemon
+      // serves is never refused here for being unknown to the mock.
+      if (!isWakeModelComponentId(component)) {
+        return json(route, {
+          error: `component must be one of ${WAKE_MODEL_COMPONENT_IDS.join(', ')}`,
+        }, 400);
       }
       const offset = Number(params.get('offset') ?? '0');
       mock.wakeModelReads.push({ component, offset: Number.isFinite(offset) ? offset : 0 });

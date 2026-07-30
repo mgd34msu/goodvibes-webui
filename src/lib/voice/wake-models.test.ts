@@ -121,6 +121,33 @@ describe('a multi-chunk download reassembles byte-exactly', () => {
     expect(server.calls).toHaveLength(1);
     expect(loaded.bytes.length).toBe(4096);
   });
+
+  test('EVERY component the daemon serves loads here, including ones a tab never asks for', async () => {
+    // The component set is derived from the generated contract rather than copied,
+    // so a component the daemon adds cannot be refused client-side. Asserted over
+    // the whole set, not just the two a tab fetches: the tflite twin and the
+    // notices exist and must not fail for being unrecognised here.
+    const components: WakeModelComponent[] = ['classifier', 'embedding', 'notice', 'vad'];
+    for (const component of components) {
+      const bytes = fakeModelBytes(2048);
+      const server = chunkServer(bytes, await webCryptoDigest(bytes));
+      const loaded = await loadWakeModel(component, { readChunk: server.readChunk });
+      expect(loaded.bytes.length).toBe(2048);
+      expect(server.calls.every((call) => call.component === component)).toBe(true);
+    }
+  });
+
+  test('the speech gate is fetched through the same verified path as the models', async () => {
+    const bytes = fakeModelBytes(CHUNK + 512);
+    const sha256 = await webCryptoDigest(bytes);
+    const server = chunkServer(bytes, sha256);
+    const loaded = await loadWakeModel('vad', { readChunk: server.readChunk });
+    // Two chunks, reassembled, and verified against the pin like every other
+    // artifact: a gate built from a truncated transfer would screen by accident.
+    expect(server.calls).toHaveLength(2);
+    expect([...loaded.bytes]).toEqual([...bytes]);
+    expect(loaded.sha256).toBe(sha256);
+  });
 });
 
 describe('verification refuses bytes that are not the pinned model', () => {

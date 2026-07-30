@@ -22,7 +22,10 @@
  *      neither a WebGPU adapter nor 24 MB of engine to load.
  */
 import { describe, expect, test } from 'bun:test';
-import { CAPTURE_SAMPLE_RATE } from '@pellux/goodvibes-sdk/platform/voice/capture';
+import {
+  CAPTURE_SAMPLE_RATE,
+  type NoiseSuppressionFactory,
+} from '@pellux/goodvibes-sdk/platform/voice/capture';
 import type { UtteranceAudioArtifact } from '@pellux/goodvibes-sdk/platform/voice/capture';
 import type {
   WakeInferenceSession,
@@ -127,10 +130,62 @@ function scriptedClassifier(scores: readonly number[]): WakeInferenceSession & {
   return session;
 }
 
-function modelSet(classifier: WakeInferenceSession, released?: { count: number }): WakeModelSet {
+/** A speech gate that reports one probability and counts consultations. */
+function countingVad(probability: number): { session: WakeInferenceSession; calls: () => number } {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    session: {
+      inputNames: ['input'],
+      outputNames: ['output'],
+      run: () => {
+        calls += 1;
+        return Promise.resolve({ output: { data: new Float32Array([probability]), dims: [1, 1] } });
+      },
+    },
+  };
+}
+
+/** A suppression stage stand-in: counts what reaches it, filters nothing. */
+function countingSuppression(): {
+  create: NoiseSuppressionFactory;
+  created: () => number;
+  processed: () => number;
+  requests: { frameSamples: number; sampleRate: number }[];
+} {
+  let created = 0;
+  let processed = 0;
+  const requests: { frameSamples: number; sampleRate: number }[] = [];
+  return {
+    created: () => created,
+    processed: () => processed,
+    requests,
+    create: (request) => {
+      requests.push({ frameSamples: request.frameSamples, sampleRate: request.sampleRate });
+      created += 1;
+      return Promise.resolve({
+        label: 'test-filter',
+        blockSamples: 320,
+        suppressionDb: -15,
+        process: (frame: Float32Array) => {
+          processed += 1;
+          return new Float32Array(frame);
+        },
+        close: () => undefined,
+      });
+    },
+  };
+}
+
+function modelSet(
+  classifier: WakeInferenceSession,
+  released?: { count: number },
+  vad?: { session: WakeInferenceSession; threshold: number },
+): WakeModelSet {
   return {
     embedding: stubEmbedding(),
     models: [{ id: PINNED_WAKE_MODEL_ID, session: classifier }],
+    ...(vad !== undefined ? { vad } : {}),
     backend: 'wasm',
     fallbackReason: null,
     limitations: [],
@@ -162,7 +217,7 @@ async function settle(times = 12): Promise<void> {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-function settingsFor(overrides: Record<string, unknown> = {}): WakeRuntimeSettings {
+function settingsFor(overrides: Record<string, unknown> = {}, vadReady = false): WakeRuntimeSettings {
   return resolveWebuiWakeSettings({
     voice: {
       wake: {
@@ -180,7 +235,7 @@ function settingsFor(overrides: Record<string, unknown> = {}): WakeRuntimeSettin
         ...overrides,
       },
     },
-  });
+  }, vadReady);
 }
 
 interface HostHarness {
@@ -199,6 +254,9 @@ function hostHarness(options: {
   transcript?: string;
   transcribeError?: Error;
   arbiter?: MicArbiter;
+  /** A speech gate in the model set, as a provisioned tab would have. */
+  vad?: { session: WakeInferenceSession; threshold: number };
+  suppression?: ReturnType<typeof countingSuppression>;
 }): HostHarness {
   const spy = captureSpy();
   const chimes: number[] = [];
@@ -220,8 +278,9 @@ function hostHarness(options: {
       openCapture: arbiter.openCapture,
       loadModelSet: () => {
         harness.loadCalls += 1;
-        return Promise.resolve(modelSet(options.classifier, released));
+        return Promise.resolve(modelSet(options.classifier, released, options.vad));
       },
+      ...(options.suppression !== undefined ? { createNoiseSuppression: options.suppression.create } : {}),
       transcribe: (artifact) => {
         sttRequests.push(artifact);
         if (options.transcribeError) return Promise.reject(options.transcribeError);
@@ -277,16 +336,16 @@ describe('disabled means no getUserMedia at all', () => {
 
   test('a blocked row refuses without opening the device, and still shows the reason', async () => {
     const harness = hostHarness({ classifier: scriptedClassifier([]) });
-    // No surface applies the speex stage — the platform ships no libspeexdsp
-    // bindings — so the resolver BLOCKS rather than skipping it. Asserted here on the
-    // browser surface; the reason itself is platform-wide, not browser-only.
-    await harness.host.applySettings(settingsFor({ noiseSuppression: 'speex' }));
+    // The speech gate is its own pinned artifact, so asking for a voice-activity
+    // floor this tab has not loaded BLOCKS: frames would otherwise reach the
+    // classifier unscreened while the row says they are being screened.
+    await harness.host.applySettings(settingsFor({ vadThreshold: 0.5 }));
 
     expect(harness.spy.getUserMediaCalls).toBe(0);
     const state = harness.host.getState();
     expect(state.phase).toBe('refused');
     expect(state.refusal?.kind).toBe('blocked');
-    expect(state.refusal?.detail).toContain('libspeexdsp');
+    expect(state.refusal?.detail).toContain('voice.wake.vadThreshold');
     // Asked for HERE, so the indicator carries the reason rather than vanishing.
     expect(state.indicator).toBe('statusline');
   });
@@ -641,5 +700,74 @@ describe('both browserBackend values run on one engine binary', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the two rows that used to be refused now run a real stage', () => {
+  test('speex sends captured frames through the filter before anything scores them', async () => {
+    const suppression = countingSuppression();
+    const harness = hostHarness({ classifier: scriptedClassifier([]), suppression });
+    await harness.host.applySettings(settingsFor({ noiseSuppression: 'speex' }));
+
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    expect(suppression.created()).toBe(1);
+    // Built for the detector's frame, at the rate the models were trained on.
+    expect(suppression.requests).toEqual([{ frameSamples: 1280, sampleRate: CAPTURE_SAMPLE_RATE }]);
+
+    await pushFrames(harness, loudFrame(), 3);
+    expect(suppression.processed()).toBe(3);
+  });
+
+  test('none opens the same device with no stage at all', async () => {
+    const suppression = countingSuppression();
+    const harness = hostHarness({ classifier: scriptedClassifier([]), suppression });
+    await harness.host.applySettings(settingsFor());
+
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    await pushFrames(harness, loudFrame(), 3);
+    expect(suppression.created()).toBe(0);
+    expect(suppression.processed()).toBe(0);
+  });
+
+  test('a voice-activity floor consults the gate for every frame once it is provisioned', async () => {
+    const vad = countingVad(0.9);
+    const harness = hostHarness({
+      classifier: scriptedClassifier([]),
+      vad: { session: vad.session, threshold: 0.5 },
+    });
+    // vadReady true: the daemon reports the gate artifact verified on disk.
+    await harness.host.applySettings(settingsFor({ vadThreshold: 0.5 }, true));
+
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 2);
+    expect(vad.calls()).toBeGreaterThan(0);
+  });
+
+  test('a frame under the floor is withheld: the gate ran, the classifier did not', async () => {
+    const vad = countingVad(0.02);
+    // Scores that would fire immediately if anything were scored at all.
+    const classifier = scriptedClassifier([0.99, 0.99, 0.99, 0.99]);
+    const harness = hostHarness({
+      classifier,
+      vad: { session: vad.session, threshold: 0.8 },
+    });
+    await harness.host.applySettings(settingsFor({ vadThreshold: 0.8 }, true));
+
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 6);
+    expect(vad.calls()).toBeGreaterThan(0);
+    expect(harness.chimes).toHaveLength(0);
+    expect(harness.sttRequests).toHaveLength(0);
+  });
+
+  test('the shipped default of 0 consults no gate, even with one loaded', async () => {
+    const vad = countingVad(0.9);
+    const harness = hostHarness({
+      classifier: scriptedClassifier([]),
+      vad: { session: vad.session, threshold: 0 },
+    });
+    await harness.host.applySettings(settingsFor({}, true));
+
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 2);
+    expect(vad.calls()).toBe(0);
   });
 });

@@ -21,7 +21,7 @@ import {
   wakeNoticeFixture,
   type WakeModelFixture,
 } from './onnx-fixture';
-import type { OperatorMethodOutput } from '../../src/lib/goodvibes';
+import type { OperatorMethodInput, OperatorMethodOutput } from '../../src/lib/goodvibes';
 import { WEBUI_METHOD_SAMPLES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
   accountsSnapshotResponse,
@@ -566,11 +566,33 @@ export interface MockWakeState {
 /** Cap the real verb applies per call: 512 kB. */
 export const WAKE_MODEL_CHUNK_BYTES = 512 * 1024;
 
-export type WakeModelComponentId = 'classifier' | 'embedding' | 'notice';
+/**
+ * Derived from the generated contract, not copied: the daemon's component set
+ * grows, and a mock that refuses a valid one would fail a consumer for a reason
+ * the real daemon would not.
+ */
+export type WakeModelComponentId = OperatorMethodInput<'voice.wake.model.get'>['component'];
+
+/**
+ * The same set at RUNTIME, for the mock's own validation. The exhaustiveness check
+ * below fails to COMPILE when the contract gains a component this list does not
+ * cover, which is the only way a runtime list can be kept honest against a type.
+ */
+export const WAKE_MODEL_COMPONENT_IDS = ['classifier', 'embedding', 'notice', 'vad'] as const;
+type UncoveredWakeComponent = Exclude<WakeModelComponentId, (typeof WAKE_MODEL_COMPONENT_IDS)[number]>;
+const _everyWakeComponentIsCovered: UncoveredWakeComponent extends never ? true : false = true;
+void _everyWakeComponentIsCovered;
+
+export function isWakeModelComponentId(value: unknown): value is WakeModelComponentId {
+  return typeof value === 'string' && (WAKE_MODEL_COMPONENT_IDS as readonly string[]).includes(value);
+}
 
 function wakeFixtureFor(component: WakeModelComponentId): WakeModelFixture {
   if (component === 'classifier') return wakeClassifierFixture();
   if (component === 'embedding') return wakeEmbeddingFixture();
+  // The speech gate is served from the classifier fixture: both are single-score
+  // models, and this mock's job is the transfer, not the gate's own numbers.
+  if (component === 'vad') return wakeClassifierFixture();
   return wakeNoticeFixture();
 }
 
@@ -578,7 +600,7 @@ function wakeFixtureFor(component: WakeModelComponentId): WakeModelFixture {
  * voice.wake.status's real shape. Not provisioned by default — an always-on
  * microphone's model is fetched on an explicit act, never because a tab opened.
  */
-export function wakeStatusResponse(provisioned = false) {
+export function wakeStatusResponse(provisioned = false, vadProvisioned = false) {
   const classifier = wakeClassifierFixture();
   const embedding = wakeEmbeddingFixture();
   const notice = wakeNoticeFixture();
@@ -594,6 +616,22 @@ export function wakeStatusResponse(provisioned = false) {
     classifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', classifier),
     embedding: artifact('/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', embedding),
     notice: artifact('/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', notice),
+    // The speech gate is its own artifact with its own verified state: a host can
+    // have the wake models and not the gate, which is what makes
+    // `voice.wake.vadThreshold` above 0 a blocker rather than a silent no-op.
+    vad: {
+      path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.onnx',
+      verified: vadProvisioned,
+      corrupt: false,
+      bytes: vadProvisioned ? embedding.bytes.length : 0,
+    },
+    vadNotice: {
+      path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.NOTICE.txt',
+      verified: vadProvisioned,
+      corrupt: false,
+      bytes: vadProvisioned ? notice.bytes.length : 0,
+    },
+    vadReady: vadProvisioned,
     downloadBytes: 3_884_142,
     modelVersion: provisioned ? 'hey_goodvibes-e2e-1' : null,
     recallIsSyntheticOnly: true,

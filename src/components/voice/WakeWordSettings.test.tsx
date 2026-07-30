@@ -246,13 +246,15 @@ describe('the per-origin opt-in', () => {
 
 describe('the resolver\'s own reasons, verbatim', () => {
   test('a blocker is rendered with its key and its full written detail', () => {
+    // The speech gate with its artifact not provisioned: speex no longer blocks
+    // (the filter ships as WebAssembly), so this is the row that still does.
     mockSettings = resolveWebuiWakeSettings({
-      voice: { wake: { enabled: true, surfaces: { webui: true }, noiseSuppression: 'speex' } },
+      voice: { wake: { enabled: true, surfaces: { webui: true }, vadThreshold: 0.5 } },
     });
     const view = render();
     cleanup = view.unmount;
     const list = view.el.querySelector('[data-testid="wake-blockers"]');
-    expect(list?.textContent).toContain('voice.wake.noiseSuppression');
+    expect(list?.textContent).toContain('voice.wake.vadThreshold');
     // The exact sentence the SDK wrote, not a paraphrase of it.
     expect(list?.textContent).toContain(mockSettings.blockers[0].detail);
   });

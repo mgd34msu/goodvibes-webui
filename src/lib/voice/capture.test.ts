@@ -320,7 +320,7 @@ describe('the opener refuses honestly', () => {
     expect((error as AudioCaptureError).reason).toBe('device-unavailable');
   });
 
-  test('speex noise suppression is REFUSED here, not silently skipped', async () => {
+  test('speex reaching the BARE opener is refused: the stage runs one layer up', async () => {
     const test1 = harness();
     const opener = createBrowserCaptureOpener(test1.env);
     const error = await opener({ ...REQUEST, noiseSuppression: 'speex' }, collectFrames().handlers)

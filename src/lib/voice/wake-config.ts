@@ -5,13 +5,16 @@
  * SDK's `resolveWakeRuntimeSettings` reads FLAT dotted keys. This is the adapter
  * between them, plus the one honest statement of what a browser tab can do.
  *
- * The capability answers are all `false` and none of them is a guess:
- *   - speexAvailable — the flag means "this surface APPLIES the speex stage", and no
- *     surface does: the platform ships no libspeexdsp bindings, so
- *     `voice.wake.noiseSuppression: "speex"` BLOCKS everywhere rather than being
- *     silently skipped, and `none` is the only value that runs. This is not a
- *     browser-only limitation.
- *   - vadAvailable — no VAD model is pinned by the manifest on any surface.
+ * None of the capability answers is a guess:
+ *   - speexAvailable — asked of the SDK, not declared here. The filter is a
+ *     WebAssembly module the SDK carries, so the only question is whether this
+ *     runtime has WebAssembly, which a tab does: `voice.wake.noiseSuppression:
+ *     "speex"` RUNS here, applied by the wrapper inside WakeListener and
+ *     PushToTalkSession.
+ *   - vadAvailable — follows the daemon's `voice.wake.status`, because the speech
+ *     gate is its own pinned artifact. Provisioned, `voice.wake.vadThreshold`
+ *     above 0 screens frames; missing, it BLOCKS rather than scoring ungated
+ *     behind a row that claims otherwise.
  *   - canRetainAudio — a tab has no filesystem to retain a clip to.
  *   - canPlayLocalFile — a tab cannot read an absolute path on the user's machine,
  *     so a custom activation sound downgrades to the built-in chime.
@@ -27,6 +30,7 @@ import {
   type WakeSettingReader,
   type WakeSurfaceCapabilities,
 } from '@pellux/goodvibes-sdk/platform/voice/wake/runtime';
+import { noiseSuppressionSupport } from '@pellux/goodvibes-sdk/platform/voice/capture';
 import { asRecord } from '../object';
 
 /** The surface id this tab resolves `voice.wake.surfaces.*` under. */
@@ -35,13 +39,33 @@ export const WAKE_SURFACE = 'webui' as const;
 /** The `voice.wake.surfaces.webui` key, from the SDK rather than spelled again. */
 export const WAKE_SURFACE_KEY = wakeSurfaceKey(WAKE_SURFACE);
 
-/** What a browser tab can actually do. See this file's header for each answer. */
-export const WEBUI_WAKE_CAPABILITIES: WakeSurfaceCapabilities = {
-  speexAvailable: false,
-  vadAvailable: false,
-  canRetainAudio: false,
-  canPlayLocalFile: false,
-};
+/**
+ * What a browser tab can actually do. See this file's header for each answer.
+ *
+ * `speexAvailable` is asked of the SDK rather than declared here: the filter is a
+ * WebAssembly module carried in the package, so the only question is whether this
+ * runtime has WebAssembly — which a tab does — and the SDK answers it with a
+ * reason a settings row can show.
+ *
+ * `vadAvailable` is NOT a constant, because the speech gate is its own pinned
+ * artifact the daemon has to have provisioned: see {@link webuiWakeCapabilities}.
+ */
+export const WEBUI_WAKE_CAPABILITIES: WakeSurfaceCapabilities = webuiWakeCapabilities(false);
+
+/**
+ * Capabilities for a tab, given whether the daemon reports the speech gate
+ * provisioned. With the artifact missing, `voice.wake.vadThreshold` above 0 still
+ * blocks startup and says why, rather than the tab scoring frames ungated while
+ * the row claims they are screened.
+ */
+export function webuiWakeCapabilities(vadReady: boolean): WakeSurfaceCapabilities {
+  return {
+    speexAvailable: noiseSuppressionSupport().supported,
+    vadAvailable: vadReady,
+    canRetainAudio: false,
+    canPlayLocalFile: false,
+  };
+}
 
 /**
  * Read a dotted path out of a `config.get` tree.
@@ -65,6 +89,6 @@ export function configPathReader(tree: unknown): WakeSettingReader {
 }
 
 /** Resolve every `voice.wake.*` row for this tab from a `config.get` tree. */
-export function resolveWebuiWakeSettings(tree: unknown): WakeRuntimeSettings {
-  return resolveWakeRuntimeSettings(configPathReader(tree), WAKE_SURFACE, WEBUI_WAKE_CAPABILITIES);
+export function resolveWebuiWakeSettings(tree: unknown, vadReady = false): WakeRuntimeSettings {
+  return resolveWakeRuntimeSettings(configPathReader(tree), WAKE_SURFACE, webuiWakeCapabilities(vadReady));
 }

@@ -3405,6 +3405,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "validationHint": "integer in [0, 10]"
   },
   {
+    "key": "update.alertAfterFailedChecks",
+    "type": "number",
+    "default": 3,
+    "description": "Consecutive failed update checks before the daemon tells the owner over a channel that still works that it can no longer update itself. Lower is louder; 1 reports the first failure. A repeat is held back for 12 hours so an ongoing outage is one message rather than one an hour",
+    "validationHint": "integer in [1, 100]"
+  },
+  {
     "key": "daemon.enabled",
     "type": "boolean",
     "default": true,

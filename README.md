@@ -1,8 +1,8 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 1.12.0](https://img.shields.io/badge/WebUI-1.12.0-00d7ff)
-![SDK 1.20.0](https://img.shields.io/badge/SDK-1.20.0-8b5cf6)
+![WebUI 1.12.1](https://img.shields.io/badge/WebUI-1.12.1-00d7ff)
+![SDK 1.21.0](https://img.shields.io/badge/SDK-1.21.0-8b5cf6)
 ![Bun 1.3.14](https://img.shields.io/badge/Bun-1.3.14-f7a8ff)
 
 GoodVibes WebUI is the browser surface for a GoodVibes daemon: a full chat

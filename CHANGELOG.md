@@ -4,6 +4,23 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.12.1] - 2026-07-30
+
+Maintenance re-pin, no webui feature changes. The platform runtime moves from
+1.20.0 to 1.21.0, carrying forward the daemon's lifecycle and boot-honesty
+fixes: the auto-updater no longer rolls a healthy daemon backwards and now
+tells the owner over a working channel when update checks keep failing, a
+fatal boot error prints what went wrong on the terminal instead of dying
+silently, an unreadable setting is skipped loudly instead of killing the
+daemon or being silently ignored, state migrated by a newer component names
+the version floor instead of crashing an older reader, `--daemon-home`
+actually governs the daemon's state directory, and a compiled daemon no
+longer dies at startup over an absent optional package. Fresh registry
+install, no local overlay; generated config-schema, config-ownership and
+presentation artifacts regenerated against the published package, picking up
+the new `update.alertAfterFailedChecks` setting in the schema mirror. README
+badges and index.html's favicon cache-bust move to 1.12.1 / SDK 1.21.0.
+
 ## [1.12.0] - 2026-07-30
 
 The dates the daemon has been tracking now have a place to be seen. Occasions —

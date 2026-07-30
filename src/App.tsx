@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Database,
   Gauge,
+  Gift,
   GitBranch,
   History,
   Inbox,
@@ -57,6 +58,7 @@ import { KnowledgeView } from './views/KnowledgeView';
 import { MemoryView } from './views/memory/MemoryView';
 import { CalendarView } from './views/calendar/CalendarView';
 import { MailView } from './views/mail/MailView';
+import { DatesView } from './views/dates/DatesView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { attentionCount } from './lib/fleet';
@@ -89,6 +91,12 @@ const views: {
   // to Calendar because they are the same kind of thing: a personal account the
   // daemon holds, which every surface reads through the daemon rather than its own.
   { id: 'mail', label: 'Mail', short: 'Inbox', icon: Inbox },
+  // occasions.* — birthdays, anniversaries, and plans the daemon holds and
+  // proactively nudges about on its own (docs/occasions.md). This panel is
+  // pull-only: nudges themselves push to Telegram and the agent, never here
+  // (docs/occasions.md §4.2 — the TUI/webui "get work done" interfaces stay out of
+  // proactive personal nudging by owner ruling).
+  { id: 'dates', label: 'Dates', short: 'Occasions', icon: Gift },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
   // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
@@ -710,6 +718,7 @@ export default function App() {
           {activeView === 'memory' && <MemoryView />}
           {activeView === 'calendar' && <CalendarView />}
           {activeView === 'mail' && <MailView />}
+          {activeView === 'dates' && <DatesView />}
           {activeView === 'providers' && <ProvidersView />}
           {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
         </section>

@@ -163,6 +163,16 @@ export const queryKeys = {
   // Keyed per target so each line's "where did you get that" is its own cache entry —
   // provenance is reachable per line, never as one bulk dump (§8.3).
   ownerProfileProvenance: (targetId: string) => ['owner-profile', 'provenance', targetId] as const,
+  // occasions.* (docs/occasions.md) — the dates panel. No wire event exists for this
+  // domain yet, so DatesView refetches manually/on mutation success — same standing
+  // gap fleet.*/checkpoints.*/memory.*/ci.*/checkin.* document above.
+  occasionsList: ['occasions', 'list'] as const,
+  occasionsPending: ['occasions', 'pending'] as const,
+  occasionsPlansList: ['occasions', 'plans', 'list'] as const,
+  occasionsState: ['occasions', 'state'] as const,
+  // Keyed per occasion so each one's gift history is its own cache entry, reachable
+  // from the peek without evicting the upcoming-occasions list.
+  occasionsGifts: (occasionId: string) => ['occasions', 'gifts', occasionId] as const,
 };
 
 export async function loadBootSnapshot() {

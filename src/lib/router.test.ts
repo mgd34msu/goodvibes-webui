@@ -140,6 +140,11 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=principals').view).toBe('principals');
   });
 
+  // dates (docs/occasions.md — occasions/plans dates panel).
+  test('decodes the dates view id', () => {
+    expect(decodeUrlState('?view=dates').view).toBe('dates');
+  });
+
   test('invalid view falls back to chat', () => {
     expect(decodeUrlState('?view=invalid').view).toBe('chat');
     expect(decodeUrlState('?view=').view).toBe('chat');
@@ -250,6 +255,11 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   test('round-trips the principals view id', () => {
     const encoded = encodeUrlState(makeState({ view: 'principals' }));
     expect(decodeUrlState(`?${encoded}`).view).toBe('principals');
+  });
+
+  test('round-trips the dates view id', () => {
+    const encoded = encodeUrlState(makeState({ view: 'dates' }));
+    expect(decodeUrlState(`?${encoded}`).view).toBe('dates');
   });
 
   test('filter key ordering is stable across encode/decode', () => {

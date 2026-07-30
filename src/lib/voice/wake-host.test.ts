@@ -15,6 +15,11 @@
  *      model download.
  *   2. A confirmed wake runs the whole chain: chime, utterance, `voice.stt` with a WAV
  *      artifact, transcript to the composer — or submitted, per `voice.wake.autoSubmit`.
+ *   3. BOTH `voice.wake.browserBackend` values initialise against ONE engine binary.
+ *      The runtime loader is the only place a wasm binary is named, and shipping a
+ *      second one to serve the other setting put 38 MB in the built assets for a tab
+ *      that fetches at most one. The import is injected here, since a test process has
+ *      neither a WebGPU adapter nor 24 MB of engine to load.
  */
 import { describe, expect, test } from 'bun:test';
 import { CAPTURE_SAMPLE_RATE } from '@pellux/goodvibes-sdk/platform/voice/capture';
@@ -27,6 +32,7 @@ import { createBrowserCaptureOpener, type CaptureEnv } from './capture';
 import { MicArbiter } from './mic-arbiter';
 import { resolveWebuiWakeSettings } from './wake-config';
 import { createWakeHost, PINNED_WAKE_MODEL_ID, type WakeModelSet } from './wake-host';
+import { loadWakeRuntime, type OrtModule } from './wake-runtime';
 
 const FRAME_SAMPLES = 1280;
 /** How many frames the SDK front end needs before it produces any features. */
@@ -519,5 +525,121 @@ describe('push-to-talk and the wake listener share one device', () => {
     // was deliberately stopped.
     expect(spy.getUserMediaCalls).toBe(1);
     expect(harness.host.getState().phase).toBe('off');
+  });
+});
+
+
+describe('both browserBackend values run on one engine binary', () => {
+  /**
+   * A stand-in for onnxruntime-web that records what it was asked for. The URL it
+   * reports is the one the real loader sets from its single `?url` import, so
+   * "both settings resolved to the same binary" is checked as one fact rather
+   * than inferred from two code paths.
+   */
+  function fakeOrt(): { module: OrtModule; providers: string[][] } {
+    const providers: string[][] = [];
+    const module: OrtModule = {
+      env: { wasm: { wasmPaths: { wasm: '/assets/ort-wasm-simd-threaded.asyncify-HASH.wasm' } } },
+      InferenceSession: {
+        create: async (_bytes, options) => {
+          providers.push([...options.executionProviders]);
+          return {
+            inputNames: ['in'],
+            outputNames: ['out'],
+            run: async () => ({ out: { data: new Float32Array([0]), dims: [1, 1] } }),
+            release: async () => undefined,
+          };
+        },
+      },
+      Tensor: class {
+        readonly data: unknown;
+        readonly dims: readonly number[];
+        constructor(_type: 'float32', data: Float32Array, dims: readonly number[]) {
+          this.data = data;
+          this.dims = dims;
+        }
+      } as unknown as OrtModule['Tensor'],
+    };
+    return { module, providers };
+  }
+
+  function loaderFor(fake: { module: OrtModule }, gpu: boolean) {
+    let imports = 0;
+    return {
+      deps: {
+        importModule: async () => { imports += 1; return fake.module; },
+        gpuAvailable: () => gpu,
+      },
+      importCount: () => imports,
+    };
+  }
+
+  test('the "wasm" setting loads the one binary and runs the CPU provider inside it', async () => {
+    const fake = fakeOrt();
+    const loader = loaderFor(fake, false);
+    const runtime = await loadWakeRuntime('wasm', loader.deps);
+    await runtime.createSession(new Uint8Array([1, 2, 3]));
+
+    expect(loader.importCount()).toBe(1);
+    expect(runtime.backend).toBe('wasm');
+    expect(runtime.fallbackReason).toBeNull();
+    expect(fake.providers[0]).toEqual(['wasm']);
+  });
+
+  test('the "webgpu" setting loads the SAME binary and runs the GPU provider in it', async () => {
+    const fake = fakeOrt();
+    const loader = loaderFor(fake, true);
+    const runtime = await loadWakeRuntime('webgpu', loader.deps);
+    await runtime.createSession(new Uint8Array([1, 2, 3]));
+
+    expect(loader.importCount()).toBe(1);
+    expect(runtime.backend).toBe('webgpu');
+    expect(runtime.fallbackReason).toBeNull();
+    // GPU first, CPU behind it, so an unsupported kernel falls back inside the
+    // binary rather than failing the session.
+    expect(fake.providers[0]).toEqual(['webgpu', 'wasm']);
+  });
+
+  test('both settings resolve to the identical wasm URL — one file in the built assets', async () => {
+    const wasmFor = async (backend: 'wasm' | 'webgpu', gpu: boolean): Promise<unknown> => {
+      const fake = fakeOrt();
+      await loadWakeRuntime(backend, loaderFor(fake, gpu).deps);
+      return (fake.module.env.wasm.wasmPaths as { wasm: string }).wasm;
+    };
+    const onWasm = await wasmFor('wasm', false);
+    const onWebGpu = await wasmFor('webgpu', true);
+    expect(onWasm).toBe(onWebGpu);
+    expect(String(onWasm)).toContain('asyncify');
+  });
+
+  test('webgpu without an adapter falls back inside the same binary and says there is no second download', async () => {
+    const fake = fakeOrt();
+    const loader = loaderFor(fake, false);
+    const runtime = await loadWakeRuntime('webgpu', loader.deps);
+    await runtime.createSession(new Uint8Array([1]));
+
+    expect(runtime.backend).toBe('wasm');
+    expect(runtime.fallbackReason).toContain('no navigator.gpu');
+    expect(runtime.fallbackReason).toContain('same engine binary');
+    expect(runtime.fallbackReason).toContain('no second download');
+    // One import even on the fallback path: nothing re-fetches a different engine.
+    expect(loader.importCount()).toBe(1);
+    expect(fake.providers[0]).toEqual(['wasm']);
+  });
+
+  test('nothing in the app references the CPU-only binary, which is what keeps it out of the dist', async () => {
+    // Vite emits the assets it can see referenced. The guarantee that the 13 MB
+    // wasm-only build does not ship is therefore that no source file names it —
+    // asserted here rather than left to be noticed in a dist listing.
+    const sources = new Bun.Glob('**/*.{ts,tsx}').scanSync({ cwd: 'src' });
+    const offenders: string[] = [];
+    for (const file of sources) {
+      if (file.endsWith('wake-host.test.ts')) continue;
+      const text = await Bun.file(`src/${file}`).text();
+      if (text.includes("onnxruntime-web/wasm") || text.includes('ort-wasm-simd-threaded.wasm')) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

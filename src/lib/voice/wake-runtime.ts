@@ -6,23 +6,31 @@
  * same engine run in a daemon child process and in this tab. This file is that
  * supply on the browser side.
  *
- * WHICH BUILD, AND WHY — the deliberate answer to `voice.wake.browserBackend`.
+ * ONE ENGINE BINARY SERVES BOTH VALUES OF `voice.wake.browserBackend`.
  *
- * onnxruntime-web ships one entry per backend set. `onnxruntime-web/wasm` is the
- * wasm-only build (50 kB of glue, one 13 MB wasm binary) and does NOT contain the
- * WebGPU backend at all; asking it for `executionProviders: ['webgpu']` fails.
- * `onnxruntime-web/webgpu` contains WebGPU and its own larger wasm binary.
+ * onnxruntime-web ships a separate wasm binary per backend set, and this file used
+ * to ship two of them: the wasm-only build for `wasm` and the WebGPU build for
+ * `webgpu`. That put 38 MB of engine in the built assets to serve a tab that
+ * fetches at most one of them.
  *
- * So the entry is chosen by the setting, through a DYNAMIC import each way:
- *   - 'wasm'   -> onnxruntime-web/wasm     + ort-wasm-simd-threaded.wasm
- *   - 'webgpu' -> onnxruntime-web/webgpu   + ort-wasm-simd-threaded.asyncify.wasm
- * A tab that runs on wasm therefore downloads only the wasm build, and a tab set
- * to webgpu gets a backend that actually exists rather than a setting that reads
- * as configured and silently runs somewhere else. Neither is fetched at all until
- * wake detection is switched on, because both imports are dynamic.
+ * The WebGPU build CONTAINS THE CPU ENGINE TOO, so the second file bought nothing.
+ * Verified rather than assumed: a session created from that binary with
+ * `executionProviders: ['wasm']` loads and scores the real pinned classifier. So
+ * both settings resolve to the one WebGPU-capable binary:
+ *   - 'wasm'   -> executionProviders ['wasm']            (CPU provider inside it)
+ *   - 'webgpu' -> executionProviders ['webgpu', 'wasm']  (GPU provider, CPU behind)
+ * Both values keep working and keep meaning what they say; what changed is that
+ * they no longer imply two downloads. Nothing is fetched at all until wake
+ * detection is switched on, because the import is dynamic.
  *
- * WebGPU is capability-checked against `navigator.gpu` before it is selected, and
- * when it is absent the tab falls back to wasm and SAYS SO as a limitation. The
+ * In onnxruntime-web 1.27 the file the WebGPU entry loads is
+ * `ort-wasm-simd-threaded.asyncify.wasm` — WebGPU execution is asynchronous, so
+ * the WebGPU-capable build is the asyncify one. It is referenced through the
+ * package's exports map, so the filename is not hardcoded anywhere but here.
+ *
+ * WebGPU is still capability-checked against `navigator.gpu` before it is
+ * selected, and when it is absent the tab falls back to the CPU provider IN THE
+ * SAME BINARY — no second fetch, no reload — and SAYS SO as a limitation. The
  * engine's measured cost is ~3.5 ms per 80 ms frame on a single wasm thread, so
  * the fallback is a real fallback and not a degraded-to-unusable one.
  *
@@ -36,6 +44,17 @@ import type { WakeInferenceSession, WakeTensor } from '@pellux/goodvibes-sdk/pla
 
 export type WakeBrowserBackend = 'wasm' | 'webgpu';
 
+/**
+ * Test seams. The module import and the GPU probe are the two things a unit test
+ * cannot exercise for real — there is no WebGPU adapter and no 24 MB binary in a
+ * test process — and they are exactly what has to be pinned: that BOTH backend
+ * values reach one engine binary.
+ */
+export interface WakeRuntimeDeps {
+  readonly importModule?: (() => Promise<OrtModule>) | undefined;
+  readonly gpuAvailable?: (() => boolean) | undefined;
+}
+
 /** A loaded runtime: which backend is really in force, and how to make a session. */
 export interface WakeRuntime {
   /** The backend actually selected, which may differ from the one requested. */
@@ -46,7 +65,7 @@ export interface WakeRuntime {
 }
 
 /** The slice of onnxruntime-web this module uses, so the import stays typed. */
-interface OrtModule {
+export interface OrtModule {
   readonly env: {
     wasm: {
       numThreads?: number;
@@ -89,24 +108,34 @@ function wasmThreadCount(): number {
 }
 
 /**
- * Load onnxruntime-web for a requested backend.
+ * Load the inference runtime for a requested backend.
  *
- * The `?url` imports resolve through the package's own exports map (both wasm
- * binaries are exported subpaths) and Vite emits them as build assets, which is
- * what makes `ort.env.wasm.wasmPaths` resolvable at runtime without a wasm plugin.
+ * ONE import path, whichever backend is asked for, so the built assets carry one
+ * engine binary. The `?url` import resolves through the package's own exports map
+ * and Vite emits it as a build asset, which is what makes
+ * `ort.env.wasm.wasmPaths` resolvable at runtime without a wasm plugin. The
+ * wasm-only build is deliberately NOT referenced anywhere — an unreferenced asset
+ * is one Vite does not emit, which is what keeps it out of the dist rather than
+ * merely unused inside it.
  */
-export async function loadWakeRuntime(requested: WakeBrowserBackend): Promise<WakeRuntime> {
+export async function loadWakeRuntime(
+  requested: WakeBrowserBackend,
+  deps: WakeRuntimeDeps = {},
+): Promise<WakeRuntime> {
   const wantsWebGpu = requested === 'webgpu';
-  const gpuUsable = wantsWebGpu && webGpuAvailable();
+  const gpuUsable = wantsWebGpu && (deps.gpuAvailable ?? webGpuAvailable)();
   const fallbackReason = wantsWebGpu && !gpuUsable
-    ? 'set to "webgpu", but this browser exposes no navigator.gpu. Detection is running on the WASM backend '
-      + 'instead, which measures about 3.5 ms per 80 ms frame — well inside real time.'
+    ? 'set to "webgpu", but this browser exposes no navigator.gpu. Detection is running on the CPU provider in '
+      + 'the same engine binary instead — no second download — which measures about 3.5 ms per 80 ms frame, '
+      + 'well inside real time.'
     : null;
 
-  const ort = gpuUsable ? await importWebGpuRuntime() : await importWasmRuntime();
+  const ort = await (deps.importModule ?? importWakeRuntimeModule)();
   ort.env.wasm.numThreads = wasmThreadCount();
 
   const backend: WakeBrowserBackend = gpuUsable ? 'webgpu' : 'wasm';
+  // The GPU provider is listed ahead of the CPU one so onnxruntime falls back
+  // within the binary if a kernel is unsupported on this device.
   const executionProviders = gpuUsable ? ['webgpu', 'wasm'] : ['wasm'];
 
   return {
@@ -116,17 +145,11 @@ export async function loadWakeRuntime(requested: WakeBrowserBackend): Promise<Wa
   };
 }
 
-async function importWasmRuntime(): Promise<OrtModule> {
-  const [ort, wasmUrl] = await Promise.all([
-    import('onnxruntime-web/wasm') as Promise<unknown>,
-    import('onnxruntime-web/ort-wasm-simd-threaded.wasm?url') as Promise<{ default: string }>,
-  ]);
-  const module = ort as OrtModule;
-  module.env.wasm.wasmPaths = { wasm: wasmUrl.default };
-  return module;
-}
-
-async function importWebGpuRuntime(): Promise<OrtModule> {
+/**
+ * The WebGPU-capable build, which carries the CPU engine as well. Both values of
+ * `voice.wake.browserBackend` load this and only this.
+ */
+async function importWakeRuntimeModule(): Promise<OrtModule> {
   const [ort, wasmUrl] = await Promise.all([
     import('onnxruntime-web/webgpu') as Promise<unknown>,
     import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url') as Promise<{ default: string }>,

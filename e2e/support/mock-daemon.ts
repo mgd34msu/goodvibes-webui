@@ -36,6 +36,12 @@ import {
   memoryRecordWire,
   messagesResponse,
   modelsCurrentResponse,
+  OCCASIONS_NOT_INVOKABLE_BODY,
+  occasionsGiftsResponse,
+  occasionsListResponse,
+  occasionsPendingResponse,
+  occasionsPlansListResponse,
+  occasionsStateResponse,
   PENDING_APPROVAL,
   providersResponse,
   sessionRecord,
@@ -260,6 +266,18 @@ export interface MockDaemonOptions {
    * handler exists, no account has been brought).
    */
   email?: 'configured' | 'unconfigured' | 'not-available';
+  /**
+   * occasions.* handler behavior (docs/occasions.md, the dates panel). 'available'
+   * (default) answers the honest seeded fixtures for every occasions.* route — unlike
+   * calendar.* and email.*, occasions.* ships `invokable: true` from day one in the
+   * installed operator-contract.json (it is a builtin daemon feature, not a
+   * bring-your-own-account integration), so 'available' is the truthful baseline here.
+   * 'not-available' answers the honest 501 every occasions.* route gives on a daemon
+   * build that predates this SDK's occasions composition — the same not-wired-yet
+   * state calendar/email answer by default, proved so DatesView's notAvailableNote()
+   * has a real state to render against.
+   */
+  occasions?: 'available' | 'not-available';
   /**
    * GET/POST /config behavior (config.get/config.set — the Settings modal and
    * ModelWorkspaceModal's helper/tool/tts/embeddings targets). 'ok' (default)
@@ -717,6 +735,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     consolidationReceipts = 'available',
     calendar = 'configured',
     email = 'not-available',
+    occasions = 'available',
     config = 'ok',
     packet = 'complete',
     fleetEvents = [],
@@ -854,6 +873,23 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     { id: 'ckr_e2e_3', ranAt: 1_700_000_100_000, trigger: 'manual' as const, outcome: 'skipped-quiet-hours' as const, briefingSummary: 'Requested during quiet hours.', decisionReason: 'Current time falls within configured quiet hours.' },
   ];
   let checkinReceiptIdCounter = 0;
+
+  // Occasions/plans (occasions.*, docs/occasions.md — the dates panel): mutable
+  // in-memory copies of the seeded fixtures so answer/remove/interview/sweep actually
+  // change what a subsequent read reports, the same single-writer-store shape the
+  // real daemon's OccasionStateStore gives (docs/occasions.md §3.2).
+  let occasionsListState = occasionsListResponse();
+  let occasionsPlansState = occasionsPlansListResponse();
+  let occasionsStateState = occasionsStateResponse();
+  // GET /api/occasions/pending reads THIS, not a fresh occasionsPendingResponse() call
+  // each time — otherwise answering/closing the seeded interview below would never
+  // show up on the next read, same mutable-store shape occasionsListState gives.
+  let occasionsPendingState = occasionsPendingResponse();
+  let occasionsGiftsByOccasion: Record<string, ReturnType<typeof occasionsGiftsResponse>['gifts']> = {
+    'occ-e2e-1': occasionsGiftsResponse('occ-e2e-1').gifts,
+    'occ-e2e-2': occasionsGiftsResponse('occ-e2e-2').gifts,
+  };
+  let occasionsIdCounter = 0;
 
   // CI watches (ci.watches.*, SDK 1.6.1's initiative family): one seeded watch so a
   // spec has real selected-detail content to prove against, matching the checkpoints
@@ -2180,6 +2216,223 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     return json(route, {});
   });
+
+  // ── Occasions/plans (occasions.*, docs/occasions.md — the dates panel). Own
+  //    registration, same reason calendar/email/checkin have one: a genuinely
+  //    separate REST domain. `occasions: 'not-available'` answers the honest 501
+  //    every route gives on a daemon build that predates this SDK's occasions
+  //    composition; the default ('available') answers the seeded, mutable fixtures
+  //    below so answer/remove/interview/sweep actually change what a subsequent read
+  //    reports. ────────────────────────────────────────────────────────────────
+  const handleOccasionsRoute = async (route: Route) => {
+    if (occasions === 'not-available') {
+      return json(route, OCCASIONS_NOT_INVOKABLE_BODY, 501);
+    }
+    const request = route.request();
+    const method = request.method();
+    const path = new URL(request.url()).pathname;
+    const body = (request.postDataJSON?.() ?? {}) as Record<string, unknown>;
+
+    if (method === 'GET' && path === '/api/occasions') {
+      return json(route, occasionsListState);
+    }
+    if (method === 'GET' && path === '/api/occasions/pending') {
+      return json(route, occasionsPendingState);
+    }
+    if (method === 'GET' && path === '/api/occasions/plans') {
+      return json(route, occasionsPlansState);
+    }
+    if (method === 'GET' && path === '/api/occasions/state') {
+      return json(route, occasionsStateState);
+    }
+    if (method === 'POST' && path === '/api/occasions/propose') {
+      const needsKind = !body.kind;
+      return json(route, {
+        ok: true,
+        reason: null,
+        line: `${String(body.title ?? '')} · ${String(body.date ?? '')} · ${String(body.recurrence ?? 'annual')}${body.kind ? ` · ${String(body.kind)}` : ''}`,
+        confirmation: `Noted ${String(body.title ?? 'this occasion')} as ${String(body.date ?? '')} — right?`,
+        needsKind,
+        conflictsWith: [],
+      });
+    }
+    if (method === 'POST' && path === '/api/occasions/confirm') {
+      occasionsIdCounter += 1;
+      const occasionId = `occ-e2e-new-${String(occasionsIdCounter)}`;
+      occasionsListState = {
+        ...occasionsListState,
+        occasions: [
+          ...occasionsListState.occasions,
+          {
+            occasion: {
+              id: occasionId,
+              title: String(body.title ?? ''),
+              date: { kind: 'recurring' as const, month: 1, day: 1 },
+              recurrence: (body.recurrence as 'annual' | 'once') ?? 'annual',
+              kind: (body.kind as 'gift-giving' | 'neither' | 'remember-only') ?? 'neither',
+              person: String(body.person ?? ''),
+              leadDays: typeof body.leadDays === 'number' ? body.leadDays : null,
+              mirrored: false,
+              extras: [],
+              lineIndex: occasionsListState.occasions.length,
+              text: String(body.title ?? ''),
+            },
+            nextOccurrence: String(body.date ?? ''),
+            daysUntil: 0,
+            leadDays: 10,
+            inLeadWindow: false,
+            answer: null,
+            mirrored: false,
+          },
+        ],
+      };
+      occasionsGiftsByOccasion = { ...occasionsGiftsByOccasion, [occasionId]: [] };
+      return json(route, { ok: true, reason: null, occasionId, disclosure: 'Added to your profile.', droppedRecords: 0 });
+    }
+    if (method === 'POST' && path === '/api/occasions/remove') {
+      const occasionId = String(body.occasionId ?? '');
+      const existed = occasionsListState.occasions.some((entry) => entry.occasion.id === occasionId)
+        || occasionsPlansState.plans.some((plan) => plan.id === occasionId);
+      occasionsListState = { ...occasionsListState, occasions: occasionsListState.occasions.filter((entry) => entry.occasion.id !== occasionId) };
+      occasionsPlansState = { ...occasionsPlansState, plans: occasionsPlansState.plans.filter((plan) => plan.id !== occasionId) };
+      return json(route, {
+        ok: existed,
+        reason: existed ? null : `No occasion or plan found with id ${occasionId}`,
+        occasionId,
+        disclosure: existed ? 'Removed the line and every record against it.' : '',
+        droppedRecords: existed ? 1 : 0,
+      });
+    }
+    if (method === 'POST' && path === '/api/occasions/answer') {
+      const occasionId = String(body.occasionId ?? '');
+      const answer = body.answer as 'yes' | 'no' | 'later';
+      occasionsListState = {
+        ...occasionsListState,
+        occasions: occasionsListState.occasions.map((entry) => (entry.occasion.id === occasionId ? { ...entry, answer } : entry)),
+      };
+      const existingInterview = occasionsPendingState.interviews.find((iv) => iv.occasionId === occasionId);
+      return json(route, {
+        ok: true,
+        reason: null,
+        interview: answer === 'yes' ? (existingInterview ?? null) : null,
+      });
+    }
+    if (method === 'POST' && path === '/api/occasions/gifts') {
+      const occasionId = String(body.occasionId ?? '');
+      return json(route, { occasionId, gifts: occasionsGiftsByOccasion[occasionId] ?? [] });
+    }
+    if (method === 'POST' && path === '/api/occasions/sweep') {
+      occasionsStateState = {
+        ...occasionsStateState,
+        lastSweep: {
+          sweptAt: Date.now(),
+          expiredAcknowledgements: 0,
+          orphanedRecords: 0,
+          expiredOpenItems: 0,
+          agedGiftRecords: 0,
+          droppedInterviews: 0,
+          staleMirrors: 0,
+        },
+      };
+      return json(route, {
+        ranAt: Date.now(),
+        today: occasionsListState.today,
+        hold: null,
+        nudge: null,
+        conflictMessages: [],
+        resumedInterviews: [],
+        delivered: false,
+        deliveryChannel: 'telegram',
+        deliveryId: null,
+        mirrored: 0,
+        housekeeping: occasionsStateState.lastSweep,
+      });
+    }
+    if (method === 'POST' && path === '/api/occasions/conflict/resolve') {
+      return json(route, { occasionId: String(body.occasionId ?? ''), resolved: true });
+    }
+    if (method === 'POST' && path === '/api/occasions/interview') {
+      const interviewId = String(body.interviewId ?? '');
+      const found = occasionsPendingState.interviews.find((iv) => iv.interviewId === interviewId);
+      return json(route, { present: Boolean(found), interview: found ?? null });
+    }
+    if (method === 'POST' && path === '/api/occasions/interview/answer') {
+      // The seed interview has exactly one step, so answering it completes the
+      // interview — real behavior for a "genuinely short" interview (docs/occasions.md
+      // §4.10), never a second implementation of the daemon's own step sequencing.
+      const interviewId = String(body.interviewId ?? '');
+      let updated = occasionsPendingState.interviews.find((iv) => iv.interviewId === interviewId) ?? null;
+      if (updated) {
+        updated = { ...updated, nextStep: null, complete: true };
+        occasionsPendingState = {
+          ...occasionsPendingState,
+          interviews: occasionsPendingState.interviews.map((iv) => (iv.interviewId === interviewId ? updated! : iv)),
+        };
+      }
+      return json(route, { present: Boolean(updated), interview: updated });
+    }
+    if (method === 'POST' && path === '/api/occasions/interview/record') {
+      const interviewId = String(body.interviewId ?? '');
+      const landedOn = String(body.landedOn ?? '');
+      let updated = occasionsPendingState.interviews.find((iv) => iv.interviewId === interviewId) ?? null;
+      if (updated) {
+        const occasionId = updated.occasionId;
+        occasionsGiftsByOccasion = {
+          ...occasionsGiftsByOccasion,
+          [occasionId]: [
+            ...(occasionsGiftsByOccasion[occasionId] ?? []),
+            { occasionId, occurrence: updated.occurrence, recordedAt: Date.now(), landedOn },
+          ],
+        };
+        updated = { ...updated, nextStep: null, complete: true, landedOn };
+        occasionsPendingState = {
+          ...occasionsPendingState,
+          interviews: occasionsPendingState.interviews.map((iv) => (iv.interviewId === interviewId ? updated! : iv)),
+        };
+      }
+      return json(route, { present: Boolean(updated), interview: updated });
+    }
+    if (method === 'POST' && path === '/api/occasions/plans/propose') {
+      return json(route, {
+        ok: true,
+        reason: null,
+        line: `${String(body.title ?? '')} · ${String(body.from ?? '')}..${String(body.to ?? '')}`,
+        confirmation: `Noted ${String(body.title ?? 'this plan')}, ${String(body.from ?? '')} to ${String(body.to ?? '')} — right?`,
+        needsKind: false,
+        conflictsWith: [],
+      });
+    }
+    if (method === 'POST' && path === '/api/occasions/plans/confirm') {
+      occasionsIdCounter += 1;
+      const planId = `plan-e2e-new-${String(occasionsIdCounter)}`;
+      occasionsPlansState = {
+        ...occasionsPlansState,
+        plans: [
+          ...occasionsPlansState.plans,
+          {
+            id: planId,
+            title: String(body.title ?? ''),
+            from: String(body.from ?? ''),
+            to: String(body.to ?? ''),
+            away: Boolean(body.away),
+            destination: String(body.destination ?? ''),
+            extras: [],
+            lineIndex: occasionsPlansState.plans.length,
+            text: String(body.title ?? ''),
+          },
+        ],
+      };
+      return json(route, { ok: true, reason: null, occasionId: planId, disclosure: 'Added to your profile.', droppedRecords: 0 });
+    }
+    return json(route, {});
+  };
+  // Two registrations: occasions.list's route is the bare '/api/occasions' with no
+  // trailing segment at all (webui-facade's generated route, unlike every other
+  // occasions.* row which has one) — '**/api/occasions/**' alone does not match a URL
+  // with nothing after "occasions", so the exact bare path needs its own registration
+  // pointed at the SAME handler rather than a second implementation of it.
+  await page.route('**/api/occasions/**', handleOccasionsRoute);
+  await page.route('**/api/occasions', handleOccasionsRoute);
 
   // CI (ci.*, SDK 1.6.1's initiative family) — plain REST paths (EXTRA_METHOD_ROUTES
   // in src/lib/goodvibes.ts), same own-registration reason as calendar/tasks above.

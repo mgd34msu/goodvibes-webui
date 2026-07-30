@@ -17,6 +17,7 @@
  */
 
 import type { FleetProcessNode } from '../../src/lib/contract-bridge-types';
+import type { OperatorMethodOutput } from '../../src/lib/goodvibes';
 
 /**
  * The fleet node fixtures below are annotated with the app's own FleetProcessNode
@@ -700,6 +701,154 @@ export const EMAIL_NOT_CONFIGURED_BODY = { error: 'No mail account is configured
 export const EMAIL_NOT_INVOKABLE_BODY = { error: 'Gateway method is cataloged but not invokable through method dispatch', code: 'METHOD_NOT_INVOKABLE' };
 
 export const CALENDAR_NOT_CONFIGURED_BODY = { error: 'CalDAV is not configured. Set surfaces.calendar.caldavUrl and surfaces.calendar.caldavUser.', code: 'CALENDAR_NOT_CONFIGURED' };
+
+/**
+ * Occasions/plans fixtures (occasions.list / occasions.plans.list / occasions.pending
+ * / occasions.state) — the dates panel (docs/occasions.md). Field-for-field the SDK's
+ * generated shapes: one occasion with a real next-occurrence date (occasions.list is
+ * the explicit-ask read that carries one, docs/occasions.md §4.3), one plan, one
+ * outstanding nudge whose subjects carry a proximity WORD and never a date, and one
+ * in-progress gift interview so the Open items section has real content to render.
+ */
+export function occasionsListResponse(): OperatorMethodOutput<'occasions.list'> {
+  return {
+    today: '2026-07-29',
+    timezone: 'America/Chicago',
+    occasions: [
+      {
+        occasion: {
+          id: 'occ-e2e-1',
+          title: 'Sarah’s birthday',
+          date: { kind: 'recurring' as const, month: 3, day: 14 },
+          recurrence: 'annual' as const,
+          kind: 'gift-giving' as const,
+          person: 'Sarah',
+          leadDays: 21,
+          mirrored: false,
+          extras: [],
+          lineIndex: 0,
+          text: 'Sarah’s birthday · 03-14 · annual · gift-giving · for Sarah · lead 21',
+        },
+        nextOccurrence: '2027-03-14T00:00:00.000Z',
+        daysUntil: 228,
+        leadDays: 21,
+        inLeadWindow: false,
+        answer: null,
+        mirrored: false,
+      },
+      {
+        occasion: {
+          id: 'occ-e2e-2',
+          title: 'Dad',
+          date: { kind: 'recurring' as const, month: 11, day: 2 },
+          recurrence: 'annual' as const,
+          kind: 'remember-only' as const,
+          person: 'Dad',
+          leadDays: 10,
+          mirrored: false,
+          extras: [],
+          lineIndex: 1,
+          text: 'Dad · 11-02 · annual · remember-only',
+        },
+        nextOccurrence: '2026-11-02T00:00:00.000Z',
+        daysUntil: 96,
+        leadDays: 10,
+        inLeadWindow: false,
+        answer: 'yes' as const,
+        mirrored: false,
+      },
+    ],
+    unparsed: [],
+    conflicts: [],
+  };
+}
+
+export function occasionsPlansListResponse(): OperatorMethodOutput<'occasions.plans.list'> {
+  return {
+    today: '2026-07-29',
+    plans: [
+      {
+        id: 'plan-e2e-1',
+        title: 'Lisbon',
+        from: '2026-09-12T00:00:00.000Z',
+        to: '2026-09-19T00:00:00.000Z',
+        away: true,
+        destination: 'Lisbon',
+        extras: [],
+        lineIndex: 2,
+        text: 'Lisbon · 2026-09-12..2026-09-19 · away · in Lisbon',
+      },
+    ],
+    unparsed: [],
+    awayNow: null,
+  };
+}
+
+/**
+ * occasions.pending — deliberately never carries a date, only the proximity word
+ * (docs/occasions.md §4.3). One nudge subject, one in-progress interview so the
+ * webui's answer/continue-interview actions have something real to act on.
+ */
+export function occasionsPendingResponse(): OperatorMethodOutput<'occasions.pending'> {
+  return {
+    today: '2026-07-29',
+    nudge: {
+      id: 'nudge-e2e-1',
+      raisedAt: 1_753_700_000_000,
+      subjects: [
+        { occasionId: 'occ-e2e-1', title: 'Sarah’s birthday', person: 'Sarah', kind: 'gift-giving' as const, proximity: 'approaching' as const },
+      ],
+      message: 'Sarah’s birthday is approaching.',
+      answerable: true,
+    },
+    conflicts: [],
+    interviews: [
+      {
+        interviewId: 'iv-e2e-1',
+        occasionId: 'occ-e2e-1',
+        occurrence: '2027-03-14',
+        steps: [{ id: 'step-1', prompt: 'What has she mentioned wanting lately?', opensFrom: '2027-02-21' }],
+        nextStep: { id: 'step-1', prompt: 'What has she mentioned wanting lately?', opensFrom: '2027-02-21' },
+        complete: false,
+        landedOn: null,
+      },
+    ],
+  };
+}
+
+export function occasionsStateResponse(): OperatorMethodOutput<'occasions.state'> {
+  return {
+    path: '/tmp/e2e/occasions-state.json',
+    acknowledgements: 1,
+    giftRecords: 2,
+    openItems: 1,
+    interviews: 1,
+    mirrors: 0,
+    lastSweep: {
+      sweptAt: 1_753_700_000_000,
+      expiredAcknowledgements: 0,
+      orphanedRecords: 0,
+      expiredOpenItems: 0,
+      agedGiftRecords: 0,
+      droppedInterviews: 0,
+      staleMirrors: 0,
+    },
+    corruption: null,
+  };
+}
+
+export function occasionsGiftsResponse(occasionId: string): OperatorMethodOutput<'occasions.gifts'> {
+  return {
+    occasionId,
+    gifts: occasionId === 'occ-e2e-2'
+      ? [{ occasionId, occurrence: '2025-11-02', recordedAt: 1_753_600_000_000, landedOn: 'A framed photo', notes: 'He mentioned this last year.' }]
+      : [],
+  };
+}
+
+/** The honest not-available refusal, matching mail/calendar's shape for a brand-new
+ * verb family that may not be wired on every daemon build yet. */
+export const OCCASIONS_NOT_INVOKABLE_BODY = { error: 'Gateway method is cataloged but not invokable through method dispatch', code: 'METHOD_NOT_INVOKABLE' };
 
 /** A tiny valid SVG for the knowledge map render proof. */
 export function knowledgeMapResponse() {

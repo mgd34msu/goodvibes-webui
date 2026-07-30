@@ -215,6 +215,19 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
       expect(isExtraRoutedMethod(method)).toBe(true);
     }
   });
+
+  // occasions.* (docs/occasions.md, the dates panel): same table-routed shape as
+  // checkin.*/ci.*/principals.* above — real REST routes, no browser-SDK coverage.
+  test('occasions.* is table-routed', () => {
+    for (const method of [
+      'occasions.list', 'occasions.pending', 'occasions.propose', 'occasions.confirm', 'occasions.remove',
+      'occasions.answer', 'occasions.gifts', 'occasions.sweep', 'occasions.state',
+      'occasions.conflict.resolve', 'occasions.interview.get', 'occasions.interview.answer', 'occasions.interview.record',
+      'occasions.plans.list', 'occasions.plans.propose', 'occasions.plans.confirm',
+    ]) {
+      expect(isExtraRoutedMethod(method)).toBe(true);
+    }
+  });
 });
 
 describe('facade route knowledge is generated, not hand-maintained', () => {
@@ -288,6 +301,36 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
       'profile.forget': { method: 'POST', path: '/api/profile/forget' },
       'profile.undo': { method: 'POST', path: '/api/profile/undo' },
       'profile.status': { method: 'GET', path: '/api/profile/status' },
+    } as const;
+    for (const [id, route] of Object.entries(expected)) {
+      expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
+      expect(isExtraRoutedMethod(id)).toBe(true);
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
+      expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
+    }
+  });
+
+  test('the sixteen occasions.* verbs arrive DERIVED — real REST rows from the generated artifact, no hand-written row', () => {
+    // Same shape as the profile.* pin above: DatesView/goodvibes.ts add no route
+    // wiring of their own — every row below comes from WEBUI_METHOD_ROUTES via
+    // buildExtraMethodRoutes.
+    const expected = {
+      'occasions.list': { method: 'GET', path: '/api/occasions' },
+      'occasions.pending': { method: 'GET', path: '/api/occasions/pending' },
+      'occasions.propose': { method: 'POST', path: '/api/occasions/propose' },
+      'occasions.confirm': { method: 'POST', path: '/api/occasions/confirm' },
+      'occasions.remove': { method: 'POST', path: '/api/occasions/remove' },
+      'occasions.answer': { method: 'POST', path: '/api/occasions/answer' },
+      'occasions.gifts': { method: 'POST', path: '/api/occasions/gifts' },
+      'occasions.sweep': { method: 'POST', path: '/api/occasions/sweep' },
+      'occasions.state': { method: 'GET', path: '/api/occasions/state' },
+      'occasions.conflict.resolve': { method: 'POST', path: '/api/occasions/conflict/resolve' },
+      'occasions.interview.get': { method: 'POST', path: '/api/occasions/interview' },
+      'occasions.interview.answer': { method: 'POST', path: '/api/occasions/interview/answer' },
+      'occasions.interview.record': { method: 'POST', path: '/api/occasions/interview/record' },
+      'occasions.plans.list': { method: 'GET', path: '/api/occasions/plans' },
+      'occasions.plans.propose': { method: 'POST', path: '/api/occasions/plans/propose' },
+      'occasions.plans.confirm': { method: 'POST', path: '/api/occasions/plans/confirm' },
     } as const;
     for (const [id, route] of Object.entries(expected)) {
       expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
@@ -605,6 +648,156 @@ describe('checkin.* (SDK 1.6.1 initiative family) wire calls', () => {
   });
 });
 
+describe('occasions.* (docs/occasions.md, the dates panel) wire calls', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; method: string; body: unknown }[];
+
+  function stubFetch(responseBody: unknown, status = 200): void {
+    calls = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({
+        url: String(input),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(init.body as string) : undefined,
+      });
+      return new Response(JSON.stringify(responseBody), { status, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('operator.occasions.list GETs /api/occasions', async () => {
+    stubFetch({ today: '2026-07-29', timezone: 'America/Chicago', occasions: [], unparsed: [], conflicts: [] });
+    const result = await sdk.operator.occasions.list();
+    expect(calls[0].url).toContain('/api/occasions');
+    expect(calls[0].method).toBe('GET');
+    expect(result.occasions).toEqual([]);
+  });
+
+  test('operator.occasions.pending GETs /api/occasions/pending', async () => {
+    stubFetch({ today: '2026-07-29', nudge: null, conflicts: [], interviews: [] });
+    const result = await sdk.operator.occasions.pending();
+    expect(calls[0].url).toContain('/api/occasions/pending');
+    expect(calls[0].method).toBe('GET');
+    expect(result.nudge).toBeNull();
+  });
+
+  test('operator.occasions.plans.list GETs /api/occasions/plans', async () => {
+    stubFetch({ today: '2026-07-29', plans: [], unparsed: [], awayNow: null });
+    const result = await sdk.operator.occasions.plans.list();
+    expect(calls[0].url).toContain('/api/occasions/plans');
+    expect(calls[0].method).toBe('GET');
+    expect(result.awayNow).toBeNull();
+  });
+
+  test('operator.occasions.state GETs /api/occasions/state', async () => {
+    stubFetch({ path: '/tmp/occasions-state.json', acknowledgements: 1, giftRecords: 2, openItems: 0, interviews: 0, mirrors: 0, lastSweep: null, corruption: null });
+    const result = await sdk.operator.occasions.state();
+    expect(calls[0].url).toContain('/api/occasions/state');
+    expect(calls[0].method).toBe('GET');
+    expect(result.acknowledgements).toBe(1);
+  });
+
+  test('operator.occasions.answer POSTs occasionId/answer/occurrence to /api/occasions/answer', async () => {
+    stubFetch({ ok: true, reason: null, interview: null });
+    await sdk.operator.occasions.answer({ occasionId: 'occ-1', answer: 'yes' });
+    expect(calls[0].url).toContain('/api/occasions/answer');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ occasionId: 'occ-1', answer: 'yes' });
+  });
+
+  test('operator.occasions.remove POSTs occasionId/confirmed/authority to /api/occasions/remove', async () => {
+    stubFetch({ ok: true, reason: null, occasionId: 'occ-1', disclosure: 'Removed.', droppedRecords: 2 });
+    const result = await sdk.operator.occasions.remove({ occasionId: 'occ-1', confirmed: true, authority: 'owner-direct' });
+    expect(calls[0].url).toContain('/api/occasions/remove');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ occasionId: 'occ-1', confirmed: true, authority: 'owner-direct' });
+    expect(result.droppedRecords).toBe(2);
+  });
+
+  test('operator.occasions.confirm POSTs the full owner-profile write body to /api/occasions/confirm', async () => {
+    stubFetch({ ok: true, reason: null, occasionId: 'occ-new', disclosure: 'Added.', droppedRecords: 0 });
+    await sdk.operator.occasions.confirm({
+      title: 'Sarah’s birthday', date: '2026-03-14', kind: 'gift-giving', surface: 'webui', said: '(added in the dates panel)', authority: 'owner-direct',
+    });
+    expect(calls[0].url).toContain('/api/occasions/confirm');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({
+      title: 'Sarah’s birthday', date: '2026-03-14', kind: 'gift-giving', surface: 'webui', said: '(added in the dates panel)', authority: 'owner-direct',
+    });
+  });
+
+  test('operator.occasions.gifts POSTs occasionId to /api/occasions/gifts', async () => {
+    stubFetch({ occasionId: 'occ-1', gifts: [] });
+    const result = await sdk.operator.occasions.gifts('occ-1');
+    expect(calls[0].url).toContain('/api/occasions/gifts');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ occasionId: 'occ-1' });
+    expect(result.gifts).toEqual([]);
+  });
+
+  test('operator.occasions.sweep POSTs /api/occasions/sweep with no body and returns the full run receipt', async () => {
+    stubFetch({
+      ranAt: 1, today: '2026-07-29', hold: null, nudge: null, conflictMessages: [], resumedInterviews: [],
+      delivered: false, deliveryChannel: 'telegram', deliveryId: null, mirrored: 0, housekeeping: null,
+    });
+    const result = await sdk.operator.occasions.sweep();
+    expect(calls[0].url).toContain('/api/occasions/sweep');
+    expect(calls[0].method).toBe('POST');
+    expect(result.delivered).toBe(false);
+  });
+
+  test('operator.occasions.conflict.resolve POSTs occasionId to /api/occasions/conflict/resolve', async () => {
+    stubFetch({ occasionId: 'occ-1', resolved: true });
+    const result = await sdk.operator.occasions.conflict.resolve('occ-1');
+    expect(calls[0].url).toContain('/api/occasions/conflict/resolve');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ occasionId: 'occ-1' });
+    expect(result.resolved).toBe(true);
+  });
+
+  test('operator.occasions.interview.get POSTs interviewId to /api/occasions/interview', async () => {
+    stubFetch({ present: false, interview: null });
+    const result = await sdk.operator.occasions.interview.get('iv-1');
+    expect(calls[0].url).toContain('/api/occasions/interview');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ interviewId: 'iv-1' });
+    expect(result.present).toBe(false);
+  });
+
+  test('operator.occasions.interview.answer POSTs interviewId/stepId/text to /api/occasions/interview/answer', async () => {
+    stubFetch({ present: true, interview: null });
+    await sdk.operator.occasions.interview.answer({ interviewId: 'iv-1', stepId: 'step-1', text: 'A scarf' });
+    expect(calls[0].url).toContain('/api/occasions/interview/answer');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ interviewId: 'iv-1', stepId: 'step-1', text: 'A scarf' });
+  });
+
+  test('operator.occasions.interview.record POSTs interviewId/landedOn to /api/occasions/interview/record', async () => {
+    stubFetch({ present: true, interview: null });
+    await sdk.operator.occasions.interview.record({ interviewId: 'iv-1', landedOn: 'A scarf' });
+    expect(calls[0].url).toContain('/api/occasions/interview/record');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].body).toEqual({ interviewId: 'iv-1', landedOn: 'A scarf' });
+  });
+
+  test('operator.occasions.plans.propose/confirm POST to their own paths', async () => {
+    stubFetch({ ok: true, reason: null, line: 'sample', confirmation: 'sample', needsKind: false, conflictsWith: [] });
+    await sdk.operator.occasions.plans.propose({ title: 'Lisbon', from: '2026-09-12', to: '2026-09-19', away: true });
+    expect(calls[0].url).toContain('/api/occasions/plans/propose');
+    expect(calls[0].method).toBe('POST');
+
+    stubFetch({ ok: true, reason: null, occasionId: 'plan-1', disclosure: 'Added.', droppedRecords: 0 });
+    await sdk.operator.occasions.plans.confirm({
+      title: 'Lisbon', from: '2026-09-12', to: '2026-09-19', away: true, surface: 'webui', said: '(added in the dates panel)', authority: 'owner-direct',
+    });
+    expect(calls[0].url).toContain('/api/occasions/plans/confirm');
+    expect(calls[0].method).toBe('POST');
+  });
+});
+
 describe('principals.* / channels.profiles.* (SDK 1.6.1 initiative family) wire calls', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; method: string; body: unknown }[];
@@ -747,8 +940,12 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'payments' added for card entry on this surface (payments.cards.list/create/
     // delete — real REST routes already carried by the pinned contracts facade, so
     // they resolve through EXTRA_METHOD_ROUTES like config.* and power.* above).
+    // 'occasions' added for the dates panel (docs/occasions.md) — sixteen occasions.*
+    // verbs, real generated I/O maps throughout, same no-bridge-override shape as
+    // checkin/principals above (see the operator.occasions section comment in
+    // goodvibes.ts).
     expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'ops', 'pairing', 'payments', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
+      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'occasions', 'ops', 'pairing', 'payments', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
     );
   });
 
@@ -836,6 +1033,18 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.calendar).sort()).toEqual(['events', 'ics'].sort());
     expect(Object.keys(sdk.operator.calendar.events).sort()).toEqual(['create', 'get', 'list'].sort());
     expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
+  });
+
+  // occasions.* (docs/occasions.md, the dates panel) — sixteen verbs across the flat
+  // group plus three sub-namespaces (conflict, interview, plans), same
+  // dotted-verb-becomes-sub-namespace convention pairing.tokens/channels.profiles use.
+  test('sdk.operator.occasions exposes the full sixteen-verb surface', () => {
+    expect(Object.keys(sdk.operator.occasions).sort()).toEqual(
+      ['list', 'pending', 'propose', 'confirm', 'remove', 'answer', 'gifts', 'sweep', 'state', 'conflict', 'interview', 'plans'].sort(),
+    );
+    expect(Object.keys(sdk.operator.occasions.conflict).sort()).toEqual(['resolve']);
+    expect(Object.keys(sdk.operator.occasions.interview).sort()).toEqual(['get', 'answer', 'record'].sort());
+    expect(Object.keys(sdk.operator.occasions.plans).sort()).toEqual(['list', 'propose', 'confirm'].sort());
   });
 
   test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), and toolCalls/queuedMessages (SDK 1.8.0)', () => {

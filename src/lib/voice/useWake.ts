@@ -24,14 +24,16 @@ import {
   type WakeHostState,
   type WakeTranscriptSink,
 } from './wake-host';
-import { transcribeUtterance, useVoiceStatus, useWakeSettings } from './useVoice';
+import { transcribeUtterance, useVoiceStatus, useWakeSettings, WAKE_STATUS_QUERY_KEY } from './useVoice';
 import type { WakeModelChunk, WakeModelComponent } from './wake-models';
 
 export type WakeStatus = OperatorMethodOutput<'voice.wake.status'>;
 export type WakeProvisionReceipt = OperatorMethodOutput<'voice.wake.provision'>;
 
 /** The query key the provisioning read shares, so a provision can invalidate it. */
-export const WAKE_STATUS_QUERY_KEY = ['voice', 'wake', 'status'] as const;
+// Defined in useVoice.ts (the shared side of the import), re-exported here so
+// this module's public surface is unchanged.
+export { WAKE_STATUS_QUERY_KEY } from './useVoice';
 
 /**
  * `voice.wake.status` plus the one-act `voice.wake.provision`.

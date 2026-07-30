@@ -20,8 +20,20 @@
  * change cannot be served a stale hit — a different pin is a different key.
  */
 
-/** The components a tab needs. `notice` is the model card, not an ONNX model. */
-export type WakeModelComponent = 'classifier' | 'embedding' | 'notice';
+import type { OperatorMethodInput } from '../goodvibes';
+
+/**
+ * Every component `voice.wake.model.get` serves, DERIVED from the generated
+ * contract rather than copied.
+ *
+ * The daemon's set grows — the tflite twin, the speech gate and its notice, an
+ * embedding notice — and a hand-written copy here would refuse a valid component
+ * client-side the moment one was added, which is a failure the consumer causes and
+ * the daemon cannot see. A tab only ever FETCHES what it needs (classifier,
+ * embedding, and the gate when a voice-activity floor is configured); this type is
+ * about what it must not reject.
+ */
+export type WakeModelComponent = OperatorMethodInput<'voice.wake.model.get'>['component'];
 
 /** One chunk of a component, exactly as `voice.wake.model` answers. */
 export interface WakeModelChunk {

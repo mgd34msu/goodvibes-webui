@@ -28,6 +28,7 @@ import {
   type AudioCaptureOpener,
   type CapturedUtterance,
   type UtteranceAudioArtifact,
+  type NoiseSuppressionFactory,
 } from '@pellux/goodvibes-sdk/platform/voice/capture';
 import {
   WakeListener,
@@ -121,6 +122,13 @@ export type WakeTranscriptSink = (text: string, options: { readonly autoSubmit: 
 export interface WakeModelSet {
   readonly embedding: WakeInferenceSession;
   readonly models: readonly WakeModelHandle[];
+  /**
+   * The speech gate, present only when `voice.wake.vadThreshold` asks for one AND
+   * its artifact is provisioned. Absent means every frame is scored, which is what
+   * the shipped default of 0 asks for — never a gate that failed to load, because
+   * that is a startup blocker from resolveWakeRuntimeSettings.
+   */
+  readonly vad?: { readonly session: WakeInferenceSession; readonly threshold: number } | undefined;
   readonly backend: WakeBrowserBackend;
   readonly fallbackReason: string | null;
   /** Rows that are configured but cannot be honoured, e.g. an unservable model id. */
@@ -133,6 +141,13 @@ export interface WakeHostDeps {
   readonly openCapture: AudioCaptureOpener;
   /** Loads models and the inference runtime for a resolved configuration. */
   readonly loadModelSet: (settings: WakeRuntimeSettings) => Promise<WakeModelSet>;
+  /**
+   * Builds the speex suppression stage. The SDK's listener wraps the opener and
+   * defaults to the embedded WebAssembly filter; injected here so a test can check
+   * that captured frames REACH a stage without compiling one, while the filter's
+   * own numbers stay the SDK's to assert.
+   */
+  readonly createNoiseSuppression?: NoiseSuppressionFactory | undefined;
   /** Sends an utterance to speech-to-text and returns the text. */
   readonly transcribe: (artifact: UtteranceAudioArtifact) => Promise<string>;
   /** Plays the activation sound; false when this tab could not make a sound. */
@@ -340,11 +355,15 @@ export class WakeHost {
     const listener = new WakeListener({
       settings,
       openCapture: this.#deps.openCapture,
+      ...(this.#deps.createNoiseSuppression !== undefined
+        ? { createNoiseSuppression: this.#deps.createNoiseSuppression }
+        : {}),
       createEngine: () => Promise.resolve(new WakeWordEngine({
         embedding: modelSet.embedding,
         models: modelSet.models,
         tuning: settings.tuning,
         preRollMs: settings.preRollMs,
+        ...(modelSet.vad !== undefined ? { vad: modelSet.vad } : {}),
         // Required in practice: the engine no longer imports a logger (that pulled
         // node:fs and made it unbundleable here), so a model that misbehaves is
         // only ever visible through this sink.
@@ -510,14 +529,19 @@ export function createBrowserModelSetLoader(deps: {
       warn: deps.warn,
       ...(cache ? { cache } : {}),
     };
-    const [embeddingBytes, classifierBytes] = await Promise.all([
+    const wantsGate = settings.vadThreshold > 0;
+    const [embeddingBytes, classifierBytes, vadBytes] = await Promise.all([
       loadWakeModel('embedding', loaderDeps),
       loadWakeModel('classifier', loaderDeps),
+      // Fetched, cached and CHECKSUM-VERIFIED exactly like the other two — a gate
+      // assembled from a truncated transfer would screen frames by accident.
+      wantsGate ? loadWakeModel('vad', loaderDeps) : Promise.resolve(null),
     ]);
 
     const runtime = await loadWakeRuntime(settings.browserBackend);
     const embedding = await runtime.createSession(embeddingBytes.bytes);
     const classifier = await runtime.createSession(classifierBytes.bytes);
+    const vadSession = vadBytes === null ? null : await runtime.createSession(vadBytes.bytes);
 
     const limitations: string[] = [];
     const unservable = settings.modelIds.filter((id) => id !== PINNED_WAKE_MODEL_ID);
@@ -541,11 +565,12 @@ export function createBrowserModelSetLoader(deps: {
     return {
       embedding,
       models,
+      ...(vadSession !== null ? { vad: { session: vadSession, threshold: settings.vadThreshold } } : {}),
       backend: runtime.backend,
       fallbackReason: runtime.fallbackReason,
       limitations,
       release: async () => {
-        await Promise.all([embedding.release?.(), classifier.release?.()]);
+        await Promise.all([embedding.release?.(), classifier.release?.(), vadSession?.release?.()]);
       },
     };
   };

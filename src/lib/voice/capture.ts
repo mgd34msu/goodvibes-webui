@@ -370,11 +370,15 @@ function classifyGetUserMediaError(error: unknown): AudioCaptureError {
  *
  * `request.backend` is ignored: it names a host recorder subprocess and a
  * browser tab has none, which the `voice.wake.captureCommand` row says in
- * writing. `request.noiseSuppression: 'speex'` is REFUSED rather than silently
- * skipped: the platform ships no libspeexdsp bindings on ANY surface, so nothing
- * anywhere applies that stage, and audio flowing unfiltered through a stage the
- * user configured is precisely the silent failure the SDK's blocker/limitation
- * split exists to prevent. `none` is the only value that runs.
+ * writing.
+ *
+ * `request.noiseSuppression: 'speex'` reaching THIS opener is refused, and that is
+ * not a statement about the platform: the speexdsp filter is a WebAssembly module
+ * the SDK carries and it runs perfectly well in a tab — one layer up, inside
+ * `createNoiseSuppressingOpener`, which WakeListener and PushToTalkSession apply
+ * and which asks this opener for raw frames. So a `speex` request arriving here
+ * means the wrapper was bypassed, and passing it through would hand back
+ * unfiltered audio under a filter the user configured.
  */
 export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()): AudioCaptureOpener {
   return async (request: AudioCaptureRequest, handlers: AudioCaptureHandlers): Promise<AudioCaptureStream> => {
@@ -391,8 +395,10 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
     if (request.noiseSuppression === 'speex') {
       throw new AudioCaptureError(
         'noise-suppression-unavailable',
-        'Speex noise suppression is not available: the platform ships no libspeexdsp bindings, so no surface '
-        + 'applies that stage. Set voice.wake.noiseSuppression to "none" to capture.',
+        'This opener produces raw microphone frames and does not filter them. The platform\'s speexdsp stage runs '
+        + 'one layer up, in createNoiseSuppressingOpener, which the wake listener and the push-to-talk session '
+        + 'already apply — so this request reached the wrong layer. Refusing rather than returning unfiltered audio '
+        + 'under a filter you configured.',
       );
     }
 
@@ -504,7 +510,12 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
     } catch (error) {
       await finish();
       if (error instanceof AudioCaptureError) throw error;
-      throw new AudioCaptureError('unsupported', 'The microphone opened but no audio graph could read it.');
+      // Carry the cause. "No audio graph could read it" on its own is a message
+      // nobody can act on — the reason is whatever the graph actually threw.
+      throw new AudioCaptureError(
+        'unsupported',
+        `The microphone opened but no audio graph could read it: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   };
 }

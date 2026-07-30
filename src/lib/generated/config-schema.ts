@@ -1394,6 +1394,84 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Absolute path to the profile Markdown file. Empty means the default, owner-profile.md under the daemon home — which already honours GOODVIBES_DAEMON_HOME, so this override is only for keeping the file somewhere else entirely."
   },
   {
+    "key": "occasions.enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Raise your important dates on their own, before they matter. On by default because a feature that ships off ships dark, and because being told about your wife's birthday in time is the whole point. Turning it off does NOT forget anything: the dates stay in your profile, stay readable, and are still answered when you ask — it only stops the system raising them unprompted."
+  },
+  {
+    "key": "occasions.leadDays",
+    "type": "number",
+    "default": 10,
+    "description": "How many days ahead an occasion starts being raised. Ten because that is enough runway to order something and have it arrive. An individual entry overrides this by carrying \"lead 21\" on its line, so a date that needs longer does not force everything else earlier.",
+    "validationHint": "integer in [0, 365]"
+  },
+  {
+    "key": "occasions.activeHours",
+    "type": "string",
+    "default": "08:00-22:00",
+    "description": "The hours a nudge may arrive, HH:MM-HH:MM, reckoned in daemon.timezone. 08:00–22:00 because those hours are generally fine and anything outside them probably is not. Outside this window nothing is dropped — it waits. An empty or unreadable value means no restriction rather than permanent silence, so a typo cannot switch the feature off invisibly."
+  },
+  {
+    "key": "occasions.nudgeChannel",
+    "type": "string",
+    "default": "telegram",
+    "description": "Where a nudge is delivered, as a channel surface or surface:address (for example telegram, or telegram:12345). Telegram by default, because an occasion nudge that waits to be asked for has already missed the date it existed to protect — the owner ruled that these push out of the box. Set it to empty to make the feature pull-only instead: nothing is pushed, and the agent surface picks up what is outstanding at the start of a turn. The TUI is refused as a destination whatever is set here: it is a get-work-done interface, and life admin does not belong in it."
+  },
+  {
+    "key": "occasions.cadenceDays",
+    "type": "number",
+    "default": 3,
+    "description": "How often an unanswered occasion is raised again, in days, until the final stretch. Three was my choice rather than yours and is a setting for that reason. Silence never ends a nudge — there is no give-up-after-one-retry anywhere in this feature — so this governs the rhythm, not whether it stops.",
+    "validationHint": "integer in [1, 60]"
+  },
+  {
+    "key": "occasions.finalStretchDays",
+    "type": "number",
+    "default": 2,
+    "description": "How many days before the date the rhythm goes daily. Two, so the last thing you heard about it is not four days old when it arrives. Also my choice rather than yours.",
+    "validationHint": "integer in [0, 30]"
+  },
+  {
+    "key": "occasions.awayAdjust",
+    "type": "boolean",
+    "default": true,
+    "description": "Let a plan that has you away from home move a nudge EARLIER, to the day before you leave. On because you cannot have something delivered to a house you are not in, so a reminder that arrives while you are abroad has already missed the window it existed to protect. When you have already left there is nothing earlier to move to and the nudge stands rather than waiting for your return."
+  },
+  {
+    "key": "occasions.calendarMirror",
+    "type": "boolean",
+    "default": false,
+    "description": "Write your occasions out to the connected calendar as well. Off by default because your profile is the record and the calendar is a copy — calendar entries are single occurrences that do not persist across years, which is exactly why these dates live in the profile instead. Nothing is ever read back the other way, and deleting a calendar entry never removes the occasion."
+  },
+  {
+    "key": "occasions.suppressMirroredNudges",
+    "type": "boolean",
+    "default": true,
+    "description": "Stay quiet about an occasion that is already in a calendar, so the calendar's own reminder is the only ping. On by default because two pings for one birthday is how a useful reminder becomes one you mute. Turn it off if you would rather have both — an occasion marked \"mirrored\" on its own line is covered by this too."
+  },
+  {
+    "key": "occasions.interviewQuestions",
+    "type": "number",
+    "default": 3,
+    "description": "How many questions are asked after you say yes to sorting a gift. Three, because it is meant to guide you to an idea rather than fill in a form, and a long one is a form. The questions open from what your profile already knows about the person and from what you landed on last time; none of them recommends anything.",
+    "validationHint": "integer in [1, 8]"
+  },
+  {
+    "key": "occasions.giftHistoryYears",
+    "type": "number",
+    "default": 10,
+    "description": "How long the record of what you landed on is kept, in years. Ten, so year three is not steered by year one. This is the one part of the machine-owned state that deliberately outlives its occasion's answer — the answers expire with their date so next year asks fresh, the history does not.",
+    "validationHint": "integer in [1, 50]"
+  },
+  {
+    "key": "occasions.sweepIntervalMinutes",
+    "type": "number",
+    "default": 60,
+    "description": "How often the daemon looks for dates entering their lead window, in minutes. Hourly by default, which is frequent enough that a nudge lands within an hour of the window opening and cheap enough to be invisible — the pass reads memory and touches one small file. It cannot over-nudge whatever this is set to: each occasion carries its own next-due date, so a shorter interval makes the FIRST nudge land sooner and changes nothing about the rhythm after it. Housekeeping runs on every pass, including the ones that are inside quiet hours or that raise nothing.",
+    "validationHint": "integer in [5, 1440]"
+  },
+  {
     "key": "voice.local.sttEngine",
     "type": "enum",
     "default": "",
@@ -1443,7 +1521,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.enabled",
     "type": "boolean",
     "default": false,
-    "description": "NOT AVAILABLE IN THIS BUILD — turning this on does nothing yet. The detector is complete (model, front end, scoring, provisioning) but no surface captures microphone audio or supplies it an inference runtime, so nothing is listening. The setting is remembered and takes effect in the release that adds capture; until then the wake-word-detection feature reports itself unavailable rather than pretending to run. What it will do: run the wake-word detector, listening continuously for the wake phrase on the configured input device. Off by default because an always-on microphone must be an explicit act, not something a user discovers after the fact — the same posture as voice.local.*, where nothing auto-downloads and nothing auto-starts. Turning it on will start a supervised capture process; turning it off stops it and releases the device."
+    "description": "Run the wake-word detector, listening continuously for the wake phrase on the configured input device. Turning it on starts a supervised capture process and a persistent listening indicator; turning it off stops it and releases the device immediately. WHERE IT LISTENS depends on the voice.wake.surfaces.* rows: the terminal captures through a recorder subprocess and is on by default, a browser tab captures through getUserMedia and is opted in per origin, and the agent surface has no capture host yet. Off by default because an always-on microphone must be an explicit act, not something a user discovers after the fact — the same posture as voice.local.*, where nothing auto-downloads and nothing auto-starts. The pinned model is downloaded on an explicit provision, so enabling this on a host that has not provisioned reports what is missing instead of silently fetching 3.7 MB."
   },
   {
     "key": "voice.wake.models",
@@ -1476,7 +1554,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.vadThreshold",
     "type": "number",
     "default": 0,
-    "description": "Speech-probability floor, 0 to 1, from a voice-activity detector run ahead of the wake classifier; frames below it are discarded before scoring. 0 means the VAD stage is off, which is the shipped default: it costs an extra model download and per-frame inference, and there is no measured false-accept evidence yet that justifies it. Raise it above 0 if the detector fires on music or non-speech noise.",
+    "description": "Speech-probability floor, 0 to 1, from a voice-activity detector run ahead of the wake classifier; frames below it are discarded before scoring. 0 means the VAD stage is off, which is the shipped default: it costs an extra model download and per-frame inference, and there is no measured false-accept evidence yet that justifies it. NO VAD MODEL IS PINNED TODAY, so any value above 0 REFUSES TO START the detector with that reason stated, rather than running unscreened frames through a stage you have configured — the same posture as noiseSuppression below. It becomes usable when a VAD model joins the pinned manifest; until then 0 is the only value that runs.",
     "validationHint": "number in [0, 1]"
   },
   {
@@ -1493,13 +1571,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.inputDevice",
     "type": "string",
     "default": "",
-    "description": "Capture device to listen on. Empty means the operating system default source. Device identifiers are host-specific — list real ones with `pactl list short sources`, `arecord -L`, or navigator.mediaDevices in a browser."
+    "description": "Capture device to listen on. Empty means the operating system default source. Shared by BOTH microphone consumers: wake detection and push-to-talk voice input open the same device through the same path, so this row moves both rather than only the always-on one. Device identifiers are host-specific — list real ones with `pactl list short sources` or `arecord -L`, or use a navigator.mediaDevices deviceId in a browser tab. Note pw-record takes a PipeWire node serial or node name here, not a PulseAudio device name, and sox cannot target a device at all (it reads AUDIODEV from the environment), which the surface reports rather than silently ignoring."
   },
   {
     "key": "voice.wake.captureCommand",
     "type": "enum",
     "default": "auto",
-    "description": "Which recorder feeds the detector. \"auto\" probes for pw-record, parecord, arecord, ffmpeg, then sox and uses the first present, mirroring how local audio playback discovers its player. Name one explicitly to pin the choice on a host where the probe picks a device-starved backend.",
+    "description": "Which recorder feeds capture on a HOST surface — the terminal and the daemon child process. A browser tab ignores this row and uses getUserMedia. Feeds both consumers: wake detection and push-to-talk voice input. \"auto\" probes for pw-record, parecord, arecord, ffmpeg, then sox and uses the first present, mirroring how local audio playback discovers its player. Name one explicitly to pin the choice on a host where the probe picks a device-starved backend; a named recorder that is not installed reports that instead of quietly falling back, because pinning it was the point.",
     "enumValues": [
       "auto",
       "pw-record",
@@ -1513,19 +1591,19 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.surfaces.tui",
     "type": "boolean",
     "default": true,
-    "description": "Deliver wake events to the terminal UI. On by default: once wake detection is enabled the terminal is the primary surface, and a wake that reaches no surface is a detector that appears broken."
+    "description": "Listen for the wake phrase on the terminal, through a recorder subprocess on the host. On by default: once wake detection is enabled the terminal is the primary surface, and a wake that reaches no surface is a detector that appears broken. A confirmed wake plays the activation sound, shows the listening indicator, captures the utterance that follows and sends it to speech-to-text, then places the transcript in the composer — or submits it when voice.wake.autoSubmit is on."
   },
   {
     "key": "voice.wake.surfaces.agent",
     "type": "boolean",
     "default": false,
-    "description": "Deliver wake events to the agent surface. Off by default because two terminal surfaces both acting on one spoken utterance is a confusing default; turn it on when the agent is the surface you actually talk to."
+    "description": "Listen for the wake phrase on the agent surface. Off by default because two terminal surfaces both acting on one spoken utterance is a confusing default. THE AGENT HAS NO CAPTURE HOST YET: the shared capture path is built and the agent surface does not open it, so turning this on records the choice and starts nothing there. It takes effect when the agent wires the same recorder path the terminal uses; the terminal and browser rows are unaffected."
   },
   {
     "key": "voice.wake.surfaces.webui",
     "type": "boolean",
     "default": false,
-    "description": "Deliver wake events to the web UI, which runs the detector in the browser tab. Off by default because browser capture is a separate stack with its own per-origin microphone permission prompt — it is opted into per browser, not inherited from the host."
+    "description": "Listen for the wake phrase in the web UI, which runs the detector inside the browser tab on a WASM backend and downloads the pinned model through the daemon. Off by default because browser capture is a separate stack with its own per-origin microphone permission prompt — it is opted into per browser, not inherited from the host. While it is off the tab never calls getUserMedia at all, so no permission prompt appears. A plain-http origin cannot capture and says so instead of failing silently."
   },
   {
     "key": "voice.wake.activationSound",
@@ -1542,13 +1620,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.activationSoundPath",
     "type": "string",
     "default": "",
-    "description": "Absolute path to the audio file played on wake. Read only when voice.wake.activationSound is \"custom\"; ignored otherwise."
+    "description": "Absolute path to the audio file played on wake. Read only when voice.wake.activationSound is \"custom\"; ignored otherwise. A host surface plays the file through the same player local voice output uses. A browser tab cannot read a path on your machine, so it plays the built-in chime instead and reports that this row is not in force there — a wake stays audible either way."
   },
   {
     "key": "voice.wake.indicator",
     "type": "enum",
     "default": "statusline",
-    "description": "How the surface shows that the microphone is live. \"statusline\" keeps a persistent listening marker for as long as the detector runs — not only at the moment of a wake — so an always-on microphone is never invisible. \"banner\" is more prominent; \"off\" removes the marker entirely and is not the default for that reason.",
+    "description": "How the surface shows that the microphone is live. \"statusline\" keeps a persistent listening marker for as long as the detector runs — not only at the moment of a wake — so an always-on microphone is never invisible: a footer row in the terminal, a status-strip chip in the web UI. \"banner\" is more prominent; \"off\" removes the marker entirely and is not the default for that reason.",
     "enumValues": [
       "off",
       "statusline",
@@ -1566,27 +1644,27 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.captureMaxSeconds",
     "type": "number",
     "default": 10,
-    "description": "Hard ceiling on how long post-wake capture runs before it stops on its own. Bounds memory and guarantees a stuck or silent stream cannot hold the microphone open indefinitely.",
+    "description": "Hard ceiling on how long capture runs before it stops on its own. Bounds memory and guarantees a stuck or silent stream cannot hold the microphone open indefinitely. Applies to post-wake capture AND to push-to-talk, where a key-release event that never arrives would otherwise leave the device open.",
     "validationHint": "integer in [1, 120]"
   },
   {
     "key": "voice.wake.silenceStopMs",
     "type": "number",
     "default": 1200,
-    "description": "Milliseconds of silence that end post-wake capture, so the request is sent when the user stops talking rather than at the voice.wake.captureMaxSeconds ceiling. Raise it if capture cuts off mid-sentence during natural pauses.",
+    "description": "Milliseconds of silence that end post-wake capture, so the request is sent when the user stops talking rather than at the voice.wake.captureMaxSeconds ceiling. Raise it if capture cuts off mid-sentence during natural pauses. Post-wake only: push-to-talk ends when the key is released, because someone holding it through a pause has not finished talking.",
     "validationHint": "integer in [100, 10000]"
   },
   {
     "key": "voice.wake.autoSubmit",
     "type": "boolean",
     "default": false,
-    "description": "Submit the transcribed text as a turn automatically instead of placing it in the input for review. Off by default, matching the never-auto-send posture of the existing voice input: a misheard transcript must not become a submitted turn without a human seeing it first."
+    "description": "Submit the transcribed text as a turn automatically instead of placing it in the input for review. Applies to the utterance captured after a WAKE; push-to-talk always places its transcript in the composer, because a person who pressed a key is already looking at the screen. Off by default, matching the never-auto-send posture of the existing voice input: a misheard transcript must not become a submitted turn without a human seeing it first."
   },
   {
     "key": "voice.wake.retainAudio",
     "type": "enum",
     "default": "none",
-    "description": "Whether captured audio is written to disk. \"none\" by default — nothing is stored, which is the only setting under which the microphone leaves no recording behind. \"session-temp\" keeps clips in a session-scoped directory that is deleted when the session ends and swept on recovery, and exists to debug a bad transcript, not as a recording feature.",
+    "description": "Whether captured audio is written to disk. \"none\" by default — nothing is stored, which is the only setting under which the microphone leaves no recording behind. \"session-temp\" keeps clips in a session-scoped directory that is deleted when the session ends and swept on recovery, and exists to debug a bad transcript, not as a recording feature. A browser tab has no filesystem to retain into: it reports that this row is not in force rather than appearing to store clips it is not storing.",
     "enumValues": [
       "none",
       "session-temp"
@@ -1623,7 +1701,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.browserBackend",
     "type": "enum",
     "default": "wasm",
-    "description": "Execution backend for the detector inside a browser tab. \"wasm\" is the default and the measured configuration: the per-frame cost already beats real time by a wide margin, and WebGPU cannot run the front end without splitting the graph across devices, which costs more in transfers than it saves. \"webgpu\" is available for hosts that measure otherwise.",
+    "description": "Execution backend for the detector inside a browser tab. \"wasm\" is the default and the measured configuration: the per-frame cost already beats real time by a wide margin, and WebGPU cannot run the front end without splitting the graph across devices, which costs more in transfers than it saves. \"webgpu\" is available for hosts that measure otherwise. Read by the browser tab when it creates its inference sessions; a host surface always runs WASM and ignores this row.",
     "enumValues": [
       "wasm",
       "webgpu"
@@ -5011,7 +5089,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
   {
     "id": "wake-word-detection",
     "name": "Wake-Word Detection",
-    "description": "Listens continuously on a capture device for a spoken wake phrase and hands the utterance that follows to speech-to-text. Detection runs the pinned \"hey goodvibes\" classifier behind a melspectrogram computed in code and Google's Apache-2.0 speech-embedding model, both on a WASM backend, so the same detector runs in a daemon child process and in a browser tab. Disabled by default because holding a microphone open must be an explicit act; enabling it starts a supervised capture process and shows a persistent listening indicator for as long as it runs. Tuned through voice.wake.*, whose threshold, patience and cooldown rows govern how readily it fires, and whose supervisor rows bound how a crashing detector is retried. The model's published recall figures are measured on synthesised speech only — no human recording of the phrase exists — while its false-accept figures are measured on real speech.",
+    "description": "Listens continuously on a capture device for a spoken wake phrase and hands the utterance that follows to speech-to-text. Detection runs the pinned \"hey goodvibes\" classifier behind a melspectrogram computed in code and Google's Apache-2.0 speech-embedding model, both on a WASM backend, so the same detector runs in a daemon child process and in a browser tab. Disabled by default because holding a microphone open must be an explicit act; enabling it starts a supervised capture process and shows a persistent listening indicator for as long as it runs. Live on the terminal (a recorder subprocess) and in the web UI (a browser tab, opted in per origin). The agent surface has no capture host yet and its row stays off. Tuned through voice.wake.*, whose threshold, patience and cooldown rows govern how readily it fires, and whose supervisor rows bound how a crashing detector is retried. The model's published recall figures are measured on synthesised speech only — no human recording of the phrase exists — while its false-accept figures are measured on real speech.",
     "domain": "voice",
     "enablement": {
       "key": "voice.wake.enabled",

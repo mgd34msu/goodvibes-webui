@@ -823,13 +823,31 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // 'local' added for SDK 1.9.0-dev's managed local-voice provisioning
     // (voice.local.status/install — both real REST routes, resolving through
     // EXTRA_METHOD_ROUTES like the rest of this namespace).
+    // 'wake' added for browser wake-word detection (voice.wake.status /
+    // voice.wake.provision / voice.wake.model — same generated-REST story).
     expect(Object.keys(sdk.operator.voice).sort()).toEqual(
-      ['local', 'providers', 'status', 'stt', 'tts', 'ttsStream', 'voices'].sort(),
+      ['local', 'providers', 'status', 'stt', 'tts', 'ttsStream', 'voices', 'wake'].sort(),
     );
   });
 
   test('sdk.operator.voice.local exposes exactly the status and install verbs', () => {
     expect(Object.keys(sdk.operator.voice.local).sort()).toEqual(['status', 'install'].sort());
+  });
+
+  test('sdk.operator.voice.wake exposes exactly status, provision and model.get', () => {
+    expect(Object.keys(sdk.operator.voice.wake).sort()).toEqual(['status', 'provision', 'model'].sort());
+    expect(Object.keys(sdk.operator.voice.wake.model).sort()).toEqual(['get']);
+  });
+
+  test('every voice.wake verb resolves through a generated REST route, not a hand-written row', () => {
+    // The three wake verbs must be routed by WEBUI_METHOD_ROUTES (the generated
+    // artifact), which is what isExtraRoutedMethod reports for a derived row.
+    for (const methodId of ['voice.wake.status', 'voice.wake.provision', 'voice.wake.model.get'] as const) {
+      expect(isExtraRoutedMethod(methodId)).toBe(true);
+    }
+    expect(webuiRouteFor('voice.wake.status')).toEqual({ method: 'GET', path: '/api/voice/wake/status' });
+    expect(webuiRouteFor('voice.wake.provision')).toEqual({ method: 'POST', path: '/api/voice/wake/provision' });
+    expect(webuiRouteFor('voice.wake.model.get')).toEqual({ method: 'GET', path: '/api/voice/wake/model' });
   });
 
   test('sdk.operator.calendar keys are events and ics', () => {

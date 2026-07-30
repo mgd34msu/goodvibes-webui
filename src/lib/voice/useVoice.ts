@@ -5,10 +5,31 @@
  *   useSharedVoiceConfig() the shared tts.provider/tts.voice defaults (config.get).
  *   useTts()              speak/stop a reply through the singleton engine, with live state.
  *   useVoiceInput()       mic capture -> voice.stt -> transcript, as an honest state machine.
+ *
+ * WHAT CHANGED UNDERNEATH useVoiceInput, and why its external contract did not:
+ * capture no longer runs a MediaRecorder of its own. It goes through the ONE browser
+ * capture primitive (lib/voice/capture.ts) and the SDK's `PushToTalkSession`, so
+ * dictation and always-on wake detection share a single device path — and through the
+ * arbiter (lib/voice/mic-arbiter.ts), so a press while the wake listener holds the
+ * microphone stands that listener down instead of opening a second stream.
+ *
+ * The audio therefore leaves as 16 kHz mono PCM in a WAV container
+ * (`utteranceToAudioArtifact`) rather than a webm/opus blob. Same `voice.stt` verb, same
+ * artifact shape — mimeType/format/dataBase64 — just an encoding both surfaces can
+ * produce from raw frames without a codec, which is what let the terminal have voice
+ * input at all.
  */
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  AudioCaptureError,
+  CAPTURE_SAMPLE_RATE,
+  PushToTalkSession,
+  utteranceToAudioArtifact,
+  type AudioCaptureFailureReason,
+  type CapturedUtterance,
+} from '@pellux/goodvibes-sdk/platform/voice/capture';
 import { sdk } from '../goodvibes';
 import { asRecord } from '../object';
 import { coalesceForSpeech } from './request-policy';
@@ -19,14 +40,10 @@ import {
   type SharedVoiceConfig,
   type VoiceAvailability,
 } from './voice-config';
-import {
-  detectMicSupport,
-  startRecording,
-  MicCaptureError,
-  type MicSupport,
-  type MicFailureReason,
-  type RecordingHandle,
-} from './stt-recorder';
+import type { WakeRuntimeSettings } from '@pellux/goodvibes-sdk/platform/voice/wake/runtime';
+import { detectMicSupport, type MicSupport } from './capture';
+import { micArbiter, type MicLease } from './mic-arbiter';
+import { resolveWebuiWakeSettings } from './wake-config';
 
 /** The container format requested from the streaming TTS route. mp3 decodes across
  * browsers' AudioContext.decodeAudioData; providers default to it too. */
@@ -116,10 +133,34 @@ export function useTts(): UseTtsResult {
   return { availability, voiceConfig: config, state, canPlay: canPlayAudio(), isActive, speak, stop };
 }
 
+/**
+ * The resolved `voice.wake.*` rows for THIS surface, from the same `config.get`
+ * query the shared voice config reads.
+ *
+ * Two consumers: the wake host (which starts a detector only when `.active`), and
+ * push-to-talk (which takes its device, ceiling and frame size from the SAME rows
+ * — that is what `voice.wake.inputDevice`'s description means by "shared by BOTH
+ * microphone consumers").
+ */
+export function useWakeSettings(): { settings: WakeRuntimeSettings; isLoading: boolean } {
+  const query = useQuery({
+    queryKey: ['voice', 'config'],
+    queryFn: () => sdk.operator.config.get(),
+    staleTime: 30_000,
+    retry: false,
+  });
+  // No tree yet resolves to the SHIPPED defaults (enabled false, surfaces.webui
+  // false) rather than to zeroes — so a tab that has not loaded its config never
+  // opens a device on the strength of a blank read.
+  const settings = useMemo(() => resolveWebuiWakeSettings(query.data ?? {}), [query.data]);
+  return { settings, isLoading: query.isLoading };
+}
+
 export type MicPhase = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
 
 export interface MicError {
-  readonly reason: MicFailureReason | 'stt-failed';
+  /** The SDK's capture failure reasons, plus this surface's own transcription one. */
+  readonly reason: AudioCaptureFailureReason | 'stt-failed';
   readonly message: string;
 }
 
@@ -135,60 +176,171 @@ export interface UseVoiceInputResult {
   readonly cancel: () => void;
 }
 
+/**
+ * Send one captured utterance to `voice.stt` and return the words.
+ *
+ * Shared by dictation and by the wake host, because a wake's utterance goes to the
+ * SAME verb with the SAME artifact — that handoff is the reason both consumers sit
+ * on one device path in the first place.
+ */
+export async function transcribeUtterance(
+  utterance: CapturedUtterance,
+  providerId?: string,
+): Promise<string> {
+  const artifact = utteranceToAudioArtifact(utterance);
+  const result = await sdk.operator.voice.stt({
+    audio: {
+      mimeType: artifact.mimeType,
+      format: artifact.format,
+      dataBase64: artifact.dataBase64,
+      metadata: { sampleRateHz: artifact.sampleRateHz, durationMs: artifact.durationMs },
+    },
+    ...(providerId ? { providerId } : {}),
+  });
+  const text = asRecord(result).text;
+  return typeof text === 'string' ? text.trim() : '';
+}
+
 /** Mic capture -> voice.stt -> transcript. The transcript is handed to `onTranscript` for
  * REVIEW-BEFORE-SEND (it fills the composer draft; it is never auto-sent). */
 export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInputResult {
   const { availability } = useVoiceStatus();
+  const { settings } = useWakeSettings();
   const support = useMemo(() => detectMicSupport(), []);
   const [phase, setPhase] = useState<MicPhase>('idle');
   const [error, setError] = useState<MicError | null>(null);
-  const handleRef = useRef<RecordingHandle | null>(null);
+  const sessionRef = useRef<PushToTalkSession | null>(null);
+  /** The arbiter lease held while this press owns the device. */
+  const leaseRef = useRef<MicLease | null>(null);
 
   const ready = support === 'ok' && availability.sttAvailable;
 
-  const start = useCallback(async () => {
-    setError(null);
-    setPhase('requesting');
-    try {
-      handleRef.current = await startRecording();
-      setPhase('recording');
-    } catch (e) {
-      handleRef.current = null;
-      const reason = e instanceof MicCaptureError ? e.reason : 'capture-failed';
-      const message = e instanceof Error ? e.message : 'Could not start recording.';
-      setError({ reason, message });
-      setPhase('error');
-    }
+  // The capture rows are the SHARED ones: device, ceiling and frame size come from
+  // voice.wake.*, so a device chosen for the detector is the device dictation uses.
+  // silenceStopMs is deliberately 0 here — someone holding a button through a pause
+  // has not finished talking, so stopping is the user's call, not a timer's.
+  const captureOptions = useMemo(() => ({
+    device: settings.capture.device,
+    backend: settings.capture.backend,
+    noiseSuppression: settings.capture.noiseSuppression,
+    frameSamples: settings.capture.frameSamples,
+    captureMaxSeconds: settings.captureMaxSeconds,
+  }), [
+    settings.capture.device,
+    settings.capture.backend,
+    settings.capture.noiseSuppression,
+    settings.capture.frameSamples,
+    settings.captureMaxSeconds,
+  ]);
+
+  const releaseLease = useCallback(async () => {
+    const lease = leaseRef.current;
+    leaseRef.current = null;
+    if (lease) await lease();
   }, []);
 
-  const stopAndTranscribe = useCallback(async () => {
-    const handle = handleRef.current;
-    if (!handle) return;
-    handleRef.current = null;
+  const transcribe = useCallback(async (utterance: CapturedUtterance) => {
     setPhase('transcribing');
     try {
-      const audio = await handle.stop();
-      const result = await sdk.operator.voice.stt({
-        audio: { mimeType: audio.mimeType, format: audio.format, dataBase64: audio.dataBase64, metadata: {} },
-        ...(availability.defaultSttProviderId ? { providerId: availability.defaultSttProviderId } : {}),
-      });
-      const text = asRecord(result).text;
-      onTranscript(typeof text === 'string' ? text.trim() : '');
+      const text = await transcribeUtterance(utterance, availability.defaultSttProviderId);
+      onTranscript(text);
       setPhase('idle');
     } catch (e) {
-      const reason = e instanceof MicCaptureError ? e.reason : 'stt-failed';
-      const message = e instanceof Error ? e.message : 'Could not transcribe the recording.';
-      setError({ reason, message });
+      setError({
+        reason: 'stt-failed',
+        message: e instanceof Error ? e.message : 'Could not transcribe the recording.',
+      });
       setPhase('error');
     }
   }, [availability.defaultSttProviderId, onTranscript]);
 
+  const start = useCallback(async () => {
+    setError(null);
+    setPhase('requesting');
+    // Take the device before opening anything: this stands the wake listener down
+    // and waits for it to release, so the press never races it for the microphone.
+    leaseRef.current = await micArbiter.acquireExclusive();
+    const session = new PushToTalkSession({
+      openCapture: micArbiter.openCapture,
+      capture: {
+        device: captureOptions.device,
+        backend: captureOptions.backend,
+        noiseSuppression: captureOptions.noiseSuppression,
+        frameSamples: captureOptions.frameSamples,
+      },
+      captureMaxSeconds: captureOptions.captureMaxSeconds,
+      silenceStopMs: 0,
+      // The ceiling firing is capture ending itself, not a failure: the audio is
+      // real and goes to transcription exactly as a released button's would.
+      onAutoStop: (utterance) => {
+        sessionRef.current = null;
+        void releaseLease().then(() => transcribe(utterance));
+      },
+    });
+    try {
+      await session.start();
+      sessionRef.current = session;
+      setPhase('recording');
+    } catch (e) {
+      sessionRef.current = null;
+      await releaseLease();
+      const reason = e instanceof AudioCaptureError ? e.reason : 'unsupported';
+      const message = e instanceof Error ? e.message : 'Could not start recording.';
+      setError({ reason, message });
+      setPhase('error');
+    }
+  }, [captureOptions, releaseLease, transcribe]);
+
+  const stopAndTranscribe = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) return;
+    sessionRef.current = null;
+    let utterance: CapturedUtterance | null = null;
+    let failed = false;
+    try {
+      utterance = await session.stop();
+    } catch (e) {
+      failed = true;
+      setError({
+        reason: e instanceof AudioCaptureError ? e.reason : 'unsupported',
+        message: e instanceof Error ? e.message : 'Recording failed.',
+      });
+      setPhase('error');
+    } finally {
+      await releaseLease();
+    }
+    if (utterance) await transcribe(utterance);
+    // A released button with nothing recorded is a no-op, not an error — but a stop
+    // that FAILED keeps its error phase rather than being reset to idle underneath it.
+    else if (!failed) setPhase('idle');
+  }, [releaseLease, transcribe]);
+
   const cancel = useCallback(() => {
-    handleRef.current?.cancel();
-    handleRef.current = null;
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    void (async () => {
+      if (session) await session.cancel();
+      await releaseLease();
+    })();
     setPhase('idle');
     setError(null);
+  }, [releaseLease]);
+
+  // A component unmounting mid-recording must not leave the microphone open, nor
+  // the wake listener stood down forever waiting for a lease nobody will release.
+  useEffect(() => () => {
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    void (async () => {
+      if (session) await session.cancel();
+      const lease = leaseRef.current;
+      leaseRef.current = null;
+      if (lease) await lease();
+    })();
   }, []);
 
   return { support, availability, phase, error, ready, start, stopAndTranscribe, cancel };
 }
+
+/** The capture sample rate every artifact this surface sends carries. */
+export { CAPTURE_SAMPLE_RATE };

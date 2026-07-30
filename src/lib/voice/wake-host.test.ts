@@ -1,0 +1,523 @@
+/**
+ * wake-host.ts — the tab as a wake-word surface, end to end.
+ *
+ * These tests drive the REAL SDK engine, the REAL WakeListener, the REAL feature
+ * pipeline and the REAL browser capture opener. The only things stubbed are the two
+ * things a browser genuinely supplies from outside: the onnxruntime sessions (scripted
+ * scores, so a wake can be made to happen on a chosen frame) and the daemon calls.
+ *
+ * Two properties matter most and both are asserted against a getUserMedia SPY rather
+ * than a bookkeeping flag, because "the tab did not ask for the microphone" is a fact
+ * about the browser API and nothing else:
+ *
+ *   1. DISABLED MEANS NO getUserMedia AT ALL — separately for `voice.wake.enabled`
+ *      false and for `voice.wake.surfaces.webui` false. No permission prompt, no
+ *      model download.
+ *   2. A confirmed wake runs the whole chain: chime, utterance, `voice.stt` with a WAV
+ *      artifact, transcript to the composer — or submitted, per `voice.wake.autoSubmit`.
+ */
+import { describe, expect, test } from 'bun:test';
+import { CAPTURE_SAMPLE_RATE } from '@pellux/goodvibes-sdk/platform/voice/capture';
+import type { UtteranceAudioArtifact } from '@pellux/goodvibes-sdk/platform/voice/capture';
+import type {
+  WakeInferenceSession,
+  WakeRuntimeSettings,
+} from '@pellux/goodvibes-sdk/platform/voice/wake/runtime';
+import { createBrowserCaptureOpener, type CaptureEnv } from './capture';
+import { MicArbiter } from './mic-arbiter';
+import { resolveWebuiWakeSettings } from './wake-config';
+import { createWakeHost, PINNED_WAKE_MODEL_ID, type WakeModelSet } from './wake-host';
+
+const FRAME_SAMPLES = 1280;
+/** How many frames the SDK front end needs before it produces any features. */
+const WARMUP_FRAMES = 16;
+
+// ─── A getUserMedia spy behind the real opener ────────────────────────────────
+
+interface CaptureSpy {
+  env: CaptureEnv;
+  getUserMediaCalls: number;
+  tracksStopped: () => boolean;
+  /** Deliver one buffer of Web Audio samples into the live graph. */
+  pump: (samples: Float32Array) => void;
+  contextsClosed: () => number;
+}
+
+function captureSpy(): CaptureSpy {
+  const tracks: { stopped: boolean; stop(): void; label: string }[] = [];
+  const processors: { onaudioprocess: ((e: { inputBuffer: { getChannelData(c: number): Float32Array } }) => void) | null }[] = [];
+  let closed = 0;
+  const spy: CaptureSpy = {
+    getUserMediaCalls: 0,
+    tracksStopped: () => tracks.length > 0 && tracks.every((track) => track.stopped),
+    contextsClosed: () => closed,
+    pump: (samples) => {
+      for (const processor of processors) {
+        processor.onaudioprocess?.({ inputBuffer: { getChannelData: () => samples } });
+      }
+    },
+    env: {
+      isSecureContext: true,
+      mediaDevices: {
+        getUserMedia: () => {
+          spy.getUserMediaCalls += 1;
+          const track = { stopped: false, label: 'Spy microphone', stop(): void { track.stopped = true; } };
+          tracks.push(track);
+          return Promise.resolve({ getTracks: () => [track] });
+        },
+      },
+      createAudioContext: () => ({
+        sampleRate: CAPTURE_SAMPLE_RATE,
+        destination: {},
+        audioWorklet: undefined,
+        createMediaStreamSource: () => ({ connect: () => undefined, disconnect: () => undefined }),
+        createScriptProcessor: () => {
+          const processor = {
+            onaudioprocess: null as ((e: { inputBuffer: { getChannelData(c: number): Float32Array } }) => void) | null,
+            connect: () => undefined,
+            disconnect: () => undefined,
+          };
+          processors.push(processor);
+          return processor;
+        },
+        createGain: () => ({ gain: { value: 1 }, connect: () => undefined, disconnect: () => undefined }),
+        resume: () => Promise.resolve(),
+        close: () => {
+          closed += 1;
+          return Promise.resolve();
+        },
+      }),
+      createWorkletNode: undefined,
+      createModuleUrl: undefined,
+    },
+  };
+  return spy;
+}
+
+// ─── Stub inference sessions ─────────────────────────────────────────────────
+
+/** An embedding backbone that emits a fixed 96-dim vector, so scores are the test's. */
+function stubEmbedding(): WakeInferenceSession {
+  const output = new Float32Array(96).fill(0.25);
+  return {
+    inputNames: ['input_1'],
+    outputNames: ['embedding'],
+    run: () => Promise.resolve({ embedding: { data: output, dims: [1, 1, 1, 96] } }),
+  };
+}
+
+/** A classifier whose per-frame score is read off a script. */
+function scriptedClassifier(scores: readonly number[]): WakeInferenceSession & { calls: number } {
+  const session = {
+    calls: 0,
+    inputNames: ['input'],
+    outputNames: ['score'],
+    run: () => {
+      const value = scores[session.calls] ?? 0;
+      session.calls += 1;
+      return Promise.resolve({ score: { data: new Float32Array([value]), dims: [1, 1] } });
+    },
+  };
+  return session;
+}
+
+function modelSet(classifier: WakeInferenceSession, released?: { count: number }): WakeModelSet {
+  return {
+    embedding: stubEmbedding(),
+    models: [{ id: PINNED_WAKE_MODEL_ID, session: classifier }],
+    backend: 'wasm',
+    fallbackReason: null,
+    limitations: [],
+    release: () => {
+      if (released) released.count += 1;
+      return Promise.resolve();
+    },
+  };
+}
+
+// ─── Audio ───────────────────────────────────────────────────────────────────
+
+/** Speech-level audio in the Web Audio -1..1 range (~16000 on the int16 scale). */
+function loudFrame(): Float32Array {
+  const out = new Float32Array(FRAME_SAMPLES);
+  for (let i = 0; i < FRAME_SAMPLES; i += 1) out[i] = 0.5 * Math.sin((2 * Math.PI * 300 * i) / CAPTURE_SAMPLE_RATE);
+  return out;
+}
+
+/** Below the SDK's silence floor (180 on the int16 scale). */
+function quietFrame(): Float32Array {
+  return new Float32Array(FRAME_SAMPLES).fill(0.001);
+}
+
+/** Let the listener's promise chain settle: two inference awaits per frame. */
+async function settle(times = 12): Promise<void> {
+  for (let i = 0; i < times; i += 1) await Promise.resolve();
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+function settingsFor(overrides: Record<string, unknown> = {}): WakeRuntimeSettings {
+  return resolveWebuiWakeSettings({
+    voice: {
+      wake: {
+        enabled: true,
+        models: PINNED_WAKE_MODEL_ID,
+        threshold: 0.9,
+        patienceFrames: 2,
+        cooldownMs: 2_000,
+        preRollMs: 500,
+        captureMaxSeconds: 10,
+        silenceStopMs: 300,
+        autoSubmit: false,
+        indicator: 'statusline',
+        surfaces: { webui: true },
+        ...overrides,
+      },
+    },
+  });
+}
+
+interface HostHarness {
+  spy: CaptureSpy;
+  host: ReturnType<typeof createWakeHost>;
+  chimes: number[];
+  sttRequests: UtteranceAudioArtifact[];
+  sink: { text: string; autoSubmit: boolean }[];
+  warnings: string[];
+  released: { count: number };
+  loadCalls: number;
+}
+
+function hostHarness(options: {
+  classifier: WakeInferenceSession;
+  transcript?: string;
+  transcribeError?: Error;
+  arbiter?: MicArbiter;
+}): HostHarness {
+  const spy = captureSpy();
+  const chimes: number[] = [];
+  const sttRequests: UtteranceAudioArtifact[] = [];
+  const sink: { text: string; autoSubmit: boolean }[] = [];
+  const warnings: string[] = [];
+  const released = { count: 0 };
+  const opener = createBrowserCaptureOpener(spy.env);
+  const arbiter = options.arbiter ?? new MicArbiter(opener);
+  const harness: HostHarness = {
+    spy,
+    chimes,
+    sttRequests,
+    sink,
+    warnings,
+    released,
+    loadCalls: 0,
+    host: createWakeHost({
+      openCapture: arbiter.openCapture,
+      loadModelSet: () => {
+        harness.loadCalls += 1;
+        return Promise.resolve(modelSet(options.classifier, released));
+      },
+      transcribe: (artifact) => {
+        sttRequests.push(artifact);
+        if (options.transcribeError) return Promise.reject(options.transcribeError);
+        return Promise.resolve(options.transcript ?? 'open the fleet view');
+      },
+      chime: () => {
+        chimes.push(Date.now());
+        return true;
+      },
+      arbiter,
+      warn: (message) => warnings.push(message),
+    }),
+  };
+  harness.host.setTranscriptSink((text, { autoSubmit }) => sink.push({ text, autoSubmit }));
+  return harness;
+}
+
+// ─── Disabled means the device is never touched ──────────────────────────────
+
+describe('disabled means no getUserMedia at all', () => {
+  test('voice.wake.enabled false: the microphone is never requested and no model is loaded', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(settingsFor({ enabled: false }));
+
+    expect(harness.spy.getUserMediaCalls).toBe(0);
+    expect(harness.loadCalls).toBe(0);
+    const state = harness.host.getState();
+    expect(state.phase).toBe('off');
+    expect(state.refusal?.kind).toBe('disabled');
+    expect(state.refusal?.detail).toContain('voice.wake.enabled is off');
+    // Nothing to show: the user did not ask for this here.
+    expect(state.indicator).toBe('off');
+  });
+
+  test('voice.wake.surfaces.webui false: still no getUserMedia, with the per-origin reason', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(settingsFor({ surfaces: { webui: false } }));
+
+    expect(harness.spy.getUserMediaCalls).toBe(0);
+    expect(harness.loadCalls).toBe(0);
+    const state = harness.host.getState();
+    expect(state.phase).toBe('off');
+    expect(state.refusal?.kind).toBe('surface-disabled');
+    expect(state.refusal?.detail).toContain('voice.wake.surfaces.webui is off');
+  });
+
+  test('the shipped default (an empty config tree) opens nothing', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(resolveWebuiWakeSettings({}));
+    expect(harness.spy.getUserMediaCalls).toBe(0);
+    expect(harness.host.getState().phase).toBe('off');
+  });
+
+  test('a blocked row refuses without opening the device, and still shows the reason', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    // No surface applies the speex stage — the platform ships no libspeexdsp
+    // bindings — so the resolver BLOCKS rather than skipping it. Asserted here on the
+    // browser surface; the reason itself is platform-wide, not browser-only.
+    await harness.host.applySettings(settingsFor({ noiseSuppression: 'speex' }));
+
+    expect(harness.spy.getUserMediaCalls).toBe(0);
+    const state = harness.host.getState();
+    expect(state.phase).toBe('refused');
+    expect(state.refusal?.kind).toBe('blocked');
+    expect(state.refusal?.detail).toContain('libspeexdsp');
+    // Asked for HERE, so the indicator carries the reason rather than vanishing.
+    expect(state.indicator).toBe('statusline');
+  });
+
+  test('turning it off after it was running releases the device', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(settingsFor());
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+
+    await harness.host.applySettings(settingsFor({ surfaces: { webui: false } }));
+    expect(harness.spy.tracksStopped()).toBe(true);
+    expect(harness.released.count).toBe(1);
+    expect(harness.host.getState().deviceLabel).toBeNull();
+  });
+});
+
+// ─── Starting ────────────────────────────────────────────────────────────────
+
+describe('starting', () => {
+  test('an active configuration opens exactly one stream and reports listening', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(settingsFor());
+    const state = harness.host.getState();
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    expect(state.phase).toBe('listening');
+    expect(state.deviceLabel).toContain('getUserMedia');
+    expect(state.backend).toBe('wasm');
+    expect(state.modelIds).toEqual([PINNED_WAKE_MODEL_ID]);
+    expect(state.indicator).toBe('statusline');
+  });
+
+  test('an identical configuration applied again does not reopen the device', async () => {
+    const harness = hostHarness({ classifier: scriptedClassifier([]) });
+    await harness.host.applySettings(settingsFor());
+    await harness.host.applySettings(settingsFor());
+    await harness.host.applySettings(settingsFor());
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    expect(harness.loadCalls).toBe(1);
+  });
+
+  test('models that cannot be loaded refuse honestly and leave the device closed', async () => {
+    const spy = captureSpy();
+    const arbiter = new MicArbiter(createBrowserCaptureOpener(spy.env));
+    const host = createWakeHost({
+      openCapture: arbiter.openCapture,
+      loadModelSet: () => Promise.reject(new Error('sha256 did not match the pin')),
+      transcribe: () => Promise.resolve(''),
+      chime: () => true,
+      arbiter,
+      warn: () => undefined,
+    });
+    await host.applySettings(settingsFor());
+    expect(spy.getUserMediaCalls).toBe(0);
+    expect(host.getState().phase).toBe('refused');
+    expect(host.getState().refusal?.kind).toBe('model-unavailable');
+    expect(host.getState().error).toContain('sha256 did not match the pin');
+  });
+});
+
+// ─── The detection chain ─────────────────────────────────────────────────────
+
+/**
+ * Push frames through the live capture graph, one at a time, letting the listener's
+ * scoring chain drain between them (it drops frames beyond four queued, so a test
+ * that fired them all at once would be testing the drop path).
+ */
+async function pushFrames(harness: HostHarness, frame: Float32Array, count: number): Promise<void> {
+  for (let i = 0; i < count; i += 1) {
+    harness.spy.pump(frame);
+    await settle();
+  }
+}
+
+describe('a confirmed wake runs the whole chain', () => {
+  test('chime, utterance, voice.stt with a wav artifact, transcript into the composer', async () => {
+    // 16 warm-up frames produce no scores at all; then two frames above 0.9 confirm
+    // (patienceFrames: 2) and everything after that is the utterance.
+    const classifier = scriptedClassifier([0.1, 0.2, 0.95, 0.97, ...Array(40).fill(0.1) as number[]]);
+    const harness = hostHarness({ classifier, transcript: 'open the fleet view' });
+    await harness.host.applySettings(settingsFor());
+
+    // Warm the front end, then the two low frames, then the two that fire.
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 4);
+
+    expect(harness.chimes).toHaveLength(1);
+    expect(harness.host.getState().lastWakeAt).not.toBeNull();
+    expect(harness.host.getState().phase).toBe('capturing');
+
+    // The utterance that FOLLOWS: speech, then enough silence to end it
+    // (silenceStopMs 300 = four 80 ms frames).
+    await pushFrames(harness, loudFrame(), 6);
+    await pushFrames(harness, quietFrame(), 6);
+    await settle(40);
+
+    expect(harness.sttRequests).toHaveLength(1);
+    const artifact = harness.sttRequests[0];
+    expect(artifact.mimeType).toBe('audio/wav');
+    expect(artifact.format).toBe('wav');
+    expect(artifact.sampleRateHz).toBe(CAPTURE_SAMPLE_RATE);
+    expect(artifact.dataBase64.length).toBeGreaterThan(0);
+    // Pre-roll is prepended, so the clip is longer than the frames pushed after
+    // the wake alone.
+    expect(artifact.durationMs).toBeGreaterThan(12 * 80);
+
+    expect(harness.sink).toEqual([{ text: 'open the fleet view', autoSubmit: false }]);
+    expect(harness.host.getState().lastTranscript).toBe('open the fleet view');
+    // And the device was never reopened for the utterance — same stream throughout.
+    expect(harness.spy.getUserMediaCalls).toBe(1);
+    expect(harness.host.getState().phase).toBe('listening');
+  });
+
+  test('voice.wake.autoSubmit true asks the composer to submit rather than draft', async () => {
+    const classifier = scriptedClassifier([0.1, 0.2, 0.95, 0.97, ...Array(40).fill(0.1) as number[]]);
+    const harness = hostHarness({ classifier, transcript: 'run the tests' });
+    await harness.host.applySettings(settingsFor({ autoSubmit: true }));
+
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 4);
+    await pushFrames(harness, loudFrame(), 4);
+    await pushFrames(harness, quietFrame(), 6);
+    await settle(40);
+
+    expect(harness.sink).toEqual([{ text: 'run the tests', autoSubmit: true }]);
+  });
+
+  test('a wake with nothing said after it sends no speech-to-text request', async () => {
+    const classifier = scriptedClassifier([0.1, 0.2, 0.95, 0.97, ...Array(40).fill(0.1) as number[]]);
+    const harness = hostHarness({ classifier });
+    await harness.host.applySettings(settingsFor({ preRollMs: 0 }));
+
+    // Exactly the frame the wake confirms on and no more, so nothing loud reaches
+    // the recorder: scoring starts on frame 16 and 0.95/0.97 land on 18 and 19.
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 3);
+    expect(harness.chimes).toHaveLength(1);
+    // Only silence follows: the ceiling ends it, and nothing above the floor was
+    // ever heard. Billing a provider to transcribe a quiet room is not a service.
+    await pushFrames(harness, quietFrame(), 130);
+    await settle(40);
+
+    expect(harness.sttRequests).toHaveLength(0);
+    expect(harness.sink).toHaveLength(0);
+    expect(harness.host.getState().error).toContain('nothing was said');
+  });
+
+  test('a failed transcription is reported, not swallowed, and listening continues', async () => {
+    const classifier = scriptedClassifier([0.1, 0.2, 0.95, 0.97, ...Array(40).fill(0.1) as number[]]);
+    const harness = hostHarness({ classifier, transcribeError: new Error('no stt provider configured') });
+    await harness.host.applySettings(settingsFor());
+
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 4);
+    await pushFrames(harness, loudFrame(), 4);
+    await pushFrames(harness, quietFrame(), 6);
+    await settle(40);
+
+    expect(harness.sink).toHaveLength(0);
+    expect(harness.host.getState().error).toContain('no stt provider configured');
+    expect(harness.host.getState().phase).toBe('listening');
+  });
+
+  test('scores below the threshold never fire, however many arrive', async () => {
+    const classifier = scriptedClassifier(Array(80).fill(0.85) as number[]);
+    const harness = hostHarness({ classifier });
+    await harness.host.applySettings(settingsFor());
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 30);
+    expect(harness.chimes).toHaveLength(0);
+    expect(harness.sttRequests).toHaveLength(0);
+    expect(harness.host.getState().phase).toBe('listening');
+  });
+
+  test('one frame above the threshold is not enough when patience is two', async () => {
+    const classifier = scriptedClassifier([0.95, 0.1, 0.95, 0.2, 0.95, ...Array(40).fill(0.1) as number[]]);
+    const harness = hostHarness({ classifier });
+    await harness.host.applySettings(settingsFor());
+    await pushFrames(harness, loudFrame(), WARMUP_FRAMES + 5);
+    expect(harness.chimes).toHaveLength(0);
+  });
+});
+
+// ─── The arbiter, from the host's side ───────────────────────────────────────
+
+describe('push-to-talk and the wake listener share one device', () => {
+  test('an exclusive acquire stands the listener down; releasing it starts listening again', async () => {
+    const spy = captureSpy();
+    const arbiter = new MicArbiter(createBrowserCaptureOpener(spy.env));
+    const harness = hostHarness({ classifier: scriptedClassifier([]), arbiter });
+    await harness.host.applySettings(settingsFor());
+    expect(spy.getUserMediaCalls).toBe(1);
+    expect(harness.host.getState().phase).toBe('listening');
+
+    const lease = await arbiter.acquireExclusive();
+    expect(harness.host.getState().phase).toBe('suspended');
+    // The listener really let go: a press can open the ONLY stream.
+    expect(arbiter.openStreams).toBe(0);
+    const press = await arbiter.openCapture(
+      { frameSamples: FRAME_SAMPLES, device: '', backend: 'auto', noiseSuppression: 'none' },
+      { onFrame: () => undefined, onStopped: () => undefined },
+    );
+    expect(spy.getUserMediaCalls).toBe(2);
+
+    await press.stop();
+    await lease();
+    await settle(20);
+
+    expect(harness.host.getState().phase).toBe('listening');
+    expect(spy.getUserMediaCalls).toBe(3);
+    expect(arbiter.openStreams).toBe(1);
+  });
+
+  test('a press while wake is listening never produces two concurrent streams', async () => {
+    const spy = captureSpy();
+    const arbiter = new MicArbiter(createBrowserCaptureOpener(spy.env));
+    const harness = hostHarness({ classifier: scriptedClassifier([]), arbiter });
+    await harness.host.applySettings(settingsFor());
+
+    const lease = await arbiter.acquireExclusive();
+    const press = await arbiter.openCapture(
+      { frameSamples: FRAME_SAMPLES, device: '', backend: 'auto', noiseSuppression: 'none' },
+      { onFrame: () => undefined, onStopped: () => undefined },
+    );
+    // At no point above did the arbiter hold more than one stream.
+    expect(arbiter.openStreams).toBe(1);
+    await press.stop();
+    await lease();
+  });
+
+  test('a stopped host no longer gets stood down by a press', async () => {
+    const spy = captureSpy();
+    const arbiter = new MicArbiter(createBrowserCaptureOpener(spy.env));
+    const harness = hostHarness({ classifier: scriptedClassifier([]), arbiter });
+    await harness.host.applySettings(settingsFor());
+    await harness.host.stop();
+
+    const lease = await arbiter.acquireExclusive();
+    await lease();
+    await settle(10);
+    // Two opens total: the listener's original one, and nothing resumed after it
+    // was deliberately stopped.
+    expect(spy.getUserMediaCalls).toBe(1);
+    expect(harness.host.getState().phase).toBe('off');
+  });
+});

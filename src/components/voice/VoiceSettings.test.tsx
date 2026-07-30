@@ -63,6 +63,14 @@ mock.module('../../hooks/useVoiceLocalSetup', () => ({
   useVoiceLocalInstall: () => mockLocalInstall,
 }));
 
+// The wake-word section is its own component with its own suite
+// (WakeWordSettings.test.tsx). Stubbed out here so this file stays about the
+// local-voice card, and so mocking useVoice above does not have to satisfy the
+// wake hooks' imports.
+mock.module('./WakeWordSettings', () => ({
+  WakeWordSettings: () => null,
+}));
+
 const { VoiceSettings } = await import('./VoiceSettings');
 
 function render(): { el: HTMLElement; unmount: () => void } {

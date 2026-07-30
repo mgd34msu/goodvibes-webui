@@ -95,10 +95,12 @@ describe('buildSettingsModel — domain grouping (dissolved feature model)', () 
 });
 
 describe('buildSettingsModel — enablement state from domain settings keys', () => {
-  // 41 on: the paired-phone capability family ships enabled, with every
-  // capability asking before it runs (device.capabilities.mode honor-grants).
-  // 17 dark: the two wake-word features landing alongside it ship dark.
-  test('a stock config resolves every feature to its ruled default (41 on / 17 dark)', () => {
+  // 42 on: the paired-phone capability family ships enabled, with every
+  // capability asking before it runs (device.capabilities.mode honor-grants),
+  // and unified-runtime-task moved on when its recorded default was corrected —
+  // the flag had always claimed off while the behaviour it gates shipped on.
+  // 16 dark: the two wake-word features landing alongside it ship dark.
+  test('a stock config resolves every feature to its ruled default (42 on / 16 dark)', () => {
     const groups = buildSettingsModel({});
     const units = groups.flatMap((g) => g.featureUnits);
     expect(units.length).toBe(FEATURE_SETTINGS.length);
@@ -106,8 +108,8 @@ describe('buildSettingsModel — enablement state from domain settings keys', ()
       expect(unit.enabled).toBe(unit.feature.defaultEnabled);
       expect(unit.explicit).toBe(false);
     }
-    expect(units.filter((u) => u.enabled).length).toBe(41);
-    expect(units.filter((u) => !u.enabled).length).toBe(17);
+    expect(units.filter((u) => u.enabled).length).toBe(42);
+    expect(units.filter((u) => !u.enabled).length).toBe(16);
   });
 
   test('a boolean feature reads its live domain key', () => {

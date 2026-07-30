@@ -596,7 +596,15 @@ export type WakeModelComponentId = OperatorMethodInput<'voice.wake.model.get'>['
  * below fails to COMPILE when the contract gains a component this list does not
  * cover, which is the only way a runtime list can be kept honest against a type.
  */
-export const WAKE_MODEL_COMPONENT_IDS = ['classifier', 'embedding', 'notice', 'vad'] as const;
+export const WAKE_MODEL_COMPONENT_IDS = [
+  'classifier',
+  'tflite',
+  'embedding',
+  'notice',
+  'embedding-notice',
+  'vad',
+  'vad-notice',
+] as const;
 type UncoveredWakeComponent = Exclude<WakeModelComponentId, (typeof WAKE_MODEL_COMPONENT_IDS)[number]>;
 const _everyWakeComponentIsCovered: UncoveredWakeComponent extends never ? true : false = true;
 void _everyWakeComponentIsCovered;
@@ -607,10 +615,15 @@ export function isWakeModelComponentId(value: unknown): value is WakeModelCompon
 
 function wakeFixtureFor(component: WakeModelComponentId): WakeModelFixture {
   if (component === 'classifier') return wakeClassifierFixture();
+  // The tflite twin is served from the classifier fixture: it is the same model in
+  // another runtime format, and this mock's job is the transfer, not the format.
+  if (component === 'tflite') return wakeClassifierFixture();
   if (component === 'embedding') return wakeEmbeddingFixture();
   // The speech gate is served from the classifier fixture: both are single-score
   // models, and this mock's job is the transfer, not the gate's own numbers.
   if (component === 'vad') return wakeClassifierFixture();
+  // Every remaining component is an attribution NOTICE — the classifier's, the
+  // front end's, and the gate's. All three are text served over the same path.
   return wakeNoticeFixture();
 }
 
@@ -634,6 +647,13 @@ export function wakeStatusResponse(provisioned = false, vadProvisioned = false) 
     classifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', classifier),
     embedding: artifact('/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', embedding),
     notice: artifact('/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', notice),
+    // The tflite twin: provisioned and servable, but outside `ready` — nothing in
+    // a browser tab loads it, so a host missing only this one still detects.
+    mobileClassifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.tflite', classifier),
+    // The front end's own attribution file, on the same terms as the classifier's:
+    // both count toward `ready`, because bytes this daemon serves cannot go out
+    // without the NOTICE that must travel with them.
+    embeddingNotice: artifact('/home/e2e/.goodvibes/voice/wake/EMBEDDING_NOTICE.md', notice),
     // The speech gate is its own artifact with its own verified state: a host can
     // have the wake models and not the gate, which is what makes
     // `voice.wake.vadThreshold` above 0 a blocker rather than a silent no-op.
@@ -660,13 +680,22 @@ export function wakeStatusResponse(provisioned = false, vadProvisioned = false) 
 export function wakeProvisionResponse() {
   return {
     ready: true,
+    // Reported beside `ready`, never folded into it: the tflite twin is not loaded
+    // here and the speech gate is off unless voice.wake.vadThreshold is raised.
+    mobileFormatReady: true,
+    vadReady: true,
     modelVersion: 'hey_goodvibes-e2e-1',
     noticePath: '/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md',
+    embeddingNoticePath: '/home/e2e/.goodvibes/voice/wake/EMBEDDING_NOTICE.md',
     recallIsSyntheticOnly: true,
     outcomes: [
-      { component: 'classifier' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', bytes: wakeClassifierFixture().bytes.length },
       { component: 'embedding' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', bytes: wakeEmbeddingFixture().bytes.length },
+      { component: 'embedding-notice' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/EMBEDDING_NOTICE.md', bytes: wakeNoticeFixture().bytes.length },
+      { component: 'classifier' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', bytes: wakeClassifierFixture().bytes.length },
       { component: 'notice' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', bytes: wakeNoticeFixture().bytes.length },
+      { component: 'vad' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.onnx', bytes: wakeEmbeddingFixture().bytes.length },
+      { component: 'vad-notice' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.NOTICE.txt', bytes: wakeNoticeFixture().bytes.length },
+      { component: 'mobile-classifier' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/hey_goodvibes.tflite', bytes: wakeClassifierFixture().bytes.length },
     ],
   };
 }

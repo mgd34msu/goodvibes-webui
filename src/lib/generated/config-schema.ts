@@ -819,7 +819,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "controlPlane.webui.bundleDir",
     "type": "string",
     "default": "",
-    "description": "Directory holding the built web UI bundle (index.html + assets) served when controlPlane.webui.serve is true. Empty disables serving."
+    "description": "Directory holding the built web UI bundle (index.html + assets) served when controlPlane.webui.serve is true. Takes precedence over web.staticAssetsDir: this key is the specific answer for this daemon, so when it names a directory that is the one served. Empty falls back to web.staticAssetsDir."
   },
   {
     "key": "controlPlane.cors.enabled",
@@ -949,7 +949,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "web.staticAssetsDir",
     "type": "string",
     "default": "dist/web",
-    "description": "Static asset directory for the embedded web surface"
+    "description": "Static asset directory for the embedded web surface (index.html + assets), served when controlPlane.webui.serve is true. Used when controlPlane.webui.bundleDir is empty; that more specific key wins when it names a directory."
   },
   {
     "key": "conversationGate.mode",
@@ -1416,7 +1416,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "occasions.nudgeChannel",
     "type": "string",
     "default": "telegram",
-    "description": "Where a nudge is delivered, as a channel surface or surface:address (for example telegram, or telegram:12345). Telegram by default, because an occasion nudge that waits to be asked for has already missed the date it existed to protect — the owner ruled that these push out of the box. Set it to empty to make the feature pull-only instead: nothing is pushed, and the agent surface picks up what is outstanding at the start of a turn. The TUI is refused as a destination whatever is set here: it is a get-work-done interface, and life admin does not belong in it."
+    "description": "Where a nudge is delivered: a comma-separated list of channel destinations, each a surface or surface:address — \"telegram\", \"agent\", \"telegram,agent\", \"telegram:12345,agent\". Telegram by default, because an occasion nudge that waits to be asked for has already missed the date it existed to protect — the owner ruled that these push out of the box, to Telegram and to the agent. Naming \"agent\" pushes the nudge into the agent conversation itself, which the agent product makes possible by registering its own sender; naming both means both get it, once each, and each is attempted independently so a broken credential on one cannot silence the other. Set it to empty to make the feature pull-only instead: nothing is pushed, and a surface picks up what is outstanding at the start of a turn. The TUI is refused as a destination whatever is set here: it is a get-work-done interface, and life admin does not belong in it."
   },
   {
     "key": "occasions.cadenceDays",
@@ -1521,7 +1521,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.enabled",
     "type": "boolean",
     "default": false,
-    "description": "Run the wake-word detector, listening continuously for the wake phrase on the configured input device. Turning it on starts a supervised capture process and a persistent listening indicator; turning it off stops it and releases the device immediately. WHERE IT LISTENS depends on the voice.wake.surfaces.* rows: the terminal captures through a recorder subprocess and is on by default, a browser tab captures through getUserMedia and is opted in per origin, and the agent surface has no capture host yet. Off by default because an always-on microphone must be an explicit act, not something a user discovers after the fact — the same posture as voice.local.*, where nothing auto-downloads and nothing auto-starts. The pinned model is downloaded on an explicit provision, so enabling this on a host that has not provisioned reports what is missing instead of silently fetching 3.7 MB."
+    "description": "Run the wake-word detector, listening continuously for the wake phrase on the configured input device. Turning it on starts a supervised capture process and a persistent listening indicator; turning it off stops it and releases the device immediately. WHERE IT LISTENS depends on the voice.wake.surfaces.* rows: the terminal captures through a recorder subprocess and is on by default, the agent captures the same way and is opted in per surface, and a browser tab captures through getUserMedia and is opted in per origin. Off by default because an always-on microphone must be an explicit act, not something a user discovers after the fact. THE MODEL IS ALREADY THERE: installing goodvibes downloads and checksum-verifies the pinned classifier, and a daemon retries at boot if the install could not reach the network — so turning this on normally needs no setup step at all. Turning it on never downloads anything itself: on a host whose artifacts are missing or fail verification it says exactly which, and names the command that fetches them, rather than silently pulling 6.1 MB the moment a switch moves."
   },
   {
     "key": "voice.wake.models",
@@ -1597,7 +1597,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.surfaces.agent",
     "type": "boolean",
     "default": false,
-    "description": "Listen for the wake phrase on the agent surface. Off by default because two terminal surfaces both acting on one spoken utterance is a confusing default. THE AGENT HAS NO CAPTURE HOST YET: the shared capture path is built and the agent surface does not open it, so turning this on records the choice and starts nothing there. It takes effect when the agent wires the same recorder path the terminal uses; the terminal and browser rows are unaffected."
+    "description": "Listen for the wake phrase on the agent surface, through a recorder subprocess on the host — the same capture path the terminal uses. Turning this on with voice.wake.enabled opens the microphone on the agent, and a confirmed wake sends the utterance that follows to speech-to-text and puts the transcript into the agent conversation input, or submits it when voice.wake.autoSubmit is on. Off by default because two surfaces on one machine both acting on a single spoken utterance is a confusing default, not because it does not work: turn it on when the agent is the surface you actually talk to, and consider turning voice.wake.surfaces.tui off when you do."
   },
   {
     "key": "voice.wake.surfaces.webui",
@@ -1701,7 +1701,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.browserBackend",
     "type": "enum",
     "default": "wasm",
-    "description": "Execution backend for the detector inside a browser tab. \"wasm\" is the default and the measured configuration: the per-frame cost already beats real time by a wide margin, and WebGPU cannot run the front end without splitting the graph across devices, which costs more in transfers than it saves. \"webgpu\" is available for hosts that measure otherwise. Read by the browser tab when it creates its inference sessions; a host surface always runs WASM and ignores this row.",
+    "description": "Execution backend for the detector inside a browser tab. \"wasm\" is the default and the measured configuration: the per-frame cost already beats real time by a wide margin, and WebGPU cannot run the front end without splitting the graph across devices, which costs more in transfers than it saves. \"webgpu\" is available for hosts that measure otherwise. Read by the browser tab when it creates its inference sessions; a host surface always runs WASM and ignores this row. BOTH VALUES LOAD THE SAME ENGINE BINARY — the WebGPU-capable build carries the CPU engine too — so switching costs no extra download, and a tab set to \"webgpu\" on a browser without navigator.gpu falls back to the CPU provider inside the binary it already has.",
     "enumValues": [
       "wasm",
       "webgpu"
@@ -3845,7 +3845,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "telemetry.otelMode",
     "type": "enum",
     "default": "off",
-    "description": "OpenTelemetry instrumentation: off (default — no OTel SDK initialization), in-process (span creation and in-process export only), or remote-export (additionally export spans over OTLP/gRPC to the configured collector). Switching away from off requires a restart; in-process <-> remote-export applies live.",
+    "description": "OpenTelemetry instrumentation: off (default — no OTel SDK initialization), in-process (span creation and in-process export only), or remote-export (additionally export spans as OTLP/HTTP JSON to the collector named by OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, or OTEL_EXPORTER_OTLP_ENDPOINT with /v1/traces appended). Switching away from off requires a restart; in-process <-> remote-export applies live.",
     "enumValues": [
       "off",
       "in-process",
@@ -3855,8 +3855,8 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
   {
     "key": "runtime.unifiedTasks",
     "type": "boolean",
-    "default": false,
-    "description": "Replace ad-hoc task tracking with the unified RuntimeTask interface across all subsystems. Restart to apply. Default off."
+    "default": true,
+    "description": "The unified RuntimeTask interface used for task tracking across all subsystems (exec, agent, acp, scheduler, daemon, mcp, plugin, integration), including the /tasks command and operator interventions (cancel/pause/resume/retry). Restart to apply. Default on. Set false to turn the runtime task manager off."
   },
   {
     "key": "runtime.pluginLifecycle",
@@ -4045,7 +4045,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
   {
     "id": "unified-runtime-task",
     "name": "Unified RuntimeTask",
-    "description": "Replaces ad-hoc task tracking with the unified RuntimeTask interface across all subsystems.",
+    "description": "The unified RuntimeTask interface used for task tracking across all subsystems, including the /tasks command and operator interventions. On by default; turn runtime.unifiedTasks off to disable it.",
     "domain": "runtime",
     "enablement": {
       "key": "runtime.unifiedTasks",
@@ -4055,7 +4055,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
       "runtime.unifiedTasks"
     ],
     "restartRequired": true,
-    "defaultEnabled": false
+    "defaultEnabled": true
   },
   {
     "id": "watcher-triggers",
@@ -4142,7 +4142,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
   {
     "id": "otel-remote-export",
     "name": "OTel Remote Export",
-    "description": "Enables OTLP/gRPC remote export of spans to a configured collector endpoint. Requires otel-foundation.",
+    "description": "Enables OTLP/HTTP JSON remote export of spans to a configured collector endpoint. Requires otel-foundation.",
     "domain": "telemetry",
     "enablement": {
       "key": "telemetry.otelMode",
@@ -5089,7 +5089,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
   {
     "id": "wake-word-detection",
     "name": "Wake-Word Detection",
-    "description": "Listens continuously on a capture device for a spoken wake phrase and hands the utterance that follows to speech-to-text. Detection runs the pinned \"hey goodvibes\" classifier behind a melspectrogram computed in code and Google's Apache-2.0 speech-embedding model, both on a WASM backend, so the same detector runs in a daemon child process and in a browser tab. Disabled by default because holding a microphone open must be an explicit act; enabling it starts a supervised capture process and shows a persistent listening indicator for as long as it runs. Live on the terminal (a recorder subprocess) and in the web UI (a browser tab, opted in per origin). The agent surface has no capture host yet and its row stays off. Tuned through voice.wake.*, whose threshold, patience and cooldown rows govern how readily it fires, and whose supervisor rows bound how a crashing detector is retried. The model's published recall figures are measured on synthesised speech only — no human recording of the phrase exists — while its false-accept figures are measured on real speech.",
+    "description": "Listens continuously on a capture device for a spoken wake phrase and hands the utterance that follows to speech-to-text. Detection runs the pinned \"hey goodvibes\" classifier behind a melspectrogram computed in code and Google's Apache-2.0 speech-embedding model, both on a WASM backend, so the same detector runs in a daemon child process and in a browser tab. Disabled by default because holding a microphone open must be an explicit act; enabling it starts a supervised capture process and shows a persistent listening indicator for as long as it runs. Live on all three surfaces: the terminal and the agent through a recorder subprocess, the web UI in a browser tab. Each is opted in by its own voice.wake.surfaces.* row. Tuned through voice.wake.*, whose threshold, patience and cooldown rows govern how readily it fires, and whose supervisor rows bound how a crashing detector is retried. The model's published recall figures are measured on synthesised speech only — no human recording of the phrase exists — while its false-accept figures are measured on real speech.",
     "domain": "voice",
     "enablement": {
       "key": "voice.wake.enabled",

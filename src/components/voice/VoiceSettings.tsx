@@ -41,6 +41,7 @@ import {
   voiceLocalStateLabel,
 } from '../../lib/voice/voice-local-setup';
 import { useVoiceLocalInstall, useVoiceLocalStatus } from '../../hooks/useVoiceLocalSetup';
+import { WakeWordSettings } from './WakeWordSettings';
 
 interface VoiceOption {
   id: string;
@@ -315,6 +316,13 @@ export function VoiceSettings() {
               })()}
             </div>
           )}
+
+          {/* Wake word — provisioning, the per-origin opt-in, and the resolver's own
+              written reasons for any row this tab cannot honour. Its own section
+              rather than a row in the schema-driven Settings group, because getting
+              it running in a browser needs an act (download) and an opt-in
+              (per-origin microphone permission) that no config row can express. */}
+          <WakeWordSettings open={open} />
         </div>
       )}
     </div>

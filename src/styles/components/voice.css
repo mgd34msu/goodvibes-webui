@@ -283,3 +283,73 @@
     padding: var(--space-4, 16px);
   }
 }
+
+/* ─── Wake word ──────────────────────────────────────────────────────────────
+   The persistent banner (voice.wake.indicator: "banner"). Deliberately NOT a
+   toast: a toast dismisses itself, and an indicator that vanishes while the
+   microphone is still open is the exact failure the indicator row prevents. */
+.wake-banner {
+  flex-wrap: wrap;
+}
+
+.wake-banner__label {
+  font-weight: 600;
+}
+
+.wake-banner__detail {
+  opacity: 0.85;
+}
+
+.wake-banner.is-live .wake-banner__label::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: wake-banner-pulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes wake-banner-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wake-banner.is-live .wake-banner__label::before {
+    animation: none;
+  }
+}
+
+/* The wake-word block inside the voice popover. */
+.voice-settings-wake {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.voice-settings-field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-settings-wake-reasons {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+.voice-settings-wake-reasons li + li {
+  margin-top: 6px;
+}
+
+.voice-settings-wake-reasons code {
+  font-size: 0.78rem;
+}

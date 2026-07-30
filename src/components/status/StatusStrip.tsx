@@ -11,6 +11,7 @@ import {
 import { contractGlyphForConnection } from '../../lib/presentation-bridge';
 import { ConnectionDot } from './ConnectionDot';
 import { PowerChip } from './PowerChip';
+import { WakeChip } from '../voice/WakeChip';
 import '../../styles/components/status.css';
 
 /**
@@ -128,6 +129,12 @@ export function StatusStrip() {
       {/* Sleep-disabled chip — absent unless the owner's keep-awake toggle actually
           holds (see PowerChip's own header comment for the danger-idiom rationale). */}
       <PowerChip />
+
+      {/* Wake-word listening chip — absent unless voice.wake.indicator is
+          'statusline' AND wake detection is actually enabled in this browser. An
+          always-on microphone must never be invisible, so while one is open this
+          segment is present for the whole time it is (see WakeChip). */}
+      <WakeChip />
 
       {/* Model name (rightmost, optional) */}
       {modelName !== null && (

@@ -247,3 +247,41 @@
 .daemon-receipt__dismiss:hover {
   background: rgba(127, 127, 127, 0.15);
 }
+
+/* Wake-word listening chip (voice.wake.indicator: "statusline").
+   Three visual states, each with an icon and a text label beside it so colour is
+   never the sole signal:
+     --wake-live      the microphone IS open right now (accent, gently pulsing)
+     --wake-attention restarting or stopped, i.e. something to look at (danger)
+     --wake-idle      loading models, i.e. on its way up (muted) */
+.status-strip__segment--wake-live {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.status-strip__segment--wake-live .status-strip__icon,
+.status-strip__segment--wake-live .status-strip__label {
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.status-strip__segment--wake-live .status-strip__icon {
+  animation: status-strip-pulse 1.6s ease-in-out infinite alternate;
+}
+
+.status-strip__segment--wake-attention {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+}
+
+.status-strip__segment--wake-attention .status-strip__icon,
+.status-strip__segment--wake-attention .status-strip__label {
+  color: var(--status-danger);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-strip__segment--wake-live .status-strip__icon {
+    animation: none;
+  }
+}

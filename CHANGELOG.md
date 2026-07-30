@@ -4,6 +4,58 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.12.0] - 2026-07-30
+
+The dates the daemon has been tracking now have a place to be seen. Occasions —
+birthdays, anniversaries, travel plans with their date ranges — get a panel of
+their own, pulling the daemon's `occasions.*` verbs into view: upcoming
+occurrences with their real next date, anything still awaiting an answer or
+stuck on an unresolved conflict, an in-progress gift interview, and the store's
+own disclosure counts. A pending nudge shows only the proximity word the daemon
+already computed for it, never a raw date — the same restraint the daemon's own
+nudge wording observes, kept intact here rather than loosened because a browser
+had a date field handy. Nothing in this panel pushes a notification anywhere;
+that stays with Telegram and the agent, unchanged.
+
+The wake word works in this browser tab now, on one microphone path shared with
+dictation rather than a second capture stack fighting the first for the same
+device. A single arbiter decides who holds the microphone: press-to-talk stands
+the wake listener down and waits for it to release before opening anything, and
+a second concurrent open is refused outright. The listener stays off unless
+`voice.wake.surfaces.webui` is explicitly turned on — no model fetch, no
+session, no permission prompt until it is — and once it is, the pinned model
+comes from the daemon in verified chunks, checked against its published
+checksum before anything is created from it; a mismatch refuses rather than
+loading a model that could never detect correctly. On a confirmed wake: a
+chime, the utterance goes through the same transcription call dictation uses,
+and the result lands in the composer or submits per
+`voice.wake.autoSubmit`. An indicator is always on screen while the microphone
+is open — a statusline chip or a persistent banner, never a toast that could
+dismiss itself while listening continues.
+
+Both the wake listener and dictation now go through the speex noise filter and
+the voice-activity gate for real, rather than the resolver declaring the
+capability false. Scoring only starts once the daemon reports the gate itself
+provisioned and checksum-verified, so a missing artifact still blocks instead
+of running ungated behind a row that claimed otherwise. The set of daemon-served
+audio components this app recognizes is now derived from the generated
+contract instead of a hand-copied list, so a component the daemon adds is
+picked up automatically rather than refused the moment the two drift.
+
+The two ONNX Runtime backends this app can pick between now share a single
+wasm binary instead of shipping one apiece: the WebGPU build already contains
+the CPU engine, so the wasm-only build bought nothing and is gone. Switching
+backends costs no extra download, and a tab set to `webgpu` without
+`navigator.gpu` falls back to the CPU provider already inside the one binary
+it has rather than fetching a different engine. `dist` drops from 40 MB to
+27 MB.
+
+Underneath all of it, the platform runtime moves from 1.19.1 to 1.20.0 —
+catching up the release this app had skipped — with the generated
+config-schema and config-ownership artifacts regenerated against the merged
+surface and verified unchanged beyond the new occasions settings the dates
+panel needed.
+
 ## [1.11.0] - 2026-07-29
 
 You can give the daemon a payment card from this interface now. Settings has a

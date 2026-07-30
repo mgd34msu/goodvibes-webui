@@ -15,7 +15,13 @@ import {
   voiceLocalInstallResponse,
   voiceLocalStatusInProgressResponse,
   voiceLocalStatusResponse,
+  wakeModelChunkResponse,
+  wakeProvisionResponse,
+  wakeStatusResponse,
+  WAKE_MODEL_CHUNK_BYTES,
   type VoiceLocalStatus,
+  isWakeModelComponentId,
+  WAKE_MODEL_COMPONENT_IDS,
 } from './mock-daemon';
 
 export interface VoiceProviderSeed {
@@ -49,6 +55,25 @@ export interface VoiceMockOptions {
    * intervals to prove the live-progress rendering end to end.
    */
   localInstallDurationMs?: number;
+  /**
+   * The `voice.wake.*` rows config.get reports. Merged over the shipped defaults, so
+   * omitting this leaves wake detection OFF and the tab never calls getUserMedia —
+   * which is the state most voice tests want and the one the product ships.
+   */
+  wakeConfig?: Record<string, unknown>;
+  /**
+   * Seed for the three wake verbs. Default: not provisioned (the size-labeled
+   * download action). `provisioned: true` serves genuinely loadable ONNX fixtures
+   * with their real sha256, so the tab creates a real inference session over them.
+   * 'unavailable' answers the 404 of a daemon build without the verbs.
+   */
+  wake?: {
+    provisioned?: boolean;
+    /** Seeds the SPEECH GATE's own artifact as verified. Default false. */
+    vadProvisioned?: boolean;
+    chunkBytes?: number;
+    corruptSha?: boolean;
+  } | 'unavailable';
 }
 
 export interface VoiceMock {
@@ -56,6 +81,10 @@ export interface VoiceMock {
   sttRequests: { body: unknown }[];
   configWrites: { key: unknown; value: unknown }[];
   localInstallRequests: number;
+  /** voice.wake.provision calls — it must never happen without an explicit act. */
+  wakeProvisionRequests: number;
+  /** Every voice.wake.model.get read, in order: the chunk loop, observable. */
+  wakeModelReads: { component: string; offset: number }[];
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -121,7 +150,28 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
   const transcript = options.transcript ?? 'hello from voice input';
   const ttsProvider = options.ttsProvider ?? 'elevenlabs';
   const ttsVoice = options.ttsVoice ?? 'rachel';
-  const mock: VoiceMock = { ttsRequests: [], sttRequests: [], configWrites: [], localInstallRequests: 0 };
+  const mock: VoiceMock = {
+    ttsRequests: [],
+    sttRequests: [],
+    configWrites: [],
+    localInstallRequests: 0,
+    wakeProvisionRequests: 0,
+    wakeModelReads: [],
+  };
+  // The wake rows config.get reports. A config.set write MUTATES this, so the
+  // round-trip a user actually experiences (tick the box -> the daemon persists it ->
+  // the refetch reports it back -> the detector starts) is what the tests exercise,
+  // rather than a write that vanishes.
+  const wakeConfigState: Record<string, unknown> = { ...options.wakeConfig };
+  const wakeOption = options.wake;
+  const wakeState = wakeOption === 'unavailable'
+    ? null
+    : {
+      provisioned: wakeOption?.provisioned ?? false,
+      vadProvisioned: wakeOption?.vadProvisioned ?? false,
+      chunkBytes: wakeOption?.chunkBytes ?? WAKE_MODEL_CHUNK_BYTES,
+      corruptSha: wakeOption?.corruptSha ?? false,
+    };
 
   // voice.local.status / voice.local.install in-memory state — install flips the
   // resting state to provisioned (unless seeded to the retriable download failure,
@@ -157,11 +207,26 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     if (request.method() === 'POST') {
       const body = (request.postDataJSON?.() ?? {}) as { key?: unknown; value?: unknown };
       mock.configWrites.push({ key: body.key, value: body.value });
+      if (typeof body.key === 'string' && body.key.startsWith('voice.wake.')) {
+        // Persist into the nested shape config.get answers with, so a
+        // voice.wake.surfaces.webui write really does turn the surface on.
+        const segments = body.key.slice('voice.wake.'.length).split('.');
+        let cursor = wakeConfigState;
+        for (const segment of segments.slice(0, -1)) {
+          const next = cursor[segment];
+          if (next === null || typeof next !== 'object') cursor[segment] = {};
+          cursor = cursor[segment] as Record<string, unknown>;
+        }
+        cursor[segments[segments.length - 1] as string] = body.value;
+      }
       return json(route, { success: true, key: body.key, value: body.value });
     }
     return json(route, {
       ui: { voiceEnabled: true },
       tts: { provider: ttsProvider, voice: ttsVoice, speed: 1 },
+      // The wake rows the tab resolves for this surface. Absent keys fall through to
+      // the SDK's shipped defaults, which is why an unseeded test never listens.
+      voice: { wake: { ...wakeConfigState } },
     });
   });
 
@@ -238,6 +303,35 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
         body: Buffer.from([0xff, 0xfb, 0x90, 0x00, 0x00, 0x00]),
       });
     }
+    // Browser wake word. These need REAL handlers rather than the catch-all's `{}`:
+    // model.get is a chunked binary read whose caller loops on `offset` and verifies
+    // the assembled bytes against the sha256 the response states.
+    if (method === 'GET' && path === '/api/voice/wake/status') {
+      if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      return json(route, wakeStatusResponse(wakeState.provisioned, wakeState.vadProvisioned));
+    }
+    if (method === 'POST' && path === '/api/voice/wake/provision') {
+      if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      mock.wakeProvisionRequests += 1;
+      wakeState.provisioned = true;
+      return json(route, wakeProvisionResponse());
+    }
+    if (method === 'GET' && path === '/api/voice/wake/model') {
+      if (!wakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      const params = new URL(request.url()).searchParams;
+      const component = params.get('component');
+      // Validated against the contract-derived set, so a component the daemon
+      // serves is never refused here for being unknown to the mock.
+      if (!isWakeModelComponentId(component)) {
+        return json(route, {
+          error: `component must be one of ${WAKE_MODEL_COMPONENT_IDS.join(', ')}`,
+        }, 400);
+      }
+      const offset = Number(params.get('offset') ?? '0');
+      mock.wakeModelReads.push({ component, offset: Number.isFinite(offset) ? offset : 0 });
+      return json(route, wakeModelChunkResponse(component, Number.isFinite(offset) ? offset : 0, wakeState));
+    }
+
     if (method === 'POST' && path === '/api/voice/stt') {
       mock.sttRequests.push({ body: request.postDataJSON?.() });
       return json(route, { providerId: providers[0]?.id ?? 'elevenlabs', text: transcript, metadata: {} });

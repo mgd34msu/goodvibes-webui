@@ -218,6 +218,14 @@ export default defineConfig({
           if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
           if (id.includes('@tanstack')) return 'query';
           if (id.includes('lucide-react')) return 'icons';
+          // onnxruntime-web keeps its OWN chunk instead of falling into the eagerly
+          // loaded `vendor` one. It is imported dynamically and only when wake-word
+          // detection is switched on for this origin (lib/voice/wake-runtime.ts), so
+          // merging it into vendor would put an inference runtime — and the reference
+          // to a 13 MB wasm binary — in front of every page load for a feature that
+          // ships off. One chunk per backend build, so a tab on the wasm backend never
+          // fetches the webgpu one.
+          if (id.includes('onnxruntime')) return 'onnxruntime';
           return 'vendor';
         },
       },

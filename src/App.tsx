@@ -39,6 +39,8 @@ import { StepUpHost } from './components/auth/StepUpHost';
 import { PairingHandoffOffers } from './components/pairing/PairingHandoffOffers';
 import { PairingPostureNotice } from './components/pairing/PairingPostureNotice';
 import { RelayOverflowBanner } from './components/status/RelayOverflowBanner';
+import { WakeBanner } from './components/voice/WakeBanner';
+import { useWakeHost } from './lib/voice/useWake';
 import { DaemonReceipts } from './components/status/DaemonReceipts';
 import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
@@ -171,6 +173,13 @@ export default function App() {
   // daemon unconditionally every 15s (useDaemonHealth), so it is the signal that
   // catches an outage while auth.current is sitting on stale "everything is fine" data.
   const health = useDaemonHealth();
+  // Wake-word detection, mounted at the shell rather than in a view: it holds a
+  // microphone for as long as the user has it on, so its lifetime cannot be a view's
+  // lifetime. This resolves voice.wake.* for this surface and applies it; while
+  // voice.wake.surfaces.webui is off (the default) it loads no model and calls no
+  // getUserMedia, so no permission prompt appears. The transcript sink is registered
+  // separately by the view that owns a composer (ChatView).
+  useWakeHost();
   // Session liveness: consume the raw un-domained session-update stream, but only once
   // signed in (opening it while signed-out just 401s). It degrades honestly on failure.
   const sessionRealtime = useSessionRealtime(auth.isSuccess);
@@ -481,6 +490,9 @@ export default function App() {
       <PairingPostureNotice notice={pairing.postureNotice} onDismiss={pairing.dismissPostureNotice} />
     )}
     <RelayOverflowBanner />
+    {/* voice.wake.indicator: 'banner' — the prominent persistent listening marker.
+        Renders nothing for 'statusline' (the StatusStrip chip owns that) or 'off'. */}
+    <WakeBanner />
     {/* Undelivered daemon receipts, consumed once on connect (see DaemonReceipts). */}
     <DaemonReceipts connected={health.connection === 'connected'} signedIn={auth.isSuccess} />
     {daemonUnreachable && (

@@ -15,7 +15,13 @@
  */
 
 import type { Page, Route } from '@playwright/test';
-import type { OperatorMethodOutput } from '../../src/lib/goodvibes';
+import {
+  wakeClassifierFixture,
+  wakeEmbeddingFixture,
+  wakeNoticeFixture,
+  type WakeModelFixture,
+} from './onnx-fixture';
+import type { OperatorMethodInput, OperatorMethodOutput } from '../../src/lib/goodvibes';
 import { WEBUI_METHOD_SAMPLES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
   accountsSnapshotResponse,
@@ -417,6 +423,22 @@ export interface MockDaemonOptions {
     status?: Partial<ReturnType<typeof voiceLocalStatusResponse>>;
     installOutcome?: 'provisioned' | 'download-failed';
   } | 'unavailable';
+  /**
+   * Seed for the three browser wake-word verbs (voice.wake.status /
+   * voice.wake.provision / voice.wake.model.get). Default: NOT provisioned, so the
+   * default state renders the size-labeled download action and starts no detector.
+   *
+   * `provisioned: true` serves genuinely loadable ONNX fixtures
+   * (support/onnx-fixture.ts) with their real sha256, which is what lets a browser
+   * actually create an inference session over daemon-served bytes. `chunkBytes`
+   * forces a multi-chunk read; `corruptSha` states a pin the bytes do not match, so
+   * the tab's verification failure path is reachable.
+   */
+  voiceWake?: {
+    provisioned?: boolean;
+    chunkBytes?: number;
+    corruptSha?: boolean;
+  } | 'unavailable';
 }
 
 /**
@@ -540,6 +562,138 @@ export function voiceLocalInstallResponse(outcome: 'provisioned' | 'download-fai
   };
 }
 
+// ─── Browser wake-word verbs ─────────────────────────────────────────────────
+//
+// voice.wake.status / voice.wake.provision / voice.wake.model.get. The last one is
+// the reason these need real handlers rather than the catch-all's `{}`: it is a
+// CHUNKED BINARY READ whose caller loops on `offset` and then verifies the assembled
+// bytes against the sha256 the response states. An empty object is not a truncated
+// answer to that, it is an unparseable one.
+//
+// The bytes served are genuinely loadable ONNX (support/onnx-fixture.ts), so a
+// browser really creates an inference session from what the daemon really sent.
+
+export interface MockWakeState {
+  provisioned: boolean;
+  /** Bytes per chunk. Small values force the multi-chunk path. */
+  chunkBytes: number;
+  /** State a pin the bytes do not match, so verification must refuse them. */
+  corruptSha: boolean;
+}
+
+/** Cap the real verb applies per call: 512 kB. */
+export const WAKE_MODEL_CHUNK_BYTES = 512 * 1024;
+
+/**
+ * Derived from the generated contract, not copied: the daemon's component set
+ * grows, and a mock that refuses a valid one would fail a consumer for a reason
+ * the real daemon would not.
+ */
+export type WakeModelComponentId = OperatorMethodInput<'voice.wake.model.get'>['component'];
+
+/**
+ * The same set at RUNTIME, for the mock's own validation. The exhaustiveness check
+ * below fails to COMPILE when the contract gains a component this list does not
+ * cover, which is the only way a runtime list can be kept honest against a type.
+ */
+export const WAKE_MODEL_COMPONENT_IDS = ['classifier', 'embedding', 'notice', 'vad'] as const;
+type UncoveredWakeComponent = Exclude<WakeModelComponentId, (typeof WAKE_MODEL_COMPONENT_IDS)[number]>;
+const _everyWakeComponentIsCovered: UncoveredWakeComponent extends never ? true : false = true;
+void _everyWakeComponentIsCovered;
+
+export function isWakeModelComponentId(value: unknown): value is WakeModelComponentId {
+  return typeof value === 'string' && (WAKE_MODEL_COMPONENT_IDS as readonly string[]).includes(value);
+}
+
+function wakeFixtureFor(component: WakeModelComponentId): WakeModelFixture {
+  if (component === 'classifier') return wakeClassifierFixture();
+  if (component === 'embedding') return wakeEmbeddingFixture();
+  // The speech gate is served from the classifier fixture: both are single-score
+  // models, and this mock's job is the transfer, not the gate's own numbers.
+  if (component === 'vad') return wakeClassifierFixture();
+  return wakeNoticeFixture();
+}
+
+/**
+ * voice.wake.status's real shape. Not provisioned by default — an always-on
+ * microphone's model is fetched on an explicit act, never because a tab opened.
+ */
+export function wakeStatusResponse(provisioned = false, vadProvisioned = false) {
+  const classifier = wakeClassifierFixture();
+  const embedding = wakeEmbeddingFixture();
+  const notice = wakeNoticeFixture();
+  const artifact = (path: string, fixture: WakeModelFixture) => ({
+    path,
+    verified: provisioned,
+    corrupt: false,
+    bytes: provisioned ? fixture.bytes.length : 0,
+  });
+  return {
+    ready: provisioned,
+    reason: provisioned ? null : 'The pinned wake-word models are not installed yet.',
+    classifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', classifier),
+    embedding: artifact('/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', embedding),
+    notice: artifact('/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', notice),
+    // The speech gate is its own artifact with its own verified state: a host can
+    // have the wake models and not the gate, which is what makes
+    // `voice.wake.vadThreshold` above 0 a blocker rather than a silent no-op.
+    vad: {
+      path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.onnx',
+      verified: vadProvisioned,
+      corrupt: false,
+      bytes: vadProvisioned ? embedding.bytes.length : 0,
+    },
+    vadNotice: {
+      path: '/home/e2e/.goodvibes/voice/wake/goodvibes-vad.NOTICE.txt',
+      verified: vadProvisioned,
+      corrupt: false,
+      bytes: vadProvisioned ? notice.bytes.length : 0,
+    },
+    vadReady: vadProvisioned,
+    downloadBytes: 3_884_142,
+    modelVersion: provisioned ? 'hey_goodvibes-e2e-1' : null,
+    recallIsSyntheticOnly: true,
+  };
+}
+
+/** voice.wake.provision's real receipt shape. */
+export function wakeProvisionResponse() {
+  return {
+    ready: true,
+    modelVersion: 'hey_goodvibes-e2e-1',
+    noticePath: '/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md',
+    recallIsSyntheticOnly: true,
+    outcomes: [
+      { component: 'classifier' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', bytes: wakeClassifierFixture().bytes.length },
+      { component: 'embedding' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', bytes: wakeEmbeddingFixture().bytes.length },
+      { component: 'notice' as const, state: 'installed' as const, path: '/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', bytes: wakeNoticeFixture().bytes.length },
+    ],
+  };
+}
+
+/**
+ * One chunk of voice.wake.model.get, exactly as the real verb answers: the slice at
+ * `offset`, the whole file's total and PINNED sha256, and `complete` on the last one.
+ */
+export function wakeModelChunkResponse(
+  component: WakeModelComponentId,
+  offset: number,
+  state: Pick<MockWakeState, 'chunkBytes' | 'corruptSha'>,
+) {
+  const fixture = wakeFixtureFor(component);
+  const start = Math.max(0, Math.min(offset, fixture.bytes.length));
+  const slice = fixture.bytes.subarray(start, start + state.chunkBytes);
+  return {
+    component,
+    offset: start,
+    bytes: slice.length,
+    totalBytes: fixture.bytes.length,
+    sha256: state.corruptSha ? 'f'.repeat(64) : fixture.sha256,
+    dataBase64: Buffer.from(slice).toString('base64'),
+    complete: start + slice.length >= fixture.bytes.length,
+  };
+}
+
 /** tailscale.get's real shape (see MockDaemonOptions.tailscale above). */
 export interface MockTailscaleState {
   available: boolean;
@@ -650,6 +804,10 @@ export interface MockDaemon {
   toolCallCancelRequests: { sessionId: string; callId: string }[];
   /** Every fleet.observed.steer invoke captured, in order. */
   observedSteerRequests: { id: string; text: string }[];
+  /** How many times voice.wake.provision was asked for (it must never be automatic). */
+  wakeProvisionRequests: number;
+  /** Every voice.wake.model.get read captured, in order — proves the chunk loop. */
+  wakeModelReads: { component: 'classifier' | 'embedding' | 'notice'; offset: number }[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -769,6 +927,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     keepAwakeSetRequests: [],
     toolCallCancelRequests: [],
     observedSteerRequests: [],
+    wakeProvisionRequests: 0,
+    wakeModelReads: [],
   };
   // power.status.get / power.keepAwake.set in-memory state — a fresh copy per
   // installMockDaemon call, mutated by keepAwake.set exactly like the daemon's
@@ -801,6 +961,16 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   let voiceLocalState: VoiceLocalStatus | null = voiceLocalUnavailable
     ? null
     : { ...voiceLocalStatusResponse(), ...voiceLocalSeed.status };
+  // voice.wake.* in-memory state. Null is the older-daemon 404 for all three verbs.
+  // provision() flips `provisioned`, exactly like the real single-flight act.
+  const voiceWakeOption = options.voiceWake;
+  const voiceWakeState: MockWakeState | null = voiceWakeOption === 'unavailable'
+    ? null
+    : {
+      provisioned: voiceWakeOption?.provisioned ?? false,
+      chunkBytes: voiceWakeOption?.chunkBytes ?? WAKE_MODEL_CHUNK_BYTES,
+      corruptSha: voiceWakeOption?.corruptSha ?? false,
+    };
   // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
   // per installMockDaemon call, mutated by edit/delete.
   const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
@@ -1166,6 +1336,31 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         };
       }
       return json(route, receipt);
+    }
+
+    // ── Browser wake word (voice.wake.status / provision / model.get) ─────
+    // model.get is a GET whose input rides the query string, which is what the
+    // webui client actually sends for a GET-routed verb (invokeOperator -> query).
+    if (method === 'GET' && path === '/api/voice/wake/status') {
+      if (!voiceWakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      return json(route, wakeStatusResponse(voiceWakeState.provisioned));
+    }
+    if (method === 'POST' && path === '/api/voice/wake/provision') {
+      if (!voiceWakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      daemon.wakeProvisionRequests += 1;
+      voiceWakeState.provisioned = true;
+      return json(route, wakeProvisionResponse());
+    }
+    if (method === 'GET' && path === '/api/voice/wake/model') {
+      if (!voiceWakeState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
+      const params = new URL(request.url()).searchParams;
+      const component = params.get('component');
+      if (component !== 'classifier' && component !== 'embedding' && component !== 'notice') {
+        return json(route, { error: 'component must be classifier, embedding or notice' }, 400);
+      }
+      const offset = Number(params.get('offset') ?? '0');
+      daemon.wakeModelReads.push({ component, offset });
+      return json(route, wakeModelChunkResponse(component, Number.isFinite(offset) ? offset : 0, voiceWakeState));
     }
 
     // ── Power (power.status.get / power.keepAwake.set, SDK 1.8.0) ─────────

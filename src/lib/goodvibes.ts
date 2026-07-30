@@ -1840,6 +1840,31 @@ export const sdk = {
         status: () => invokeOperator('voice.local.status', {}),
         install: () => invokeOperator('voice.local.install', {}),
       },
+      // Wake-word detection in the browser tab (voice.wake.status /
+      // voice.wake.provision / voice.wake.model). All three carry real generated
+      // OperatorMethodInputMap/OutputMap entries and real `http` route bindings
+      // (GET /api/voice/wake/status, POST /api/voice/wake/provision, GET
+      // /api/voice/wake/model), so they resolve through EXTRA_METHOD_ROUTES the
+      // same way voice.local.* does — no bridge override needed.
+      //
+      // `model.get` exists because a browser tab CANNOT fetch the pinned release
+      // assets directly: they answer without an access-control-allow-origin
+      // header, so the browser refuses the response before the bytes arrive. The
+      // daemon already holds and verifies the files, so it serves them in 512 kB
+      // chunks; a caller loops on `offset` until `complete` and verifies the
+      // assembled bytes against the returned (pinned) sha256 before creating an
+      // inference session. `provision` is an explicit act — ~3.7 MB, single-flight,
+      // never automatic.
+      wake: {
+        status: () => invokeOperator('voice.wake.status', {}),
+        provision: () => invokeOperator('voice.wake.provision', {}),
+        // Nested to mirror the verb id exactly (`voice.wake.model.get`, whose tail is
+        // a verb — the core-verbs conformance gate rejects a noun there), the same way
+        // `voice.local.status` nests under `local`.
+        model: {
+          get: (input: OperatorMethodInput<'voice.wake.model.get'>) => invokeOperator('voice.wake.model.get', input),
+        },
+      },
     },
     // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
     // comment) — the untyped overload is the honest, permanent shape here.

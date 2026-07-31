@@ -13,24 +13,16 @@
  *   3. A `dist/` with no index.html is refused here rather than published as a
  *      bundle nobody can serve.
  */
-import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BUNDLE_ROOT_DIR, bundleAssetName, packBundle } from './pack-bundle';
+import { installTestCleanup, makeProjectTempDir } from './helpers/project-temp';
 
-const created: string[] = [];
-
-afterEach(() => {
-  for (const dir of created.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
+installTestCleanup(afterAll);
 
 function scratch(prefix: string): string {
-  const dir = mkdtempSync(join(tmpdir(), `${prefix}-`));
-  created.push(dir);
-  return dir;
+  return makeProjectTempDir(`pack-bundle-${prefix}-`);
 }
 
 /** A minimal but realistic built bundle. */

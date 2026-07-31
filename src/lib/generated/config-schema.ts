@@ -975,34 +975,6 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Maximum work proposals awaiting an answer at once across all channels. The oldest is dropped past this cap. Clamped to 1 - 200."
   },
   {
-    "key": "hostedSessions.detachPolicy",
-    "type": "enum",
-    "default": "kill",
-    "description": "What happens to a daemon-hosted session when its last client detaches. kill (default): the session ends, which is what closing a client has always done. survive: the session stays alive and reattachable, so work continues while nothing is watching and you can pick it up again from any surface. A single session can override this when it is created.",
-    "enumValues": [
-      "kill",
-      "survive"
-    ]
-  },
-  {
-    "key": "hostedSessions.maxSessions",
-    "type": "number",
-    "default": 8,
-    "description": "How many daemon-hosted sessions may be live at once. Creating one past this is refused with the count and this setting named, rather than accepted and starved. Terminated sessions do not count."
-  },
-  {
-    "key": "hostedSessions.maxMessagesPerSession",
-    "type": "number",
-    "default": 500,
-    "description": "How many of a hosted session's most recent messages are written to disk. The transcript in memory is unaffected; this bounds what a restart can restore, so one long conversation cannot grow its file without limit."
-  },
-  {
-    "key": "hostedSessions.terminatedRetentionMs",
-    "type": "number",
-    "default": 86400000,
-    "description": "How long a terminated hosted session's record is kept before it is retired, in milliseconds. Until then it is still listable with its termination reason, so a session that ended can be asked about rather than having simply vanished."
-  },
-  {
     "key": "atRest.redactionEnabled",
     "type": "boolean",
     "default": true,
@@ -3422,8 +3394,8 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
   {
     "key": "update.releasesUrl",
     "type": "string",
-    "default": "https://github.com/mgd34msu/goodvibes-daemon/releases/latest",
-    "description": "GitHub releases/latest URL the daemon resolves its own update tags and artifacts from. The daemon is its own product with its own repository and its own release line; the terminal app updates itself from the goodvibes-tui repository and is never touched by a daemon update. A value written into settings.json overrides this default and is never re-derived"
+    "default": "https://github.com/mgd34msu/goodvibes-tui/releases/latest",
+    "description": "GitHub releases/latest URL the daemon resolves update tags and artifacts from"
   },
   {
     "key": "update.rollbackAfterFailedStarts",

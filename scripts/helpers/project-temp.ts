@@ -63,6 +63,7 @@ export const PROJECT_TEMP_ROOT = join(REPO_ROOT, '.test-tmp');
  * - 'webui-sdk-dev-'       scripts/sdk-dev.test.ts
  * - 'temp-root-proof-'     scripts/test-temp-root.test.ts — only reaches the real
  *                          tmpdir if the preload redirect it tests has broken
+ * - 'pack-bundle-'         scripts/pack-bundle.test.ts
  * - 'gv-live-smoke-home-'  HISTORICAL — no current call site creates these
  * - 'gv-live-smoke-work-'  HISTORICAL — no current call site creates these
  *
@@ -77,6 +78,7 @@ export const KNOWN_TEMP_PREFIXES = [
   'internal-id-check-',
   'webui-sdk-dev-',
   'temp-root-proof-',
+  'pack-bundle-',
   'gv-live-smoke-home-',
   'gv-live-smoke-work-',
 ] as const;

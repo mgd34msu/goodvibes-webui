@@ -67,6 +67,17 @@ import {
   type SessionsChangesGetResult,
   type CostAttributionGetInput,
   type CostAttributionGetResult,
+  type SessionsHostedListInput,
+  type SessionsHostedListResult,
+  type HostedSessionRecord,
+  type SessionsHostedCreateInput,
+  type SessionsHostedCreateResult,
+  type SessionsHostedAttachInput,
+  type SessionsHostedAttachResult,
+  type SessionsHostedDetachInput,
+  type SessionsHostedDetachResult,
+  type SessionsHostedKillInput,
+  type SessionsHostedKillResult,
 } from './contract-bridge-types';
 
 describe('goodvibes constants', () => {
@@ -1065,10 +1076,14 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.occasions.plans).sort()).toEqual(['list', 'propose', 'confirm'].sort());
   });
 
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), and toolCalls/queuedMessages (SDK 1.8.0)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), toolCalls/queuedMessages (SDK 1.8.0), and hosted (Phase B Stage B1)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'inputs', 'list', 'messages', 'permissionMode', 'queuedMessages', 'reopen', 'search', 'steer', 'toolCalls'].sort(),
+      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'hosted', 'inputs', 'list', 'messages', 'permissionMode', 'queuedMessages', 'reopen', 'search', 'steer', 'toolCalls'].sort(),
     );
+  });
+
+  test('sdk.operator.sessions.hosted exposes exactly list/create/attach/detach/kill — no hosted-specific steer/cancel (steered via the ordinary sessions.steer/followUp/toolCalls.cancel)', () => {
+    expect(Object.keys(sdk.operator.sessions.hosted).sort()).toEqual(['attach', 'create', 'detach', 'kill', 'list'].sort());
   });
 
   test('sdk.operator.sessions.permissionMode/contextUsage expose exactly the session-scoped verbs', () => {
@@ -1273,6 +1288,24 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     sizeBytes: 2048,
   };
 
+  const hostedSessionRecord: HostedSessionRecord = {
+    id: 'hosted-1',
+    workspaceRoot: '/home/operator/project',
+    title: 'Refactor the parser',
+    status: 'running',
+    detachPolicy: 'survive',
+    effectiveDetachPolicy: 'survive',
+    attachedClients: ['client-1'],
+    providerId: 'anthropic',
+    modelId: 'claude-sonnet',
+    createdAt: 1,
+    updatedAt: 2,
+    turnCount: 3,
+    messageCount: 6,
+    lastTurnAt: 2,
+    restoredFromDisk: false,
+  };
+
   const sessionSummary: SessionsSearchSessionSummary = {
     id: 's-1',
     kind: 'companion-chat',
@@ -1394,6 +1427,14 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
         tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
       }],
     } satisfies CostAttributionGetResult,
+    'sessions.hosted.list': { sessions: [hostedSessionRecord] } satisfies SessionsHostedListResult,
+    'sessions.hosted.create': { session: hostedSessionRecord } satisfies SessionsHostedCreateResult,
+    'sessions.hosted.attach': {
+      session: hostedSessionRecord,
+      history: [{ role: 'user', content: 'Refactor the parser', at: 1 }],
+    } satisfies SessionsHostedAttachResult,
+    'sessions.hosted.detach': { session: hostedSessionRecord } satisfies SessionsHostedDetachResult,
+    'sessions.hosted.kill': { session: hostedSessionRecord } satisfies SessionsHostedKillResult,
   };
 
   // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
@@ -1430,6 +1471,11 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'sessions.detach': { sessionId: 's-1', surfaceId: 'goodvibes-webui' } satisfies SessionsDetachInput,
     'sessions.changes.get': { sessionId: 's-1' } satisfies SessionsChangesGetInput,
     'cost.attribution.get': { window: '24h', dimension: 'session' } satisfies CostAttributionGetInput,
+    'sessions.hosted.list': { includeTerminated: true } satisfies SessionsHostedListInput,
+    'sessions.hosted.create': { workspaceRoot: '/home/operator/project', title: 'Refactor the parser' } satisfies SessionsHostedCreateInput,
+    'sessions.hosted.attach': { sessionId: 'hosted-1', clientId: 'client-1' } satisfies SessionsHostedAttachInput,
+    'sessions.hosted.detach': { sessionId: 'hosted-1', clientId: 'client-1' } satisfies SessionsHostedDetachInput,
+    'sessions.hosted.kill': { sessionId: 'hosted-1' } satisfies SessionsHostedKillInput,
   };
 
   test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {

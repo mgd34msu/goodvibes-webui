@@ -47,6 +47,11 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'sessions.detach',
   'sessions.changes.get',
   'cost.attribution.get',
+  'sessions.hosted.list',
+  'sessions.hosted.create',
+  'sessions.hosted.attach',
+  'sessions.hosted.detach',
+  'sessions.hosted.kill',
 ] as const;
 
 // ─── Fleet (fleet.*) ─────────────────────────────────────────────────────────
@@ -213,3 +218,30 @@ export type SessionsChangesGetResult = OperatorMethodOutput<'sessions.changes.ge
 export type CostAttributionGetInput = OperatorMethodInput<'cost.attribution.get'>;
 export type CostAttributionGetResult = OperatorMethodOutput<'cost.attribution.get'>;
 export type CostAttributionRow = CostAttributionGetResult['rows'][number];
+
+// ─── Hosted sessions (sessions.hosted.*) ───────────────────────────────────────
+// Phase B Stage B1 (SDK-owned, already shipped): a conversation whose loop runs
+// INSIDE the daemon rather than inside the client that started it. Real generated
+// OperatorMethodInputMap/OutputMap entries from day one (no pre-SWAP history) —
+// `transport: ["ws"]` only, no `http` route, same generic-invoke-only shape as
+// sessions.search/sessions.changes.get above, routed through invokeGatewayMethod in
+// goodvibes.ts's sdk.operator.sessions.hosted.*.
+//
+// Deliberately NOT bridged here: a hosted-specific steer/cancel verb. There is none —
+// see the SDK's method-catalog-hosted-sessions.ts header comment. A hosted session is
+// steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel, which resolve a
+// hosted id the same way they resolve any other session.
+export type SessionsHostedListInput = OperatorMethodInput<'sessions.hosted.list'>;
+export type SessionsHostedListResult = OperatorMethodOutput<'sessions.hosted.list'>;
+/** The record every hosted-session verb returns — one row of sessions.hosted.list. */
+export type HostedSessionRecord = SessionsHostedListResult['sessions'][number];
+export type SessionsHostedCreateInput = OperatorMethodInput<'sessions.hosted.create'>;
+export type SessionsHostedCreateResult = OperatorMethodOutput<'sessions.hosted.create'>;
+export type SessionsHostedAttachInput = OperatorMethodInput<'sessions.hosted.attach'>;
+export type SessionsHostedAttachResult = OperatorMethodOutput<'sessions.hosted.attach'>;
+/** One message of a hosted session's history, as attach hands it back. */
+export type HostedSessionHistoryMessage = SessionsHostedAttachResult['history'][number];
+export type SessionsHostedDetachInput = OperatorMethodInput<'sessions.hosted.detach'>;
+export type SessionsHostedDetachResult = OperatorMethodOutput<'sessions.hosted.detach'>;
+export type SessionsHostedKillInput = OperatorMethodInput<'sessions.hosted.kill'>;
+export type SessionsHostedKillResult = OperatorMethodOutput<'sessions.hosted.kill'>;

@@ -3,6 +3,7 @@
  * Derives state from data already exposed by the SDK / queries.
  * No `any`. No side effects.
  */
+import type { ClientCompatibilityVerdict } from './client-compatibility';
 
 // ---------------------------------------------------------------------------
 // Core types
@@ -64,6 +65,14 @@ export interface DaemonHealth {
   queuedTasks: number;
   /** Currently-selected model display name, if resolvable */
   modelName: string | null;
+  /**
+   * This build vs. the daemon's most recently observed client-build floor
+   * (X-Goodvibes-Client-Floor — see lib/client-compatibility.ts). Null until at least
+   * one response has been observed; a daemon that never sends the header (every
+   * currently-shipped one, at this SDK pin) leaves this null forever, which is honest —
+   * there is nothing yet to report, not a clean bill of health.
+   */
+  compatibility: ClientCompatibilityVerdict | null;
 }
 
 export const DAEMON_HEALTH_DEFAULTS: DaemonHealth = {
@@ -76,6 +85,7 @@ export const DAEMON_HEALTH_DEFAULTS: DaemonHealth = {
   activeTurns: 0,
   queuedTasks: 0,
   modelName: null,
+  compatibility: null,
 };
 
 interface TaskItem {

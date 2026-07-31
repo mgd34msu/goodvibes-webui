@@ -39,8 +39,10 @@ Prerequisites:
 
 - Bun `1.3.14`
 - A running GoodVibes daemon, reachable locally or over the network
-- An installed `goodvibes` CLI for standalone development, so Vite can resolve
-  the configured WebUI binding via `goodvibes web --json`
+- For standalone development, Vite resolves the configured WebUI binding by
+  asking the daemon directly (`goodvibes-daemon webui status --json`, once an
+  installed daemon answers it), falling back to the terminal's own
+  `goodvibes web --json` / `~/.goodvibes/tui/settings.json` on an older daemon
 
 ```bash
 bun install

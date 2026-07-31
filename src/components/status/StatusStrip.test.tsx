@@ -29,6 +29,7 @@ let _mockHealth: DaemonHealth = {
   activeTurns: 0,
   queuedTasks: 0,
   modelName: null,
+  compatibility: null,
 };
 
 // Bun mock.module — synchronous module override for bun:test
@@ -85,6 +86,7 @@ beforeEach(() => {
     activeTurns: 0,
     queuedTasks: 0,
     modelName: null,
+    compatibility: null,
   };
 });
 

@@ -20,6 +20,7 @@ import {
   webuiRouteFor,
   sdk,
 } from './goodvibes';
+import { getObservedClientCompatibilityFloor } from './client-compatibility';
 import {
   BRIDGE_TYPED_METHOD_IDS,
   type FleetProcessNode,
@@ -1497,5 +1498,31 @@ describe('getCurrentAuth honors the authenticated field (token-honesty handoff)'
     const snapshot = { some: 'other-shape' };
     sdk.auth.current = stub(snapshot);
     expect(await getCurrentAuth()).toEqual(snapshot);
+  });
+});
+
+describe('requestJson records the daemon-announced client-build floor off every response', () => {
+  const originalFetch = globalThis.fetch;
+
+  function stubFetch(responseBody: unknown, headers: Record<string, string> = {}): void {
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify(responseBody), { status: 200, headers: { 'content-type': 'application/json', ...headers } })
+    ) as typeof fetch;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('a response carrying X-Goodvibes-Client-Floor updates the observed-floor store', async () => {
+    stubFetch({ sessionId: 'sess-1', deleted: true }, { 'X-Goodvibes-Client-Floor': '1.14.0' });
+    await sdk.operator.sessions.delete('sess-1');
+    expect(getObservedClientCompatibilityFloor()).toBe('1.14.0');
+  });
+
+  test('a response with no floor header leaves the store at undefined', async () => {
+    stubFetch({ sessionId: 'sess-1', deleted: true });
+    await sdk.operator.sessions.delete('sess-1');
+    expect(getObservedClientCompatibilityFloor()).toBeUndefined();
   });
 });

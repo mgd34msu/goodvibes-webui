@@ -102,6 +102,55 @@ function readWebBindingFromCli(): GoodVibesWebBinding {
   }
 }
 
+/**
+ * Whether this machine's installed `goodvibes-daemon` binary recognizes `webui` as a
+ * subcommand at all, checked via its own `--help` listing before ever invoking it.
+ * NOT a version-string check: some installed daemon builds treat any unrecognized
+ * leading argument (including `webui`) as ignorable noise and fall straight through to
+ * booting the daemon itself — which would mean `readWebBindingFromDaemon` below,
+ * called from `vite`'s own config evaluation, could accidentally start a second,
+ * unmanaged daemon process bound to a real port as a side effect of running `bun run
+ * dev`. `--help` is side-effect-free on every observed build and always exits
+ * immediately, so this is the safe way to learn whether `webui status --json` is a
+ * subcommand this binary will actually route to, before running it for real.
+ */
+function daemonSupportsWebuiCommand(): boolean {
+  try {
+    const help = execFileSync('goodvibes-daemon', ['--help'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    return /\bwebui\b/.test(help);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The daemon is the authority on where the web surface is bound — `goodvibes web --json`
+ * and `~/.goodvibes/tui/settings.json` (readWebBindingFromCli/readTuiSettings above) read
+ * `controlPlane.*`/`web.*` keys through the TERMINAL's own CLI and settings file, which is
+ * a holdover from before the daemon became its own product with its own CLI. Returns null
+ * when the daemon does not answer this (no `goodvibes-daemon` on PATH, an installed daemon
+ * that predates the `webui` subcommand entirely — see daemonSupportsWebuiCommand above —
+ * or one whose `webui status` predates a `--json` output mode), so the caller falls back
+ * to the terminal-owned path rather than fail the whole dev server boot.
+ */
+function readWebBindingFromDaemon(): GoodVibesWebBinding | null {
+  if (!daemonSupportsWebuiCommand()) return null;
+  try {
+    const output = execFileSync('goodvibes-daemon', ['webui', 'status', '--json'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    });
+    return JSON.parse(output) as GoodVibesWebBinding;
+  } catch {
+    return null;
+  }
+}
+
 function listenerHost(settings: GoodVibesListenerSettings | undefined, fallback: string): string {
   const configuredHost = settings?.host?.trim();
   if (settings?.hostMode === 'network') return '0.0.0.0';
@@ -140,7 +189,16 @@ function uniqueHosts(values: string[]): string[] {
   return [...hosts];
 }
 
-const cliWebBinding = readWebBindingFromCli();
+const daemonWebBinding = readWebBindingFromDaemon();
+if (!daemonWebBinding) {
+  console.warn(
+    '[vite] `goodvibes-daemon webui status --json` did not answer — falling back to the ' +
+    'deprecated `goodvibes web --json` / TUI settings.json binding source. That path predates ' +
+    'the daemon becoming its own product and is removed once every supported daemon answers ' +
+    '`webui status --json`.',
+  );
+}
+const cliWebBinding = daemonWebBinding ?? readWebBindingFromCli();
 const tuiSettings = cliWebBinding.host || cliWebBinding.port ? {} : readTuiSettings();
 const webHost = cliWebBinding.host ?? listenerHost(tuiSettings.web, '127.0.0.1');
 const webPort = cliWebBinding.port ?? tuiSettings.web?.port ?? 3423;
@@ -166,8 +224,19 @@ const devAllowedHosts = uniqueHosts([
   'goodvibes.local',
 ]);
 
+// This app's own build version, baked in at build/dev-server-start time from
+// package.json — read here (config-eval time, Node/Bun) rather than imported as JSON
+// into browser code, so no resolveJsonModule config is needed for src/. Exposed as
+// `import.meta.env.VITE_WEBUI_VERSION`, same access pattern as the other VITE_-prefixed
+// values this config already threads through (GOODVIBES_BASE_URL). Used to compare this
+// running build against a daemon-announced client-build floor (lib/client-compatibility.ts).
+const webuiVersion = (JSON.parse(readFileSync(join(CONFIG_DIR, 'package.json'), 'utf8')) as { version?: string }).version ?? '0.0.0';
+
 export default defineConfig({
   plugins: [react(), sdkOverlayGuardPlugin()],
+  define: {
+    'import.meta.env.VITE_WEBUI_VERSION': JSON.stringify(webuiVersion),
+  },
   server: {
     host: devHost,
     port: devPort,

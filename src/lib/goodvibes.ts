@@ -7,6 +7,7 @@ import type { BrowserKnowledgeMethodId } from '@pellux/goodvibes-sdk/browser/kno
 import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
 import { routedFetch } from './relay-connection';
+import { readClientCompatibilityFloor, recordObservedClientCompatibilityFloor } from './client-compatibility';
 // The union profile.forget accepts as a target (a field id OR a raw line index), named in
 // lib/owner-profile.ts beside the readers for the same verbs' output. The generated
 // OperatorMethodInput<'profile.forget'> has both properties optional, so this narrower
@@ -159,8 +160,17 @@ export interface DaemonReceipt {
 export const WEBUI_SURFACE_KIND = 'webui';
 export const WEBUI_SURFACE_ID = 'goodvibes-webui';
 export const WEBUI_TOKEN_STORE_KEY = 'goodvibes.webui.token';
+// The daemon-served world is one origin: the web UI's own bundle and the API it calls
+// are served by the same control-plane listener, whose default port is 3421. A browser
+// context always has `window.location.origin`; the 3421 fallback below is reached only
+// outside one (tests, SSR-style module evaluation).
 export const GOODVIBES_BASE_URL = import.meta.env.VITE_GOODVIBES_BASE_URL
-  ?? (typeof window === 'undefined' ? 'http://127.0.0.1:3423' : window.location.origin);
+  ?? (typeof window === 'undefined' ? 'http://127.0.0.1:3421' : window.location.origin);
+
+/** This build's own version (vite.config.ts's `define`, from package.json), for
+ * comparison against a daemon-announced client-build floor — see client-compatibility.ts.
+ * Undefined outside a Vite-built bundle (bun test, a bare module eval). */
+export const WEBUI_VERSION: string | undefined = import.meta.env.VITE_WEBUI_VERSION;
 
 export const tokenStore = createBrowserTokenStore({ key: WEBUI_TOKEN_STORE_KEY });
 
@@ -342,6 +352,11 @@ async function requestJson<T = unknown>(path: string, options: RequestOptions = 
     headers,
     ...(method === 'GET' || options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
   });
+  // Every response, success or failure, is a chance to learn the daemon's current
+  // client-build floor (see client-compatibility.ts) — recorded here rather than only
+  // on one dedicated probe, since this is the one HTTP helper nearly every operator
+  // call passes through.
+  recordObservedClientCompatibilityFloor(readClientCompatibilityFloor(response.headers));
   const body = await readJson(response);
   if (!response.ok) {
     throw Object.assign(new Error(`${method} ${path} failed: ${response.status} ${response.statusText}`.trim()), {
@@ -374,6 +389,7 @@ async function requestStream(path: string, body: unknown, signal?: AbortSignal):
     body: JSON.stringify(body),
     signal,
   });
+  recordObservedClientCompatibilityFloor(readClientCompatibilityFloor(response.headers));
   if (!response.ok) {
     const errBody = await readJson(response).catch(() => null);
     throw Object.assign(new Error(`POST ${path} failed: ${response.status} ${response.statusText}`.trim()), {

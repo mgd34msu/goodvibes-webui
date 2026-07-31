@@ -165,15 +165,23 @@ jobs:
 
   auto-release:
     # Zero-touch release: a green push-CI run on main is the only thing that
-    # gates a release. This repo ships no artifacts (see CHANGELOG.md) — the
-    # git tag plus the GitHub release page, cut here from CHANGELOG.md, is the
-    # entire "release." No separate workflow, no manual dispatch, no human
-    # step after the other three jobs go green.
+    # gates a release. The git tag and the GitHub release page are cut here from
+    # CHANGELOG.md; no separate workflow, no manual dispatch, no human step
+    # after the other three jobs go green.
+    #
+    # This repo DOES ship an artifact now: the built bundle, as
+    # goodvibes-webui-bundle-<version>.tar.gz plus a SHA256SUMS.txt. That is
+    # what makes the browser surface part of the one-curl suite install — the
+    # installer fetches it from this release, verifies it against that manifest
+    # on the same terms as every binary in the suite, unpacks it beside the
+    # binaries, and points the daemon at it. A release without the asset is a
+    # release the installer will note and skip, so the packing step is fatal
+    # rather than best-effort.
     name: Auto Release
     needs: [test, lint, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -207,6 +215,43 @@ jobs:
           git tag -a "v${VERSION}" -m "v${VERSION}" "${{ github.sha }}"
           git push origin "refs/tags/v${VERSION}"
 
+      # The bundle is built HERE rather than restored from the test job's
+      # workspace, so the bytes attached to the release come from the tagged
+      # commit and nothing else. `pack:bundle` is deterministic, so re-running
+      # this job produces the same archive and the same digest.
+      - name: Set up Bun
+        if: steps.check-tag.outputs.exists != 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        if: steps.check-tag.outputs.exists != 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        if: steps.check-tag.outputs.exists != 'true'
+        run: bun run build
+
+      - name: Pack the bundle release asset
+        if: steps.check-tag.outputs.exists != 'true'
+        run: |
+          set -eu
+          bun run pack:bundle
+          VERSION="${{ steps.version.outputs.version }}"
+          ASSET="release/goodvibes-webui-bundle-${VERSION}.tar.gz"
+          if [ ! -f "$ASSET" ]; then
+            echo "FATAL: expected $ASSET — the suite installer has nothing to fetch without it" >&2
+            exit 1
+          fi
+          if ! grep -q "goodvibes-webui-bundle-${VERSION}.tar.gz" release/SHA256SUMS.txt; then
+            echo "FATAL: release/SHA256SUMS.txt has no entry for the bundle — a missing manifest entry is a hard install failure" >&2
+            exit 1
+          fi
+          ls -la release
+          cat release/SHA256SUMS.txt
+
       - name: Extract changelog section
         if: steps.check-tag.outputs.exists != 'true'
         id: changelog
@@ -231,7 +276,12 @@ jobs:
             exit 0
           fi
           for attempt in $(seq 1 8); do
-            if gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "${{ steps.changelog.outputs.notes_file }}" --verify-tag; then
+            # The bundle and its manifest are uploaded with the release, not
+            # after it: a release page that exists without them is one the suite
+            # installer reads as "this version ships no web UI".
+            if gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "${{ steps.changelog.outputs.notes_file }}" --verify-tag \
+                 "release/goodvibes-webui-bundle-${VERSION}.tar.gz" \
+                 "release/SHA256SUMS.txt"; then
               echo "Release v${VERSION} created."
               exit 0
             fi

@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# The packed release asset (scripts/pack-bundle.ts) — built by the release lane
+# and attached to the GitHub release, never committed.
+release/
 coverage/
 *.log
 .DS_Store

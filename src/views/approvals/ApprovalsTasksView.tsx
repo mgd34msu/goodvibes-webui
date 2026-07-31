@@ -25,10 +25,15 @@
  * only when the task reports itself cancellable; retry only for a
  * failed/cancelled task (TaskManager.retryTask's own transition guard).
  *
- * Realtime: approval-update rides the `permissions` domain and task events
- * ride the `tasks` domain — both already wired into
- * useRealtimeInvalidation's DOMAIN_INVALIDATIONS (W1); this view adds no new
- * subscription, it only benefits from the existing one.
+ * Realtime: task events ride the `tasks` domain, already wired into
+ * useRealtimeInvalidation's DOMAIN_INVALIDATIONS (W1). Approval transitions
+ * are a DIFFERENT wire event (`approval-update`, a fixed name filter-tagged
+ * `permissions` — not a domain-forwarded frame useRealtimeInvalidation can see;
+ * see useApprovalUpdates.ts's header comment), so this view opens its own
+ * dedicated subscription (useApprovalUpdates) rather than relying on that
+ * hook. Push is the fast path: while connected, the approvals query stops
+ * polling; when the stream cannot open or drops, a 15s poll fallback keeps
+ * the list fresh and the toolbar states which mode it is in.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -53,14 +58,17 @@ import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
 import { useIsPhoneViewport } from '../../hooks/useIsPhoneViewport';
+import { useApprovalUpdates } from '../../hooks/useApprovalUpdates';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/approvals.css';
 
-/** Neither approvals.* nor tasks.* emits an event this view doesn't already
- * subscribe to (permissions/tasks domains, W1) — no extra poll needed beyond
- * the default staleness the realtime invalidation keeps fresh. A slow manual
- * refresh button is offered for the honest "nothing has arrived yet" case. */
+/** tasks.* emits no event this view doesn't already subscribe to (the `tasks`
+ * domain, W1) — no extra poll needed there beyond the default staleness the
+ * realtime invalidation keeps fresh. Approvals now push (useApprovalUpdates)
+ * with a 15s poll fallback while push is down — see ApprovalsSection. A slow
+ * manual refresh button is offered either way for the honest "nothing has
+ * arrived yet" case. */
 
 function friendlyError(error: unknown): string {
   if (isSessionClosedError(error)) return 'That session is closed — the approval or task can no longer be actioned.';
@@ -90,9 +98,14 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   const { toast } = useToast();
   const [selections, setSelections] = useState<Record<string, ReadonlySet<number>>>({});
 
+  // Push is the fast path; the poll is the honest fallback, never removed —
+  // see useApprovalUpdates.ts's header comment and this file's own header.
+  const approvalUpdates = useApprovalUpdates(true);
+
   const approvals = useQuery({
     queryKey: queryKeys.approvals,
     queryFn: () => sdk.operator.approvals.list(),
+    refetchInterval: approvalUpdates.connected ? false : 15_000,
   });
 
   const rows = useMemo(
@@ -232,6 +245,13 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
         <span className="approvals-toolbar__summary">
           <ClipboardCheck size={14} /> Approvals
           {approvals.isSuccess && ` · ${rows.filter((r) => r.status === 'pending').length} pending`}
+        </span>
+        <span
+          className={approvalUpdates.connected ? 'approvals-toolbar__mode ok' : 'approvals-toolbar__mode'}
+          role="status"
+          title={approvalUpdates.error ?? undefined}
+        >
+          {approvalUpdates.connected ? 'Live' : 'Polling every 15s'}
         </span>
         <button className="icon-button" type="button" title="Refresh" onClick={() => void approvals.refetch()}>
           <RefreshCw size={15} className={approvals.isFetching ? 'spin' : undefined} />

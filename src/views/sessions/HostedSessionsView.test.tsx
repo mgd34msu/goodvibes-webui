@@ -1,0 +1,191 @@
+/**
+ * HostedSessionsView — list rendering (incl. the includeTerminated toggle and
+ * the terminatedReason honesty line), attach/history rendering, and the
+ * honesty-bar degrade for an unmodeled sessions.hosted.list response.
+ */
+import { afterEach, describe, expect, mock, test } from 'bun:test';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../../lib/toast';
+
+const RUNNING = {
+  id: 'hosted-1', workspaceRoot: '/home/operator/project-a', title: 'Refactor the parser',
+  status: 'running', detachPolicy: null, effectiveDetachPolicy: 'survive', attachedClients: ['other-client'],
+  createdAt: 1, updatedAt: 100, turnCount: 3, messageCount: 6, restoredFromDisk: false,
+};
+const TERMINATED = {
+  id: 'hosted-2', workspaceRoot: '/home/operator/project-b', title: 'One-off cleanup',
+  status: 'terminated', detachPolicy: 'kill', effectiveDetachPolicy: 'kill', attachedClients: [],
+  createdAt: 1, updatedAt: 50, turnCount: 1, messageCount: 2, terminatedAt: 60, terminatedReason: 'killed',
+  restoredFromDisk: false,
+};
+
+let listImpl: (input?: { includeTerminated?: boolean }) => Promise<unknown> =
+  () => Promise.resolve({ sessions: [RUNNING] });
+let attachImpl: (sessionId: string, clientId: string) => Promise<unknown> =
+  (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
+const detachCalls: { sessionId: string; clientId: string }[] = [];
+const steerCalls: { sessionId: string; body: unknown }[] = [];
+
+mock.module('../../lib/goodvibes', () => ({
+  DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
+  getCurrentAuth: () => Promise.resolve({}),
+  invokeMethod: () => Promise.resolve({}),
+  sdk: {
+    streams: { open: () => Promise.resolve(() => {}) },
+    operator: {
+      sessions: {
+        hosted: {
+          list: (input?: { includeTerminated?: boolean }) => listImpl(input),
+          attach: (sessionId: string, clientId: string) => attachImpl(sessionId, clientId),
+          detach: (sessionId: string, clientId: string) => {
+            detachCalls.push({ sessionId, clientId });
+            return Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
+          },
+          create: () => Promise.resolve({ session: RUNNING }),
+          kill: () => Promise.resolve({ session: TERMINATED }),
+        },
+        steer: (sessionId: string, input: unknown) => {
+          steerCalls.push({ sessionId, body: input });
+          return Promise.resolve({ session: null, message: {}, input: {}, mode: 'continued-live', agentId: null });
+        },
+        followUp: (sessionId: string, input: unknown) => {
+          steerCalls.push({ sessionId, body: input });
+          return Promise.resolve({ session: null, message: {}, input: {}, mode: 'queued-follow-up', agentId: null });
+        },
+      },
+    },
+  },
+}));
+
+const { HostedSessionsView } = await import('./HostedSessionsView');
+
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+function render(): { el: HTMLElement; unmount: () => void } {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  flushSync(() => {
+    root.render(React.createElement(
+      QueryClientProvider,
+      { client },
+      React.createElement(ToastProvider, null, React.createElement(HostedSessionsView)),
+    ));
+  });
+  return {
+    el: container,
+    unmount: () => {
+      flushSync(() => root.unmount());
+      if (container.parentNode) container.parentNode.removeChild(container);
+    },
+  };
+}
+
+afterEach(() => {
+  listImpl = () => Promise.resolve({ sessions: [RUNNING] });
+  attachImpl = (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
+  detachCalls.length = 0;
+  steerCalls.length = 0;
+});
+
+describe('HostedSessionsView — list', () => {
+  test('renders a hosted session row with title, status, workspace, detach policy and counts', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    expect(el.textContent).toContain('Refactor the parser');
+    expect(el.textContent).toContain('/home/operator/project-a');
+    expect(el.textContent).toContain('running');
+    expect(el.textContent).toContain('detach: survive');
+    expect(el.textContent).toContain('3 turns');
+    expect(el.textContent).toContain('6 messages');
+    expect(el.textContent).toContain('1 attached client');
+    unmount();
+  });
+
+  test('a true-empty list (includeTerminated off, nothing active) says so honestly', async () => {
+    listImpl = () => Promise.resolve({ sessions: [] });
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('No active hosted sessions') ?? false);
+    unmount();
+  });
+
+  test('terminated rows show the terminatedReason line, hidden until includeTerminated is checked', async () => {
+    listImpl = (input) => Promise.resolve({ sessions: input?.includeTerminated ? [RUNNING, TERMINATED] : [RUNNING] });
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    expect(el.textContent).not.toContain('One-off cleanup');
+
+    const toggle = el.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(toggle).not.toBeNull();
+    flushSync(() => toggle?.click());
+    await waitFor(() => el.textContent?.includes('One-off cleanup') ?? false);
+    expect(el.textContent).toContain('terminated — ended with sessions.hosted.kill');
+    unmount();
+  });
+
+  test('honesty bar: an unmodeled sessions.hosted.list response ({}) renders a stated "could not be read" message, never an empty list', async () => {
+    listImpl = () => Promise.resolve({});
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Could not read hosted sessions') ?? false);
+    expect(el.textContent).not.toContain('No active hosted sessions');
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — attach/steer', () => {
+  test('selecting a row attaches with a stable client id and renders the history', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+
+    const row = el.querySelector('.hosted-session-row__button');
+    expect(row).not.toBeNull();
+    flushSync(() => (row as HTMLButtonElement).click());
+
+    await waitFor(() => el.textContent?.includes('hello') ?? false);
+    expect(el.querySelector('.hosted-session-transcript')).not.toBeNull();
+    // The steer composer renders for the attached session.
+    expect(el.querySelector('.steer-composer')).not.toBeNull();
+    unmount();
+  });
+
+  test('submitting the steer composer calls sessions.steer for the attached session', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer__input')));
+
+    const textarea = el.querySelector('.steer-composer__input') as HTMLTextAreaElement;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSetter?.call(textarea, 'do the thing');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.steer-composer__form') as HTMLFormElement;
+    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+    await waitFor(() => steerCalls.length > 0);
+    expect(steerCalls[0].sessionId).toBe('hosted-1');
+    unmount();
+  });
+
+  test('an attach failure (unmodeled response) renders an honest "could not attach" state', async () => {
+    attachImpl = () => Promise.resolve({});
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => el.textContent?.includes('Could not attach') ?? false);
+    unmount();
+  });
+});

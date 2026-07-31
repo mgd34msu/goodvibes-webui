@@ -57,6 +57,16 @@ export const queryKeys = {
   // SessionChanges.tsx refetches manually rather than riding useRealtimeInvalidation;
   // the prefix still means it's swept by any broad `queryKeys.sessions` invalidation.
   sessionChanges: (sessionId: string) => ['sessions', sessionId, 'changes'] as const,
+  // sessions.hosted.list (Phase B Stage B1) — the daemon-hosted session lifecycle
+  // list, DELIBERATELY not 'sessions'-prefixed: hosted sessions have their own
+  // lifecycle wire event (hosted-session-update, not session-update) and their own
+  // realtime hook (useHostedSessionRealtime), so a broad `queryKeys.sessions`
+  // invalidation is neither necessary nor sufficient to keep this fresh.
+  hostedSessions: (includeTerminated: boolean) => ['hosted-sessions', 'list', includeTerminated] as const,
+  // The un-parameterized prefix, for invalidating every includeTerminated variant at
+  // once (non-exact invalidateQueries match) — the same "prefix sweeps every variant"
+  // convention queryKeys.sessions already documents for sessionDetail/sessionMessages.
+  hostedSessionsAll: ['hosted-sessions'] as const,
   // cost.attribution.get (SDK 1.6.1), keyed by window+dimension so switching either
   // refetches honestly rather than serving a stale slice from cache.
   costAttribution: (window: string, dimension: string) => ['cost', 'attribution', window, dimension] as const,

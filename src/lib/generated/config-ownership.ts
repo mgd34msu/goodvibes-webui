@@ -27,6 +27,7 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   "payments.",
   "voice.local.",
   "conversationGate.",
+  "hostedSessions.",
   "cluster.",
   "profile.",
   "occasions."

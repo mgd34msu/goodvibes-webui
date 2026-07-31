@@ -65,6 +65,18 @@ import type {
   SessionsSearchInput,
   SessionsSearchResult,
   WorkspaceCheckpoint,
+  SessionsHostedListInput,
+  SessionsHostedListResult,
+  HostedSessionRecord,
+  SessionsHostedCreateInput,
+  SessionsHostedCreateResult,
+  SessionsHostedAttachInput,
+  SessionsHostedAttachResult,
+  HostedSessionHistoryMessage,
+  SessionsHostedDetachInput,
+  SessionsHostedDetachResult,
+  SessionsHostedKillInput,
+  SessionsHostedKillResult,
 } from './contract-bridge-types';
 
 // Re-exported so existing consumers (lib/fleet.ts, lib/checkpoints.ts, FleetView.tsx,
@@ -117,6 +129,18 @@ export type {
   SessionsSearchInput,
   SessionsSearchResult,
   WorkspaceCheckpoint,
+  SessionsHostedListInput,
+  SessionsHostedListResult,
+  HostedSessionRecord,
+  SessionsHostedCreateInput,
+  SessionsHostedCreateResult,
+  SessionsHostedAttachInput,
+  SessionsHostedAttachResult,
+  HostedSessionHistoryMessage,
+  SessionsHostedDetachInput,
+  SessionsHostedDetachResult,
+  SessionsHostedKillInput,
+  SessionsHostedKillResult,
 };
 
 /**
@@ -2371,6 +2395,25 @@ export const sdk = {
       changes: {
         get: (sessionId: string) =>
           invokeGatewayMethod<'sessions.changes.get', SessionsChangesGetResult>('sessions.changes.get', { sessionId }),
+      },
+      // hosted.* (Phase B Stage B1, already shipped in the SDK): a conversation
+      // whose loop runs INSIDE the daemon rather than inside this browser tab —
+      // create/attach/detach/kill/list the lifecycle; `transport: ["ws"]` only, no
+      // `http` route, same generic-invoke-only shape as changes.get above. A hosted
+      // session is steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel
+      // above — there is no sessions.hosted.steer (see the SDK's
+      // method-catalog-hosted-sessions.ts header comment), so none is wired here.
+      hosted: {
+        list: (input?: SessionsHostedListInput) =>
+          invokeGatewayMethod<'sessions.hosted.list', SessionsHostedListResult>('sessions.hosted.list', input ?? {}),
+        create: (input: SessionsHostedCreateInput) =>
+          invokeGatewayMethod<'sessions.hosted.create', SessionsHostedCreateResult>('sessions.hosted.create', input),
+        attach: (sessionId: string, clientId: string) =>
+          invokeGatewayMethod<'sessions.hosted.attach', SessionsHostedAttachResult>('sessions.hosted.attach', { sessionId, clientId }),
+        detach: (sessionId: string, clientId: string) =>
+          invokeGatewayMethod<'sessions.hosted.detach', SessionsHostedDetachResult>('sessions.hosted.detach', { sessionId, clientId }),
+        kill: (sessionId: string) =>
+          invokeGatewayMethod<'sessions.hosted.kill', SessionsHostedKillResult>('sessions.hosted.kill', { sessionId }),
       },
     },
     // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely

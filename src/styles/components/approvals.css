@@ -38,6 +38,16 @@
   color: var(--text-primary);
 }
 
+.approvals-toolbar__mode {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.approvals-toolbar__mode.ok {
+  color: var(--status-ok, var(--text-secondary));
+}
+
 .approvals-rows,
 .tasks-rows {
   list-style: none;

@@ -36,10 +36,25 @@ const ruleDeleteCalls: string[] = [];
 let rulesFixture: { id: string; effect: string; tier: string; tool: string; description?: string; createdAt: number }[] = [];
 let ruleDeleteResult = true;
 
+// Captured so a test can prove ApprovalsSection opened the approval-update
+// stream at the right path (?domains=permissions) — see useApprovalUpdates.ts.
+const streamOpenCalls: string[] = [];
+
 mock.module('../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
+  DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
   sdk: {
+    // Never calls onReady/onEvent by default — the hook stays in its honest
+    // "not yet connected" state, matching useSessionRealtime.test.tsx's stance
+    // that a hook under test drives its OWN assertions off captured handlers,
+    // not off a real network round trip.
+    streams: {
+      open: (pathOrUrl: string) => {
+        streamOpenCalls.push(pathOrUrl);
+        return Promise.resolve(() => {});
+      },
+    },
     operator: {
       approvals: {
         list: () => approvalsListImpl(),
@@ -467,6 +482,18 @@ describe('ApprovalsTasksView — approvals honest empty/error', () => {
     });
     expect(container.textContent).toContain('No pending approvals');
     flushSync(() => root.unmount());
+  });
+});
+
+describe('ApprovalsTasksView — approval-update push subscription (control.approval_update)', () => {
+  test('opens the approval-update stream narrowed to the permissions domain, and shows "Polling every 15s" until it connects', async () => {
+    streamOpenCalls.length = 0;
+    const { el, unmount } = render();
+    await waitFor(() => streamOpenCalls.length > 0);
+    expect(streamOpenCalls).toContain('/api/control-plane/events?domains=permissions');
+    // The mocked stream never calls onReady, so the honest fallback state renders.
+    expect(el.textContent).toContain('Polling every 15s');
+    unmount();
   });
 });
 

@@ -11,6 +11,7 @@ import {
   parseRelayPairingFromHash,
   storeRelayPairing,
   stripRelayPairingFragment,
+  takeRelayPairingCorruptionNotice,
   type RelayPairingPayload,
 } from './relay-pairing';
 
@@ -133,5 +134,47 @@ describe('local persistence', () => {
   test('getStoredRelayPairing returns null for a well-formed but incomplete object', () => {
     window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, JSON.stringify({ relayUrl: 'wss://x' }));
     expect(getStoredRelayPairing()).toBeNull();
+  });
+
+  test('corrupt JSON is actually cleared from storage (reset, not just a null read)', () => {
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, '{not json');
+    getStoredRelayPairing();
+    expect(window.localStorage.getItem(RELAY_PAIRING_STORAGE_KEY)).toBeNull();
+  });
+
+  test('an incomplete object is also cleared from storage', () => {
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, JSON.stringify({ relayUrl: 'wss://x' }));
+    getStoredRelayPairing();
+    expect(window.localStorage.getItem(RELAY_PAIRING_STORAGE_KEY)).toBeNull();
+  });
+
+  test('corrupt JSON surfaces a one-time notice describing the reset', () => {
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, '{not json');
+    getStoredRelayPairing();
+    const notice = takeRelayPairingCorruptionNotice();
+    expect(notice).not.toBeNull();
+    expect(notice?.text).toContain('reset');
+    // Consumed once — a second take is empty even though nothing new happened.
+    expect(takeRelayPairingCorruptionNotice()).toBeNull();
+  });
+
+  test('an incomplete object surfaces the same one-time notice', () => {
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, JSON.stringify({ relayUrl: 'wss://x' }));
+    getStoredRelayPairing();
+    expect(takeRelayPairingCorruptionNotice()).not.toBeNull();
+  });
+
+  test('a well-formed stored pairing never produces a corruption notice', () => {
+    storeRelayPairing(SAMPLE_PAYLOAD);
+    getStoredRelayPairing();
+    expect(takeRelayPairingCorruptionNotice()).toBeNull();
+  });
+
+  test('re-reading after the corrupt entry was cleared does not re-fire the notice', () => {
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, '{not json');
+    getStoredRelayPairing();
+    takeRelayPairingCorruptionNotice();
+    getStoredRelayPairing();
+    expect(takeRelayPairingCorruptionNotice()).toBeNull();
   });
 });

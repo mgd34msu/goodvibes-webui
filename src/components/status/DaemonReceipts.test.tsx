@@ -9,6 +9,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
+import { RELAY_PAIRING_STORAGE_KEY, getStoredRelayPairing } from '../../lib/relay-pairing';
 
 // Controllable control.status stub: records every call's input and returns the
 // staged receipts on the first consume, then nothing (marked delivered).
@@ -70,6 +71,7 @@ afterEach(() => {
   statusCalls.length = 0;
   stagedReceipts = [];
   document.body.innerHTML = '';
+  window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);
 });
 
 describe('DaemonReceipts', () => {
@@ -132,6 +134,23 @@ describe('DaemonReceipts', () => {
     expect(link?.getAttribute('rel')).toContain('noopener');
     // The surrounding prose still renders.
     expect(rows[0].textContent).toContain('Reach this session from your phone');
+    unmount();
+  });
+
+  test('a pending relay-pairing corruption notice rides the same queue, independent of connection state', async () => {
+    // Simulate an earlier code path (routedFetch's own getStoredRelayPairing read,
+    // in real use) discovering and discarding a corrupt stored record BEFORE this
+    // component ever mounts.
+    window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, '{not json');
+    getStoredRelayPairing();
+
+    const { el, unmount } = render({ connected: false, signedIn: false });
+    await settle();
+    const rows = notices(el);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('reset');
+    // Never re-consumed daemon-side (this surface never attached).
+    expect(statusCalls.filter((c) => c?.receipts === 'consume')).toHaveLength(0);
     unmount();
   });
 

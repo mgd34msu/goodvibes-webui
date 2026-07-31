@@ -75,6 +75,21 @@ function isWellFormedListResponse(value: unknown): boolean {
   return Boolean(value) && typeof value === 'object' && Array.isArray((value as { sessions?: unknown }).sessions);
 }
 
+/**
+ * Poll cadence, same fallback/safety-net split FleetView uses for its own
+ * subscription. When the hosted-session stream is DOWN this is the honest
+ * fallback — the list (and, via the reconciliation effect below, the attached
+ * session's own status) still catch up on a plain timer instead of freezing
+ * until the operator refocuses the tab. When the stream is LIVE, its frames
+ * drive freshness and the poll recedes to a slow safety net.
+ */
+const HOSTED_FALLBACK_POLL_MS = 15_000;
+const HOSTED_SAFETY_POLL_MS = 60_000;
+
+function hostedPollInterval(streamConnected: boolean): number {
+  return streamConnected ? HOSTED_SAFETY_POLL_MS : HOSTED_FALLBACK_POLL_MS;
+}
+
 export function HostedSessionsView() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -90,17 +105,6 @@ export function HostedSessionsView() {
   const [liveText, setLiveText] = useState('');
   const [activeToolCalls, setActiveToolCalls] = useState<HostedActiveToolCall[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
-
-  const list = useQuery({
-    queryKey: queryKeys.hostedSessions(includeTerminated),
-    queryFn: () => sdk.operator.sessions.hosted.list({ includeTerminated }),
-  });
-
-  const sessions = useMemo(
-    () => sortHostedSessionsNewestFirst(hostedSessionsFromListResult(list.data)),
-    [list.data],
-  );
-  const listWellFormed = list.isSuccess ? isWellFormedListResponse(list.data) : true;
 
   const onStreamFrame = useCallback((frame: HostedStreamFrame) => {
     const delta = streamDeltaAccumulated(frame);
@@ -143,6 +147,37 @@ export function HostedSessionsView() {
     onLifecycleUpdate,
   });
 
+  // Stream-down honesty (D29b): the banner below claims the list "falls back to
+  // periodic refresh" — this is what makes that true. `refetchIntervalInBackground`
+  // is left at its default (off): a backgrounded tab does not need this fallback to
+  // keep polling, only a foregrounded one whose stream happens to be down.
+  const list = useQuery({
+    queryKey: queryKeys.hostedSessions(includeTerminated),
+    queryFn: () => sdk.operator.sessions.hosted.list({ includeTerminated }),
+    refetchInterval: hostedPollInterval(realtime.connected),
+  });
+
+  const sessions = useMemo(
+    () => sortHostedSessionsNewestFirst(hostedSessionsFromListResult(list.data)),
+    [list.data],
+  );
+  const listWellFormed = list.isSuccess ? isWellFormedListResponse(list.data) : true;
+
+  // Keeps the ATTACHED session's own status current off the same poll/invalidation
+  // that refreshes the list rows above — without this, a session terminated while
+  // the stream is down (so no hosted-session-update lifecycle frame ever arrives)
+  // would go on rendering its steer composer as if still live until the operator
+  // manually refetches or refocuses the tab. Only ever moves attachedSession
+  // forward to a row the daemon has since confirmed is newer (a distinct
+  // updatedAt) for the SAME session id — never invents one.
+  useEffect(() => {
+    if (!attachedSession) return;
+    const fresher = sessions.find((session) => session.id === attachedSession.id);
+    if (fresher && fresher.updatedAt !== attachedSession.updatedAt) {
+      setAttachedSession(fresher);
+    }
+  }, [sessions, attachedSession]);
+
   const attach = useMutation({
     mutationFn: (sessionId: string) => sdk.operator.sessions.hosted.attach(sessionId, clientId),
     onSuccess: (result) => {
@@ -168,19 +203,44 @@ export function HostedSessionsView() {
     detachRef.current = attachedSession ? { sessionId: attachedSession.id, clientId } : null;
   }, [attachedSession, clientId]);
 
-  // Detach the previously-attached session (fire-and-forget — this is the
-  // passive path: switching rows or leaving the view, not an explicit "Leave"
-  // click, which confirms first below) whenever the target changes, and once
+  // Fire-and-forget detach for the PASSIVE paths (switching rows, leaving the view,
+  // a tab closing/backgrounding — never the explicit "Leave" click below, which
+  // awaits the call and confirms first). "Fire-and-forget" means this component
+  // stops waiting on the result, not that a failure goes unheard: a passive detach
+  // that never reaches the daemon leaves this browser listed as an attached client
+  // indefinitely (D31), so a failure here is worth knowing about even though nothing
+  // here can retry it.
+  const passiveDetach = useCallback((sessionId: string, detachClientId: string) => {
+    void sdk.operator.sessions.hosted.detach(sessionId, detachClientId).catch((error: unknown) => {
+      console.warn(`[hosted-sessions] passive detach failed for session ${sessionId}`, error);
+      toast({
+        title: 'Could not detach from a hosted session',
+        description: formatError(error),
+        tone: 'danger',
+      });
+    });
+  }, [toast]);
+
+  // Read through a ref inside the mount/unmount-only effect below (empty deps, so its
+  // cleanup fires ONLY on a genuine unmount, never merely because passiveDetach's own
+  // identity moved — the same reason detachRef above exists rather than closing over
+  // attachedSession/clientId directly).
+  const passiveDetachRef = useRef(passiveDetach);
+  useEffect(() => {
+    passiveDetachRef.current = passiveDetach;
+  }, [passiveDetach]);
+
+  // Detach the previously-attached session whenever the target changes, and once
   // more on unmount.
   useEffect(() => () => {
     const pending = detachRef.current;
-    if (pending) void sdk.operator.sessions.hosted.detach(pending.sessionId, pending.clientId).catch(() => undefined);
+    if (pending) passiveDetachRef.current(pending.sessionId, pending.clientId);
   }, []);
 
   function selectSession(sessionId: string) {
     if (sessionId === selectedId) return;
     const previous = detachRef.current;
-    if (previous) void sdk.operator.sessions.hosted.detach(previous.sessionId, previous.clientId).catch(() => undefined);
+    if (previous) passiveDetach(previous.sessionId, previous.clientId);
     setSelectedId(sessionId);
     setAttachedSession(null);
     setAttachHistory([]);

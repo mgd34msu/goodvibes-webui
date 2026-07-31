@@ -3221,8 +3221,8 @@ code {
   }
 
   /* When sidebar is open, show a scrim behind it.
-     (The .sidebar-scrim element is rendered by App.tsx future integration;
-     for now the sidebar is operable without a scrim via the toggle button.) */
+     (The .sidebar-scrim element is rendered by App.tsx — tapping it closes
+     the sidebar, same as the toggle button.) */
   .app-shell:not(.sidebar-collapsed) .sidebar-scrim {
     display: block;
     position: fixed;

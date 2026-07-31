@@ -15,11 +15,13 @@
  *      one segment is SKIPPED and the rest of the reply still plays, and the skip is
  *      reported honestly (never silently dropped, never aborting the whole reply).
  *
- * PROVENANCE / INTENDED REFACTOR: the same policy is being hoisted into the SDK on the
- * next minor track. When that lands and this repo's SDK pin bumps to it, this module is
- * meant to be replaced by adopting the hoisted policy — the semantics here are the
- * contract to preserve across that swap. Until then this is the single client-side
- * implementation, unit-tested against all three properties.
+ * This is the browser's own implementation of that policy, unit-tested against all
+ * three properties above. The installed @pellux/goodvibes-sdk also publishes a shared
+ * SpokenTurnController (platform/voice/spoken-turn) that drives the same three
+ * properties directly off a turn's lifecycle events through an injected AudioSink;
+ * adopting it here would mean replacing this module's segment-scheduling entry point
+ * with turn-event-driven playback end to end (tts-player.ts and useVoice.ts both build
+ * on the functions below), not swapping one function for another.
  */
 
 /** One segment's outcome. `status:'ok'` carries decodable audio bytes; `status:'skipped'`

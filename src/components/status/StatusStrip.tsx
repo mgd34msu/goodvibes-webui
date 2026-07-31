@@ -1,4 +1,4 @@
-import { Activity, KeyRound, Radio, Router, ShieldCheck, Zap } from 'lucide-react';
+import { Activity, KeyRound, Radio, Router, ShieldCheck, TriangleAlert, Zap } from 'lucide-react';
 import { useDaemonHealth } from '../../hooks/useDaemonHealth';
 import {
   connectionLabel,
@@ -27,7 +27,7 @@ import '../../styles/components/status.css';
  * - Color is never the sole indicator (dot + label + icon).
  */
 export function StatusStrip() {
-  const { connection, route, signedIn, working, latencyMs, sse, activeTurns, queuedTasks, modelName } = useDaemonHealth();
+  const { connection, route, signedIn, working, latencyMs, sse, activeTurns, queuedTasks, modelName, compatibility } = useDaemonHealth();
 
   const isBusy = activeTurns > 0 || queuedTasks > 0;
 
@@ -135,6 +135,23 @@ export function StatusStrip() {
           always-on microphone must never be invisible, so while one is open this
           segment is present for the whole time it is (see WakeChip). */}
       <WakeChip />
+
+      {/* Client-build compatibility floor — present ONLY when this build is below
+          what the daemon currently requires (see lib/client-compatibility.ts). Silent
+          for 'ok'/'unknown'/null: this is a warning affordance, not a routine axis, and
+          there is nothing actionable to show until the daemon actually asks for a
+          restart. */}
+      {compatibility?.status === 'restart-required' && (
+        <div
+          className="status-strip__segment status-strip__segment--compatibility-warning"
+          role="status"
+          aria-label={compatibility.message}
+          title={compatibility.message}
+        >
+          <TriangleAlert className="status-strip__icon" aria-hidden="true" size={11} />
+          <span className="status-strip__label">Reload to update</span>
+        </div>
+      )}
 
       {/* Model name (rightmost, optional) */}
       {modelName !== null && (

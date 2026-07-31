@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { sdk, GOODVIBES_BASE_URL, getCurrentAuth } from '../lib/goodvibes';
+import { sdk, GOODVIBES_BASE_URL, WEBUI_VERSION, getCurrentAuth } from '../lib/goodvibes';
+import {
+  evaluateClientCompatibility,
+  getObservedClientCompatibilityFloor,
+  subscribeObservedClientCompatibilityFloor,
+  type ClientCompatibilityVerdict,
+} from '../lib/client-compatibility';
 import {
   type DaemonHealth,
   type ConnectionState,
@@ -84,6 +90,21 @@ export function useDaemonHealth(): DaemonHealth {
   // what flips it, and the health.route field returned at the bottom maps it to null
   // whenever the daemon is unreachable by either path.
   const storeRoute = useSyncExternalStore(subscribeActiveRoute, getActiveRoute, getActiveRoute);
+
+  // -- Client-build compatibility floor --------------------------------------
+  // Reactive view of the module-level observed-floor store (lib/client-compatibility.ts),
+  // updated by every requestJson/requestStream response (goodvibes.ts) — not a
+  // dedicated probe of its own, since the floor rides on responses this hook (and the
+  // rest of the app) is already making. Null until at least one response has been
+  // observed at all.
+  const observedFloor = useSyncExternalStore(
+    subscribeObservedClientCompatibilityFloor,
+    getObservedClientCompatibilityFloor,
+    getObservedClientCompatibilityFloor,
+  );
+  const compatibility: ClientCompatibilityVerdict | null = observedFloor === undefined
+    ? null
+    : evaluateClientCompatibility({ clientVersion: WEBUI_VERSION, floor: observedFloor });
 
   // -- SSE state ------------------------------------------------------------
   // Stays 'connecting' until the first real envelope arrives — do NOT set
@@ -289,5 +310,6 @@ export function useDaemonHealth(): DaemonHealth {
     activeTurns,
     queuedTasks,
     modelName,
+    compatibility,
   };
 }

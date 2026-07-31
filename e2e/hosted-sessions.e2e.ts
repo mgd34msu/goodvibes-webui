@@ -95,3 +95,63 @@ test('leaving an attached session confirms the effective detach policy before de
 
   await expect(page.locator('.hosted-session-detail')).toHaveCount(0);
 });
+
+test('creating a hosted session attaches it immediately and lists it with what was typed', async ({ page }) => {
+  await installMockDaemon(page);
+  await page.goto('/?view=hosted-sessions');
+
+  await page.getByRole('button', { name: 'New session' }).click();
+  await page.getByLabel('Workspace path').fill('/home/operator/projects/new-thing');
+  await page.getByLabel('Title').fill('Untangle the build');
+  await page.getByLabel('Detach policy').selectOption('survive');
+  await page.locator('.hosted-sessions-create-form').getByRole('button', { name: 'Create' }).click();
+
+  // Attaches immediately: the steer composer for the new session renders.
+  await expect(page.locator('.hosted-session-detail')).toContainText('Untangle the build');
+  await expect(page.locator('.steer-composer')).toBeVisible();
+  await expect(page.locator('.hosted-sessions-create-form')).toHaveCount(0);
+
+  // And it is now a real row in the list, workspace path preserved.
+  const row = page.locator('.hosted-session-row', { hasText: 'Untangle the build' });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('/home/operator/projects/new-thing');
+});
+
+test('ending a session calls kill directly — the one action that ends a survive-policy session', async ({ page }) => {
+  await installMockDaemon(page);
+  await page.goto('/?view=hosted-sessions');
+  // hosted-e2e-1 is seeded with effectiveDetachPolicy: 'survive' — Leave alone would
+  // never end it; End session must.
+  await page.locator('.hosted-session-row__button', { hasText: 'Refactor the parser' }).click();
+  await expect(page.locator('.hosted-session-detail')).toBeVisible();
+
+  await page.getByRole('button', { name: 'End session' }).click();
+  const confirmSheet = page.getByRole('alertdialog');
+  await expect(confirmSheet).toContainText('survive');
+  await confirmSheet.getByRole('button', { name: 'End session' }).click();
+
+  await expect(page.locator('.hosted-session-detail__terminated')).toContainText('sessions.hosted.kill');
+  // Once ended there is nothing left to end again.
+  await expect(page.getByRole('button', { name: 'End session' })).toHaveCount(0);
+});
+
+test('closing the tab detaches via the keepalive beacon, not the ordinary async call', async ({ page }) => {
+  const daemon = await installMockDaemon(page, {
+    hostedSessions: [{
+      id: 'hosted-e2e-beacon', workspaceRoot: '/home/operator/projects/example', title: 'Beacon-detach proof',
+      status: 'idle', detachPolicy: 'kill', effectiveDetachPolicy: 'kill', attachedClients: [],
+      createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000, turnCount: 0, messageCount: 0, restoredFromDisk: false,
+    }],
+  });
+  await page.goto('/?view=hosted-sessions');
+  await page.locator('.hosted-session-row__button', { hasText: 'Beacon-detach proof' }).click();
+  await expect(page.locator('.hosted-session-detail')).toBeVisible();
+
+  // This browser is now the session's only attached client — firing pagehide should
+  // detach it via hostedSessionDetachBeacon (fetch keepalive), which for a kill-policy
+  // session with no other client left flips it to terminated daemon-side (the real
+  // mock handler's own last-client rule — see mock-daemon.ts).
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+
+  await expect.poll(() => daemon.hostedSessions.find((s) => s.id === 'hosted-e2e-beacon')?.status).toBe('terminated');
+});

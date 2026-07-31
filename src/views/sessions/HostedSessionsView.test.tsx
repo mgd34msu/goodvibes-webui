@@ -35,11 +35,15 @@ const detachCalls: { sessionId: string; clientId: string }[] = [];
 const steerCalls: { sessionId: string; body: unknown }[] = [];
 const createCalls: unknown[] = [];
 const killCalls: string[] = [];
+const beaconCalls: { sessionId: string; clientId: string }[] = [];
 
 mock.module('../../lib/goodvibes', () => ({
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
+  hostedSessionDetachBeacon: (sessionId: string, clientId: string) => {
+    beaconCalls.push({ sessionId, clientId });
+  },
   sdk: {
     streams: { open: () => Promise.resolve(() => {}) },
     operator: {
@@ -119,6 +123,8 @@ afterEach(() => {
   steerCalls.length = 0;
   createCalls.length = 0;
   killCalls.length = 0;
+  beaconCalls.length = 0;
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 });
 
 describe('HostedSessionsView — list', () => {
@@ -406,6 +412,72 @@ describe('HostedSessionsView — end (kill) a hosted session, including a surviv
     await waitFor(() => Boolean(el.querySelector('.hosted-session-detail__terminated')));
     const endButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('End session'));
     expect(endButton).toBeUndefined();
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — a closed tab detaches via keepalive beacon', () => {
+  test('pagehide fires the keepalive beacon for the attached session', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+
+    flushSync(() => window.dispatchEvent(new Event('pagehide')));
+
+    expect(beaconCalls).toHaveLength(1);
+    expect(beaconCalls[0].sessionId).toBe('hosted-1');
+    unmount();
+  });
+
+  test('the tab backgrounding (visibilitychange to hidden) also fires the beacon', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    flushSync(() => document.dispatchEvent(new Event('visibilitychange')));
+
+    expect(beaconCalls).toHaveLength(1);
+    expect(beaconCalls[0].sessionId).toBe('hosted-1');
+    unmount();
+  });
+
+  test('visibilitychange to visible does not fire the beacon', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+
+    flushSync(() => document.dispatchEvent(new Event('visibilitychange')));
+
+    expect(beaconCalls).toHaveLength(0);
+    unmount();
+  });
+
+  test('pagehide with nothing attached is a no-op', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    flushSync(() => window.dispatchEvent(new Event('pagehide')));
+    expect(beaconCalls).toHaveLength(0);
+    unmount();
+  });
+
+  test('pagehide never fires the ordinary async detach — only the beacon', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+
+    flushSync(() => window.dispatchEvent(new Event('pagehide')));
+
+    expect(beaconCalls).toHaveLength(1);
+    expect(detachCalls).toHaveLength(0);
     unmount();
   });
 });

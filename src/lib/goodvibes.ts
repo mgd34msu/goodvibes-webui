@@ -403,6 +403,51 @@ async function requestStream(path: string, body: unknown, signal?: AbortSignal):
   return response;
 }
 
+/**
+ * hostedSessionDetachBeacon — best-effort detach for a page teardown (pagehide /
+ * visibilitychange-to-hidden — see HostedSessionsView.tsx), for when there is no time
+ * left to await the ordinary async sdk.operator.sessions.hosted.detach round trip. Reads
+ * the auth token synchronously straight out of localStorage (the browser token store IS
+ * localStorage under an async wrapper — createBrowserTokenStore) and fires one `fetch`
+ * with `keepalive: true`, so the browser completes the request after the page itself has
+ * gone away — the standard beacon pattern, since `navigator.sendBeacon` cannot carry a
+ * bearer-token Authorization header.
+ *
+ * SAME-ORIGIN ONLY: this always targets GOODVIBES_BASE_URL directly, never routedFetch's
+ * relay path — a relay round trip involves its own encryption/signing handshake that
+ * cannot complete synchronously at teardown either, so a relay-routed session gets no
+ * keepalive detach here. That is an accepted, honestly-reported limitation (see this
+ * function's callers), not a silent gap: the ordinary async detach still covers every
+ * case where the page stays alive long enough for it to settle.
+ *
+ * Never throws and never rejects visibly — by the time this fires there is often no view
+ * left to report a failure to.
+ */
+export function hostedSessionDetachBeacon(sessionId: string, clientId: string): void {
+  if (typeof window === 'undefined' || typeof fetch === 'undefined') return;
+  let token: string | null = null;
+  try {
+    token = window.localStorage.getItem(WEBUI_TOKEN_STORE_KEY);
+  } catch {
+    // localStorage unavailable (private mode, permissions) — proceed unauthenticated.
+  }
+  try {
+    void fetch(buildUrl('/api/control-plane/methods/sessions.hosted.detach/invoke'), {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ body: { sessionId, clientId } }),
+    }).catch(() => undefined);
+  } catch {
+    // A synchronous throw (fetch unavailable, a keepalive body-size limit, ...) —
+    // nothing more can be done at teardown.
+  }
+}
+
 function interpolateRoute(route: RouteDefinition, input: unknown): { path: string; rest: JsonRecord } {
   const record = asRecord(input);
   const consumed = new Set<string>();

@@ -124,6 +124,10 @@ mock.module('./lib/goodvibes', () => ({
   VIBE_PERSONA_TAG: 'vibe',
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 1 },
   hasStoredTokenSync: () => hasStoredToken,
+  // HostedSessionsView (mounted unconditionally in App.tsx's render switch)
+  // imports this named value at module load time — a no-op stub, not
+  // exercised by any test in this file.
+  hostedSessionDetachBeacon: () => {},
   getCurrentAuth: () => {
     if (authMode === 'unreachable') return Promise.reject(unreachableError());
     if (authMode === 'unauthorized') return Promise.reject(unauthorizedError());

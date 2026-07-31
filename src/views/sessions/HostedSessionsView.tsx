@@ -46,7 +46,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, LogOut, OctagonX, Plus, RefreshCw } from 'lucide-react';
-import { sdk } from '../../lib/goodvibes';
+import { hostedSessionDetachBeacon, sdk } from '../../lib/goodvibes';
 import type { HostedSessionRecord, SessionsHostedCreateInput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
@@ -296,6 +296,33 @@ export function HostedSessionsView() {
   useEffect(() => () => {
     const pending = detachRef.current;
     if (pending) passiveDetachRef.current(pending.sessionId, pending.clientId);
+  }, []);
+
+  // A closed tab never reaches the unmount effect above — React does not run cleanup
+  // when the page itself goes away, so without this a closed tab stayed listed as an
+  // attached client permanently. `pagehide` is the real signal for that (navigation
+  // away, tab close, and — unlike `beforeunload` — it also fires on a bfcache-eligible
+  // navigation that has no visibility-change event of its own). `visibilitychange`
+  // firing to 'hidden' is added because a backgrounded PWA on mobile is frequently
+  // suspended without pagehide ever firing at all; the tradeoff is that switching tabs
+  // also detaches, which the ordinary attach-on-select flow reverses the moment the
+  // operator picks this session again. Both go through hostedSessionDetachBeacon
+  // (fetch keepalive), never sdk.operator.sessions.hosted.detach's own promise — there
+  // is no time left for that round trip to be awaited at this point.
+  useEffect(() => {
+    function beaconDetach(): void {
+      const pending = detachRef.current;
+      if (pending) hostedSessionDetachBeacon(pending.sessionId, pending.clientId);
+    }
+    function onVisibilityChange(): void {
+      if (document.visibilityState === 'hidden') beaconDetach();
+    }
+    window.addEventListener('pagehide', beaconDetach);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', beaconDetach);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   function selectSession(sessionId: string) {

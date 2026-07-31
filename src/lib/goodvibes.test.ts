@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 // operator-contract.json is the SAME runtime schema source contract-bridge-types.ts's
 // hand-authored shapes are cross-checked against (see that module's header) — imported
 // from the SDK's own public export path, not by reaching into a transitive dependency.
@@ -15,6 +15,7 @@ import {
   WEBUI_SURFACE_KIND,
   WEBUI_TOKEN_STORE_KEY,
   getCurrentAuth,
+  hostedSessionDetachBeacon,
   isRuntimeDomain,
   isExtraRoutedMethod,
   webuiRouteFor,
@@ -1524,5 +1525,52 @@ describe('requestJson records the daemon-announced client-build floor off every 
     stubFetch({ sessionId: 'sess-1', deleted: true });
     await sdk.operator.sessions.delete('sess-1');
     expect(getObservedClientCompatibilityFloor()).toBeUndefined();
+  });
+});
+
+describe('hostedSessionDetachBeacon — the pagehide/visibilitychange keepalive detach', () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; init: RequestInit }[];
+
+  beforeEach(() => {
+    calls = [];
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} });
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    window.localStorage.removeItem(WEBUI_TOKEN_STORE_KEY);
+  });
+
+  test('POSTs to the hosted detach invoke endpoint with keepalive:true and the session/client ids', () => {
+    hostedSessionDetachBeacon('hosted-1', 'client-1');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/api/control-plane/methods/sessions.hosted.detach/invoke');
+    expect(calls[0].init.method).toBe('POST');
+    expect(calls[0].init.keepalive).toBe(true);
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ body: { sessionId: 'hosted-1', clientId: 'client-1' } });
+  });
+
+  test('attaches a bearer token read synchronously from localStorage, when one is stored', () => {
+    window.localStorage.setItem(WEBUI_TOKEN_STORE_KEY, 'tok_abc123');
+    hostedSessionDetachBeacon('hosted-1', 'client-1');
+    const headers = calls[0].init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer tok_abc123');
+  });
+
+  test('sends no Authorization header when signed out', () => {
+    hostedSessionDetachBeacon('hosted-1', 'client-1');
+    const headers = calls[0].init.headers as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+
+  test('never throws even if fetch itself throws synchronously', () => {
+    globalThis.fetch = ((_input: RequestInfo | URL, _init?: RequestInit) => {
+      throw new Error('network layer unavailable at teardown');
+    }) as unknown as typeof fetch;
+    expect(() => hostedSessionDetachBeacon('hosted-1', 'client-1')).not.toThrow();
   });
 });

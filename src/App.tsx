@@ -46,6 +46,7 @@ import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
 import { SessionsView } from './views/sessions/SessionsView';
+import { HostedSessionsView } from './views/sessions/HostedSessionsView';
 import { FleetView } from './views/fleet/FleetView';
 import { CheckpointsView } from './views/checkpoints/CheckpointsView';
 import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
@@ -84,6 +85,9 @@ const views: {
 }[] = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
   { id: 'sessions', label: 'Sessions', short: 'Union', icon: Network },
+  // sessions.hosted.* (Phase B Stage B1) — a conversation whose loop runs inside
+  // the daemon, so it does not end when the tab that started it goes away.
+  { id: 'hosted-sessions', label: 'Hosted', short: 'Daemon-run', icon: Boxes },
   { id: 'fleet', label: 'Fleet', short: 'Processes', icon: Boxes },
   { id: 'checkpoints', label: 'Checkpoints', short: 'Snapshots', icon: History },
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
@@ -718,6 +722,7 @@ export default function App() {
             />
           )}
           {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
+          {activeView === 'hosted-sessions' && <HostedSessionsView />}
           {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} onOpenSession={handleOpenSession} />}
           {activeView === 'checkpoints' && <CheckpointsView />}
           {activeView === 'approvals-tasks' && <ApprovalsTasksView onOpenSession={handleOpenSession} />}

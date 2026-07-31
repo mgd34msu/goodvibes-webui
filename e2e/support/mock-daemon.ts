@@ -338,6 +338,41 @@ export interface MockDaemonOptions {
    */
   permissionRules?: readonly Record<string, unknown>[];
   /**
+   * `control.approval_update` SSE frames to emit over the multiplexed control-plane
+   * subscription (the `?domains=…,permissions` stream ApprovalsTasksView's push path
+   * rides). When non-empty, the FIRST request for a stream whose `?domains=` includes
+   * `permissions` is fulfilled with these frames (`event: approval-update`, one per
+   * entry, each `{ approval, createdAt }`) instead of being left pending — so a test
+   * can prove the push-consumption path is live, mirroring `fleetEvents` above.
+   * Default [] (the existing pending-stream baseline).
+   */
+  approvalUpdateFrames?: readonly Record<string, unknown>[];
+  /**
+   * Seed override for the mutable hosted-sessions store (sessions.hosted.*, Phase B
+   * Stage B1). Default: one idle, attachable session (detach policy survive) and one
+   * terminated session (reason 'killed') — real content for the includeTerminated
+   * toggle and the terminatedReason line to prove against. Pass [] for the genuinely
+   * empty "this daemon hosts nothing" state.
+   */
+  hostedSessions?: readonly Record<string, unknown>[];
+  /**
+   * Seed for a hosted session's transcript (sessions.hosted.attach's `history`),
+   * keyed by hosted session id. Sessions not listed here attach with an empty
+   * history — the honest "nothing happened yet" state.
+   */
+  hostedSessionHistory?: Readonly<Record<string, readonly { role: string; content: string; at?: number }[]>>;
+  /**
+   * Raw `turn`/`tools`/`hosted-session-update` frames to emit over the hosted
+   * session subscription (the `?domains=session,turn,tools` stream
+   * useHostedSessionRealtime opens). When non-empty, the FIRST request for that
+   * exact stream is fulfilled with these frames (`event: <entry.event>`, one per
+   * entry) instead of being left pending — proving a hosted session's attached
+   * view actually receives its live output. Default [] (the existing
+   * pending-stream baseline), same one-shot-emission shape as fleetEvents/
+   * approvalUpdateFrames above.
+   */
+  hostedStreamFrames?: readonly { event: 'turn' | 'tools' | 'hosted-session-update'; payload: unknown }[];
+  /**
    * Seed for the daemon's undelivered receipt queue, handed over ONCE when
    * control.status is called with receipts=consume (GET /status?receipts=consume).
    * Default []. A plain status read never consumes; a second consume returns
@@ -925,6 +960,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     occasions = 'available',
     config = 'ok',
     packet = 'complete',
+    approvalUpdateFrames = [],
+    hostedStreamFrames = [],
     fleetEvents = [],
     localSessionId = 's-agent-live',
     pushSeed = [],
@@ -1017,6 +1054,40 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // Durable rules (permissions.rules.*) — same fresh-copy-per-install policy.
   const permissionRules: Record<string, unknown>[] = (options.permissionRules ?? []).map((r) => ({ ...r }));
   let ruleCounter = 0;
+
+  // Hosted sessions (sessions.hosted.*, Phase B Stage B1) — mutable so
+  // create/attach/detach/kill genuinely change what a subsequent
+  // sessions.hosted.list() sees, a fresh copy per installMockDaemon call. The
+  // default seed carries one idle attachable session (detach policy survive, so
+  // detaching it never destroys the fixture a test just attached to) and one
+  // already-terminated session with a real terminatedReason, so a test proves
+  // both the "attach and view" path and the includeTerminated/terminatedReason
+  // honesty line without every spec having to seed its own.
+  const DEFAULT_HOSTED_SESSIONS: Record<string, unknown>[] = [
+    {
+      id: 'hosted-e2e-1', workspaceRoot: '/home/operator/projects/example', title: 'Refactor the parser',
+      status: 'idle', detachPolicy: null, effectiveDetachPolicy: 'survive', attachedClients: [],
+      providerId: 'anthropic', modelId: 'claude-sonnet', createdAt: 1_700_000_000_000, updatedAt: 1_700_000_100_000,
+      turnCount: 2, messageCount: 4, lastTurnAt: 1_700_000_100_000, restoredFromDisk: false,
+    },
+    {
+      id: 'hosted-e2e-2', workspaceRoot: '/home/operator/projects/archived', title: 'One-off cleanup',
+      status: 'terminated', detachPolicy: 'kill', effectiveDetachPolicy: 'kill', attachedClients: [],
+      createdAt: 1_699_000_000_000, updatedAt: 1_699_000_050_000, turnCount: 1, messageCount: 2,
+      lastTurnAt: 1_699_000_050_000, terminatedAt: 1_699_000_050_000, terminatedReason: 'killed', restoredFromDisk: false,
+    },
+  ];
+  const hostedSessions: Record<string, unknown>[] = (options.hostedSessions ?? DEFAULT_HOSTED_SESSIONS).map((s) => ({ ...s }));
+  const hostedSessionHistory: Record<string, { role: string; content: string; at?: number }[]> = {
+    'hosted-e2e-1': [
+      { role: 'user', content: 'Refactor the parser to use a visitor pattern.', at: 1_700_000_050_000 },
+      { role: 'assistant', content: 'Sure — starting with the AST node definitions.', at: 1_700_000_060_000 },
+    ],
+  };
+  for (const [sessionId, messages] of Object.entries(options.hostedSessionHistory ?? {})) {
+    hostedSessionHistory[sessionId] = messages.map((m) => ({ ...m }));
+  }
+  let hostedSessionIdCounter = 0;
 
   // Undelivered daemon receipts — handed over exactly once, on a receipts=consume
   // status read, then marked delivered so a re-consume (e.g. a reconnect) returns none.
@@ -1310,6 +1381,63 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         fleetEnriched = true;
         const body = fleetEvents
           .map((event) => `event: fleet\ndata: ${JSON.stringify({ payload: event })}\n\n`)
+          .join('');
+        return route.fulfill({ status: 200, contentType: 'text/event-stream', body });
+      }
+      // Approval-update subscription emit (the approvals push spec): EVERY
+      // request for the EXACT `?domains=permissions` stream gets the seeded
+      // approvalUpdateFrames as SSE (`event: approval-update`, one per entry) —
+      // so a test can prove ApprovalsTasksView's push path actually receives a
+      // frame and reacts to it, distinct from the poll fallback. EXACT match, not
+      // "includes permissions": useRealtimeInvalidation ALSO opens a multiplexed
+      // stream whose `?domains=` includes permissions among six other domains —
+      // an "includes" check would race that unrelated stream and could hand the
+      // frame to a subscriber that silently drops unrecognized wire events, never
+      // reaching useApprovalUpdates at all.
+      //
+      // UNLIKE the fleet block above, this is deliberately NOT gated to "only the
+      // first matching request ever": React StrictMode's dev-mode double-invoke
+      // mounts, tears down, then remounts every effect once, so the FIRST
+      // qualifying stream request is routinely a doomed one whose underlying
+      // fetch gets aborted before this handler's delay below elapses — a
+      // once-only gate would burn the emission on that doomed request and starve
+      // the SURVIVING connection. Emitting to every matching request is safe here
+      // because each frame's approval is appended to the live `approvals` store
+      // ONLY the first time its id is seen (mirroring a real broker publishing
+      // the record and the event together) — a repeat emission to a second
+      // (surviving) connection re-sends the same frame, which is idempotent, not
+      // a duplicate side effect.
+      if (approvalUpdateFrames.length > 0 && domains === 'permissions') {
+        // Let the initial approvals.list() fetch settle first — same rationale as
+        // the fleet block above: invalidating a query still in flight only marks
+        // it stale, it does not fire a second fetch.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        for (const approval of approvalUpdateFrames) {
+          const id = (approval as { id?: unknown }).id;
+          if (typeof id === 'string' && !approvals.some((existing) => existing.id === id)) {
+            approvals.push({ ...approval });
+          }
+        }
+        const body = approvalUpdateFrames
+          .map((approval) => `event: approval-update\ndata: ${JSON.stringify({ approval, createdAt: Date.now() })}\n\n`)
+          .join('');
+        return route.fulfill({ status: 200, contentType: 'text/event-stream', body });
+      }
+      // Hosted session live-output emit (the hosted-sessions attach spec): EVERY
+      // request for the EXACT `?domains=session,turn,tools` stream
+      // (useHostedSessionRealtime's one stream) gets the seeded hostedStreamFrames
+      // as SSE, one per entry — proving a hosted session's attached view actually
+      // receives its live turn/tool output. Deliberately not gated to "first
+      // request only" — same StrictMode double-invoke rationale as the
+      // approval-update block above: HostedSessionsView is view-scoped (mounted
+      // only while that view is showing, not app-root-mounted like
+      // useSessionRealtime/useRealtimeInvalidation), so its double-invoke window
+      // lands squarely inside a test's own navigation rather than settling before
+      // the test's assertions run.
+      if (hostedStreamFrames.length > 0 && domains === 'session,turn,tools') {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const body = hostedStreamFrames
+          .map((frame) => `event: ${frame.event}\ndata: ${JSON.stringify(frame.payload)}\n\n`)
           .join('');
         return route.fulfill({ status: 200, contentType: 'text/event-stream', body });
       }
@@ -2314,6 +2442,99 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         tailscaleState.lastServe = receipt;
         return json(route, { receipt, publicBaseUrlUpdated: receipt.ok });
       }
+      // ── Hosted sessions (sessions.hosted.*, Phase B Stage B1) — a real, stateful
+      //    mock: create/attach/detach/kill genuinely mutate the `hostedSessions`
+      //    store, so a test can prove the round trip (create it, see it in the
+      //    list, attach and see its history, detach and see attachedClients drop,
+      //    kill and see status flip to terminated) rather than a static fixture. ──
+      if (methodId === 'sessions.hosted.list') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { includeTerminated?: boolean } };
+        const includeTerminated = body.body?.includeTerminated === true;
+        const rows = hostedSessions
+          .filter((s) => includeTerminated || s.status !== 'terminated')
+          .slice()
+          .sort((a, b) => Number(b.updatedAt) - Number(a.updatedAt));
+        return json(route, { sessions: rows });
+      }
+      if (methodId === 'sessions.hosted.create') {
+        const body = (route.request().postDataJSON?.() ?? {}) as {
+          body?: { workspaceRoot?: string; title?: string; modelId?: string; detachPolicy?: 'kill' | 'survive'; clientId?: string };
+        };
+        hostedSessionIdCounter += 1;
+        const now = Date.now();
+        const detachPolicy = body.body?.detachPolicy ?? null;
+        const record: Record<string, unknown> = {
+          id: `hosted-e2e-created-${hostedSessionIdCounter}`,
+          workspaceRoot: body.body?.workspaceRoot ?? '/home/operator/projects/example',
+          title: body.body?.title ?? 'Untitled hosted session',
+          status: 'idle',
+          detachPolicy,
+          effectiveDetachPolicy: detachPolicy ?? 'kill',
+          attachedClients: body.body?.clientId ? [body.body.clientId] : [],
+          ...(body.body?.modelId ? { modelId: body.body.modelId } : {}),
+          createdAt: now,
+          updatedAt: now,
+          turnCount: 0,
+          messageCount: 0,
+          restoredFromDisk: false,
+        };
+        hostedSessions.push(record);
+        return json(route, { session: record });
+      }
+      if (methodId === 'sessions.hosted.attach') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { sessionId?: string; clientId?: string } };
+        const sessionId = body.body?.sessionId ?? '';
+        const clientId = body.body?.clientId ?? '';
+        const record = hostedSessions.find((s) => s.id === sessionId);
+        if (!record) {
+          return json(route, { error: `Unknown hosted session ${sessionId}`, code: 'NOT_FOUND' }, 404);
+        }
+        const attached = new Set(Array.isArray(record.attachedClients) ? record.attachedClients as string[] : []);
+        if (clientId) attached.add(clientId);
+        record.attachedClients = [...attached];
+        record.updatedAt = Date.now();
+        return json(route, { session: record, history: hostedSessionHistory[sessionId] ?? [] });
+      }
+      if (methodId === 'sessions.hosted.detach') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { sessionId?: string; clientId?: string } };
+        const sessionId = body.body?.sessionId ?? '';
+        const clientId = body.body?.clientId ?? '';
+        const record = hostedSessions.find((s) => s.id === sessionId);
+        if (!record) {
+          return json(route, { error: `Unknown hosted session ${sessionId}`, code: 'NOT_FOUND' }, 404);
+        }
+        const attached = new Set(Array.isArray(record.attachedClients) ? record.attachedClients as string[] : []);
+        attached.delete(clientId);
+        record.attachedClients = [...attached];
+        record.updatedAt = Date.now();
+        // The effective policy decides ONLY when this was the last client — mirrors
+        // the real daemon's "policy applies when the last client detaches" contract
+        // (method-catalog-hosted-sessions.ts's sessions.hosted.detach description).
+        if (attached.size === 0 && record.status !== 'terminated' && record.effectiveDetachPolicy === 'kill') {
+          record.status = 'terminated';
+          record.terminatedAt = Date.now();
+          record.terminatedReason = 'detached';
+        }
+        return json(route, { session: record });
+      }
+      if (methodId === 'sessions.hosted.kill') {
+        const body = (route.request().postDataJSON?.() ?? {}) as { body?: { sessionId?: string } };
+        const sessionId = body.body?.sessionId ?? '';
+        const record = hostedSessions.find((s) => s.id === sessionId);
+        if (!record) {
+          return json(route, { error: `Unknown hosted session ${sessionId}`, code: 'NOT_FOUND' }, 404);
+        }
+        // Killing an already-terminated session returns it unchanged (real verb's
+        // own idempotence contract) — never overwrite a genuine prior reason.
+        if (record.status !== 'terminated') {
+          record.status = 'terminated';
+          record.terminatedAt = Date.now();
+          record.terminatedReason = 'killed';
+          record.attachedClients = [];
+        }
+        return json(route, { session: record });
+      }
+
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures
       // (WEBUI_METHOD_SAMPLES). This structurally kills the "unknown invoke id answers {}"

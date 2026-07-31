@@ -17,6 +17,20 @@
  * ORDINARY SteerComposer/sessions.steer — there is no hosted-specific steer verb
  * (method-catalog-hosted-sessions.ts's header comment).
  *
+ * Create: the toolbar's "New session" form takes a workspace path (required),
+ * an optional title, and a detach-policy choice that DEFAULTS to "use the
+ * daemon's configured default" (an empty field on the wire — sessions.hosted.create's
+ * `detachPolicy` is optional and the daemon applies its own `hostedSessions.detachPolicy`
+ * setting when it is omitted, so this client never has to know or guess that value to
+ * offer the default). A created session is attached immediately.
+ *
+ * End: an explicit "End session" button in the detail header calls
+ * sessions.hosted.kill directly, regardless of the session's own detach policy —
+ * this is the one action that can end a `survive`-policy session (Leave/detach
+ * on one of those deliberately does NOT end it; see hosted-sessions.ts's
+ * effectiveDetachPolicyLabel). Confirmed first (danger tone) since it is
+ * immediate and affects every other attached client too.
+ *
  * Detach: fired when the attached session changes or this view unmounts. Before
  * an EXPLICIT "Leave" click, a confirm sheet states what leaving will do —
  * read from the record's own `effectiveDetachPolicy` (kill terminates it,
@@ -29,11 +43,11 @@
  * message, never an empty list indistinguishable from "no hosted sessions
  * exist" and never a crash.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, LogOut, RefreshCw } from 'lucide-react';
+import { Boxes, LogOut, OctagonX, Plus, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
-import type { HostedSessionRecord } from '../../lib/goodvibes';
+import type { HostedSessionRecord, SessionsHostedCreateInput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
   effectiveDetachPolicyLabel,
@@ -98,6 +112,7 @@ export function HostedSessionsView() {
 
   const [includeTerminated, setIncludeTerminated] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const [attachedSession, setAttachedSession] = useState<HostedSessionRecord | null>(null);
   const [attachHistory, setAttachHistory] = useState<HostedSessionHistoryMessage[]>([]);
@@ -147,7 +162,7 @@ export function HostedSessionsView() {
     onLifecycleUpdate,
   });
 
-  // Stream-down honesty (D29b): the banner below claims the list "falls back to
+  // Stream-down honesty: the banner below claims the list "falls back to
   // periodic refresh" — this is what makes that true. `refetchIntervalInBackground`
   // is left at its default (off): a backgrounded tab does not need this fallback to
   // keep polling, only a foregrounded one whose stream happens to be down.
@@ -168,12 +183,14 @@ export function HostedSessionsView() {
   // the stream is down (so no hosted-session-update lifecycle frame ever arrives)
   // would go on rendering its steer composer as if still live until the operator
   // manually refetches or refocuses the tab. Only ever moves attachedSession
-  // forward to a row the daemon has since confirmed is newer (a distinct
-  // updatedAt) for the SAME session id — never invents one.
+  // STRICTLY FORWARD, to a row the daemon has since confirmed is newer (a strictly
+  // greater updatedAt) for the SAME session id — never sideways or backward, so a
+  // list read that merely lags the attach response (a race between the two, not a
+  // real update) can never regress what attach/a lifecycle frame already confirmed.
   useEffect(() => {
     if (!attachedSession) return;
     const fresher = sessions.find((session) => session.id === attachedSession.id);
-    if (fresher && fresher.updatedAt !== attachedSession.updatedAt) {
+    if (fresher && fresher.updatedAt > attachedSession.updatedAt) {
       setAttachedSession(fresher);
     }
   }, [sessions, attachedSession]);
@@ -198,6 +215,50 @@ export function HostedSessionsView() {
     },
   });
 
+  const create = useMutation({
+    mutationFn: (input: SessionsHostedCreateInput) => sdk.operator.sessions.hosted.create(input),
+    onSuccess: (result) => {
+      const session = hostedSessionFromResult(result);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.hostedSessionsAll });
+      setShowCreate(false);
+      if (!session) {
+        toast({ title: 'Hosted session created', description: 'The daemon did not return a session in a shape this client understands — refresh the list to find it.', tone: 'info' });
+        return;
+      }
+      toast({ title: 'Hosted session created', tone: 'success' });
+      selectSession(session.id);
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not create hosted session', description: formatError(error), tone: 'danger' });
+    },
+  });
+
+  const kill = useMutation({
+    mutationFn: (sessionId: string) => sdk.operator.sessions.hosted.kill(sessionId),
+    onSuccess: (result) => {
+      const updated = hostedSessionFromResult(result);
+      if (updated) setAttachedSession(updated);
+      toast({ title: 'Session ended', tone: 'info' });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.hostedSessionsAll });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not end session', description: formatError(error), tone: 'danger' });
+    },
+  });
+
+  async function killSession() {
+    if (!attachedSession) return;
+    const confirmed = await confirm.ask({
+      title: 'End this hosted session?',
+      target: attachedSession.title || attachedSession.id,
+      description: 'This ends the session immediately for every attached client, regardless of its detach policy — including a "survive" session that would otherwise stay running. This cannot be undone.',
+      confirmLabel: 'End session',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    kill.mutate(attachedSession.id);
+  }
+
   const detachRef = useRef<{ sessionId: string; clientId: string } | null>(null);
   useEffect(() => {
     detachRef.current = attachedSession ? { sessionId: attachedSession.id, clientId } : null;
@@ -208,8 +269,8 @@ export function HostedSessionsView() {
   // awaits the call and confirms first). "Fire-and-forget" means this component
   // stops waiting on the result, not that a failure goes unheard: a passive detach
   // that never reaches the daemon leaves this browser listed as an attached client
-  // indefinitely (D31), so a failure here is worth knowing about even though nothing
-  // here can retry it.
+  // indefinitely, so a failure here is worth knowing about even though nothing here
+  // can retry it.
   const passiveDetach = useCallback((sessionId: string, detachClientId: string) => {
     void sdk.operator.sessions.hosted.detach(sessionId, detachClientId).catch((error: unknown) => {
       console.warn(`[hosted-sessions] passive detach failed for session ${sessionId}`, error);
@@ -305,7 +366,22 @@ export function HostedSessionsView() {
           >
             <RefreshCw size={14} aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            className="secondary-button hosted-sessions-new-toggle"
+            onClick={() => setShowCreate((current) => !current)}
+            aria-expanded={showCreate}
+          >
+            <Plus size={14} aria-hidden="true" /> New session
+          </button>
         </div>
+
+        {showCreate && (
+          <CreateHostedSessionForm
+            pending={create.isPending}
+            onCreate={(input) => create.mutate(input)}
+          />
+        )}
 
         {realtime.error && (
           <p className="hosted-sessions-stream-note" role="status">{realtime.error}</p>
@@ -353,9 +429,74 @@ export function HostedSessionsView() {
           attaching={attach.isPending}
           attachError={attachError}
           onLeave={() => void leaveSession()}
+          onKill={() => void killSession()}
+          killPending={kill.isPending}
         />
       )}
     </div>
+  );
+}
+
+// ─── Create form ─────────────────────────────────────────────────────────────
+
+function CreateHostedSessionForm({ pending, onCreate }: {
+  pending: boolean;
+  onCreate: (input: SessionsHostedCreateInput) => void;
+}) {
+  const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [title, setTitle] = useState('');
+  const [detachPolicy, setDetachPolicy] = useState<'' | 'kill' | 'survive'>('');
+
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const trimmedWorkspaceRoot = workspaceRoot.trim();
+    if (!trimmedWorkspaceRoot || pending) return;
+    onCreate({
+      workspaceRoot: trimmedWorkspaceRoot,
+      ...(title.trim() ? { title: title.trim() } : {}),
+      // Omitted entirely (not sent as '') when left on "Use daemon default" — the
+      // daemon applies hostedSessions.detachPolicy itself when this field is absent
+      // (see the header comment's Create section), so this client never guesses it.
+      ...(detachPolicy ? { detachPolicy } : {}),
+    });
+    setWorkspaceRoot('');
+    setTitle('');
+    setDetachPolicy('');
+  }
+
+  return (
+    <form className="hosted-sessions-create-form" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        placeholder="Workspace path"
+        value={workspaceRoot}
+        onChange={(event) => setWorkspaceRoot(event.target.value)}
+        aria-label="Workspace path"
+        disabled={pending}
+        required
+      />
+      <input
+        type="text"
+        placeholder="Title (optional)"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        aria-label="Title"
+        disabled={pending}
+      />
+      <select
+        value={detachPolicy}
+        onChange={(event) => setDetachPolicy(event.target.value as '' | 'kill' | 'survive')}
+        aria-label="Detach policy"
+        disabled={pending}
+      >
+        <option value="">Use daemon default</option>
+        <option value="kill">Kill on last detach</option>
+        <option value="survive">Survive on last detach</option>
+      </select>
+      <button type="submit" disabled={pending || !workspaceRoot.trim()}>
+        <Plus size={14} aria-hidden="true" /> {pending ? 'Creating…' : 'Create'}
+      </button>
+    </form>
   );
 }
 
@@ -398,6 +539,8 @@ function HostedSessionDetail({
   attaching,
   attachError,
   onLeave,
+  onKill,
+  killPending,
 }: {
   session: HostedSessionRecord | null;
   history: readonly HostedSessionHistoryMessage[];
@@ -407,6 +550,8 @@ function HostedSessionDetail({
   attaching: boolean;
   attachError: string | null;
   onLeave: () => void;
+  onKill: () => void;
+  killPending: boolean;
 }) {
   if (attaching) {
     return (
@@ -434,9 +579,21 @@ function HostedSessionDetail({
           <h3>{session.title || session.id}</h3>
           <p className="hosted-session-detail__workspace">{session.workspaceRoot}</p>
         </div>
-        <button type="button" className="secondary-button" onClick={onLeave}>
-          <LogOut size={14} aria-hidden="true" /> Leave
-        </button>
+        <div className="hosted-session-detail__actions">
+          {!closed && (
+            <button
+              type="button"
+              className="secondary-button danger"
+              onClick={onKill}
+              disabled={killPending}
+            >
+              <OctagonX size={14} aria-hidden="true" /> {killPending ? 'Ending…' : 'End session'}
+            </button>
+          )}
+          <button type="button" className="secondary-button" onClick={onLeave}>
+            <LogOut size={14} aria-hidden="true" /> Leave
+          </button>
+        </div>
       </header>
 
       <p className="hosted-session-detail__policy-note">{effectiveDetachPolicyLabel(session.effectiveDetachPolicy)}</p>

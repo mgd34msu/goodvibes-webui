@@ -4,6 +4,34 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [Unreleased]
+
+The web UI installs with everything else now. Until this release it was the one
+part of GoodVibes you had to go and get: the daemon, the terminal app and the
+agent all arrived from one `curl`, and the browser surface arrived from a build
+you ran yourself.
+
+The release lane packs `dist/` into a versioned, checksummed asset —
+`goodvibes-webui-bundle-<version>.tar.gz` plus a `SHA256SUMS.txt` — and attaches
+both to the GitHub release. The suite installer fetches it on the same terms as
+every binary in the suite (a missing manifest entry is a hard failure, never a
+skip), unpacks it beside the binaries, and points the daemon at it. There is no
+fourth binary and no fourth service: the daemon serves the bundle on its own
+listener, same origin as its API, which is also why the browser's same-origin
+policy is a non-issue and no CORS allowlist has to be widened.
+
+Nothing new is exposed to your network by installing it. The daemon's shipped
+binding is loopback and the installer does not change it, so a fresh install
+serves the web UI to that machine only; reaching it from another device is a
+deliberate separate act (`goodvibes-daemon webui enable --lan`), printed in the
+install receipt.
+
+`scripts/pack-bundle.ts` is what builds the asset, and it is deterministic —
+sorted entries, zeroed ownership, epoch timestamps, no gzip header stamp — so
+two runs over the same build produce byte-identical archives and the digest in
+the manifest keeps meaning "the bytes this release built". It refuses to pack a
+`dist/` with no `index.html` rather than publishing a bundle nobody can serve.
+
 ## [1.12.1] - 2026-07-30
 
 Maintenance re-pin, no webui feature changes. The platform runtime moves from

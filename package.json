@@ -39,6 +39,7 @@
     "sdk:link": "bun run scripts/sdk-dev.ts link",
     "sdk:status": "bun run scripts/sdk-dev.ts status",
     "sdk:restore": "bun run scripts/sdk-dev.ts restore",
+    "pack:bundle": "bun run scripts/pack-bundle.ts",
     "release:gate": "bun run scripts/release-gate.ts",
     "gate": "bun run test && bun run typecheck && bun run build && bun run release:gate",
     "prepublishOnly": "bun run release:gate"

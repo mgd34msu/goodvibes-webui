@@ -51,6 +51,53 @@
   padding: 4px 8px;
 }
 
+.hosted-sessions-new-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  white-space: nowrap;
+}
+
+.hosted-sessions-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.hosted-sessions-create-form input,
+.hosted-sessions-create-form select {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 8px;
+  font-size: var(--text-xs, 12px);
+}
+
+.hosted-sessions-create-form button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 12px);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.hosted-sessions-create-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .hosted-sessions-stream-note {
   font-size: var(--text-xs, 12px);
   color: var(--text-secondary);
@@ -150,6 +197,24 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.hosted-session-detail__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* End-session button — a destructive, non-undoable action distinct from Leave
+ * (which merely detaches), so it gets the same danger treatment as the
+ * PowerChip/status-strip compatibility warning idioms (status.css). */
+.hosted-session-detail__actions .secondary-button.danger {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+
+.hosted-session-detail__actions .secondary-button.danger:hover {
+  background: var(--status-danger-soft);
 }
 
 .hosted-session-detail__header h3 {

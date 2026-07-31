@@ -29,8 +29,12 @@ let attachImpl: (sessionId: string, clientId: string) => Promise<unknown> =
   (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
 let detachImpl: (sessionId: string) => Promise<unknown> =
   (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
+let createImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ session: RUNNING });
+let killImpl: (sessionId: string) => Promise<unknown> = () => Promise.resolve({ session: TERMINATED });
 const detachCalls: { sessionId: string; clientId: string }[] = [];
 const steerCalls: { sessionId: string; body: unknown }[] = [];
+const createCalls: unknown[] = [];
+const killCalls: string[] = [];
 
 mock.module('../../lib/goodvibes', () => ({
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
@@ -47,8 +51,14 @@ mock.module('../../lib/goodvibes', () => ({
             detachCalls.push({ sessionId, clientId });
             return detachImpl(sessionId);
           },
-          create: () => Promise.resolve({ session: RUNNING }),
-          kill: () => Promise.resolve({ session: TERMINATED }),
+          create: (input: unknown) => {
+            createCalls.push(input);
+            return createImpl(input);
+          },
+          kill: (sessionId: string) => {
+            killCalls.push(sessionId);
+            return killImpl(sessionId);
+          },
         },
         steer: (sessionId: string, input: unknown) => {
           steerCalls.push({ sessionId, body: input });
@@ -103,8 +113,12 @@ afterEach(() => {
   listImpl = () => Promise.resolve({ sessions: [RUNNING] });
   attachImpl = (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
   detachImpl = (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
+  createImpl = () => Promise.resolve({ session: RUNNING });
+  killImpl = () => Promise.resolve({ session: TERMINATED });
   detachCalls.length = 0;
   steerCalls.length = 0;
+  createCalls.length = 0;
+  killCalls.length = 0;
 });
 
 describe('HostedSessionsView — list', () => {
@@ -199,7 +213,7 @@ describe('HostedSessionsView — attach/steer', () => {
   });
 });
 
-describe('HostedSessionsView — D29a: passive detach honesty', () => {
+describe('HostedSessionsView — passive detach honesty', () => {
   test('a passive detach failure (switching rows) is logged and toasted, never silent', async () => {
     detachImpl = () => Promise.reject(new Error('daemon unreachable'));
     const consoleWarn = console.warn;
@@ -226,7 +240,7 @@ describe('HostedSessionsView — D29a: passive detach honesty', () => {
   });
 });
 
-describe('HostedSessionsView — D29b: the attached session reconciles against a fresher list row', () => {
+describe('HostedSessionsView — the attached session reconciles against a fresher list row', () => {
   test('a session that terminates while the stream is down updates the attached view on the next list refresh', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -236,7 +250,7 @@ describe('HostedSessionsView — D29b: the attached session reconciles against a
     expect(el.querySelector('.steer-composer .badge.neutral')).toBeNull();
 
     // The daemon terminated hosted-1 while no lifecycle frame reached this client
-    // (the scenario D29b's stream-down fallback poll targets) — the next list
+    // (the scenario the stream-down fallback poll targets) — the next list
     // read reflects it.
     listImpl = () => Promise.resolve({
       sessions: [{ ...RUNNING, status: 'terminated', terminatedReason: 'killed', updatedAt: 999 }],
@@ -245,6 +259,153 @@ describe('HostedSessionsView — D29b: the attached session reconciles against a
     flushSync(() => (refresh as HTMLButtonElement).click());
 
     await waitFor(() => el.textContent?.includes('Session closed') ?? false);
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — create a hosted session', () => {
+  test('the create form is hidden until "New session" is toggled', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    expect(el.querySelector('.hosted-sessions-create-form')).toBeNull();
+    unmount();
+  });
+
+  test('submitting sends the workspace path, title, and omits detachPolicy for "Use daemon default"', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+
+    const toggle = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('New session'));
+    flushSync(() => (toggle as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.hosted-sessions-create-form')));
+
+    const workspaceInput = el.querySelector('input[aria-label="Workspace path"]') as HTMLInputElement;
+    const titleInput = el.querySelector('input[aria-label="Title"]') as HTMLInputElement;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSetter?.call(workspaceInput, '/home/operator/new-project');
+      workspaceInput.dispatchEvent(new Event('input', { bubbles: true }));
+      nativeSetter?.call(titleInput, 'Investigate the flake');
+      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.hosted-sessions-create-form') as HTMLFormElement;
+    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+    await waitFor(() => createCalls.length > 0);
+    expect(createCalls[0]).toEqual({ workspaceRoot: '/home/operator/new-project', title: 'Investigate the flake' });
+    unmount();
+  });
+
+  test('choosing a detach policy sends it explicitly', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const toggle = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('New session'));
+    flushSync(() => (toggle as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.hosted-sessions-create-form')));
+
+    const workspaceInput = el.querySelector('input[aria-label="Workspace path"]') as HTMLInputElement;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSetter?.call(workspaceInput, '/ws');
+      workspaceInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const select = el.querySelector('select[aria-label="Detach policy"]') as HTMLSelectElement;
+    const nativeSelectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSelectSetter?.call(select, 'survive');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const form = el.querySelector('.hosted-sessions-create-form') as HTMLFormElement;
+    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+    await waitFor(() => createCalls.length > 0);
+    expect(createCalls[0]).toEqual({ workspaceRoot: '/ws', detachPolicy: 'survive' });
+    unmount();
+  });
+
+  test('a successful create attaches the new session and closes the form', async () => {
+    createImpl = () => Promise.resolve({ session: { ...RUNNING, id: 'hosted-new', title: 'Brand new session' } });
+    attachImpl = (sessionId) => Promise.resolve({
+      session: { ...RUNNING, id: sessionId, title: 'Brand new session' },
+      history: [],
+    });
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const toggle = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('New session'));
+    flushSync(() => (toggle as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.hosted-sessions-create-form')));
+
+    const workspaceInput = el.querySelector('input[aria-label="Workspace path"]') as HTMLInputElement;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSetter?.call(workspaceInput, '/ws');
+      workspaceInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.hosted-sessions-create-form') as HTMLFormElement;
+    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+    await waitFor(() => el.textContent?.includes('Brand new session') ?? false);
+    expect(el.querySelector('.hosted-sessions-create-form')).toBeNull();
+    expect(el.querySelector('.steer-composer')).not.toBeNull();
+    unmount();
+  });
+
+  test('a create failure toasts honestly and leaves the form open', async () => {
+    createImpl = () => Promise.reject(new Error('workspace does not exist'));
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const toggle = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('New session'));
+    flushSync(() => (toggle as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.hosted-sessions-create-form')));
+
+    const workspaceInput = el.querySelector('input[aria-label="Workspace path"]') as HTMLInputElement;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    flushSync(() => {
+      nativeSetter?.call(workspaceInput, '/ws');
+      workspaceInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = el.querySelector('.hosted-sessions-create-form') as HTMLFormElement;
+    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+    await waitFor(() => el.textContent?.includes('Could not create hosted session') ?? false);
+    expect(el.querySelector('.hosted-sessions-create-form')).not.toBeNull();
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — end (kill) a hosted session, including a survive-policy one', () => {
+  test('a survive-policy session shows an End session button, confirmed before it fires', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+
+    const endButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('End session'));
+    expect(endButton).not.toBeUndefined();
+    flushSync(() => endButton?.click());
+    await waitFor(() => Boolean(el.querySelector('.confirm-sheet__confirm')));
+    expect(killCalls).toHaveLength(0);
+
+    flushSync(() => (el.querySelector('.confirm-sheet__confirm') as HTMLButtonElement).click());
+    await waitFor(() => killCalls.length > 0);
+    expect(killCalls[0]).toBe('hosted-1');
+    await waitFor(() => el.textContent?.includes('Session closed') ?? false);
+    unmount();
+  });
+
+  test('no End session button once the session is already terminated', async () => {
+    // attach and the list agree: hosted-1 is terminated (a fresher list row would
+    // otherwise win the reconciliation effect and clobber this with a stale 'running').
+    listImpl = () => Promise.resolve({ sessions: [{ ...RUNNING, status: 'terminated', updatedAt: 200 }] });
+    attachImpl = (sessionId) => Promise.resolve({ session: { ...TERMINATED, id: sessionId, updatedAt: 200 }, history: [] });
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.hosted-session-detail__terminated')));
+    const endButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('End session'));
+    expect(endButton).toBeUndefined();
     unmount();
   });
 });

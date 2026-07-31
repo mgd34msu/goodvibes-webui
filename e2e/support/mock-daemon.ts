@@ -872,6 +872,13 @@ export interface MockDaemon {
   wakeProvisionRequests: number;
   /** Every voice.wake.model.get read captured, in order — proves the chunk loop. */
   wakeModelReads: { component: 'classifier' | 'embedding' | 'notice'; offset: number }[];
+  /**
+   * Live reference to the mutable hosted-sessions store (sessions.hosted.*) — the
+   * SAME array create/attach/detach/kill mutate, not a snapshot, so a test can poll
+   * it (e.g. `expect.poll(() => daemon.hostedSessions.find(...).status)`) to prove a
+   * detach/kill genuinely reached the daemon without depending on a UI refetch.
+   */
+  hostedSessions: readonly Record<string, unknown>[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -995,6 +1002,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     observedSteerRequests: [],
     wakeProvisionRequests: 0,
     wakeModelReads: [],
+    // Replaced below with a live reference once the hosted-sessions store itself is
+    // constructed (that store's default seed is assembled further down this
+    // function) — this placeholder exists only so every MockDaemon field is present
+    // from the object literal's own construction.
+    hostedSessions: [],
   };
   // power.status.get / power.keepAwake.set in-memory state — a fresh copy per
   // installMockDaemon call, mutated by keepAwake.set exactly like the daemon's
@@ -1078,6 +1090,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     },
   ];
   const hostedSessions: Record<string, unknown>[] = (options.hostedSessions ?? DEFAULT_HOSTED_SESSIONS).map((s) => ({ ...s }));
+  daemon.hostedSessions = hostedSessions;
   const hostedSessionHistory: Record<string, { role: string; content: string; at?: number }[]> = {
     'hosted-e2e-1': [
       { role: 'user', content: 'Refactor the parser to use a visitor pattern.', at: 1_700_000_050_000 },

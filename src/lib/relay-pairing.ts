@@ -87,6 +87,24 @@ function hasStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+/**
+ * A locally-detected notice (corrupt stored data, not a daemon-origin one), consumed
+ * once — surfaced through the SAME one-line dismissible notice component
+ * DaemonReceipts.tsx already renders for the daemon's own receipts
+ * (useDaemonReceipts.ts merges this in), since both are the same kind of thing to an
+ * operator: a plain line about something that happened, with a dismiss button.
+ * Session-scoped (not persisted) and cleared after being read once via
+ * takeRelayPairingCorruptionNotice.
+ */
+let corruptionNotice: { readonly id: string; readonly text: string; readonly at: number } | null = null;
+
+/** Consume the pending corruption notice, if any. Returns null every call after the first. */
+export function takeRelayPairingCorruptionNotice(): { readonly id: string; readonly text: string; readonly at: number } | null {
+  const notice = corruptionNotice;
+  corruptionNotice = null;
+  return notice;
+}
+
 /** Read the stored relay pairing, or null if none is stored or it fails to parse. */
 export function getStoredRelayPairing(): RelayPairingPayload | null {
   if (!hasStorage()) return null;
@@ -100,10 +118,29 @@ export function getStoredRelayPairing(): RelayPairingPayload | null {
       || typeof (parsed as Record<string, unknown>).rid !== 'string'
       || typeof (parsed as Record<string, unknown>).daemonPublicKey !== 'string'
     ) {
+      console.warn('[relay-pairing] stored relay pairing record has an unrecognized shape — discarding it and treating this device as unpaired.');
+      window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);
+      corruptionNotice = {
+        id: `relay-pairing-corrupt-${Date.now()}`,
+        text: 'Your saved relay connection details could not be read and were reset. Pair again if you reach this daemon through the relay.',
+        at: Date.now(),
+      };
       return null;
     }
     return parsed as RelayPairingPayload;
-  } catch {
+  } catch (error) {
+    console.warn('[relay-pairing] stored relay pairing record failed to parse — discarding it and treating this device as unpaired.', error);
+    try {
+      window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);
+    } catch {
+      // Storage already unusable (e.g. this catch fired because of a storage-access
+      // failure, not a parse failure) — nothing more can be done here.
+    }
+    corruptionNotice = {
+      id: `relay-pairing-corrupt-${Date.now()}`,
+      text: 'Your saved relay connection details could not be read and were reset. Pair again if you reach this daemon through the relay.',
+      at: Date.now(),
+    };
     return null;
   }
 }

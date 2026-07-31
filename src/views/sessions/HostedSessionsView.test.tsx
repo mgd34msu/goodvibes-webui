@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
+import { ToastViewport } from '../../components/toast/ToastViewport';
 
 const RUNNING = {
   id: 'hosted-1', workspaceRoot: '/home/operator/project-a', title: 'Refactor the parser',
@@ -26,6 +27,8 @@ let listImpl: (input?: { includeTerminated?: boolean }) => Promise<unknown> =
   () => Promise.resolve({ sessions: [RUNNING] });
 let attachImpl: (sessionId: string, clientId: string) => Promise<unknown> =
   (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
+let detachImpl: (sessionId: string) => Promise<unknown> =
+  (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
 const detachCalls: { sessionId: string; clientId: string }[] = [];
 const steerCalls: { sessionId: string; body: unknown }[] = [];
 
@@ -42,7 +45,7 @@ mock.module('../../lib/goodvibes', () => ({
           attach: (sessionId: string, clientId: string) => attachImpl(sessionId, clientId),
           detach: (sessionId: string, clientId: string) => {
             detachCalls.push({ sessionId, clientId });
-            return Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
+            return detachImpl(sessionId);
           },
           create: () => Promise.resolve({ session: RUNNING }),
           kill: () => Promise.resolve({ session: TERMINATED }),
@@ -79,7 +82,12 @@ function render(): { el: HTMLElement; unmount: () => void } {
     root.render(React.createElement(
       QueryClientProvider,
       { client },
-      React.createElement(ToastProvider, null, React.createElement(HostedSessionsView)),
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(HostedSessionsView),
+        React.createElement(ToastViewport),
+      ),
     ));
   });
   return {
@@ -94,6 +102,7 @@ function render(): { el: HTMLElement; unmount: () => void } {
 afterEach(() => {
   listImpl = () => Promise.resolve({ sessions: [RUNNING] });
   attachImpl = (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId }, history: [{ role: 'user', content: 'hello', at: 1 }] });
+  detachImpl = (sessionId) => Promise.resolve({ session: { ...RUNNING, id: sessionId, attachedClients: [] } });
   detachCalls.length = 0;
   steerCalls.length = 0;
 });
@@ -186,6 +195,56 @@ describe('HostedSessionsView — attach/steer', () => {
     const row = el.querySelector('.hosted-session-row__button');
     flushSync(() => (row as HTMLButtonElement).click());
     await waitFor(() => el.textContent?.includes('Could not attach') ?? false);
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — D29a: passive detach honesty', () => {
+  test('a passive detach failure (switching rows) is logged and toasted, never silent', async () => {
+    detachImpl = () => Promise.reject(new Error('daemon unreachable'));
+    const consoleWarn = console.warn;
+    const warnings: unknown[][] = [];
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    listImpl = () => Promise.resolve({ sessions: [RUNNING, TERMINATED] });
+
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const rows = el.querySelectorAll('.hosted-session-row__button');
+    flushSync(() => (rows[0] as HTMLButtonElement).click());
+    await waitFor(() => el.textContent?.includes('hello') ?? false);
+
+    // Switching to the OTHER row passively detaches the first — which is rigged
+    // above to fail.
+    flushSync(() => (rows[1] as HTMLButtonElement).click());
+
+    await waitFor(() => warnings.length > 0);
+    expect(String(warnings[0][0])).toContain('passive detach failed');
+    await waitFor(() => el.textContent?.includes('Could not detach from a hosted session') ?? false);
+
+    console.warn = consoleWarn;
+    unmount();
+  });
+});
+
+describe('HostedSessionsView — D29b: the attached session reconciles against a fresher list row', () => {
+  test('a session that terminates while the stream is down updates the attached view on the next list refresh', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
+    const row = el.querySelector('.hosted-session-row__button');
+    flushSync(() => (row as HTMLButtonElement).click());
+    await waitFor(() => Boolean(el.querySelector('.steer-composer')));
+    expect(el.querySelector('.steer-composer .badge.neutral')).toBeNull();
+
+    // The daemon terminated hosted-1 while no lifecycle frame reached this client
+    // (the scenario D29b's stream-down fallback poll targets) — the next list
+    // read reflects it.
+    listImpl = () => Promise.resolve({
+      sessions: [{ ...RUNNING, status: 'terminated', terminatedReason: 'killed', updatedAt: 999 }],
+    });
+    const refresh = el.querySelector('.hosted-sessions-refresh');
+    flushSync(() => (refresh as HTMLButtonElement).click());
+
+    await waitFor(() => el.textContent?.includes('Session closed') ?? false);
     unmount();
   });
 });

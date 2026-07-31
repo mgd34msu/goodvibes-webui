@@ -617,6 +617,26 @@ async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput =
   });
 }
 
+/**
+ * invokeGatewayMethodUncheckedInput — invokeGatewayMethod's escape hatch, for an id the
+ * installed contract carries no OperatorMethodInputMap/OutputMap entry for AT ALL — not
+ * merely one this app's own bridge shape diverges from (that's invokeOperatorUncheckedInput's
+ * job; see its header for the distinction). sessions.hosted.* is the one family here
+ * today: the installed 1.21.0 @pellux/goodvibes-contracts has no `sessions.hosted.` id
+ * anywhere — not the OperatorMethodId union, not the shipped operator-contract.json
+ * artifact — even though the daemon and SDK source already implement it.
+ * contract-bridge-types.ts hand-authors the five shapes directly against the wire schema
+ * the SDK source publishes, the same way sessions.detach's bridge worked before ITS SWAP.
+ * Re-check this on every pin bump: once an id reaches OperatorMethodId, its call moves
+ * back to invokeGatewayMethod and this wrapper's job for it ends.
+ */
+async function invokeGatewayMethodUncheckedInput<TOutput>(methodId: string, body: unknown): Promise<TOutput> {
+  return requestJson<TOutput>(`/api/control-plane/methods/${methodId}/invoke`, {
+    method: 'POST',
+    body: { body: body ?? {} },
+  });
+}
+
 // ─── Approvals (approvals.*, per-hunk selection) ─────────────────────
 //
 // UNLIKE fleet.*/checkpoints.* (contract-bridge-types.ts), approvals.* HAS real,
@@ -2405,15 +2425,15 @@ export const sdk = {
       // method-catalog-hosted-sessions.ts header comment), so none is wired here.
       hosted: {
         list: (input?: SessionsHostedListInput) =>
-          invokeGatewayMethod<'sessions.hosted.list', SessionsHostedListResult>('sessions.hosted.list', input ?? {}),
+          invokeGatewayMethodUncheckedInput<SessionsHostedListResult>('sessions.hosted.list', input ?? {}),
         create: (input: SessionsHostedCreateInput) =>
-          invokeGatewayMethod<'sessions.hosted.create', SessionsHostedCreateResult>('sessions.hosted.create', input),
+          invokeGatewayMethodUncheckedInput<SessionsHostedCreateResult>('sessions.hosted.create', input),
         attach: (sessionId: string, clientId: string) =>
-          invokeGatewayMethod<'sessions.hosted.attach', SessionsHostedAttachResult>('sessions.hosted.attach', { sessionId, clientId }),
+          invokeGatewayMethodUncheckedInput<SessionsHostedAttachResult>('sessions.hosted.attach', { sessionId, clientId }),
         detach: (sessionId: string, clientId: string) =>
-          invokeGatewayMethod<'sessions.hosted.detach', SessionsHostedDetachResult>('sessions.hosted.detach', { sessionId, clientId }),
+          invokeGatewayMethodUncheckedInput<SessionsHostedDetachResult>('sessions.hosted.detach', { sessionId, clientId }),
         kill: (sessionId: string) =>
-          invokeGatewayMethod<'sessions.hosted.kill', SessionsHostedKillResult>('sessions.hosted.kill', { sessionId }),
+          invokeGatewayMethodUncheckedInput<SessionsHostedKillResult>('sessions.hosted.kill', { sessionId }),
       },
     },
     // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely

@@ -186,7 +186,9 @@ test('the Advanced editor writes through config.set and the change is honestly r
   // value, not as free-standing page text.
   await page.getByRole('button', { name: 'Open Settings' }).click();
   dialog = page.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByLabel('display.theme')).toHaveValue('cyberpunk');
+  // exact: display.themeMode is a schema key too, and substring label matching
+  // would resolve both rows.
+  await expect(dialog.getByLabel('display.theme', { exact: true })).toHaveValue('cyberpunk');
 });
 
 test.describe('pricing.modelPrices — the structured per-model price editor', () => {

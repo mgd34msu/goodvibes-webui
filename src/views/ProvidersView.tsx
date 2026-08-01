@@ -83,7 +83,7 @@ export function ProvidersView() {
   });
   const currentModel = useQuery({
     queryKey: ['models', 'current'],
-    queryFn: () => sdk.operator.models.current(),
+    queryFn: () => sdk.operator.models.current.get(),
   });
   const accounts = useQuery({
     queryKey: queryKeys.accounts,
@@ -170,7 +170,7 @@ export function ProvidersView() {
     firstString(currentModelRecord, ['id']) || firstString(catalogCurrentModel, ['id']);
 
   const selectModel = useMutation({
-    mutationFn: (registryKey: string) => sdk.operator.models.select(registryKey),
+    mutationFn: (registryKey: string) => sdk.operator.models.current.set(registryKey),
     onSuccess: async (_data, registryKey) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['models'] }),

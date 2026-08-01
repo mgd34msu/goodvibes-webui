@@ -2,12 +2,12 @@
  * model-catalog.ts — multi-target model routing over the real wire shapes.
  *
  * GROUNDED (verified against goodvibes-sdk source, not guessed):
- *   - The "current model" concept (models.current/models.select, PATCH
+ *   - The "current model" concept (models.current.get/models.current.set, PATCH
  *     /api/models/current) is a SINGLE global slot — there is no multi-target
  *     verb on the wire. Multi-target routing (main/helper/tool/tts/embeddings)
  *     is implemented via separate shared config keys, read/written through
  *     config.get/config.set (packages/sdk/src/platform/config/schema-domain-core.ts):
- *       main       -> models.select (PATCH /api/models/current) — NOT config.set;
+ *       main       -> models.current.set (PATCH /api/models/current) — NOT config.set;
  *                     this is the only target with a dedicated wire verb, and it
  *                     validates the provider is configured server-side. Routing
  *                     the main target through config.set('provider.model', ...)
@@ -325,7 +325,7 @@ export interface TargetRouting {
 
 /**
  * config — the flat config.get() object (config manager's getAll()). currentModel —
- * models.current()'s `model` field ({ registryKey, provider, id } | null), only used
+ * models.current.get()'s `model` field ({ registryKey, provider, id } | null), only used
  * for the 'main' target since it is not itself a config key.
  */
 export function readTargetRouting(
@@ -386,7 +386,7 @@ export function readTargetRouting(
 }
 
 /** The config.set entries a "Use <model> for <target>" action should write. Returns
- *  null for 'main', which routes through models.select instead (see module doc). */
+ *  null for 'main', which routes through models.current.set instead (see module doc). */
 export function buildTargetWriteEntries(
   target: ModelTarget,
   providerId: string,

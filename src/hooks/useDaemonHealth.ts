@@ -282,7 +282,7 @@ export function useDaemonHealth(): DaemonHealth {
   // -- Current model --------------------------------------------------------
   const modelQuery = useQuery({
     queryKey: ['daemon-health', 'model'] as const,
-    queryFn: () => sdk.operator.models.current(),
+    queryFn: () => sdk.operator.models.current.get(),
     // Models change rarely — refresh every 60 s
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,

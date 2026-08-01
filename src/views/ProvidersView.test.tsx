@@ -152,8 +152,10 @@ mock.module('../lib/goodvibes', () => ({
       },
       models: {
         list: () => Promise.resolve(MODELS_LIST_FIXTURE),
-        current: () => Promise.resolve({ model: { registryKey: 'openai:gpt-5', provider: 'openai', id: 'gpt-5' }, configured: true }),
-        select: () => Promise.resolve({}),
+        current: {
+          get: () => Promise.resolve({ model: { registryKey: 'openai:gpt-5', provider: 'openai', id: 'gpt-5' }, configured: true }),
+          set: () => Promise.resolve({}),
+        },
       },
       accounts: {
         snapshot: () => Promise.resolve({}),

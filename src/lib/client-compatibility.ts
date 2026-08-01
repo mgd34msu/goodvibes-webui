@@ -17,17 +17,24 @@
  * subpath, whose barrel also carries the gateway/session-broker/route-dispatch server
  * implementation (dispatchDaemonApiRoutes, SharedSessionBroker, ControlPlaneGateway, …),
  * not something this browser bundle should import. No browser-safe subpath exposes it at
- * the installed 1.21.0 pin. This module is a small, independently-tested copy of the
- * same three functions' documented semantics, kept here until a future SDK release
- * exposes them through a seam this app can import directly (a `// SWAP:` seam, same
- * pattern contract-bridge-types.ts uses for a bridge type ahead of its generated
- * counterpart).
+ * the installed 2.0.0 pin (re-verified at this pin: `./platform/control-plane` is still
+ * the only export surfacing it, and its barrel still carries the full server
+ * implementation). This module is a small, independently-tested copy of the same three
+ * functions' documented semantics, kept here until a future SDK release exposes them
+ * through a seam this app can import directly (a `// SWAP:` seam, same pattern
+ * contract-bridge-types.ts uses for a bridge type ahead of its generated counterpart).
+ * Re-diffed field-by-field against the 2.0.0 SDK's
+ * dist/platform/control-plane/client-compatibility.js at this re-pin: compareBuildVersions
+ * and evaluateClientCompatibility are byte-identical in logic (the browser copy's
+ * messages say "reload the page" / "Reload from the current install" where the SDK's
+ * process-oriented copy says "restart it" — a deliberate, permanent surface-appropriate
+ * wording divergence, not drift to fix).
  *
- * ALSO NOTE: at the installed 1.21.0 pin the daemon's own HTTP router never actually
- * writes this header onto a response yet — it only threads the constant name partway
- * into an internal context object with no consumer that calls it. So this module has
- * nothing real to read against a live 1.21.0 daemon today; it is exercised here by unit
- * test with a fabricated header, ready for the header the day a daemon actually sends it.
+ * ALSO NOTE: at the installed 2.0.0 pin the daemon's own HTTP router still never actually
+ * writes this header onto a response — it only threads the constant name partway into an
+ * internal context object with no consumer that calls it. So this module has nothing real
+ * to read against a live 2.0.0 daemon today; it is exercised here by unit test with a
+ * fabricated header, ready for the header the day a daemon actually sends it.
  */
 
 /** Response header carrying the daemon's minimum acceptable client build. */

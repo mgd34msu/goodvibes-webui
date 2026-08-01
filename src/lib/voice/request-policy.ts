@@ -16,12 +16,16 @@
  *      reported honestly (never silently dropped, never aborting the whole reply).
  *
  * This is the browser's own implementation of that policy, unit-tested against all
- * three properties above. The installed @pellux/goodvibes-sdk also publishes a shared
- * SpokenTurnController (platform/voice/spoken-turn) that drives the same three
- * properties directly off a turn's lifecycle events through an injected AudioSink;
- * adopting it here would mean replacing this module's segment-scheduling entry point
- * with turn-event-driven playback end to end (tts-player.ts and useVoice.ts both build
- * on the functions below), not swapping one function for another.
+ * three properties above, and it stays separate from the SDK on purpose. The installed
+ * @pellux/goodvibes-sdk also publishes a shared SpokenTurnController
+ * (platform/voice/spoken-turn) that drives the same three properties, but it is a
+ * daemon-side engine: it is constructed around a live VoiceService (the provider
+ * registry that holds real synthesis credentials and does the actual network call) and
+ * driven by the daemon's TurnEvent lifecycle stream, neither of which exists — or
+ * should exist — in the browser. The browser only ever calls the daemon's synthesis
+ * endpoint over HTTP for text it already has in hand, so this module's segment
+ * scheduler (coalesce, cap, retry-then-skip over an injected `synth` function) is the
+ * correct browser-side counterpart, not a stand-in awaiting removal.
  */
 
 /** One segment's outcome. `status:'ok'` carries decodable audio bytes; `status:'skipped'`

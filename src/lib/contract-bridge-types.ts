@@ -174,7 +174,7 @@ export type CostAttributionGetResult = OperatorMethodOutput<'cost.attribution.ge
 export type CostAttributionRow = CostAttributionGetResult['rows'][number];
 
 // ─── Hosted sessions (sessions.hosted.*) ───────────────────────────────────────
-// Phase B Stage B1 (SDK-owned): a conversation whose loop runs INSIDE the daemon
+// Daemon-hosted sessions (SDK-owned): a conversation whose loop runs INSIDE the daemon
 // rather than inside the client that started it. UNLIKE every family above,
 // sessions.hosted.* is absent from the installed 1.21.0 @pellux/goodvibes-contracts
 // entirely — not merely missing an OperatorMethodInputMap/OutputMap entry, but

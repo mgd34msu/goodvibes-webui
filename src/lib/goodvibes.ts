@@ -2477,7 +2477,7 @@ export const sdk = {
         get: (sessionId: string) =>
           invokeGatewayMethod<'sessions.changes.get', SessionsChangesGetResult>('sessions.changes.get', { sessionId }),
       },
-      // hosted.* (Phase B Stage B1, already shipped in the SDK): a conversation
+      // hosted.* (daemon-hosted sessions, already shipped in the SDK): a conversation
       // whose loop runs INSIDE the daemon rather than inside this browser tab —
       // create/attach/detach/kill/list the lifecycle; `transport: ["ws"]` only, no
       // `http` route, same generic-invoke-only shape as changes.get above. A hosted

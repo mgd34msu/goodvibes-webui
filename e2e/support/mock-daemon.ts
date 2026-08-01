@@ -348,8 +348,8 @@ export interface MockDaemonOptions {
    */
   approvalUpdateFrames?: readonly Record<string, unknown>[];
   /**
-   * Seed override for the mutable hosted-sessions store (sessions.hosted.*, Phase B
-   * Stage B1). Default: one idle, attachable session (detach policy survive) and one
+   * Seed override for the mutable hosted-sessions store (sessions.hosted.*,
+   * daemon-hosted sessions). Default: one idle, attachable session (detach policy survive) and one
    * terminated session (reason 'killed') — real content for the includeTerminated
    * toggle and the terminatedReason line to prove against. Pass [] for the genuinely
    * empty "this daemon hosts nothing" state.
@@ -1067,7 +1067,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   const permissionRules: Record<string, unknown>[] = (options.permissionRules ?? []).map((r) => ({ ...r }));
   let ruleCounter = 0;
 
-  // Hosted sessions (sessions.hosted.*, Phase B Stage B1) — mutable so
+  // Hosted sessions (sessions.hosted.*, daemon-hosted sessions) — mutable so
   // create/attach/detach/kill genuinely change what a subsequent
   // sessions.hosted.list() sees, a fresh copy per installMockDaemon call. The
   // default seed carries one idle attachable session (detach policy survive, so
@@ -2455,7 +2455,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         tailscaleState.lastServe = receipt;
         return json(route, { receipt, publicBaseUrlUpdated: receipt.ok });
       }
-      // ── Hosted sessions (sessions.hosted.*, Phase B Stage B1) — a real, stateful
+      // ── Hosted sessions (sessions.hosted.*, daemon-hosted sessions) — a real, stateful
       //    mock: create/attach/detach/kill genuinely mutate the `hostedSessions`
       //    store, so a test can prove the round trip (create it, see it in the
       //    list, attach and see its history, detach and see attachedClients drop,

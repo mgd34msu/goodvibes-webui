@@ -1,5 +1,5 @@
 /**
- * Hosted sessions (sessions.hosted.*, Phase B Stage B1) — the daemon-hosted
+ * Hosted sessions (sessions.hosted.*) — the daemon-hosted
  * session view: the list with its includeTerminated toggle and terminatedReason
  * honesty line, attach with history + a genuine live stream frame, and steer.
  * Hermetic against the mock daemon's real stateful sessions.hosted.* handlers

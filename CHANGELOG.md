@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.1] - 2026-08-01
+
+- Fixed: importing settings that include `display.themeMode` no longer reports
+  an "unknown key" warning. The key is declared in the platform configuration
+  schema (SDK 2.0.1); the web UI ingests it like any other `display.*` setting.
+
 ## [1.13.0] - 2026-08-01
 
 The web UI installs with everything else now. Until this release it was the one

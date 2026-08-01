@@ -69,6 +69,17 @@ import {
   type SessionsChangesGetResult,
   type CostAttributionGetInput,
   type CostAttributionGetResult,
+  type SessionsHostedListInput,
+  type SessionsHostedListResult,
+  type SessionsHostedCreateInput,
+  type SessionsHostedCreateResult,
+  type SessionsHostedAttachInput,
+  type SessionsHostedAttachResult,
+  type SessionsHostedDetachInput,
+  type SessionsHostedDetachResult,
+  type SessionsHostedKillInput,
+  type SessionsHostedKillResult,
+  type HostedSessionRecord,
 } from './contract-bridge-types';
 
 describe('goodvibes constants', () => {
@@ -147,7 +158,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
 
   test('the justified survivors remain (SDK-coverage targets)', () => {
     for (const method of [
-      'approvals.approve', 'approvals.list', 'models.list', 'models.current', 'models.select',
+      'approvals.approve', 'approvals.list', 'models.list', 'models.current.get', 'models.current.set',
       'tasks.list', 'tasks.cancel', 'tasks.retry', 'config.get', 'config.set', 'local_auth.status',
       'companion.chat.sessions.delete',
     ]) {
@@ -234,11 +245,14 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
 
 describe('facade route knowledge is generated, not hand-maintained', () => {
   // The drift protection the migration to the generated facade must keep: EXTRA_METHOD_ROUTES
-  // is DERIVED from @pellux/goodvibes-contracts/generated/webui-facade (WEBUI_METHOD_ROUTES),
-  // not hand-authored. These tests pin that no hand-written row shadows or diverges from a
-  // generated one, and that the rest/ws-invoke disposition the webui acts on is the generated
-  // one. The three models.* rows are the sole documented exception (no contract backing).
-  const HAND_WRITTEN_MODELS = ['models.list', 'models.current', 'models.select'];
+  // is DERIVED ENTIRELY from @pellux/goodvibes-contracts/generated/webui-facade
+  // (WEBUI_METHOD_ROUTES), not hand-authored. These tests pin that no hand-written row
+  // shadows or diverges from a generated one, and that the rest/ws-invoke disposition the
+  // webui acts on is the generated one. Until the 2.0.0 re-pin, models.list/models.current/
+  // models.select were the sole documented exception (no contract backing at all); the
+  // 2.0.0 contract now carries real models.list/models.current.get/models.current.set
+  // entries with real REST bindings, so that exception is retired — see the test below.
+  const MODELS_METHOD_IDS = ['models.list', 'models.current.get', 'models.current.set'];
 
   test('every table route matches the generated WEBUI_METHOD_ROUTES artifact EXACTLY (no hand-written row shadows or diverges from a generated one)', () => {
     for (const [methodId, generated] of Object.entries(WEBUI_METHOD_ROUTES)) {
@@ -253,11 +267,11 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
-  test('the models.* rows are the ONLY table routes with no generated backing (the documented contract gap)', () => {
-    for (const id of HAND_WRITTEN_MODELS) {
+  test('models.list/current.get/current.set now arrive DERIVED from the generated artifact (the 2.0.0 contract gap closed — no more hand-written row)', () => {
+    for (const id of MODELS_METHOD_IDS) {
       expect(webuiRouteFor(id), `${id} should be table-routed`).toBeDefined();
-      expect(id in WEBUI_METHOD_ROUTES, `${id} unexpectedly gained a generated route — retire its hand-written row`).toBe(false);
-      expect(WEBUI_METHOD_DISPOSITION[id], `${id} unexpectedly gained a generated disposition`).toBeUndefined();
+      expect(id in WEBUI_METHOD_ROUTES, `${id} should now be present in the generated artifact`).toBe(true);
+      expect(WEBUI_METHOD_DISPOSITION[id], `${id} should carry a generated 'rest' disposition`).toBe('rest');
     }
   });
 
@@ -340,6 +354,19 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
       expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
       expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
     }
+  });
+
+  // channels.inbox.list (2.0.0 pin): the daemon's unified inbox — Slack DMs, Discord
+  // messages, and email threads merged into one feed, distinct from the mail-specific
+  // email.inbox.list this app already wires up in ChatView/MailView. No view calls it
+  // yet, but it arrives table-routed the same DERIVED way as profile.*/occasions.* above,
+  // with no route wiring of its own needed here — this pins that it is genuinely reachable
+  // over REST the moment a consumer is built.
+  test('channels.inbox.list (the unified inbox verb) arrives DERIVED — real REST row, no hand-written wiring, no consumer yet', () => {
+    expect(webuiRouteFor('channels.inbox.list')).toEqual({ method: 'GET', path: '/api/channels/inbox' });
+    expect(isExtraRoutedMethod('channels.inbox.list')).toBe(true);
+    expect(WEBUI_METHOD_DISPOSITION['channels.inbox.list']).toBe('rest');
+    expect(WEBUI_METHOD_ROUTES['channels.inbox.list' as keyof typeof WEBUI_METHOD_ROUTES]).toBeDefined();
   });
 
   test('WEBUI_METHOD_SAMPLES carries an input/output fixture for every bridged ws-invoke method (the mock daemon default-seed source)', () => {
@@ -1279,6 +1306,21 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     sizeBytes: 2048,
   };
 
+  const hostedSessionRecord: HostedSessionRecord = {
+    id: 'hs-1',
+    workspaceRoot: '/home/mike/project',
+    title: 'Deploy chat',
+    status: 'idle',
+    detachPolicy: null,
+    effectiveDetachPolicy: 'kill',
+    attachedClients: ['c-1'],
+    createdAt: 1,
+    updatedAt: 2,
+    turnCount: 1,
+    messageCount: 2,
+    restoredFromDisk: false,
+  };
+
   const sessionSummary: SessionsSearchSessionSummary = {
     id: 's-1',
     kind: 'companion-chat',
@@ -1400,6 +1442,14 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
         tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
       }],
     } satisfies CostAttributionGetResult,
+    'sessions.hosted.list': { sessions: [hostedSessionRecord] } satisfies SessionsHostedListResult,
+    'sessions.hosted.create': { session: hostedSessionRecord } satisfies SessionsHostedCreateResult,
+    'sessions.hosted.attach': {
+      session: hostedSessionRecord,
+      history: [{ role: 'user', content: 'hello' }],
+    } satisfies SessionsHostedAttachResult,
+    'sessions.hosted.detach': { session: hostedSessionRecord } satisfies SessionsHostedDetachResult,
+    'sessions.hosted.kill': { session: { ...hostedSessionRecord, status: 'terminated' } } satisfies SessionsHostedKillResult,
   };
 
   // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
@@ -1436,6 +1486,11 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'sessions.detach': { sessionId: 's-1', surfaceId: 'goodvibes-webui' } satisfies SessionsDetachInput,
     'sessions.changes.get': { sessionId: 's-1' } satisfies SessionsChangesGetInput,
     'cost.attribution.get': { window: '24h', dimension: 'session' } satisfies CostAttributionGetInput,
+    'sessions.hosted.list': { includeTerminated: true } satisfies SessionsHostedListInput,
+    'sessions.hosted.create': { workspaceRoot: '/home/mike/project' } satisfies SessionsHostedCreateInput,
+    'sessions.hosted.attach': { sessionId: 'hs-1', clientId: 'c-1' } satisfies SessionsHostedAttachInput,
+    'sessions.hosted.detach': { sessionId: 'hs-1', clientId: 'c-1' } satisfies SessionsHostedDetachInput,
+    'sessions.hosted.kill': { sessionId: 'hs-1' } satisfies SessionsHostedKillInput,
   };
 
   test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {

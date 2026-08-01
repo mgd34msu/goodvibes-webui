@@ -1,9 +1,10 @@
 import { SyntheticEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Code2, KeyRound, Lock, Radio, Settings as SettingsIcon, ShieldCheck, Wifi } from 'lucide-react';
+import { Activity, Code2, KeyRound, Lock, Radio, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
 import {
   clearStoredAuthToken,
   getCurrentAuth,
+  GOODVIBES_BASE_URL,
   invokeMethod,
   login,
   sdk,
@@ -283,13 +284,8 @@ export function AdminView({ realtimeError }: AdminViewProps) {
           >
             <div>
               <Radio size={16} />
-              <strong>3423</strong>
-              <span>Browser surface</span>
-            </div>
-            <div>
-              <Wifi size={16} />
-              <strong>3421</strong>
-              <span>Control plane</span>
+              <strong>{GOODVIBES_BASE_URL}</strong>
+              <span>Daemon origin</span>
             </div>
             <div>
               <span className={realtimeError ? 'status-dot warning' : 'status-dot ok'} />

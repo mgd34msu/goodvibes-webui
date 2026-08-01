@@ -62,7 +62,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
   });
   const currentModel = useQuery({
     queryKey: ['models', 'current'],
-    queryFn: () => sdk.operator.models.current(),
+    queryFn: () => sdk.operator.models.current.get(),
     enabled: open,
   });
   const config = useQuery({
@@ -104,7 +104,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
   const useModel = useMutation({
     mutationFn: async (model: CatalogModel) => {
       if (target === 'main') {
-        return sdk.operator.models.select(model.registryKey);
+        return sdk.operator.models.current.set(model.registryKey);
       }
       const entries = buildTargetWriteEntries(target, model.provider, model.id) ?? [];
       // Sequential, not Promise.all: the daemon's /config route accepts one key at a

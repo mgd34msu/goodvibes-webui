@@ -74,7 +74,7 @@ export function ChatView({
 
   const providers = useQuery({ queryKey: queryKeys.providers, queryFn: () => sdk.operator.providers.list() });
   const modelCatalog = useQuery({ queryKey: ['models'], queryFn: () => sdk.operator.models.list() });
-  const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current() });
+  const currentModel = useQuery({ queryKey: ['models', 'current'], queryFn: () => sdk.operator.models.current.get() });
   const catalogProviderOptions = useMemo(() => providerOptionsFromResponse(modelCatalog.data), [modelCatalog.data]);
 
   const providerOptions = useMemo(() => {
@@ -128,7 +128,7 @@ export function ChatView({
   });
 
   const selectModel = useMutation({
-    mutationFn: (registryKey: string) => sdk.operator.models.select(registryKey),
+    mutationFn: (registryKey: string) => sdk.operator.models.current.set(registryKey),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['models'] }),

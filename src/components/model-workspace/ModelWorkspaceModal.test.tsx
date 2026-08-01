@@ -34,10 +34,12 @@ mock.module('../../lib/goodvibes', () => ({
     operator: {
       providers: { list: () => Promise.resolve(PROVIDERS_RESPONSE) },
       models: {
-        current: () => Promise.resolve({ model: { registryKey: 'anthropic:claude-opus-4', provider: 'anthropic', id: 'claude-opus-4' } }),
-        select: (registryKey: string) => {
-          selectCalls.push(registryKey);
-          return Promise.resolve({});
+        current: {
+          get: () => Promise.resolve({ model: { registryKey: 'anthropic:claude-opus-4', provider: 'anthropic', id: 'claude-opus-4' } }),
+          set: (registryKey: string) => {
+            selectCalls.push(registryKey);
+            return Promise.resolve({});
+          },
         },
       },
       config: {
@@ -123,7 +125,7 @@ describe('ModelWorkspaceModal — multi-target routing', () => {
     unmount();
   });
 
-  test('main target: selecting a model calls models.select with its registryKey, never config.set', async () => {
+  test('main target: selecting a model calls models.current.set with its registryKey, never config.set', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('GPT-5') ?? false);
     const gpt5Row = [...el.querySelectorAll('.providers-model-row')].find((r) => r.textContent?.includes('GPT-5'));
@@ -134,7 +136,7 @@ describe('ModelWorkspaceModal — multi-target routing', () => {
     unmount();
   });
 
-  test('helper target: selecting a model writes globalProvider + globalModel + enabled via config.set, never models.select', async () => {
+  test('helper target: selecting a model writes globalProvider + globalModel + enabled via config.set, never models.current.set', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
     const helperTab = [...el.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Helper Model');

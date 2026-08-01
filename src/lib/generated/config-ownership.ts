@@ -27,6 +27,7 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   "payments.",
   "voice.local.",
   "conversationGate.",
+  "hostedSessions.",
   "cluster.",
   "profile.",
   "occasions."
@@ -56,6 +57,7 @@ export const DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS: readonly string[] = [
   "email.username",
   "email.fromAddress",
   "calendar.google.clientId",
+  "calendar.microsoft.clientId",
   "google.oauth.projectId",
   "google.oauth.publishingStatus",
   "google.credentials.migratedFrom"

@@ -57,7 +57,7 @@ export const queryKeys = {
   // SessionChanges.tsx refetches manually rather than riding useRealtimeInvalidation;
   // the prefix still means it's swept by any broad `queryKeys.sessions` invalidation.
   sessionChanges: (sessionId: string) => ['sessions', sessionId, 'changes'] as const,
-  // sessions.hosted.list (Phase B Stage B1) — the daemon-hosted session lifecycle
+  // sessions.hosted.list (daemon-hosted sessions) — the daemon-hosted session lifecycle
   // list, DELIBERATELY not 'sessions'-prefixed: hosted sessions have their own
   // lifecycle wire event (hosted-session-update, not session-update) and their own
   // realtime hook (useHostedSessionRealtime), so a broad `queryKeys.sessions`

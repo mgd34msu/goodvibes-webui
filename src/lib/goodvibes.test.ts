@@ -1067,7 +1067,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.occasions.plans).sort()).toEqual(['list', 'propose', 'confirm'].sort());
   });
 
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), toolCalls/queuedMessages (SDK 1.8.0), and hosted (Phase B Stage B1)', () => {
+  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), toolCalls/queuedMessages (SDK 1.8.0), and hosted (daemon-hosted sessions)', () => {
     expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
       ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'hosted', 'inputs', 'list', 'messages', 'permissionMode', 'queuedMessages', 'reopen', 'search', 'steer', 'toolCalls'].sort(),
     );

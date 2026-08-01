@@ -85,7 +85,7 @@ const views: {
 }[] = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
   { id: 'sessions', label: 'Sessions', short: 'Union', icon: Network },
-  // sessions.hosted.* (Phase B Stage B1) — a conversation whose loop runs inside
+  // sessions.hosted.* (daemon-hosted sessions) — a conversation whose loop runs inside
   // the daemon, so it does not end when the tab that started it goes away.
   { id: 'hosted-sessions', label: 'Hosted', short: 'Daemon-run', icon: Boxes },
   { id: 'fleet', label: 'Fleet', short: 'Processes', icon: Boxes },

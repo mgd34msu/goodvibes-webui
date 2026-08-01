@@ -4,7 +4,7 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
-## [Unreleased]
+## [1.13.0] - 2026-08-01
 
 The web UI installs with everything else now. Until this release it was the one
 part of GoodVibes you had to go and get: the daemon, the terminal app and the
@@ -31,6 +31,45 @@ sorted entries, zeroed ownership, epoch timestamps, no gzip header stamp — so
 two runs over the same build produce byte-identical archives and the digest in
 the manifest keeps meaning "the bytes this release built". It refuses to pack a
 `dist/` with no `index.html` rather than publishing a bundle nobody can serve.
+
+Sessions gained a Hosted Sessions view: a conversation whose loop runs inside
+the daemon itself rather than inside this browser tab, so it keeps going after
+the tab that started it closes. The toolbar's "New session" form takes a
+workspace path, an optional title, and a detach-policy choice that defaults to
+whatever the daemon is already configured to do; a created session attaches
+immediately and renders its live output the same way a local session does.
+"End session" ends it outright, including a session whose policy would
+otherwise let it survive every client leaving — confirmed first, since it is
+immediate and affects every other attached client too. Closing or reloading the
+tab no longer leaves an orphaned attachment behind: a `pagehide`/hidden-tab
+beacon fires a best-effort detach with `keepalive: true` so the browser
+delivers it after the page itself is gone, rather than relying on a React
+cleanup effect that never gets to run.
+
+The hosted view is honest when its live stream is down. The session list falls
+back to a real periodic refresh (15 seconds while the stream is down, 60 as a
+safety net while it's live) instead of quietly going stale, a banner says so
+while it's happening, and a reconciliation pass keeps the attached session's
+own status in sync with the freshest list row — closing the gap where a
+session that had already ended kept rendering its message composer as if still
+live. A passive detach (switching rows, leaving the view) that fails to reach
+the daemon now says so with a toast instead of failing silently, so a browser
+that never actually detached does not stay listed as attached with no way to
+tell why.
+
+Settings gained the row for `hostedSessions.promoteInboundConversations` — off
+by default — which hands an inbound channel conversation (Telegram, Slack,
+email, any other configured channel) to the daemon to host from its first
+message onward, instead of letting it live only inside the surface process
+that received it.
+
+Ships against `@pellux/goodvibes-sdk` 2.0.0. The daemon's unified inbox verb,
+`channels.inbox.list` — one merged, newest-first feed across every channel
+provider (Slack DMs, Discord messages, email threads), distinct from the
+mail-specific verbs the Mail view already uses — arrives with a real REST
+binding this app's generated route table picks up the same way it picks up
+every other table-routed verb. No view calls it yet; it is reachable the
+moment one is built, not aspirational.
 
 ## [1.12.1] - 2026-07-30
 

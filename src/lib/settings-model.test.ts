@@ -278,6 +278,11 @@ describe('new settings keys from the snapshot schema', () => {
     'surfaces.telegram.enabled',
     'surfaces.telephony.enabled',
     'surfaces.whatsapp.enabled',
+    // SDK 2.0.0 re-pin: hostedSessions.promoteInboundConversations was absent from the
+    // config schema at 1.21.0 (see contract-bridge-types.ts's SWAP history) — this pins
+    // that the row now renders schema-driven, like every other hostedSessions.* setting,
+    // with no code change to this module needed.
+    'hostedSessions.promoteInboundConversations',
   ])('%s renders somewhere in the model with a description', (key) => {
     expect(allFieldKeys).toContain(key);
     const field = groups

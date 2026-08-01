@@ -887,6 +887,12 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Trust proxy forwarding headers such as x-forwarded-for for the webhook listener"
   },
   {
+    "key": "httpListener.trustCloudflare",
+    "type": "boolean",
+    "default": false,
+    "description": "Read the real client IP from CF-Connecting-IP, and only when the connecting peer is inside a published Cloudflare range. Requires httpListener.trustProxy: with it off, CF-Connecting-IP is ignored no matter what this says. The range check is the point — without it any peer could send a CF-Connecting-IP header and choose which address the rate limiter and the audit log recorded. Leave off unless this listener genuinely sits behind Cloudflare."
+  },
+  {
     "key": "httpListener.tls.mode",
     "type": "enum",
     "default": "off",
@@ -973,6 +979,46 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "type": "number",
     "default": 20,
     "description": "Maximum work proposals awaiting an answer at once across all channels. The oldest is dropped past this cap. Clamped to 1 - 200."
+  },
+  {
+    "key": "hostedSessions.detachPolicy",
+    "type": "enum",
+    "default": "kill",
+    "description": "What happens to a daemon-hosted session when its last client detaches. kill (default): the session ends, which is what closing a client has always done. survive: the session stays alive and reattachable, so work continues while nothing is watching and you can pick it up again from any surface. A single session can override this when it is created.",
+    "enumValues": [
+      "kill",
+      "survive"
+    ]
+  },
+  {
+    "key": "hostedSessions.maxSessions",
+    "type": "number",
+    "default": 8,
+    "description": "How many daemon-hosted sessions may be live at once. Creating one past this is refused with the count and this setting named, rather than accepted and starved. Terminated sessions do not count."
+  },
+  {
+    "key": "hostedSessions.maxMessagesPerSession",
+    "type": "number",
+    "default": 500,
+    "description": "How many of a hosted session's most recent messages are written to disk. The transcript in memory is unaffected; this bounds what a restart can restore, so one long conversation cannot grow its file without limit."
+  },
+  {
+    "key": "hostedSessions.terminatedRetentionMs",
+    "type": "number",
+    "default": 86400000,
+    "description": "How long a terminated hosted session's record is kept before it is retired, in milliseconds. Until then it is still listable with its termination reason, so a session that ended can be asked about rather than having simply vanished."
+  },
+  {
+    "key": "hostedSessions.attachmentTtlMs",
+    "type": "number",
+    "default": 600000,
+    "description": "How long a client stays attached to a daemon-hosted session without renewing, in milliseconds. Attaching again renews it, and a client whose control-plane connection is still open renews automatically. A client that crashed or closed its tab never detaches, so without this its attachment stands forever and a kill-policy session waits for a departure that never comes. When the last attachment lapses the session is treated as detached, and hostedSessions.detachPolicy decides what happens next. Clamped to at least 30 seconds and at most a day."
+  },
+  {
+    "key": "hostedSessions.promoteInboundConversations",
+    "type": "boolean",
+    "default": false,
+    "description": "Hand inbound channel conversations to the daemon to host, instead of answering them inside the surface process that received them. Off (default): a message from Telegram, Slack, email or any other channel is answered by that process, and it stops when the process stops. On: the first message of a conversation creates a daemon-hosted session and every later message is steered into it, so the conversation keeps its context and keeps running while no surface is open. What happens when the last client leaves is still hostedSessions.detachPolicy."
   },
   {
     "key": "atRest.redactionEnabled",
@@ -3394,8 +3440,8 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
   {
     "key": "update.releasesUrl",
     "type": "string",
-    "default": "https://github.com/mgd34msu/goodvibes-tui/releases/latest",
-    "description": "GitHub releases/latest URL the daemon resolves update tags and artifacts from"
+    "default": "https://github.com/mgd34msu/goodvibes-daemon/releases/latest",
+    "description": "GitHub releases/latest URL the daemon resolves its own update tags and artifacts from. The daemon is its own product with its own repository and its own release line; the terminal app updates itself from the goodvibes-tui repository and is never touched by a daemon update. A value written into settings.json overrides this default and is never re-derived"
   },
   {
     "key": "update.rollbackAfterFailedStarts",
@@ -3415,13 +3461,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "daemon.enabled",
     "type": "boolean",
     "default": true,
-    "description": "Run the local session daemon (background service that hosts the shared session broker and companion chat). Default on; binds loopback (127.0.0.1) only. Set false to run fully local with no background service."
-  },
-  {
-    "key": "daemon.embedInProcess",
-    "type": "boolean",
-    "default": false,
-    "description": "NOT RECOMMENDED. When true, and no daemon is already running, host the daemon INSIDE this surface process instead of spawning it as a detached background process. In-process embedding couples the daemon lifetime to this one surface: exiting the surface kills the daemon and every other surface sharing it (single point of failure). Default false — the surface spawns a detached, reboot-independent daemon (install it as a system service via POST /api/service/install on the daemon HTTP API)."
+    "description": "Whether THIS surface uses a session daemon at all. On (the default), the surface adopts a running daemon — the background service hosting the shared session broker and companion chat, bound to loopback (127.0.0.1) — and every daemon-backed feature (approvals, operator commands, voice, memory diagnostics, fleet, tasks) works through it. Off, the surface runs fully local: it makes no adoption attempt, probes no port, and each of those features refuses plainly with \"the daemon is disabled\" instead of failing at a connection. It does not control the daemon process itself: a daemon started on its own runs regardless of this setting, which is a per-surface choice about talking to one."
   },
   {
     "key": "danger.httpListener",

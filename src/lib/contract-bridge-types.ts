@@ -47,6 +47,11 @@ export const BRIDGE_TYPED_METHOD_IDS = [
   'sessions.detach',
   'sessions.changes.get',
   'cost.attribution.get',
+  'sessions.hosted.list',
+  'sessions.hosted.create',
+  'sessions.hosted.attach',
+  'sessions.hosted.detach',
+  'sessions.hosted.kill',
 ] as const;
 
 // ─── Fleet (fleet.*) ─────────────────────────────────────────────────────────
@@ -174,87 +179,31 @@ export type CostAttributionGetResult = OperatorMethodOutput<'cost.attribution.ge
 export type CostAttributionRow = CostAttributionGetResult['rows'][number];
 
 // ─── Hosted sessions (sessions.hosted.*) ───────────────────────────────────────
-// Daemon-hosted sessions (SDK-owned): a conversation whose loop runs INSIDE the daemon
-// rather than inside the client that started it. UNLIKE every family above,
-// sessions.hosted.* is absent from the installed 1.21.0 @pellux/goodvibes-contracts
-// entirely — not merely missing an OperatorMethodInputMap/OutputMap entry, but
-// missing from the OperatorMethodId union itself and from the shipped
-// operator-contract.json artifact (verified: no `sessions.hosted.` id appears in
-// either). The daemon and SDK source already implement the five verbs; the published
-// package this app pins has not caught up yet. Hand-authored directly against the
-// wire shape the SDK source publishes (its foundation-client-types.ts) — a
-// `// SWAP:` seam, the same shape sessions.detach carried before its own SWAP above —
-// to apply the day a re-pin adds real map entries for these five ids. Routed through
-// invokeGatewayMethodUncheckedInput in goodvibes.ts (not invokeGatewayMethod, which
-// requires its method id to be a member of the installed OperatorMethodId union) and
-// deliberately excluded from BRIDGE_TYPED_METHOD_IDS above, since that list is
-// cross-checked against the installed operator-contract.json.
+// SWAP applied (2.0.0 pin): sessions.hosted.list/create/attach/detach/kill now carry
+// real OperatorMethodInputMap/OutputMap entries (verified against the installed
+// @pellux/goodvibes-contracts's operator-method-ids.ts and operator-contract.json — the
+// `sessions.hosted.` ids appear in both), so these flow straight from the generated
+// contract the same way sessions.detach's own SWAP applied above. HostedSessionRecord
+// and HostedSessionHistoryMessage are item-level aliases (this file's existing
+// convention) derived from the list/attach outputs rather than redeclared by hand.
+// goodvibes.ts now calls these through invokeGatewayMethod like every other family in
+// this file — invokeGatewayMethodUncheckedInput (its pre-SWAP escape hatch) is gone.
 //
-// Deliberately NOT bridged here either: a hosted-specific steer/cancel verb. There is
-// none — see the SDK's method-catalog-hosted-sessions.ts header comment. A hosted
-// session is steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel,
-// which resolve a hosted id the same way they resolve any other session.
-export interface SessionsHostedListInput {
-  readonly includeTerminated?: boolean;
-}
+// Deliberately NOT bridged here: a hosted-specific steer/cancel verb. There is none —
+// see the SDK's method-catalog-hosted-sessions.ts header comment. A hosted session is
+// steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel, which resolve a
+// hosted id the same way they resolve any other session.
+export type SessionsHostedListInput = OperatorMethodInput<'sessions.hosted.list'>;
+export type SessionsHostedListResult = OperatorMethodOutput<'sessions.hosted.list'>;
 /** The record every hosted-session verb returns — one row of sessions.hosted.list. */
-export interface HostedSessionRecord {
-  readonly id: string;
-  readonly workspaceRoot: string;
-  readonly title: string;
-  readonly status: 'idle' | 'running' | 'terminated';
-  readonly detachPolicy: 'kill' | 'survive' | null;
-  readonly effectiveDetachPolicy: 'kill' | 'survive';
-  readonly attachedClients: readonly string[];
-  readonly providerId?: string;
-  readonly modelId?: string;
-  readonly createdAt: number;
-  readonly updatedAt: number;
-  readonly turnCount: number;
-  readonly messageCount: number;
-  readonly lastTurnAt?: number;
-  readonly terminatedAt?: number;
-  readonly terminatedReason?: string;
-  readonly restoredFromDisk: boolean;
-}
-export interface SessionsHostedListResult {
-  readonly sessions: readonly HostedSessionRecord[];
-}
-export interface SessionsHostedCreateInput {
-  readonly workspaceRoot: string;
-  readonly title?: string;
-  readonly modelId?: string;
-  readonly initialPrompt?: string;
-  readonly detachPolicy?: 'kill' | 'survive';
-  readonly clientId?: string;
-}
-export interface SessionsHostedCreateResult {
-  readonly session: HostedSessionRecord;
-}
-export interface SessionsHostedAttachInput {
-  readonly sessionId: string;
-  readonly clientId: string;
-}
+export type HostedSessionRecord = SessionsHostedListResult['sessions'][number];
+export type SessionsHostedCreateInput = OperatorMethodInput<'sessions.hosted.create'>;
+export type SessionsHostedCreateResult = OperatorMethodOutput<'sessions.hosted.create'>;
+export type SessionsHostedAttachInput = OperatorMethodInput<'sessions.hosted.attach'>;
+export type SessionsHostedAttachResult = OperatorMethodOutput<'sessions.hosted.attach'>;
 /** One message of a hosted session's history, as attach hands it back. */
-export interface HostedSessionHistoryMessage {
-  readonly role: 'assistant' | 'system' | 'tool' | 'user';
-  readonly content: string;
-  readonly at?: number;
-}
-export interface SessionsHostedAttachResult {
-  readonly session: HostedSessionRecord;
-  readonly history: readonly HostedSessionHistoryMessage[];
-}
-export interface SessionsHostedDetachInput {
-  readonly sessionId: string;
-  readonly clientId: string;
-}
-export interface SessionsHostedDetachResult {
-  readonly session: HostedSessionRecord;
-}
-export interface SessionsHostedKillInput {
-  readonly sessionId: string;
-}
-export interface SessionsHostedKillResult {
-  readonly session: HostedSessionRecord;
-}
+export type HostedSessionHistoryMessage = SessionsHostedAttachResult['history'][number];
+export type SessionsHostedDetachInput = OperatorMethodInput<'sessions.hosted.detach'>;
+export type SessionsHostedDetachResult = OperatorMethodOutput<'sessions.hosted.detach'>;
+export type SessionsHostedKillInput = OperatorMethodInput<'sessions.hosted.kill'>;
+export type SessionsHostedKillResult = OperatorMethodOutput<'sessions.hosted.kill'>;

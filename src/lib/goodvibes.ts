@@ -200,10 +200,14 @@ interface RequestOptions {
  *
  * EXTRA_METHOD_ROUTES is DERIVED (buildExtraMethodRoutes): WEBUI_METHOD_ROUTES minus every
  * id the pinned browser SDK route maps already cover (those resolve natively through
- * scopedSdk.operator.invoke — the no-route fall-through in invokeOperator below), plus the
- * three models.* rows the contract cannot carry. No route path or http method is written
- * by hand here anymore; the drift test in goodvibes.test.ts pins this table against the
- * generated artifact so a hand-written row can never shadow or diverge from a generated one.
+ * scopedSdk.operator.invoke — the no-route fall-through in invokeOperator below). No route
+ * path or http method is written by hand here — the drift test in goodvibes.test.ts pins
+ * this table against the generated artifact so a hand-written row can never shadow or
+ * diverge from a generated one. (Until the 2.0.0 re-pin this table also carried three
+ * hand-written models.* rows — models.list/models.current/models.select were absent from
+ * the operator contract entirely. The 2.0.0 contract now carries real models.list /
+ * models.current.get / models.current.set entries with real REST bindings, so those rows
+ * are gone and models.* flows through WEBUI_METHOD_ROUTES like everything else below.)
  *
  * The retirement invariant the previous hand-table documented still holds structurally:
  * sessions.get / steer / followUp / messages.* / inputs.* are covered by the browser SDK
@@ -248,19 +252,6 @@ type BrowserCoveredMethodId =
 const SHARED_COVERAGE_IS_COMPLETE: [BrowserKnowledgeMethodId] extends [BrowserCoveredMethodId] ? true : never = true;
 void SHARED_COVERAGE_IS_COMPLETE;
 
-/**
- * models.list/current/select are the ONLY hand-written REST rows that survive the
- * migration: they are not in the operator contract at all (no OperatorMethodId entry — the
- * generated facade has no 'models.*' key), so it cannot carry them. Every other row is
- * derived from WEBUI_METHOD_ROUTES. Flag this again if a future contracts generation adds
- * models.* ids (the drift test asserts they remain absent from the generated artifact).
- */
-const HAND_WRITTEN_ROUTES: Record<string, RouteDefinition> = {
-  'models.list': { method: 'GET', path: '/api/models' },
-  'models.current': { method: 'GET', path: '/api/models/current' },
-  'models.select': { method: 'PATCH', path: '/api/models/current' },
-};
-
 function buildExtraMethodRoutes(): Record<string, RouteDefinition | undefined> {
   const browserCovered = new Set<string>([
     ...SHARED_BROWSER_METHOD_IDS,
@@ -271,7 +262,7 @@ function buildExtraMethodRoutes(): Record<string, RouteDefinition | undefined> {
     if (browserCovered.has(methodId)) continue;
     table[methodId] = { method: def.method, path: def.path };
   }
-  return { ...table, ...HAND_WRITTEN_ROUTES };
+  return table;
 }
 
 const EXTRA_METHOD_ROUTES: Record<string, RouteDefinition | undefined> = buildExtraMethodRoutes();
@@ -499,15 +490,14 @@ export function webuiRouteFor(methodId: string): RouteDefinition | undefined {
  * `invokeOperatorUncheckedInput` instead — named, documented, and enumerable, rather than
  * every call site in this file opting out in silence.
  *
- * Overload 2 is the honest fallback for models.* — CORRECTED (2026-07): the earlier
- * gap-note this replaced claimed the pinned 0.38 contracts package had no typed method
- * ids for verbs like these; that was true for fleet.* and checkpoints.* at the time but was
- * NEVER true for models.* — models.current/list/select are not in the OperatorMethodId
- * union AT ALL (operator-method-ids.ts has no "models.*" entries), so there is no
- * OperatorMethodInput/Output to type them against, unlike fleet.* and checkpoints.*
- * (contract-bridge-types.ts) which DO have ids today and are only missing I/O shapes.
- * This is a standing gap, not a pin-bump-pending one — flag it again if a future
- * contracts generation adds models.* ids.
+ * Overload 2 is the untyped fallback `invokeOperatorUncheckedInput` casts through for the
+ * ids listed in its own header comment (calendar.*, email.*, memory.*, stepup.credentials.
+ * register, approvals.approve). Historically models.list/current/select ALSO went through
+ * this fallback — they were not in the OperatorMethodId union at all (operator-method-
+ * ids.ts had no "models.*" entries). The 2.0.0 re-pin adds real models.list /
+ * models.current.get / models.current.set entries, so models.* now calls overload 1 like
+ * fleet.* and checkpoints.* do — this is no longer a standing gap. Flag it again if a
+ * future contracts generation ever drops coverage for these ids.
  */
 async function invokeOperator<
   TMethodId extends OperatorMethodId,
@@ -672,26 +662,6 @@ async function invokeGatewayMethod<TMethodId extends OperatorMethodId, TOutput =
   methodId: TMethodId,
   body?: OperatorMethodInput<TMethodId>,
 ): Promise<TOutput> {
-  return requestJson<TOutput>(`/api/control-plane/methods/${methodId}/invoke`, {
-    method: 'POST',
-    body: { body: body ?? {} },
-  });
-}
-
-/**
- * invokeGatewayMethodUncheckedInput — invokeGatewayMethod's escape hatch, for an id the
- * installed contract carries no OperatorMethodInputMap/OutputMap entry for AT ALL — not
- * merely one this app's own bridge shape diverges from (that's invokeOperatorUncheckedInput's
- * job; see its header for the distinction). sessions.hosted.* is the one family here
- * today: the installed 1.21.0 @pellux/goodvibes-contracts has no `sessions.hosted.` id
- * anywhere — not the OperatorMethodId union, not the shipped operator-contract.json
- * artifact — even though the daemon and SDK source already implement it.
- * contract-bridge-types.ts hand-authors the five shapes directly against the wire schema
- * the SDK source publishes, the same way sessions.detach's bridge worked before ITS SWAP.
- * Re-check this on every pin bump: once an id reaches OperatorMethodId, its call moves
- * back to invokeGatewayMethod and this wrapper's job for it ends.
- */
-async function invokeGatewayMethodUncheckedInput<TOutput>(methodId: string, body: unknown): Promise<TOutput> {
   return requestJson<TOutput>(`/api/control-plane/methods/${methodId}/invoke`, {
     method: 'POST',
     body: { body: body ?? {} },
@@ -1971,12 +1941,17 @@ export const sdk = {
         },
       },
     },
-    // models.* have NO OperatorMethodId coverage at all (see invokeOperator's doc
-    // comment) — the untyped overload is the honest, permanent shape here.
+    // models.* (2.0.0 re-pin): real OperatorMethodId coverage and real REST bindings
+    // (GET /api/models, GET /api/models/current, PATCH /api/models/current) — see
+    // invokeOperator's doc comment. `current` nests get/set to mirror the real verb ids
+    // (models.current.get / models.current.set) exactly, the same way `wake.model.get`
+    // nests above.
     models: {
       list: () => invokeOperator('models.list'),
-      current: () => invokeOperator('models.current'),
-      select: (registryKey: string) => invokeOperator('models.select', { registryKey }),
+      current: {
+        get: () => invokeOperator('models.current.get'),
+        set: (registryKey: string) => invokeOperator('models.current.set', { registryKey }),
+      },
     },
     tasks: {
       // Local TaskSnapshotResult diverges from OperatorMethodOutput<'tasks.list'> only
@@ -2477,24 +2452,27 @@ export const sdk = {
         get: (sessionId: string) =>
           invokeGatewayMethod<'sessions.changes.get', SessionsChangesGetResult>('sessions.changes.get', { sessionId }),
       },
-      // hosted.* (daemon-hosted sessions, already shipped in the SDK): a conversation
-      // whose loop runs INSIDE the daemon rather than inside this browser tab —
-      // create/attach/detach/kill/list the lifecycle; `transport: ["ws"]` only, no
-      // `http` route, same generic-invoke-only shape as changes.get above. A hosted
-      // session is steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel
-      // above — there is no sessions.hosted.steer (see the SDK's
+      // hosted.* (daemon-hosted sessions): a conversation whose loop runs INSIDE the
+      // daemon rather than inside this browser tab — create/attach/detach/kill/list the
+      // lifecycle; `transport: ["ws"]` only ("ws-invoke" in the generated facade), no
+      // `http` route, same generic-invoke-only shape as changes.get above. SWAP applied
+      // (2.0.0 pin): these five ids now carry real OperatorMethodInputMap/OutputMap
+      // entries (contract-bridge-types.ts), so they call invokeGatewayMethod directly
+      // like every other bridged family — no more invokeGatewayMethodUncheckedInput. A
+      // hosted session is steered with the ORDINARY sessions.steer/followUp/
+      // toolCalls.cancel above — there is no sessions.hosted.steer (see the SDK's
       // method-catalog-hosted-sessions.ts header comment), so none is wired here.
       hosted: {
         list: (input?: SessionsHostedListInput) =>
-          invokeGatewayMethodUncheckedInput<SessionsHostedListResult>('sessions.hosted.list', input ?? {}),
+          invokeGatewayMethod<'sessions.hosted.list', SessionsHostedListResult>('sessions.hosted.list', input ?? {}),
         create: (input: SessionsHostedCreateInput) =>
-          invokeGatewayMethodUncheckedInput<SessionsHostedCreateResult>('sessions.hosted.create', input),
+          invokeGatewayMethod<'sessions.hosted.create', SessionsHostedCreateResult>('sessions.hosted.create', input),
         attach: (sessionId: string, clientId: string) =>
-          invokeGatewayMethodUncheckedInput<SessionsHostedAttachResult>('sessions.hosted.attach', { sessionId, clientId }),
+          invokeGatewayMethod<'sessions.hosted.attach', SessionsHostedAttachResult>('sessions.hosted.attach', { sessionId, clientId }),
         detach: (sessionId: string, clientId: string) =>
-          invokeGatewayMethodUncheckedInput<SessionsHostedDetachResult>('sessions.hosted.detach', { sessionId, clientId }),
+          invokeGatewayMethod<'sessions.hosted.detach', SessionsHostedDetachResult>('sessions.hosted.detach', { sessionId, clientId }),
         kill: (sessionId: string) =>
-          invokeGatewayMethodUncheckedInput<SessionsHostedKillResult>('sessions.hosted.kill', { sessionId }),
+          invokeGatewayMethod<'sessions.hosted.kill', SessionsHostedKillResult>('sessions.hosted.kill', { sessionId }),
       },
     },
     // watchers.stop (WEBUI-FLEET-DEPTH): the one fleet-node kill action genuinely

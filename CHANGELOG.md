@@ -4,6 +4,13 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.3] - 2026-08-01
+
+- Changed: the platform runtime is 2.0.3, which classifies wildcard bind
+  hosts (`0.0.0.0`, `::`) as local rather than public in the transport
+  layer. The web UI dials the daemon by page origin, so it was not affected
+  by the wildcard refusal; it picks up the corrected runtime all the same.
+
 ## [1.13.2] - 2026-08-01
 
 - Changed: the platform runtime is 2.0.2, which removes the last pre-split

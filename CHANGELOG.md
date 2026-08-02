@@ -4,6 +4,13 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.2] - 2026-08-01
+
+- Changed: the platform runtime is 2.0.2, which removes the last pre-split
+  in-process daemon composition remnants from the shared bootstrap. The web
+  UI was not affected by the packaged-bundle crash those remnants caused in
+  the terminal products; it picks up the cleaned runtime all the same.
+
 ## [1.13.1] - 2026-08-01
 
 - Fixed: importing settings that include `display.themeMode` no longer reports

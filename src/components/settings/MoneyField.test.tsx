@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { MoneyField } from './MoneyField';
 
-function render(props: { minorUnits: number; currency: string; onCommit: (minor: number) => void }): {
+function render(props: { value: number; currency: string; onCommit: (value: number) => void }): {
   container: HTMLElement;
   input: HTMLInputElement;
   unmount: () => void;
@@ -40,64 +40,67 @@ function typeAndBlur(input: HTMLInputElement, text: string): void {
 }
 
 describe('MoneyField', () => {
-  test('renders the live minor-units value as a major-unit decimal string', () => {
-    const { input, unmount } = render({ minorUnits: 1999, currency: 'USD', onCommit: () => {} });
+  test('renders the live stored value as-is, with no unit conversion', () => {
+    const { input, unmount } = render({ value: 19.99, currency: 'USD', onCommit: () => {} });
     expect(input.value).toBe('19.99');
     unmount();
   });
 
   test('shows the currency code', () => {
-    const { container, unmount } = render({ minorUnits: 0, currency: 'GBP', onCommit: () => {} });
+    const { container, unmount } = render({ value: 0, currency: 'GBP', onCommit: () => {} });
     expect(container.textContent).toContain('GBP');
     unmount();
   });
 
-  test('JPY (zero-decimal): renders and commits a whole amount 1:1, never assuming 2 decimals', () => {
-    const { input, unmount } = render({ minorUnits: 5000, currency: 'JPY', onCommit: () => {} });
-    expect(input.value).toBe('5000');
+  test('a whole-number amount renders and commits 1:1 — "100" stays 100, never scaled', () => {
+    const { input, unmount } = render({ value: 100, currency: 'JPY', onCommit: () => {} });
+    expect(input.value).toBe('100');
     unmount();
 
     const commits: number[] = [];
-    const second = render({ minorUnits: 0, currency: 'JPY', onCommit: (m) => commits.push(m) });
-    typeAndBlur(second.input, '5000');
-    expect(commits).toEqual([5000]);
+    const second = render({ value: 0, currency: 'JPY', onCommit: (v) => commits.push(v) });
+    typeAndBlur(second.input, '100');
+    expect(commits).toEqual([100]);
     second.unmount();
   });
 
-  test('typing a major-unit amount and blurring commits the exact minor-unit integer', () => {
+  test('typing an amount and blurring commits the exact number typed, unscaled', () => {
     const commits: number[] = [];
-    const { input, unmount } = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits.push(m) });
+    const { input, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
     typeAndBlur(input, '19.99');
-    expect(commits).toEqual([1999]);
+    expect(commits).toEqual([19.99]);
     unmount();
   });
 
-  test('a whole-dollar amount converts exactly — "50" becomes 5000 cents, not 50', () => {
+  test('a round amount commits as typed — "50" stays 50, never becomes 5000', () => {
     const commits: number[] = [];
-    const { input, unmount } = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits.push(m) });
+    const { input, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
     typeAndBlur(input, '50');
-    expect(commits).toEqual([5000]);
+    expect(commits).toEqual([50]);
     unmount();
   });
 
-  test('float-trap amounts (0.1, 0.29) convert exactly', () => {
+  test('a leading currency symbol is tolerated and stripped before commit', () => {
     const commits: number[] = [];
-    const { input, unmount } = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits.push(m) });
-    typeAndBlur(input, '0.10');
-    expect(commits).toEqual([10]);
+    const { input, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
+    typeAndBlur(input, '$100');
+    expect(commits).toEqual([100]);
     unmount();
-
-    const commits2: number[] = [];
-    const second = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits2.push(m) });
-    typeAndBlur(second.input, '0.29');
-    expect(commits2).toEqual([29]);
-    second.unmount();
   });
 
   test('an invalid amount shows an inline error and does not commit', () => {
     const commits: number[] = [];
-    const { input, container, unmount } = render({ minorUnits: 0, currency: 'USD', onCommit: (m) => commits.push(m) });
+    const { input, container, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
     typeAndBlur(input, 'not-a-number');
+    expect(commits).toEqual([]);
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    unmount();
+  });
+
+  test('a negative amount is refused', () => {
+    const commits: number[] = [];
+    const { input, container, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
+    typeAndBlur(input, '-5');
     expect(commits).toEqual([]);
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
     unmount();
@@ -105,7 +108,7 @@ describe('MoneyField', () => {
 
   test('leaving the value unchanged does not commit', () => {
     let commitCount = 0;
-    const { input, unmount } = render({ minorUnits: 1999, currency: 'USD', onCommit: () => { commitCount += 1; } });
+    const { input, unmount } = render({ value: 19.99, currency: 'USD', onCommit: () => { commitCount += 1; } });
     typeAndBlur(input, '19.99');
     expect(commitCount).toBe(0);
     unmount();

@@ -62,6 +62,15 @@ export interface ConfigSchemaEntrySnapshot {
   readonly description: string;
   readonly enumValues?: readonly string[];
   readonly validationHint?: string;
+  /**
+   * What kind of quantity a `number` key holds, when that changes how a value
+   * is read or shown. `'money'` marks a key holding a plain amount of
+   * `payments.currency`, written the way a person says it (SDK 2.0.5's
+   * money-value.ts) — the mark a surface asks the SCHEMA for instead of
+   * pattern-matching the key's NAME, which is exactly what tied every
+   * consumer to a naming scheme and broke them all when the names changed.
+   */
+  readonly unit?: 'money';
 }
 
 export interface FeatureSettingSnapshot {
@@ -93,6 +102,7 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
     description: s.description,
     ...(s.enumValues ? { enumValues: [...s.enumValues] } : {}),
     ...(s.validationHint ? { validationHint: s.validationHint } : {}),
+    ...(s.unit ? { unit: s.unit } : {}),
   }));
 
   const features: FeatureSettingSnapshot[] = FEATURE_SETTINGS.map((f) => ({
@@ -143,6 +153,7 @@ export function renderTs(snapshot: ConfigSchemaSnapshot): string {
     '  readonly description: string;',
     '  readonly enumValues?: readonly string[];',
     '  readonly validationHint?: string;',
+    "  readonly unit?: 'money';",
     '}',
     '',
     "export type FeatureEnablementKind = 'boolean' | 'enum' | 'constant';",

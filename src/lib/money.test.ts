@@ -1,24 +1,73 @@
 import { describe, expect, test } from 'bun:test';
 import {
   InvalidMoneyInputError,
-  isMoneyConfigKey,
+  MAX_MONEY_AMOUNT,
+  formatMoneyAmountValue,
+  isMoneyField,
   majorTextToMinorUnits,
   minorUnitExponent,
   minorUnitsToMajorText,
+  parseMoneyAmountInput,
 } from './money';
 
-describe('isMoneyConfigKey', () => {
-  test('recognizes every payments budget key stored in minor units', () => {
-    expect(isMoneyConfigKey('payments.budget.dailyItemCents')).toBe(true);
-    expect(isMoneyConfigKey('payments.budget.dailyOverageCents')).toBe(true);
-    expect(isMoneyConfigKey('payments.budget.perPurchaseCeilingCents')).toBe(true);
-    expect(isMoneyConfigKey('payments.budget.overageToleranceDailyAllowanceCents')).toBe(true);
+describe('isMoneyField', () => {
+  test('true only when the schema entry is marked unit: "money"', () => {
+    expect(isMoneyField('money')).toBe(true);
   });
 
-  test('does not flag a non-money number key or a boolean key', () => {
-    expect(isMoneyConfigKey('payments.windows.vetoMinutes')).toBe(false);
-    expect(isMoneyConfigKey('payments.budget.perPurchaseCeilingEnabled')).toBe(false);
-    expect(isMoneyConfigKey('payments.enabled')).toBe(false);
+  test('false when the schema entry carries no unit mark', () => {
+    expect(isMoneyField(undefined)).toBe(false);
+  });
+});
+
+describe('parseMoneyAmountInput — plain amounts, no unit conversion', () => {
+  test('a whole number is returned exactly as typed', () => {
+    expect(parseMoneyAmountInput('100')).toBe(100);
+    expect(parseMoneyAmountInput('50')).toBe(50);
+  });
+
+  test('a decimal amount is returned exactly as typed', () => {
+    expect(parseMoneyAmountInput('19.99')).toBe(19.99);
+    expect(parseMoneyAmountInput('0.10')).toBe(0.1);
+  });
+
+  test('a leading currency symbol is tolerated and stripped', () => {
+    expect(parseMoneyAmountInput('$100')).toBe(100);
+  });
+
+  test('thousands grouping is tolerated and stripped', () => {
+    expect(parseMoneyAmountInput('1,250.50')).toBe(1250.5);
+  });
+
+  test('tolerates surrounding whitespace', () => {
+    expect(parseMoneyAmountInput('  19.99  ')).toBe(19.99);
+  });
+
+  test('rejects empty, non-numeric, and negative input', () => {
+    expect(() => parseMoneyAmountInput('')).toThrow(InvalidMoneyInputError);
+    expect(() => parseMoneyAmountInput('abc')).toThrow(InvalidMoneyInputError);
+    expect(() => parseMoneyAmountInput('-5')).toThrow(InvalidMoneyInputError);
+  });
+
+  test('rejects more than 2 decimal places', () => {
+    expect(() => parseMoneyAmountInput('5.999')).toThrow(InvalidMoneyInputError);
+  });
+
+  test('rejects an amount over MAX_MONEY_AMOUNT', () => {
+    expect(() => parseMoneyAmountInput(String(MAX_MONEY_AMOUNT + 1))).toThrow(InvalidMoneyInputError);
+    expect(parseMoneyAmountInput(String(MAX_MONEY_AMOUNT))).toBe(MAX_MONEY_AMOUNT);
+  });
+});
+
+describe('formatMoneyAmountValue — the stored value as-is, never scaled', () => {
+  test('renders a whole number and a decimal exactly', () => {
+    expect(formatMoneyAmountValue(100)).toBe('100');
+    expect(formatMoneyAmountValue(19.99)).toBe('19.99');
+  });
+
+  test('falls back to "0" for a non-finite value rather than showing a broken string', () => {
+    expect(formatMoneyAmountValue(Number.NaN)).toBe('0');
+    expect(formatMoneyAmountValue(Number.POSITIVE_INFINITY)).toBe('0');
   });
 });
 

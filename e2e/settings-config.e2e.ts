@@ -298,30 +298,29 @@ test.describe('daemon.timezone — searchable IANA picker', () => {
 });
 
 test.describe('payments.* — budget money fields and the cvvHandling trade-off warning', () => {
-  test('a budget field is entered in major units and stored/round-tripped as exact minor units', async ({ page }) => {
+  test('a budget field is entered in ordinary currency units and stored/read back as the exact amount typed', async ({ page }) => {
     await page.getByRole('button', { name: 'Open Settings' }).click();
     let dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Payments' }).click();
-    const field = dialog.locator('[data-config-key="payments.budget.dailyItemCents"]');
+    const field = dialog.locator('[data-config-key="payments.budget.dailyItem"]');
     await expect(field).toBeVisible();
     const moneyField = field.locator('[data-testid="money-field"]');
     await expect(moneyField).toBeVisible();
     const amount = moneyField.getByLabel(/Amount in USD/);
-    await amount.fill('19.99');
+    await amount.fill('100');
     await amount.blur();
     await expect(page.getByText('Config saved')).toBeVisible();
-    // The stored minor-unit value is shown honestly alongside the major-unit input.
-    await expect(moneyField).toContainText('1999');
+    // No unit conversion: the value shown is exactly the amount typed.
+    await expect(amount).toHaveValue('100');
     await dialog.getByRole('button', { name: 'Close' }).click();
 
-    // Reopen: the mock daemon's mutable config tree round-trips the minor-unit
-    // integer back into the same major-unit decimal string, exactly.
+    // Reopen: the mock daemon's mutable config tree round-trips the exact
+    // amount typed back into the input, unscaled.
     await page.getByRole('button', { name: 'Open Settings' }).click();
     dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Payments' }).click();
-    const reopened = dialog.locator('[data-config-key="payments.budget.dailyItemCents"] [data-testid="money-field"]');
-    await expect(reopened.getByLabel(/Amount in USD/)).toHaveValue('19.99');
-    await expect(reopened).toContainText('1999');
+    const reopened = dialog.locator('[data-config-key="payments.budget.dailyItem"] [data-testid="money-field"]');
+    await expect(reopened.getByLabel(/Amount in USD/)).toHaveValue('100');
   });
 
   test('cvvHandling: selecting "prompt" surfaces the trade-off warning; "stored" shows none', async ({ page }) => {

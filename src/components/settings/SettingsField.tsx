@@ -20,10 +20,11 @@
  *   payments.cvvHandling   → CvvHandlingField, an enum select that surfaces
  *                             CVV_PROMPT_TRADEOFF_WARNING the moment 'prompt'
  *                             is selected.
- *   payments.budget.*Cents → MoneyField: entered in major units, converted to
- *                             the schema's minor units (cents) with exact
- *                             integer arithmetic (lib/money.ts), never a float
- *                             multiply/divide.
+ *   payments.budget.*      → MoneyField for any schema key marked
+ *                             `unit: 'money'` (SDK 2.0.5's money-value.ts) —
+ *                             the plain amount is displayed and entered as-is,
+ *                             with no unit conversion; detection reads the
+ *                             schema's `unit` mark, never the key's name.
  *
  * Card material (a card number, expiry, or CVV) never reaches this component:
  * CONFIG_SCHEMA never declares such a key (schema-domain-payments.ts's own
@@ -38,7 +39,7 @@
  */
 import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
-import { isMoneyConfigKey } from '../../lib/money';
+import { isMoneyField } from '../../lib/money';
 import type { ConfigFieldModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { secretStoreSetCommandFor } from '../../lib/secret-store-only-config-keys';
@@ -54,7 +55,7 @@ interface SettingsFieldProps {
    *  session (SettingsModal's persistedByKey, looked up by the caller) — undefined
    *  until this row has been saved at least once. */
   readonly persisted?: ConfigSetOutcome;
-  /** The live `payments.currency` value, used only by money (`...Cents`) fields
+  /** The live `payments.currency` value, used only by `unit: 'money'` fields
    *  to label the amount input; defaults to the schema's own default ('USD')
    *  when the caller does not pass one. */
   readonly currency?: string;
@@ -158,16 +159,17 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       );
     }
 
-    // payments.budget.*Cents — entered in major units, stored in minor units.
-    if (field.type === 'number' && isMoneyConfigKey(field.key)) {
+    // A schema key marked unit: 'money' — a plain amount, displayed and
+    // entered as-is with no unit conversion.
+    if (field.type === 'number' && isMoneyField(field.unit)) {
       const current = effectiveValue(field);
-      const minorUnits = typeof current === 'number' ? current : 0;
+      const value = typeof current === 'number' ? current : 0;
       return (
         <MoneyField
-          minorUnits={minorUnits}
+          value={value}
           currency={currency ?? 'USD'}
           disabled={saving}
-          onCommit={(minor) => void commit(minor)}
+          onCommit={(amount) => void commit(amount)}
         />
       );
     }

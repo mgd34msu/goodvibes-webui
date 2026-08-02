@@ -45,8 +45,8 @@ interface FeatureUnitCardProps {
   readonly pendingRestart: boolean;
   /** Called after a successful enablement write (toggle or mode change). */
   readonly onEnablementCommitted: () => void;
-  /** The live `payments.currency` value, forwarded to any owned field that is a
-   *  money (`...Cents`) key — see SettingsField's `currency` prop. */
+  /** The live `payments.currency` value, forwarded to any owned field marked
+   *  `unit: 'money'` — see SettingsField's `currency` prop. */
   readonly currency?: string;
 }
 

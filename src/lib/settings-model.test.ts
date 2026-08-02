@@ -430,12 +430,12 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     'payments.defaultCardId',
     'payments.currency',
     'payments.cvvHandling',
-    'payments.budget.dailyItemCents',
-    'payments.budget.dailyOverageCents',
+    'payments.budget.dailyItem',
+    'payments.budget.dailyOverage',
     'payments.budget.perPurchaseCeilingEnabled',
-    'payments.budget.perPurchaseCeilingCents',
+    'payments.budget.perPurchaseCeiling',
     'payments.budget.overageToleranceEnabled',
-    'payments.budget.overageToleranceDailyAllowanceCents',
+    'payments.budget.overageToleranceDailyAllowance',
     'payments.shipping.preferredTier',
     'payments.windows.vetoMinutes',
     'payments.windows.approvalMinutes',
@@ -468,11 +468,21 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     const byKey = new Map(paymentsGroup?.plainRows.map((f) => [f.key, f]));
     expect(byKey.get('payments.enabled')?.default).toBe(false);
     expect(byKey.get('payments.cvvHandling')?.default).toBe('stored');
-    expect(byKey.get('payments.budget.dailyItemCents')?.default).toBe(0);
+    expect(byKey.get('payments.budget.dailyItem')?.default).toBe(0);
     expect(byKey.get('payments.budget.perPurchaseCeilingEnabled')?.default).toBe(true);
     expect(byKey.get('payments.budget.overageToleranceEnabled')?.default).toBe(false);
     expect(byKey.get('payments.windows.vetoMinutes')?.default).toBe(10);
     expect(byKey.get('payments.windows.approvalMinutes')?.default).toBe(60);
+  });
+
+  test('the four budget amount keys carry unit: "money" from the schema; nothing else in the payments group does', () => {
+    const byKey = new Map(paymentsGroup?.plainRows.map((f) => [f.key, f]));
+    expect(byKey.get('payments.budget.dailyItem')?.unit).toBe('money');
+    expect(byKey.get('payments.budget.dailyOverage')?.unit).toBe('money');
+    expect(byKey.get('payments.budget.perPurchaseCeiling')?.unit).toBe('money');
+    expect(byKey.get('payments.budget.overageToleranceDailyAllowance')?.unit).toBe('money');
+    expect(byKey.get('payments.windows.vetoMinutes')?.unit).toBeUndefined();
+    expect(byKey.get('payments.budget.perPurchaseCeilingEnabled')?.unit).toBeUndefined();
   });
 
   test('no field anywhere in the model is keyed to card material (cvv/pan/cardNumber)', () => {

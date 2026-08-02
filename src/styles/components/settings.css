@@ -538,7 +538,7 @@
   width: 100%;
 }
 
-/* payments.budget.*Cents — currency-labeled major-unit amount input. */
+/* payments.budget.* (unit: 'money' schema keys) — currency-labeled amount input. */
 .money-field {
   display: flex;
   flex-direction: column;
@@ -556,12 +556,6 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   min-width: 3ch;
-}
-
-.money-field-hint {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
 }
 
 /* payments.cvvHandling — enum select plus the trade-off warning on 'prompt'. */

@@ -4,7 +4,19 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
-## [1.13.4] - 2026-08-02
+## [1.13.5] - 2026-08-02
+
+- Changed: payment budget amounts display and edit as the plain amounts they
+  are. The renamed platform keys (`payments.budget.perPurchaseCeiling` and
+  friends, platform runtime 2.0.5) hold what you typed — enter `100`, read
+  back `100` — with money fields detected by their schema type instead of a
+  name pattern, and the stored-units hint line gone because there is nothing
+  to hint about.
+- Fixed: two test suites opened real network sockets to a daemon that does
+  not exist in a test environment, and the runtime's own teardown of those
+  refused connections could detonate after the tests finished — the CI flake
+  class from this train. Every suite now answers those calls in-process; a
+  sweep of all 184 test files individually confirms zero network-error lines.
 
 - Changed: the platform runtime is 2.0.4, which makes watcher-snapshot
   writes atomic and quarantines a corrupt snapshot instead of crashing the

@@ -28,7 +28,7 @@ describe('isDaemonOwnedConfigKey', () => {
     expect(isDaemonOwnedConfigKey('integrations.someProvider.enabled')).toBe(true);
     expect(isDaemonOwnedConfigKey('atRest.retentionDays')).toBe(true);
     expect(isDaemonOwnedConfigKey('payments.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('payments.budget.dailyItemCents')).toBe(true);
+    expect(isDaemonOwnedConfigKey('payments.budget.dailyItem')).toBe(true);
     expect(isDaemonOwnedConfigKey('voice.local.ttsVoicePath')).toBe(true);
     // Previously missing from the hand-maintained mirror (the drift this round fixes).
     expect(isDaemonOwnedConfigKey('conversationGate.mode')).toBe(true);

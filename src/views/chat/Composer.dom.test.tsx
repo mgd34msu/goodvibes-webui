@@ -8,13 +8,41 @@
  * Uses react-dom/client + happy-dom (via bunfig.toml preload).
  * Pattern follows src/lib/toast.dom.test.tsx.
  */
-import { afterEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import React, { createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Composer, ComposerProps } from './Composer';
 import { ProviderOption, ModelOption } from '../../lib/provider-models';
+
+// Mounting Composer also mounts MicButton/VoiceSettings, whose useVoiceInput/
+// useOriginPosture hooks fire real background react-query reads (voice.status,
+// config.get, voice.wake.status, pairing.posture.get) on every render — wholly
+// incidental to what these ModelPicker/SlashMenu tests exercise. Left un-stubbed,
+// those reads hit the real GOODVIBES_BASE_URL (nothing listening in a test
+// environment), and a real refused connection leaves Bun's fetch/http-compat
+// internals with a dangling rejection that can surface asynchronously — outside any
+// promise this file holds a handle to, sometimes well after a given test (or this
+// file) finishes running. See src/lib/auth-token.test.ts's header comment for the
+// full mechanism; this file hits the same seam through a different call path.
+//
+// The components already tolerate these background reads failing (nothing here
+// asserts on voice/config/posture state), so the stub reproduces that same
+// "daemon unreachable" outcome, only in-process — no socket, no async gap left
+// dangling after the test that opened it.
+const realFetch = globalThis.fetch;
+
+function rejectingFetchStub(): typeof fetch {
+  const impl = async (): Promise<Response> => {
+    throw new Error('daemon unreachable (test stub — no real network in tests)');
+  };
+  return Object.assign(impl, { preconnect: realFetch.preconnect }) as unknown as typeof fetch;
+}
+
+beforeEach(() => {
+  globalThis.fetch = rejectingFetchStub();
+});
 
 // The composer now hosts the voice controls (mic + voice settings), which read
 // voice.status/config.get through react-query — exactly as the real app does under its
@@ -122,6 +150,7 @@ function mountComposer(props: ComposerProps) {
 }
 
 afterEach(() => {
+  globalThis.fetch = realFetch;
   document.body.innerHTML = '';
 });
 

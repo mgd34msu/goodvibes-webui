@@ -43,7 +43,7 @@ describe('isCardMaterialKey', () => {
     expect(isCardMaterialKey('payments.enabled')).toBe(false);
     expect(isCardMaterialKey('payments.currency')).toBe(false);
     expect(isCardMaterialKey('payments.cvvHandling')).toBe(false);
-    expect(isCardMaterialKey('payments.budget.dailyItemCents')).toBe(false);
+    expect(isCardMaterialKey('payments.budget.dailyItem')).toBe(false);
     expect(isCardMaterialKey('payments.windows.vetoMinutes')).toBe(false);
     expect(isCardMaterialKey('payments.notifyChannels')).toBe(false);
   });

@@ -53,6 +53,9 @@ export interface ConfigFieldModel {
   readonly default: unknown;
   readonly description: string;
   readonly validationHint?: string;
+  /** What kind of `number` quantity this is, from the schema (never the key's
+   *  name) — `'money'` marks a plain amount of `payments.currency`. */
+  readonly unit?: ConfigSchemaEntry['unit'];
   /** The live value from config.get (undefined when the key is absent from the live tree). */
   readonly liveValue: unknown;
   /** Whether the live config tree actually holds this key (vs. only the schema default). */
@@ -185,6 +188,7 @@ function buildField(entry: ConfigSchemaEntry, config: unknown): ConfigFieldModel
     default: entry.default,
     description: entry.description,
     validationHint: entry.validationHint,
+    unit: entry.unit,
     liveValue: value,
     present,
     isSecret: isSecretConfigKey(entry.key),

@@ -4,6 +4,12 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.4] - 2026-08-02
+
+- Changed: the platform runtime is 2.0.4, which makes watcher-snapshot
+  writes atomic and quarantines a corrupt snapshot instead of crashing the
+  process that reads it.
+
 ## [1.13.3] - 2026-08-01
 
 - Changed: the platform runtime is 2.0.3, which classifies wildcard bind

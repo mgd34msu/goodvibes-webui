@@ -4,6 +4,20 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.6] - 2026-08-02
+
+### Changed
+
+- **A chat session is filed as a chat.** Channel-originated sessions in the
+  cross-visible session list carry the platform's new `channel` kind instead
+  of reading as project sessions rooted in a filesystem path; this client
+  understands the new kind, so a Telegram conversation renders correctly in
+  the session views (platform runtime 2.0.7).
+- The daemon settings file is rewritten only by the daemon — this client
+  migrates its in-memory view of renamed settings and leaves the file bytes
+  untouched, so updating the webui can no longer rewrite settings out from
+  under an older running daemon (platform runtime 2.0.7).
+
 ## [1.13.5] - 2026-08-02
 
 - Changed: payment budget amounts display and edit as the plain amounts they

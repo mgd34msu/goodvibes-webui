@@ -15,7 +15,11 @@ import { CONFIG_SCHEMA_ENTRIES } from './generated/config-schema';
 import { categoryLabelForKey, CATEGORY_LABELS } from './config-redaction';
 import { buildSettingsModel, groupLabelForNamespace } from './settings-model';
 
-/** §12's eight keys, with the defaults that table gives them. */
+/**
+ * §12's eight keys with the defaults that table gives them, plus the two
+ * conversational-capture keys platform runtime 2.0.6 registered (capture on
+ * by default; ownerChannels empty inherits the occasions nudge channel).
+ */
 const EXPECTED_KEYS: Record<string, unknown> = {
   'profile.enabled': true,
   'profile.autonomousWrites': true,
@@ -25,10 +29,12 @@ const EXPECTED_KEYS: Record<string, unknown> = {
   'profile.consumerFallback': true,
   'profile.reloadThrottleMs': 2000,
   'profile.path': '',
+  'profile.conversationalCapture': true,
+  'profile.ownerChannels': '',
 };
 
 describe('the owner-profile settings group', () => {
-  test('the generated schema carries all eight profile.* keys with their ruled defaults', () => {
+  test('the generated schema carries all ten profile.* keys with their ruled defaults', () => {
     const byKey = new Map(CONFIG_SCHEMA_ENTRIES.map((entry) => [entry.key, entry]));
     for (const [key, expectedDefault] of Object.entries(EXPECTED_KEYS)) {
       const entry = byKey.get(key);
@@ -39,7 +45,7 @@ describe('the owner-profile settings group', () => {
     }
   });
 
-  test('profile.* is exactly eight keys — a ninth would be an unregistered addition', () => {
+  test('profile.* is exactly these ten keys — an eleventh would be an unregistered addition', () => {
     const keys = CONFIG_SCHEMA_ENTRIES.map((entry) => entry.key).filter((key) => key.startsWith('profile.'));
     expect(keys.sort()).toEqual(Object.keys(EXPECTED_KEYS).sort());
   });

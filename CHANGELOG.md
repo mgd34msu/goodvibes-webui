@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.8] - 2026-08-05
+
+### Changed
+
+- Platform runtime 2.0.9: occasion views carry subject attribution and
+  acknowledgment state (an acknowledged occurrence renders as heard, not
+  pending), the retired final-stretch setting leaves the generated schema,
+  and the session activity label holds still instead of streaming tool
+  arguments.
+
 ## [1.13.7] - 2026-08-05
 
 ### Changed

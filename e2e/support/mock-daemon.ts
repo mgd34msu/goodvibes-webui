@@ -2729,6 +2729,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
               recurrence: (body.recurrence as 'annual' | 'once') ?? 'annual',
               kind: (body.kind as 'gift-giving' | 'neither' | 'remember-only') ?? 'neither',
               person: String(body.person ?? ''),
+              selfDeclared: false,
+              subject: 'other' as const,
               leadDays: typeof body.leadDays === 'number' ? body.leadDays : null,
               mirrored: false,
               extras: [],

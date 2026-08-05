@@ -723,6 +723,8 @@ export function occasionsListResponse(): OperatorMethodOutput<'occasions.list'> 
           recurrence: 'annual' as const,
           kind: 'gift-giving' as const,
           person: 'Sarah',
+          selfDeclared: false,
+          subject: 'other' as const,
           leadDays: 21,
           mirrored: false,
           extras: [],
@@ -744,6 +746,8 @@ export function occasionsListResponse(): OperatorMethodOutput<'occasions.list'> 
           recurrence: 'annual' as const,
           kind: 'remember-only' as const,
           person: 'Dad',
+          selfDeclared: false,
+          subject: 'other' as const,
           leadDays: 10,
           mirrored: false,
           extras: [],
@@ -792,11 +796,13 @@ export function occasionsPlansListResponse(): OperatorMethodOutput<'occasions.pl
 export function occasionsPendingResponse(): OperatorMethodOutput<'occasions.pending'> {
   return {
     today: '2026-07-29',
+    // Platform 2.0.9: occurrences acknowledged this cycle (muted pushes).
+    acknowledged: [],
     nudge: {
       id: 'nudge-e2e-1',
       raisedAt: 1_753_700_000_000,
       subjects: [
-        { occasionId: 'occ-e2e-1', title: 'Sarah’s birthday', person: 'Sarah', kind: 'gift-giving' as const, proximity: 'approaching' as const },
+        { occasionId: 'occ-e2e-1', title: 'Sarah’s birthday', person: 'Sarah', kind: 'gift-giving' as const, proximity: 'approaching' as const, subject: 'other' as const, acknowledged: false },
       ],
       message: 'Sarah’s birthday is approaching.',
       answerable: true,
@@ -824,6 +830,7 @@ export function occasionsStateResponse(): OperatorMethodOutput<'occasions.state'
     openItems: 1,
     interviews: 1,
     mirrors: 0,
+    reconciledOpenItems: 0,
     lastSweep: {
       sweptAt: 1_753_700_000_000,
       expiredAcknowledgements: 0,

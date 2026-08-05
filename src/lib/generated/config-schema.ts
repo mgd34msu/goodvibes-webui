@@ -1502,15 +1502,8 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "occasions.cadenceDays",
     "type": "number",
     "default": 3,
-    "description": "How often an unanswered occasion is raised again, in days, until the final stretch. Three was my choice rather than yours and is a setting for that reason. Silence never ends a nudge — there is no give-up-after-one-retry anywhere in this feature — so this governs the rhythm, not whether it stops.",
+    "description": "How often an unresolved CONFLICT in your dates — two different dates recorded for the same thing — is raised again, in days. It no longer governs birthday reminders: those speak twice, when the date enters its runway and on the day itself, and never repeat beyond that. A conflict is a fact about your file that stays wrong until you fix it, so it does keep coming back.",
     "validationHint": "integer in [1, 60]"
-  },
-  {
-    "key": "occasions.finalStretchDays",
-    "type": "number",
-    "default": 2,
-    "description": "How many days before the date the rhythm goes daily. Two, so the last thing you heard about it is not four days old when it arrives. Also my choice rather than yours.",
-    "validationHint": "integer in [0, 30]"
   },
   {
     "key": "occasions.awayAdjust",
@@ -1555,7 +1548,7 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.local.sttEngine",
     "type": "enum",
     "default": "",
-    "description": "Local speech-to-text engine: whisper-cpp (blessed default — CPU-first, realtime-capable) or faster-whisper (NVIDIA-GPU alternative via a wrapper script). Empty = not configured (honest unconfigured status; nothing auto-downloads).",
+    "description": "Local speech-to-text engine: whisper-cpp (blessed default — CPU-first, realtime-capable) or faster-whisper (NVIDIA-GPU alternative via a wrapper script). Empty means not configured, and the machine says so honestly rather than erroring. Managed setup installs whisper-cpp and fills this in.",
     "enumValues": [
       "",
       "whisper-cpp",
@@ -1566,19 +1559,19 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.local.sttBinary",
     "type": "string",
     "default": "",
-    "description": "Absolute path to the local STT engine binary (e.g. whisper.cpp's whisper-cli)."
+    "description": "Absolute path to the local STT engine binary (e.g. whisper.cpp's whisper-cli). Managed setup installs the engine and sets this."
   },
   {
     "key": "voice.local.sttModelPath",
     "type": "string",
     "default": "",
-    "description": "Absolute path to the local STT model file (e.g. ggml-tiny.en.bin). The user downloads this explicitly — nothing auto-downloads."
+    "description": "Absolute path to the local STT model file (e.g. ggml-tiny.en.bin). Managed setup downloads the model, checksum-verifies it and sets this path; a path you set yourself is kept unless it names an install the managed runtime replaces, which is reported when it happens."
   },
   {
     "key": "voice.local.ttsEngine",
     "type": "enum",
     "default": "",
-    "description": "Local text-to-speech engine: piper (blessed default — sub-50ms first-audio class, MIT) or kokoro (quality alternative, Apache 2.0, via a wrapper script). Empty = not configured.",
+    "description": "Local text-to-speech engine: piper (blessed default — sub-50ms first-audio class, MIT) or kokoro (quality alternative, Apache 2.0, via a wrapper script). Empty means not configured. Managed setup installs piper and fills this in.",
     "enumValues": [
       "",
       "piper",
@@ -1589,13 +1582,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.local.ttsBinary",
     "type": "string",
     "default": "",
-    "description": "Absolute path to the local TTS engine binary (e.g. piper)."
+    "description": "Absolute path to the local TTS engine binary (e.g. piper). Managed setup installs the engine and sets this."
   },
   {
     "key": "voice.local.ttsModelPath",
     "type": "string",
     "default": "",
-    "description": "Absolute path to the local TTS voice model (e.g. en_US-lessac-low.onnx with its .json beside it). The user downloads this explicitly — nothing auto-downloads."
+    "description": "Absolute path to the local TTS voice model (e.g. en_US-lessac-low.onnx with its .json beside it). Managed setup downloads the voice, checksum-verifies it and sets this path; a path you set yourself is kept unless it names an install the managed runtime replaces, which is reported when it happens."
   },
   {
     "key": "voice.wake.enabled",

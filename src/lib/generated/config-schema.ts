@@ -1033,6 +1033,12 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "description": "Hand inbound channel conversations to the daemon to host, instead of answering them inside the surface process that received them. Off (default): a message from Telegram, Slack, email or any other channel is answered by that process, and it stops when the process stops. On: the first message of a conversation creates a daemon-hosted session and every later message is steered into it, so the conversation keeps its context and keeps running while no surface is open. What happens when the last client leaves is still hostedSessions.detachPolicy."
   },
   {
+    "key": "hostedSessions.routeConversationTurns",
+    "type": "boolean",
+    "default": true,
+    "description": "Run this surface's own conversation turns inside the connected daemon rather than in this process. On (the default) and with a connected daemon reachable: the first message of a conversation creates a daemon-hosted session rooted at this surface's working directory, every later message is steered into it, and this surface renders the turn from the daemon's event stream — so the turn survives this process closing and every surface sees one conversation. The daemon holds the authoritative transcript; this surface still keeps its own local record of what the stream delivered. Off: every turn runs in this process, as it always did. With no connected daemon reachable the turn runs locally regardless, and the transcript says so in one line naming the reason — it is never silent about where a turn ran. This is about what happens when you press enter; hostedSessions.promoteInboundConversations is the same question for messages arriving from a channel."
+  },
+  {
     "key": "atRest.redactionEnabled",
     "type": "boolean",
     "default": true,
@@ -3489,7 +3495,13 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "daemon.enabled",
     "type": "boolean",
     "default": true,
-    "description": "Whether THIS surface uses a session daemon at all. On (the default), the surface adopts a running daemon — the background service hosting the shared session broker and companion chat, bound to loopback (127.0.0.1) — and every daemon-backed feature (approvals, operator commands, voice, memory diagnostics, fleet, tasks) works through it. Off, the surface runs fully local: it makes no adoption attempt, probes no port, and each of those features refuses plainly with \"the daemon is disabled\" instead of failing at a connection. It does not control the daemon process itself: a daemon started on its own runs regardless of this setting, which is a per-surface choice about talking to one."
+    "description": "Whether THIS surface ADOPTS a session daemon of its own — the background service hosting the shared session broker and companion chat, bound to loopback (127.0.0.1). On (the default), the surface looks for one and adopts it. Off, it makes no adoption attempt and probes no port. It does not control the daemon process itself: a daemon started on its own runs regardless of this setting, which is a per-surface choice about adopting one. It is also NOT the switch for talking to a daemon this surface is already connected to — that is daemon.connectedHost.enabled, and the two were one key until they were split apart."
+  },
+  {
+    "key": "daemon.connectedHost.enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Whether this surface may DIAL the daemon it is connected to. On (the default), the features that reach a connected host work: the session-inputs poll that delivers inbound messages, conversation rewind registration, the live approvals stream, daemon-routed conversation turns, and the operator verbs. Off, each of those refuses plainly rather than failing at a connection. This is separate from daemon.enabled on purpose: adopting a daemon of your own and talking to one that is already there are different decisions, and while they shared a single key, turning adoption off silently stopped the inputs poll, the approvals stream and rewind registration on machines whose connected host was live and answering — the session and memory spines kept dialing the same host perfectly well, which is how the split showed itself."
   },
   {
     "key": "danger.httpListener",
@@ -4044,6 +4056,147 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "default": {},
     "description": "Manual model prices, keyed provider:model (e.g. \"openrouter:deepseek/deepseek-chat\"). Each entry: { input, output, cacheRead?, cacheWrite? } in USD per 1M tokens. A manual price always wins over provider-served and catalog pricing and applies live (no restart). Set one when registering a custom provider/model, or to pin a negotiated rate for any model.",
     "validationHint": "record keyed \"provider:model\" of { input, output, cacheRead?, cacheWrite? } — finite numbers >= 0, USD per 1M tokens"
+  },
+  {
+    "key": "email.enabled",
+    "type": "boolean",
+    "default": false,
+    "description": "Turns on the mail connector: the account the daemon composes, sends and lists mail through. Off by default — a mailbox is only usable once host, username and a stored password reference are set below."
+  },
+  {
+    "key": "email.imapHost",
+    "type": "string",
+    "default": "",
+    "description": "IMAP hostname the connector reads from, e.g. imap.gmail.com"
+  },
+  {
+    "key": "email.imapPort",
+    "type": "number",
+    "default": 993,
+    "description": "IMAP port the connector reads from"
+  },
+  {
+    "key": "email.imapSecurity",
+    "type": "enum",
+    "default": "tls",
+    "description": "IMAP connection security. \"tls\" is implicit TLS on the IMAP port and is the safe default; \"plaintext\" is an unencrypted connection, legitimate only for a localhost or test server. There is no \"auto\" here — the operator either asks for TLS or asks not to have it.",
+    "enumValues": [
+      "tls",
+      "plaintext"
+    ]
+  },
+  {
+    "key": "email.smtpHost",
+    "type": "string",
+    "default": "",
+    "description": "SMTP submission hostname the connector sends through, e.g. smtp.gmail.com"
+  },
+  {
+    "key": "email.smtpPort",
+    "type": "number",
+    "default": 587,
+    "description": "SMTP port the connector sends through: 465 for implicit TLS, or 587 (the default) for STARTTLS"
+  },
+  {
+    "key": "email.smtpSecurity",
+    "type": "enum",
+    "default": "auto",
+    "description": "\"auto\" (the default) picks implicit TLS on port 465 and STARTTLS everywhere else. \"tls\" and \"starttls\" force one of the two regardless of port, for a provider whose port does not match the usual convention.",
+    "enumValues": [
+      "auto",
+      "tls",
+      "starttls"
+    ]
+  },
+  {
+    "key": "email.username",
+    "type": "string",
+    "default": "",
+    "description": "Login username the connector authenticates as, on both IMAP and SMTP"
+  },
+  {
+    "key": "email.passwordRef",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store (goodvibes://secrets/...) naming the mailbox password or app password — never a raw password. The secret itself is stored in the daemon secret tier, never in config."
+  },
+  {
+    "key": "email.smtpPasswordRef",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store for the SMTP password, only when the provider issues one that differs from the IMAP password. Empty — the common case — means submission authenticates with email.passwordRef like everything else. The secret itself is stored in the daemon secret tier, never in config."
+  },
+  {
+    "key": "email.fromAddress",
+    "type": "string",
+    "default": "",
+    "description": "From: address on mail the connector sends; usually the same address as email.username"
+  },
+  {
+    "key": "email.mailbox",
+    "type": "string",
+    "default": "",
+    "description": "Mailbox to read. Empty — the common case — means INBOX. Set when the account delivers to a folder, such as a per-signup alias mailbox."
+  },
+  {
+    "key": "email.draftsMailbox",
+    "type": "string",
+    "default": "",
+    "description": "Drafts folder. Empty means ask the server, which is the better answer for a provider like Gmail whose Drafts folder is not literally named \"Drafts\". Set only when the server does not advertise one."
+  },
+  {
+    "key": "calendar.google.clientId",
+    "type": "string",
+    "default": "",
+    "description": "The OAuth client id for a Google Calendar app registered by whoever set up this environment. Client ids are not secrets (RFC 8252) and are stored in plain config."
+  },
+  {
+    "key": "calendar.google.clientSecretRef",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store naming the Google OAuth client secret, needed only for a confidential (Web-app) client registration — a Desktop-app client using PKCE needs none. The secret itself is stored in the daemon secret tier, never in config."
+  },
+  {
+    "key": "calendar.google.icsUrl",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store naming the private calendar feed address (the \"secret address in iCal format\" from Google Calendar's Integrate Calendar settings). It is a URL rather than a password, but it grants read access to the operator's calendar to anyone holding it, so it is treated as a credential: the address itself is stored in the daemon secret tier, never in config. This is the read-only, credential-free route used when an app password is the mail connection — Google refuses Basic authentication on its CalDAV endpoint, so an app password cannot reach Calendar that way. Calendar writes require the OAuth path (calendar.google.clientId and the refresh token below)."
+  },
+  {
+    "key": "calendar.microsoft.clientId",
+    "type": "string",
+    "default": "",
+    "description": "The OAuth client id for a Microsoft Entra app registration, for connecting an Outlook calendar. Client ids are not secrets and are stored in plain config."
+  },
+  {
+    "key": "calendar.microsoft.clientSecretRef",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store naming the Microsoft OAuth client secret, needed only for a confidential registration — a public client with \"Allow public client flows\" enabled needs none. The secret itself is stored in the daemon secret tier, never in config."
+  },
+  {
+    "key": "google.oauth.projectId",
+    "type": "string",
+    "default": "",
+    "description": "The Google Cloud project id the OAuth calendar client and its enabled APIs belong to, recorded so a re-run reuses the same project instead of creating another one."
+  },
+  {
+    "key": "google.oauth.publishingStatus",
+    "type": "string",
+    "default": "",
+    "description": "The OAuth consent screen's last-known publishing status (\"testing\" or \"in-production\"), cached after being read from the Cloud Console since it cannot be probed any other way. An app left in \"Testing\" is issued refresh tokens that expire after seven days; moving it to \"In production\" (self-certified, no Google review needed) removes that expiry. Empty until a setup or verification run has read it."
+  },
+  {
+    "key": "google.oauth.refreshToken",
+    "type": "string",
+    "default": "",
+    "description": "A reference into the secret store naming the long-lived OAuth refresh token the calendar connector authenticates with after the one-time authorization. The token itself is stored in the daemon secret tier, never in config."
+  },
+  {
+    "key": "google.credentials.migratedFrom",
+    "type": "string",
+    "default": "",
+    "description": "Marker recording that a legacy on-disk Google credential (from before credentials lived in the encrypted secret store) was already migrated in, so migration is not repeated on every start. Names where it came from; holds no credential value itself."
   }
 ] as const;
 

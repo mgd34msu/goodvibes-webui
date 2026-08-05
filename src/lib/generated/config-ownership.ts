@@ -30,7 +30,10 @@ export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [
   "hostedSessions.",
   "cluster.",
   "profile.",
-  "occasions."
+  "occasions.",
+  "email.",
+  "calendar.",
+  "google."
 ] as const;
 
 export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = [
@@ -41,24 +44,5 @@ export const DAEMON_OWNED_CONFIG_KEYS: readonly string[] = [
 export const DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS: readonly string[] = [
   "conversationGate.gatedSurfaces",
   "cluster.peers",
-  "cluster.groupMaterial",
-  "email.passwordRef",
-  "email.smtpPasswordRef",
-  "calendar.google.clientSecretRef",
-  "calendar.microsoft.clientSecretRef",
-  "google.oauth.refreshToken",
-  "calendar.google.icsUrl",
-  "email.enabled",
-  "email.imapHost",
-  "email.imapPort",
-  "email.smtpHost",
-  "email.smtpPort",
-  "email.smtpSecurity",
-  "email.username",
-  "email.fromAddress",
-  "calendar.google.clientId",
-  "calendar.microsoft.clientId",
-  "google.oauth.projectId",
-  "google.oauth.publishingStatus",
-  "google.credentials.migratedFrom"
+  "cluster.groupMaterial"
 ] as const;

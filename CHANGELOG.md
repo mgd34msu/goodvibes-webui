@@ -4,6 +4,18 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.7] - 2026-08-05
+
+### Changed
+
+- **Profile reads work against an up-to-date daemon.** The daemon's profile
+  answers carried more than the published contract allowed, so strict clients
+  refused them; the contract and the answers now agree, held together by a
+  conformance test (platform runtime 2.0.8).
+- Session views render the agent's daemon-hosted conversations with their
+  messages — session event streams are render-grade and scoped to their
+  session.
+
 ## [1.13.6] - 2026-08-02
 
 ### Changed

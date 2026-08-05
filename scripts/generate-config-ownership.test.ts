@@ -84,10 +84,16 @@ describe('generate-config-ownership: checked-in artifact up to date', () => {
     expect(snapshot.prefixes).toContain('cluster.');
   });
 
-  test('the snapshot includes the non-schema daemon-owned credential paths', () => {
+  test('the connector credential keys are schema-owned now, not non-schema paths', () => {
+    // Platform runtime 2.0.8 declared email.*, calendar.* and google.* as real
+    // described schema keys under daemon-owned prefixes; keeping them in the
+    // non-schema list too would double-count them in the ownership walk.
     const snapshot = loadOwnershipSnapshot();
-    expect(snapshot.nonSchemaPaths).toContain('email.passwordRef');
-    expect(snapshot.nonSchemaPaths).toContain('calendar.google.icsUrl');
-    expect(snapshot.nonSchemaPaths).toContain('google.oauth.refreshToken');
+    expect(snapshot.prefixes).toContain('email.');
+    expect(snapshot.prefixes).toContain('calendar.');
+    expect(snapshot.prefixes).toContain('google.');
+    expect(snapshot.nonSchemaPaths).not.toContain('email.passwordRef');
+    expect(snapshot.nonSchemaPaths).not.toContain('calendar.google.icsUrl');
+    expect(snapshot.nonSchemaPaths).not.toContain('google.oauth.refreshToken');
   });
 });

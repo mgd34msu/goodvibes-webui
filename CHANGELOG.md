@@ -4,6 +4,22 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.9] - 2026-08-05
+
+### Changes
+
+- Platform runtime 2.0.10: the event stream resumes from where it actually
+  left off instead of replaying the previous turn's tail, and a
+  turn-completion frame from a turn this client did not start is refused —
+  a fresh turn's real output can no longer be dropped as leftovers, and the
+  previous turn's final message can no longer appear twice.
+- One busy hosted turn no longer freezes every session's heartbeat, so
+  cross-visible sessions stay honestly "active" while another surface is
+  mid-turn.
+- The daemon this client talks to (1.28.12) now requires the exec boundary
+  for the conversational sessions it hosts, and no background command skips
+  the safety checks anywhere on the platform.
+
 ## [1.13.8] - 2026-08-05
 
 ### Changed

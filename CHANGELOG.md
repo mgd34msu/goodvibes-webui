@@ -4,6 +4,17 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.11] - 2026-08-07
+
+### Changes
+
+- Platform runtime 2.0.13: post-wake capture ends when the room goes quiet
+  (ambient-measured silence floor, settable; the capture ceiling can be
+  turned off), and the daemon this client talks to (1.28.16) carries the
+  same behavior. The runtime also registers its barrel subpaths so the
+  compiled terminal products stop playing a build-order lottery at load —
+  no WebUI behavior change, the pin just rides the same train.
+
 ## [1.13.10] - 2026-08-06
 
 ### Changes

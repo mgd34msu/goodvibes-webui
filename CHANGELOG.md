@@ -4,6 +4,15 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.10] - 2026-08-06
+
+### Changes
+
+- Platform runtime 2.0.11: an unnamed voice request goes to the provider
+  the user configured — local engines first when provisioned — instead of
+  the first cloud provider on the internal registration list. The daemon
+  this client talks to (1.28.13) carries the same fix.
+
 ## [1.13.9] - 2026-08-05
 
 ### Changes

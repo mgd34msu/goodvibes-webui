@@ -4,6 +4,18 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.12] - 2026-08-08
+
+### Changes
+
+- Platform runtime 2.0.14: spoken output strips markdown before synthesis
+  (fenced code is announced, not read), post-wake capture ends when the
+  speaker stops on real microphones (rolling silence floor + breath-tolerant
+  endpointing, new `voice.wake.speechRetriggerMs` setting), and every wake
+  capture leaves a diagnostics receipt. The daemon this client talks to
+  (1.28.17) carries the same behavior; no WebUI behavior change, the pin
+  rides the train.
+
 ## [1.13.11] - 2026-08-07
 
 ### Changes

@@ -1731,8 +1731,15 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     "key": "voice.wake.silenceFloorRms",
     "type": "number",
     "default": 0,
-    "description": "The audio level at or below which a frame counts as silence, on the int16 magnitude scale the capture path uses (full scale 32768, so 180 is about -45 dBFS). 0 — the default — MEASURES IT PER UTTERANCE from the audio captured just before the wake fired, and places the floor 12 dB above the room's own noise. That measurement is what makes voice.wake.silenceStopMs work at all in a room that is not quiet: with a fixed floor, steady background noise above it means no frame is ever silent, silence never accumulates, and every capture runs to the voice.wake.captureMaxSeconds ceiling however long ago you stopped talking. Set a number to pin the floor instead, which is worth doing if the measurement guesses wrong in your room: raise it if capture keeps running after you stop, lower it if capture cuts off while you are still speaking. The measured value is never allowed below 180 or above 1440, but a number you set here is used exactly as given.",
+    "description": "The audio level at or below which a frame counts as silence, on the int16 magnitude scale the capture path uses (full scale 32768, so 180 is about -45 dBFS). 0 — the default — MEASURES IT PER UTTERANCE from the audio captured just before the wake fired, and places the floor 12 dB above the room's own noise. That measurement is what makes voice.wake.silenceStopMs work at all in a room that is not quiet: with a fixed floor, steady background noise above it means no frame is ever silent, silence never accumulates, and every capture runs to the voice.wake.captureMaxSeconds ceiling however long ago you stopped talking. The floor then FOLLOWS the room for the rest of the capture, tracking the quiet moments in the last second and a half, because a headset with automatic gain control raises the input once you stop talking and the room comes back louder than the number measured before it. It is never raised over a third of the speech being heard at the same time, so it cannot end up above your own voice. Set a number to pin the floor instead, which is worth doing if the measurement guesses wrong in your room: raise it if capture keeps running after you stop, lower it if capture cuts off while you are still speaking. A number you set here is used exactly as given AND frozen — it stays where you put it for the whole capture, with no following. The first measured value is never allowed below 180 or above 1440; the following that comes after it may reach 5760.",
     "validationHint": "integer in [0, 8000]"
+  },
+  {
+    "key": "voice.wake.speechRetriggerMs",
+    "type": "number",
+    "default": 150,
+    "description": "How long a run of sound above the silence floor has to last before it counts as you talking again. Shorter runs are counted as part of the silence they interrupted rather than starting the voice.wake.silenceStopMs wait over. This is what a close-worn or in-ear microphone needs: a breath, a lip tick or a chair creak is loud and lasts one or two frames, and treating each one as speech means the wait never completes and capture runs to the voice.wake.captureMaxSeconds ceiling every time however long ago you stopped. 150 ms sits under the shortest syllable anyone ends a sentence on and over the longest of those noises. Raise it if capture still will not end in a room full of short noises; lower it if the first word of a resumed sentence gets clipped. 0 turns it off, so every loud frame resets the wait — the behaviour before this row existed.",
+    "validationHint": "integer in [0, 2000]"
   },
   {
     "key": "voice.wake.autoSubmit",
@@ -5343,6 +5350,7 @@ export const FEATURE_SETTINGS: readonly FeatureSettingMeta[] = [
       "voice.wake.captureMaxSeconds",
       "voice.wake.silenceStopMs",
       "voice.wake.silenceFloorRms",
+      "voice.wake.speechRetriggerMs",
       "voice.wake.autoSubmit",
       "voice.wake.retainAudio",
       "voice.wake.customModelDir",

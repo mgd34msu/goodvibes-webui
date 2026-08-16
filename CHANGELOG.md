@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.13] - 2026-08-15
+
+### Changes
+
+- Platform runtime 2.0.17: subscription sign-ins are platform-wide (shared tier), the edit tool schema is strict-gateway compatible (oneOf -> anyOf), and the keep-awake sleep inhibitor is requested with
+  `--no-ask-password`, so a polkit refusal can no longer register an
+  interactive auth prompt on a terminal (the fix lands in the terminal
+  products and daemon 1.28.19; no WebUI behavior change, the pin rides the
+  train).
+
 ## [1.13.12] - 2026-08-08
 
 ### Changes

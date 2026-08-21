@@ -65,6 +65,12 @@ export function ChatView({
   // adapters kept so useChatStream/useChatSend, which only ever touch one field
   // at a time, need no changes.
   const [turn, setTurn] = useState<TurnPhase>(IDLE_TURN_PHASE);
+  // The session id a send just created (see the reset-on-switch effect below).
+  const sendCreatedSessionRef = useRef('');
+  const handleSendSessionSwitch = useCallback((sessionId: string) => {
+    sendCreatedSessionRef.current = sessionId;
+    onActiveSessionChange(sessionId);
+  }, [onActiveSessionChange]);
   const { state: turnState, error: turnError } = turn;
   const setTurnState = useCallback<Dispatch<SetStateAction<string>>>((next) => {
     setTurn((current) => ({
@@ -209,7 +215,18 @@ export function ChatView({
   // failed/dropped turn (e.g. 'send failed', 'stream paused') rendered in
   // SessionHeader until the next send or turn event in the NEWLY active
   // session, even though that session never did anything.
+  //
+  // The one exempt transition: a first send with no active session creates the
+  // session and switches to it mid-send. That switch must NOT wipe the send's
+  // own in-flight 'sending'/'submitted' state, or the turn silently reads as
+  // idle (no Stop affordance, no streaming bubble) while the daemon is working.
+  // useChatSend reports the created id through sendCreatedSessionRef below; the
+  // ref is consumed here so any LATER switch to the same session still resets.
   useEffect(() => {
+    if (sendCreatedSessionRef.current === activeSessionId && activeSessionId) {
+      sendCreatedSessionRef.current = '';
+      return;
+    }
     setTurn(IDLE_TURN_PHASE);
   }, [activeSessionId]);
 
@@ -246,7 +263,7 @@ export function ChatView({
 
   const send = useChatSend({
     activeSessionId,
-    onActiveSessionChange,
+    onActiveSessionChange: handleSendSessionSwitch,
     onDraftSessionRequestedChange,
     onLocalSessionCreated,
     onSessionMissing,

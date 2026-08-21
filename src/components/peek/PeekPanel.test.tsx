@@ -427,13 +427,13 @@ describe('PeekPanel: deferred payload cleanup', () => {
     // Content is still mounted (exit animation window)
     expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
 
-    // Advance past PEEK_EXIT_DELAY_MS (320 ms) using a real-timer await.
-    // The 350 ms window is sufficient for bun's event loop to fire the 320 ms
-    // setTimeout inside PeekProvider.close() before the assertion runs.
-    await new Promise<void>((resolve) => setTimeout(resolve, 350));
-    flushSync(() => {});
-
-    // Payload should be unmounted now
+    // The provider clears the payload on a real 320 ms setTimeout, so poll
+    // with a generous deadline rather than racing it with one fixed sleep.
+    const deadline = Date.now() + 5000;
+    while (container.querySelector('[data-testid="cleanup-content"]') !== null && Date.now() < deadline) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      flushSync(() => {});
+    }
     expect(container.querySelector('[data-testid="cleanup-content"]')).toBeNull();
   });
 });

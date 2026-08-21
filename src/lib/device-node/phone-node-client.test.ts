@@ -47,8 +47,8 @@ function memoryStorage(initial: PhoneNodeIdentity | null = null): PhoneNodeStora
     read: (): PhoneNodeIdentity | null => store.current,
     write: (identity: PhoneNodeIdentity): void => { store.current = identity; },
     clear: (): void => { store.current = null; store.executed = []; },
-    readExecuted: (): ReadonlyArray<readonly [string, ExecutedWorkRecord]> => store.executed,
-    writeExecuted: (entries: ReadonlyArray<readonly [string, ExecutedWorkRecord]>): void => {
+    readExecuted: (): readonly (readonly [string, ExecutedWorkRecord])[] => store.executed,
+    writeExecuted: (entries: readonly (readonly [string, ExecutedWorkRecord])[]): void => {
       store.executed = entries.map(([id, record]) => [id, record]);
     },
   };

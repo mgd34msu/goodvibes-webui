@@ -52,8 +52,17 @@ mock.module('../lib/goodvibes', () => ({
     chat: {
       turns: { cancel: mock(() => Promise.resolve({})) },
       events: { stream: streamMock },
-      messages: { list: mock(() => Promise.resolve({ messages: [] })) },
-      sessions: { update: mock(() => Promise.resolve({})) },
+      messages: {
+        list: mock(() => Promise.resolve({ messages: [] })),
+        create: mock(() => Promise.resolve({ messageId: 'msg-1' })),
+      },
+      sessions: {
+        update: mock(() => Promise.resolve({})),
+        create: mock(() => Promise.resolve({
+          sessionId: 'session-new',
+          session: { id: 'session-new', sessionId: 'session-new', kind: 'companion-chat', title: 'long question', status: 'active', createdAt: 1, updatedAt: 1 },
+        })),
+      },
     },
     operator: {
       providers: { list: mock(() => Promise.resolve([])) },
@@ -67,6 +76,8 @@ mock.module('../lib/goodvibes', () => ({
 }));
 
 const { ChatView } = await import('./ChatView');
+const { PeekProvider } = await import('../components/peek/PeekPanel');
+const { ToastProvider } = await import('../lib/toast');
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -96,7 +107,15 @@ let client: QueryClient;
 function renderChatView(props: ChatViewProps): void {
   flushSync(() => {
     root.render(
-      React.createElement(QueryClientProvider, { client }, React.createElement(ChatView, props)),
+      React.createElement(
+        QueryClientProvider,
+        { client },
+        React.createElement(
+          ToastProvider,
+          null,
+          React.createElement(PeekProvider, null, React.createElement(ChatView, props)),
+        ),
+      ),
     );
   });
 }
@@ -176,5 +195,52 @@ describe('ChatView: turn lifecycle resets atomically on session switch', () => {
     // (only turnError was cleared by useChatStream's per-session effect).
     expect(badgeText()).toBeNull();
     expect(composerErrorText()).toBeNull();
+  });
+});
+
+describe('ChatView: a send that creates its session keeps the in-flight turn', () => {
+  test('the switch to the send-created session does not wipe the submitted state', async () => {
+    // No active session: the send itself creates one and switches to it, the
+    // exact flow where the reset-on-switch effect used to race the send and
+    // silently return the turn to idle (no Stop affordance) while the daemon
+    // was still working the held turn.
+    let switchedTo = '';
+    const props = {
+      ...baseProps(''),
+      onActiveSessionChange: (sessionId: string) => { switchedTo = sessionId; },
+    };
+    renderChatView(props);
+
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message GoodVibes"]');
+    expect(textarea).not.toBeNull();
+    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+    flushSync(() => {
+      valueSetter?.call(textarea, 'long question');
+      textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const form = textarea?.closest('form');
+    expect(form).not.toBeNull();
+    flushSync(() => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    // The send has created the session and reported the switch upward; the turn
+    // is rendered in flight BEFORE the parent applies the prop change.
+    await waitFor(() => switchedTo === 'session-new');
+    await waitFor(() => badgeText() !== null);
+    const inFlight = badgeText() ?? '';
+    expect(['sending', 'submitted']).toContain(inFlight);
+
+    // The parent applies the switch, the same prop change as any real session
+    // switch. The reset effect must recognize this id as send-created and keep
+    // the in-flight state instead of wiping it to idle.
+    renderChatView({ ...props, activeSessionId: 'session-new' });
+    await waitFor(() => streamCalls.some((call) => call.sessionId === 'session-new'));
+    for (let i = 0; i < 5; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      flushSync(() => {});
+    }
+    expect(badgeText()).not.toBeNull();
   });
 });

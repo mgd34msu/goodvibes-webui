@@ -88,8 +88,8 @@ export interface PhoneNodeStorage {
    * reload, pumpOnce()'s in-memory map still covers the lost-report-without-
    * reload case on its own.
    */
-  readExecuted?(): ReadonlyArray<readonly [string, ExecutedWorkRecord]>;
-  writeExecuted?(entries: ReadonlyArray<readonly [string, ExecutedWorkRecord]>): void;
+  readExecuted?(): readonly (readonly [string, ExecutedWorkRecord])[];
+  writeExecuted?(entries: readonly (readonly [string, ExecutedWorkRecord])[]): void;
 }
 
 export function browserPhoneNodeStorage(): PhoneNodeStorage {
@@ -123,7 +123,7 @@ export function browserPhoneNodeStorage(): PhoneNodeStorage {
         // Nothing to do; the identity is dropped in memory regardless.
       }
     },
-    readExecuted(): ReadonlyArray<readonly [string, ExecutedWorkRecord]> {
+    readExecuted(): readonly (readonly [string, ExecutedWorkRecord])[] {
       try {
         const raw = window.localStorage.getItem(PHONE_NODE_EXECUTED_KEY);
         if (!raw) return [];
@@ -138,7 +138,7 @@ export function browserPhoneNodeStorage(): PhoneNodeStorage {
         return [];
       }
     },
-    writeExecuted(entries: ReadonlyArray<readonly [string, ExecutedWorkRecord]>): void {
+    writeExecuted(entries: readonly (readonly [string, ExecutedWorkRecord])[]): void {
       try {
         window.localStorage.setItem(PHONE_NODE_EXECUTED_KEY, JSON.stringify(entries));
       } catch {

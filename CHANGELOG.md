@@ -20,7 +20,11 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   report or a dead tab; a stored marker turns redelivery into a report-only
   path.
 - ChatView: turn lifecycle is one typed phase value reset atomically on
-  session switch, ending stale error and badge carryover.
+  session switch, ending stale error and badge carryover. The reset exempts
+  the one switch a send itself causes: a first message with no active
+  session creates the session mid-send, and the switch to it no longer wipes
+  the in-flight turn (the Stop control stayed visible only by luck of the
+  race before; a regression test drives the full send-creates-session flow).
 
 ## [1.13.13] - 2026-08-15
 

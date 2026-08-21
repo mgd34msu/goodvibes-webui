@@ -1,0 +1,80 @@
+/*
+ * Camera QR scanner on the sign-in screen (PairingQrScanner.tsx).
+ * Uses contract tokens from src/styles/tokens.css exclusively.
+ */
+
+.pairing-scanner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+/* Fixed 1:1 stage so the layout does not jump when the first camera frame
+   arrives and the video finally reports an intrinsic size. */
+.pairing-scanner__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  background: #000;
+}
+
+.pairing-scanner__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Aiming guide. Purely decorative, aria-hidden in the markup. */
+.pairing-scanner__reticle {
+  position: absolute;
+  inset: 15%;
+  border: 2px solid var(--text-accent);
+  border-radius: var(--radius-md, 10px);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.pairing-scanner__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pairing-scanner__failure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.pairing-scanner__failure-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  font-weight: 600;
+}
+
+.pairing-scanner__failure p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pairing-scanner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+}
+
+/* The scan trigger on the sign-in card, inside .signed-out-pair__copy. */
+.signed-out-pair__scan {
+  margin-top: var(--space-2, 8px);
+}

@@ -295,6 +295,13 @@ export default defineConfig({
           // ships off. One chunk per backend build, so a tab on the wasm backend never
           // fetches the webgpu one.
           if (id.includes('onnxruntime')) return 'onnxruntime';
+          // jsqr is the pairing scanner's fallback QR decoder (lib/pairing-qr-detector.ts),
+          // dynamically imported only when a browser has no BarcodeDetector AND
+          // someone opens the scanner. Its own chunk for the same reason
+          // onnxruntime gets one: `vendor` is fetched on every page load, and
+          // putting a decoder there would make every session pay for a sign-in
+          // screen fallback that most of them never reach.
+          if (id.includes('jsqr')) return 'qr-decoder';
           return 'vendor';
         },
       },

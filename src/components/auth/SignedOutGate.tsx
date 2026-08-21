@@ -11,6 +11,15 @@
  * token off automatically (usePairingHandoff → setExplicitAuthToken), no copy/paste.
  * This screen leads with that flow and explains it prominently.
  *
+ * The same section carries the IN-PAGE scanner (PairingQrScanner), which replaces the
+ * retired Android companion app: a phone already looking at this screen can open its
+ * own camera here instead of leaving for a separate app, and it also reads the
+ * companion connection payload the desktop app and TUI print, which is a JSON object
+ * rather than a link and so cannot be "opened" by a phone's camera app at all. A scan
+ * does not get its own sign-in code path: it feeds the SAME tokenMutation /
+ * loginMutation / relay-store calls the manual forms below use, so there is exactly one
+ * place where a token is validated and one place where a rejection is reported.
+ *
  * FALLBACK path: paste the operator token by hand (setExplicitAuthToken self-validates
  * via auth.current and auto-clears on failure). Password login is offered only as a
  * de-emphasized tertiary path, on hosts where the bootstrap credential was already
@@ -21,12 +30,19 @@
  * bounce back to the token field.
  */
 
-import { KeyRound, QrCode, Radio, ShieldCheck } from 'lucide-react';
+import { Camera, KeyRound, QrCode, Radio, ShieldCheck } from 'lucide-react';
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { login, setExplicitAuthToken } from '../../lib/goodvibes';
+import { GOODVIBES_BASE_URL, login, setExplicitAuthToken } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
 import { decodeRelayPairingCode, storeRelayPairing } from '../../lib/relay-pairing';
+import {
+  describeScannedPairing,
+  isDifferentOrigin,
+  type ScannedPairing,
+} from '../../lib/pairing-qr';
+import { PairingQrScanner } from '../pairing/PairingQrScanner';
+import { Modal } from '../modal/Modal';
 import '../../styles/components/auth-gate.css';
 
 export interface SignedOutGateProps {
@@ -46,9 +62,16 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
   const [relayCode, setRelayCode] = useState('');
   const [relayPasteError, setRelayPasteError] = useState<unknown>(null);
   const [relayStored, setRelayStored] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
+  const [scanOriginNote, setScanOriginNote] = useState<string | null>(null);
 
+  // Both credentials arrive as mutation VARIABLES rather than being read off
+  // component state, so a scan and a typed entry run the identical call. Reading
+  // state here instead would have forced the scanner to stage its token in the
+  // visible input first, which would both render the secret and race the submit.
   const tokenMutation = useMutation({
-    mutationFn: () => setExplicitAuthToken(token.trim()),
+    mutationFn: (value: string) => setExplicitAuthToken(value.trim()),
     onSuccess: async () => {
       setToken('');
       // Revalidate everything, auth/boot/health flip to signed-in and the shell reveals.
@@ -57,7 +80,8 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
   });
 
   const loginMutation = useMutation({
-    mutationFn: () => login(username, password),
+    mutationFn: (credentials: { username: string; password: string }) =>
+      login(credentials.username, credentials.password),
     onSuccess: async () => {
       setPassword('');
       await queryClient.invalidateQueries();
@@ -66,7 +90,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
 
   function submitToken(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (token.trim()) tokenMutation.mutate();
+    if (token.trim()) tokenMutation.mutate(token);
   }
 
   // Relay pairing is transport-only, it never signs anyone in, so this is a plain
@@ -91,7 +115,45 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
 
   function submitLogin(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (username && password) loginMutation.mutate();
+    if (username && password) loginMutation.mutate({ username, password });
+  }
+
+  function storeScannedRelay(code: string) {
+    setRelayPasteError(null);
+    setRelayStored(false);
+    try {
+      storeRelayPairing(decodeRelayPairingCode(code));
+      setRelayStored(true);
+    } catch (err) {
+      setRelayPasteError(err);
+    }
+  }
+
+  // The one place a scan turns into an action. Every branch hands off to the
+  // same call the corresponding manual form uses; nothing new signs anyone in,
+  // and the scanned secret is never written to component state or rendered.
+  // Plain function, not useCallback: PairingQrScanner reads this through a ref
+  // precisely so an unstable identity cannot restart its camera.
+  function acceptScan(scanned: ScannedPairing) {
+    setScanOpen(false);
+    setScanNotice(describeScannedPairing(scanned));
+    setScanOriginNote(
+      isDifferentOrigin(scanned.url, GOODVIBES_BASE_URL) ? (scanned.url ?? null) : null,
+    );
+    switch (scanned.kind) {
+      case 'token':
+        tokenMutation.mutate(scanned.token);
+        break;
+      case 'password':
+        loginMutation.mutate({ username: scanned.username, password: scanned.password });
+        break;
+      case 'relay':
+        storeScannedRelay(scanned.relayCode);
+        // A relay pairing is transport-only, so the sign-in step still has to
+        // happen; opening the relay section points at what is left to do.
+        setShowRelayPaste(true);
+        break;
+    }
   }
 
   return (
@@ -131,8 +193,38 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               It prints a QR code, scan it with this device&rsquo;s camera and the link
               signs you in automatically.
             </p>
+            <button
+              type="button"
+              className="secondary-button signed-out-pair__scan"
+              onClick={() => {
+                setScanNotice(null);
+                setScanOriginNote(null);
+                setScanOpen(true);
+              }}
+            >
+              <Camera size={14} aria-hidden="true" /> Scan with this device&rsquo;s camera
+            </button>
           </div>
         </section>
+
+        {scanNotice != null && (
+          <div className="banner" role="status">
+            {scanNotice}.
+          </div>
+        )}
+
+        {scanOriginNote != null && (
+          <div className="banner warning" role="status">
+            That QR names the daemon at <code>{scanOriginNote}</code>, but this page is
+            served from <code>{GOODVIBES_BASE_URL}</code>. Often that is the same daemon
+            reached by another address and everything works; if sign-in is rejected, that
+            mismatch is the first thing to check.
+          </div>
+        )}
+
+        <Modal open={scanOpen} onClose={() => setScanOpen(false)} title="Scan a pairing QR">
+          <PairingQrScanner onScanned={acceptScan} onCancel={() => setScanOpen(false)} />
+        </Modal>
 
         <div className="signed-out-or" role="separator" aria-label="or paste a token">
           <span>or paste a token</span>

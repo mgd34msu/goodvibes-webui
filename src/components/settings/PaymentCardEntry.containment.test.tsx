@@ -41,6 +41,19 @@ const FAKE_LABEL = 'errands card';
 /** Every value typed in this suite, what each payload below is searched for. */
 const TYPED_VALUES = [FAKE_NUMBER, FAKE_CVV, FAKE_HOLDER];
 
+/**
+ * A leaked digit value appears as its own digit run ("731", "\"731\""), never
+ * embedded inside a longer one: epoch timestamps in dumps and temp paths
+ * currently contain the substring 731 (epoch millis 1787318... do, for days
+ * at a stretch), so a raw substring scan false-positives on time, not leaks.
+ */
+function containsTypedValue(haystack: string, value: string): boolean {
+  if (/^\d+$/.test(value)) {
+    return new RegExp(`(?<!\\d)${value}(?!\\d)`).test(haystack);
+  }
+  return haystack.includes(value);
+}
+
 /** The metadata the daemon answers a create with. Note what is absent: any card value. */
 const CARD_METADATA = {
   id: 'card_fake_1',
@@ -181,7 +194,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     // Condition 2: not one card value appears anywhere in the URL, not as a
     // query parameter, not a fragment, not a path segment.
     for (const value of TYPED_VALUES) {
-      expect(create!.url).not.toContain(value);
+      expect(containsTypedValue(create!.url, value)).toBe(false);
     }
     expect(create!.url).not.toContain('?');
     expect(create!.url).not.toContain('#');
@@ -206,7 +219,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     expect(calls.length).toBeGreaterThan(0);
     for (const call of calls) {
       for (const value of TYPED_VALUES) {
-        expect(call.url).not.toContain(value);
+        expect(containsTypedValue(call.url, value)).toBe(false);
       }
     }
     unmount();
@@ -219,7 +232,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
 
     const html = document.body.innerHTML;
     for (const value of TYPED_VALUES) {
-      expect(html).not.toContain(value);
+      expect(containsTypedValue(html, value)).toBe(false);
     }
     unmount();
   });
@@ -244,7 +257,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
 
     const dump = storageDump();
     for (const value of TYPED_VALUES) {
-      expect(dump).not.toContain(value);
+      expect(containsTypedValue(dump, value)).toBe(false);
     }
     unmount();
   });
@@ -256,7 +269,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
 
     const dump = queryCacheDump();
     for (const value of TYPED_VALUES) {
-      expect(dump).not.toContain(value);
+      expect(containsTypedValue(dump, value)).toBe(false);
     }
     unmount();
   });
@@ -270,7 +283,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     const second = render();
     expect(cardFieldValues(second.container)).toEqual(['', '', '', '']);
     for (const value of TYPED_VALUES) {
-      expect(document.body.innerHTML).not.toContain(value);
+      expect(containsTypedValue(document.body.innerHTML, value)).toBe(false);
     }
     second.unmount();
   });
@@ -291,7 +304,7 @@ describe('the daemon never sends card material back', () => {
 
     const html = document.body.innerHTML;
     for (const value of TYPED_VALUES) {
-      expect(html).not.toContain(value);
+      expect(containsTypedValue(html, value)).toBe(false);
     }
     unmount();
   });
@@ -319,7 +332,7 @@ describe('the daemon never sends card material back', () => {
     // The stored card is listed, but not one input was filled from it.
     expect(cardFieldValues(container)).toEqual(['', '', '', '']);
     for (const value of TYPED_VALUES) {
-      expect(document.body.innerHTML).not.toContain(value);
+      expect(containsTypedValue(document.body.innerHTML, value)).toBe(false);
     }
     unmount();
   });
@@ -346,14 +359,14 @@ describe('a failed store keeps the draft but still leaks nothing', () => {
     const banner = container.querySelector('[data-testid="payment-card-error"]');
     expect(banner).not.toBeNull();
     for (const value of TYPED_VALUES) {
-      expect(banner!.textContent ?? '').not.toContain(value);
+      expect(containsTypedValue(banner!.textContent ?? '', value)).toBe(false);
     }
 
     // The draft is intentionally kept on failure so a network blip does not
     // cost a retype, but it is still only in the inputs, nowhere else.
     const dump = storageDump() + queryCacheDump();
     for (const value of TYPED_VALUES) {
-      expect(dump).not.toContain(value);
+      expect(containsTypedValue(dump, value)).toBe(false);
     }
     unmount();
   });

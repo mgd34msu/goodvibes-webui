@@ -24,7 +24,7 @@ import {
   Users,
   Workflow,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import AppShell from './components/shell/AppShell';
 import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
@@ -67,14 +67,18 @@ import { AdminView } from './views/AdminView';
 import { attentionCount } from './lib/fleet';
 import { bestId, bestTitle, firstString } from './lib/object';
 import {
-  companionSessionFromDetail,
   companionSessionsFromListResponse,
-  mergeCompanionSessions,
   readStoredActiveCompanionSessionId,
   readStoredCompanionSessions,
   writeStoredActiveCompanionSessionId,
   writeStoredCompanionSessions,
 } from './lib/companion-chat';
+import {
+  companionSessionsReducer,
+  companionSessionsStateFromStored,
+  selectNextSessionId,
+  selectVisibleSessions,
+} from './lib/companion-sessions-state';
 import { formatError, isDaemonUnreachableError, isMethodUnavailableError, isSessionNotFoundError } from './lib/errors';
 
 const views: {
@@ -127,9 +131,15 @@ export default function App() {
   const { view, setView, session: activeChatSessionId, setSession, setUrlState } = useUrlState();
   const activeView: ViewId = view;
   const [draftChatRequested, setDraftChatRequested] = useState(false);
-  const [localChatSessions, setLocalChatSessions] = useState<unknown[]>(() => readStoredCompanionSessions());
-  const [createdChatSessionIds, setCreatedChatSessionIds] = useState<Set<string>>(() => new Set());
-  const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
+  // One record of the companion chat sessions this browser knows about (local copies,
+  // ids created here and not yet confirmed by the daemon, ids hidden after a delete).
+  // See src/lib/companion-sessions-state.ts: the rendered list is derived from it, so
+  // no handler can leave two views of the same session disagreeing.
+  const [chatSessionsState, dispatchChatSessions] = useReducer(
+    companionSessionsReducer,
+    undefined,
+    () => companionSessionsStateFromStored(readStoredCompanionSessions()),
+  );
   // Drawer default is VIEWPORT-AWARE. On a phone (≤980px) the sidebar overlays
   // the whole workspace, so defaulting it OPEN would cover the content on every single
   // load, you'd tap it away before you could do anything. Initialize it COLLAPSED at
@@ -230,21 +240,12 @@ export default function App() {
   const fetchedChatSessions = useMemo(() => {
     return companionSessionsFromListResponse(chatSessions.data);
   }, [chatSessions.data]);
-  const mergedChatSessionItems = useMemo(
-    () => {
-      if (chatSessions.isSuccess) {
-        return mergeCompanionSessions(
-          localChatSessions.filter((session) => createdChatSessionIds.has(bestId(session))),
-          fetchedChatSessions,
-        );
-      }
-      return mergeCompanionSessions(localChatSessions, fetchedChatSessions);
-    },
-    [chatSessions.isSuccess, createdChatSessionIds, fetchedChatSessions, localChatSessions],
-  );
   const chatSessionItems = useMemo(
-    () => mergedChatSessionItems.filter((session) => !deletedChatSessionIds.has(bestId(session))),
-    [deletedChatSessionIds, mergedChatSessionItems],
+    () => selectVisibleSessions(chatSessionsState, {
+      serverSessions: fetchedChatSessions,
+      serverListLoaded: chatSessions.isSuccess,
+    }),
+    [chatSessions.isSuccess, chatSessionsState, fetchedChatSessions],
   );
 
   // DELETE-MEANS-DELETE. "Delete" now names a real hard-delete distinct from
@@ -255,10 +256,11 @@ export default function App() {
   // (SESSION_NOT_FOUND from a double-close race). The mutation never trusts the
   // delete call's 200 at face value: it reconciles against a real re-fetch with
   // includeClosed:true and only reports success once the record is genuinely absent,
-  // the exact anti-pattern this replaces was trusting the client-side filter
-  // (deletedChatSessionIds) as proof, which just hides a soft-closed record whose file
-  // never left disk. A daemon that still only soft-closes (pre-S1) is caught here and
-  // surfaces "Delete did not complete" rather than a false "Deleted".
+  // the exact anti-pattern this replaces was trusting the client-side hide (the
+  // removed entry in companion-sessions-state) as proof, which just hides a
+  // soft-closed record whose file never left disk. A daemon that still only
+  // soft-closes (pre-S1) is caught here and surfaces "Delete did not complete"
+  // rather than a false "Deleted".
   const deleteChat = useMutation({
     mutationFn: async (sessionId: string) => {
       try {
@@ -283,14 +285,8 @@ export default function App() {
     },
     onMutate: async (sessionId) => {
       await queryClient.cancelQueries({ queryKey: ['companion-chat', 'sessions'] });
-      const nextSessionId = chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? '';
-      setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
-      setCreatedChatSessionIds((current) => {
-        const next = new Set(current);
-        next.delete(sessionId);
-        return next;
-      });
-      setLocalChatSessions((current) => current.filter((s) => bestId(s) !== sessionId));
+      const nextSessionId = selectNextSessionId(chatSessionItems, sessionId);
+      dispatchChatSessions({ type: 'session-delete-requested', sessionId });
       if (activeChatSessionId === sessionId) {
         setSession(nextSessionId, { replace: true });
         setDraftChatRequested(!nextSessionId);
@@ -302,12 +298,10 @@ export default function App() {
       // failure, including DELETE_INCOMPLETE from the proof-of-gone reconcile above,
       // restores visibility rather than leaving a false "it's deleted" impression: the
       // optimistic hide was a guess, and this says plainly that the guess was wrong.
+      // Restoration comes from the daemon list (onSettled invalidates the query), not
+      // from a local copy; before the first successful list the row stays hidden.
       if (isSessionNotFoundError(error)) return;
-      setDeletedChatSessionIds((current) => {
-        const next = new Set(current);
-        next.delete(sessionId);
-        return next;
-      });
+      dispatchChatSessions({ type: 'session-delete-failed', sessionId });
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['companion-chat', 'sessions'] });
@@ -346,28 +340,16 @@ export default function App() {
   }, [chatSessionItems, chatSessions.isSuccess]);
 
   useEffect(() => {
-    if (!chatSessions.isSuccess || !createdChatSessionIds.size) return;
-    const fetchedIds = new Set(fetchedChatSessions.map(bestId).filter(Boolean));
-    setCreatedChatSessionIds((current) => {
-      const next = new Set([...current].filter((id) => !fetchedIds.has(id)));
-      return next.size === current.size ? current : next;
-    });
-  }, [chatSessions.isSuccess, createdChatSessionIds.size, fetchedChatSessions]);
+    if (!chatSessions.isSuccess) return;
+    dispatchChatSessions({ type: 'server-sessions-synced', sessionIds: fetchedChatSessions.map(bestId) });
+  }, [chatSessions.isSuccess, fetchedChatSessions]);
 
   const handleMissingChatSession = useCallback((sessionId: string) => {
-    setDeletedChatSessionIds((current) => new Set(current).add(sessionId));
-    setCreatedChatSessionIds((current) => {
-      const next = new Set(current);
-      next.delete(sessionId);
-      return next;
-    });
-    setLocalChatSessions((current) => current.filter((s) => bestId(s) !== sessionId));
+    dispatchChatSessions({ type: 'session-reported-missing', sessionId });
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId] });
     queryClient.removeQueries({ queryKey: ['companion-chat', sessionId, 'messages'] });
     if (activeChatSessionId === sessionId) {
-      const nextSessionId = chatSessions.isSuccess
-        ? chatSessionItems.map(bestId).find((id) => id && id !== sessionId) ?? ''
-        : '';
+      const nextSessionId = chatSessions.isSuccess ? selectNextSessionId(chatSessionItems, sessionId) : '';
       setSession(nextSessionId, { replace: true });
       setDraftChatRequested(!nextSessionId);
     }
@@ -704,19 +686,11 @@ export default function App() {
                 setDraftChatRequested(false);
               }}
               onDraftSessionRequestedChange={setDraftChatRequested}
-              onLocalSessionCreated={(session) => {
-                const normalized = companionSessionFromDetail(session);
-                const id = bestId(normalized);
-                if (id) setCreatedChatSessionIds((current) => new Set(current).add(id));
-                setLocalChatSessions((current) => [
-                  normalized,
-                  ...current.filter((item) => bestId(item) !== id),
-                ]);
-              }}
-              onLocalSessionUpdated={(sessionId, session) => setLocalChatSessions((current) => {
-                const normalized = companionSessionFromDetail(session);
-                const next = current.filter((item) => bestId(item) !== sessionId);
-                return [bestId(normalized) ? normalized : { id: sessionId, sessionId, title: bestTitle(session, sessionId) }, ...next];
+              onLocalSessionCreated={(session) => dispatchChatSessions({ type: 'local-session-created', session })}
+              onLocalSessionUpdated={(sessionId, session) => dispatchChatSessions({
+                type: 'local-session-updated',
+                sessionId,
+                session,
               })}
               onSessionMissing={handleMissingChatSession}
             />

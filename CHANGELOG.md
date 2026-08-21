@@ -6,8 +6,11 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 ## [1.13.14] - 2026-08-21
 
+- Platform runtime 2.0.19: the pin rides the checkout-seam and wake-verb-fix
+  sdk cycle. The daemon-side wake model fix in that cycle is what repairs
+  this surface's wake feature; no webui code change was needed for it.
 - **Pair a phone by pointing its camera at the terminal's QR** (platform
-  runtime 2.0.18): the sign-in screen gains a camera scanner (native
+  runtime 2.0.19): the sign-in screen gains a camera scanner (native
   BarcodeDetector with a bundled fallback decoder) that reads every payload
   form the family mints, including the terminal's light-on-dark QR, and
   feeds the exact sign-in path manual entry uses. This replaces the retired

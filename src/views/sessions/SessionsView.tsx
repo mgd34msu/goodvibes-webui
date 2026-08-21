@@ -11,8 +11,10 @@
  * driven by useSessionRealtime (the raw session-update stream), not by polling.
  *
  * Honest limits: GET /api/sessions ignores ?limit/?cursor and is capped at 50 by the
- * daemon, so the view shows "50 most recent" rather than faking completeness. A
- * paginated union list is a planned contract item (sessions.search).
+ * daemon, so the view shows "50 most recent" rather than faking completeness.
+ * sessions.search exists on the wire and is consumed by Chat's history search
+ * (useChatSearch.ts), but it matches session id/title/project only, it does not
+ * paginate this union list, which stays capped as above.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';

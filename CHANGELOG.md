@@ -4,6 +4,24 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.14] - 2026-08-21
+
+- **Pair a phone by pointing its camera at the terminal's QR** (platform
+  runtime 2.0.18): the sign-in screen gains a camera scanner (native
+  BarcodeDetector with a bundled fallback decoder) that reads every payload
+  form the family mints, including the terminal's light-on-dark QR, and
+  feeds the exact sign-in path manual entry uses. This replaces the retired
+  Android companion app's scanner.
+- Session state is one reducer over a normalized entry list: a session
+  hidden by an in-flight delete structurally cannot render a stale copy, and
+  the sidebar order is byte-identical to before (verified by differential
+  fuzzing against the old logic).
+- Device node: capability execution is idempotent across a lost completion
+  report or a dead tab; a stored marker turns redelivery into a report-only
+  path.
+- ChatView: turn lifecycle is one typed phase value reset atomically on
+  session switch, ending stale error and badge carryover.
+
 ## [1.13.13] - 2026-08-15
 
 ### Changes

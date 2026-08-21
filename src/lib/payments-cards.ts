@@ -59,11 +59,11 @@ export const WEBUI_CARD_ENTRY_SURFACE = 'webui';
  */
 export const CARD_ENTRY_CONDITIONS: readonly string[] = [
   'Card fields are posted over the authenticated daemon channel, the same path as any other secret.',
-  'Card values never appear in a URL — not a query parameter, not a fragment, not a path segment.',
+  'Card values never appear in a URL, not a query parameter, not a fragment, not a path segment.',
   'Card values are never rendered back after entry: no response returns them and no field is repopulated from the server.',
   'Every card field carries autocomplete="off".',
   'Card fields must not present as ones a password manager offers to save.',
-  'No card value is retained in DOM state — cleared from component state after submit, never left in a store, a form-library cache, or state that survives navigation.',
+  'No card value is retained in DOM state, cleared from component state after submit, never left in a store, a form-library cache, or state that survives navigation.',
 ];
 
 /**

@@ -1,20 +1,20 @@
 /**
- * wake-host.ts — the browser tab as a wake-word surface.
+ * wake-host.ts, the browser tab as a wake-word surface.
  *
  * The SDK owns everything that is identical on every surface: the front end, the
  * scoring rules, the pre-roll, the silence and ceiling policy, the engine reset
  * after a command, the restart/latch policy. `WakeListener` is all of that. What a
  * host owns is four things, and this file is those four:
  *
- *   1. a device       — the shared browser capture opener, through the arbiter,
- *   2. an inference runtime — onnxruntime-web sessions over daemon-served models,
- *   3. what a wake MEANS here — chime, indicator, transcript into the composer,
+ *   1. a device      , the shared browser capture opener, through the arbiter,
+ *   2. an inference runtime, onnxruntime-web sessions over daemon-served models,
+ *   3. what a wake MEANS here, chime, indicator, transcript into the composer,
  *   4. an honest state for a surface to render, including every refusal.
  *
  * DISABLED MEANS THE DEVICE IS NEVER TOUCHED. `voice.wake.surfaces.webui`
  * defaults to false, and while it is false (or `voice.wake.enabled` is off, or a
  * row blocks) this host loads no model, creates no session and calls no
- * `getUserMedia` — so no permission prompt appears. `.active` from the resolver is
+ * `getUserMedia`, so no permission prompt appears. `.active` from the resolver is
  * the ONLY thing consulted for that decision; nothing here re-derives it.
  *
  * A module singleton, for the same reason the TTS engine is one: there is one
@@ -61,7 +61,7 @@ export const PINNED_WAKE_MODEL_ID: string = (() => {
 export type WakeHostPhase =
   /** Not enabled here. No device, no download, no permission prompt. */
   | 'off'
-  /** Enabled but refused — a blocker, a latch, a permission the user denied. */
+  /** Enabled but refused, a blocker, a latch, a permission the user denied. */
   | 'refused'
   /** Fetching and verifying models, or bringing the runtime up. */
   | 'loading'
@@ -125,7 +125,7 @@ export interface WakeModelSet {
   /**
    * The speech gate, present only when `voice.wake.vadThreshold` asks for one AND
    * its artifact is provisioned. Absent means every frame is scored, which is what
-   * the shipped default of 0 asks for — never a gate that failed to load, because
+   * the shipped default of 0 asks for, never a gate that failed to load, because
    * that is a startup blocker from resolveWakeRuntimeSettings.
    */
   readonly vad?: { readonly session: WakeInferenceSession; readonly threshold: number } | undefined;
@@ -203,7 +203,7 @@ export class WakeHost {
 
   /**
    * Register where transcripts go. Returns the unregister function. The host keeps
-   * working with no sink registered — it still listens, chimes and transcribes —
+   * working with no sink registered, it still listens, chimes and transcribes,
    * and reports the transcript in its own state, so a wake is never silently lost
    * because no view happened to be mounted.
    */
@@ -248,7 +248,7 @@ export class WakeHost {
           settings,
           phase: askedForHere ? 'refused' : 'off',
           // A user who switched this on for this origin and got a blocker still
-          // gets the indicator, carrying the reason — the alternative is a feature
+          // gets the indicator, carrying the reason, the alternative is a feature
           // that reads as enabled and shows nothing anywhere.
           indicator: askedForHere ? settings.indicator : 'off',
           refusal: describeInactive(settings),
@@ -446,7 +446,7 @@ export class WakeHost {
       // Nothing above the silence floor followed the wake. Sending that to a
       // provider bills a request to transcribe a room, so it is reported instead.
       this.#deps.warn('a wake fired but nothing was said after it', { modelId: detection.modelId });
-      this.#patch({ phase: 'listening', error: 'A wake fired but nothing was said after it — nothing was sent.' });
+      this.#patch({ phase: 'listening', error: 'A wake fired but nothing was said after it, nothing was sent.' });
       return;
     }
     this.#patch({ phase: 'transcribing' });
@@ -512,7 +512,7 @@ function describeInactive(settings: WakeRuntimeSettings): WakeHostState['refusal
  * Only the PINNED classifier is servable to a tab: `voice.wake.model` reads the
  * managed artifacts, and a custom model in `voice.wake.customModelDir` lives on
  * the host's disk with no route to fetch it. Extra ids are therefore reported as a
- * limitation rather than silently relabelled onto the pinned model — a detector
+ * limitation rather than silently relabelled onto the pinned model, a detector
  * that says it is running your model and is running a different one is worse than
  * one that says it cannot.
  */
@@ -533,7 +533,7 @@ export function createBrowserModelSetLoader(deps: {
     const [embeddingBytes, classifierBytes, vadBytes] = await Promise.all([
       loadWakeModel('embedding', loaderDeps),
       loadWakeModel('classifier', loaderDeps),
-      // Fetched, cached and CHECKSUM-VERIFIED exactly like the other two — a gate
+      // Fetched, cached and CHECKSUM-VERIFIED exactly like the other two, a gate
       // assembled from a truncated transfer would screen frames by accident.
       wantsGate ? loadWakeModel('vad', loaderDeps) : Promise.resolve(null),
     ]);

@@ -2,18 +2,18 @@ import { networkInterfaces } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright harness — the phone-viewport (390x844) proof standard this repo's
+ * Playwright harness, the phone-viewport (390x844) proof standard this repo's
  * visual proofs defer to, plus a desktop project to catch regressions.
  *
  * HERMETIC BY CONSTRUCTION: the webServer boots THIS repo's vite dev server on a
- * dedicated port (4318 — deliberately NOT 3421 or 4444) and points its /api proxy at a
+ * dedicated port (4318, deliberately NOT 3421 or 4444) and points its /api proxy at a
  * local STUB (scripts/e2e-daemon-stub.ts, port 59991) that answers every request with
- * a deliberate 503 { code: 'E2E_STUB' } — never a real daemon. In practice the stub is
+ * a deliberate 503 { code: 'E2E_STUB' }, never a real daemon. In practice the stub is
  * almost never reached: every test installs an in-page mock (installMockDaemon /
  * installChatMockDaemon) that intercepts the wire in the browser and answers from a
- * seeded fixture. The stub exists for the one structural exception — requests made
+ * seeded fixture. The stub exists for the one structural exception, requests made
  * while a REAL service worker controls the page (the PWA specs), which Playwright
- * page routing cannot see — so nothing ever dies as a refused connection and a clean
+ * page routing cannot see, so nothing ever dies as a refused connection and a clean
  * run's webServer log is silent. No real daemon, no real network beyond the local
  * dev server, no port coordination.
  */
@@ -23,11 +23,11 @@ const BASE_URL = `http://127.0.0.1:${WEB_PORT}`;
 
 /**
  * The one real, GENUINE private-network address this host itself owns (an RFC 1918
- * interface — 10/8, 172.16/12, 192.168/16), for lan-origin-posture.e2e.ts. This is
+ * interface, 10/8, 172.16/12, 192.168/16), for lan-origin-posture.e2e.ts. This is
  * deliberately a REAL bind + a REAL browser navigation, not a mocked window.location:
  * Chromium's own secure-context determination is a fact about the literal address the
  * page was actually served from, and no in-page mock can fake that. Undefined when the
- * host has no such interface (a loopback-only sandbox) — the spec itself skips in that
+ * host has no such interface (a loopback-only sandbox), the spec itself skips in that
  * case rather than failing on an environment it cannot exist in.
  */
 function firstPrivateNetworkAddress(): string | undefined {
@@ -55,8 +55,8 @@ const LAN_ORIGIN_SPEC = '**/lan-origin-posture.e2e.ts';
 
 export default defineConfig({
   testDir: './e2e',
-  // Files are named *.e2e.ts (NOT *.spec.ts) so `bun test` — which globs *.spec.ts /
-  // *.test.ts across the repo — never tries to run these Playwright suites.
+  // Files are named *.e2e.ts (NOT *.spec.ts) so `bun test`, which globs *.spec.ts /
+  // *.test.ts across the repo, never tries to run these Playwright suites.
   testMatch: '**/*.e2e.ts',
   outputDir: './e2e/.artifacts/test-output',
   fullyParallel: false,
@@ -135,7 +135,7 @@ export default defineConfig({
       },
     },
     // A second vite instance, bound to the host's own real private-network address
-    // (never started at all when none exists — LAN_ORIGIN_HOST is undefined and this
+    // (never started at all when none exists, LAN_ORIGIN_HOST is undefined and this
     // entry harmlessly points at the SAME dead loopback URL the "phone"/"desktop"
     // instance already serves, which playwright's reuseExistingServer treats as already
     // up). Feeds ONLY the "lan-origin" project.
@@ -150,7 +150,7 @@ export default defineConfig({
           GOODVIBES_WEB_PORT: String(LAN_ORIGIN_PORT),
           GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
           GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
-          // No VITE_ENABLE_SW here — the whole point of this origin is to prove the
+          // No VITE_ENABLE_SW here, the whole point of this origin is to prove the
           // labeled-degradation story for the capabilities that need HTTPS, service
           // worker registration among them (register-sw.ts already skips it here for
           // exactly that reason: no secure context).

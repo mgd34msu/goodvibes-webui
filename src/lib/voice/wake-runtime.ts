@@ -1,5 +1,5 @@
 /**
- * wake-runtime.ts — onnxruntime-web, adapted to the engine's session shape.
+ * wake-runtime.ts, onnxruntime-web, adapted to the engine's session shape.
  *
  * The SDK's wake engine never imports an inference runtime. It declares the shape
  * of one (`WakeInferenceSession`) and the host supplies it, which is what lets the
@@ -24,13 +24,13 @@
  * detection is switched on, because the import is dynamic.
  *
  * In onnxruntime-web 1.27 the file the WebGPU entry loads is
- * `ort-wasm-simd-threaded.asyncify.wasm` — WebGPU execution is asynchronous, so
+ * `ort-wasm-simd-threaded.asyncify.wasm`, WebGPU execution is asynchronous, so
  * the WebGPU-capable build is the asyncify one. It is referenced through the
  * package's exports map, so the filename is not hardcoded anywhere but here.
  *
  * WebGPU is still capability-checked against `navigator.gpu` before it is
  * selected, and when it is absent the tab falls back to the CPU provider IN THE
- * SAME BINARY — no second fetch, no reload — and SAYS SO as a limitation. The
+ * SAME BINARY, no second fetch, no reload, and SAYS SO as a limitation. The
  * engine's measured cost is ~3.5 ms per 80 ms frame on a single wasm thread, so
  * the fallback is a real fallback and not a degraded-to-unusable one.
  *
@@ -38,7 +38,7 @@
  * needs cross-origin isolation, which needs COOP/COEP response headers the daemon
  * does not send. `numThreads` is therefore pinned to 1 unless the tab reports
  * `crossOriginIsolated`, rather than left at the library default of "as many as
- * the system has" — which on a non-isolated origin means a failed initialisation.
+ * the system has", which on a non-isolated origin means a failed initialisation.
  */
 import type { WakeInferenceSession, WakeTensor } from '@pellux/goodvibes-sdk/platform/voice/wake/runtime';
 
@@ -46,8 +46,8 @@ export type WakeBrowserBackend = 'wasm' | 'webgpu';
 
 /**
  * Test seams. The module import and the GPU probe are the two things a unit test
- * cannot exercise for real — there is no WebGPU adapter and no 24 MB binary in a
- * test process — and they are exactly what has to be pinned: that BOTH backend
+ * cannot exercise for real, there is no WebGPU adapter and no 24 MB binary in a
+ * test process, and they are exactly what has to be pinned: that BOTH backend
  * values reach one engine binary.
  */
 export interface WakeRuntimeDeps {
@@ -99,7 +99,7 @@ export function webGpuAvailable(): boolean {
 /**
  * Threads only where cross-origin isolation genuinely holds. `crossOriginIsolated`
  * is the browser's own answer to "is SharedArrayBuffer usable here", which is the
- * actual requirement — probing for the constructor is not, because it exists and
+ * actual requirement, probing for the constructor is not, because it exists and
  * throws on a non-isolated origin.
  */
 function wasmThreadCount(): number {
@@ -114,7 +114,7 @@ function wasmThreadCount(): number {
  * engine binary. The `?url` import resolves through the package's own exports map
  * and Vite emits it as a build asset, which is what makes
  * `ort.env.wasm.wasmPaths` resolvable at runtime without a wasm plugin. The
- * wasm-only build is deliberately NOT referenced anywhere — an unreferenced asset
+ * wasm-only build is deliberately NOT referenced anywhere, an unreferenced asset
  * is one Vite does not emit, which is what keeps it out of the dist rather than
  * merely unused inside it.
  */
@@ -126,7 +126,7 @@ export async function loadWakeRuntime(
   const gpuUsable = wantsWebGpu && (deps.gpuAvailable ?? webGpuAvailable)();
   const fallbackReason = wantsWebGpu && !gpuUsable
     ? 'set to "webgpu", but this browser exposes no navigator.gpu. Detection is running on the CPU provider in '
-      + 'the same engine binary instead — no second download — which measures about 3.5 ms per 80 ms frame, '
+      + 'the same engine binary instead, no second download, which measures about 3.5 ms per 80 ms frame, '
       + 'well inside real time.'
     : null;
 
@@ -164,7 +164,7 @@ async function importWakeRuntimeModule(): Promise<OrtModule> {
  *
  * The tensor conversion is checked rather than cast: a float32 output arrives as
  * a Float32Array, and anything else means the model is not the one this front end
- * was built for — which must fail here rather than produce scores from a
+ * was built for, which must fail here rather than produce scores from a
  * reinterpreted buffer.
  */
 export function adaptSession(session: OrtSession, ort: Pick<OrtModule, 'Tensor'>): WakeInferenceSession {

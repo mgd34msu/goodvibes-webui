@@ -1,14 +1,14 @@
 /**
- * PWA packaging — installability signals, the service worker, honest offline,
+ * PWA packaging, installability signals, the service worker, honest offline,
  * and the Web Push subscribe/unsubscribe client.
  *
  * Hermetic by construction: the manifest + SW are static assets; the push flow
  * uses a MOCKED PushManager (Playwright cannot reach a real push service), and
  * every push.* call is answered by the in-page mock daemon. No real push is
- * ever sent — the STATES are asserted, not deliveries.
+ * ever sent, the STATES are asserted, not deliveries.
  *
  * KNOWN RESIDUAL: while the REAL service worker controls the page, Playwright's
- * page routing cannot intercept its requests — those flow through the vite
+ * page routing cannot intercept its requests, those flow through the vite
  * proxy to the e2e daemon stub (scripts/e2e-daemon-stub.ts) and get a
  * deliberate 503 { code: 'E2E_STUB' }. Assertions in this spec therefore never
  * depend on daemon data while the real worker is in control; they prove the
@@ -49,7 +49,7 @@ test('the service worker is served and keeps daemon data off the cache (the hone
   const response = await page.request.get('/sw.js');
   expect(response.ok()).toBeTruthy();
   const body = await response.text();
-  // The shipped SW must never cache API responses — proven by the guard's
+  // The shipped SW must never cache API responses, proven by the guard's
   // presence in the served file, not just in source.
   expect(body).toContain('/api/');
   expect(body).toContain('NEVER_CACHE_PREFIXES');
@@ -104,7 +104,7 @@ test('subscribe → the client fetches the VAPID key and registers the subscript
 
 test('reconcile-on-open heals a drifted push record when the app opens already-subscribed', async ({ page }) => {
   // Seed the device identity BEFORE any app script runs, so ensureDeviceId()
-  // reads this fixed id instead of minting a fresh uuid — the mock daemon's
+  // reads this fixed id instead of minting a fresh uuid, the mock daemon's
   // pushSeed record below is keyed on the SAME id.
   const deviceId = 'device-e2e-reconcile';
   await page.addInitScript((key) => {
@@ -118,7 +118,7 @@ test('reconcile-on-open heals a drifted push record when the app opens already-s
         deviceId,
         endpointOrigin: 'https://push.example.test',
         // A placeholder hash that can never equal the real sha256 the client
-        // computes over its live endpoint — the daemon's record is stale.
+        // computes over its live endpoint, the daemon's record is stale.
         endpointHash: 'stale-hash-from-a-prior-session',
         createdAt: 1_700_000_000_000,
       },
@@ -131,7 +131,7 @@ test('reconcile-on-open heals a drifted push record when the app opens already-s
     if (m) invokeCalls.push(m[1]);
   });
 
-  // App open, already signed in and already subscribed at the browser level —
+  // App open, already signed in and already subscribed at the browser level,
   // reconcile-on-open should fire without the operator touching any control.
   await page.goto('/?view=chat');
   await expect.poll(() => invokeCalls).toContain('push.subscriptions.list');

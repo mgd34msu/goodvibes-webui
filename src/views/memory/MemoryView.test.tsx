@@ -1,5 +1,5 @@
 /**
- * MemoryView — component-state coverage for the recall-honesty contract
+ * MemoryView, component-state coverage for the recall-honesty contract
  * (memory-recall-contract.ts, surfaced verbatim via MemorySearchHonestyNote) and the
  * whole-view honest degrade (METHOD_NOT_FOUND → "this daemon does not serve memory").
  * The add/list/delete/review-queue wire-round-trip journey is covered end to end by
@@ -88,7 +88,7 @@ let reviewQueueImpl: () => Promise<unknown> = () => Promise.resolve({ records: [
 let addImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
 let deleteImpl: (id: string) => Promise<unknown> = (id) => Promise.resolve({ id, deleted: true });
 let updateReviewImpl: (id: string, input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
-// memory.consolidation.receipts (SDK 1.8.0) — MemoryView renders ConsolidationReceipts,
+// memory.consolidation.receipts (SDK 1.8.0), MemoryView renders ConsolidationReceipts,
 // which calls this on mount; default to the honest "nothing yet" empty state so the
 // existing search/review-queue-focused tests below are unaffected by its presence.
 let consolidationReceiptsImpl: () => Promise<unknown> = () => Promise.resolve({ receipts: [], pendingProposals: [] });
@@ -96,7 +96,7 @@ let consolidationReceiptsImpl: () => Promise<unknown> = () => Promise.resolve({ 
 mock.module('../../lib/goodvibes', () => ({
   VIBE_PERSONA_TAG: 'vibe',
   // Not called by anything MemoryView renders, but src/lib/queries.ts (imported for
-  // queryKeys) statically imports these two names from this module — they must
+  // queryKeys) statically imports these two names from this module, they must
   // resolve or the import itself fails before any test runs.
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
@@ -167,7 +167,7 @@ afterEach(() => {
   consolidationReceiptsImpl = () => Promise.resolve({ receipts: [], pendingProposals: [] });
 });
 
-describe('MemoryView — results state', () => {
+describe('MemoryView: results state', () => {
   test('a genuinely empty store says "No memory recorded yet", not a blank panel', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('No memory recorded yet'));
@@ -187,7 +187,7 @@ describe('MemoryView — results state', () => {
   });
 });
 
-describe('MemoryView — the recall-honesty note', () => {
+describe('MemoryView: the recall-honesty note', () => {
   test('literal mode is labeled plainly when semantic was not requested', async () => {
     listResult = searchResult({ mode: 'literal', requestedSemantic: false });
     const { el, unmount } = render();
@@ -195,12 +195,12 @@ describe('MemoryView — the recall-honesty note', () => {
     unmount();
   });
 
-  test('an unavailable semantic index states the reason VERBATIM — never a silent empty result', async () => {
-    const reason = 'Semantic index unavailable: sqlite-vec extension failed to load — falling back to a literal scan';
+  test('an unavailable semantic index states the reason VERBATIM, never a silent empty result', async () => {
+    const reason = 'Semantic index unavailable: sqlite-vec extension failed to load, falling back to a literal scan';
     listResult = searchResult({ mode: 'literal', requestedSemantic: true, indexUnavailableReason: reason, records: [] });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes(reason));
-    // The degraded reason must be visible even though the record list itself is empty —
+    // The degraded reason must be visible even though the record list itself is empty,
     // the honesty note and the empty-records state are not the same thing, and neither
     // may substitute for the other.
     expect(el.textContent).toContain('No memory recorded yet');
@@ -208,7 +208,7 @@ describe('MemoryView — the recall-honesty note', () => {
   });
 
   test('the hashed-provider caveat is shown verbatim as a softer note than the hard-unavailable banner', async () => {
-    const caveat = 'Ran on the built-in hashed-only embedding provider — real matches rank better with a modeled provider';
+    const caveat = 'Ran on the built-in hashed-only embedding provider; real matches rank better with a modeled provider';
     listResult = searchResult({ mode: 'semantic', requestedSemantic: true, caveat });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes(caveat));
@@ -226,23 +226,23 @@ describe('MemoryView — the recall-honesty note', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('excluded (flagged'));
     expect(el.textContent).toContain('2 excluded (flagged');
-    // The floor now travels on the wire as recallFloor — the label states the exact
+    // The floor now travels on the wire as recallFloor, the label states the exact
     // value the search fixture carries, not a hardcoded percentage (see cohesion
     // review finding 9, now resolved by the SDK's recallFloor field).
     expect(el.textContent).toContain('3 excluded (below the 60% recall floor)');
-    // MemoryView always searches with limit: 100 (DEFAULT_FILTERS) — the label says so
+    // MemoryView always searches with limit: 100 (DEFAULT_FILTERS), the label says so
     // rather than implying totalBeforeRecallFilter is every matching record.
     expect(el.textContent).toContain('6 of the first 100 matches before the recall filter');
     unmount();
   });
 });
 
-describe('MemoryView — honest degrade', () => {
+describe('MemoryView: honest degrade', () => {
   test('METHOD_NOT_FOUND replaces the whole view with "this daemon does not serve memory"', async () => {
     searchImpl = () => rejection(404, { code: 'METHOD_NOT_FOUND', error: 'Unknown gateway method: memory.records.search' });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('This daemon does not serve memory'));
-    // The degraded state replaces the search form/panels entirely — it is not layered
+    // The degraded state replaces the search form/panels entirely, it is not layered
     // as one more banner alongside a workspace that still looks otherwise functional.
     expect(el.querySelector('.memory-search')).toBeFalsy();
     unmount();
@@ -257,7 +257,7 @@ describe('MemoryView — honest degrade', () => {
   });
 });
 
-describe('MemoryView — personas (VIBE.md read surface)', () => {
+describe('MemoryView: personas (VIBE.md read surface)', () => {
   test('a constraint record tagged "vibe" renders under Personas, not just Records', async () => {
     const persona = memoryRecord({ id: 'p1', cls: 'constraint', tags: ['vibe'], summary: 'Prefer plain language over jargon' });
     personaResult = searchResult({ records: [persona] });
@@ -275,7 +275,7 @@ describe('MemoryView — personas (VIBE.md read surface)', () => {
   });
 });
 
-describe('MemoryView — chat-provenance setting (owner-ruled, default OFF)', () => {
+describe('MemoryView: chat-provenance setting (owner-ruled, default OFF)', () => {
   afterEach(() => {
     window.localStorage.removeItem('goodvibes.webui.preferences');
   });
@@ -301,7 +301,7 @@ describe('MemoryView — chat-provenance setting (owner-ruled, default OFF)', ()
   });
 });
 
-describe('MemoryView — consolidation receipts route to the review queue (SDK 1.8.0)', () => {
+describe('MemoryView: consolidation receipts route to the review queue (SDK 1.8.0)', () => {
   test('a pending proposal\'s "Review" jump highlights exactly its referenced record in the queue', async () => {
     consolidationReceiptsImpl = () => Promise.resolve({
       receipts: [],
@@ -320,7 +320,7 @@ describe('MemoryView — consolidation receipts route to the review queue (SDK 1
     const highlighted = [...el.querySelectorAll('.memory-review-row--highlighted')];
     expect(highlighted).toHaveLength(1);
     expect(highlighted[0]?.getAttribute('data-record-id')).toBe('r1');
-    // The OTHER queued record is untouched — a jump highlights, it never filters.
+    // The OTHER queued record is untouched, a jump highlights, it never filters.
     expect(el.querySelector('[data-record-id="r2"]')?.classList.contains('memory-review-row--highlighted')).toBe(false);
     unmount();
   });

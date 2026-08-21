@@ -1,5 +1,5 @@
 /**
- * useCompactionReceipts — scoped-to-one-session compaction stream.
+ * useCompactionReceipts, scoped-to-one-session compaction stream.
  *
  * Mirrors useSessionRealtime.test.tsx's harness (mock sdk.streams.open, capture
  * the registered handlers, drive them by hand) since this hook follows the same
@@ -55,7 +55,7 @@ function renderHook(sessionId: string, enabled = true): { unmount: () => void } 
 }
 
 /** Fire a frame and flush the resulting setState synchronously so latestState
- *  reflects it before the assertion — onEvent() is called directly from test
+ *  reflects it before the assertion, onEvent() is called directly from test
  *  code, outside React's own event system, so automatic batching would
  *  otherwise defer the re-render past this function's return. */
 function fireEvent(eventName: string, payload: unknown): void {
@@ -108,7 +108,7 @@ describe('useCompactionReceipts', () => {
     unmount();
   });
 
-  test('a receipt for a DIFFERENT session is ignored — the domain is daemon-wide', () => {
+  test('a receipt for a DIFFERENT session is ignored; the domain is daemon-wide', () => {
     const { unmount } = renderHook('s-1');
     fireEvent('compaction', {
       type: 'COMPACTION_RECEIPT',
@@ -145,7 +145,7 @@ describe('useCompactionReceipts', () => {
     unmount();
   });
 
-  test('receipts are capped at 20 — an honest live log, not an unbounded leak', () => {
+  test('receipts are capped at 20. An honest live log, not an unbounded leak', () => {
     const { unmount } = renderHook('s-1');
     for (let i = 0; i < 25; i += 1) {
       fireEvent('compaction', {

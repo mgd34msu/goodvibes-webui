@@ -1,10 +1,10 @@
 /**
- * wake-indicator.ts — the words the wake indicator shows, in one place.
+ * wake-indicator.ts, the words the wake indicator shows, in one place.
  *
  * The statusline chip and the banner are two presentations of the SAME state, so
  * the label and the explanation live here rather than being written twice and
  * drifting. Every string is either about a microphone that IS open (so it must be
- * unmistakable) or a stated reason one is not — never a vague "unavailable".
+ * unmistakable) or a stated reason one is not, never a vague "unavailable".
  */
 import type { WakeHostState } from '../../lib/voice/wake-host';
 
@@ -40,7 +40,7 @@ export function wakeIndicatorCopy(state: WakeHostState): WakeIndicatorCopy {
       };
     case 'capturing':
       return {
-        label: 'Wake heard — recording',
+        label: 'Wake heard: recording',
         detail: `A wake was confirmed and the microphone is recording what follows.${device}`,
         live: true,
         attention: false,

@@ -1,5 +1,5 @@
 /**
- * capture.ts — the ONE browser microphone path, shared by both voice consumers.
+ * capture.ts, the ONE browser microphone path, shared by both voice consumers.
  *
  * This is the web UI's implementation of the SDK's `AudioCaptureOpener`
  * (@pellux/goodvibes-sdk/platform/voice/capture): the SDK owns the frame
@@ -13,7 +13,7 @@
  *     follows.
  *
  * Two concurrent getUserMedia streams on one device is the bug this file exists
- * to make impossible, so nothing here is exported as "open a second stream" —
+ * to make impossible, so nothing here is exported as "open a second stream",
  * mic-arbiter.ts wraps this opener and is what the two consumers actually call.
  *
  * THE FRAME CONTRACT IS LOAD-BEARING AND ITS FAILURES ARE SILENT
@@ -30,15 +30,15 @@
  * SAMPLE RATE IS ASKED FOR AND THEN VERIFIED
  *
  * `getUserMedia` is asked for 16 kHz mono and the AudioContext is constructed at
- * 16 kHz so the graph resamples deterministically — but a browser may ignore
+ * 16 kHz so the graph resamples deterministically, but a browser may ignore
  * either. `audioContext.sampleRate` is READ, and when it is not 16 kHz the frame
  * pump resamples to 16 kHz itself rather than handing the detector audio at the
  * wrong rate (which shifts the whole front end off the framing the classifier was
  * trained at, and again fails silently).
  *
  * Every failure is an `AudioCaptureError` with a named reason, so the surface can
- * render the specific honest state — the plain-http pointer, the blocked
- * permission, the device that is already held — instead of one dead button.
+ * render the specific honest state, the plain-http pointer, the blocked
+ * permission, the device that is already held, instead of one dead button.
  */
 import {
   AudioCaptureError,
@@ -129,7 +129,7 @@ export interface CaptureEnv {
   /**
    * Builds an AudioContext at a requested rate. Returns undefined when the
    * browser has no Web Audio at all, and may return a context at a DIFFERENT
-   * rate than requested — the caller reads `.sampleRate` and resamples.
+   * rate than requested, the caller reads `.sampleRate` and resamples.
    */
   readonly createAudioContext: ((options: { sampleRate: number }) => CaptureAudioContext) | undefined;
   readonly createWorkletNode: CaptureWorkletNodeFactory | undefined;
@@ -207,8 +207,8 @@ export const CAPTURE_WORKLET_PROCESSOR = 'goodvibes-capture';
  * contract describes: exactly `frameSamples` samples, 16 kHz, int16 magnitudes.
  *
  * Exported (rather than hidden inside the opener) because these three
- * conversions are the whole silent-failure surface of browser capture — scale,
- * rate, framing — and they are worth testing directly with no audio hardware,
+ * conversions are the whole silent-failure surface of browser capture, scale,
+ * rate, framing, and they are worth testing directly with no audio hardware,
  * fake or otherwise, in the picture.
  */
 export class CaptureFramePump {
@@ -358,10 +358,10 @@ function classifyGetUserMediaError(error: unknown): AudioCaptureError {
   }
   // NotFoundError / NotReadableError / OverconstrainedError / TrackStartError all
   // mean the same thing to a user: the device asked for is not available to this
-  // page right now — either it does not exist or something else holds it.
+  // page right now, either it does not exist or something else holds it.
   return new AudioCaptureError(
     'device-unavailable',
-    'The microphone could not be opened — it may not exist, or another program may be using it.',
+    'The microphone could not be opened. It may not exist, or another program may be using it.',
   );
 }
 
@@ -374,7 +374,7 @@ function classifyGetUserMediaError(error: unknown): AudioCaptureError {
  *
  * `request.noiseSuppression: 'speex'` reaching THIS opener is refused, and that is
  * not a statement about the platform: the speexdsp filter is a WebAssembly module
- * the SDK carries and it runs perfectly well in a tab — one layer up, inside
+ * the SDK carries and it runs perfectly well in a tab, one layer up, inside
  * `createNoiseSuppressingOpener`, which WakeListener and PushToTalkSession apply
  * and which asks this opener for raw frames. So a `speex` request arriving here
  * means the wrapper was bypassed, and passing it through would hand back
@@ -386,7 +386,7 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
     if (support === 'insecure-context') {
       throw new AudioCaptureError(
         'insecure-origin',
-        'The microphone needs a secure (HTTPS) connection — this page is served over plain http.',
+        'The microphone needs a secure (HTTPS) connection. This page is served over plain http.',
       );
     }
     if (support === 'unsupported' || !env.mediaDevices || !env.createAudioContext) {
@@ -397,7 +397,7 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
         'noise-suppression-unavailable',
         'This opener produces raw microphone frames and does not filter them. The platform\'s speexdsp stage runs '
         + 'one layer up, in createNoiseSuppressingOpener, which the wake listener and the push-to-talk session '
-        + 'already apply — so this request reached the wrong layer. Refusing rather than returning unfiltered audio '
+        + 'already apply: so this request reached the wrong layer. Refusing rather than returning unfiltered audio '
         + 'under a filter you configured.',
       );
     }
@@ -436,7 +436,7 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
     let context: CaptureAudioContext;
     try {
       // Asking for 16 kHz makes the graph resample deterministically. Some
-      // browsers ignore it and some throw on it; both are handled — the rate is
+      // browsers ignore it and some throw on it; both are handled, the rate is
       // read back below either way.
       context = env.createAudioContext({ sampleRate: CAPTURE_SAMPLE_RATE });
     } catch {
@@ -485,7 +485,7 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
 
       // Track-level end (the user revoking the permission mid-session, a USB
       // microphone unplugged) is a stream that ended on its own, not a stop we
-      // asked for — the listener's supervisor decides what to do about it.
+      // asked for, the listener's supervisor decides what to do about it.
       for (const track of tracks) {
         const endable = track as CaptureTrack & { onended?: (() => void) | null };
         endable.onended = () => {
@@ -511,7 +511,7 @@ export function createBrowserCaptureOpener(env: CaptureEnv = browserCaptureEnv()
       await finish();
       if (error instanceof AudioCaptureError) throw error;
       // Carry the cause. "No audio graph could read it" on its own is a message
-      // nobody can act on — the reason is whatever the graph actually threw.
+      // nobody can act on, the reason is whatever the graph actually threw.
       throw new AudioCaptureError(
         'unsupported',
         `The microphone opened but no audio graph could read it: ${error instanceof Error ? error.message : String(error)}`,
@@ -528,7 +528,7 @@ interface AttachedTap {
 /**
  * Attach the thing that actually reads samples: an AudioWorklet where one is
  * available (audio work off the main thread), a ScriptProcessorNode where the
- * worklet module cannot be loaded — a deployment whose content policy refuses
+ * worklet module cannot be loaded, a deployment whose content policy refuses
  * blob: scripts, or a browser without the API. The fallback is deprecated, not
  * broken, and a working microphone beats a correct-but-dead one.
  */

@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { sdk } from '../goodvibes';
 
-describe('sdk.operator.push — generic invoke-by-id', () => {
+describe('sdk.operator.push: generic invoke-by-id', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; method: string; body: unknown }[];
 

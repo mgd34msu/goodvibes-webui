@@ -1,5 +1,5 @@
 /**
- * HunkCommentSheet.test.tsx — the hunk comment composer sheet.
+ * HunkCommentSheet.test.tsx, the hunk comment composer sheet.
  *
  * Verifies it shows exactly which change is being commented on (file path, both line
  * ranges, the captured-at label, the excerpt), that a comment submits trimmed via the

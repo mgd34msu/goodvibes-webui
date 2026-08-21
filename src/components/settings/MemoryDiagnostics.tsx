@@ -1,30 +1,30 @@
 /**
- * MemoryDiagnostics — the admin/ops surface for the daemon's own memory-pressure
+ * MemoryDiagnostics, the admin/ops surface for the daemon's own memory-pressure
  * governance state (ops.memory.get, SDK 1.9.0-dev's memory-relay-voice-hardening
  * work). Same non-schema-driven pattern as PowerSettings/TailscaleSettings: this verb
  * carries no CONFIG_SCHEMA entry, so it gets its own panel rather than a
  * SettingsModal row.
  *
  * Renders the tier as a status chip reusing the webui's OWN `.badge` tone idiom
- * (memory-governance.ts's memoryTierBadgeClass — neutral/info/warning/bad for
+ * (memory-governance.ts's memoryTierBadgeClass, neutral/info/warning/bad for
  * normal/elevated/high/critical), a labeled budget-vs-RSS bar, a per-cache footprint
  * table, the paused-deferrable-jobs list, and the leak-tripwire line.
  *
  * Honest states: a daemon build with no ops.memory.get id at all (404,
  * isMethodUnavailableError) and a build that has the id registered but no
  * MemoryGovernor wired (501, isMethodNotInvokableError) both render the same honest
- * "this daemon does not serve memory diagnostics" state — never placeholder numbers.
+ * "this daemon does not serve memory diagnostics" state, never placeholder numbers.
  * Any other fetch failure is a retriable ErrorState.
  *
  * Event surfacing: OPS_MEMORY_PRESSURE rides the 'ops' runtime domain, the SAME domain
- * OPS_POWER_STATE_CHANGED already rides — useRealtimeInvalidation invalidates this
+ * OPS_POWER_STATE_CHANGED already rides, useRealtimeInvalidation invalidates this
  * panel's query on that domain (see queries.ts's opsMemory key), so it refetches on
  * the real pressure event exactly the way PowerChip/PowerSettings already refetch on
  * power-state changes: invalidate-and-rerender the live status, never a separate
  * attention-item notification feed. This webui has no such feed for arbitrary ops
  * events today (DaemonReceipts is a distinct, server-buffered receipt-consumption
  * mechanism; the Fleet attention badge is derived from node state, not from an event
- * stream) — this round did not build one, per its own brief's instruction not to
+ * stream), this round did not build one, per its own brief's instruction not to
  * invent new event infrastructure.
  */
 import { MemoryStick } from 'lucide-react';

@@ -1,16 +1,16 @@
 /**
- * PermissionModeSheet — a touch-first picker for a session's permission mode.
+ * PermissionModeSheet, a touch-first picker for a session's permission mode.
  *
  * Same surface as ConfirmSheet (centered dialog on desktop, bottom sheet on a
  * phone; shares confirm-sheet.css and the focus-trap/Escape/backdrop behavior)
- * but offers a list of mode choices instead of a single confirm/cancel pair —
+ * but offers a list of mode choices instead of a single confirm/cancel pair,
  * the "existing confirm-sheet pattern" the session-view permission-mode control
  * reuses. Presentational only: the caller runs the sessions.permissionMode.set
  * mutation after onSelect fires and owns pendingMode (disables the sheet while
  * a write is in flight, matching ConfirmSheet's "caller owns the mutation"
  * contract).
  *
- * Only SETTABLE_PERMISSION_MODES render as choices — 'custom' is a read-only
+ * Only SETTABLE_PERMISSION_MODES render as choices, 'custom' is a read-only
  * wire state (a bespoke rule set), never a value `sessions.permissionMode.set`
  * accepts (lib/permission-mode.ts). If the session is currently in custom mode,
  * none of the rendered options is highlighted as current, which is honest: none
@@ -25,7 +25,7 @@ export interface PermissionModeSheetProps {
   open: boolean;
   /** '' when the current mode has not been read from the daemon yet. */
   currentMode: string;
-  /** The mode a write is currently in flight for, if any — disables the list. */
+  /** The mode a write is currently in flight for, if any, disables the list. */
   pendingMode?: string;
   onSelect: (mode: SettablePermissionMode) => void;
   onCancel: () => void;

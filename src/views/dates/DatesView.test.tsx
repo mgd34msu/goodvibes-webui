@@ -1,10 +1,10 @@
 /**
- * DatesView — the honesty contract notAvailableNote() documents (a 404/501 renders
+ * DatesView, the honesty contract notAvailableNote() documents (a 404/501 renders
  * an honest not-available note, never a fabricated empty list), the "no fourth
  * reading" for a genuinely empty read, and the one distinction docs/occasions.md
  * §4.3 draws hardest: occasions.list renders real dates (nextOccurrence/daysUntil),
  * while occasions.pending's nudge subjects render only a proximity WORD, never a
- * date — this file proves that split rather than assuming it.
+ * date, this file proves that split rather than assuming it.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -33,7 +33,7 @@ const giftsCalls: string[] = [];
 
 mock.module('../../lib/goodvibes', () => ({
   // src/lib/queries.ts (imported transitively via queryKeys) destructures these off
-  // the same module — the mock's surface must satisfy that import even though this
+  // the same module, the mock's surface must satisfy that import even though this
   // test never calls them (same gotcha CalendarView.test.tsx/MailView.test.tsx document).
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
@@ -127,7 +127,7 @@ afterEach(() => {
   giftsCalls.length = 0;
 });
 
-describe('DatesView — not-available refusal', () => {
+describe('DatesView: not-available refusal', () => {
   test('a 501 on occasions.list renders the honest not-available note, not an empty list', async () => {
     listImpl = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
@@ -137,7 +137,7 @@ describe('DatesView — not-available refusal', () => {
   });
 });
 
-describe('DatesView — populated / empty ("no fourth reading")', () => {
+describe('DatesView: populated / empty ("no fourth reading")', () => {
   test('a successful empty response renders the empty state, not a refusal note', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('No occasions yet'));
@@ -168,7 +168,7 @@ describe('DatesView — populated / empty ("no fourth reading")', () => {
     expect(el.textContent).toContain('Gift-giving');
     expect(el.textContent).toContain('Not yet answered');
     // occasions.list is the explicit-ask read that DOES return the real date
-    // (docs/occasions.md §4.3) — the formatted nextOccurrence must render.
+    // (docs/occasions.md §4.3), the formatted nextOccurrence must render.
     expect(el.textContent).toContain('March 14, 2027');
     unmount();
   });
@@ -224,7 +224,7 @@ describe('DatesView — populated / empty ("no fourth reading")', () => {
   });
 });
 
-describe('DatesView — open items never render a date for a nudge subject', () => {
+describe('DatesView: open items never render a date for a nudge subject', () => {
   test('a pending nudge renders the proximity WORD, never a raw date', async () => {
     pendingImpl = () => Promise.resolve({
       today: '2026-07-29',
@@ -240,7 +240,7 @@ describe('DatesView — open items never render a date for a nudge subject', () 
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-nudge"]')));
     expect(el.textContent).toContain('approaching');
     expect(el.textContent).toContain('Sarah’s birthday is approaching.');
-    // No ISO date or year should ever appear inside the nudge block — that is the
+    // No ISO date or year should ever appear inside the nudge block, that is the
     // one thing a nudge composition must never carry (docs/occasions.md §4.3).
     const nudge = el.querySelector('[data-testid="dates-nudge"]');
     expect(nudge?.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}/);
@@ -248,7 +248,7 @@ describe('DatesView — open items never render a date for a nudge subject', () 
   });
 });
 
-describe('DatesView — state disclosure', () => {
+describe('DatesView: state disclosure', () => {
   test('renders the machine-owned store counts', async () => {
     stateImpl = () => Promise.resolve({
       path: '/tmp/occasions-state.json', acknowledgements: 3, giftRecords: 2, openItems: 1, interviews: 0, mirrors: 0,

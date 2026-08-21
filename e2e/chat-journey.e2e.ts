@@ -1,5 +1,5 @@
 /**
- * Chat journey — the modern-chat-app core, proven end to end on BOTH the desktop and
+ * Chat journey, the modern-chat-app core, proven end to end on BOTH the desktop and
  * phone projects against a stateful hermetic mock (no real daemon, no 3421/4444).
  *
  * Covers the honest-lineage centerpiece: send a message and get a reply, auto-title the
@@ -13,7 +13,7 @@ import { installChatMockDaemon } from './support/chat-mock';
 import { expectNoHorizontalScroll } from './support/app';
 
 // A multi-line first message so the derived auto-title (first line) differs visibly from
-// the crude create-time slice — makes the auto-title observable.
+// the crude create-time slice, makes the auto-title observable.
 const FIRST_MESSAGE = 'Promises in JavaScript\nExplain how they work, including the microtask queue and async/await.';
 const DERIVED_TITLE = 'Promises in JavaScript';
 
@@ -44,7 +44,7 @@ test('send, auto-title, regenerate-with-retained-history, and edit-and-branch', 
   await page.locator('.message.assistant button[aria-label="Regenerate response"]').first().click();
   // The fresh (active) response arrives.
   await expect(page.locator('.message.assistant').first()).toContainText('Regenerated reply', { timeout: 15_000 });
-  // Exactly one active assistant bubble — the old one is not a second live bubble.
+  // Exactly one active assistant bubble, the old one is not a second live bubble.
   await expect(page.locator('.message.assistant')).toHaveCount(1);
   // The honest-lineage toggle appears; the prior response is retained behind it.
   const regenToggle = page.locator('.message-lineage__toggle', { hasText: 'Regenerated' });
@@ -69,6 +69,6 @@ test('send, auto-title, regenerate-with-retained-history, and edit-and-branch', 
   await editToggle.click();
   await expect(page.locator('.message-lineage__retained')).toContainText('Promises in JavaScript');
 
-  // The cardinal phone sin — no sideways scroll at any point.
+  // The cardinal phone sin, no sideways scroll at any point.
   await expectNoHorizontalScroll(page);
 });

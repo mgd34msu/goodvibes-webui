@@ -1,12 +1,12 @@
 /**
- * cost-source.ts — honest price provenance for cost displays, read straight
+ * cost-source.ts, honest price provenance for cost displays, read straight
  * from the wire.
  *
  * What the daemon now serves (verified against the SDK snapshot's operator
  * contract):
  *   - cost.attribution.get rows AND its aggregate carry `costSource`
  *     ('user' | 'provider' | 'catalog' | 'mixed', or absent) plus a dated
- *     `pricingAsOf` — the daemon's own pricing resolver stamps every priced
+ *     `pricingAsOf`, the daemon's own pricing resolver stamps every priced
  *     figure with whose price produced it and, where meaningful, the date that
  *     price was captured.
  *   - fleet snapshot/list nodes and attempts rows carry the same optional
@@ -16,12 +16,12 @@
  *
  * The webui no longer DERIVES provenance client-side (the earlier round read
  * the live config's manual-price table to infer "your price", and consulted
- * providers.usage.get's provider-level source for the rest, and — lacking any
- * dated field on the wire — deliberately rendered no as-of date rather than
+ * providers.usage.get's provider-level source for the rest, and, lacking any
+ * dated field on the wire, deliberately rendered no as-of date rather than
  * fabricate one). All of that is gone: the source and the date are facts on
  * the record, so these helpers only format them. Unknown/absent provenance is
- * still rendered honestly — the amount says "price unknown", the note claims
- * no source at all — never an invented label or a $0.00.
+ * still rendered honestly, the amount says "price unknown", the note claims
+ * no source at all, never an invented label or a $0.00.
  */
 
 /** The pricing provenance a priced figure carries on the wire. */
@@ -42,7 +42,7 @@ export function asWireCostSource(value: unknown): WireCostSource | undefined {
  * Format a wire `pricingAsOf` for display. The wire serves an ISO timestamp;
  * this renders the calendar date in UTC (deterministic, no locale/timezone
  * drift) as e.g. "Jul 1, 2026". A value that will not parse is passed through
- * trimmed rather than dropped — an honest date the client can't format is
+ * trimmed rather than dropped, an honest date the client can't format is
  * still more truthful than silence. Empty/absent → null.
  */
 export function formatPricingAsOf(pricingAsOf: string | null | undefined): string | null {
@@ -88,7 +88,7 @@ export function priceSourceLabel(
 
 /**
  * Dollar amount rendering shared by cost displays: real dollars where priced,
- * the explicit "price unknown" marker where not — never $0.00 for unpriced.
+ * the explicit "price unknown" marker where not, never $0.00 for unpriced.
  */
 export function costAmountLabel(costUsd: number | null | undefined, costState: string): string {
   if (costState === 'unpriced' || costUsd == null) {
@@ -111,7 +111,7 @@ export function unpricedBlindSpotLabel(pricedRecordCount: number, unpricedRecord
   if (!Number.isFinite(unpricedRecordCount) || unpricedRecordCount <= 0) return '';
   const total = unpricedRecordCount + (Number.isFinite(pricedRecordCount) ? Math.max(0, pricedRecordCount) : 0);
   if (pricedRecordCount > 0) {
-    return `${unpricedRecordCount} of ${total} records unpriced — dollars shown are a floor`;
+    return `${unpricedRecordCount} of ${total} records unpriced: dollars shown are a floor`;
   }
   return `all ${unpricedRecordCount} records unpriced`;
 }

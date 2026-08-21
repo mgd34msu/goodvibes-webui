@@ -1,13 +1,13 @@
 /**
  * The memory-provenance chip proof, end to end: the SDK's TURN_COMPLETED wire field
  * (`metadata.memory.recordIds`, packages/sdk/src/events/turn.ts's TurnCompletedMetadata,
- * stamped by the orchestrator turn loop — SDK commit 89690d07) is read by
+ * stamped by the orchestrator turn loop, SDK commit 89690d07) is read by
  * lib/memory-provenance.ts's honest-absence convention and rendered by
  * MemoryProvenanceChip.tsx, gated on the owner-ruled default-OFF
  * memoryProvenanceChipEnabled preference (lib/ui-preferences.ts).
  *
  * The mock daemon (e2e/support/chat-mock.ts) has stamped `assistantReplyMemoryRecordIds`
- * onto assistant replies since the interaction-wins round, but no spec ever exercised it —
+ * onto assistant replies since the interaction-wins round, but no spec ever exercised it,
  * this closes that gap with the real message-fetch -> chip-render path, not just the
  * chip's own unit/component tests (which only ever pass `recordIds` as a prop directly).
  */
@@ -39,7 +39,7 @@ test('a turn carrying metadata.memory.recordIds lights up the chip when the sett
 });
 
 test('the same metadata.memory.recordIds stays absent with the setting off (default)', async ({ page }) => {
-  // No preference written — DEFAULT_WEBUI_PREFERENCES.memoryProvenanceChipEnabled is false.
+  // No preference written, DEFAULT_WEBUI_PREFERENCES.memoryProvenanceChipEnabled is false.
   await installChatMockDaemon(page, { assistantReplyMemoryRecordIds: ['mem-rel-1', 'mem-rel-2'] });
 
   await page.goto('/?view=chat');
@@ -52,7 +52,7 @@ test('the same metadata.memory.recordIds stays absent with the setting off (defa
 
   await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply', { timeout: 15_000 });
 
-  // The reply's metadata carries the same real recordIds — the setting is the only
+  // The reply's metadata carries the same real recordIds, the setting is the only
   // reason the chip is absent, never a lack of data.
   await expect(page.locator('.memory-provenance-chip__toggle')).toHaveCount(0);
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * release-gate — thin invocation of @pellux/goodvibes-toolchain's
+ * release-gate, thin invocation of @pellux/goodvibes-toolchain's
  * sdk-pin-gate CLI, configured by this repo's toolchain.config.json.
  *
  * The six gates this used to implement locally (ported from
@@ -8,7 +8,7 @@
  * own exports-map addition) now live once in the shared toolchain package
  * (goodvibes-sdk/packages/toolchain/src/lib/sdk-pin-gate.ts) and are tested
  * there. This file only resolves the installed toolchain package's CLI
- * binary and execs it against this repo's cwd — no gate logic lives here.
+ * binary and execs it against this repo's cwd, no gate logic lives here.
  *
  * TOOLCHAIN-PIN: the toolchain package is currently dev-linked from a local
  * tarball (see the `@pellux/goodvibes-toolchain` entry in package.json's

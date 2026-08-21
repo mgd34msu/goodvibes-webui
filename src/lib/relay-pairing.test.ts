@@ -1,5 +1,5 @@
 /**
- * relay-pairing.ts — fragment parse/strip, decode, and local persistence.
+ * relay-pairing.ts, fragment parse/strip, decode, and local persistence.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import {
@@ -154,7 +154,7 @@ describe('local persistence', () => {
     const notice = takeRelayPairingCorruptionNotice();
     expect(notice).not.toBeNull();
     expect(notice?.text).toContain('reset');
-    // Consumed once — a second take is empty even though nothing new happened.
+    // Consumed once, a second take is empty even though nothing new happened.
     expect(takeRelayPairingCorruptionNotice()).toBeNull();
   });
 

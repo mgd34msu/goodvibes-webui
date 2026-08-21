@@ -1,16 +1,16 @@
 /**
- * rewind.ts — tolerant readers for the session rewind surface (rewind.plan / rewind.apply,
+ * rewind.ts, tolerant readers for the session rewind surface (rewind.plan / rewind.apply,
  * SDK 1.6.1). Turn anchors are derived from a session's own message list (the same
  * sessions.messages.list the detail view already loads), so a rewind targets a real turn
  * boundary the operator can recognize rather than an opaque id.
  *
- * Pure, no network — unit-testable in isolation.
+ * Pure, no network, unit-testable in isolation.
  */
 import { firstString } from './object';
 
 export interface TurnAnchor {
   readonly turnId: string;
-  /** A short, human label for the turn — the first non-empty message body in it. */
+  /** A short, human label for the turn, the first non-empty message body in it. */
   readonly label: string;
 }
 

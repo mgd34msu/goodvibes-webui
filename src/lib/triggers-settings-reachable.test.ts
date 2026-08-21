@@ -1,5 +1,5 @@
 /**
- * triggers-settings-reachable.test.ts — the `watchers.triggers.*` config keys
+ * triggers-settings-reachable.test.ts, the `watchers.triggers.*` config keys
  * are reachable and readable in the settings workspace.
  *
  * Triggers are configured entirely through config keys, so a key that exists in

@@ -14,7 +14,7 @@ interface SessionHeaderProps {
   onFinishRenamingTitle: () => void;
   onTitleKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   /**
-   * Present only when there is something to retry (turnState === 'stream paused' —
+   * Present only when there is something to retry (turnState === 'stream paused',
    * the built-in SSE reconnect exhausted its attempts and gave up for good).
    * Undefined renders the plain, unclickable badge exactly as before.
    */
@@ -62,7 +62,7 @@ export function SessionHeader({
         {visibleTurnState && (
           onRetryStream ? (
             // A hover-title on a badge is invisible on touch (F6). Pair the honest paused
-            // badge with an explicit, always-visible Retry control — a real button with a
+            // badge with an explicit, always-visible Retry control, a real button with a
             // ≥44px hit target on coarse pointers.
             <span className="chat-status__paused">
               <StatusBadge value={turnState} />
@@ -71,7 +71,7 @@ export function SessionHeader({
                 className="chat-status__retry"
                 onClick={onRetryStream}
                 aria-label="Retry the live stream"
-                title="Live updates are off — retry the stream"
+                title="Live updates are off, retry the stream"
               >
                 <RefreshCw size={13} aria-hidden="true" />
                 Retry

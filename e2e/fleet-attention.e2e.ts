@@ -1,11 +1,11 @@
 /**
- * Fleet attention + live subscription — proves the consumer-side attention work
+ * Fleet attention + live subscription, proves the consumer-side attention work
  * against the hermetic mock daemon:
  *
  *   - a node the daemon flagged as needsAttention shows a distinct badge, floats to
  *     the top of its sibling group, and drives a count badge on the Fleet nav entry;
  *   - 'pick' and 'conflict' (SDK 1.8.0) are the SAME waiting-on-human class as
- *     approval/input — each shows its own reason-specific badge text and is counted
+ *     approval/input, each shows its own reason-specific badge text and is counted
  *     by the exact same nav badge, with no separate code path;
  *   - a needs-input push deep link (?view=fleet#fleet-node=…&fleet-session=…) opens
  *     the Fleet view focused on that node;
@@ -27,13 +27,13 @@ import {
 
 test('the Fleet nav entry shows an attention count badge for every blocked node, any reason', async ({ page }) => {
   await installMockDaemon(page);
-  // Start on another view — the badge is derived app-wide, not only on the Fleet view.
+  // Start on another view, the badge is derived app-wide, not only on the Fleet view.
   await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
   // Three seeded nodes need attention (FLEET_BLOCKED_NODE 'input', FLEET_PICK_NODE
   // 'pick', FLEET_CONFLICT_NODE 'conflict') → count of 3, named in the nav entry's
   // accessible label and shown as a small badge on the icon. The count is reason-
-  // agnostic — it never special-cases which of the four reasons a node carries.
+  // agnostic, it never special-cases which of the four reasons a node carries.
   await expect(page.getByRole('button', { name: /Fleet, 3 need attention/ })).toBeVisible();
   await expect(page.locator('.nav-item .nav-attention-badge')).toHaveText('3');
 });
@@ -49,7 +49,7 @@ test('the blocked node shows a distinct attention badge and floats to the top of
   const attention = page.locator('.fleet-row .badge.attention').first();
   await expect(attention).toHaveText('Needs input');
   await expect(attention).toHaveAttribute('data-attention-reason', 'input');
-  // The other seeded nodes still render — nothing is dropped.
+  // The other seeded nodes still render, nothing is dropped.
   await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
   await expect(page.locator('.fleet-row', { hasText: FLEET_WATCHER_NODE.label })).toBeVisible();
 });
@@ -92,7 +92,7 @@ test('a fleet event over the subscription adds the announced node to the tree', 
   await expect(page.locator('.app-shell')).toBeVisible();
   // The baseline seeded node is there immediately.
   await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
-  // The event-announced node is NOT in the baseline snapshot — it appears only
+  // The event-announced node is NOT in the baseline snapshot, it appears only
   // because the fleet frame invalidated the snapshot and the refetch surfaced it.
   await expect(page.locator('.fleet-row', { hasText: FLEET_EVENT_NODE.label })).toBeVisible();
 });

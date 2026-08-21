@@ -1,12 +1,12 @@
 /**
  * Pairing tokens settings/security surface (pairing.tokens.*, SDK 1.8.0):
  * list/rename/revoke per device, the migrate-this-browser affordance, and the
- * revoke-shared-token action — each destructive step gated by the real
+ * revoke-shared-token action, each destructive step gated by the real
  * ConfirmSheet with a plain-language consequence, never a bare click-to-destroy.
  *
  * The cross-device revoke proof uses TWO Playwright contexts sharing one
- * MockPairingStore (support/mock-daemon.ts) — standing in for the operator's
- * own browser and a second paired device — so revoking the device's token from
+ * MockPairingStore (support/mock-daemon.ts), standing in for the operator's
+ * own browser and a second paired device, so revoking the device's token from
  * the operator's session is checked against a REAL 401 on the device's own
  * next authenticated request, not just a UI state change.
  */
@@ -27,8 +27,8 @@ async function openPairingSettings(page: import('@playwright/test').Page): Promi
 /**
  * The paired-devices panel itself. Device names are asserted inside it rather
  * than across the whole page: a device may be named after a thing the app also
- * names elsewhere — "Phone" is both a plausible device name and the navigation
- * entry for the phone node view — and a page-wide text match would then be
+ * names elsewhere, "Phone" is both a plausible device name and the navigation
+ * entry for the phone node view, and a page-wide text match would then be
  * ambiguous, or worse, satisfied by the navigation while the list is empty.
  */
 function pairingPanel(page: import('@playwright/test').Page) {
@@ -95,7 +95,7 @@ test('revoking one device 401s it while the current session (a different token) 
   await page.locator('.confirm-sheet__confirm').click();
   await expect(pairingPanel(page).getByText('Phone', { exact: true })).toHaveCount(0);
 
-  // The phone's own token is now revoked — its next authenticated call 401s.
+  // The phone's own token is now revoked, its next authenticated call 401s.
   const status = await phonePage.evaluate(async () => {
     const res = await fetch('/api/control-plane/auth', { headers: { Authorization: 'Bearer e2e-phone-token' } });
     return res.status;

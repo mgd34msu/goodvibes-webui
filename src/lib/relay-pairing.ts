@@ -1,23 +1,23 @@
 /**
- * relay-pairing.ts — store and read a relay pairing payload for this device.
+ * relay-pairing.ts, store and read a relay pairing payload for this device.
  *
  * A relay pairing is different from the existing operator-token pairing
  * (see pairing.ts / usePairingHandoff.ts): it carries no identity/auth material at
- * all. It is transport-level bootstrap — a relay URL, an unguessable rendezvous id,
+ * all. It is transport-level bootstrap, a relay URL, an unguessable rendezvous id,
  * and the daemon's pinned public key (@pellux/goodvibes-transport-core/relay's
- * `RelayPairingPayload`) — that lets this browser reach the daemon through the
+ * `RelayPairingPayload`), that lets this browser reach the daemon through the
  * zero-knowledge relay when it cannot reach it directly (off the LAN). The daemon
  * mints this payload and shows it as a QR; scanning it with the device camera opens
  * a link back to this app carrying the encoded payload in the URL FRAGMENT, exactly
  * like the token pairing flow, and for the same reason: a `#`-fragment is never sent
  * to a server, so the payload never lands in an access log or a Referer header. The
- * relay docs call the payload itself "treat it like a credential" — whoever holds a
- * valid one can reach the daemon through the relay — so it is stored locally, not
+ * relay docs call the payload itself "treat it like a credential", whoever holds a
+ * valid one can reach the daemon through the relay, so it is stored locally, not
  * transmitted anywhere else, and can be cleared like a token.
  *
  * Once stored, the SDK client construction (lib/goodvibes.ts / lib/relay-connection.ts)
  * picks it up and uses it to build a relay-backed `fetch` for whenever the direct
- * connection is unreachable — see relay-connection.ts's routedFetch.
+ * connection is unreachable, see relay-connection.ts's routedFetch.
  *
  * Still auth-separate: a relay pairing gets you a TRANSPORT to the daemon, not a
  * signed-in session. The operator token pairing/paste flow still applies on top.
@@ -69,14 +69,14 @@ export function stripRelayPairingFragment(): void {
 
 /**
  * Decode a scanned/pasted relay pairing string (the `gvrelay1.…` code) into a
- * payload. Throws the SDK's own GoodVibesSdkError on malformed input — callers
+ * payload. Throws the SDK's own GoodVibesSdkError on malformed input, callers
  * render that with formatError, same as any other honest rejection.
  */
 export function decodeRelayPairingCode(code: string): RelayPairingPayload {
   return decodeRelayPairingString(code.trim());
 }
 
-/** Re-export for symmetry — callers that already have a payload object (not a string). */
+/** Re-export for symmetry, callers that already have a payload object (not a string). */
 export { encodeRelayPairingString };
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ function hasStorage(): boolean {
 
 /**
  * A locally-detected notice (corrupt stored data, not a daemon-origin one), consumed
- * once — surfaced through the SAME one-line dismissible notice component
+ * once, surfaced through the SAME one-line dismissible notice component
  * DaemonReceipts.tsx already renders for the daemon's own receipts
  * (useDaemonReceipts.ts merges this in), since both are the same kind of thing to an
  * operator: a plain line about something that happened, with a dismiss button.
@@ -118,7 +118,7 @@ export function getStoredRelayPairing(): RelayPairingPayload | null {
       || typeof (parsed as Record<string, unknown>).rid !== 'string'
       || typeof (parsed as Record<string, unknown>).daemonPublicKey !== 'string'
     ) {
-      console.warn('[relay-pairing] stored relay pairing record has an unrecognized shape — discarding it and treating this device as unpaired.');
+      console.warn('[relay-pairing] stored relay pairing record has an unrecognized shape, discarding it and treating this device as unpaired.');
       window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);
       corruptionNotice = {
         id: `relay-pairing-corrupt-${Date.now()}`,
@@ -129,12 +129,12 @@ export function getStoredRelayPairing(): RelayPairingPayload | null {
     }
     return parsed as RelayPairingPayload;
   } catch (error) {
-    console.warn('[relay-pairing] stored relay pairing record failed to parse — discarding it and treating this device as unpaired.', error);
+    console.warn('[relay-pairing] stored relay pairing record failed to parse, discarding it and treating this device as unpaired.', error);
     try {
       window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);
     } catch {
       // Storage already unusable (e.g. this catch fired because of a storage-access
-      // failure, not a parse failure) — nothing more can be done here.
+      // failure, not a parse failure), nothing more can be done here.
     }
     corruptionNotice = {
       id: `relay-pairing-corrupt-${Date.now()}`,
@@ -151,7 +151,7 @@ export function storeRelayPairing(payload: RelayPairingPayload): void {
   window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, JSON.stringify(payload));
 }
 
-/** Clear the stored relay pairing — this device no longer has a relay route to any daemon. */
+/** Clear the stored relay pairing, this device no longer has a relay route to any daemon. */
 export function clearStoredRelayPairing(): void {
   if (!hasStorage()) return;
   window.localStorage.removeItem(RELAY_PAIRING_STORAGE_KEY);

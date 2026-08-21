@@ -92,10 +92,10 @@ export function isSessionClosedError(error: unknown): boolean {
 
 /**
  * True for the daemon's 409 SESSION_ACTIVE rejection (deleting a shared/companion
- * session that is still active — the delete verb requires close-first). The wire
+ * session that is still active, the delete verb requires close-first). The wire
  * contract is `code: 'SESSION_ACTIVE'` (companion-chat-manager.ts / session-broker.ts /
  * runtime-session-lifecycle-routes.ts); the message fallback covers the
- * "Session is active — close it, then delete." text some paths throw before the code
+ * "Session is active, close it, then delete." text some paths throw before the code
  * is attached.
  */
 export function isSessionActiveError(error: unknown): boolean {
@@ -113,11 +113,11 @@ export function isSessionActiveError(error: unknown): boolean {
 
 /**
  * True for the daemon's honest 404 SESSION_NOT_LOCAL refusal (sessions.permissionMode.get/
- * set, sessions.contextUsage.get — routes/session-runtime.ts) — the session id a caller
+ * set, sessions.contextUsage.get, routes/session-runtime.ts), the session id a caller
  * asked about is real, but it is not the daemon's OWN live local runtime, so the daemon
  * cannot answer the mode/usage question truthfully. Distinct from `isSessionNotFoundError`
  * (the session does not exist at all) and from `isMethodUnavailableError` (the verb itself
- * is unregistered) — this is "the verb exists and the session exists, but this daemon isn't
+ * is unregistered), this is "the verb exists and the session exists, but this daemon isn't
  * the one hosting it." Code-first, message-fallback, same pattern as the other daemon-code
  * checks above.
  */
@@ -135,20 +135,20 @@ export function isSessionNotLocalError(error: unknown): boolean {
 }
 
 /**
- * True when a gateway method id is not registered on the connected daemon at all — the
+ * True when a gateway method id is not registered on the connected daemon at all, the
  * honest "capability not available yet" signal (as opposed to a normal 404 on a known
  * resource, e.g. SESSION_NOT_FOUND).
  *
  * Since the 1.0.0 delete-means-delete change, the daemon carries a machine
  * `code: 'METHOD_NOT_FOUND'` on this 404
- * (SDKErrorCodes.METHOD_NOT_FOUND — daemon-sdk's control-routes.ts getGatewayMethod /
+ * (SDKErrorCodes.METHOD_NOT_FOUND, daemon-sdk's control-routes.ts getGatewayMethod /
  * invokeGatewayMethod, and the SDK's own invokeGatewayMethodCall /
  * GatewayMethodCatalog.invoke()), so this checks the CODE first, the same code-first
  * pattern as `isSessionClosedError`/`isSessionActiveError` above. The message-sniff
  * (`'unknown gateway method'`, still the wire shape's human text either way) stays as
  * a fallback so this keeps working unchanged against an un-upgraded daemon (npm 0.38
  * and earlier) that predates the code and only ever sent
- * `{error: 'Unknown gateway method'}` with no `code` field — verified live against a
+ * `{error: 'Unknown gateway method'}` with no `code` field, verified live against a
  * bootDaemon instance calling GET /api/control-plane/methods/{methodId} and POST
  * /api/control-plane/methods/{methodId}/invoke for an id the daemon build has never
  * heard of. Used to distinguish "this daemon doesn't serve this verb yet" (render an
@@ -156,7 +156,7 @@ export function isSessionNotLocalError(error: unknown): boolean {
  * a genuine server error.
  */
 /**
- * The benign refusal from companion.chat.turns.cancel: no turn was in flight —
+ * The benign refusal from companion.chat.turns.cancel: no turn was in flight,
  * it finished naturally before the stop landed. Rendered quietly, never as an
  * error (the daemon promises the machine code, not message text).
  */
@@ -166,7 +166,7 @@ export function isNoActiveTurnError(error: unknown): boolean {
 
 /**
  * True for the daemon's honest 409 CONFLICT rejection. Two review-cockpit surfaces
- * raise it, both meaning "nothing was written — re-read and retry", never a partial apply:
+ * raise it, both meaning "nothing was written, re-read and retry", never a partial apply:
  *   - checkpoints.revertHunk, when the hunk no longer reverse-applies cleanly because the
  *     file drifted since the diff was captured (control-plane/routes/checkpoints.ts throws
  *     GatewayVerbError(..., 'CONFLICT', 409));
@@ -186,10 +186,10 @@ export function isConflictError(error: unknown): boolean {
  * True for the daemon's honest 501 refusal on memory.consolidation.receipts when this
  * runtime has no consolidation scheduler wired at all (method-catalog-runtime.ts's
  * own description: "a runtime without the consolidation scheduler answers an honest
- * 501") — distinct from `isMethodUnavailableError`'s 404 (the verb id itself is
+ * 501"), distinct from `isMethodUnavailableError`'s 404 (the verb id itself is
  * unregistered on an older daemon build): here the verb IS registered, but this
  * daemon build genuinely never runs the scheduler. Status-only, same pattern as
- * `isConflictError` — no machine `code` is documented for this refusal.
+ * `isConflictError`, no machine `code` is documented for this refusal.
  */
 export function isConsolidationUnavailableError(error: unknown): boolean {
   const serialized = serializeError(error);
@@ -214,7 +214,7 @@ export function isMethodUnavailableError(error: unknown): boolean {
 }
 
 /**
- * True when a thrown request error never reached the daemon — a network/connection
+ * True when a thrown request error never reached the daemon, a network/connection
  * failure rather than an HTTP rejection. The SDK transport tags these with
  * `category: 'network'` and `transport.status: 0` (createNetworkTransportError), and the
  * webui's own requestJson leaves `status` unset when fetch throws. This is what lets the
@@ -232,7 +232,7 @@ export function isDaemonUnreachableError(error: unknown): boolean {
 }
 
 /**
- * True for a 401 / `category: 'authentication'` rejection — a token that was valid
+ * True for a 401 / `category: 'authentication'` rejection, a token that was valid
  * when the request/stream opened but has since expired or been revoked. Distinct from
  * `isDaemonUnreachableError` (network/status-0, daemon unreachable): this is a genuine
  * "the daemon is answering and says you are no longer authenticated" signal, the one
@@ -249,11 +249,11 @@ export function isAuthExpiredError(error: unknown): boolean {
 }
 
 /**
- * True for the daemon's honest 412 refusals on the calendar surface —
+ * True for the daemon's honest 412 refusals on the calendar surface,
  * CALENDAR_NOT_CONFIGURED (no CalDAV URL/user set: `surfaces.calendar.caldavUrl` /
  * `surfaces.calendar.caldavUser`) or CALENDAR_CREDENTIALS_MISSING (the CalDAV
  * password is not in the credential store). Both mean the operator has not yet
- * brought their own CalDAV endpoint — a self-hosted-calendar analogue of an
+ * brought their own CalDAV endpoint, a self-hosted-calendar analogue of an
  * unconfigured provider, not a fault. Distinguished from a genuine error so the
  * calendar view can point at setup instead of rendering a scary failure.
  */
@@ -263,7 +263,7 @@ export function isCalendarUnconfiguredError(error: unknown): boolean {
 }
 
 /**
- * True for the daemon's CALENDAR_AUTH_FAILED code — the configured CalDAV
+ * True for the daemon's CALENDAR_AUTH_FAILED code, the configured CalDAV
  * endpoint rejected the stored credentials (401/403 from the CalDAV server
  * itself). Distinct from `isCalendarUnconfiguredError`: here the operator DID
  * configure a CalDAV endpoint, but the credentials it holds no longer work.
@@ -274,11 +274,11 @@ export function isCalendarAuthFailedError(error: unknown): boolean {
 
 /**
  * True for a 501 "Gateway method is cataloged but not invokable through method
- * dispatch" refusal (control-plane.ts) — a method the daemon's contract knows
+ * dispatch" refusal (control-plane.ts), a method the daemon's contract knows
  * about but has no live handler wired for on this build. Distinct from
  * `isMethodUnavailableError` (404, the daemon has never heard of the id at
  * all): 501 means the id IS in the catalog, just not wired to a handler yet.
- * Calendar is the first surface where this matters — the SDK ships the
+ * Calendar is the first surface where this matters, the SDK ships the
  * `calendar.*` contract with `invokable: false` by default; a daemon build
  * that has not registered a real CalDAV handler answers this way.
  */
@@ -290,15 +290,15 @@ export function isMethodNotInvokableError(error: unknown): boolean {
 }
 
 /**
- * True for the daemon's honest refusals on the email surface — the operator has an
+ * True for the daemon's honest refusals on the email surface, the operator has an
  * account to bring but has not brought it yet (no IMAP host / SMTP host / account
  * address / app password in daemon config and the daemon secret tier).
  *
  * GROUNDING NOTE, deliberately explicit because it differs from most helpers here:
  * the installed SDK defines no EMAIL_, IMAP_ or SMTP_ prefixed error-code literals at
- * all (verified by sweeping @pellux/goodvibes-sdk/dist — only the three
+ * all (verified by sweeping @pellux/goodvibes-sdk/dist, only the three
  * EMAIL_..._SCHEMA shape names appear). The named codes below are ANTICIPATED, as
- * `isCalendarUnconfiguredError`'s CALENDAR_NOT_CONFIGURED is anticipated — that
+ * `isCalendarUnconfiguredError`'s CALENDAR_NOT_CONFIGURED is anticipated, that
  * literal is likewise absent from the SDK. So correctness here does not rest on
  * guessing a string right: the structural backstop is HTTP 412, which is what a
  * precondition refusal ("configure the surface first") is by definition. Any 412 on
@@ -324,7 +324,7 @@ export function isEmailUnconfiguredError(error: unknown): boolean {
 
 /**
  * True when the operator DID configure a mail account but the IMAP/SMTP server
- * rejected the stored credentials — the app password was revoked, or the account
+ * rejected the stored credentials, the app password was revoked, or the account
  * moved. Distinct from `isEmailUnconfiguredError`: there is something to fix, not
  * something to set up. Same anticipated-literal caveat as above; here the structural
  * backstop is deliberately NOT a bare status check, because 401 on an email call is
@@ -338,13 +338,13 @@ export function isEmailAuthFailedError(error: unknown): boolean {
 
 /**
  * True for the daemon's step-up refusal on a mutating call that arrived over the relay
- * (evaluateStepUp in @pellux/goodvibes-sdk's relay step-up policy — a fail-closed hook:
+ * (evaluateStepUp in @pellux/goodvibes-sdk's relay step-up policy, a fail-closed hook:
  * consumers wire a real WebAuthn verifier, and until one is wired every mutating relay
  * call is refused rather than silently allowed through). Two distinct codes, both a
  * genuine policy refusal rather than a fault:
- *   - `step-up-required` — a fresh assertion is required and none/an invalid one was
+ *   - `step-up-required`, a fresh assertion is required and none/an invalid one was
  *     presented.
- *   - `step-up-verifier-unavailable` — the daemon has no verifier wired at all, so the
+ *   - `step-up-verifier-unavailable`, the daemon has no verifier wired at all, so the
  *     policy fails closed unconditionally.
  * The webui has no WebAuthn ceremony implemented (a further deferral of its own), so
  * either code always means: render the honest refusal with its reason, never retry

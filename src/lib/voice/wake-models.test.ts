@@ -1,9 +1,9 @@
 /**
- * wake-models.ts — the chunked, checksum-verified model read.
+ * wake-models.ts, the chunked, checksum-verified model read.
  *
  * The failure this file is mostly about is the quiet one: bytes that assemble into
  * something that is NOT the pinned model still load into an inference session, and
- * then the detector simply never fires. So the mismatch case is asserted twice over —
+ * then the detector simply never fires. So the mismatch case is asserted twice over,
  * it throws, and nothing downstream is handed any bytes at all.
  */
 import { describe, expect, test } from 'bun:test';
@@ -153,7 +153,7 @@ describe('a multi-chunk download reassembles byte-exactly', () => {
 describe('verification refuses bytes that are not the pinned model', () => {
   test('a sha256 mismatch throws checksum-mismatch and returns no bytes', async () => {
     const bytes = fakeModelBytes(CHUNK + 10);
-    // The daemon states a pin the assembled bytes do not match — a torn file, a
+    // The daemon states a pin the assembled bytes do not match, a torn file, a
     // swapped asset, or a chunk that arrived from a different provision.
     const server = chunkServer(bytes, 'f'.repeat(64));
 
@@ -255,7 +255,7 @@ describe('the cache', () => {
     const hit = await loadWakeModel('classifier', { readChunk: second.readChunk, cache, modelVersion: 'v1' });
     expect(hit.fromCache).toBe(true);
     expect([...hit.bytes]).toEqual([...bytes]);
-    // One read only — the first chunk, which is what states the pin the cache key
+    // One read only, the first chunk, which is what states the pin the cache key
     // needs. The remaining megabytes were not fetched again.
     expect(second.calls).toHaveLength(1);
   });

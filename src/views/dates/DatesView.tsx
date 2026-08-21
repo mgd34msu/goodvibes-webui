@@ -1,32 +1,32 @@
 /**
- * DatesView — the occasions/plans dates panel, over the daemon's sixteen
+ * DatesView, the occasions/plans dates panel, over the daemon's sixteen
  * `occasions.*` verbs (docs/occasions.md). Follows the same shape MailView and
  * CalendarView established: this surface renders what the read verbs return and
  * calls the write verbs for the actions they support; nothing here computes a
- * proximity word, a lead-time adjustment, a nudge cadence, or a nudge date — every
+ * proximity word, a lead-time adjustment, a nudge cadence, or a nudge date, every
  * one of those stays server-side (docs/occasions.md §7's governing line: a consumer
  * that computed anything beyond calling these verbs and rendering the answers would
  * be a second implementation of a rule that lives in the daemon).
  *
  * PULL-ONLY, NOT A NUDGE CHANNEL: the daemon pushes occasion/plan nudges to
- * Telegram and the agent, never the TUI (docs/occasions.md §4.2 — "that's more of a
+ * Telegram and the agent, never the TUI (docs/occasions.md §4.2, "that's more of a
  * 'get work done' kind of interface", a ruling that generalises beyond occasions).
- * This webui panel is the same kind of interface, so it never originates a push —
+ * This webui panel is the same kind of interface, so it never originates a push,
  * it only reads what's outstanding (`occasions.pending`) and lets the operator act
  * on it (answer / resolve a conflict / continue an interview), which is a pull, not
  * a nudge.
  *
  * DATES: occasions.list is the one read verb that returns real dates
- * (`nextOccurrence`, `daysUntil`) — docs/occasions.md §4.3 draws this exactly:
+ * (`nextOccurrence`, `daysUntil`), docs/occasions.md §4.3 draws this exactly:
  * a nudge never carries the date, but "occasions.list does return the dates,
- * because that is him asking his own system over an authenticated verb — the
+ * because that is him asking his own system over an authenticated verb, the
  * explicit ask that unlocks a closed-tier read." occasions.pending's nudge
- * subjects carry only `proximity` (a word), never a date — this view renders
+ * subjects carry only `proximity` (a word), never a date, this view renders
  * that distinction verbatim rather than flattening both to "the date".
  *
  * HONESTY: occasions.* is a brand-new verb family (this SDK release) that may not
  * be wired on every daemon build yet, same situation calendar.* and email.* were in
- * when they first landed — every read here treats a 404/501 as the honest
+ * when they first landed, every read here treats a 404/501 as the honest
  * not-available state (EmptyState with a pointer), never a fabricated empty list.
  * The e2e mock daemon answers an unrecognised invoke id with `{}`, so every render
  * path below optional-chains into query results rather than assuming a shape.
@@ -58,7 +58,7 @@ import { useToast } from '../../lib/toast';
 import { DatesGiftHistoryPeekBody } from './DatesGiftHistoryPeek';
 import '../../styles/components/dates.css';
 
-/** The utterance a manual dates-panel capture carries — same role
+/** The utterance a manual dates-panel capture carries, same role
  * owner-profile.ts's SETTINGS_EDIT_UTTERANCE plays for a settings edit: a plain
  * statement of where the fact came from, honest for THIS surface only (the operator
  * typing directly into the panel), never hardcoded by a caller that could be
@@ -117,7 +117,7 @@ function proximityTone(proximity: 'approaching' | 'imminent' | 'soon'): string {
   return 'neutral';
 }
 
-/** `daysUntil` is the one place this view renders a real date-derived number — the
+/** `daysUntil` is the one place this view renders a real date-derived number, the
  * verb it comes from (occasions.list) is the explicit-ask read docs/occasions.md
  * §4.3 carves out, not the nudge path that never carries one. */
 function daysUntilLabel(daysUntil: number | null): string {
@@ -134,9 +134,9 @@ function formatDateOnly(iso: string | null): string {
   return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-/** Shared between occasions.list.unparsed and occasions.plans.list.unparsed — both
+/** Shared between occasions.list.unparsed and occasions.plans.list.unparsed, both
  * carry the exact same {lineIndex, text, reason} shape (the profile grammar never
- * rewrites a line it cannot parse; it reports why instead — docs/occasions.md §3.1). */
+ * rewrites a line it cannot parse; it reports why instead, docs/occasions.md §3.1). */
 function UnparsedLinesNote({ items }: { items: readonly UnparsedLine[] }) {
   if (items.length === 0) return null;
   return (
@@ -147,7 +147,7 @@ function UnparsedLinesNote({ items }: { items: readonly UnparsedLine[] }) {
       <ul>
         {items.map((item) => (
           <li key={item.lineIndex}>
-            <code>{item.text}</code> — {item.reason}
+            <code>{item.text}</code>: {item.reason}
           </li>
         ))}
       </ul>
@@ -205,7 +205,7 @@ export function DatesView() {
       }
       toast({
         title: 'Answer recorded',
-        description: result.interview ? 'A short gift interview opened — continue it in Open items below.' : undefined,
+        description: result.interview ? 'A short gift interview opened: continue it in Open items below.' : undefined,
         tone: 'success',
       });
     },
@@ -351,7 +351,7 @@ export function DatesView() {
   });
 
   function openGiftHistory(occasionId: string, title: string): void {
-    peek.open({ title: `Gift history — ${title}`, content: <DatesGiftHistoryPeekBody occasionId={occasionId} /> });
+    peek.open({ title: `Gift history: ${title}`, content: <DatesGiftHistoryPeekBody occasionId={occasionId} /> });
   }
 
   function submitOccasionProposal(event: SyntheticEvent<HTMLFormElement>): void {
@@ -556,7 +556,7 @@ export function DatesView() {
               {plans.data?.awayNow ? (
                 <div className="dates-note dates-note--away" role="status">
                   <Plane size={14} aria-hidden="true" /> Away now: {plans.data.awayNow.title}
-                  {plans.data.awayNow.destination ? ` — ${plans.data.awayNow.destination}` : ''} (through {formatDateOnly(plans.data.awayNow.to)})
+                  {plans.data.awayNow.destination ? `, ${plans.data.awayNow.destination}` : ''} (through {formatDateOnly(plans.data.awayNow.to)})
                 </div>
               ) : null}
               {planEntries.length === 0 ? (
@@ -717,7 +717,7 @@ export function DatesView() {
                 <ul className="dates-interview-list" data-testid="dates-interview-list">
                   {interviews.map((interview) => (
                     <li key={interview.interviewId} className="dates-interview">
-                      <p className="dates-interview__title">Gift interview — {interview.occasionId}</p>
+                      <p className="dates-interview__title">Gift interview: {interview.occasionId}</p>
                       {interview.complete ? (
                         <div className="dates-interview__record">
                           <label>
@@ -808,7 +808,7 @@ export function DatesView() {
               </dl>
               {state.data?.lastSweep ? (
                 <p className="dates-state__last-sweep">
-                  Last swept {formatRelative(state.data.lastSweep.sweptAt)} — expired {state.data.lastSweep.expiredAcknowledgements} acknowledgement(s),
+                  Last swept {formatRelative(state.data.lastSweep.sweptAt)}, expired {state.data.lastSweep.expiredAcknowledgements} acknowledgement(s),
                   reaped {state.data.lastSweep.orphanedRecords} orphaned record(s), expired {state.data.lastSweep.expiredOpenItems} open item(s),
                   aged out {state.data.lastSweep.agedGiftRecords} gift record(s), dropped {state.data.lastSweep.droppedInterviews} interview(s),
                   cleared {state.data.lastSweep.staleMirrors} stale mirror(s).

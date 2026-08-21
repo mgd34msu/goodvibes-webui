@@ -10,7 +10,7 @@ const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const immediateSleep = () => Promise.resolve();
 const bytes = (text: string): ArrayBuffer => new TextEncoder().encode(text).buffer as ArrayBuffer;
 
-describe('coalesceForSpeech — fewest requests', () => {
+describe('coalesceForSpeech: fewest requests', () => {
   test('empty / whitespace text yields no segments', () => {
     expect(coalesceForSpeech('')).toEqual([]);
     expect(coalesceForSpeech('   \n  ')).toEqual([]);
@@ -50,7 +50,7 @@ describe('isTransientTtsError', () => {
   });
 });
 
-describe('scheduleTtsRequests — bounded policy', () => {
+describe('scheduleTtsRequests: bounded policy', () => {
   test('all segments succeed and resolve IN ORDER with audio', async () => {
     const segments = ['a', 'b', 'c'];
     const run = scheduleTtsRequests(segments, (text) => Promise.resolve(bytes(text)), {
@@ -62,7 +62,7 @@ describe('scheduleTtsRequests — bounded policy', () => {
     expect(results.every((r) => r.attempts === 1)).toBe(true);
   });
 
-  test('caps concurrency at 2 — never more than two synth calls in flight', async () => {
+  test('caps concurrency at 2: never more than two synth calls in flight', async () => {
     let active = 0;
     let peak = 0;
     const releases: (() => void)[] = [];

@@ -1,5 +1,5 @@
 /**
- * push-client.ts — the browser half of Web Push.
+ * push-client.ts, the browser half of Web Push.
  *
  * Ties the browser's PushManager to the daemon's push.* verbs (via the
  * src/lib/goodvibes.ts facade): read the public VAPID key, subscribe this
@@ -8,7 +8,7 @@
  * only long enough to hand to push.subscriptions.create; the daemon stores them
  * and never hands them back (it returns the redacted view).
  *
- * Every failure is a named PushSubscribeError.reason, never a silent false —
+ * Every failure is a named PushSubscribeError.reason, never a silent false,
  * the settings UI renders each one honestly (insecure context → the HTTPS
  * pointer; denied → how to re-enable in browser settings; unsupported → plain).
  */
@@ -35,7 +35,7 @@ export class PushSubscribeError extends Error {
 }
 
 /**
- * Plain-language message for a push-subscription failure — shared by
+ * Plain-language message for a push-subscription failure, shared by
  * NotificationSettings (the settings toggle) and PairingHandoffOffers (the
  * hand-off bundle's notifications offer), so the same failure reads the same
  * way regardless of which surface triggered it.
@@ -44,7 +44,7 @@ export function describePushSubscribeError(error: unknown): string {
   if (error instanceof PushSubscribeError) {
     switch (error.reason) {
       case 'insecure-context':
-        return 'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home machine, `tailscale serve` fronts the daemon with an HTTPS hostname.';
+        return 'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS, for a home machine, `tailscale serve` fronts the daemon with an HTTPS hostname.';
       case 'permission-denied':
         return 'Notifications are blocked for this site. Re-enable them in your browser’s site settings, then try again.';
       case 'unsupported':
@@ -66,7 +66,7 @@ export interface PushSubscriptionPayload {
 
 // The redacted daemon-side subscription id this device registered, kept so
 // unsubscribe removes exactly this device's record (never every device the
-// operator has — push.subscriptions.list is scoped to all of their devices).
+// operator has, push.subscriptions.list is scoped to all of their devices).
 const STORE_KEY = 'goodvibes.webui.push.subscriptionId';
 
 function rememberSubscriptionId(id: string): void {
@@ -92,7 +92,7 @@ function forgetSubscriptionId(): void {
 }
 
 // A stable per-install device identity (SDK 1.8.0's deviceId), so a browser
-// whose push endpoint rotates presents the SAME identity with a NEW endpoint —
+// whose push endpoint rotates presents the SAME identity with a NEW endpoint,
 // the daemon heals its one record in place (push.subscriptions.reconcile)
 // instead of accumulating a stale duplicate. Generated once and persisted;
 // unlike STORE_KEY (the daemon-assigned record id) this is minted client-side
@@ -118,9 +118,9 @@ export function ensureDeviceId(): string {
 }
 
 /**
- * Base64url-encode raw digest bytes — no padding, `+`/`/` swapped for `-`/`_`.
+ * Base64url-encode raw digest bytes, no padding, `+`/`/` swapped for `-`/`_`.
  * Matches Node's `Buffer.from(digest).toString('base64url')`, which is how the
- * daemon computes `endpointHash` (subscription-store.ts) — this must produce
+ * daemon computes `endpointHash` (subscription-store.ts), this must produce
  * byte-identical output or every comparison would report false drift.
  */
 function base64UrlFromDigest(digest: ArrayBuffer): string {
@@ -132,7 +132,7 @@ function base64UrlFromDigest(digest: ArrayBuffer): string {
 
 /**
  * The short, stable hash a client computes over its OWN live endpoint to
- * compare against the daemon's redacted `endpointHash` — reproduces
+ * compare against the daemon's redacted `endpointHash`, reproduces
  * subscription-store.ts's `endpointHash()` (sha256, base64url, first 16 chars)
  * exactly, so a match here means the daemon's record is genuinely current, not
  * an artifact of a different hashing scheme.
@@ -180,7 +180,7 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 /**
  * Prompt for notification permission if needed, then create (or reuse) a
  * PushManager subscription against the daemon's VAPID key and return the
- * extracted endpoint/keys. Pure browser-side work — does NOT register
+ * extracted endpoint/keys. Pure browser-side work, does NOT register
  * anything with the daemon; callers decide how (subscribeToPush registers via
  * push.subscriptions.create, the pairing hand-off flow hands the same payload
  * to pairing.handoff.complete's notifications accept instead).
@@ -237,7 +237,7 @@ export async function subscribeToPush(): Promise<PublicPushSubscription> {
 /**
  * Unsubscribe this device: drop the browser PushManager subscription and remove
  * exactly this device's daemon-side record (by the id remembered at subscribe
- * time). Idempotent — safe to call when already unsubscribed.
+ * time). Idempotent, safe to call when already unsubscribed.
  */
 export async function unsubscribeFromPush(): Promise<void> {
   const storedId = recallSubscriptionId();
@@ -259,7 +259,7 @@ export async function unsubscribeFromPush(): Promise<void> {
 
 /** The outcome of a reconcile-on-open pass, for a caller that wants to react to it (e.g. a debug log). */
 export interface PushReconcileOnOpenOutcome {
-  /** 'not-subscribed' when this browser holds no live PushManager subscription at all — not an error. */
+  /** 'not-subscribed' when this browser holds no live PushManager subscription at all, not an error. */
   readonly drift: PushReconcileDrift | 'not-subscribed';
   readonly subscription: PublicPushSubscription | null;
 }
@@ -269,22 +269,22 @@ export interface PushReconcileOnOpenOutcome {
  * usePushSubscriptionReconcile). Compares this browser's LIVE PushManager
  * subscription against the daemon's served record for this device (deviceId +
  * endpointHash, both on the redacted PublicPushSubscription view) and calls
- * push.subscriptions.reconcile only when they actually differ — heal-in-place,
+ * push.subscriptions.reconcile only when they actually differ, heal-in-place,
  * never a duplicate record, and no needless daemon write when nothing drifted.
  *
  * This is the DURABLE convergence point for the self-heal story: a real
  * `pushsubscriptionchange` rotation (public/sw.js) re-subscribes the browser
  * side and best-effort notifies any already-open tab, but the browser can also
- * rotate the endpoint while this app is fully closed, with no tab to notify —
+ * rotate the endpoint while this app is fully closed, with no tab to notify,
  * the next time the operator opens the app, this catches that drift by
  * comparing against the daemon's own record, which the SW alone cannot
  * authenticate to update. A closed-app rotation with no reconcile is a real gap
- * this function does not fully close (see public/sw.js's header) — it converges
+ * this function does not fully close (see public/sw.js's header), it converges
  * as soon as the app is next opened, which is the same "durable eventually,
  * not instantly" promise the rest of the self-heal story keeps.
  *
  * A missing/unreadable live subscription is not an error (never subscribed, or
- * the permission was revoked) — it reports 'not-subscribed' and does nothing.
+ * the permission was revoked), it reports 'not-subscribed' and does nothing.
  */
 export async function reconcilePushSubscriptionOnOpen(): Promise<PushReconcileOnOpenOutcome> {
   if (detectPushSupport() !== 'ok') return { drift: 'not-subscribed', subscription: null };
@@ -301,7 +301,7 @@ export async function reconcilePushSubscriptionOnOpen(): Promise<PushReconcileOn
   const deviceId = ensureDeviceId();
   const payload = extractSubscriptionPayload(subscription.toJSON());
 
-  // Read the daemon's own record for this device before writing anything — an
+  // Read the daemon's own record for this device before writing anything, an
   // unchanged device costs one read, never a needless reconcile write. A list
   // failure (e.g. a transient daemon hiccup) falls through to reconcile itself,
   // which is the authoritative call either way.

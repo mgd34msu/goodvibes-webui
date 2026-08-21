@@ -1,5 +1,5 @@
 /**
- * ModelPricesEditor — the pricing.modelPrices structured editor. Verifies the
+ * ModelPricesEditor, the pricing.modelPrices structured editor. Verifies the
  * per-model rows render, and that add / edit / remove each commit the FULL
  * replacement table (the daemon's one-key config.set contract), with honest
  * inline validation instead of silent coercion.

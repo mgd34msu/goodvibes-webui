@@ -23,7 +23,7 @@ describe('compareBuildVersions', () => {
 });
 
 describe('evaluateClientCompatibility', () => {
-  test('no floor published is ok — the daemon is not asking for anything', () => {
+  test('no floor published is ok. The daemon is not asking for anything', () => {
     const verdict = evaluateClientCompatibility({ clientVersion: '1.0.0', floor: undefined });
     expect(verdict.status).toBe('ok');
     expect(verdict.floor).toBeUndefined();

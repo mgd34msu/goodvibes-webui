@@ -1,5 +1,5 @@
 /**
- * WorkstreamView — rendering from a mocked fleet.snapshot, filtered
+ * WorkstreamView, rendering from a mocked fleet.snapshot, filtered
  * client-side to workstream/phase/work-item rows. Covers: the honest
  * true-empty state, a stalled work item shown stalled (never hidden), the
  * workstream/phase/work-item tree order, non-workstream/phase/work-item fleet
@@ -181,7 +181,7 @@ describe('WorkstreamView rendering', () => {
     unmount();
   });
 
-  test('a phase node (every capability false) gets no unbacked note — nothing to be honest about', () => {
+  test('a phase node (every capability false) gets no unbacked note, nothing to be honest about', () => {
     const { el, unmount } = render();
     const row = [...el.querySelectorAll('.workstream-row')].find((r) => r.textContent?.includes('engineer (implementer)'));
     click(row);
@@ -221,7 +221,7 @@ describe('WorkstreamView honest states', () => {
   });
 });
 
-describe('WorkstreamView — read-model headline + stall tell (rounds 4-6)', () => {
+describe('WorkstreamView: read-model headline + stall tell (rounds 4-6)', () => {
   test('a work item with the derived tells renders the headline line and the stall marker', () => {
     const seed = {
       capturedAt: 1000,

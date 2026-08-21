@@ -58,7 +58,7 @@ export interface ChatMessage {
    * Completed tool calls for the turn that produced this message, populated
    * client-side from the live event stream (see useChatStream's
    * toolActivityByMessageId). Present only for a turn this browser tab
-   * watched run live in the current stream session — absent (not empty) for
+   * watched run live in the current stream session, absent (not empty) for
    * any message rehydrated purely from server history, since the daemon's
    * persisted message shape carries no tool data.
    */

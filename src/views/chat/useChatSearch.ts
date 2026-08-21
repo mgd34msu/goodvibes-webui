@@ -1,30 +1,30 @@
 /**
- * useChatSearch — companion-history search hook (first consumer of
+ * useChatSearch, companion-history search hook (first consumer of
  * sessions.search).
  *
  * TWO DISTINCT STAGES, kept separate rather than merged (a deliberate design
  * decision, not an oversight):
  *
- *   1. SESSION search (`sessionResults`) — backend-side, via
+ *   1. SESSION search (`sessionResults`), backend-side, via
  *      `sdk.operator.sessions.search({ query, kind: 'companion-chat', ... })`.
  *      Matches session id/title/project only (not message bodies) but reaches
  *      FULL history, not just the ~100 most-recently-fetched sessions the
  *      caller passed in. This is the new capability sessions.search unlocks.
  *
- *   2. MESSAGE-content search (`results`) — unchanged from before: client-side,
+ *   2. MESSAGE-content search (`results`), unchanged from before: client-side,
  *      substring-matches message bodies, but only within the `sessions` the
  *      caller already fetched (capped upstream at ~100, see App.tsx). Kept
- *      because sessions.search cannot see inside message bodies — dropping
+ *      because sessions.search cannot see inside message bodies, dropping
  *      this stage would silently narrow what a user can find.
  *
  * THE includeClosed DIVERGENCE (load-bearing, name it wherever this is read):
- * sessions.search defaults `includeClosed` to FALSE — the OPPOSITE of
+ * sessions.search defaults `includeClosed` to FALSE, the OPPOSITE of
  * SharedSessionBroker.listSessions' own default (session-search.ts's handler
  * comment on the SDK side calls this out explicitly; sessions-union.ts's
  * consumer, SessionsView, defaults its own includeClosed toggle to TRUE for
  * exactly the same reason it should NOT be true here). A search surface
  * hides dead sessions by default; a full list surface shows them. Do not
- * "fix" this hook to match SessionsView's default — they are intentionally
+ * "fix" this hook to match SessionsView's default, they are intentionally
  * different truths for different surfaces. `includeClosed` is exposed here
  * as an explicit, off-by-default toggle so the user can opt in.
  *
@@ -62,7 +62,7 @@ export interface ChatSearchResult {
 export interface ChatSessionSearchResult {
   sessionId: string;
   sessionTitle: string;
-  /** Rendered honestly — a closed session is never relabeled as active. */
+  /** Rendered honestly, a closed session is never relabeled as active. */
   status: 'active' | 'closed';
   project?: string;
   /** Most recent activity timestamp (epoch ms), if known. */
@@ -71,12 +71,12 @@ export interface ChatSessionSearchResult {
 
 /**
  * Lifecycle of the backend session-search stage.
- *   'idle'        — no query typed yet.
- *   'searching'   — request in flight (debounced).
- *   'ready'       — a response landed (sessionResults reflects it, may be empty).
- *   'unavailable' — the daemon does not serve sessions.search (NOT_INVOKABLE /
- *                   route-absent) — distinct from a genuine empty result.
- *   'error'       — some other request failure (network, 5xx, etc).
+ *   'idle'       , no query typed yet.
+ *   'searching'  , request in flight (debounced).
+ *   'ready'      , a response landed (sessionResults reflects it, may be empty).
+ *   'unavailable', the daemon does not serve sessions.search (NOT_INVOKABLE /
+ *                   route-absent), distinct from a genuine empty result.
+ *   'error'      , some other request failure (network, 5xx, etc).
  */
 export type SessionSearchState = 'idle' | 'searching' | 'ready' | 'unavailable' | 'error';
 
@@ -88,12 +88,12 @@ export interface UseChatSearchReturn {
   isSearching: boolean;
   /** Session-discovery results from sessions.search (title/id match, full history). */
   sessionResults: ChatSessionSearchResult[];
-  /** Lifecycle of the session-search stage — see SessionSearchState. */
+  /** Lifecycle of the session-search stage, see SessionSearchState. */
   sessionSearchState: SessionSearchState;
   /**
    * Whether closed/reaped sessions are included in the session-search stage.
    * Defaults to false, matching sessions.search's own default (NOT
-   * sessions.list's) — see the module doc comment above.
+   * sessions.list's), see the module doc comment above.
    */
   includeClosed: boolean;
   setIncludeClosed: (value: boolean) => void;
@@ -152,7 +152,7 @@ async function fetchMessages(sessionId: string): Promise<ChatMessage[]> {
 const SESSION_SEARCH_LIMIT = 20;
 
 /**
- * Kind filter for sessions.search — scopes the backend session-discovery
+ * Kind filter for sessions.search, scopes the backend session-discovery
  * stage to companion chat sessions (this hook's domain), matching one of the
  * six KNOWN_SESSION_KINDS in sessions-union.ts. Not imported from there: that
  * module exports the full list for the cross-surface union view, not a single
@@ -180,7 +180,7 @@ function isNotInvokableError(error: unknown): boolean {
  * Fetch one page of the backend session-search stage.
  *
  * `includeClosed` defaults to false at the call site below to match
- * sessions.search's own default — see the module doc comment for why this is
+ * sessions.search's own default, see the module doc comment for why this is
  * intentionally different from the union session list's default.
  */
 async function fetchSessionSearchPage(
@@ -215,7 +215,7 @@ export function useChatSearch(
   const [results, setResults] = useState<ChatSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Session-search stage (sessions.search) — a separate concern from the
+  // Session-search stage (sessions.search), a separate concern from the
   // message-content stage above: different backend, different default
   // (includeClosed=false), its own pagination and lifecycle state.
   const [sessionResults, setSessionResults] = useState<ChatSessionSearchResult[]>([]);
@@ -229,7 +229,7 @@ export function useChatSearch(
   // fetched for, so a slow load-more response that lands after the user has
   // already changed the query/toggle is discarded rather than silently applied.
   const activeSessionParamsRef = useRef({ query: '', includeClosed });
-  // Monotonic generation counter — bumped every time a FRESH search begins (see
+  // Monotonic generation counter, bumped every time a FRESH search begins (see
   // runSessionSearch). The param check above can't catch the query-changed-then-changed-
   // BACK case: a load-more launched against generation N, whose page lands after the user
   // retyped the SAME query (a new fresh search, generation N+1, with its own backend
@@ -237,7 +237,7 @@ export function useChatSearch(
   // results. Comparing the generation captured at load-more time closes that hole.
   const searchGenerationRef = useRef(0);
 
-  // Persistent message cache — keyed by sessionId, reset when sessions identity changes.
+  // Persistent message cache, keyed by sessionId, reset when sessions identity changes.
   const cacheRef = useRef<MessageCache>(new Map());
   // Abort controller to cancel stale searches.
   const abortRef = useRef<AbortController | null>(null);
@@ -418,14 +418,14 @@ export function useChatSearch(
     void (async () => {
       try {
         const page = await fetchSessionSearchPage(requestedParams.query, requestedParams.includeClosed, nextCursor);
-        // Discard if a FRESH search has begun since this page was requested — even if its
+        // Discard if a FRESH search has begun since this page was requested, even if its
         // params happen to match (query changed away and back), it is a different search
         // with a different backend cursor, so appending this page would mix generations.
         if (searchGenerationRef.current !== requestedGeneration) {
           return;
         }
         // Belt-and-braces: also discard on a bare param change (a fresh search may not
-        // have STARTED yet — e.g. still debouncing — but the toggle already moved).
+        // have STARTED yet, e.g. still debouncing, but the toggle already moved).
         if (
           activeSessionParamsRef.current.query !== requestedParams.query
           || activeSessionParamsRef.current.includeClosed !== requestedParams.includeClosed
@@ -438,7 +438,7 @@ export function useChatSearch(
       } catch (error) {
         if (isNotInvokableError(error)) setSessionSearchState('unavailable');
         // Otherwise: leave the existing page's results in place. A failed
-        // load-more is not a failed search — do not blow away what already
+        // load-more is not a failed search, do not blow away what already
         // rendered successfully.
       } finally {
         setIsLoadingMoreSessions(false);

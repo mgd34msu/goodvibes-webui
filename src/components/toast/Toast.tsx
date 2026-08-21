@@ -8,8 +8,8 @@ interface ToastProps {
 
 /**
  * Maps tone to the appropriate ARIA role:
- * - `alert`  (assertive) for warning/danger — demands immediate attention.
- * - `status` (polite)    for info/success   — informational only.
+ * - `alert`  (assertive) for warning/danger, demands immediate attention.
+ * - `status` (polite)    for info/success  , informational only.
  * Per WAI-ARIA, `alert` is implicitly `aria-live="assertive"`; `status` is
  * implicitly `aria-live="polite"`. Do not set `aria-live` redundantly.
  */

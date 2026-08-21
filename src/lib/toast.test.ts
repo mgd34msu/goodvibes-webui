@@ -33,7 +33,7 @@ describe('TOAST_EXIT_DURATION_MS', () => {
 });
 
 // ─── Reducer: DISMISS → leavingIds → PURGE lifecycle ─────────────────────────
-// Drive the REAL toastReducer state-machine directly — no DOM render harness needed.
+// Drive the REAL toastReducer state-machine directly, no DOM render harness needed.
 
 describe('reducer: DISMISS → (leaving) → PURGE lifecycle', () => {
   test('TOAST_EXIT_DURATION_MS is positive (guarantees entry survives past DISMISS before PURGE)', async () => {
@@ -42,7 +42,7 @@ describe('reducer: DISMISS → (leaving) → PURGE lifecycle', () => {
   });
 
   test('DISMISS marks entry as leaving; PURGE removes it from both toasts and leavingIds', () => {
-    // Drive the real toastReducer exported from toast.ts — no local copy.
+    // Drive the real toastReducer exported from toast.ts, no local copy.
     interface Entry { id: string; title: string; durationMs: number; tone: 'info' }
 
     const entry: Entry = { id: 'test-1', title: 'Hello', durationMs: 5000, tone: 'info' };

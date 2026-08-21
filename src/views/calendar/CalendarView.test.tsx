@@ -1,5 +1,5 @@
 /**
- * CalendarView — the calendar surface's honesty contract: three distinct
+ * CalendarView, the calendar surface's honesty contract: three distinct
  * refusal states (unconfigured / not-available / genuine error), never folded
  * into one generic failure, plus the populated/empty/create/export/import
  * happy paths.
@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PeekProvider } from '../../components/peek/PeekPanel';
 
 // ---------------------------------------------------------------------------
-// Module mock — mutable per-test calendar operator implementation
+// Module mock, mutable per-test calendar operator implementation
 // ---------------------------------------------------------------------------
 
 type EventsListImpl = () => Promise<{ events: unknown[] }>;
@@ -29,7 +29,7 @@ let icsImport: IcsImportImpl = () => Promise.resolve({ imported: 0, eventIds: []
 
 mock.module('../../lib/goodvibes', () => ({
   // lib/queries.ts (imported transitively via queryKeys) destructures these off the
-  // same module — the mock's surface must satisfy that import even though this test
+  // same module, the mock's surface must satisfy that import even though this test
   // never calls them.
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
@@ -112,7 +112,7 @@ afterEach(() => {
   icsImport = () => Promise.resolve({ imported: 0, eventIds: [], errors: [] });
 });
 
-describe('CalendarView — the three honest refusal states', () => {
+describe('CalendarView: the three honest refusal states', () => {
   test('CALENDAR_NOT_CONFIGURED (412) reads "isn’t configured", not a scary error', async () => {
     eventsList = () => refusal(412, { error: 'CalDAV is not configured.', code: 'CALENDAR_NOT_CONFIGURED' });
     const { el, unmount } = render();
@@ -153,7 +153,7 @@ describe('CalendarView — the three honest refusal states', () => {
   });
 });
 
-describe('CalendarView — populated / empty', () => {
+describe('CalendarView: populated / empty', () => {
   test('an empty range says "No events in this range"', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
@@ -180,7 +180,7 @@ describe('CalendarView — populated / empty', () => {
   });
 });
 
-describe('CalendarView — create / export / import', () => {
+describe('CalendarView: create / export / import', () => {
   test('creating an event with confirm:true succeeds and shows the new event id', async () => {
     let captured: unknown;
     eventsCreate = (input) => {

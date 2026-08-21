@@ -1,5 +1,5 @@
 /**
- * push-support.ts — can this browser receive Web Push here, and may it?
+ * push-support.ts, can this browser receive Web Push here, and may it?
  *
  * Two separate honest questions, mirroring the microphone surface's stance
  * (src/lib/voice/stt-recorder.ts): a CAPABILITY question (does the platform
@@ -9,7 +9,7 @@
  *
  *   - 'insecure-context'  the page is plain HTTP on a LAN IP, so the browser
  *                         refuses service workers / Push. The fix is to reach
- *                         it over HTTPS — the same Tailscale-serve pointer the
+ *                         it over HTTPS, the same Tailscale-serve pointer the
  *                         dictation surface uses.
  *   - 'unsupported'       the browser lacks the APIs even over HTTPS (e.g. an
  *                         iOS build too old for web push, or Push disabled).
@@ -49,7 +49,7 @@ function browserPushEnv(): PushEnv {
 export function detectPushSupport(env: PushEnv = browserPushEnv()): PushSupport {
   const hasApis = env.hasServiceWorker && env.hasPushManager && env.hasNotification;
   if (!hasApis) {
-    // On plain HTTP to a non-localhost host the APIs are simply absent — report
+    // On plain HTTP to a non-localhost host the APIs are simply absent, report
     // the actionable insecure-context state (open it over HTTPS) rather than a
     // bare 'unsupported', so the pointer tells the operator how to fix it.
     if (!env.isSecureContext) return 'insecure-context';

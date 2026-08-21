@@ -1,5 +1,5 @@
 /**
- * mail-order.test — the sender-controlled-`date` regression this whole module exists
+ * mail-order.test, the sender-controlled-`date` regression this whole module exists
  * to prevent: an attacker sends a message with a far-future `Date:` header, and the
  * inbox must not let that pin it to the top. Ordering must instead follow `uid`, the
  * value the account's own IMAP server assigns on arrival.

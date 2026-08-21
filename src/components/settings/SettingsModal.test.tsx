@@ -11,7 +11,7 @@ let outcome: ConfigOutcome = 'ok';
 const configSetCalls: [string, unknown][] = [];
 // Controls what sdk.operator.config.set does, independent of `outcome` above (which only
 // governs config.get). 'reject' simulates the real requestJson behavior on a non-2xx or
-// network failure — a rejected promise, never a resolved { success: false }.
+// network failure, a rejected promise, never a resolved { success: false }.
 type SetOutcome = 'ok' | 'reject';
 let setOutcome: SetOutcome = 'ok';
 
@@ -24,7 +24,7 @@ const CONFIG_FIXTURE = {
     slack: { botToken: 'xoxb-super-secret-value-1234' },
     // secret-store-only-config-keys.ts: the daemon's mail connector never reads
     // this value from config (surface-config.ts resolves the password only
-    // from the secret store) — used below to prove the field refuses to write
+    // from the secret store), used below to prove the field refuses to write
     // it rather than offering a Replace flow that cannot work.
     email: { password: 'nine-nine-nine-plaintext' },
   },
@@ -69,7 +69,7 @@ mock.module('../../lib/goodvibes', () => ({
             );
           }
           // daemonOwned surfaces.* keys report a daemon-tier persistedTo; everything
-          // else reports the ordinary client settings path — mirrors system-routes.ts.
+          // else reports the ordinary client settings path, mirrors system-routes.ts.
           const daemonOwned = key.startsWith('surfaces.');
           return Promise.resolve({
             success: true,
@@ -145,8 +145,8 @@ afterEach(() => {
   configSetCalls.length = 0;
 });
 
-describe('SettingsModal — schema-driven structure', () => {
-  test('renders domain groups only — the enablement bucket is gone', async () => {
+describe('SettingsModal: schema-driven structure', () => {
+  test('renders domain groups only; the enablement bucket is gone', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Display')));
     const labels = [...el.querySelectorAll('.settings-category')].map((b) => b.textContent);
@@ -189,7 +189,7 @@ describe('SettingsModal — schema-driven structure', () => {
   });
 });
 
-describe('SettingsModal — feature units', () => {
+describe('SettingsModal: feature units', () => {
   test('a secret key owned by a feature unit is masked, never raw, and offers write-only replace', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
@@ -203,7 +203,7 @@ describe('SettingsModal — feature units', () => {
     unmount();
   });
 
-  test('a constant feature (surface adapter) offers no separate feature toggle — its own enabled key is the switch', async () => {
+  test('a constant feature (surface adapter) offers no separate feature toggle; its own enabled key is the switch', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
     clickCategory(el, 'Surfaces');
@@ -283,7 +283,7 @@ describe('SettingsModal — feature units', () => {
     unmount();
   });
 
-  test('a feature description renders in full — never truncated', async () => {
+  test('a feature description renders in full, never truncated', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
     clickCategory(el, 'Behavior');
@@ -295,7 +295,7 @@ describe('SettingsModal — feature units', () => {
   });
 });
 
-describe('SettingsModal — honest degraded states', () => {
+describe('SettingsModal: honest degraded states', () => {
   test('admin-scope refusal (403) renders distinctly from a generic fetch failure', async () => {
     outcome = 'admin-required';
     const { el, unmount } = render();
@@ -313,8 +313,8 @@ describe('SettingsModal — honest degraded states', () => {
   });
 });
 
-describe('SettingsModal — secret-store-only credentials refuse a config.set write', () => {
-  test('surfaces.email.password is masked but offers no Replace flow — it names the real command instead', async () => {
+describe('SettingsModal: secret-store-only credentials refuse a config.set write', () => {
+  test('surfaces.email.password is masked but offers no Replace flow, it names the real command instead', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
     clickCategory(el, 'Surfaces');
@@ -322,7 +322,7 @@ describe('SettingsModal — secret-store-only credentials refuse a config.set wr
     const field = el.querySelector('[data-config-key="surfaces.email.password"]') as HTMLElement;
     // Never the raw value.
     expect(field.textContent).not.toContain('nine-nine-nine-plaintext');
-    // No write path at all for this key — no Replace button, no password input.
+    // No write path at all for this key, no Replace button, no password input.
     expect(field.querySelector('.settings-field-replace')).toBeNull();
     expect(field.querySelector('input[type="password"]')).toBeNull();
     // Names the real command.
@@ -355,7 +355,7 @@ describe('SettingsModal — secret-store-only credentials refuse a config.set wr
   });
 });
 
-describe('SettingsModal — Advanced unschema\'d escape hatch', () => {
+describe('SettingsModal: Advanced unschema\'d escape hatch', () => {
   test('saving a key/value calls config.set with the parsed value', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('.settings-advanced input')));
@@ -379,7 +379,7 @@ describe('SettingsModal — Advanced unschema\'d escape hatch', () => {
   });
 });
 
-describe('SettingsModal — object-typed pricing editor', () => {
+describe('SettingsModal: object-typed pricing editor', () => {
   test('pricing.modelPrices renders the structured per-model editor, not a JSON textarea', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Pricing')));
@@ -394,7 +394,7 @@ describe('SettingsModal — object-typed pricing editor', () => {
   });
 });
 
-describe('SettingsModal — daemon-owned labeling', () => {
+describe('SettingsModal: daemon-owned labeling', () => {
   test('a daemon-owned key (surfaces.slack.botToken) is labeled daemon-owned; a client-owned key is not', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
@@ -429,7 +429,7 @@ describe('SettingsModal — daemon-owned labeling', () => {
   });
 });
 
-describe('SettingsModal — a failed config.set is surfaced, never rendered as saved', () => {
+describe('SettingsModal: a failed config.set is surfaced, never rendered as saved', () => {
   test('a rejected config.set keeps the row showing the OLD value and shows an inline error', async () => {
     setOutcome = 'reject';
     const { el, unmount } = render();
@@ -476,7 +476,7 @@ describe('SettingsModal — a failed config.set is surfaced, never rendered as s
  * Card entry is actually reachable in the real settings surface.
  *
  * Without this, PaymentCardEntry could be a correct component nobody can get
- * to — every one of its own tests would still pass. These drive the real modal:
+ * to, every one of its own tests would still pass. These drive the real modal:
  * open it, click the Payments category, and check the panel is there, that it
  * is scoped to that category, and that no card value is displayed.
  */
@@ -500,7 +500,7 @@ describe('the Payments category offers card entry', () => {
     unmount();
   });
 
-  test('the panel belongs to Payments only — it does not follow you to another category', async () => {
+  test('the panel belongs to Payments only. It does not follow you to another category', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
     clickCategory(el, 'Payments');
@@ -517,7 +517,7 @@ describe('the Payments category offers card entry', () => {
     clickCategory(el, 'Payments');
     await waitFor(() => Boolean(el.querySelector('[data-testid="payment-card-entry"]')));
 
-    // The card panel sits alongside the settings the previous round shipped —
+    // The card panel sits alongside the settings the previous round shipped,
     // it did not displace them.
     expect(el.textContent).toContain('Payment card');
     expect(el.textContent).toContain('payments.cvvHandling');

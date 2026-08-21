@@ -1,8 +1,8 @@
 /**
- * SessionHeader — the paused-stream retry affordance (F6).
+ * SessionHeader, the paused-stream retry affordance (F6).
  *
  * The retry used to be a hover-`title` on the status badge: invisible on touch and
- * unreachable without a pointer. These tests pin the fix — when onRetryStream is
+ * unreachable without a pointer. These tests pin the fix, when onRetryStream is
  * present the header renders an explicit, labelled Retry BUTTON alongside the badge,
  * and clicking it fires the callback; when it is absent the plain badge renders with
  * no button at all.
@@ -42,7 +42,7 @@ function render(props: Partial<React.ComponentProps<typeof SessionHeader>> = {})
 
 afterEach(() => {});
 
-describe('SessionHeader — paused-stream retry affordance', () => {
+describe('SessionHeader: paused-stream retry affordance', () => {
   test('with onRetryStream, a real, labelled Retry button renders next to the paused badge', () => {
     const onRetryStream = mock(() => {});
     const { el, unmount } = render({ onRetryStream });

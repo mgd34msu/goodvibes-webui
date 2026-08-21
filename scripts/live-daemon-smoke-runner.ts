@@ -1,5 +1,5 @@
 /**
- * live-daemon-smoke-runner — runs the live smoke in a child process and removes
+ * live-daemon-smoke-runner, runs the live smoke in a child process and removes
  * its scratch tree once that process is genuinely gone.
  *
  * WHY A PARENT PROCESS RATHER THAN MORE CLEANUP INSIDE THE SMOKE: the daemon the
@@ -13,7 +13,7 @@
  *   3. a process.on('exit') handler          -> leaked (3/3 runs)
  *
  * The flush wins that race, and whether it wins was even sensitive to whether
- * stdout was a pipe — which is the definition of a fix that is not a fix. From a
+ * stdout was a pipe, which is the definition of a fix that is not a fix. From a
  * PARENT, there is no race at all: the child has exited, so nothing is left that
  * could write. The smoke keeps its own cleanup for the case where it is run
  * directly (`bun run scripts/live-daemon-smoke.ts`), and the start-of-run sweep

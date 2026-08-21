@@ -1,6 +1,6 @@
 /**
  * Tests for ConnectionDot.
- * Pure component — no hooks. Uses createRoot + flushSync + happy-dom.
+ * Pure component, no hooks. Uses createRoot + flushSync + happy-dom.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import React from 'react';

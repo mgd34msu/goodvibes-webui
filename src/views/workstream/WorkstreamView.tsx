@@ -1,27 +1,27 @@
 /**
- * WorkstreamView — orchestration workstream/phase/work-item rows over fleet.*.
+ * WorkstreamView, orchestration workstream/phase/work-item rows over fleet.*.
  * By design, this rides fleet.snapshot() filtered client-side to the
- * 'workstream' | 'phase' | 'work-item' kinds — no new SDK contract landed for
+ * 'workstream' | 'phase' | 'work-item' kinds, no new SDK contract landed for
  * this, since a dedicated fleet filter param does not exist yet.
  *
  * VERIFIED data shape (packages/sdk/src/platform/runtime/fleet/adapters/
  * orchestration.ts adaptWorkstream/adaptPhase/adaptWorkItem): a workstream is
  * a root ProcessNode (kind 'workstream', no parentId), its phases are pure
- * grouping children (kind 'phase', no usage/cost — reported as such, never
+ * grouping children (kind 'phase', no usage/cost, reported as such, never
  * fabricated), and its work-items are leaves (kind 'work-item') nested under
  * either their current phase or the workstream directly. fleet.snapshot's
  * flat parentId-linked list already carries this tree, so buildFleetRows
  * (lib/fleet.ts, generic over any parentId-linked subset) renders it exactly
  * like FleetView's process tree, just scoped to these three kinds.
  *
- * No wire event exists for fleet.* yet (same gap FleetView documents) —
+ * No wire event exists for fleet.* yet (same gap FleetView documents),
  * poll + manual refresh, not realtime invalidation.
  *
  * WEBUI-FLEET-DEPTH: the detail pane also surfaces unbackedCapabilityNote (the same
  * honest "this process reports itself killable/interruptible but the browser has no
- * control verb for it yet" accounting FleetView shows) — a work-item's active agent
+ * control verb for it yet" accounting FleetView shows), a work-item's active agent
  * genuinely IS interruptible/killable in the daemon's own registry, but its fleet node
- * carries only `sessionRef.agentId` (no `sessionId` — see adaptWorkItem,
+ * carries only `sessionRef.agentId` (no `sessionId`, see adaptWorkItem,
  * packages/sdk/.../fleet/adapters/orchestration.ts), so neither steer nor detach is
  * offered here: there is no sessionId to address either verb with.
  */
@@ -58,7 +58,7 @@ const WORKSTREAM_POLL_INTERVAL_MS = 15_000;
 const WORKSTREAM_KINDS = new Set(['workstream', 'phase', 'work-item']);
 
 /** Same fleet process-state -> severity business logic as FleetView.tsx's stateTone
- * (genuinely webui/fleet-local — the presentation bridge has no notion of "stalled" or
+ * (genuinely webui/fleet-local, the presentation bridge has no notion of "stalled" or
  * "awaiting approval"). Typed as BadgeTone so it feeds contractStateForBadgeTone below
  * with no re-derivation. */
 function stateTone(state: string): BadgeTone {
@@ -69,7 +69,7 @@ function stateTone(state: string): BadgeTone {
   return 'ok';
 }
 
-/** Routes the tone through the shared presentation bridge (contractStateForBadgeTone) —
+/** Routes the tone through the shared presentation bridge (contractStateForBadgeTone),
  * see FleetView.tsx's StateBadge for the full rationale; this view mirrors it exactly. */
 function StateBadge({ state }: { state: string }) {
   const tone = stateTone(state);
@@ -127,7 +127,7 @@ export function WorkstreamView() {
 
         {snapshot.isSuccess && snapshot.data.truncated && (
           <div className="workstream-cap-note" role="note">
-            The underlying fleet snapshot was truncated at the daemon's node cap — some workstream rows may be missing.
+            The underlying fleet snapshot was truncated at the daemon's node cap, some workstream rows may be missing.
           </div>
         )}
 
@@ -231,7 +231,7 @@ function WorkstreamDetail({ node, onBack }: { node: FleetProcessNode; onBack: ()
 
       {node.kind === 'phase' && (
         <p className="workstream-detail__note" role="note">
-          Phases report no usage/cost of their own — a work item's usage is cumulative across every phase it
+          Phases report no usage/cost of their own. A work item's usage is cumulative across every phase it
           visits, so attributing it to whichever phase it currently occupies would double-count.
         </p>
       )}

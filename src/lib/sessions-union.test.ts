@@ -83,7 +83,7 @@ describe('tolerant union extraction', () => {
     expect(unionSessionsTotal({ sessions: [] })).toBeNull();
   });
 
-  test('does not impose companion literal types — reads kind/status as open strings', () => {
+  test('does not impose companion literal types; reads kind/status as open strings', () => {
     const record = unionSessionFromRecord({ id: 'a', kind: 'automation', status: 'closed' });
     expect(record.kind).toBe('automation');
     expect(record.status).toBe('closed');
@@ -135,7 +135,7 @@ describe('badge labels', () => {
 // B1: closed cross-surface sessions carry an optional, honest reason for WHY
 // they closed under metadata.closeReason (SDK's SharedSessionCloseReason).
 // An 'idle-reaped' close auto-reopens on the next heartbeat and must render
-// distinctly from a deliberate close — never folded into "closed · history".
+// distinctly from a deliberate close, never folded into "closed · history".
 describe('reaped-as-reaped (closeReason)', () => {
   test('extracts metadata.closeReason from the raw wire record', () => {
     const record = unionSessionFromRecord({ id: 'r', status: 'closed', metadata: { closeReason: 'idle-reaped' } });
@@ -176,7 +176,7 @@ describe('reaped-as-reaped (closeReason)', () => {
   });
 });
 
-// Channel-origin attribution (principals.*, SDK 1.6.1's initiative family) —
+// Channel-origin attribution (principals.*, SDK 1.6.1's initiative family),
 // metadata.attributedPrincipalId/Name/Known, stamped by channel-profiles/intake.ts.
 describe('attribution (attributedPrincipal*)', () => {
   test('a session with no attribution metadata at all gets a null known flag and no label', () => {

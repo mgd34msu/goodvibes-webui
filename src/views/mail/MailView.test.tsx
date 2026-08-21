@@ -1,7 +1,7 @@
 /**
- * MailView — the honesty contract mail-refusal.ts documents: not-available renders
+ * MailView, the honesty contract mail-refusal.ts documents: not-available renders
  * an honest note (not a fake-empty inbox), a genuinely empty inbox renders the empty
- * state (never a refusal — "no fourth reading"), and the composer's Send/Save draft
+ * state (never a refusal, "no fourth reading"), and the composer's Send/Save draft
  * controls never invite an action that cannot land (disabled while the surface refuses).
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -19,7 +19,7 @@ let inboxList: InboxListImpl = () => Promise.resolve({ messages: [], total: 0 })
 
 mock.module('../../lib/goodvibes', () => ({
   // src/lib/queries.ts (imported transitively via queryKeys) destructures these off
-  // the same module — the mock's surface must satisfy that import even though this
+  // the same module, the mock's surface must satisfy that import even though this
   // test never calls them (same gotcha CalendarView.test.tsx documents).
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
@@ -97,7 +97,7 @@ afterEach(() => {
   inboxList = () => Promise.resolve({ messages: [], total: 0 });
 });
 
-describe('MailView — not-available refusal', () => {
+describe('MailView: not-available refusal', () => {
   test('a 501 renders the honest not-available note and no inbox list', async () => {
     inboxList = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
@@ -129,7 +129,7 @@ describe('MailView — not-available refusal', () => {
   });
 });
 
-describe('MailView — populated / empty ("no fourth reading")', () => {
+describe('MailView: populated / empty ("no fourth reading")', () => {
   test('a successful response renders rows, with the unread pill on the unread one', async () => {
     inboxList = () => Promise.resolve({
       messages: [
@@ -161,11 +161,11 @@ describe('MailView — populated / empty ("no fourth reading")', () => {
   });
 });
 
-describe('MailView — inbox order is sender-proof (uid, never date)', () => {
+describe('MailView: inbox order is sender-proof (uid, never date)', () => {
   test('a spoofed far-future Date: header does not pin a message to the top when its uid is lowest', async () => {
     inboxList = () => Promise.resolve({
       messages: [
-        // Lowest uid (oldest arrival) but a `Date:` header far in the future — this is
+        // Lowest uid (oldest arrival) but a `Date:` header far in the future, this is
         // exactly the attacker move: the sender writes any date it wants, so if the
         // view sorted on `date` this message would render first. It must not.
         { uid: 1, from: 'attacker@example.com', subject: 'Spoofed future date', date: '2099-01-01T00:00:00Z', unread: false, bodyPreview: 'p1', messageId: '<attacker@x>' },
@@ -178,7 +178,7 @@ describe('MailView — inbox order is sender-proof (uid, never date)', () => {
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
 
     const subjects = [...el.querySelectorAll('.mail-row__subject')].map((node) => node.textContent);
-    // Newest-first by uid: 3, 2, 1 — the spoofed-date message (uid 1) is last, not first.
+    // Newest-first by uid: 3, 2, 1, the spoofed-date message (uid 1) is last, not first.
     expect(subjects[0]).toContain('Real, newest uid');
     expect(subjects[1]).toContain('Real, older uid');
     expect(subjects[2]).toContain('Spoofed future date');
@@ -206,12 +206,12 @@ describe('MailView — inbox order is sender-proof (uid, never date)', () => {
   });
 });
 
-describe('MailView — messages the daemon could not read', () => {
+describe('MailView: messages the daemon could not read', () => {
   test('an inbox where every message failed to parse does NOT render as a normal empty inbox', async () => {
     // The state this exists to catch. Before the 1.19.1 re-pin the inbox-list result
     // type omitted `unreadable` entirely, so this response reached the view as
     // "messages: [], total: 0" and rendered "The account answered normally with no
-    // messages in this window" — a sentence that is false in exactly the situation
+    // messages in this window", a sentence that is false in exactly the situation
     // an operator most needs the truth.
     inboxList = () =>
       Promise.resolve({
@@ -228,7 +228,7 @@ describe('MailView — messages the daemon could not read', () => {
     expect(el.textContent).toContain('Nothing readable in the inbox');
     expect(el.textContent).not.toContain('The account answered normally');
     expect(el.textContent).toContain('2 messages could not be read');
-    // The per-message reason, not just a count — a count tells an operator nothing
+    // The per-message reason, not just a count, a count tells an operator nothing
     // about whether it is one broken sender or a misconfigured account.
     expect(el.textContent).toContain('uid 41: unsupported transfer encoding');
     // A failure with no uid renders its reason alone, never "uid undefined".

@@ -39,7 +39,7 @@ describe('classifyBadgeTone', () => {
   });
 });
 
-describe('contract tone/glyph mapping — every bucket resolves to a real contract glyph', () => {
+describe('contract tone/glyph mapping: every bucket resolves to a real contract glyph', () => {
   test('contractGlyphForBadgeTone resolves each BadgeTone to a CONTRACT_STATE_GLYPHS value', () => {
     expect(contractGlyphForBadgeTone('ok')).toBe(CONTRACT_STATE_GLYPHS.good);
     expect(contractGlyphForBadgeTone('warning')).toBe(CONTRACT_STATE_GLYPHS.warn);
@@ -61,7 +61,7 @@ describe('contract tone/glyph mapping — every bucket resolves to a real contra
   });
 });
 
-describe('daemon-health axis mappings (StatusStrip) — genuine severity correspondence only', () => {
+describe('daemon-health axis mappings (StatusStrip): genuine severity correspondence only', () => {
   test('ConnectionState: connected=good, reconnecting=warn, down=bad', () => {
     expect(contractStateForConnection('connected')).toBe('good');
     expect(contractStateForConnection('reconnecting')).toBe('warn');

@@ -1,27 +1,27 @@
 /**
- * PairingHandoffOffers — completes a pairing hand-off bundle
+ * PairingHandoffOffers, completes a pairing hand-off bundle
  * (SDK 1.8.0's pairing.handoff.create/complete): renders each offer this link
  * carried (notifications, relay, passkey), each independently declinable, then
- * drives pairing.handoff.complete and renders the honest per-offer outcome —
+ * drives pairing.handoff.complete and renders the honest per-offer outcome,
  * completed / declined / unavailable / failed, never silently half-applied.
  *
  * Client-side gathering happens BEFORE the daemon call, per accepted offer:
  *   - notifications: the real browser ceremony (permission + VAPID fetch +
- *     PushManager subscribe — ensureBrowserPushSubscription, the same steps
+ *     PushManager subscribe, ensureBrowserPushSubscription, the same steps
  *     NotificationSettings' toggle runs) produces the endpoint/keys the daemon
  *     needs to register.
  *   - passkey: the real WebAuthn registration ceremony (registerPasskey)
  *     produces the credentialId/publicKeyCose the daemon needs to verify.
- *   - relay: no client-side gathering — accepting sends `relay: true`, an
+ *   - relay: no client-side gathering, accepting sends `relay: true`, an
  *     acknowledgement only (see the SDK's pairing-handoff.ts route comment).
  *
  * A ceremony that fails locally (permission denied, no authenticator, browser
- * unsupported, user cancel) is NEVER silently downgraded to "declined" — that
+ * unsupported, user cancel) is NEVER silently downgraded to "declined", that
  * would misrepresent an attempt as a choice never made. It renders as `failed`
  * with the real client-side reason, and that offer is simply never sent to the
  * daemon (there is nothing valid to send). An offer the operator genuinely
  * left unchecked IS sent as declined (or just omitted, which the daemon treats
- * identically) — the two cases read differently in the result list on purpose.
+ * identically), the two cases read differently in the result list on purpose.
  */
 import { useState } from 'react';
 import { BellRing, KeyRound, Radio } from 'lucide-react';
@@ -43,7 +43,7 @@ export interface PairingHandoffOffersProps {
   onDone: () => void;
   /**
    * The daemon's one honest plain-http-on-LAN notice line (usePairingHandoff's
-   * postureNotice), shown once at the top of this modal — never a nag, since this
+   * postureNotice), shown once at the top of this modal, never a nag, since this
    * modal itself only ever appears once per hand-off.
    */
   postureNotice?: string | null;
@@ -86,7 +86,7 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
   async function handleContinue(): Promise<void> {
     setPhase('submitting');
     // A plain mutable draft (the public PairingHandoffCompleteInput['accept']
-    // shape is readonly, by design, for every OTHER caller) — built up here,
+    // shape is readonly, by design, for every OTHER caller), built up here,
     // then handed to complete() as one literal below.
     const accept: {
       notifications?: PairingHandoffCompleteNotificationsAccept;
@@ -176,7 +176,7 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
         ) : (
           <>
             <p className="form-note">
-              This pairing link also offers to set up a few things on this device. Each is optional —
+              This pairing link also offers to set up a few things on this device. Each is optional;
               uncheck anything you’d rather skip.
             </p>
             <ul className="pairing-handoff-offers">

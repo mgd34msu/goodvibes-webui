@@ -14,7 +14,7 @@ interface ReviewQueueRowProps {
   highlighted?: boolean;
 }
 
-/** One review-queue row's own draft state — reviewState/confidence/staleReason are only
+/** One review-queue row's own draft state, reviewState/confidence/staleReason are only
  * committed to the daemon when the operator explicitly hits Save (memory.records.update-review). */
 function ReviewQueueRow({ record, saving, onSave, highlighted }: ReviewQueueRowProps) {
   const [state, setState] = useState(record.reviewState);
@@ -99,7 +99,7 @@ interface ReviewQueuePanelProps {
   onRetry: () => void;
   savingId: string | null;
   onSave: (id: string, input: MemoryUpdateReviewInput) => void;
-  /** Record ids a consolidation proposal's "Review" jump referenced — highlighted, never filtered
+  /** Record ids a consolidation proposal's "Review" jump referenced, highlighted, never filtered
    * out (a jump must land on the row, not hide the rest of the queue). */
   highlightIds?: ReadonlySet<string>;
 }

@@ -1,17 +1,17 @@
 /**
- * PriceSourceNote — the provenance line under a dollar display: whose price
+ * PriceSourceNote, the provenance line under a dollar display: whose price
  * produced the number and, where the wire serves one, the date that price was
  * captured. The source and date are FACTS on the record now (a cost row / a
  * fleet node's `costSource` + `pricingAsOf`), so this component only formats
- * them — it no longer re-derives provenance from the live config or a
+ * them, it no longer re-derives provenance from the live config or a
  * providers.usage probe.
  *
- *   - "your price"                      — costSource 'user' (the operator's own
+ *   - "your price"                     , costSource 'user' (the operator's own
  *                                         manual entry won the resolver).
- *   - "catalog price, as of <date>"     — costSource 'catalog'.
- *   - "provider-served price[, as of …]" — costSource 'provider'.
- *   - "mixed pricing sources[, as of …]" — costSource 'mixed' (an aggregate).
- *   - (no label)                        — source absent/unknown; the dollar
+ *   - "catalog price, as of <date>"    , costSource 'catalog'.
+ *   - "provider-served price[, as of …]", costSource 'provider'.
+ *   - "mixed pricing sources[, as of …]", costSource 'mixed' (an aggregate).
+ *   - (no label)                       , source absent/unknown; the dollar
  *                                         display's own "price unknown" marker
  *                                         carries the honesty.
  *
@@ -29,7 +29,7 @@ export interface PriceSourceNoteProps {
   readonly costSource?: WireCostSource | null | undefined;
   /** The wire's dated as-of stamp for that price, when served. */
   readonly pricingAsOf?: string | null | undefined;
-  /** Provider/model identity — only used to seed the manual-price editor. */
+  /** Provider/model identity, only used to seed the manual-price editor. */
   readonly provider?: string | undefined;
   readonly model?: string | undefined;
 }

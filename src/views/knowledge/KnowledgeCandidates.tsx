@@ -1,9 +1,9 @@
 /**
- * KnowledgeCandidatesPanel — consolidation candidates (knowledge.candidates.list /
+ * KnowledgeCandidatesPanel, consolidation candidates (knowledge.candidates.list /
  * .candidate.get / .candidate.decide), a never-called-before surface (like the
  * jobs-activity peek in KnowledgeJobsPeek.tsx) this brief adopts. A candidate is a
  * scored suggestion to promote something into durable memory, review it, or refresh
- * its source — accept/reject/supersede is an explicit, per-row decision, never
+ * its source, accept/reject/supersede is an explicit, per-row decision, never
  * auto-applied.
  */
 import { useState } from 'react';

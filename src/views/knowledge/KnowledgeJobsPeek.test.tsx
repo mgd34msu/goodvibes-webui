@@ -1,5 +1,5 @@
 /**
- * KnowledgeJobsPeek — the "View jobs" detail behind the W8 activity states.
+ * KnowledgeJobsPeek, the "View jobs" detail behind the W8 activity states.
  * Covers the previously-never-called knowledge.jobs.list / job-runs.list.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';

@@ -1,5 +1,5 @@
 /**
- * setExplicitAuthToken — clear-on-failure contract (login-gate honesty).
+ * setExplicitAuthToken, clear-on-failure contract (login-gate honesty).
  *
  * Uses the REAL wrapper (no module mock of './goodvibes') and stubs global fetch so
  * auth.current() sees a daemon that answers but rejects the token (401), instead of
@@ -14,10 +14,10 @@
  * real TCP connection attempt raced the test's own lifetime: the fetch promise our
  * code awaits resolves/rejects on the turn we expect, but the underlying socket
  * teardown can surface a SECOND, independent rejection later in the runtime's own
- * internals — observed landing during this test's run and, on a slower CI runner,
+ * internals, observed landing during this test's run and, on a slower CI runner,
  * up to ~24 seconds later while an unrelated suite was executing. That stray
  * rejection is not something this file's own promises hold a handle to, so nothing
- * in application code can await or abort it — the only fix at the source is to never
+ * in application code can await or abort it, the only fix at the source is to never
  * open the real socket in the first place. Stubbing fetch to answer synchronously
  * (in-process, no I/O) removes the race entirely rather than papering over its timing.
  */

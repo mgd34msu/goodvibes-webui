@@ -1,7 +1,7 @@
 /**
- * PairingPostureNotice — the daemon's one honest plain-http-on-LAN line
+ * PairingPostureNotice, the daemon's one honest plain-http-on-LAN line
  * (pairing.posture.get, verbatim wording), shown ONCE right after a plain `#pair=<token>`
- * hand-off with no offer set completes — the hand-off-with-offers case renders the same
+ * hand-off with no offer set completes, the hand-off-with-offers case renders the same
  * text inside PairingHandoffOffers itself instead (see App.tsx). Dismissible, and never
  * re-appears for this hand-off once dismissed or acknowledged.
  */

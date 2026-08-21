@@ -59,7 +59,7 @@ export interface ComposerProps {
   onModelChange: (registryKey: string) => void;
   /**
    * Optional list of slash-command hints shown when the user types "/" at the
-   * start of the composer. Defaults to empty — no menu.
+   * start of the composer. Defaults to empty, no menu.
    */
   slashCommands?: readonly SlashCommandHint[];
   /**
@@ -335,7 +335,7 @@ function ModelPicker({
 // ─── Slash-command menu ───────────────────────────────────────────────────────
 
 interface SlashMenuProps {
-  /** Pre-filtered commands — parent is the single source of truth. */
+  /** Pre-filtered commands, parent is the single source of truth. */
   commands: readonly SlashCommandHint[];
   activeIndex: number;
   onSelect: (name: string) => void;
@@ -462,7 +462,7 @@ export function Composer({
       const files = filesFromDrop(event.nativeEvent);
       if (!files.length) return;
       if (onFilesAdded) {
-        // Typed callback path — no synthetic events needed.
+        // Typed callback path, no synthetic events needed.
         onFilesAdded(files);
       } else {
         // Fallback: push files into the hidden input so native onChange fires.
@@ -486,7 +486,7 @@ export function Composer({
       // Prevent pasting the raw base64 text into the textarea
       event.preventDefault();
       if (onFilesAdded) {
-        // Typed callback path — no synthetic events needed.
+        // Typed callback path, no synthetic events needed.
         onFilesAdded(images);
       } else {
         // Fallback: push images into the hidden input so native onChange fires.
@@ -568,7 +568,7 @@ export function Composer({
     composerRef.current?.focus();
   }
 
-  // Dictated transcript lands in the draft for REVIEW BEFORE SENDING — appended after any
+  // Dictated transcript lands in the draft for REVIEW BEFORE SENDING, appended after any
   // text already typed, never auto-sent.
   const handleTranscript = useCallback(
     (text: string) => {
@@ -667,7 +667,7 @@ export function Composer({
               type="submit"
               className="send-button"
               title={onSteer
-                ? 'Send message (Enter — queues behind an active reply). Steer: Ctrl+Enter or press and hold — sends now, interrupting the current reply.'
+                ? 'Send message (Enter: queues behind an active reply). Steer: Ctrl+Enter or press and hold, sends now, interrupting the current reply.'
                 : 'Send message'}
               aria-label="Send message"
               data-pending={isSendPending ? 'true' : undefined}

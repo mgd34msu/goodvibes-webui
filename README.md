@@ -7,16 +7,16 @@
 
 GoodVibes WebUI is the browser surface for a GoodVibes daemon: a full chat
 application and operator console with feature parity across most of the
-terminal UI's surface. One app serves desktop and phone — the phone gets a
-drawer-based layout of the same views, never a different mental model — and it
+terminal UI's surface. One app serves desktop and phone. The phone gets a
+drawer-based layout of the same views, never a different mental model, and it
 installs from the browser as a standalone app (add to home screen, offline
 shell, push notifications).
 
 It does not need to run on the same machine as the daemon. Point it at a
-daemon reachable over Tailscale — an HTTPS hostname on your tailnet, the path
-the installable app, offline shell, and Web Push are built around — or at a
-daemon on the same local network with firewall policy allowing the connection;
-both are covered in [docs/deployment.md](docs/deployment.md). In production the
+daemon reachable over Tailscale, an HTTPS hostname on your tailnet, the path
+the installable app, offline shell, and Web Push are built around, or at a
+daemon on the same local network with firewall policy allowing the connection.
+Both are covered in [docs/deployment.md](docs/deployment.md). In production the
 daemon can also serve the built WebUI bundle itself, same-origin, so the
 browser and the API share one address and there is no cross-origin setup at all.
 
@@ -33,7 +33,7 @@ suites against a hermetic mock daemon.
 
 ---
 
-## Quick Start
+## Quick start
 
 Prerequisites:
 
@@ -50,8 +50,8 @@ bun run dev
 ```
 
 Use the URL Vite prints after startup as the source of truth for the bind
-address — the default local URL is `http://127.0.0.1:3423/`. The daemon/
-control-plane API is canonical on port `3421`; in development, Vite proxies
+address. The default local URL is `http://127.0.0.1:3423/`. The daemon/
+control-plane API is canonical on port `3421`. In development, Vite proxies
 `/api/*`, `/login`, `/status`, `/task`, and `/config` (including WebSocket
 upgrades) to it, with `strictPort: true` so a port conflict fails loudly
 instead of silently moving ports. For running the daemon and reaching it from
@@ -63,7 +63,7 @@ another machine, see [docs/deployment.md](docs/deployment.md) and
 ## A tour of the surfaces
 
 Screenshots are captured from the dev server against the end-to-end suite's
-seeded mock daemon at 1440×1000, dark theme — they prove layout, not live
+seeded mock daemon at 1440×1000, dark theme. They prove layout, not live
 daemon data, auth state, or provider inventory. The full walkthrough, one
 surface at a time (including a collapsed-sidebar layout), is
 [docs/screenshot-tour.md](docs/screenshot-tour.md).
@@ -92,16 +92,16 @@ daemon state the terminal UI uses.
 ## What's in the box
 
 Each row links to the page that documents it in depth. `?`-style in-app help
-does not exist here yet — these docs and the Admin diagnostics view are the
+does not exist here yet. These docs and the Admin diagnostics view are the
 current authority.
 
 | Surface | What you get | Docs |
 | --- | --- | --- |
 | Chat | Daemon-owned companion chat: streaming markdown, searchable history, attachments, regenerate and edit-with-branching, automatic titles, stop-generation, an artifacts slide-over | [operator-guide.md](docs/operator-guide.md) |
-| Sessions | The cross-surface session union — find, read, steer, or follow up on any session started from the terminal, agent, or browser | [operator-guide.md](docs/operator-guide.md) |
+| Sessions | The cross-surface session union: find, read, steer, or follow up on any session started from the terminal, agent, or browser | [operator-guide.md](docs/operator-guide.md) |
 | Fleet | The live process tree with per-agent state, steer/detach/stop where the wire supports them, and inline approvals (per-hunk on wide screens) | [operator-guide.md](docs/operator-guide.md) |
 | Checkpoints | Browse, create, restore, and diff checkpoint-to-checkpoint | [operator-guide.md](docs/operator-guide.md) |
-| Knowledge/Wiki | The regular Knowledge surface — ask, search, sources/nodes/issues/maps, projections and ingest where the SDK exposes them. Home Assistant Home Graph is deliberately not part of this page | [operator-guide.md](docs/operator-guide.md) |
+| Knowledge/Wiki | The regular Knowledge surface: ask, search, sources/nodes/issues/maps, projections and ingest where the SDK exposes them. Home Assistant Home Graph is deliberately not part of this page | [operator-guide.md](docs/operator-guide.md) |
 | Memory | Browse and search the shared cross-surface memory store, recall-honesty details rendered verbatim, review-state edits, and true (verified) deletion | [operator-guide.md](docs/operator-guide.md) |
 | Calendar | Agenda from the daemon's calendar module with ICS import/export; an unconfigured daemon shows a bring-your-own-CalDAV note, never a fake-empty calendar | [operator-guide.md](docs/operator-guide.md), [known-limitations.md](docs/known-limitations.md) |
 | Voice | Batched spoken replies and microphone dictation over the daemon's speech-to-text, with review-before-send; one voice configuration shared across terminal, desktop, and agent | [operator-guide.md](docs/operator-guide.md) |
@@ -120,7 +120,7 @@ current authority.
 
 ## Configuration
 
-There is no user-facing WebUI settings file — the daemon owns configuration
+There is no user-facing WebUI settings file. The daemon owns configuration
 and auth, and the browser only caches UI preferences and recent-session ids,
 never as a durable source of truth. What you can set:
 
@@ -131,7 +131,7 @@ never as a durable source of truth. What you can set:
 | `VITE_GOODVIBES_WEBUI_HOST` / `VITE_GOODVIBES_WEBUI_PORT` | One-off dev override | Vite bind host/port for a single run |
 | `VITE_GOODVIBES_BACKEND_URL` | One-off dev override | Development proxy target |
 | `VITE_GOODVIBES_BASE_URL` | One-off dev override | Bypass same-origin proxying entirely |
-| Theme, density | Admin → display preferences, browser `localStorage` | Dark-first token system; compact/default/comfortable density |
+| Theme, density | Admin → display preferences, browser `localStorage` | Dark-first token system, compact/default/comfortable density |
 | Operator token | Pasted in Admin, `localStorage` key `goodvibes.webui.token` | Browser-held auth token, validated against the daemon |
 
 The full binding precedence order and remaining one-off variables are in
@@ -157,31 +157,31 @@ bun run dev
 | `bun run build` | Presentation-token, config-schema, and internal-identifier checks, typecheck, then `vite build` |
 | `bun run lint` | ESLint over the whole tree |
 | `bun run e2e` | Playwright, phone + desktop projects, against the hermetic mock daemon (`e2e/support/mock-daemon.ts`) |
-| `bun run ci` | `test` + `typecheck` + `build` — the same sequence CI runs |
+| `bun run ci` | `test` + `typecheck` + `build`, the same sequence CI runs |
 | `bun run gate` | `ci` plus the release gate (SDK pin/lock/import agreement) |
 
 GitHub Actions runs three jobs on every push and pull request to `main`, all
 three blocking: `test` (typecheck, test, build, coverage, the release gate),
 `lint`, and `e2e` (Playwright, phone + desktop, hermetic mock daemon). No job
-runs with `continue-on-error` — a red job reds the run
+runs with `continue-on-error`. A red job reds the run
 (ruling: [docs/decisions/2026-07-07-e2e-ci-in-ci.md](docs/decisions/2026-07-07-e2e-ci-in-ci.md)).
 A green push-CI run on `main` is the only release gate: the workflow tags the
 commit and opens a GitHub Release with notes cut from `CHANGELOG.md`. This
-repo ships no build artifacts — the tag and the release notes are the entire
+repo ships no build artifacts. The tag and the release notes are the entire
 release.
 
 Coding rules worth knowing before you read the source:
 
 - Import browser code from the published `@pellux/goodvibes-sdk` npm package
-  only — never a local SDK checkout, never deep SDK internals.
-- Keep canonical state in the daemon; browser storage is cache/preferences
+  only, never a local SDK checkout, never deep SDK internals.
+- Keep canonical state in the daemon. Browser storage is cache/preferences
   only, and it must never read `~/.goodvibes/**` files.
 - Presentation tokens (`src/styles/tokens.css`) are generated from the SDK's
   shared presentation contract by `scripts/generate-presentation-tokens.ts`,
   never hand-edited.
 - Operator methods without a dedicated SDK helper ride the generic typed
   invoke path, typed from the SDK's generated contract maps
-  (`src/lib/contract-bridge-types.ts`) — no hand-typed wire shapes.
+  (`src/lib/contract-bridge-types.ts`), no hand-typed wire shapes.
 - Do not add Home Assistant Home Graph filtering to the regular
   Knowledge/Wiki surface.
 
@@ -207,11 +207,11 @@ For routine SDK version bumps, follow
 This repo is not published to npm by design. It is versioned with semantic
 `vMAJOR.MINOR.PATCH` git tags and distributed as source: a green CI run on
 `main` tags the commit and opens a GitHub Release whose notes are cut from
-`CHANGELOG.md`, with no built binary attached — run it from `bun install` +
+`CHANGELOG.md`, with no built binary attached. Run it from `bun install` +
 `bun run build`, or let a daemon serve the built bundle same-origin. Every
 shipped change updates `package.json`, `CHANGELOG.md`, the version badges
 above, and `index.html`'s cache-bust query string. Documentation always
-describes the **current** behavior, not historical behavior — see
+describes the **current** behavior, not historical behavior. See
 [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## License

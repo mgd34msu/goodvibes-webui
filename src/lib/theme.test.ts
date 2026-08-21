@@ -67,10 +67,10 @@ describe('theme constants', () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveInitialTheme — no window
+// resolveInitialTheme, no window
 // ---------------------------------------------------------------------------
 
-describe('resolveInitialTheme — no window', () => {
+describe('resolveInitialTheme: no window', () => {
   beforeEach(removeWindowMock);
   afterEach(removeWindowMock);
 
@@ -80,10 +80,10 @@ describe('resolveInitialTheme — no window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveInitialTheme — with mock window
+// resolveInitialTheme, with mock window
 // ---------------------------------------------------------------------------
 
-describe('resolveInitialTheme — with storage', () => {
+describe('resolveInitialTheme: with storage', () => {
   afterEach(removeWindowMock);
 
   test('returns stored light theme', () => {
@@ -101,7 +101,7 @@ describe('resolveInitialTheme — with storage', () => {
   test('ignores invalid stored theme value', () => {
     installWindowMock();
     mockStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'solarized' }));
-    // Falls through to matchMedia check — matchMedia returns false here -> dark
+    // Falls through to matchMedia check, matchMedia returns false here -> dark
     expect(resolveInitialTheme()).toBe('dark');
   });
 
@@ -123,10 +123,10 @@ describe('resolveInitialTheme — with storage', () => {
 });
 
 // ---------------------------------------------------------------------------
-// readThemePreferences — no window
+// readThemePreferences, no window
 // ---------------------------------------------------------------------------
 
-describe('readThemePreferences — no window', () => {
+describe('readThemePreferences: no window', () => {
   beforeEach(removeWindowMock);
   afterEach(removeWindowMock);
 
@@ -136,10 +136,10 @@ describe('readThemePreferences — no window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// readThemePreferences — with mock storage
+// readThemePreferences, with mock storage
 // ---------------------------------------------------------------------------
 
-describe('readThemePreferences — with storage', () => {
+describe('readThemePreferences: with storage', () => {
   beforeEach(() => installWindowMock());
   afterEach(removeWindowMock);
 
@@ -174,12 +174,12 @@ describe('readThemePreferences — with storage', () => {
 });
 
 // ---------------------------------------------------------------------------
-// writeThemePreferences — uses real happy-dom window + localStorage
+// writeThemePreferences, uses real happy-dom window + localStorage
 // happy-dom's window.dispatchEvent requires a happy-dom Event instance.
 // We spy by replacing dispatchEvent on the real window (= globalThis).
 // ---------------------------------------------------------------------------
 
-describe('writeThemePreferences — with storage', () => {
+describe('writeThemePreferences: with storage', () => {
   let dispatchSpy: ReturnType<typeof createDispatchSpy>;
 
   function createDispatchSpy() {
@@ -227,7 +227,7 @@ describe('writeThemePreferences — with storage', () => {
   });
 });
 
-describe('writeThemePreferences — no storage', () => {
+describe('writeThemePreferences: no storage', () => {
   beforeEach(() => installWindowMock());
   afterEach(removeWindowMock);
 
@@ -272,7 +272,6 @@ describe('applyThemeToRoot', () => {
   });
 
   test('removes data-density when density is default', () => {
-    // First set compact so the attr exists, then switch to default
     applyThemeToRoot({ theme: 'dark', density: 'compact' });
     applyThemeToRoot({ theme: 'dark', density: 'default' });
     expect(mockRoot.attrs.has('data-density')).toBe(false);

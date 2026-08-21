@@ -201,7 +201,7 @@ export function AdminView({ realtimeError }: AdminViewProps) {
               <SettingsIcon size={18} />
             </div>
             <p className="form-note">
-              Config and provider/model routing settings live in a dedicated surface —
+              Config and provider/model routing settings live in a dedicated surface,
               per the platform's convention, configuration is a modal, not an always-visible page.
             </p>
             <button type="button" className="primary-button" onClick={() => setSettingsOpen(true)}>

@@ -1,7 +1,7 @@
 /**
  * QR pairing hand-off: opening a `#pair=<token>` link (what the terminal's
  * `goodvibes pair` QR encodes) signs the device in and scrubs the token from the
- * URL — the fragment never lingers in the address bar or history.
+ * URL, the fragment never lingers in the address bar or history.
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';

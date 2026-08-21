@@ -39,7 +39,7 @@ test('one-tap "Review" jumps to the review queue and highlights exactly the refe
   const ids = await highlighted.evaluateAll((rows) => rows.map((r) => r.getAttribute('data-record-id')));
   expect(ids.sort()).toEqual([MEMORY_FACT.id, MEMORY_REVIEW_CANDIDATE.id].sort());
 
-  // The jump never filters the queue — the same rows that were there before the tap
+  // The jump never filters the queue, the same rows that were there before the tap
   // are still all there after it, merely two of them now highlighted.
   await expect(reviewQueue.locator('.memory-review-row')).toHaveCount(rowCountBeforeJump);
 });

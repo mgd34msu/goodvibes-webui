@@ -10,7 +10,7 @@ import type { ClientCompatibilityVerdict } from './client-compatibility';
 // ---------------------------------------------------------------------------
 
 /**
- * REACHABLE axis. The daemon HTTP port answered (status < 500) — this says nothing
+ * REACHABLE axis. The daemon HTTP port answered (status < 500), this says nothing
  * about whether we are signed in or authorized. The literal 'connected' is retained
  * for CSS/dot compatibility, but its LABEL is "Reachable", never "Connected": a 401
  * still leaves the daemon reachable while everything else fails.
@@ -28,8 +28,8 @@ export type AuthState = 'signed-in' | 'signed-out' | 'unknown';
 export type WorkingState = 'working' | 'blocked' | 'unknown';
 
 /**
- * A stream/subscription cannot work over the relay at all (unary-only tunnel — see
- * lib/relay-connection.ts's header comment) — distinct from 'error' (a stream that
+ * A stream/subscription cannot work over the relay at all (unary-only tunnel, see
+ * lib/relay-connection.ts's header comment), distinct from 'error' (a stream that
  * SHOULD work but currently isn't) and from 'disabled' (never attempted, no verdict
  * either way). Consumers show a specific, honest "not available over relay" copy
  * rather than a generic reconnecting/error state.
@@ -37,7 +37,7 @@ export type WorkingState = 'working' | 'blocked' | 'unknown';
 export type SseState = 'active' | 'connecting' | 'error' | 'disabled' | 'relay-unsupported';
 
 /**
- * ROUTE axis — which transport is currently answering requests when the daemon is
+ * ROUTE axis, which transport is currently answering requests when the daemon is
  * reachable at all. 'direct' is an ordinary fetch against the daemon's own origin
  * (the LAN/co-located case, true before relay pairing existed). 'relay' means every
  * unary call is being tunneled end-to-end through a relay server because the direct
@@ -47,13 +47,13 @@ export type SseState = 'active' | 'connecting' | 'error' | 'disabled' | 'relay-u
 export type RouteState = 'direct' | 'relay' | null;
 
 export interface DaemonHealth {
-  /** REACHABLE axis — HTTP port answered (status < 500). NOT "everything is fine". */
+  /** REACHABLE axis, HTTP port answered (status < 500). NOT "everything is fine". */
   connection: ConnectionState;
-  /** ROUTE axis — which transport answered: direct, relay, or none (see RouteState). */
+  /** ROUTE axis, which transport answered: direct, relay, or none (see RouteState). */
   route: RouteState;
-  /** SIGNED-IN axis — auth.current returned 200 vs 401. */
+  /** SIGNED-IN axis, auth.current returned 200 vs 401. */
   signedIn: AuthState;
-  /** WORKING axis — an authed read succeeded without 401. */
+  /** WORKING axis, an authed read succeeded without 401. */
   working: WorkingState;
   /** Round-trip latency of the last health probe in ms, or null if never measured */
   latencyMs: number | null;
@@ -67,9 +67,9 @@ export interface DaemonHealth {
   modelName: string | null;
   /**
    * This build vs. the daemon's most recently observed client-build floor
-   * (X-Goodvibes-Client-Floor — see lib/client-compatibility.ts). Null until at least
+   * (X-Goodvibes-Client-Floor, see lib/client-compatibility.ts). Null until at least
    * one response has been observed; a daemon that never sends the header (every
-   * currently-shipped one, at this SDK pin) leaves this null forever, which is honest —
+   * currently-shipped one, at this SDK pin) leaves this null forever, which is honest,
    * there is nothing yet to report, not a clean bill of health.
    */
   compatibility: ClientCompatibilityVerdict | null;
@@ -110,7 +110,7 @@ interface ModelCurrentResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers — derive state from raw API responses
+// Pure helpers, derive state from raw API responses
 // ---------------------------------------------------------------------------
 
 /** Extract task counts from a tasks.list response. */
@@ -198,7 +198,7 @@ export function deriveAuthState(input: { ok: boolean; status: number | null }): 
 
 /**
  * Derive the WORKING axis from an authed read (sessions.list). Success is working; a
- * 401 is blocked (signed-out OR a token missing the read:sessions scope — either way
+ * 401 is blocked (signed-out OR a token missing the read:sessions scope, either way
  * session data cannot be read, so we must not claim "live"); other failures are unknown.
  */
 export function deriveWorkingState(input: { ok: boolean; status: number | null }): WorkingState {

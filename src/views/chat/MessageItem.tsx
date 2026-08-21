@@ -29,13 +29,13 @@ interface MessageItemProps {
   index: number;
   isSendPending: boolean;
   copiedMessageId: string;
-  /** Superseded messages retained behind this message's fork — oldest first. */
+  /** Superseded messages retained behind this message's fork, oldest first. */
   priorMessages?: readonly ChatMessage[];
   /** Why the retained run was superseded ('regenerate' | 'edit'). */
   reason?: SupersededReason;
   /** The original message id when this message replaced an edited one. */
   revisionOf?: string;
-  /** True when this message is the current search jump-to-message target — flashes a brief highlight. */
+  /** True when this message is the current search jump-to-message target, flashes a brief highlight. */
   isHighlighted?: boolean;
   onCopyMessage: (message: ChatMessage) => void;
   onResendMessage: (message: ChatMessage) => void;
@@ -166,7 +166,7 @@ export function MessageItem({
               // default so the re-injected instruction wall doesn't repeat in
               // the transcript after every automatic compaction.
               <details className="message-compaction-handoff">
-                <summary>Compaction handoff — context re-injected after auto-compaction ({text.split('\n').length} lines)</summary>
+                <summary>Compaction handoff: context re-injected after auto-compaction ({text.split('\n').length} lines)</summary>
                 <MarkdownMessage content={text} />
               </details>
             ) : (
@@ -202,8 +202,8 @@ export function MessageItem({
               title={
                 state === 'failed' ? 'Not sent'
                   : state === 'local' ? 'Pending'
-                    : state === 'cancelled' ? 'Stopped before completion — this is the partial reply that existed when the turn was stopped'
-                      : state === 'queued' ? 'Queued — will run after the current reply finishes'
+                    : state === 'cancelled' ? 'Stopped before completion: this is the partial reply that existed when the turn was stopped'
+                      : state === 'queued' ? 'Queued: will run after the current reply finishes'
                         : 'Sent'
               }
             >

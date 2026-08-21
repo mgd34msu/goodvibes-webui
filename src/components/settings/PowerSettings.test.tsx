@@ -1,5 +1,5 @@
 /**
- * PowerSettings — the admin Power panel. Covers the ruled shape (one toggle,
+ * PowerSettings, the admin Power panel. Covers the ruled shape (one toggle,
  * no timers, no AC-only sub-options), the "held because X" line, and the
  * honest lid-split note rendering verbatim when served.
  */
@@ -86,7 +86,7 @@ describe('PowerSettings', () => {
     expect(toggle?.checked).toBe(false);
     expect(el.querySelector('.power-panel__state--danger')).toBeNull();
     expect(el.textContent).toContain('Not currently held');
-    // Ruled shape: exactly one toggle control — no timer/duration inputs, no
+    // Ruled shape: exactly one toggle control, no timer/duration inputs, no
     // AC-only sub-option selects anywhere in the panel.
     expect(el.querySelectorAll('input, select').length).toBe(1);
     expect(el.querySelector('input[type="checkbox"]')).not.toBeNull();

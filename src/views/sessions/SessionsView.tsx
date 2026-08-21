@@ -1,5 +1,5 @@
 /**
- * SessionsView — the cross-surface session union.
+ * SessionsView, the cross-surface session union.
  *
  * Renders sdk.operator.sessions.list() (GET /api/sessions → {totals, sessions}), the
  * spine union over every surface kind, with honest badges: kind (verbatim for unknown
@@ -50,7 +50,7 @@ import { SessionRewind } from './SessionRewind';
 import '../../styles/components/sessions.css';
 
 /**
- * PermissionModeControl — the toolbar chip + picker for the VIEWED session's
+ * PermissionModeControl, the toolbar chip + picker for the VIEWED session's
  * permission mode (sessions.permissionMode.get/set, SDK 1.6.1). Session-scoped, not
  * daemon-wide: the daemon can only answer for the session id that IS its own live
  * local runtime, so `sessionId` is the currently selected session (empty string when
@@ -94,7 +94,7 @@ function PermissionModeControl({ sessionId }: { sessionId: string }) {
   const chipTitle = !sessionId
     ? 'Select a session to view its permission mode'
     : notLocal
-      ? 'Permission mode is only readable/settable for the daemon’s own live local session — this session runs elsewhere'
+      ? 'Permission mode is only readable/settable for the daemon’s own live local session, this session runs elsewhere'
       : 'Change this session’s permission mode';
 
   return (
@@ -125,12 +125,12 @@ function PermissionModeControl({ sessionId }: { sessionId: string }) {
 }
 
 /**
- * ContextUsageChip — the compact context-usage indicator, fed by
+ * ContextUsageChip, the compact context-usage indicator, fed by
  * sessions.contextUsage.get (SDK 1.6.1). The percentage is the token ESTIMATOR's
- * figure (estimated:true on the wire, always) — the "~" prefix says so at a glance,
+ * figure (estimated:true on the wire, always), the "~" prefix says so at a glance,
  * never presented as a measured provider count. `check` (the live COMPACTION_CHECK
  * frame useCompactionReceipts observes for this session) is kept ONLY as a refresh
- * trigger — a fresh check means token usage just moved, so this refetches the query
+ * trigger, a fresh check means token usage just moved, so this refetches the query
  * rather than rendering the check's own tokenCount/threshold directly. Same
  * SESSION_NOT_LOCAL honesty as PermissionModeControl: an unavailable chip, never a
  * silently stale or fabricated percentage.
@@ -170,7 +170,7 @@ function ContextUsageChip({ sessionId, check }: { sessionId: string; check: Comp
   return (
     <span
       className={`context-usage-chip${warn ? ' context-usage-chip--warning' : ''}`}
-      title={`Estimated ${estimatedContextTokens.toLocaleString()} of ${contextWindow.toLocaleString()} context-window tokens — an estimate, not a measured provider count`}
+      title={`Estimated ${estimatedContextTokens.toLocaleString()} of ${contextWindow.toLocaleString()} context-window tokens: an estimate, not a measured provider count`}
     >
       Context: ~{contextUsagePct}%
     </span>
@@ -178,16 +178,16 @@ function ContextUsageChip({ sessionId, check }: { sessionId: string; check: Comp
 }
 
 /**
- * CostChip — the compact per-session cost line, fed by cost.attribution.get (SDK
+ * CostChip, the compact per-session cost line, fed by cost.attribution.get (SDK
  * 1.6.1) windowed to the last 24h with dimension:"session". The wire aggregates cost
  * PER SESSION within that window as one row per session id; this reads the one row (if
- * any) whose key equals the viewed session's id — the dimension maps cleanly onto a
+ * any) whose key equals the viewed session's id, the dimension maps cleanly onto a
  * single session because "session" is a first-class attribution dimension on the wire,
  * not something this client has to reconstruct. A session with no priced/unpriced LLM
  * usage recorded in the window (too old, or genuinely no model calls yet) has no row at
- * all — rendered as an honest "no cost recorded (24h)", never a fabricated $0. Honest-
+ * all, rendered as an honest "no cost recorded (24h)", never a fabricated $0. Honest-
  * unpriced: a row can carry `costUsd: null` (nothing in it could be priced) or
- * `costState: 'estimated'` (a mix of priced and unpriced records) — both states are
+ * `costState: 'estimated'` (a mix of priced and unpriced records), both states are
  * rendered explicitly, never collapsed into a bare dollar figure that implies full
  * confidence.
  */
@@ -215,9 +215,9 @@ function CostChip({ sessionId }: { sessionId: string }) {
       </span>
     );
   }
-  // Explicit "price unknown" for a fully-unpriced row — never $0.00. A session
+  // Explicit "price unknown" for a fully-unpriced row, never $0.00. A session
   // aggregates records across models, so the wire's own `costSource` (often
-  // 'mixed' here) and `pricingAsOf` carry the provenance — the note renders
+  // 'mixed' here) and `pricingAsOf` carry the provenance, the note renders
   // whatever the record states, and the blind spot (how many records
   // contributed no dollars) renders alongside. The price editor is one action
   // away for filling the gap manually.
@@ -237,7 +237,7 @@ function CostChip({ sessionId }: { sessionId: string }) {
   );
 }
 
-/** CompactionReceiptBlock — a distinct card for one COMPACTION_RECEIPT, the SDK's
+/** CompactionReceiptBlock, a distinct card for one COMPACTION_RECEIPT, the SDK's
  *  mandatory post-compaction summary (lib/compaction.ts). Never folded into the
  *  plain .session-message rows above it. */
 function CompactionReceiptBlock({ receipt }: { receipt: CompactionReceipt }) {
@@ -256,7 +256,7 @@ function CompactionReceiptBlock({ receipt }: { receipt: CompactionReceipt }) {
       {receipt.requestedStrategy && (
         <p className="compaction-receipt__fallback" role="note">
           requested {receipt.requestedStrategy}, ran {receipt.strategy || 'unknown strategy'}
-          {receipt.strategyFallbackReason ? ` — ${receipt.strategyFallbackReason}` : ''}
+          {receipt.strategyFallbackReason ? `: ${receipt.strategyFallbackReason}` : ''}
         </p>
       )}
       <div className="compaction-receipt__stats">
@@ -277,7 +277,7 @@ function KindBadge({ kind }: { kind: string }) {
   return (
     <span
       className={`badge ${known ? 'neutral' : 'warning'}`}
-      title={known ? undefined : 'Kind not known to this client — shown verbatim'}
+      title={known ? undefined : 'Kind not known to this client, shown verbatim'}
     >
       {kindLabel(kind)}
     </span>
@@ -286,8 +286,8 @@ function KindBadge({ kind }: { kind: string }) {
 
 /**
  * Reaped-as-reaped (D-TUI/#B1): an idle-reaped closed session auto-reopens on
- * the next heartbeat from any surface — a GC housekeeping event, not a
- * deliberate close — so it gets its own tone/wording rather than folding into
+ * the next heartbeat from any surface, a GC housekeeping event, not a
+ * deliberate close, so it gets its own tone/wording rather than folding into
  * "closed · history". Tolerant of records without `closeReason` (pre-feature
  * builds render exactly as before).
  */
@@ -299,7 +299,7 @@ function StatusBadge({ record }: { record: Pick<UnionSessionRecord, 'status' | '
   return (
     <span
       className={`badge ${tone}`}
-      title={reaped ? 'Closed by the idle-session sweep — reopens automatically on the next activity' : undefined}
+      title={reaped ? 'Closed by the idle-session sweep: reopens automatically on the next activity' : undefined}
     >
       {label}
     </span>
@@ -328,12 +328,12 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
   // DELETE-MEANS-DELETE: an honest, read-only capability probe, not a guess.
   // sessions.delete is a real verb in the SDK's own source at the time of writing, but
   // it is still in flight there (uncommitted) and is NOT in the webui's installed
-  // contracts package — an un-upgraded daemon genuinely does not have this route.
+  // contracts package, an un-upgraded daemon genuinely does not have this route.
   // control.methods.get 404s with "Unknown gateway method" for an unregistered id
   // (verified live), which isMethodUnavailableError recognizes.
   //
-  // staleTime is CAPPED (not Infinity): the probe answer can change under us — a daemon
-  // upgrade adds the verb, or the first probe failed transiently — so a forever-cached
+  // staleTime is CAPPED (not Infinity): the probe answer can change under us, a daemon
+  // upgrade adds the verb, or the first probe failed transiently, so a forever-cached
   // result would be dishonest. It is also re-probed on reconnect (see the effect below).
   const deleteCapability = useQuery({
     queryKey: ['capability', 'sessions.delete'],
@@ -342,16 +342,16 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
     retry: false,
   });
 
-  // Honest tri/quad-state — the probe's success ISN'T the only signal that matters, and
+  // Honest tri/quad-state, the probe's success ISN'T the only signal that matters, and
   // a bare `isSuccess` gate conflated a transient failure with a genuine absence:
-  //   'available'   — the probe succeeded → offer Delete.
-  //   'unavailable' — the probe returned the daemon's "Unknown gateway method" 404
+  //   'available'  , the probe succeeded → offer Delete.
+  //   'unavailable', the probe returned the daemon's "Unknown gateway method" 404
   //                   (isMethodUnavailableError specifically) → this daemon really lacks
   //                   the verb. NOT any error: a 500/network blip is not an absence.
-  //   'uncertain'   — the probe failed for some OTHER reason (network/5xx) → we can't
+  //   'uncertain'  , the probe failed for some OTHER reason (network/5xx) → we can't
   //                   say; show a neutral "couldn't check" with a retry, never a false
   //                   "delete isn't available".
-  //   'checking'    — first probe still in flight.
+  //   'checking'   , first probe still in flight.
   const deleteCapabilityState: 'available' | 'unavailable' | 'uncertain' | 'checking' =
     deleteCapability.isSuccess
       ? 'available'
@@ -361,7 +361,7 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
 
   // Re-probe on reconnect: streamPaused is the threaded live-stream health signal (it
   // clears when the session-update SSE reconnects). A true→false transition means the
-  // daemon is reachable again — the moment to re-run a capability probe that may have
+  // daemon is reachable again, the moment to re-run a capability probe that may have
   // failed transiently, or that a daemon upgrade has since changed.
   const { refetch: refetchDeleteCapability } = deleteCapability;
   const prevStreamPausedRef = useRef(streamPaused);
@@ -406,7 +406,7 @@ export function SessionsView({ streamPaused = false }: SessionsViewProps = {}) {
 
   // Master-detail on a phone (≤980px, styled in sessions.css): the list and the detail
   // can't both fit side-by-side, so the stylesheet shows ONE at a time. Selecting a
-  // session flips to the detail; the "Back to sessions" affordance below flips back —
+  // session flips to the detail; the "Back to sessions" affordance below flips back,
   // never a dead-end single-column stack you can't climb out of.
   return (
     <div className={selected ? 'sessions-view has-selection' : 'sessions-view'}>
@@ -537,7 +537,7 @@ function SessionDetail({
   const retention = retentionLabel(record);
   const closed = isClosedStatus(record.status);
 
-  // Live compaction signal for THIS session only (lib/compaction.ts) — the
+  // Live compaction signal for THIS session only (lib/compaction.ts), the
   // post-compaction receipt blocks appended to the transcript below, and (via
   // compaction.latestCheck) the refresh trigger for the context-usage chip's
   // sessions.contextUsage.get query. Closes when the operator leaves this session's
@@ -546,7 +546,7 @@ function SessionDetail({
 
   const invalidateSessions = () => queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
 
-  // Close/Reopen: DISTINCT, reversible, history-preserving actions — sessions.close /
+  // Close/Reopen: DISTINCT, reversible, history-preserving actions, sessions.close /
   // sessions.reopen have been in the facade since before this brief and are idempotent
   // on the daemon (closing an already-closed session, or reopening an already-open
   // one, is a no-op success), so no extra guarding is needed here.
@@ -562,8 +562,8 @@ function SessionDetail({
   // Delete: a real hard-delete (sessions.delete), PERMANENT and distinct from close.
   // The verb requires the session to already be closed (409 SESSION_ACTIVE otherwise),
   // so this closes first (idempotent, per above) and never trusts the delete call's
-  // 200 at face value — it reconciles against a fresh sessions.list() (which already
-  // includes closed sessions with no separate includeClosed param — see the view's own
+  // 200 at face value, it reconciles against a fresh sessions.list() (which already
+  // includes closed sessions with no separate includeClosed param, see the view's own
   // header comment on GET /api/sessions) and only succeeds once the record is
   // genuinely absent from it.
   const deleteSession = useMutation({
@@ -582,7 +582,7 @@ function SessionDetail({
       const stillPresent = unionSessionsFromListResponse(reconciled).some((r) => r.id === sessionId);
       if (stillPresent) {
         throw Object.assign(
-          new Error('Delete did not complete — the record still exists'),
+          new Error('Delete did not complete, the record still exists'),
           { code: 'DELETE_INCOMPLETE' },
         );
       }
@@ -636,7 +636,7 @@ function SessionDetail({
               type="button"
               className="session-detail__action"
               disabled={closeSession.isPending}
-              title="Close — keeps history, reopenable"
+              title="Close: keeps history, reopenable"
               onClick={() => {
                 if (!window.confirm(`Close "${record.title}"? It stays visible in history and can be reopened.`)) return;
                 closeSession.mutate(record.id);
@@ -664,10 +664,10 @@ function SessionDetail({
               type="button"
               className="session-detail__action danger"
               disabled={deleteSession.isPending}
-              title={`Delete "${record.title}" permanently — this removes the record, it cannot be reopened`}
+              title={`Delete "${record.title}" permanently: this removes the record, it cannot be reopened`}
               onClick={() => {
                 if (!window.confirm(
-                  `Delete "${record.title}" permanently?\n\nThis removes the session record — it cannot be reopened.`,
+                  `Delete "${record.title}" permanently?\n\nThis removes the session record: it cannot be reopened.`,
                 )) return;
                 deleteSession.mutate(record.id);
               }}
@@ -677,7 +677,7 @@ function SessionDetail({
           )}
           {deleteCapabilityState === 'unavailable' && (
             <small className="session-detail__action-note">
-              Permanent delete isn&apos;t available on this daemon yet — close is the only removal available.
+              Permanent delete isn&apos;t available on this daemon yet, close is the only removal available.
             </small>
           )}
           {deleteCapabilityState === 'uncertain' && (

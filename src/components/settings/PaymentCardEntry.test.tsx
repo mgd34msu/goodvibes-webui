@@ -1,5 +1,5 @@
 /**
- * PaymentCardEntry — the conditions that live in the markup.
+ * PaymentCardEntry, the conditions that live in the markup.
  *
  * Conditions 4 and 5 of the owner's card-entry ruling are properties of the
  * rendered elements themselves, so they are asserted against the real rendered
@@ -26,7 +26,7 @@ import { ToastProvider } from '../../lib/toast';
 import { PaymentCardEntry } from './PaymentCardEntry';
 import { CARD_INPUT_GUARDS } from '../../lib/payments-cards';
 
-/** The four inputs that hold card material — the ones every condition is about. */
+/** The four inputs that hold card material, the ones every condition is about. */
 const CARD_INPUT_IDS = ['gv-card-number', 'gv-card-expiry', 'gv-card-cvv', 'gv-card-holder'] as const;
 
 const originalFetch = globalThis.fetch;
@@ -74,7 +74,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe('condition 4 — autocomplete="off" on every card field', () => {
+describe('condition 4: autocomplete="off" on every card field', () => {
   test('all four card inputs carry it', () => {
     const { container, unmount } = render();
     for (const input of cardInputs(container)) {
@@ -93,7 +93,7 @@ describe('condition 4 — autocomplete="off" on every card field', () => {
     unmount();
   });
 
-  test('the guard set itself declares autocomplete off — the single place a new field inherits it from', () => {
+  test('the guard set itself declares autocomplete off, the single place a new field inherits it from', () => {
     expect(CARD_INPUT_GUARDS.autoComplete).toBe('off');
   });
 
@@ -111,8 +111,8 @@ describe('condition 4 — autocomplete="off" on every card field', () => {
   });
 });
 
-describe('condition 5 — not a field a password manager offers to save', () => {
-  test('there is no <form> element — a save prompt is overwhelmingly triggered by a form submit', () => {
+describe('condition 5: not a field a password manager offers to save', () => {
+  test('there is no <form> element. A save prompt is overwhelmingly triggered by a form submit', () => {
     const { container, unmount } = render();
     expect(container.querySelector('form')).toBeNull();
     unmount();
@@ -126,7 +126,7 @@ describe('condition 5 — not a field a password manager offers to save', () => 
     unmount();
   });
 
-  test('no card input has a name attribute — the other half of what managers match on', () => {
+  test('no card input has a name attribute, the other half of what managers match on', () => {
     const { container, unmount } = render();
     for (const input of cardInputs(container)) {
       expect(input.hasAttribute('name')).toBe(false);
@@ -134,7 +134,7 @@ describe('condition 5 — not a field a password manager offers to save', () => 
     unmount();
   });
 
-  test('no card input is type="password" — the single strongest signal a manager looks for', () => {
+  test('no card input is type="password", the single strongest signal a manager looks for', () => {
     const { container, unmount } = render();
     for (const input of cardInputs(container)) {
       expect(input.getAttribute('type')).not.toBe('password');

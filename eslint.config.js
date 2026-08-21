@@ -47,7 +47,7 @@ export default tseslint.config(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- jsxA11y plugin typed as any
       ...jsxA11y.flatConfigs.recommended.rules,
 
-      // TypeScript — relax a handful of strict rules that are noisy
+      // TypeScript, relax a handful of strict rules that are noisy
       // in a React codebase without being safety-critical
       "@typescript-eslint/no-unnecessary-condition": "warn",
       "@typescript-eslint/restrict-template-expressions": [
@@ -81,10 +81,10 @@ export default tseslint.config(
       "@typescript-eslint/no-base-to-string": "warn",
       "@typescript-eslint/no-misused-spread": "warn",
       "@typescript-eslint/no-dynamic-delete": "warn",
-      // Downgrade assertion rules — some patterns require casts (e.g. the toast files)
+      // Downgrade assertion rules, some patterns require casts (e.g. the toast files)
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
       "@typescript-eslint/no-non-null-assertion": "warn",
-      // Downgrade type definition style — interface vs type is stylistic
+      // Downgrade type definition style, interface vs type is stylistic
       "@typescript-eslint/consistent-type-definitions": "warn",
       // a11y rules that require broader refactors: downgrade to warn
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
@@ -120,7 +120,7 @@ export default tseslint.config(
     // across the shared OS tmpfs, and a signal-killed test process (CI
     // cancellation, a timeout kill) skips afterAll/finally cleanup entirely,
     // so the directory is never removed. Use makeProjectTempDir from
-    // scripts/helpers/project-temp.ts instead — it registers the directory
+    // scripts/helpers/project-temp.ts instead, it registers the directory
     // for exit-hook cleanup, and the stale sweep
     // (scripts/sweep-stale-temp.ts, run via the `pretest` script) reaps
     // anything a killed process still leaves behind. A script that boots a
@@ -128,7 +128,7 @@ export default tseslint.config(
     // (a per-run `.test-tmp/run-<pid>` root) rather than either of those.
     //
     // Scoped to test files plus live-daemon-smoke.ts (the one non-.test.ts
-    // file with the same call-site shape — see that file's own comment for
+    // file with the same call-site shape, see that file's own comment for
     // why it isn't part of the default test glob), and explicitly excludes
     // scripts/helpers/project-temp.ts itself, which legitimately contains
     // this exact call as its implementation.
@@ -141,13 +141,13 @@ export default tseslint.config(
           selector:
             "CallExpression[callee.name=/^mkdtemp(Sync)?$/] CallExpression[callee.name='tmpdir']",
           message:
-            "Do not create scratch directories directly under the real OS tmpdir — use makeProjectTempDir from scripts/helpers/project-temp.ts (or installTestTempRoot from scripts/test-temp-root.ts for a script that boots a real daemon) so a killed process's leftover directory gets swept instead of leaking forever.",
+            "Do not create scratch directories directly under the real OS tmpdir, use makeProjectTempDir from scripts/helpers/project-temp.ts (or installTestTempRoot from scripts/test-temp-root.ts for a script that boots a real daemon) so a killed process's leftover directory gets swept instead of leaking forever.",
         },
         {
           selector:
             "CallExpression[callee.name=/^mkdtemp(Sync)?$/] CallExpression[callee.property.name='tmpdir']",
           message:
-            "Do not create scratch directories directly under the real OS tmpdir — use makeProjectTempDir from scripts/helpers/project-temp.ts (or installTestTempRoot from scripts/test-temp-root.ts for a script that boots a real daemon) so a killed process's leftover directory gets swept instead of leaking forever.",
+            "Do not create scratch directories directly under the real OS tmpdir, use makeProjectTempDir from scripts/helpers/project-temp.ts (or installTestTempRoot from scripts/test-temp-root.ts for a script that boots a real daemon) so a killed process's leftover directory gets swept instead of leaking forever.",
         },
       ],
     },
@@ -159,7 +159,7 @@ export default tseslint.config(
     files: ["public/sw.js"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
-      // Keep disableTypeChecked's parserOptions (projectService off) — a bare
+      // Keep disableTypeChecked's parserOptions (projectService off), a bare
       // `languageOptions:` key here would replace them and re-enable the
       // type-aware parse this block exists to turn off.
       ...tseslint.configs.disableTypeChecked.languageOptions,
@@ -199,7 +199,7 @@ export default tseslint.config(
       ".claude/**",
       "coverage/**",
       // Playwright's retained failure artifacts (traces bundle their own JS
-      // viewer assets) — generated, git-ignored, and unlintable by design.
+      // viewer assets), generated, git-ignored, and unlintable by design.
       "e2e/.artifacts/**",
     ],
   }

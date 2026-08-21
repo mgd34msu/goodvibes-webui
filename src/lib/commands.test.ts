@@ -23,7 +23,7 @@ function makeCmd(overrides: Partial<CommandDef> & { id: string }): CommandDef {
 // Clean registry between tests
 beforeEach(() => {
   // Unregister any test commands that may have leaked from a previous test.
-  // This is safe — unregistering a non-existent id is a no-op.
+  // This is safe, unregistering a non-existent id is a no-op.
   for (const cmd of getCommands()) {
     unregisterCommand(cmd.id);
   }
@@ -76,7 +76,7 @@ describe('filterCommands', () => {
     expect(results.every((c) => c.group === 'navigation')).toBe(true);
   });
 
-  test('fuzzy match on title — "nwcht" matches "New Chat"', () => {
+  test('fuzzy match on title: "nwcht" matches "New Chat"', () => {
     const results = filterCommands(commands, 'nwcht');
     expect(results.map((c) => c.id)).toContain('chat.new');
   });
@@ -95,7 +95,6 @@ describe('filterCommands', () => {
     const results = filterCommands(commands, 'chat');
     // All returned commands should match; the exact prefix match comes first
     expect(results.length).toBeGreaterThan(0);
-    // First result should have the best score — title starts with or contains "chat"
     const first = results[0];
     const titleHasChat = first.title.toLowerCase().startsWith('chat') ||
       first.title.toLowerCase().includes('chat') ||

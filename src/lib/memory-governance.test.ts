@@ -58,11 +58,11 @@ describe('memory-governance helpers', () => {
   test('tripwireLine renders the honest armed/not-armed line', () => {
     expect(tripwireLine({ armed: false, sustainedSec: 0, rateMbPerSec: 0 })).toBe('Leak tripwire: not armed.');
     expect(tripwireLine({ armed: true, sustainedSec: 45, rateMbPerSec: 3.2 }))
-      .toBe('Leak tripwire: armed — sustained growth of 3.2 MB/s for 45s.');
+      .toBe('Leak tripwire: armed: sustained growth of 3.2 MB/s for 45s.');
   });
 });
 
-describe('readMemoryGovernanceSnapshot — defensive wire parse', () => {
+describe('readMemoryGovernanceSnapshot: defensive wire parse', () => {
   test('a full schema-shaped payload parses verbatim', () => {
     const parsed = readMemoryGovernanceSnapshot(WIRE_SNAPSHOT);
     expect(parsed).not.toBeNull();
@@ -91,7 +91,7 @@ describe('readMemoryGovernanceSnapshot — defensive wire parse', () => {
     expect(readMemoryGovernanceSnapshot({ ...WIRE_SNAPSHOT, tier: 'apocalyptic' })).toBeNull();
   });
 
-  test('decorative fields degrade individually — missing caches/pausedJobs/tripwire never sink the snapshot', () => {
+  test('decorative fields degrade individually: missing caches/pausedJobs/tripwire never sink the snapshot', () => {
     const parsed = readMemoryGovernanceSnapshot({
       tier: 'normal', budgetMb: 100, rssMb: 10, heapUsedMb: 5, usedPct: 10,
     });

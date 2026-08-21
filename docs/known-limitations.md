@@ -1,4 +1,4 @@
-# Known Limitations
+# Known limitations
 
 This document tracks intentional gaps and current constraints so they are not
 mistaken for hidden contracts.
@@ -8,7 +8,7 @@ mistaken for hidden contracts.
 - Chat sessions are daemon-owned. Browser local storage is only a cache for the
   active/recent session list while daemon state loads.
 - Edit-with-branching keeps superseded turns viewable, but branches are linear
-  alternatives on one conversation — there is no tree browser across branches.
+  alternatives on one conversation. There is no tree browser across branches.
 - Attachments upload as daemon artifacts before send; large outputs open in the
   artifacts slide-over. There is no dedicated attachment-management panel.
 
@@ -28,10 +28,10 @@ mistaken for hidden contracts.
   registrations are placeholders that refuse honestly and point at
   bring-your-own until real registrations are configured.
 
-## Install and Push
+## Install and push
 
-- Install (add to home screen) and Web Push require a secure (HTTPS) context —
-  on a plain-HTTP LAN address the app says so and points at serving over HTTPS
+- Install (add to home screen) and Web Push require a secure (HTTPS) context.
+  On a plain-HTTP LAN address the app says so and points at serving over HTTPS
   (for example `tailscale serve`). On iOS, push works only for the installed
   app, and the app says that too.
 
@@ -46,7 +46,7 @@ mistaken for hidden contracts.
   SDK/daemon scoping issue. WebUI should report exact endpoints and ids rather
   than adding client-side filters.
 
-## Providers and Models
+## Providers and models
 
 - Provider/model selection follows daemon runtime semantics. Runtime provider
   ids can differ from catalog prefixes, so UI labels should not be treated as
@@ -54,7 +54,7 @@ mistaken for hidden contracts.
 - The model dropdown is scoped to the selected provider. Missing models usually
   mean provider discovery or daemon model catalog data needs inspection.
 
-## Network and Deployment
+## Network and deployment
 
 - The development server is Vite on the TUI-resolved WebUI binding, normally
   port `3423`. The daemon/control-plane remains on `3421`. For production use
@@ -64,11 +64,11 @@ mistaken for hidden contracts.
   internet exposure needs an explicit deployment design with TLS, auth, and
   host policy.
 
-## Route Shims
+## Route shims
 
 - Retired. Operator methods without a convenience helper ride the generic typed
-  invoke path with contract-derived types (`src/lib/contract-bridge-types.ts`);
-  a test pins that the old per-route shim table does not come back.
+  invoke path with contract-derived types (`src/lib/contract-bridge-types.ts`).
+  A test pins that the old per-route shim table does not come back.
 
 ## Screenshots
 

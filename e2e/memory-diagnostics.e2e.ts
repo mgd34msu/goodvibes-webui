@@ -1,5 +1,5 @@
 /**
- * Memory diagnostics — the daemon's memory-governance observability surface
+ * Memory diagnostics, the daemon's memory-governance observability surface
  * (ops.memory.get, SDK 1.9.0-dev). Proves the admin Memory panel's tier chip,
  * budget-vs-RSS bar, per-cache footprint table, paused-jobs list, and tripwire
  * line against the mock daemon, plus the honest "does not serve" state on an
@@ -16,7 +16,7 @@ test('the elevated-tier snapshot renders the chip, bar, caches, paused job, and 
   const panel = page.locator('.memory-diagnostics');
   await expect(panel).toBeVisible();
 
-  // Tier chip — the existing .badge idiom, info tone for 'elevated'.
+  // Tier chip, the existing .badge idiom, info tone for 'elevated'.
   const chip = panel.locator('.badge');
   await expect(chip).toHaveText('Elevated');
   await expect(chip).toHaveClass(/info/);
@@ -55,10 +55,10 @@ test('a critical-tier snapshot shows the danger chip, the refusing-work note, an
   await expect(chip).toHaveText('Critical');
   await expect(chip).toHaveClass(/bad/);
   await expect(panel).toContainText('Refusing expensive work while under pressure.');
-  await expect(panel).toContainText('Leak tripwire: armed — sustained growth of 3.2 MB/s for 45s.');
+  await expect(panel).toContainText('Leak tripwire: armed: sustained growth of 3.2 MB/s for 45s.');
 });
 
-test('an older daemon build (verb absent, 404) renders the honest "does not serve" state — and never sinks the sibling panels', async ({ page }) => {
+test('an older daemon build (verb absent, 404) renders the honest "does not serve" state; and never sinks the sibling panels', async ({ page }) => {
   await installMockDaemon(page, { opsMemory: 'unavailable' });
   await page.goto('/?view=admin');
   await expect(page.locator('.stack')).toBeVisible();
@@ -67,6 +67,6 @@ test('an older daemon build (verb absent, 404) renders the honest "does not serv
   await expect(panel).toContainText('This daemon does not serve memory diagnostics');
   // No placeholder numbers anywhere in the unavailable state.
   await expect(panel.locator('[role="progressbar"]')).toHaveCount(0);
-  // The sibling Power panel is untouched — the unavailable state is contained.
+  // The sibling Power panel is untouched, the unavailable state is contained.
   await expect(page.locator('.power-panel')).toBeVisible();
 });

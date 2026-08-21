@@ -16,7 +16,7 @@ import type { DaemonHealth } from '../../lib/daemon-health';
 import { CONTRACT_STATE_GLYPHS } from '../../lib/generated/presentation-tokens';
 
 // ---------------------------------------------------------------------------
-// Module mock — must be called before any import that transitively requires it
+// Module mock, must be called before any import that transitively requires it
 // ---------------------------------------------------------------------------
 
 let _mockHealth: DaemonHealth = {
@@ -32,13 +32,13 @@ let _mockHealth: DaemonHealth = {
   compatibility: null,
 };
 
-// Bun mock.module — synchronous module override for bun:test
+// Bun mock.module, synchronous module override for bun:test
 import { mock } from 'bun:test';
 mock.module('../../hooks/useDaemonHealth', () => ({
   useDaemonHealth: () => _mockHealth,
 }));
 // PowerChip (rendered inside StatusStrip) calls usePowerStatus, which needs a
-// QueryClientProvider this test tree does not set up — mocked out here, same as
+// QueryClientProvider this test tree does not set up, mocked out here, same as
 // useDaemonHealth above. PowerChip.test.tsx below covers its own states in isolation.
 mock.module('../../hooks/usePowerStatus', () => ({
   usePowerStatus: () => ({ data: undefined, isPending: false, isError: false }),
@@ -142,7 +142,7 @@ describe('StatusStrip', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Connection states — label + dot (non-color cue)
+  // Connection states, label + dot (non-color cue)
   // -------------------------------------------------------------------------
   describe('connection state: connected', () => {
     test('shows "Reachable" label in connection segment (never "Connected")', () => {
@@ -180,14 +180,14 @@ describe('StatusStrip', () => {
     // Component-level assertion (WEBUI-PRESENTATION-BRIDGE): the connection
     // segment's leading glyph is the SDK presentation contract's own glyph
     // for the 'good' severity bucket (CONTRACT_STATE_GLYPHS.good), sourced
-    // via src/lib/presentation-bridge.ts — not a hardcoded literal.
+    // via src/lib/presentation-bridge.ts, not a hardcoded literal.
     test('connection segment carries the contract glyph for "good" (connected)', () => {
       const { el, unmount } = renderStrip();
       cleanup = unmount;
       const connectionSeg = el.querySelector('.status-strip__segment--connection');
       const label = connectionSeg?.querySelector('.status-strip__label');
       expect(label?.getAttribute('data-contract-glyph')).toBe(CONTRACT_STATE_GLYPHS.good);
-      // Attribute-driven (CSS ::before content), not a child text node — the
+      // Attribute-driven (CSS ::before content), not a child text node, the
       // accessible label text is unaffected.
       expect(label?.textContent).toBe('Reachable');
     });

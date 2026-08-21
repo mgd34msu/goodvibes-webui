@@ -1,12 +1,12 @@
 /**
- * StepUpHost — the inline WebAuthn step-up ceremony, run at the point a mutating relay call
+ * StepUpHost, the inline WebAuthn step-up ceremony, run at the point a mutating relay call
  * demands it.
  *
  * The transport layer (routedFetch) does not open modals; when a mutating relay call comes
  * back `401 step-up-required`, it calls the prompter this component registers. The prompter
  * opens a modal, runs the passkey ceremony (mint a server challenge, navigator.credentials.get,
  * encode the assertion header), and resolves the header value the transport then retries with.
- * Cancelling — or any ceremony failure — resolves null, so the original 401 surfaces honestly
+ * Cancelling, or any ceremony failure, resolves null, so the original 401 surfaces honestly
  * rather than the call hanging or silently skipping verification.
  *
  * One ceremony runs at a time: a second requirement arriving while one is open is declined
@@ -40,7 +40,7 @@ export function StepUpHost() {
   }, []);
 
   const prompter = useCallback<StepUpPrompter>((context) => {
-    // Only one ceremony at a time — decline a second requirement honestly rather than stack.
+    // Only one ceremony at a time, decline a second requirement honestly rather than stack.
     if (resolverRef.current) return Promise.resolve(null);
     return new Promise<string | null>((resolve) => {
       resolverRef.current = resolve;
@@ -101,7 +101,7 @@ export function StepUpHost() {
         ) : !registered ? (
           <p className="stepup-note">
             No passkey is registered on this device yet. If you have a discoverable passkey your
-            browser may still offer it below — otherwise register one in Settings → Security first.
+            browser may still offer it below, otherwise register one in Settings → Security first.
           </p>
         ) : null}
 

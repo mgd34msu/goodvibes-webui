@@ -1,5 +1,5 @@
 /**
- * Voice journey — TTS playback and mic dictation, proven end to end against a hermetic
+ * Voice journey, TTS playback and mic dictation, proven end to end against a hermetic
  * mock (no real voice provider, no real audio, no 3421/4444). Mic uses Playwright's fake
  * media device; playback uses an injected fake AudioContext. Every assertion is on the
  * STATE, never on real sound.
@@ -88,7 +88,7 @@ test('dictation transcribes into the composer for review before sending', async 
   await page.waitForTimeout(500); // let the fake device produce some audio
   await stopMic.click();
 
-  // The transcript fills the draft — it is NOT auto-sent (review before send).
+  // The transcript fills the draft, it is NOT auto-sent (review before send).
   const composer = page.locator('textarea[aria-label="Message GoodVibes"]');
   await expect(composer).toHaveValue(/dictated hello world/, { timeout: 15_000 });
   await expect(page.locator('.message.user')).toHaveCount(0);
@@ -100,7 +100,7 @@ test('dictation transcribes into the composer for review before sending', async 
 test('mic points at the missing speech-to-text provider honestly', async ({ page }) => {
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, {
-    // A TTS-only provider — dictation genuinely unavailable.
+    // A TTS-only provider, dictation genuinely unavailable.
     providers: [{ id: 'vydra', label: 'Vydra', configured: true, capabilities: ['tts', 'voice-list'] }],
   });
 
@@ -160,7 +160,7 @@ test('the provider selection shows local beside elevenlabs (SDK 1.8.0 voice.loca
   await configWrite;
 });
 
-test.describe('Voice settings — phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
+test.describe('Voice settings: phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('opens as a full-viewport sheet with an explicit close affordance', async ({ page }) => {
@@ -180,7 +180,7 @@ test.describe('Voice settings — phone: a full-screen sheet, not a floating pop
     expect(box).not.toBeNull();
     expect(viewport).not.toBeNull();
     if (box && viewport) {
-      // Near-fullscreen: within a few px of the viewport in both dimensions —
+      // Near-fullscreen: within a few px of the viewport in both dimensions,
       // the same near-fullscreen shape the shared Modal uses at this breakpoint.
       expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2);
       expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);

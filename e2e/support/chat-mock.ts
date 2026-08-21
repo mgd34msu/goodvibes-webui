@@ -1,15 +1,15 @@
 /**
- * installChatMockDaemon — a STATEFUL hermetic mock for the companion-chat journey.
+ * installChatMockDaemon, a STATEFUL hermetic mock for the companion-chat journey.
  *
  * Unlike the baseline installMockDaemon (which answers companion chat with an empty,
  * stateless success), this keeps an in-memory chat store in the Node route handler so a
  * full modern-chat-app journey can be exercised end to end without any real daemon:
  * create a session, send a message and get a reply, regenerate a response, and edit a
- * message and branch — with the daemon's HONEST LINEAGE preserved (superseded messages
+ * message and branch, with the daemon's HONEST LINEAGE preserved (superseded messages
  * are retained in the list, flagged with supersededAt/supersededReason, never deleted).
  *
  * The app's 1s message-poll fallback (ChatView refetches messages.list while a turn is
- * active) is what advances each turn here — SSE streams are left pending, exactly as the
+ * active) is what advances each turn here, SSE streams are left pending, exactly as the
  * baseline mock does, so no event stream implementation is needed. NO real daemon, no
  * 3421/4444, no network beyond the local dev server.
  */
@@ -71,7 +71,7 @@ export interface ChatMockOptions {
   holdReplies?: boolean;
   /**
    * When set, every appended assistant reply carries
-   * `metadata: { memory: { recordIds: [...] } }` — the memory-provenance chip proof
+   * `metadata: { memory: { recordIds: [...] } }`, the memory-provenance chip proof
    * (MemoryProvenanceChip.tsx / lib/memory-provenance.ts's read convention). Default
    * unset (no metadata at all, matching a daemon that never stamps this).
    */
@@ -153,7 +153,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
   }
 
   // The SDK's control.status helper and the settings modal use the direct
-  // GET /status and /config routes (not the invoke gateway) — register them
+  // GET /status and /config routes (not the invoke gateway), register them
   // here too or they escape to the proxy target.
   await page.route('**/status', async (route) => json(route, { ok: true, status: 'running' }));
   await page.route('**/config', async (route) => json(route, {}));
@@ -187,12 +187,12 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { method: { id: methodId, title: methodId, transport: ['http'], scopes: [] } });
     }
 
-    // Operator sessions union — empty is fine for the chat journey.
+    // Operator sessions union, empty is fine for the chat journey.
     if (method === 'GET' && path === '/api/sessions') {
       return json(route, { sessions: [], totals: { sessions: 0 } });
     }
 
-    // memory.records.get — backs the memory-provenance chip's drill-in (a real record
+    // memory.records.get, backs the memory-provenance chip's drill-in (a real record
     // per requested id, so the chip has something honest to show once expanded).
     const memoryRecordMatch = path.match(/^\/api\/memory\/records\/([^/]+)$/);
     if (method === 'GET' && memoryRecordMatch) {
@@ -275,7 +275,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { messageId: userMsg.id });
     }
 
-    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round) — stop one
+    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round), stop one
     // running tool call mid-flight; the turn continues (this mock never ends it).
     const toolCallCancelMatch = path.match(/^\/api\/sessions\/([^/]+)\/tool-calls\/([^/]+)\/cancel$/);
     if (method === 'POST' && toolCallCancelMatch) {
@@ -311,7 +311,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { sessionId, messages: queuedMessagesBySession.get(sessionId) ?? [] });
     }
 
-    // POST /turns/cancel — resolve the held turn as a cancelled partial.
+    // POST /turns/cancel, resolve the held turn as a cancelled partial.
     const cancelMatch = path.match(/^\/api\/companion\/chat\/sessions\/([^/]+)\/turns\/cancel$/);
     if (method === 'POST' && cancelMatch) {
       const id = decodeURIComponent(cancelMatch[1]);
@@ -331,7 +331,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { sessionId: id, turnId: 'e2e-turn-1', cancelled: true, partialPersisted: true });
     }
 
-    // POST /messages/steer — cancel the held turn (partial) and answer NOW.
+    // POST /messages/steer, cancel the held turn (partial) and answer NOW.
     const steerMatch = path.match(/^\/api\/companion\/chat\/sessions\/([^/]+)\/messages\/steer$/);
     if (method === 'POST' && steerMatch) {
       const id = decodeURIComponent(steerMatch[1]);
@@ -423,7 +423,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       return json(route, { artifact: { id: nextId('art'), artifactId: nextId('art') }, artifactId: nextId('art') });
     }
 
-    // Models / providers — minimal so the composer's picker renders without error.
+    // Models / providers, minimal so the composer's picker renders without error.
     if (path.startsWith('/api/models') || path.startsWith('/api/providers')) {
       if (path.endsWith('/current')) return json(route, { model: {} });
       return json(route, { providers: [], models: [] });
@@ -433,7 +433,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
     const invokeMatch = path.match(/^\/api\/control-plane\/methods\/([^/]+)\/invoke$/);
     if (method === 'POST' && invokeMatch) {
       const methodId = decodeURIComponent(invokeMatch[1]);
-      // pairing.posture.get (SDK 1.8.0) — computed from the SAME algorithm the real
+      // pairing.posture.get (SDK 1.8.0), computed from the SAME algorithm the real
       // daemon runs, keyed off the caller's own origin (useOriginPosture/
       // usePairingHandoff always pass window.location.origin), so a spec served from a
       // real private-network address (lan-origin-posture.e2e.ts) gets the exact daemon

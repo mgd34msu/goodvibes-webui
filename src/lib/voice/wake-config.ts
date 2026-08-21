@@ -1,22 +1,22 @@
 /**
- * wake-config.ts — `voice.wake.*` as this surface resolves it.
+ * wake-config.ts, `voice.wake.*` as this surface resolves it.
  *
  * The daemon's `config.get` answers the WHOLE config tree as nested objects; the
  * SDK's `resolveWakeRuntimeSettings` reads FLAT dotted keys. This is the adapter
  * between them, plus the one honest statement of what a browser tab can do.
  *
  * None of the capability answers is a guess:
- *   - speexAvailable — asked of the SDK, not declared here. The filter is a
+ *   - speexAvailable, asked of the SDK, not declared here. The filter is a
  *     WebAssembly module the SDK carries, so the only question is whether this
  *     runtime has WebAssembly, which a tab does: `voice.wake.noiseSuppression:
  *     "speex"` RUNS here, applied by the wrapper inside WakeListener and
  *     PushToTalkSession.
- *   - vadAvailable — follows the daemon's `voice.wake.status`, because the speech
+ *   - vadAvailable, follows the daemon's `voice.wake.status`, because the speech
  *     gate is its own pinned artifact. Provisioned, `voice.wake.vadThreshold`
  *     above 0 screens frames; missing, it BLOCKS rather than scoring ungated
  *     behind a row that claims otherwise.
- *   - canRetainAudio — a tab has no filesystem to retain a clip to.
- *   - canPlayLocalFile — a tab cannot read an absolute path on the user's machine,
+ *   - canRetainAudio, a tab has no filesystem to retain a clip to.
+ *   - canPlayLocalFile, a tab cannot read an absolute path on the user's machine,
  *     so a custom activation sound downgrades to the built-in chime.
  *
  * The resolver turns the last two into `limitations` (the detector still runs and
@@ -44,7 +44,7 @@ export const WAKE_SURFACE_KEY = wakeSurfaceKey(WAKE_SURFACE);
  *
  * `speexAvailable` is asked of the SDK rather than declared here: the filter is a
  * WebAssembly module carried in the package, so the only question is whether this
- * runtime has WebAssembly — which a tab does — and the SDK answers it with a
+ * runtime has WebAssembly, which a tab does, and the SDK answers it with a
  * reason a settings row can show.
  *
  * `vadAvailable` is NOT a constant, because the speech gate is its own pinned

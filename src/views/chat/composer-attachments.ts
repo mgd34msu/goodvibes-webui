@@ -1,7 +1,7 @@
 /**
  * Composer attachment helpers.
  * Handles drag-and-drop and paste-image (clipboard) for the Composer.
- * Pure utilities — no React dependencies.
+ * Pure utilities, no React dependencies.
  */
 
 /** Returns true if the drag event carries files. */

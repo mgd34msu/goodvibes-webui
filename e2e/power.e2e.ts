@@ -1,5 +1,5 @@
 /**
- * Power — the host sleep-ownership surface (power.status.get/keepAwake.set,
+ * Power, the host sleep-ownership surface (power.status.get/keepAwake.set,
  * SDK 1.8.0). Proves the always-visible "sleep disabled" chip (StatusStrip),
  * the admin Power panel's toggle (ruled shape: one toggle, no timers, no
  * AC-only sub-options), and the "held because X" line, all against the mock
@@ -28,7 +28,7 @@ test('toggling keep-awake on in the admin Power panel shows the danger-idiom chi
   await toggle.click();
   await expect(toggle).toBeChecked();
 
-  // The always-visible chip appears in the footer status strip — same event/refetch
+  // The always-visible chip appears in the footer status strip, same event/refetch
   // the real OPS_POWER_STATE_CHANGED wiring drives.
   const chip = page.locator('.status-strip__segment--power');
   await expect(chip).toBeVisible();

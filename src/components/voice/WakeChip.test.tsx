@@ -1,5 +1,5 @@
 /**
- * WakeChip / WakeBanner — an always-on microphone must never be invisible.
+ * WakeChip / WakeBanner, an always-on microphone must never be invisible.
  *
  * Uses react-dom/client + flushSync + happy-dom, the same shape PowerChip.test.tsx
  * uses. The host state is mocked so every phase can be rendered without a device.
@@ -56,7 +56,7 @@ afterEach(() => {
   mockState = IDLE;
 });
 
-describe('WakeChip — voice.wake.indicator "statusline"', () => {
+describe('WakeChip: voice.wake.indicator "statusline"', () => {
   test('nothing is rendered when wake detection was never enabled here', () => {
     const view = render(React.createElement(WakeChip));
     cleanup = view.unmount;
@@ -72,7 +72,7 @@ describe('WakeChip — voice.wake.indicator "statusline"', () => {
     expect(view.el.querySelector('[data-testid="wake-chip"]')).toBeNull();
   });
 
-  test('nothing is rendered when the indicator is banner — the banner owns that', () => {
+  test('nothing is rendered when the indicator is banner; the banner owns that', () => {
     mockState = { ...IDLE, phase: 'listening', indicator: 'banner' };
     const view = render(React.createElement(WakeChip));
     cleanup = view.unmount;
@@ -104,7 +104,7 @@ describe('WakeChip — voice.wake.indicator "statusline"', () => {
     const view = render(React.createElement(WakeChip));
     cleanup = view.unmount;
     const chip = view.el.querySelector('[data-testid="wake-chip"]');
-    expect(chip?.textContent).toContain('Wake heard — recording');
+    expect(chip?.textContent).toContain('Wake heard: recording');
     expect(chip?.className).toContain('--wake-live');
   });
 
@@ -136,7 +136,7 @@ describe('WakeChip — voice.wake.indicator "statusline"', () => {
       .toContain('failed verification');
   });
 
-  test('loading is visible but NOT marked live — no microphone is open yet', () => {
+  test('loading is visible but NOT marked live, no microphone is open yet', () => {
     mockState = { ...IDLE, phase: 'loading', indicator: 'statusline' };
     const view = render(React.createElement(WakeChip));
     cleanup = view.unmount;
@@ -156,7 +156,7 @@ describe('WakeChip — voice.wake.indicator "statusline"', () => {
   });
 });
 
-describe('WakeBanner — voice.wake.indicator "banner"', () => {
+describe('WakeBanner: voice.wake.indicator "banner"', () => {
   test('nothing is rendered for the statusline indicator', () => {
     mockState = { ...IDLE, phase: 'listening', indicator: 'statusline' };
     const view = render(React.createElement(WakeBanner));

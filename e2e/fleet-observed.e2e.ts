@@ -1,5 +1,5 @@
 /**
- * Fleet observed foreign agents (SDK 1.8.0) — externally-launched coding-agent
+ * Fleet observed foreign agents (SDK 1.8.0), externally-launched coding-agent
  * sessions goodvibes did not spawn, proven end to end against the hermetic mock
  * daemon on both viewports. Visibility only: honest external kind + liveness,
  * excluded from own-agent counts, no stop ever, steer only in the drill-in and
@@ -31,7 +31,7 @@ test('both observed rows render with their honest external-kind label', async ({
 
 test('observed rows are excluded from the own-agent "N node(s) / M active" counts', async ({ page }) => {
   const summary = page.locator('.fleet-toolbar__summary');
-  // FLEET_AGENT_NODE is the one real own-agent in the seeded snapshot — the two
+  // FLEET_AGENT_NODE is the one real own-agent in the seeded snapshot, the two
   // observed rows are named separately ("2 observed (external)"), never folded in.
   await expect(summary).toContainText('2 observed (external)');
   await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();

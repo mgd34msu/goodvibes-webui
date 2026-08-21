@@ -1,5 +1,5 @@
 /**
- * pairing.ts — fragment parse + history cleanup.
+ * pairing.ts, fragment parse + history cleanup.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import { parsePairingOffersFromHash, parsePairingTokenFromHash, stripPairingFragment } from './pairing';
@@ -80,7 +80,7 @@ describe('parsePairingOffersFromHash', () => {
     expect(parsePairingOffersFromHash('#pair=abc123&offers=relay,relay,bogus,passkey')).toEqual(['relay', 'passkey']);
   });
 
-  test('an offers key with no pair key is meaningless — returns []', () => {
+  test('an offers key with no pair key is meaningless, returns []', () => {
     expect(parsePairingOffersFromHash('#offers=notifications,relay')).toEqual([]);
   });
 

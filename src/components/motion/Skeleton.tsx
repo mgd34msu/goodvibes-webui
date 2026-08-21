@@ -2,9 +2,9 @@ import { type CSSProperties } from 'react';
 import '../../styles/skeleton.css';
 
 interface SkeletonProps {
-  /** Width — any CSS value, e.g. "100%", "120px". Default "100%". */
+  /** Width, any CSS value, e.g. "100%", "120px". Default "100%". */
   width?: string;
-  /** Height — any CSS value. Default "1em". */
+  /** Height, any CSS value. Default "1em". */
   height?: string;
   /** Border radius. Default var(--radius-sm). */
   radius?: string;

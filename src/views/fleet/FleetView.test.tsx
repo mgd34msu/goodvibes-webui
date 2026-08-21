@@ -1,5 +1,5 @@
 /**
- * FleetView — rendering from a mocked fleet.snapshot, covering the honesty
+ * FleetView, rendering from a mocked fleet.snapshot, covering the honesty
  * markers: true-empty vs a populated fleet, the truncated-snapshot cap note,
  * an unknown future kind/state rendered verbatim, and error+retry.
  */
@@ -205,7 +205,7 @@ describe('FleetView best-of-N attempts', () => {
     await waitFor(() => (el.textContent ?? '').includes('Best-of-N attempts'));
 
     expect(el.textContent).toContain('Implement the parser');
-    expect(el.textContent).toContain('Ready — compare & pick');
+    expect(el.textContent).toContain('Ready: compare & pick');
     expect(el.textContent).toContain('2/2 held');
 
     flushSync(() => el.querySelector('.fleet-attempts__group')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
@@ -289,7 +289,7 @@ describe('FleetView rendering', () => {
   });
 
   // 'pick' and 'conflict' (SDK 1.8.0) are the SAME waiting-on-human class as
-  // approval/input — this proves the badge/count/jump machinery already inherited them
+  // approval/input, this proves the badge/count/jump machinery already inherited them
   // with only the human-facing reason text added (attentionReasonLabel).
   test('a pick-blocked workstream and a conflict-blocked item each show their own reason-specific attention badge', () => {
     const seed = {
@@ -505,7 +505,7 @@ describe('FleetView node actions (WEBUI-FLEET-DEPTH)', () => {
   });
 });
 
-describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
+describe('FleetView: read-model headline + stall tell (rounds 4-6)', () => {
   const TELLS_SNAPSHOT = {
     capturedAt: 1000,
     truncated: false,
@@ -526,27 +526,27 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
     ],
   };
 
-  /** Seed BOTH the cache and the fetch mock — the mount refetch must serve the
+  /** Seed BOTH the cache and the fetch mock, the mount refetch must serve the
    * same snapshot or it clobbers the seeded tells with the default fixture. */
   function renderTells(seed: unknown = TELLS_SNAPSHOT) {
     snapshotImpl = () => Promise.resolve(seed);
     return render(seed);
   }
 
-  test('a node headline renders ON the row (one line, replace-in-place — never an appended feed)', () => {
+  test('a node headline renders ON the row (one line, replace-in-place, never an appended feed)', () => {
     const { el, unmount } = renderTells();
     const headlines = [...el.querySelectorAll('[data-testid="fleet-headline"]')];
     expect(headlines.length).toBe(1);
     expect(headlines[0].textContent).toBe('Migrating the session spine to the new store');
-    // The row shows the CURRENT headline only — no history list exists.
+    // The row shows the CURRENT headline only, no history list exists.
     const row = headlines[0].closest('.fleet-row');
     expect(row?.querySelectorAll('[data-testid="fleet-headline"]').length).toBe(1);
     unmount();
   });
 
-  test('a replaced headline REPLACES the row text — the old line is gone', async () => {
+  test('a replaced headline REPLACES the row text: the old line is gone', async () => {
     const { el, unmount, client } = renderTells();
-    // Let the mount-time refetch resolve FIRST — otherwise it lands after the
+    // Let the mount-time refetch resolve FIRST, otherwise it lands after the
     // replacement below and restores the original snapshot.
     await new Promise((resolve) => setTimeout(resolve, 20));
     flushSync(() => {});
@@ -561,7 +561,7 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
     // poll would clobber the cache write with the stale fixture.
     snapshotImpl = () => Promise.resolve(replaced);
     client.setQueryData(queryKeys.fleet, replaced);
-    // react-query notifies subscribers on a microtask — settle before asserting.
+    // react-query notifies subscribers on a microtask, settle before asserting.
     await new Promise((resolve) => setTimeout(resolve, 20));
     flushSync(() => {});
     const headlines = [...el.querySelectorAll('[data-testid="fleet-headline"]')];
@@ -587,7 +587,7 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
     unmount();
   });
 
-  test('nodes without the new fields render exactly as before — no fabricated tells', () => {
+  test('nodes without the new fields render exactly as before, no fabricated tells', () => {
     const { el, unmount } = renderTells();
     const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Fresh agent'));
     expect(row?.querySelector('[data-testid="fleet-headline"]')).toBeFalsy();
@@ -613,7 +613,7 @@ describe('FleetView — read-model headline + stall tell (rounds 4-6)', () => {
   });
 });
 
-describe('FleetView — latest review summary (wrfc acceptance checklist, SDK 1.9.0)', () => {
+describe('FleetView: latest review summary (wrfc acceptance checklist, SDK 1.9.0)', () => {
   const REVIEWED = {
     id: 'reviewed-chain', kind: 'wrfc-chain', label: 'Parser chain', state: 'done', elapsedMs: 9000,
     startedAt: 100, costState: 'unpriced',
@@ -681,7 +681,7 @@ describe('FleetView — latest review summary (wrfc acceptance checklist, SDK 1.
     unmount();
   });
 
-  test('a node with no review renders nothing pre-review — no fabricated "not yet reviewed" shell', () => {
+  test('a node with no review renders nothing pre-review, no fabricated "not yet reviewed" shell', () => {
     const { el, unmount } = seedFor(UNREVIEWED);
     click([...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Unreviewed chain')));
     expect(el.querySelector('.fleet-detail')).not.toBeNull();
@@ -701,7 +701,7 @@ describe('FleetView — latest review summary (wrfc acceptance checklist, SDK 1.
 
 // ---------------------------------------------------------------------------
 // Observed foreign agents (SDK 1.8.0's read-only externally-launched
-// coding-agent visibility) — an `observed-external` fleet.snapshot node.
+// coding-agent visibility), an `observed-external` fleet.snapshot node.
 // ---------------------------------------------------------------------------
 
 const OBSERVED_STEERABLE = {
@@ -722,7 +722,7 @@ const OBSERVED_NO_CHANNEL = {
   capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
   observed: {
     externalKind: 'codex', pid: 9001, cwd: '/home/user/other',
-    liveness: { state: 'quiet', cpuSeconds: 3.1, detail: 'No CPU time observed since the last check — this does not prove the agent is idle' },
+    liveness: { state: 'quiet', cpuSeconds: 3.1, detail: 'No CPU time observed since the last check. This does not prove the agent is idle' },
     steer: { kind: 'none', reason: 'no controlling tty found for this process' },
     steerDrillInOnly: true,
   },
@@ -741,7 +741,7 @@ const OBSERVED_SNAPSHOT = {
   nodes: [OWN_AGENT_FOR_OBSERVED_MIX, OBSERVED_STEERABLE, OBSERVED_NO_CHANNEL],
 };
 
-describe('FleetView — observed foreign agents (visibility only, SDK 1.8.0)', () => {
+describe('FleetView: observed foreign agents (visibility only, SDK 1.8.0)', () => {
   test('both shapes render: honest external kind label + liveness badge', () => {
     const { el, unmount } = render(OBSERVED_SNAPSHOT);
     const text = el.textContent ?? '';
@@ -770,7 +770,7 @@ describe('FleetView — observed foreign agents (visibility only, SDK 1.8.0)', (
   test('observed rows are excluded from the "N node(s) / M active" own-agent counts', () => {
     const { el, unmount } = render(OBSERVED_SNAPSHOT);
     const summary = el.querySelector('.fleet-toolbar__summary')?.textContent ?? '';
-    // Only the one real agent counts as "own": 1 node, 1 active — the two observed
+    // Only the one real agent counts as "own": 1 node, 1 active, the two observed
     // rows are named separately as "2 observed (external)", never folded in.
     expect(summary).toContain('1 node');
     expect(summary).toContain('1 active');
@@ -822,7 +822,7 @@ describe('FleetView — observed foreign agents (visibility only, SDK 1.8.0)', (
     const { el, unmount } = render(OBSERVED_SNAPSHOT);
     const row = [...el.querySelectorAll('.fleet-row')].find((r) => r.textContent?.includes('Claude Code (external)'));
     click(row);
-    // Unlike owned-node actions (steer/detach/stop), no phone-only note gates this —
+    // Unlike owned-node actions (steer/detach/stop), no phone-only note gates this,
     // the observed drill-in has no desktop-only wrapper class at all.
     expect(el.querySelector('.fleet-detail__observed')).not.toBeNull();
     expect(el.querySelector('.fleet-detail__phone-actions-note')).toBeNull();

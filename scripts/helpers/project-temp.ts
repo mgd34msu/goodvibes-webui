@@ -1,15 +1,15 @@
 /**
- * project-temp.ts — scratch-directory helper for this repo's own tests.
+ * project-temp.ts, scratch-directory helper for this repo's own tests.
  *
  * WHY THIS EXISTS: tests that call `mkdtempSync(join(tmpdir(), prefix))`
  * scatter scratch directories across the REAL OS tmpfs. Cleanup normally
  * happens in `afterEach`/`finally`, but that code never runs if the process
- * is killed by a signal (CI cancellation, a timeout kill, ctrl-C) — so the
+ * is killed by a signal (CI cancellation, a timeout kill, ctrl-C), so the
  * directories accumulate forever. This is not hypothetical: it happened for
  * real across this ecosystem's repos and exhausted /tmp's inode table
  * (1,048,436 of 1,048,576 inodes in use) from roughly 40 distinct leak
- * prefixes. This repo's contribution to that was small — 3 call sites when
- * this was written — but the same failure mode applies here.
+ * prefixes. This repo's contribution to that was small, 3 call sites when
+ * this was written, but the same failure mode applies here.
  *
  * This module gives the two remaining call sites
  * (scripts/internal-identifier-check.test.ts, scripts/sdk-dev.test.ts) one
@@ -24,7 +24,7 @@
  *   - It registers the directory for best-effort removal via
  *     `process.on('exit', ...)`. This mirrors what a normal
  *     `afterEach`/`finally` already does and does NOT add any new
- *     guarantee — a SIGKILL skips 'exit' handlers exactly like it skips
+ *     guarantee, a SIGKILL skips 'exit' handlers exactly like it skips
  *     `afterAll`. The actual backstop for that case is `sweepStaleProjectTempDirs`
  *     below, run before the suite via the `pretest` hook (see package.json).
  *
@@ -37,7 +37,7 @@
  * daemon home/work dirs from a `makeRealTempDir` helper here, rooted at the
  * real `os.tmpdir()`. It now puts both under `.test-tmp/run-<pid>` via
  * scripts/test-temp-root.ts and has scripts/live-daemon-smoke-runner.ts
- * delete that root from a parent process once the child has fully exited —
+ * delete that root from a parent process once the child has fully exited,
  * a deterministic removal this module's exit hook could not provide (the
  * daemon's teardown flush beat it, measured 3/3 runs). `makeRealTempDir` was
  * removed with its last caller rather than left as an unused escape hatch
@@ -61,11 +61,11 @@ export const PROJECT_TEMP_ROOT = join(REPO_ROOT, '.test-tmp');
  *
  * - 'internal-id-check-'   scripts/internal-identifier-check.test.ts
  * - 'webui-sdk-dev-'       scripts/sdk-dev.test.ts
- * - 'temp-root-proof-'     scripts/test-temp-root.test.ts — only reaches the real
+ * - 'temp-root-proof-'     scripts/test-temp-root.test.ts, only reaches the real
  *                          tmpdir if the preload redirect it tests has broken
  * - 'pack-bundle-'         scripts/pack-bundle.test.ts
- * - 'gv-live-smoke-home-'  HISTORICAL — no current call site creates these
- * - 'gv-live-smoke-work-'  HISTORICAL — no current call site creates these
+ * - 'gv-live-smoke-home-'  HISTORICAL, no current call site creates these
+ * - 'gv-live-smoke-work-'  HISTORICAL, no current call site creates these
  *
  * The two 'gv-live-smoke-' prefixes are deliberately retained with no live
  * producer: scripts/live-daemon-smoke.ts created them under the real
@@ -94,7 +94,7 @@ export const KNOWN_TEMP_PREFIXES = [
  * slow or debugger-paused local run (so the sweep can never delete a
  * directory a concurrently-running test still owns) while still reaping
  * anything left over from a killed process within the same CI job or the
- * same working day — nothing here is expected to legitimately survive an
+ * same working day, nothing here is expected to legitimately survive an
  * hour.
  */
 export const STALE_AGE_MS = 60 * 60 * 1000;
@@ -123,11 +123,11 @@ function drainRegistered(): void {
 /**
  * Best-effort fallback cleanup for plain `bun run` invocations (e.g.
  * live-daemon-smoke.ts). Empirically verified: Bun's TEST RUNNER never
- * fires `process.on('exit')` handlers — a `bun test` file that registers
+ * fires `process.on('exit')` handlers, a `bun test` file that registers
  * one never sees it run, while the identical handler in a plain
  * `bun run some-script.ts` fires correctly. So this hook is a real cleanup
  * mechanism for a script invoked directly, but is silently inert under
- * `bun test`. `.test.ts` files MUST NOT rely on this alone — see
+ * `bun test`. `.test.ts` files MUST NOT rely on this alone, see
  * `installTestCleanup` below, which uses `bun:test`'s `afterAll` instead
  * (confirmed to fire reliably under the test runner).
  */
@@ -145,7 +145,7 @@ function register(dir: string): string {
 
 /**
  * Wire this registry's cleanup into `bun:test`'s `afterAll` lifecycle hook,
- * which — unlike `process.on('exit')` — Bun's test runner actually drives.
+ * which, unlike `process.on('exit')`, Bun's test runner actually drives.
  *
  * Call this ONCE at module top level in every `.test.ts` file that uses
  * `makeProjectTempDir`, passing `afterAll` imported from `bun:test`:
@@ -170,10 +170,10 @@ export function installTestCleanup(afterAllFn: (fn: () => void) => void): void {
  * and register it for best-effort removal.
  *
  * Use this for scratch dirs that never boot a real daemon or otherwise
- * depend on living outside the checkout — today that's
+ * depend on living outside the checkout, today that's
  * internal-identifier-check.test.ts and sdk-dev.test.ts. Both of those are
  * `.test.ts` files, so BOTH must also call `installTestCleanup(afterAll)`
- * once at module top level (see that function's doc comment) — the
+ * once at module top level (see that function's doc comment), the
  * `process.on('exit')` fallback registered here does not fire under
  * `bun test` and exists only for non-test-runner callers.
  */

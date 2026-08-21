@@ -280,7 +280,7 @@ describe('formatLatency', () => {
 // ---------------------------------------------------------------------------
 
 describe('connectionLabel', () => {
-  test('returns Reachable for connected — NEVER "Connected" (401 honesty)', () => {
+  test('returns Reachable for connected: NEVER "Connected" (401 honesty)', () => {
     expect(connectionLabel('connected')).toBe('Reachable');
     expect(connectionLabel('connected')).not.toBe('Connected');
   });
@@ -295,7 +295,7 @@ describe('connectionLabel', () => {
 });
 
 // ---------------------------------------------------------------------------
-// authLabel / workingLabel — the two new honesty axes
+// authLabel / workingLabel, the two new honesty axes
 // ---------------------------------------------------------------------------
 
 describe('authLabel', () => {
@@ -311,7 +311,7 @@ describe('workingLabel', () => {
 });
 
 // ---------------------------------------------------------------------------
-// deriveAuthState / deriveWorkingState — the axes can disagree; 401 never = ok
+// deriveAuthState / deriveWorkingState, the axes can disagree; 401 never = ok
 // ---------------------------------------------------------------------------
 
 describe('deriveAuthState', () => {

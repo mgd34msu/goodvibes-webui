@@ -2,11 +2,11 @@ import type { MemoryRecord } from '../../lib/goodvibes';
 import { formatConfidence, formatProvenanceLink, formatTimestamp, isFlaggedReviewState, reviewStateTone } from './memory-helpers';
 
 /**
- * Record detail — type (cls), scope, review-state, and provenance, per the memory-view
+ * Record detail, type (cls), scope, review-state, and provenance, per the memory-view
  * brief's acceptance bar. Renders every field verbatim (no re-interpretation, no
  * secret-shaped special-casing): a provenance `ref` that happens to look like a file
  * path is shown as plain text exactly like any other ref, never turned into a link or
- * fetched — this view has no read-file capability and never invents one.
+ * fetched, this view has no read-file capability and never invents one.
  */
 export function MemoryRecordDetail({ record }: { record: MemoryRecord }) {
   const flagged = isFlaggedReviewState(record.reviewState);

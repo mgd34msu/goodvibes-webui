@@ -3,27 +3,27 @@
  * generate-presentation-tokens.ts
  *
  * Bridges the SDK presentation contract (@pellux/goodvibes-sdk/platform/presentation
- * — the status-glyph registry, tone-token table, thinking-phrase pool and
+ *, the status-glyph registry, tone-token table, thinking-phrase pool and
  * waiting-state wording that the TUI and agent already render through) onto
  * two generated, checked-in artifacts:
  *
- *   - src/lib/generated/presentation-tokens.ts     — a typed TS mirror: a
+ *   - src/lib/generated/presentation-tokens.ts    , a typed TS mirror: a
  *     literal snapshot of the contract's data tables, consumed by
  *     src/lib/presentation-bridge.ts (the hand-written semantic mapping onto
  *     web UI components) and any other code that wants the raw contract shape.
- *   - src/styles/generated/presentation-tokens.css — CSS custom properties:
+ *   - src/styles/generated/presentation-tokens.css, CSS custom properties:
  *     glyph characters as quoted `content` strings (`--contract-glyph-*`) and
  *     the state tone-color table per theme mode (`--contract-state-*`).
  *
  * This file only SNAPSHOTS data (GLYPHS, STATE_GLYPHS, TONE_TOKENS,
- * SPINNER_FRAMES, THINKING_PHRASES) — genuinely-duplicable tables per the
+ * SPINNER_FRAMES, THINKING_PHRASES), genuinely-duplicable tables per the
  * presentation contract's own docstring. `waitingPhrase` is a pure function,
  * not a data table; it has no meaningful "generated" form (a text diff of a
  * re-export wouldn't catch a behavior change), so src/lib/presentation-bridge.ts
  * imports it directly from the SDK package instead of going through here.
  *
  * `--check` fails (exit 1) the moment either artifact drifts from a fresh
- * regeneration — mirrors the SDK's own refresh-contract-artifacts.ts /
+ * regeneration, mirrors the SDK's own refresh-contract-artifacts.ts /
  * check-contract-artifacts.ts convention (generate-or-check, checked-in
  * output, drift = CI/build failure).
  *
@@ -54,7 +54,7 @@ export const CSS_OUT_PATH = resolve(ROOT, 'src/styles/generated/presentation-tok
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/presentation-tokens.ts');
 
 // ---------------------------------------------------------------------------
-// Snapshot — the exact shape the render functions need. Pulled into its own
+// Snapshot, the exact shape the render functions need. Pulled into its own
 // type (rather than importing package types inline everywhere) so a test can
 // hand renderCss/renderTs a mutated fixture snapshot without needing to fake
 // the npm package itself.
@@ -67,7 +67,7 @@ export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/presentation-tokens.
  *
  * The renderers below only ever read these leaves as strings, and the drift half of
  * the test suite has to build a snapshot whose glyph or tone color DIFFERS from the
- * installed one — that is the whole point of a drift gate. With the literal types in
+ * installed one, that is the whole point of a drift gate. With the literal types in
  * place that mutated snapshot was not constructible, so the drift test could only
  * ever have been written against the exact value it was trying to change.
  * Structure is still pinned: a renamed or removed contract key is still an error here.
@@ -104,7 +104,7 @@ export function loadContractSnapshot(): PresentationContractSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// Rendering — pure functions, no fs access, deterministic for a given input.
+// Rendering, pure functions, no fs access, deterministic for a given input.
 // ---------------------------------------------------------------------------
 
 /** camelCase -> kebab-case for CSS custom-property names (gradientStart -> gradient-start). */
@@ -203,7 +203,7 @@ export function renderTs(snapshot: PresentationContractSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI — generate-or-check against the two checked-in artifact paths.
+// CLI, generate-or-check against the two checked-in artifact paths.
 // ---------------------------------------------------------------------------
 
 export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
@@ -231,7 +231,7 @@ if (import.meta.main) {
   drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY) || drifted;
 
   if (CHECK_ONLY && drifted) {
-    console.error('[presentation:check] drift detected — run `bun run presentation:generate`');
+    console.error('[presentation:check] drift detected: run `bun run presentation:generate`');
     process.exit(1);
   }
   if (!drifted) {

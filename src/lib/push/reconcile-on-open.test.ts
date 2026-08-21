@@ -1,9 +1,9 @@
 /**
- * reconcilePushSubscriptionOnOpen — the client half of push-subscription
+ * reconcilePushSubscriptionOnOpen, the client half of push-subscription
  * self-heal (Step 2 of the SDK 1.8.0 pairing/push round).
  *
  * Exercises the real function against a stubbed PushManager/serviceWorker and
- * a stubbed fetch answering push.subscriptions.list/reconcile — the same
+ * a stubbed fetch answering push.subscriptions.list/reconcile, the same
  * "stub fetch, call the real facade" discipline push-facade.test.ts uses, plus
  * the PushManager stand-in e2e/pwa.e2e.ts's mockPushApis uses for the browser
  * side. Proves: no daemon record + a live subscription reconciles; a served
@@ -120,7 +120,7 @@ describe('reconcilePushSubscriptionOnOpen', () => {
     const outcome = await reconcilePushSubscriptionOnOpen();
     expect(outcome.drift).toBe('unchanged');
     expect(outcome.subscription?.id).toBe('sub-1');
-    // The read happened, but no reconcile write — a healthy device costs nothing.
+    // The read happened, but no reconcile write, a healthy device costs nothing.
     expect(calls.map((c) => c.methodId)).toEqual(['push.subscriptions.list']);
   });
 

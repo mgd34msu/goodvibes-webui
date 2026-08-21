@@ -1,19 +1,19 @@
 /**
- * HunkRevertSheet — the touch-first REJECT→REVERT surface for one hunk in the session
+ * HunkRevertSheet, the touch-first REJECT→REVERT surface for one hunk in the session
  * review cockpit. The parent runs the two-step daemon flow and hands this its phase:
  *
- *   1. previewing — checkpoints.revertHunkPreview is in flight (read-only; validates the
+ *   1. previewing, checkpoints.revertHunkPreview is in flight (read-only; validates the
  *      hunk still reverse-applies and mints a single-use confirmToken).
- *   2. ready — the preview says it applies; this renders EXACTLY what would be reverted
+ *   2. ready, the preview says it applies; this renders EXACTLY what would be reverted
  *      (the hunk itself) plus the preview's line-count stats, behind a Confirm.
- *   3. conflict — the honest stale state: the hunk no longer applies (preview applies:false
+ *   3. conflict, the honest stale state: the hunk no longer applies (preview applies:false
  *      OR a 409 CONFLICT on apply). Renders the daemon's human conflict string and a
- *      Refresh that re-reads the diff — NEVER a partial apply.
- *   4. applying — checkpoints.revertHunk is in flight (consumes the token).
- *   5. error — a non-conflict failure; Cancel only.
+ *      Refresh that re-reads the diff, NEVER a partial apply.
+ *   4. applying, checkpoints.revertHunk is in flight (consumes the token).
+ *   5. error, a non-conflict failure; Cancel only.
  *
  * Presentational only: bottom sheet on a phone, centered dialog on desktop, focus trap +
- * Escape/backdrop cancel — the ConfirmSheet / HunkCommentSheet idiom.
+ * Escape/backdrop cancel, the ConfirmSheet / HunkCommentSheet idiom.
  */
 import { useEffect, useId, type KeyboardEvent } from 'react';
 import { RefreshCw, Undo2 } from 'lucide-react';
@@ -29,14 +29,14 @@ export interface HunkRevertSheetProps {
   filePath: string;
   hunk: DiffHunk;
   phase: HunkRevertPhase;
-  /** The preview result when phase === 'ready' — its stats drive the consequence line. */
+  /** The preview result when phase === 'ready', its stats drive the consequence line. */
   preview: CheckpointsRevertHunkPreviewResult | null;
   /** The daemon's human conflict string when phase === 'conflict'. */
   conflict: string | null;
   /** A non-conflict error message when phase === 'error'. */
   error: string | null;
   onConfirm: () => void;
-  /** Re-read the diff after a stale conflict (the honest recovery — never a partial apply). */
+  /** Re-read the diff after a stale conflict (the honest recovery, never a partial apply). */
   onRefresh: () => void;
   onCancel: () => void;
 }
@@ -101,7 +101,7 @@ export function HunkRevertSheet({
 
         {phase === 'conflict' && (
           <p className="hunk-sheet__conflict" role="alert">
-            This hunk changed since it was captured — {conflict?.trim() ? conflict : 'it no longer applies cleanly'}. Nothing
+            This hunk changed since it was captured: {conflict?.trim() ? conflict : 'it no longer applies cleanly'}. Nothing
             was reverted. Refresh the diff and try again.
           </p>
         )}

@@ -6,12 +6,12 @@
  * 1. PROVE THE REDIRECT IS LIVE. A preload that silently stopped running would
  *    put every temp directory back in the system temp dir with nothing to say
  *    so. The integration test below reads `os.tmpdir()` from inside a real test
- *    process and requires it to be this repo's `.test-tmp/run-<pid>` — so
+ *    process and requires it to be this repo's `.test-tmp/run-<pid>`, so
  *    dropping the bunfig preload entry, renaming the file, or having it throw
  *    all fail here.
  *
  * 2. PROVE EACH CHECK CAN ANSWER NO. Every predicate below gets a case where
- *    the honest answer is "no" — a sibling directory that merely shares a name
+ *    the honest answer is "no", a sibling directory that merely shares a name
  *    prefix is not inside the base; a live pid is not stale; a non-run directory
  *    name yields no pid at all. A guard that only ever answers yes is not a guard.
  */
@@ -45,7 +45,7 @@ describe('the temp redirect is actually in effect during this test run', () => {
   test('a directory created the ordinary way lands inside the repo run root', () => {
     // The mkdtemp-under-tmpdir call below IS the subject of this test. The rule that
     // bans that shape (eslint.config.js) exists because it scatters scratch dirs across
-    // the shared OS tmpfs — and the preload under test is exactly what makes that untrue
+    // the shared OS tmpfs, and the preload under test is exactly what makes that untrue
     // here, since tmpdir() now resolves to .test-tmp/run-<pid>. Rewriting it to
     // makeProjectTempDir would assert nothing: the expectation below would then hold by
     // construction, whether or not the redirect ran. If the redirect ever DOES break,
@@ -82,7 +82,7 @@ describe('the temp redirect is actually in effect during this test run', () => {
     const source = readFileSync(join(REPO_ROOT, 'scripts/test-temp-root.ts'), 'utf8');
     const topLevelCall = /^(sweepStaleRunRoots|installTestTempRoot)\(/m;
     expect(topLevelCall.test(source)).toBe(false);
-    // And the regex above must be capable of matching — otherwise it proves nothing.
+    // And the regex above must be capable of matching, otherwise it proves nothing.
     expect(topLevelCall.test('installTestTempRoot();\n')).toBe(true);
   });
 });
@@ -148,7 +148,7 @@ describe('selectStaleRunRoots reaps the abandoned and spares the living', () => 
     expect(selectStaleRunRoots([`${RUN_ROOT_PREFIX}111`], () => false)).toEqual([`${RUN_ROOT_PREFIX}111`]);
   });
 
-  test('a LIVE run root is never selected — including this run\'s own', () => {
+  test('a LIVE run root is never selected; including this run\'s own', () => {
     const mine = `${RUN_ROOT_PREFIX}${String(process.pid)}`;
     expect(selectStaleRunRoots([mine], (pid) => isProcessAlive(pid))).toEqual([]);
     expect(selectStaleRunRoots([`${RUN_ROOT_PREFIX}222`], () => true)).toEqual([]);

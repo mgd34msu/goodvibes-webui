@@ -1,10 +1,10 @@
 /**
- * MailView — the inbox, the message reader, and the composer, over the daemon's four
+ * MailView, the inbox, the message reader, and the composer, over the daemon's four
  * `email.*` verbs. The web UI is mail's first screen, exactly as it was calendar's.
  *
  * WHY THIS EXISTS NOW: `email.inbox.list`, `email.inbox.read`, `email.draft.create`
  * and `email.send` have been in the operator contract and in the generated
- * WEBUI_METHOD_ROUTES table since before the SDK pin this repo was stuck on — the
+ * WEBUI_METHOD_ROUTES table since before the SDK pin this repo was stuck on, the
  * routing was always there and no surface ever rendered it. This view is wiring over
  * capability the daemon already publishes, not an integration: there is no IMAP
  * client, no SMTP client, no OAuth flow and no credential handling anywhere in this
@@ -14,17 +14,17 @@
  *
  * HONESTY CONTRACT (mail-refusal.ts owns the classification; three shapes, each
  * rendered distinctly, never folded into a generic "error"):
- *  1. NOT AVAILABLE — 404/501. This daemon build has no mail handler wired. This is
+ *  1. NOT AVAILABLE, 404/501. This daemon build has no mail handler wired. This is
  *     the state every build returns TODAY: the SDK ships all four verbs
  *     `invokable: false` and its own catalog notes there is no /api/email route on
  *     the daemon router at any prefix. The view says exactly that instead of
  *     pretending an empty inbox.
- *  2. NEEDS SETUP — a 412 precondition refusal. The handler exists; no account has
+ *  2. NEEDS SETUP, a 412 precondition refusal. The handler exists; no account has
  *     been brought. Points at the settings surface, which writes through the daemon.
- *  3. GENUINE ERROR — anything else, as an ErrorState with retry.
+ *  3. GENUINE ERROR, anything else, as an ErrorState with retry.
  * There is deliberately no fourth "maybe it's just empty" reading. An inbox that
  * really is empty is a successful response with `messages: []`, and renders as an
- * EmptyState that says so — never as a refusal, and never the other way round.
+ * EmptyState that says so, never as a refusal, and never the other way round.
  *
  * NEVER A DEAD BUTTON: when the surface is refusing, the composer's Send and Save
  * draft controls are disabled with the reason named beside them, rather than left
@@ -59,7 +59,7 @@ import '../../styles/components/mail.css';
  * nothing they can act on, while the per-message detail the daemon already sends
  * ("unsupported encoding", "malformed header") is the thing that says whether it
  * is one broken sender or a whole account misconfigured. `uid` is optional on the
- * wire — a message can fail before its uid is known — so it is only shown when
+ * wire, a message can fail before its uid is known, so it is only shown when
  * present rather than rendered as "undefined".
  */
 function UnreadableNote({ items }: { items: readonly EmailUnreadableMessage[] }) {
@@ -92,7 +92,7 @@ function formatWhen(iso: string): string {
 export function MailView() {
   // Deliberately no queryClient/invalidation here. Neither write touches the inbox:
   // email.send puts a message in the recipient's mailbox, and email.draft.create
-  // appends to the account's Drafts folder — the inbox listing this view caches is
+  // appends to the account's Drafts folder, the inbox listing this view caches is
   // unchanged by both, and the read verb is BODY.PEEK so opening a message does not
   // flip its unread flag either. Invalidating anyway would refetch the whole inbox to
   // redraw identical rows and would quietly imply a relationship that is not there.
@@ -123,7 +123,7 @@ export function MailView() {
   const inboxNote = inbox.error ? mailRefusalNote(inbox.error) : null;
   // The composer follows the inbox's verdict: if listing is refused, sending is too
   // (same surface, same daemon state), so the controls disable with the reason shown
-  // rather than staying live to fail. `isPending` also disables — a control whose
+  // rather than staying live to fail. `isPending` also disables, a control whose
   // availability is not yet known must not look available.
   const surfaceRefusing = Boolean(inboxNote) || inbox.isPending;
 
@@ -140,7 +140,7 @@ export function MailView() {
         to: normalizeRecipients(to),
         subject: subject.trim(),
         body,
-        // Literal true, and only reached after the confirmation sheet resolved — the
+        // Literal true, and only reached after the confirmation sheet resolved, the
         // SDK marks this verb dangerous and irreversible, so the flag is set because
         // the operator saw the recipients and agreed, never on their behalf.
         confirm: true,
@@ -172,7 +172,7 @@ export function MailView() {
       clearComposer();
       toast({
         title: 'Draft saved to the account',
-        description: `Appended to the IMAP Drafts folder as UID ${result.uid}. It is in the mailbox itself, so it is there in any mail client — not only here.`,
+        description: `Appended to the IMAP Drafts folder as UID ${result.uid}. It is in the mailbox itself, so it is there in any mail client, not only here.`,
         tone: 'success',
       });
     },
@@ -183,13 +183,13 @@ export function MailView() {
   });
 
   const messages = inbox.data?.messages ?? [];
-  // Ordered by `uid` (server-assigned) descending, NEVER by `date` (sender-written —
+  // Ordered by `uid` (server-assigned) descending, NEVER by `date` (sender-written,
   // sorting on it would let a sender pin their message to the top with a far-future
   // Date: header). Full rationale in mail-order.ts; do not "simplify" this to `date`.
   const sorted = useMemo(() => sortInboxMessagesByUidDescending(messages), [messages]);
   // Messages the account returned but the daemon could not parse, each with its own
   // reason. The contract has always carried this list; the hand-written result type
-  // this view used to read omitted it, so these messages were dropped in silence —
+  // this view used to read omitted it, so these messages were dropped in silence,
   // including in the case that matters most, where every message in the window is
   // unreadable and the view below would otherwise report a normal empty inbox.
   const unreadable = inbox.data?.unreadable ?? [];

@@ -1,5 +1,5 @@
 /**
- * stepup.ts — the browser-side WebAuthn step-up ceremony.
+ * stepup.ts, the browser-side WebAuthn step-up ceremony.
  *
  * The daemon gates mutating relay calls behind a WebAuthn step-up assertion (see the SDK's
  * platform/relay/step-up-policy + daemon-wiring): a mutating call that arrives over the
@@ -16,7 +16,7 @@
  *                          the retried call.
  *
  * WIRE PRIMITIVES (STEP_UP_ASSERTION_HEADER, encodeAssertionHeader) are replicated here as
- * the small, stable wire contract they are — the SDK defines them in a Node/daemon module
+ * the small, stable wire contract they are, the SDK defines them in a Node/daemon module
  * (platform/relay), which is not browser-safe to import, so we mirror the exact format:
  *   - header name: 'x-goodvibes-stepup-assertion'      (STEP_UP_ASSERTION_HEADER)
  *   - header value: base64url(utf8(JSON.stringify(envelope)))   (encodeAssertionHeader)
@@ -24,7 +24,7 @@
  *
  * HONESTY: every failure path returns a specific, machine-readable StepUpError code and a
  * plain operator-facing message. Nothing silently "succeeds" without a real authenticator
- * signature — an unsupported browser, a missing platform authenticator, a user cancel, and
+ * signature, an unsupported browser, a missing platform authenticator, a user cancel, and
  * a not-yet-registered passkey are each surfaced distinctly, never swallowed.
  */
 
@@ -71,7 +71,7 @@ export function encodeAssertionHeader(envelope: StepUpAssertionEnvelope): string
 }
 
 // ---------------------------------------------------------------------------
-// Errors — every failure carries a specific, machine-readable code
+// Errors, every failure carries a specific, machine-readable code
 // ---------------------------------------------------------------------------
 
 export type StepUpErrorCode =
@@ -90,7 +90,7 @@ export class StepUpError extends Error {
   }
 }
 
-/** Human copy for each code — plain, no jargon, tells the operator what to do next. */
+/** Human copy for each code, plain, no jargon, tells the operator what to do next. */
 export function describeStepUpError(error: unknown): string {
   if (error instanceof StepUpError) {
     switch (error.code) {
@@ -140,7 +140,7 @@ export function stepUpAvailability(): StepUpAvailability {
 // The relying-party id / origin this surface registers and asserts under.
 // ---------------------------------------------------------------------------
 
-/** The effective relying-party id — the page's own hostname (WebAuthn's rpId rule). */
+/** The effective relying-party id, the page's own hostname (WebAuthn's rpId rule). */
 export function relyingPartyId(): string {
   return typeof window === 'undefined' ? 'localhost' : window.location.hostname;
 }
@@ -190,7 +190,7 @@ export function clearRegisteredCredential(): void {
 }
 
 // ---------------------------------------------------------------------------
-// authenticatorData parsing — extract the COSE public key for registration
+// authenticatorData parsing, extract the COSE public key for registration
 // ---------------------------------------------------------------------------
 
 /**
@@ -231,11 +231,11 @@ function normalizeCeremonyError(error: unknown, forCreate: boolean): StepUpError
   if (error instanceof StepUpError) return error;
   const name = (error as { name?: string })?.name;
   if (name === 'NotAllowedError') {
-    // Ambiguous by spec — either the user dismissed it or no matching authenticator.
+    // Ambiguous by spec, either the user dismissed it or no matching authenticator.
     return new StepUpError(
       forCreate ? 'no-authenticator' : 'user-cancelled',
       forCreate
-        ? 'No passkey could be created — the request was declined or no authenticator is available.'
+        ? 'No passkey could be created. The request was declined or no authenticator is available.'
         : 'Verification was cancelled or timed out.',
     );
   }
@@ -251,7 +251,7 @@ function normalizeCeremonyError(error: unknown, forCreate: boolean): StepUpError
 /**
  * Register a passkey on this device. Uses 'none' attestation (the daemon accepts it and only
  * stores the COSE public key). A random local challenge is used because the daemon does not
- * verify registration attestation — it trusts the first-registered public key on this device.
+ * verify registration attestation, it trusts the first-registered public key on this device.
  */
 export async function registerPasskey(options: { userName: string; userDisplayName?: string; label?: string }): Promise<RegisterPasskeyResult> {
   const availability = stepUpAvailability();

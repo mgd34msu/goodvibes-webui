@@ -1,5 +1,5 @@
 /**
- * PaymentCardEntry — typing a payment card into the browser.
+ * PaymentCardEntry, typing a payment card into the browser.
  *
  * The owner ruled for this surface directly, having been shown what a browser
  * costs that a terminal does not (a PAN on a page, form autofill, password
@@ -8,42 +8,42 @@
  * line of code that implements it so a reviewer can check rather than trust.
  * The list itself lives in payments-cards.ts as CARD_ENTRY_CONDITIONS.
  *
- *  1. POSTED OVER THE AUTHENTICATED DAEMON CHANNEL — submit() calls
+ *  1. POSTED OVER THE AUTHENTICATED DAEMON CHANNEL, submit() calls
  *     sdk.operator.payments.cards.create, the same scoped, token-carrying
  *     transport every other secret takes. The daemon puts the values in its own
  *     secret store, encrypted at rest, at DAEMON scope: it is the process that
  *     charges the card with every surface closed, so a client-scoped write
  *     would report success and do nothing.
  *
- *  2. NEVER IN A URL — the route is POST /api/payments/cards, so invokeOperator
+ *  2. NEVER IN A URL, the route is POST /api/payments/cards, so invokeOperator
  *     sends the input as a request BODY. (It sends a GET method's input as a
  *     query string, which is why payments-cards.test.ts pins the method to
  *     POST: a route flipped to GET would put a card number into browser
  *     history, referrer headers and every access log on the way.)
  *
- *  3. NEVER RENDERED BACK — nothing here reads a card value out of a response.
+ *  3. NEVER RENDERED BACK, nothing here reads a card value out of a response.
  *     create() answers with metadata only (label, brand, last four, expiry
  *     month/year, materialComplete); `cards` renders exactly that. No field is
  *     ever repopulated from the server, including after a failed submit.
  *
- *  4. autocomplete="off" ON EVERY CARD FIELD — see CARD_INPUT_GUARDS, spread
+ *  4. autocomplete="off" ON EVERY CARD FIELD, see CARD_INPUT_GUARDS, spread
  *     onto all four inputs rather than typed out four times, so a new field
  *     cannot be added without it.
  *
- *  5. NOT SAVEABLE BY A PASSWORD MANAGER — three things together, because
+ *  5. NOT SAVEABLE BY A PASSWORD MANAGER, three things together, because
  *     autocomplete="off" alone is widely ignored by managers:
  *       - there is NO <form> element. A manager's "save this?" prompt is
  *         overwhelmingly triggered by a form submission, and this panel submits
  *         with a button handler instead;
  *       - the inputs carry no `name` attribute, which is the other half of what
- *         managers match on (nothing here needs one — a name is only meaningful
+ *         managers match on (nothing here needs one, a name is only meaningful
  *         to a native form post, which we do not do);
  *       - the vendor opt-outs 1Password, LastPass and Bitwarden actually honor
  *         are set explicitly (data-1p-ignore / data-lpignore / data-bwignore).
  *     A manager that copied the number would put it in storage this system
  *     cannot reach, cannot clear, and does not know about.
  *
- *  6. NO CARD VALUE RETAINED IN DOM STATE — on success, submit() assigns
+ *  6. NO CARD VALUE RETAINED IN DOM STATE, on success, submit() assigns
  *     emptyCardDraft() back over the whole draft, so every card field returns
  *     to empty rather than the ones someone remembered to list. Note what this
  *     component deliberately does NOT use: react-query's useMutation, whose
@@ -78,7 +78,7 @@ import {
 } from '../../lib/payments-cards';
 
 export interface PaymentCardEntryProps {
-  /** The currency the issuer cap is typed in — payments.currency's live value. */
+  /** The currency the issuer cap is typed in, payments.currency's live value. */
   readonly currency?: string;
   /** Overridable only so a test can drive the refusal path; never passed in app code. */
   readonly surface?: string;
@@ -94,7 +94,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
 
   const offered = mayOfferCardEntryHere(surface);
 
-  // Metadata only — there is no daemon method that returns card material, so
+  // Metadata only, there is no daemon method that returns card material, so
   // this query cannot carry any however it is cached. Not run at all when the
   // surface is refused: a surface that may not take a card has no business
   // listing them either.
@@ -139,7 +139,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
         tone: 'success',
       });
     } catch (problem) {
-      // The draft is deliberately NOT cleared on failure — the operator would
+      // The draft is deliberately NOT cleared on failure, the operator would
       // otherwise have to retype a card because the network blipped. The
       // message comes from the transport, never from the values: the daemon's
       // own create handler refuses to forward its underlying error for the same
@@ -153,7 +153,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
 
   if (!offered) {
     // The prompt is itself the harm: a surface that cannot accept the answer
-    // must never ask the question. No inputs are rendered at all — not disabled
+    // must never ask the question. No inputs are rendered at all, not disabled
     // ones, which would still be an invitation to type.
     return (
       <section className="settings-card-entry panel" data-testid="payment-card-entry-refused">
@@ -174,7 +174,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
       </div>
       <p className="settings-card-note">
         The number, expiry, security code and cardholder name go to the daemon&apos;s secret store, encrypted at
-        rest, and are never shown again — there is no way to read them back, here or anywhere else. A virtual card
+        rest, and are never shown again. There is no way to read them back, here or anywhere else. A virtual card
         with a hard issuer cap bounds what any leak could cost to one number you can kill; a real card number cannot
         be capped by anything this software does.
       </p>
@@ -224,7 +224,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             disabled={saving}
             onChange={(event) => update('kind', event.target.value)}
           >
-            <option value="virtual">virtual (recommended — issuer-capped, killable)</option>
+            <option value="virtual">virtual (recommended: issuer-capped, killable)</option>
             <option value="real">real</option>
           </select>
         </label>
@@ -315,7 +315,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
       </div>
 
       <p className="settings-card-note settings-card-cap-note">
-        The issuer cap is what YOU declared to us. We cannot verify it and never enforce it — only your issuer can.
+        The issuer cap is what YOU declared to us. We cannot verify it and never enforce it, only your issuer can.
       </p>
 
       {error && (

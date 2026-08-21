@@ -30,7 +30,7 @@ function tableKinds(): ProjectionKind[] {
   return Object.keys(PROJECTION_KIND_NEEDS_ID) as ProjectionKind[];
 }
 
-describe('asProjectionKind — recognises exactly the contract set, and nothing else', () => {
+describe('asProjectionKind: recognises exactly the contract set, and nothing else', () => {
   test('every kind in the table round-trips', () => {
     for (const kind of tableKinds()) {
       expect(asProjectionKind(kind)).toBe(kind);
@@ -45,7 +45,7 @@ describe('asProjectionKind — recognises exactly the contract set, and nothing 
   });
 
   test('an inherited Object property is not mistaken for a kind', () => {
-    // hasOwnProperty, not `in` — otherwise 'toString' and 'constructor' would
+    // hasOwnProperty, not `in`, otherwise 'toString' and 'constructor' would
     // both read as valid projection kinds and be sent to the daemon.
     expect(asProjectionKind('toString')).toBeNull();
     expect(asProjectionKind('constructor')).toBeNull();
@@ -53,7 +53,7 @@ describe('asProjectionKind — recognises exactly the contract set, and nothing 
   });
 });
 
-describe('kindNeedsId — matches the contract, in both directions', () => {
+describe('kindNeedsId: matches the contract, in both directions', () => {
   test('issue/node/rollup/source require an id', () => {
     for (const kind of ID_REQUIRED) expect(kindNeedsId(kind)).toBe(true);
   });
@@ -62,12 +62,12 @@ describe('kindNeedsId — matches the contract, in both directions', () => {
     for (const kind of ID_OPTIONAL) expect(kindNeedsId(kind)).toBe(false);
   });
 
-  test('the two groups together are the whole table — no kind is unclassified', () => {
+  test('the two groups together are the whole table, no kind is unclassified', () => {
     expect([...ID_OPTIONAL, ...ID_REQUIRED].sort()).toEqual(tableKinds().sort());
   });
 });
 
-describe('projectionPayload — refuses rather than sending something the daemon rejects', () => {
+describe('projectionPayload: refuses rather than sending something the daemon rejects', () => {
   test('an id-optional kind builds a payload with no id, even when one is available', () => {
     expect(projectionPayload({ kind: 'overview', renderableKind: 'overview', id: 'ignored' }, 10)).toEqual({
       kind: 'overview',

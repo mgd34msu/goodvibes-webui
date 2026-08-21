@@ -13,7 +13,7 @@ import {
 
 /**
  * Cap on how many completed turns' tool activity are retained in
- * toolActivityByMessageId at once — an insertion-ordered Map, oldest evicted
+ * toolActivityByMessageId at once, an insertion-ordered Map, oldest evicted
  * first. Purely a memory ceiling for a very long-lived tab; unrelated to any
  * server-side retention (this state never touches the daemon).
  */
@@ -48,7 +48,7 @@ interface UseChatStreamOptions {
   /**
    * Called once when the stream (or a send) discovers the token has expired mid-
    * session (401 / category:'authentication'). The caller re-probes auth.current,
-   * which — for a genuinely dead token — flips the app into the signed-out gate. This
+   * which, for a genuinely dead token, flips the app into the signed-out gate. This
    * hook never retries a dead token itself; it hands off and stops.
    */
   onAuthExpired: () => void;
@@ -68,7 +68,7 @@ interface UseChatStreamOptions {
 /**
  * One tool call currently in flight for the active turn (turn.tool_call ->
  * turn.tool_result). `cancelled` is set OPTIMISTICALLY the instant
- * sessions.toolCalls.cancel resolves `cancelled: true` — the entry is not
+ * sessions.toolCalls.cancel resolves `cancelled: true`, the entry is not
  * removed until the matching turn.tool_result (or a terminal turn event)
  * actually arrives, so "Cancelled" renders honestly for exactly as long as the
  * daemon is still winding the call down, never flashing to nothing early.
@@ -84,7 +84,7 @@ export interface UseChatStreamResult {
   /** Whether a turn is actively in-flight (running, streaming, tooling, or reconnecting). */
   isStreaming: boolean;
   /**
-   * Stop the in-flight turn — a TRUE server-side stop: calls
+   * Stop the in-flight turn, a TRUE server-side stop: calls
    * companion.chat.turns.cancel and keeps the stream open awaiting the
    * terminal turn.cancelled event (which also converges every other
    * connected client). Falls back to the old local-render stop, honestly
@@ -95,7 +95,7 @@ export interface UseChatStreamResult {
    * Force a fresh connection attempt after the stream gave up ('stream paused').
    * The built-in reconnect only retries up to DEFAULT_SSE_RECONNECT.maxAttempts with
    * backoff; once exhausted the SDK stops entirely on its own, so recovery needs an
-   * explicit re-open. Safe to call any time — it just re-runs the connect effect.
+   * explicit re-open. Safe to call any time, it just re-runs the connect effect.
    */
   retryStream: () => void;
   /** Tool calls currently running for this turn (see ActiveToolCall). Empty outside
@@ -103,20 +103,20 @@ export interface UseChatStreamResult {
   activeToolCalls: readonly ActiveToolCall[];
   /**
    * Completed tool calls (name, input, result) for every turn this browser tab has
-   * watched finish live, keyed by the assistant message id the turn produced —
+   * watched finish live, keyed by the assistant message id the turn produced,
    * ChatView attaches these onto the matching rendered message (whether it came
    * from local optimistic state or the server-fetched history) so the fold
    * renders regardless of which source produced that message object. Built
    * purely from turn.tool_call/turn.tool_result/turn.completed stream events;
    * never present for a turn this tab did not watch live (server history has no
-   * tool data — see CompletedToolCall's doc comment).
+   * tool data, see CompletedToolCall's doc comment).
    */
   toolActivityByMessageId: ReadonlyMap<string, readonly CompletedToolCall[]>;
   /**
-   * Cancel ONE running tool call (sessions.toolCalls.cancel) — the turn itself
+   * Cancel ONE running tool call (sessions.toolCalls.cancel), the turn itself
    * continues; only this one call is stopped. Marks the local entry
    * `cancelled: true` on a `{cancelled: true}` response; a `{cancelled: false}`
-   * response (the daemon declined — e.g. the call already finished) surfaces via
+   * response (the daemon declined, e.g. the call already finished) surfaces via
    * the returned promise so the caller can toast the honest reason.
    */
   cancelToolCall: (callId: string) => Promise<{ cancelled: boolean }>;
@@ -136,7 +136,7 @@ export function useChatStream({
   turnState,
 }: UseChatStreamOptions): UseChatStreamResult {
   // Ref to the SSE disconnect fn so stop() can call it at any time. Owned by the
-  // CURRENT connection effect only — a stale effect never writes here (see the
+  // CURRENT connection effect only, a stale effect never writes here (see the
   // per-effect `cancelled` flag in the connect effect below).
   const disconnectRef = useRef<(() => void) | undefined>(undefined);
   // Intra-turn stop signal for the CURRENT connection effect: set by stop() so the
@@ -147,14 +147,14 @@ export function useChatStream({
   // Bumped by retryStream() to force a fresh connect after the SDK's own
   // reconnect loop gives up (it never retries again on its own past onTerminate).
   const [retryNonce, setRetryNonce] = useState(0);
-  // Tool calls currently in flight for this turn — see ActiveToolCall's own doc comment.
+  // Tool calls currently in flight for this turn, see ActiveToolCall's own doc comment.
   const [activeToolCalls, setActiveToolCalls] = useState<readonly ActiveToolCall[]>([]);
   // Completed tool calls, keyed by the assistant message id of the turn that produced
-  // them — see toolActivityByMessageId's own doc comment on UseChatStreamResult.
+  // them, see toolActivityByMessageId's own doc comment on UseChatStreamResult.
   const [toolActivityByMessageId, setToolActivityByMessageId] = useState<
     ReadonlyMap<string, readonly CompletedToolCall[]>
   >(new Map());
-  // Accumulates completed tool calls for the turn CURRENTLY in flight — flushed into
+  // Accumulates completed tool calls for the turn CURRENTLY in flight, flushed into
   // toolActivityByMessageId (keyed by assistantMessageId) on turn.completed/
   // turn.cancelled, and discarded on turn.error (no assistant message to attach to).
   const turnToolActivityRef = useRef<CompletedToolCall[]>([]);
@@ -193,11 +193,11 @@ export function useChatStream({
       }
       if (isMethodUnavailableError(error)) {
         // Pre-1.4 daemon: no server-side stop exists. Do the old local stop
-        // and SAY exactly what that means — never pretend the turn is dead.
+        // and SAY exactly what that means, never pretend the turn is dead.
         stopLocally();
         setTurnState('stopped locally');
         setTurnError(
-          'Stopped rendering only — this daemon does not support stopping a turn '
+          'Stopped rendering only. This daemon does not support stopping a turn '
           + 'server-side (needs SDK 1.4+). The reply may still finish and will '
           + 'appear in the history.',
         );
@@ -217,7 +217,7 @@ export function useChatStream({
 
   useEffect(() => {
     if (!activeSessionId) return undefined;
-    // Per-effect cancellation flag — the "epoch" of THIS connection instance. Set to
+    // Per-effect cancellation flag, the "epoch" of THIS connection instance. Set to
     // true by this effect's own cleanup and nothing else; a superseding effect (a
     // session switch, a retryStream(), or unmount) runs this cleanup FIRST, so the
     // outgoing effect's `cancelled` is already true before the incoming effect touches
@@ -243,11 +243,11 @@ export function useChatStream({
     // fired). Lets onReady tell "the very first connect" (say nothing, turnState is
     // already whatever the caller set) apart from "a reconnect after a drop succeeded"
     // (clear the reconnecting message). Also lets onError tell apart a transient error
-    // it already saw via onReconnect (skip — avoid clobbering with a duplicate/contra-
+    // it already saw via onReconnect (skip, avoid clobbering with a duplicate/contra-
     // dictory 'stream error') from a standalone failure (none observed via this SDK's
     // current wiring, but kept as a defensive fallback).
     let hadDrop = false;
-    // Guards the auth-expiry handoff to fire exactly once per connection instance —
+    // Guards the auth-expiry handoff to fire exactly once per connection instance,
     // idempotent either way, but avoids redundant invalidateQueries churn if the dead
     // token keeps producing 401s across more than one handler callback.
     let handledAuthExpiry = false;
@@ -258,7 +258,7 @@ export function useChatStream({
       handledAuthExpiry = true;
       onAuthExpired();
       syncedSetTurnState('session expired');
-      setTurnError('Your session expired — sign in again to continue.');
+      setTurnError('Your session expired: sign in again to continue.');
       // Stop relying on the built-in reconnect loop: a stale token will just keep
       // 401ing on every retry, burning the bounded attempt budget for nothing.
       disconnectRef.current?.();
@@ -283,7 +283,7 @@ export function useChatStream({
         if (cancelled || stoppedRef.current) return;
         if (eventName === RELAY_OVERFLOW_EVENT) {
           // Turn frames were dropped over the relay tunnel. Record the honest notice and
-          // resync this session's chat state — the missed frames may include turn deltas,
+          // resync this session's chat state, the missed frames may include turn deltas,
           // so a refetch of the authoritative message list restores the true transcript.
           noteRelayOverflow(readDroppedCount(payload));
           void invalidateChatState(activeSessionId);
@@ -333,7 +333,7 @@ export function useChatStream({
         }
 
         if (type === 'turn.tool_result') {
-          // The tool call ended (normally OR because it was cancelled — either way
+          // The tool call ended (normally OR because it was cancelled, either way
           // the daemon's own result arrived, so the honest thing is to drop the
           // entry rather than leave a stale "Cancelled" chip behind).
           const toolCallId = firstString(payload, ['toolCallId']);
@@ -377,7 +377,7 @@ export function useChatStream({
           } else {
             syncedSetTurnState('syncing');
           }
-          // Fold this turn's completed tool calls onto the message they produced —
+          // Fold this turn's completed tool calls onto the message they produced,
           // matched by id whether the message renders from this optimistic local
           // copy or from the server-fetched history that invalidateChatState below
           // brings in (both end up with the same assistantMessageId).
@@ -416,7 +416,7 @@ export function useChatStream({
         }
 
         if (type === 'turn.error') {
-          // No assistant message was produced — the accumulated tool activity has
+          // No assistant message was produced, the accumulated tool activity has
           // nothing to attach to and is honestly discarded, not held onto.
           turnToolActivityRef.current = [];
           pendingToolInputRef.current.clear();
@@ -427,10 +427,10 @@ export function useChatStream({
         }
       },
       // Fires on every transient failure the built-in reconnect loop is about to
-      // retry (paired with — and called right after — onReconnect below), and once
+      // retry (paired with, and called right after, onReconnect below), and once
       // more on the terminal failure (paired with, and called right after,
       // onTerminate below). It never fires standalone against this SDK's current
-      // wiring, so `hadDrop` — already true from the paired call — lets this handler
+      // wiring, so `hadDrop`, already true from the paired call, lets this handler
       // stay a no-op rather than overwrite the more specific 'reconnecting' /
       // 'stream paused' / 'session expired' state with a generic 'stream error'.
       onError: (error) => {
@@ -446,19 +446,19 @@ export function useChatStream({
         }
       },
       // A drop the built-in reconnect is about to retry (attempts remain and
-      // reconnect is enabled) — the daemon-blip / SSE-drop case. Honest, distinct
+      // reconnect is enabled), the daemon-blip / SSE-drop case. Honest, distinct
       // from a genuine unrecoverable 'stream error': the connection is expected back.
       onReconnect: ({ attempt, delayMs }) => {
         if (cancelled || stoppedRef.current) return;
         hadDrop = true;
         syncedSetTurnState('reconnecting');
         setTurnError(
-          `Reconnecting to the live stream — attempt ${attempt} of ${DEFAULT_SSE_RECONNECT.maxAttempts} `
+          `Reconnecting to the live stream: attempt ${attempt} of ${DEFAULT_SSE_RECONNECT.maxAttempts} `
           + `(next try in ${Math.max(1, Math.round(delayMs / 1000))}s)…`,
         );
       },
       // The built-in reconnect exhausted DEFAULT_SSE_RECONNECT.maxAttempts and gave
-      // up for good — it will not try again on its own. Falls back to the composer's
+      // up for good, it will not try again on its own. Falls back to the composer's
       // 1s message poll (ChatView keeps polling while turnState is a 'reconnecting'/
       // 'sending while reconnecting' ACTIVE_TURN_STATE, and ChatView also polls
       // explicitly while 'stream paused') until retryStream() re-opens the stream.
@@ -467,15 +467,15 @@ export function useChatStream({
         if (handleAuthExpiry(error)) return;
         syncedSetTurnState('stream paused');
         setTurnError(
-          `Stream paused after ${reconnectAttempts} reconnect attempt${reconnectAttempts === 1 ? '' : 's'} — `
-          + 'live updates are off. Tap the status to retry, or send a message to try again.',
+          `Stream paused after ${reconnectAttempts} reconnect attempt${reconnectAttempts === 1 ? '' : 's'}. `
+          + 'Live updates are off. Tap the status to retry, or send a message to try again.',
         );
       },
     }, { reconnect: DEFAULT_SSE_RECONNECT }).then((nextDisconnect) => {
       // The SDK only yields the disconnect handle AFTER the handshake. If this effect
       // was superseded (cancelled) or the turn was stopped while that promise was still
       // pending, the handle is already orphaned: disconnect it immediately and never
-      // store it — storing a stale handle here is exactly what used to clobber the new
+      // store it, storing a stale handle here is exactly what used to clobber the new
       // session's live disconnectRef.
       if (cancelled || stoppedRef.current) {
         nextDisconnect();
@@ -520,7 +520,7 @@ export function useChatStream({
 
   const isStreaming = ACTIVE_TURN_STATES.includes(turnState ?? 'idle');
 
-  // cancelToolCall: the turn ITSELF keeps running — only this one tool call is
+  // cancelToolCall: the turn ITSELF keeps running, only this one tool call is
   // stopped (unlike stop(), which ends the whole turn). Marks the local entry
   // cancelled:true on {cancelled:true}; the entry is removed for real once the
   // matching turn.tool_result (or a terminal turn event) arrives above.

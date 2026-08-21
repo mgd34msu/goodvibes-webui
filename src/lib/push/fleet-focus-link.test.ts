@@ -1,5 +1,5 @@
 /**
- * fleet-focus-link.ts — fragment parse + history cleanup for a push
+ * fleet-focus-link.ts, fragment parse + history cleanup for a push
  * "needs-input" hand-off (a fleet node blocked on the operator).
  */
 import { afterEach, describe, expect, test } from 'bun:test';

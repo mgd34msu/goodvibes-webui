@@ -101,8 +101,8 @@ describe('error formatting', () => {
   });
 
   test('detects the honest 409 SESSION_ACTIVE delete-rejection (delete-means-delete)', () => {
-    expect(isSessionActiveError({ body: { code: 'SESSION_ACTIVE', error: 'Session is active — close it, then delete.' } })).toBe(true);
-    expect(isSessionActiveError(new Error('Session is active — close it, then delete.'))).toBe(true);
+    expect(isSessionActiveError({ body: { code: 'SESSION_ACTIVE', error: 'Session is active; close it, then delete.' } })).toBe(true);
+    expect(isSessionActiveError(new Error('Session is active; close it, then delete.'))).toBe(true);
     expect(isSessionActiveError({ body: { code: 'SESSION_NOT_FOUND' } })).toBe(false);
   });
 
@@ -112,7 +112,7 @@ describe('error formatting', () => {
       body: { error: 'Unknown gateway method' },
     })).toBe(true);
     // A genuine SESSION_NOT_FOUND is ALSO a 404 but is a different honest signal
-    // (the resource doesn't exist, not "this daemon has never heard of this verb") —
+    // (the resource doesn't exist, not "this daemon has never heard of this verb"),
     // isMethodUnavailableError must not conflate the two.
     expect(isMethodUnavailableError({ status: 404, body: { code: 'SESSION_NOT_FOUND', error: 'Session not found' } })).toBe(false);
     expect(isMethodUnavailableError({ status: 500, body: { error: 'Unknown gateway method' } })).toBe(false);
@@ -121,7 +121,7 @@ describe('error formatting', () => {
 
   // Since the 1.0.0 delete-means-delete change, the daemon carries
   // code: 'METHOD_NOT_FOUND' on this 404 (SDKErrorCodes.METHOD_NOT_FOUND).
-  // Code-first, message-fallback — the same pattern as
+  // Code-first, message-fallback, the same pattern as
   // isSessionClosedError/isSessionActiveError above.
   test('recognizes the machine code METHOD_NOT_FOUND (an upgraded daemon), no message-sniff needed', () => {
     expect(isMethodUnavailableError({
@@ -162,7 +162,7 @@ describe('isEmailUnconfiguredError (412 precondition refusal, structural backsto
     expect(isEmailUnconfiguredError({ status: 412, body: { code: 'EMAIL_NOT_CONFIGURED', error: 'No mail account is configured.' } })).toBe(true);
   });
 
-  test('true for a bare HTTP 412 with a code none of the anticipated literals name — the structural backstop', () => {
+  test('true for a bare HTTP 412 with a code none of the anticipated literals name, the structural backstop', () => {
     // The whole point of the backstop: correctness must not rest on guessing the
     // daemon's exact code string right. A 412 with an unrecognized code still reads
     // as "not configured yet" rather than falling through to a scary generic error.
@@ -185,7 +185,7 @@ describe('isEmailAuthFailedError (configured account, rejected credentials)', ()
     expect(isEmailAuthFailedError({ body: { code: 'IMAP_AUTH_FAILED' } })).toBe(true);
   });
 
-  test('false for a plain 401 — must not swallow daemon-session expiry, which isAuthExpiredError already owns', () => {
+  test('false for a plain 401: must not swallow daemon-session expiry, which isAuthExpiredError already owns', () => {
     expect(isEmailAuthFailedError({ status: 401, category: 'authentication' })).toBe(false);
     expect(isEmailAuthFailedError(Object.assign(new Error('Unauthorized'), { status: 401 }))).toBe(false);
   });

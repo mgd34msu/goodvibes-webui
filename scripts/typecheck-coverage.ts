@@ -1,11 +1,11 @@
 /**
- * typecheck-coverage — proves every TypeScript file in this repo is actually
+ * typecheck-coverage, proves every TypeScript file in this repo is actually
  * inside a typechecked project.
  *
  * WHY THIS EXISTS: for most of this repo's life `bun run typecheck` was a single
  * `tsc --noEmit` over a tsconfig whose `include` was `["src", "vite.config.ts"]`.
- * Everything under scripts/ and e2e/ — 56 files, including 5 test files and the
- * 120KB mock daemon the entire Playwright suite is built on — compiled nowhere.
+ * Everything under scripts/ and e2e/, 56 files, including 5 test files and the
+ * 120KB mock daemon the entire Playwright suite is built on, compiled nowhere.
  * CI ran `bun run typecheck`, `bun run typecheck` reported success, and a genuine
  * type error in any of those files was invisible. That is the failure this guard
  * closes, and it closes it by MEASUREMENT, not by reasoning about include globs:
@@ -93,7 +93,7 @@ export function listProjectFiles(project: string, root: string = ROOT): string[]
     encoding: 'utf8',
   });
   // --listFilesOnly does not typecheck, so a nonzero status here means the project
-  // could not be loaded at all (missing/!malformed tsconfig) — never a type error.
+  // could not be loaded at all (missing/!malformed tsconfig), never a type error.
   if (result.status !== 0 && result.stdout.trim().length === 0) {
     throw new Error(`tsc -p ${project} --listFilesOnly failed: ${result.stderr || result.stdout}`);
   }
@@ -119,7 +119,7 @@ function main(): void {
   const uncovered = findUncoveredFiles(allFiles, covered);
   if (uncovered.length > 0) {
     console.error(
-      `typecheck coverage FAILED — ${String(uncovered.length)} TypeScript file(s) are not in any typechecked project:`,
+      `typecheck coverage FAILED: ${String(uncovered.length)} TypeScript file(s) are not in any typechecked project:`,
     );
     for (const file of uncovered) console.error(`  ${file}`);
     console.error('');
@@ -130,7 +130,7 @@ function main(): void {
   }
 
   console.log(
-    `typecheck coverage OK — ${String(allFiles.length)} TypeScript file(s) across ` +
+    `typecheck coverage OK: ${String(allFiles.length)} TypeScript file(s) across ` +
       `${String(TYPECHECK_PROJECTS.length)} project(s).`,
   );
 }

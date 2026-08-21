@@ -1,5 +1,5 @@
 /**
- * DOM render tests for ToolActivityGroup — the fold that keeps completed tool
+ * DOM render tests for ToolActivityGroup, the fold that keeps completed tool
  * calls visible on an assistant message instead of letting them evaporate once
  * the turn ends (see useChatStream's toolActivityByMessageId doc comment).
  *
@@ -38,7 +38,7 @@ function render(toolActivity: readonly CompletedToolCall[]) {
   };
 }
 
-describe('ToolActivityGroup — single tool call', () => {
+describe('ToolActivityGroup: single tool call', () => {
   test('renders one compact entry directly, no outer <details> fold', () => {
     const { container, unmount } = render([
       { toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls -la' }, result: 'file.txt', isError: false },
@@ -94,7 +94,7 @@ describe('ToolActivityGroup — single tool call', () => {
   });
 });
 
-describe('ToolActivityGroup — multiple tool calls', () => {
+describe('ToolActivityGroup: multiple tool calls', () => {
   const multi: CompletedToolCall[] = [
     { toolCallId: 'call-1', toolName: 'read', result: 'a', isError: false },
     { toolCallId: 'call-2', toolName: 'read', result: 'b', isError: false },
@@ -106,7 +106,7 @@ describe('ToolActivityGroup — multiple tool calls', () => {
     const details = container.querySelector('details.message-tool-activity--group') as HTMLDetailsElement | null;
     expect(details).not.toBeNull();
     expect(details!.open).toBe(false);
-    expect(details!.querySelector('summary')?.textContent).toBe('3 tools · read×2, exec — expand');
+    expect(details!.querySelector('summary')?.textContent).toBe('3 tools · read×2, exec; expand');
     unmount();
   });
 
@@ -120,7 +120,7 @@ describe('ToolActivityGroup — multiple tool calls', () => {
   });
 });
 
-describe('ToolActivityGroup — no tool calls', () => {
+describe('ToolActivityGroup: no tool calls', () => {
   test('renders nothing at all', () => {
     const { container, unmount } = render([]);
     expect(container.innerHTML).toBe('');

@@ -1,5 +1,5 @@
 /**
- * useConfirmSheet — a promise-returning confirm gate backed by ConfirmSheet.
+ * useConfirmSheet, a promise-returning confirm gate backed by ConfirmSheet.
  *
  * A view calls `ask(request)` and awaits a boolean: true when the operator taps
  * Confirm, false on Cancel/Escape/backdrop. The hook renders one sheet at a time
@@ -13,7 +13,7 @@
  *   // ...
  *   return <div>{confirm.element}{/* ...view... *}</div>;
  *
- * The mutation runs after the sheet resolves and closes — exactly the shape of
+ * The mutation runs after the sheet resolves and closes, exactly the shape of
  * the window.confirm() calls this replaces, so no busy state lives in the sheet.
  */
 import { useCallback, useRef, useState, type ReactElement } from 'react';
@@ -45,7 +45,7 @@ export function useConfirmSheet(): ConfirmSheetController {
   }, []);
 
   const ask = useCallback((next: ConfirmRequest): Promise<boolean> => {
-    // A second ask while one is open resolves the first as cancelled — never
+    // A second ask while one is open resolves the first as cancelled, never
     // leave a dangling promise, and never stack two sheets.
     resolverRef.current?.(false);
     return new Promise<boolean>((resolve) => {

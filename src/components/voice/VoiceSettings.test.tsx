@@ -1,5 +1,5 @@
 /**
- * VoiceSettings — covers the shared voice popover's local-voice setup section
+ * VoiceSettings, covers the shared voice popover's local-voice setup section
  * (voice.local.status / voice.local.install, SDK 1.9.0-dev's memory-relay-voice-
  * hardening work): checking/unavailable/error/provisioned/unsupported-platform/
  * not-provisioned (setup action, size-labeled)/install-progress/install-receipt
@@ -124,7 +124,7 @@ const NOT_PROVISIONED_STATUS = {
   offerBytes: 209_715_200,
 };
 
-describe('VoiceSettings — local voice setup', () => {
+describe('VoiceSettings: local voice setup', () => {
   test('the local section is not rendered until the popover opens', () => {
     const { el, unmount } = render();
     cleanup = unmount;
@@ -139,7 +139,7 @@ describe('VoiceSettings — local voice setup', () => {
     expect(el.textContent).toContain('Checking local voice…');
   });
 
-  test('unavailable (404 METHOD_NOT_FOUND) skips the section entirely — no error banner for a capability the daemon never heard of', () => {
+  test('unavailable (404 METHOD_NOT_FOUND) skips the section entirely, no error banner for a capability the daemon never heard of', () => {
     mockLocalStatus = {
       isPending: false,
       isError: true,
@@ -197,7 +197,7 @@ describe('VoiceSettings — local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Installed — TTS: piper, STT: whisper-cpp.');
+    expect(el.textContent).toContain('Installed: TTS: piper, STT: whisper-cpp.');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);
     expect(buttons.some((t) => t?.includes('Set up local voice'))).toBe(false);
   });
@@ -212,7 +212,7 @@ describe('VoiceSettings — local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Not supported on this platform — no pinned engine build exists for this host.');
+    expect(el.textContent).toContain('Not supported on this platform, no pinned engine build exists for this host.');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);
     expect(buttons.some((t) => t?.includes('Set up local voice'))).toBe(false);
   });
@@ -275,9 +275,9 @@ describe('VoiceSettings — local voice setup', () => {
     expect(progress?.querySelectorAll('li').length).toBe(3);
     // Completed component: Done with both byte figures.
     expect(progress?.textContent).toContain('piper-voice-onnx');
-    expect(progress?.textContent).toContain('Done — 60.3 MB of 60.3 MB');
+    expect(progress?.textContent).toContain('Done: 60.3 MB of 60.3 MB');
     // Downloading component: only the pinned total (no fabricated live bytes).
-    expect(progress?.textContent).toContain('Downloading — 6.6 MB');
+    expect(progress?.textContent).toContain('Downloading: 6.6 MB');
     // Byte-less component: just the phase.
     expect(progress?.textContent).toContain('Extracting');
   });
@@ -389,7 +389,7 @@ describe('VoiceSettings — local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('TTS (piper): Download failed — network timeout fetching piper.tar.gz');
+    expect(el.textContent).toContain('TTS (piper): Download failed: network timeout fetching piper.tar.gz');
     const retry = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).find((b) => b.textContent === 'Retry') as HTMLButtonElement;
     expect(retry).toBeDefined();
     flushSync(() => { retry.click(); });
@@ -413,7 +413,7 @@ describe('VoiceSettings — local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('STT (whisper-cpp): Not yet published for this platform — no pinned whisper.cpp bundle exists for this platform yet');
+    expect(el.textContent).toContain('STT (whisper-cpp): Not yet published for this platform, no pinned whisper.cpp bundle exists for this platform yet');
     const retry = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).find((b) => b.textContent === 'Retry');
     expect(retry).toBeUndefined();
   });
@@ -445,9 +445,9 @@ describe('VoiceSettings — local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    // Both the fresh resting line AND the receipt are visible — the receipt never
+    // Both the fresh resting line AND the receipt are visible, the receipt never
     // vanishes the instant the invalidated status query answers.
-    expect(el.textContent).toContain('Installed — TTS: piper, STT: whisper-cpp.');
+    expect(el.textContent).toContain('Installed: TTS: piper, STT: whisper-cpp.');
     expect(el.textContent).toContain('TTS (piper): Installed');
     expect(el.textContent).toContain('Configured: tts.provider');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);

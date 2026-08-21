@@ -1,5 +1,5 @@
 /**
- * KnowledgeMap — the W8 fix: render the wire's pre-rendered svg instead of a
+ * KnowledgeMap, the W8 fix: render the wire's pre-rendered svg instead of a
  * raw JSON dump, and contrast jobRunCount vs nodeCount so "jobs ran, 0 nodes"
  * reads as an honest activity state rather than a blank map.
  */
@@ -50,7 +50,7 @@ describe('isRenderableSvg / svgDataUrl', () => {
   });
 });
 
-describe('KnowledgeMap — loading / error', () => {
+describe('KnowledgeMap: loading / error', () => {
   test('shows a skeleton while the map query is pending', () => {
     const html = renderToStaticMarkup(<KnowledgeMap {...baseProps({ isPending: true })} />);
     expect(html).toContain('knowledge-skeleton-group');
@@ -71,7 +71,7 @@ describe('KnowledgeMap — loading / error', () => {
   });
 });
 
-describe('KnowledgeMap — the W8 honesty states', () => {
+describe('KnowledgeMap: the W8 honesty states', () => {
   test('true empty (0 jobs, 0 nodes) reads "No knowledge indexed yet", never a raw dump', () => {
     const html = renderToStaticMarkup(
       <KnowledgeMap {...baseProps({ jobRunCount: 0, overallNodeCount: 0, data: { nodeCount: 0, edgeCount: 0 } })} />,
@@ -169,7 +169,7 @@ describe('KnowledgeMap — the W8 honesty states', () => {
   });
 });
 
-describe('KnowledgeMap — "view raw" is demoted, never the primary surface', () => {
+describe('KnowledgeMap: "view raw" is demoted, never the primary surface', () => {
   function render(props: Partial<React.ComponentProps<typeof KnowledgeMap>>) {
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -208,7 +208,7 @@ describe('KnowledgeMap — "view raw" is demoted, never the primary surface', ()
     });
     const img = el.querySelector('.knowledge-map-render__canvas img') as HTMLImageElement | null;
     expect(img).toBeTruthy();
-    // The browser could not decode the data: URL — React's onError fires.
+    // The browser could not decode the data: URL, React's onError fires.
     flushSync(() => { img?.dispatchEvent(new window.Event('error')); });
     expect(el.textContent).toContain('Map unavailable');
     expect(el.querySelector('.knowledge-map-render__canvas img')).toBeNull();

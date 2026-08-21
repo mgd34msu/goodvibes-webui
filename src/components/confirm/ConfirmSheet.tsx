@@ -1,15 +1,15 @@
 /**
- * ConfirmSheet — a touch-first confirmation surface for a mutating action.
+ * ConfirmSheet, a touch-first confirmation surface for a mutating action.
  *
  * On a phone it renders as a bottom sheet (thumb-reachable, full-width Confirm/
  * Cancel that clear the 44px touch floor); on desktop it centers as a small
  * alert dialog. It states the action name, the target it acts on, and (when the
- * action is consequential) a one-line description — so a Confirm tap is always
+ * action is consequential) a one-line description, so a Confirm tap is always
  * an informed one.
  *
  * Presentational only: it renders when `open` and calls onConfirm/onCancel. The
  * caller runs the mutation AFTER onConfirm resolves the sheet (mirroring the
- * window.confirm pattern it replaces), so no busy state lives here — the caller
+ * window.confirm pattern it replaces), so no busy state lives here, the caller
  * owns its own pending UI. Escape and a backdrop tap both cancel.
  *
  * role="alertdialog" + focus trap + labelled title/description keep it usable by

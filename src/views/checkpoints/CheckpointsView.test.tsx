@@ -1,5 +1,5 @@
 /**
- * CheckpointsView — rendering from a mocked checkpoints.* client, covering
+ * CheckpointsView, rendering from a mocked checkpoints.* client, covering
  * the honesty markers: true-empty, an honest noop:true create (never a
  * fabricated checkpoint), and the destructive-restore confirm gate (fires
  * only after the confirm sheet is confirmed, never on the first click).
@@ -226,14 +226,14 @@ describe('CheckpointsView compare-target selector (D-WEBUI-1)', () => {
   });
 });
 
-describe('CheckpointsView create — honest noop', () => {
+describe('CheckpointsView create: honest noop', () => {
   test('a noop:true create shows the honest "unchanged" message, never fabricating a checkpoint row', async () => {
     createImpl = () => Promise.resolve({ checkpoint: null, noop: true });
     const { el, unmount } = render();
     const button = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Snapshot'));
     click(button);
     await waitFor(() => createCalls.length > 0);
-    // No new row was fabricated — still exactly the two fixture rows.
+    // No new row was fabricated, still exactly the two fixture rows.
     expect(el.querySelectorAll('.checkpoints-row').length).toBe(2);
     unmount();
   });
@@ -249,7 +249,7 @@ describe('CheckpointsView create — honest noop', () => {
   });
 });
 
-describe('CheckpointsView restore — destructive confirm gate', () => {
+describe('CheckpointsView restore: destructive confirm gate', () => {
   function openRestore(el: HTMLElement) {
     const row = [...el.querySelectorAll('.checkpoints-row')].find((r) => r.textContent?.includes('diff base'));
     click(row);

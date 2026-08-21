@@ -1,5 +1,5 @@
 /**
- * WakeChip — the `voice.wake.indicator: "statusline"` marker.
+ * WakeChip, the `voice.wake.indicator: "statusline"` marker.
  *
  * A persistent chip in the StatusStrip footer for as long as wake detection is
  * running, not a flash at the moment of a wake: an always-on microphone must never
@@ -7,9 +7,9 @@
  * its default. Absent entirely when the indicator row is 'off' or wake detection
  * was never enabled in this browser, so it never pads the strip with a dead segment.
  *
- * Follows PowerChip's shape exactly — conditionally rendered, aria-label plus title
+ * Follows PowerChip's shape exactly, conditionally rendered, aria-label plus title
  * carrying the full reason, an icon beside a text label so colour is never the sole
- * signal — and it feeds the StatusStrip's single visually-hidden aria-live region
+ * signal, and it feeds the StatusStrip's single visually-hidden aria-live region
  * through that strip's own live text rather than announcing on its own, so a live
  * microphone is announced once instead of on every state tick.
  */

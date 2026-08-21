@@ -1,34 +1,34 @@
 /**
- * settings-model.ts — the schema-driven, domain-grouped model the settings
+ * settings-model.ts, the schema-driven, domain-grouped model the settings
  * surface renders from. Pure and deterministic: it takes the daemon's live
  * config snapshot (config.get) and the SDK's generated schema + per-feature
  * settings metadata, and produces the ordered group / feature-unit / row
- * structure the SettingsModal walks. No React, no I/O — fully unit-testable.
+ * structure the SettingsModal walks. No React, no I/O, fully unit-testable.
  *
- * Grouping rules (dissolved feature model — every capability is a first-class
+ * Grouping rules (dissolved feature model, every capability is a first-class
  * domain setting; there is no separate enablement namespace):
  *   - Every feature (FEATURE_SETTINGS) renders as a FEATURE UNIT inside its
  *     DOMAIN group (the top-level namespace of its enablement key): its real
  *     name and full description, its enablement control in its real shape
- *     (boolean toggle / enum mode select / constant — governed directly by its
+ *     (boolean toggle / enum mode select / constant, governed directly by its
  *     own settings keys), and the typed editors for the settings keys it owns.
  *   - A config key owned by a feature unit is NOT double-listed as an orphan row
  *     in its namespace group (ownership wins).
  *   - Schema keys owned by no feature render as typed "plain" rows under their
  *     namespace group.
  *   - Keys present in the LIVE config but absent from the schema still render (as
- *     read-only raw rows) so nothing the daemon actually holds becomes invisible —
+ *     read-only raw rows) so nothing the daemon actually holds becomes invisible,
  *     EXCEPT a key card-material.ts's isCardMaterialKey() matches (a card number,
  *     PAN, or CVV/CVC). That is the one deliberate exception to "nothing becomes
  *     invisible": card material must never be entered or displayed on this surface
  *     at all, so a matching key is dropped from every row source (plain, feature-
- *     owned, and raw) rather than rendered — masked or otherwise. In practice
+ *     owned, and raw) rather than rendered, masked or otherwise. In practice
  *     CONFIG_SCHEMA never declares such a key (schema-domain-payments.ts keeps card
  *     material in the daemon's secret store only), so this filter only ever catches
  *     a stray live-config key the schema does not know about.
  *
  * Grouping SOURCE is SDK metadata (CONFIG_SCHEMA namespaces + each feature's
- * domain), never a hand-copied category list — so cross-surface parity with the
+ * domain), never a hand-copied category list, so cross-surface parity with the
  * TUI is structural. config-redaction.ts's CATEGORY_LABELS supplies only the
  * human display label for a namespace (special-casing acronyms), with a Title
  * Case fallback for any namespace it has not special-cased.
@@ -54,26 +54,26 @@ export interface ConfigFieldModel {
   readonly description: string;
   readonly validationHint?: string;
   /** What kind of `number` quantity this is, from the schema (never the key's
-   *  name) — `'money'` marks a plain amount of `payments.currency`. */
+   *  name), `'money'` marks a plain amount of `payments.currency`. */
   readonly unit?: ConfigSchemaEntry['unit'];
   /** The live value from config.get (undefined when the key is absent from the live tree). */
   readonly liveValue: unknown;
   /** Whether the live config tree actually holds this key (vs. only the schema default). */
   readonly present: boolean;
   readonly isSecret: boolean;
-  /** True when the daemon — not this client — is the writer/reader-of-record for this key
+  /** True when the daemon, not this client, is the writer/reader-of-record for this key
    *  (config-ownership.ts). A write to a daemon-owned key applies to every connected client,
    *  not just this browser tab. */
   readonly daemonOwned: boolean;
   /** True when this key's real value is resolved ONLY from the daemon's secret
-   *  store (secret-store-only-config-keys.ts) — a config.set write here is inert
+   *  store (secret-store-only-config-keys.ts), a config.set write here is inert
    *  (never read by the connector that uses it) and leaves a plaintext, unused
    *  copy of the value in the daemon's config file. SettingsField refuses to
    *  write these and names the real command instead. */
   readonly secretStoreOnly: boolean;
 }
 
-/** A live-config key with no schema entry — shown read-only so nothing is hidden. */
+/** A live-config key with no schema entry, shown read-only so nothing is hidden. */
 export interface RawRowModel {
   readonly key: string;
   readonly value: unknown;
@@ -91,7 +91,7 @@ export interface RawRowModel {
  *   - enum    : `enablementField` is the enum settings key rendered as the
  *               feature's mode select; the feature is active while its value is
  *               in `feature.enablement.enabledValues`. Excluded from `fields`.
- *   - constant: no separate off switch — `enablementField` is null and ALL the
+ *   - constant: no separate off switch, `enablementField` is null and ALL the
  *               feature's settings keys (which govern runtime activation
  *               directly) render as `fields`.
  */
@@ -105,7 +105,7 @@ export interface FeatureUnitModel {
   readonly enablementField: ConfigFieldModel | null;
   /** The remaining settings fields the feature owns (enablement key excluded). */
   readonly fields: readonly ConfigFieldModel[];
-  /** True when every settings key this feature owns is daemon-owned (config-ownership.ts) —
+  /** True when every settings key this feature owns is daemon-owned (config-ownership.ts),
    *  every feature lives in one domain, so this is all-or-nothing in practice. */
   readonly daemonOwned: boolean;
 }
@@ -140,7 +140,7 @@ export function readConfigPath(config: unknown, key: string): { present: boolean
 /**
  * All dotted leaf keys held in the live config (objects descended, arrays are
  * leaves). A key in `stopKeys` is treated as a leaf even when its value is an
- * object — the schema's object-typed keys (e.g. pricing.modelPrices) are ONE
+ * object, the schema's object-typed keys (e.g. pricing.modelPrices) are ONE
  * setting with a typed editor, and descending into their entries would
  * double-render every entry as an unschema'd raw row. Entry keys may also
  * contain dots (model ids like "provider:model-3.5"), which a dotted-path
@@ -169,7 +169,7 @@ export function liveLeafKeys(config: unknown, prefix = '', stopKeys?: ReadonlySe
 
 const SCHEMA_BY_KEY = new Map<string, ConfigSchemaEntry>(CONFIG_SCHEMA_ENTRIES.map((e) => [e.key, e]));
 
-/** Schema keys whose VALUE is an object — one setting each, never descended into. */
+/** Schema keys whose VALUE is an object, one setting each, never descended into. */
 export const OBJECT_TYPED_CONFIG_KEYS: ReadonlySet<string> = new Set(
   CONFIG_SCHEMA_ENTRIES.filter((e) => e.type === 'object').map((e) => e.key),
 );

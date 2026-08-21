@@ -1,8 +1,8 @@
 /**
- * DaemonReceipts — one-line dismissible notices for the daemon's undelivered
+ * DaemonReceipts, one-line dismissible notices for the daemon's undelivered
  * receipts, consumed exactly once per connect. The queue carries crash
  * restarts, self-updates, migrations AND pending feature announcements (e.g. a
- * web-surface URL line) — all the same { id, text, at } shape, all with the
+ * web-surface URL line), all the same { id, text, at } shape, all with the
  * same show-once semantics, so this one surface renders every kind. The daemon
  * pre-renders each line; this surfaces it verbatim (with any URL made
  * clickable) plus a dismiss control, and renders nothing when the queue is empty.
@@ -30,9 +30,9 @@ function renderReceiptText(text: string): ReactNode {
 }
 
 export interface DaemonReceiptsProps {
-  /** True once the daemon is reachable — the connect edge that consumes receipts. */
+  /** True once the daemon is reachable, the connect edge that consumes receipts. */
   readonly connected: boolean;
-  /** True once authenticated — consuming requires an authorized read. */
+  /** True once authenticated, consuming requires an authorized read. */
   readonly signedIn: boolean;
 }
 

@@ -41,7 +41,7 @@ describe('parseCompactionReceipt', () => {
     expect(parseCompactionReceipt({ type: 'COMPACTION_CHECK', sessionId: 's-1', tokenCount: 1, threshold: 2 })).toBeNull();
   });
 
-  test('returns null when sessionId is missing — never fabricates one', () => {
+  test('returns null when sessionId is missing, never fabricates one', () => {
     expect(parseCompactionReceipt({ ...RAW_RECEIPT, sessionId: undefined })).toBeNull();
   });
 
@@ -86,7 +86,7 @@ describe('checkUsagePct', () => {
     expect(checkUsagePct({ tokenCount: 80_000, threshold: 160_000 })).toBe(50);
   });
 
-  test('returns null when threshold is 0 — never divides by a fabricated denominator', () => {
+  test('returns null when threshold is 0, never divides by a fabricated denominator', () => {
     expect(checkUsagePct({ tokenCount: 1000, threshold: 0 })).toBeNull();
   });
 });

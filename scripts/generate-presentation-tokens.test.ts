@@ -3,10 +3,10 @@
  *
  * Proves the three properties the presentation-bridge work order calls for:
  *
- *   1. Determinism — rendering the SAME contract snapshot twice (or the real,
+ *   1. Determinism, rendering the SAME contract snapshot twice (or the real,
  *      installed contract against the checked-in generated artifacts) yields
  *      byte-identical output.
- *   2. Drift gate — mutating the contract snapshot (simulating an SDK upgrade
+ *   2. Drift gate, mutating the contract snapshot (simulating an SDK upgrade
  *      that changes a glyph or a tone color) changes the rendered output, so
  *      `writeIfChanged(..., checkOnly: true)` reports drift (would exit 1 in
  *      `bun run presentation:check`, wired into `bun run build`).
@@ -78,7 +78,7 @@ describe('generate-presentation-tokens: determinism', () => {
 
   test('the real contract snapshot itself is stable across repeated loads', () => {
     // Not the same object reference every time (loadContractSnapshot builds a
-    // fresh object), but the SAME data — proven via the rendered text.
+    // fresh object), but the SAME data, proven via the rendered text.
     const a = loadContractSnapshot();
     const b = loadContractSnapshot();
     expect(renderCss(a)).toBe(renderCss(b));

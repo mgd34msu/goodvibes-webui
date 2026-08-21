@@ -1,20 +1,20 @@
 /**
- * CiWatchesView — standing CI watches (ci.watches.*) plus an honest per-job status
+ * CiWatchesView, standing CI watches (ci.watches.*) plus an honest per-job status
  * detail (ci.status / ci.watches.run).
  *
  * Master/detail, mirroring CheckpointsView: list every standing watch
  * (ci.watches.list), create one (ci.watches.create) or delete one (ci.watches.delete,
- * behind a confirm sheet — deleting a watch stops its notifications), select one to
+ * behind a confirm sheet, deleting a watch stops its notifications), select one to
  * poll it immediately (ci.watches.run) and see the resulting per-job report. A
  * separate ad hoc lookup (ci.status) checks any repo/ref/PR without creating a watch.
  *
  * Per this surface's honesty bar: the detail ALWAYS lists every job with its own
- * conclusion — never a bare rollup badge with no job list underneath. continue-on-error
+ * conclusion, never a bare rollup badge with no job list underneath. continue-on-error
  * jobs are shown as a distinct badge when the wire reports them, and violations (the
  * daemon's own reasons the verdict is not a clean "passed") are listed verbatim.
  *
  * ci.* emits no wire event yet (a standing gap shared with fleet.*, checkpoints.*,
- * memory.* — see queryKeys.ciWatches), so freshness comes from mutation-driven
+ * memory.*, see queryKeys.ciWatches), so freshness comes from mutation-driven
  * invalidation and a manual refresh, not realtime invalidation.
  */
 
@@ -174,7 +174,7 @@ function CreateWatchForm({ onCreated }: { onCreated: () => void }) {
 }
 
 export interface CiWatchesViewProps {
-  /** Navigate to a session's chat view — used by the "open fix session" affordance. */
+  /** Navigate to a session's chat view, used by the "open fix session" affordance. */
   readonly onOpenSession?: (sessionId: string) => void;
 }
 
@@ -349,7 +349,7 @@ export function CiWatchesView({ onOpenSession }: CiWatchesViewProps) {
                       attachable session, or an honest failure — never a dead id. */}
                   {runResult.fixSessionTriggered && runResult.fixSessionId && ' A fix-session was started.'}
                   {runResult.fixSessionTriggered && runResult.fixSessionError
-                    && ` The fix-session could not start — ${runResult.fixSessionError}`}
+                    && ` The fix-session could not start; ${runResult.fixSessionError}`}
                 </p>
                 {/* The started fix-session's real session id rides the verb result;
                     offer to open it in the session view so the operator can watch
@@ -375,7 +375,7 @@ export function CiWatchesView({ onOpenSession }: CiWatchesViewProps) {
   );
 }
 
-/** Ad hoc ci.status lookup — check any repo/ref/PR without creating a standing watch. */
+/** Ad hoc ci.status lookup, check any repo/ref/PR without creating a standing watch. */
 function AdHocStatusLookup() {
   const { toast } = useToast();
   const [repo, setRepo] = useState('');

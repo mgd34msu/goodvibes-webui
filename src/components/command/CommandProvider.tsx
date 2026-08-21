@@ -11,7 +11,7 @@
  *     {children}
  *   </CommandProvider>
  *
- * Or — if you just want to mount the command system at root without wrapping:
+ * Or, if you just want to mount the command system at root without wrapping:
  *   <CommandProvider onNavigate={setActiveView} />
  *
  * onNavigate receives a view id: 'chat' | 'knowledge' | 'providers' | 'admin'

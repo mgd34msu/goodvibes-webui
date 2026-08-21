@@ -1,5 +1,5 @@
 /**
- * PowerChip — the always-visible "sleep disabled" chip. Covers both states:
+ * PowerChip, the always-visible "sleep disabled" chip. Covers both states:
  * absent (no keep-awake hold) and visible (keep-awake held, danger idiom,
  * honest lid-split note verbatim in the tooltip when served).
  */
@@ -94,6 +94,6 @@ describe('PowerChip', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     const chip = el.querySelector('.status-strip__segment--power');
-    expect(chip?.getAttribute('title')).toBe('Sleep disabled — holding: idle');
+    expect(chip?.getAttribute('title')).toBe('Sleep disabled: holding: idle');
   });
 });

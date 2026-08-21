@@ -1,5 +1,5 @@
 /**
- * MemoryProvenanceChip — the owner-ruled, default-OFF drill-in. Covers both
+ * MemoryProvenanceChip, the owner-ruled, default-OFF drill-in. Covers both
  * states (absent with no ids, visible with ids + expand-to-fetch) and the
  * phone-width tap target on the toggle button.
  */

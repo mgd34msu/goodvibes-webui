@@ -1,5 +1,5 @@
 /**
- * pack-bundle — the release asset the suite installer downloads.
+ * pack-bundle, the release asset the suite installer downloads.
  *
  * The three properties that matter are the ones the installer depends on and
  * cannot check for itself until it is too late:

@@ -1,10 +1,10 @@
 /**
- * search-jump.test.ts — pins the search jump-to-message wiring behind
+ * search-jump.test.ts, pins the search jump-to-message wiring behind
  * ChatView's onSelect handler and its scroll-trigger effect.
  *
  * The bug this covers: src/views/ChatView.tsx used to destructure only
  * `{ sessionId }` off ChatSearch's onSelect payload (src/views/chat/ChatSearch.tsx),
- * silently dropping messageId even for message-content results — clicking a
+ * silently dropping messageId even for message-content results, clicking a
  * search hit switched session but never jumped to the message. Session-level
  * results legitimately carry messageId '' and must never arm a jump.
  */
@@ -17,7 +17,7 @@ function node(id: string, priorMessages: ChatMessage[] = []): LineageNode {
   return { message: { id, role: 'user', content: id } as ChatMessage, priorMessages };
 }
 
-describe('resolveScrollTarget — the pass-through the bug dropped', () => {
+describe('resolveScrollTarget: the pass-through the bug dropped', () => {
   test('a message-content result (non-empty messageId) is forwarded as a scroll target', () => {
     expect(resolveScrollTarget({ sessionId: 'session-1', messageId: 'msg-1' })).toEqual({
       sessionId: 'session-1',
@@ -30,7 +30,7 @@ describe('resolveScrollTarget — the pass-through the bug dropped', () => {
   });
 });
 
-describe('isScrollTargetReady — the async-load guard', () => {
+describe('isScrollTargetReady: the async-load guard', () => {
   const nodes = [node('msg-1'), node('msg-2')];
 
   test('no pending target is never ready', () => {
@@ -52,7 +52,7 @@ describe('isScrollTargetReady — the async-load guard', () => {
     expect(isScrollTargetReady(target, 'session-1', nodes)).toBe(true);
   });
 
-  test('never ready for a message that only exists as retained/superseded history — nothing is rendered to scroll to', () => {
+  test('never ready for a message that only exists as retained/superseded history, nothing is rendered to scroll to', () => {
     const supersededMessage = { id: 'msg-old', role: 'user', content: 'old' } as ChatMessage;
     const nodesWithHistory = [node('msg-1', [supersededMessage])];
     const target = { sessionId: 'session-1', messageId: 'msg-old' };
@@ -60,7 +60,7 @@ describe('isScrollTargetReady — the async-load guard', () => {
   });
 });
 
-describe('findMessageElement — the DOM lookup', () => {
+describe('findMessageElement: the DOM lookup', () => {
   function buildContainer(ids: string[]): HTMLDivElement {
     const container = document.createElement('div');
     for (const id of ids) {

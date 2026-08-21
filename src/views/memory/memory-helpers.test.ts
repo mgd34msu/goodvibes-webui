@@ -27,7 +27,7 @@ function record(overrides: Partial<MemoryRecord> = {}): MemoryRecord {
   };
 }
 
-describe('isPersonaRecord — the client-side VIBE.md persona projection', () => {
+describe('isPersonaRecord: the client-side VIBE.md persona projection', () => {
   test('true only for a constraint record tagged "vibe"', () => {
     expect(isPersonaRecord(record({ cls: 'constraint', tags: ['vibe'] }))).toBe(true);
   });

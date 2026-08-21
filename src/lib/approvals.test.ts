@@ -1,12 +1,12 @@
 /**
- * approvals.ts — unit coverage for the decision-trail helpers.
+ * approvals.ts, unit coverage for the decision-trail helpers.
  *
  * The SDK's approval record carries a required `audit` array
  * (SharedApprovalAuditRecord, packages/sdk/src/platform/control-plane/
  * approval-broker.ts) that this client's hand-typed ApprovalRecord previously
  * omitted entirely. `audit` is optional on this client's type because
  * invokeMethod reads the wire response as-is with no runtime schema
- * validation — a mixed-version or pre-audit daemon record may genuinely omit
+ * validation, a mixed-version or pre-audit daemon record may genuinely omit
  * it, and that must read as "no trail recorded", never as an error or a
  * fabricated one.
  */
@@ -159,7 +159,7 @@ describe('recordedRememberTier', () => {
     expect(recordedRememberTier(actionResult({
       recorded: { approved: true, rememberTier: 'command-class', reasonStored: false, modifiedArgsDelivered: false },
     }))).toBe('command-class');
-    // A block that explicitly recorded no tier reports null — even if a stale
+    // A block that explicitly recorded no tier reports null, even if a stale
     // decision snapshot carried one, the block is authoritative.
     expect(recordedRememberTier(actionResult({
       approval: baseRecord({ decision: { approved: true, rememberTier: 'path' } }),
@@ -204,7 +204,7 @@ describe('recordedAnswerDelivered', () => {
   });
 });
 
-describe('attributionLabel — exec-prompt', () => {
+describe('attributionLabel: exec-prompt', () => {
   test('names the waiting command', () => {
     expect(attributionLabel({ kind: 'exec-prompt', command: 'ssh host', prompt: 'Continue?' }))
       .toBe('Command waiting on its terminal: ssh host');

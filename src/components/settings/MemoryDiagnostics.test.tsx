@@ -1,5 +1,5 @@
 /**
- * MemoryDiagnostics — the admin Memory panel. Covers loading/error/unavailable
+ * MemoryDiagnostics, the admin Memory panel. Covers loading/error/unavailable
  * (404/501)/populated states, the tier chip, the budget-vs-RSS bar, the per-cache
  * table, paused jobs, and the tripwire line.
  */
@@ -182,7 +182,7 @@ describe('MemoryDiagnostics', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('Leak tripwire: armed — sustained growth of 5.5 MB/s for 30s.');
+    expect(el.textContent).toContain('Leak tripwire: armed: sustained growth of 5.5 MB/s for 30s.');
     expect(el.querySelector('.memory-diagnostics__tripwire--armed')).not.toBeNull();
   });
 

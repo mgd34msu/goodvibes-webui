@@ -1,5 +1,5 @@
 /**
- * knowledge-projection.ts — turning a projection target the daemon listed into a
+ * knowledge-projection.ts, turning a projection target the daemon listed into a
  * request `knowledge.projection.render` will actually accept.
  *
  * WHY THIS IS A MODULE AND NOT FOUR LINES IN THE VIEW: before the 1.19.1 SDK
@@ -9,8 +9,8 @@
  * nothing to say about it. The contract now describes the method properly, and
  * it is stricter than that payload in two independent ways:
  *
- *   1. `kind` is a closed union of seven values. Anything else — including a
- *      kind a NEWER daemon invents — is not a valid request.
+ *   1. `kind` is a closed union of seven values. Anything else, including a
+ *      kind a NEWER daemon invents, is not a valid request.
  *   2. `id` is not uniformly optional. The input is a discriminated union: a
  *      bundle/dashboard/overview projection takes no id, while an
  *      issue/node/rollup/source projection REQUIRES one.
@@ -39,7 +39,7 @@ export type IdRequiredProjectionKind = Extract<ProjectionRenderInput, { id: stri
  *   - each value's type is pinned to whether that kind is in
  *     IdRequiredProjectionKind, so an entry that disagrees with the contract is
  *     also a compile error. Without that, this table would be a hand-maintained
- *     opinion while `kindNeedsId` below — a type predicate — stayed free to lie.
+ *     opinion while `kindNeedsId` below, a type predicate, stayed free to lie.
  *
  * Both directions were verified by breaking them and watching tsc fail, not
  * assumed from reading the type.
@@ -65,7 +65,7 @@ export function kindNeedsId(kind: ProjectionKind): kind is IdRequiredProjectionK
 
 /** What a projection target reduces to once its kind has been checked. */
 export interface ProjectionTargetLike {
-  /** Verbatim from the daemon, NOT narrowed — see KnowledgeView's list rendering. */
+  /** Verbatim from the daemon, NOT narrowed, see KnowledgeView's list rendering. */
   readonly kind: string;
   readonly renderableKind: ProjectionKind | null;
   readonly id?: string;

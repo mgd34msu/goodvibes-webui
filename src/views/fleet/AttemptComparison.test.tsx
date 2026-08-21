@@ -1,9 +1,9 @@
 /**
- * AttemptComparison.test.tsx — the best-of-N compare + pick surface.
+ * AttemptComparison.test.tsx, the best-of-N compare + pick surface.
  *
  * Renders candidates with their diffs, runs the judge (model judgment, clearly labelled),
  * picks a winner behind a confirm sheet (fleet.attempts.pick), and renders the honest
- * conflict state when the group is no longer ready (409 CONFLICT — never a partial merge).
+ * conflict state when the group is no longer ready (409 CONFLICT, never a partial merge).
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';

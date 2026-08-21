@@ -1,9 +1,9 @@
 /**
- * Hosted sessions (sessions.hosted.*) — the daemon-hosted
+ * Hosted sessions (sessions.hosted.*), the daemon-hosted
  * session view: the list with its includeTerminated toggle and terminatedReason
  * honesty line, attach with history + a genuine live stream frame, and steer.
  * Hermetic against the mock daemon's real stateful sessions.hosted.* handlers
- * (e2e/support/mock-daemon.ts) — the real-daemon proof lives in the agent/TUI
+ * (e2e/support/mock-daemon.ts), the real-daemon proof lives in the agent/TUI
  * e2e per this stage's brief.
  */
 import { test, expect } from '@playwright/test';
@@ -20,7 +20,7 @@ test('the hosted sessions list renders title, status, workspace, detach policy a
   await expect(row).toContainText('detach: survive');
   await expect(row).toContainText('2 turns');
   await expect(row).toContainText('4 messages');
-  // The default seed's second session is terminated — hidden until asked for.
+  // The default seed's second session is terminated, hidden until asked for.
   await expect(page.locator('.hosted-session-row', { hasText: 'One-off cleanup' })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
@@ -34,7 +34,7 @@ test('the includeTerminated toggle reveals terminated rows with their terminated
 
   const terminatedRow = page.locator('.hosted-session-row', { hasText: 'One-off cleanup' });
   await expect(terminatedRow).toBeVisible();
-  await expect(terminatedRow).toContainText('terminated — ended with sessions.hosted.kill');
+  await expect(terminatedRow).toContainText('terminated: ended with sessions.hosted.kill');
 });
 
 test('a genuinely empty hosted-sessions daemon says so honestly, never a blank list', async ({ page }) => {
@@ -63,7 +63,7 @@ test('attaching renders the returned history, then a LIVE stream frame arrives a
   await expect(page.locator('.hosted-session-transcript')).toContainText('Refactor the parser to use a visitor pattern.');
 
   // The mock emits the seeded frame ~1s after the first ?domains=session,turn,tools
-  // subscription request — this is the LIVE stream, not the static history.
+  // subscription request, this is the LIVE stream, not the static history.
   await expect(page.locator('.hosted-session-message--streaming')).toContainText('Working on the visitor pattern now.', { timeout: 5000 });
   await expectNoHorizontalScroll(page);
 });
@@ -117,10 +117,10 @@ test('creating a hosted session attaches it immediately and lists it with what w
   await expect(row).toContainText('/home/operator/projects/new-thing');
 });
 
-test('ending a session calls kill directly — the one action that ends a survive-policy session', async ({ page }) => {
+test('ending a session calls kill directly. The one action that ends a survive-policy session', async ({ page }) => {
   await installMockDaemon(page);
   await page.goto('/?view=hosted-sessions');
-  // hosted-e2e-1 is seeded with effectiveDetachPolicy: 'survive' — Leave alone would
+  // hosted-e2e-1 is seeded with effectiveDetachPolicy: 'survive', Leave alone would
   // never end it; End session must.
   await page.locator('.hosted-session-row__button', { hasText: 'Refactor the parser' }).click();
   await expect(page.locator('.hosted-session-detail')).toBeVisible();
@@ -147,10 +147,10 @@ test('closing the tab detaches via the keepalive beacon, not the ordinary async 
   await page.locator('.hosted-session-row__button', { hasText: 'Beacon-detach proof' }).click();
   await expect(page.locator('.hosted-session-detail')).toBeVisible();
 
-  // This browser is now the session's only attached client — firing pagehide should
+  // This browser is now the session's only attached client, firing pagehide should
   // detach it via hostedSessionDetachBeacon (fetch keepalive), which for a kill-policy
   // session with no other client left flips it to terminated daemon-side (the real
-  // mock handler's own last-client rule — see mock-daemon.ts).
+  // mock handler's own last-client rule, see mock-daemon.ts).
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
 
   await expect.poll(() => daemon.hostedSessions.find((s) => s.id === 'hosted-e2e-beacon')?.status).toBe('terminated');

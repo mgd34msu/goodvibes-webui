@@ -1,5 +1,5 @@
 /**
- * Dates view (occasions.*, docs/occasions.md) — proven against a real HTTP
+ * Dates view (occasions.*, docs/occasions.md), proven against a real HTTP
  * round-trip through the mock daemon, mirroring calendar.e2e.ts/mail.e2e.ts's shape
  * for the sibling surface. Covers the not-available honesty state, the populated
  * upcoming/plans/open-items/state sections, the answer/remove/gift-history actions,
@@ -24,7 +24,7 @@ test('not-available: the honest note renders in every section and no occasion li
   await installMockDaemon(page, { occasions: 'not-available' });
   await page.goto('/?view=dates');
   // All four reads (list, plans, pending, state) independently answer the same
-  // honest 501, so the note renders once per section — four times on this page.
+  // honest 501, so the note renders once per section, four times on this page.
   await expect(page.getByText('Dates isn’t available on this daemon yet').first()).toBeVisible();
   await expect(page.getByText('Dates isn’t available on this daemon yet')).toHaveCount(4);
   await expect(page.getByTestId('dates-occasion-list')).toHaveCount(0);

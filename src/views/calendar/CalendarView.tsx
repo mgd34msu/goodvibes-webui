@@ -1,24 +1,24 @@
 /**
- * CalendarView — events (list/get/create) + ICS import/export over the daemon's
+ * CalendarView, events (list/get/create) + ICS import/export over the daemon's
  * CalDAV-backed `calendar.*` verbs. Calendar is a daemon/agent feature with no TUI
- * command surface (the parity audit's ground truth) — the web UI is its first
+ * command surface (the parity audit's ground truth), the web UI is its first
  * screen.
  *
  * HONESTY CONTRACT (three refusal shapes, each rendered distinctly, never folded
  * into a generic "error"):
- *  1. UNCONFIGURED — the daemon's 412 CALENDAR_NOT_CONFIGURED / CALENDAR_CREDENTIALS_MISSING.
+ *  1. UNCONFIGURED, the daemon's 412 CALENDAR_NOT_CONFIGURED / CALENDAR_CREDENTIALS_MISSING.
  *     The operator has not brought their own CalDAV endpoint. This mirrors the
  *     provider/credential "unconfigured" honesty ruling (presentation-bridge.ts:
- *     neutral/info, not a fault) — a pointer to the config keys
+ *     neutral/info, not a fault), a pointer to the config keys
  *     (`surfaces.calendar.caldavUrl` / `caldavUser` / `caldavPassword`), the calendar
  *     surface's own bring-your-own-endpoint setup, is shown instead of a scary error.
- *  2. NOT AVAILABLE — a 404 "unknown gateway method" or 501 "not invokable" refusal:
+ *  2. NOT AVAILABLE, a 404 "unknown gateway method" or 501 "not invokable" refusal:
  *     this daemon build has no live calendar handler wired at all (the SDK ships the
  *     `calendar.*` contract `invokable: false` by construction; only a daemon that has
  *     registered a real CalDAV handler answers normally). Distinct from "unconfigured":
  *     here the CAPABILITY itself is missing, not just its configuration.
- *  3. GENUINE ERROR — anything else (network failure, a malformed range, a CalDAV
- *     auth failure against a configured endpoint) — ErrorState with retry.
+ *  3. GENUINE ERROR, anything else (network failure, a malformed range, a CalDAV
+ *     auth failure against a configured endpoint), ErrorState with retry.
  * Never fabricate a fourth "it's just empty" reading for any of the three above.
  */
 import { SyntheticEvent, useMemo, useState } from 'react';
@@ -304,7 +304,7 @@ export function CalendarView() {
             ) : create.error ? (
               <ErrorState error={create.error} onRetry={() => create.mutate()} title="Create failed" />
             ) : create.data ? (
-              <p className="calendar-create-success" role="status">Created — event id {create.data.eventId}</p>
+              <p className="calendar-create-success" role="status">Created: event id {create.data.eventId}</p>
             ) : null}
           </section>
 

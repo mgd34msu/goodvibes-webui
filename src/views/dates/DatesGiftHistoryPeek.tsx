@@ -1,12 +1,12 @@
 /**
- * DatesGiftHistoryPeekBody — the gift-history detail shown in the peek panel when
+ * DatesGiftHistoryPeekBody, the gift-history detail shown in the peek panel when
  * an upcoming occasion's "Gift history" button is pressed. Reads `occasions.gifts`,
  * which carries what the summary row cannot: what he landed on in previous years,
- * one record per occurrence — the same detail-fetch relationship
+ * one record per occurrence, the same detail-fetch relationship
  * CalendarEventPeek/MailMessagePeek have to their own list views.
  *
  * Gift history is machine-owned state (docs/occasions.md §3), not something this
- * view can edit directly — a record is only ever written by closing an interview
+ * view can edit directly, a record is only ever written by closing an interview
  * (`occasions.interview.record`, wired in DatesView's Open items section). This
  * peek is read-only by construction: it has no mutation of its own.
  */

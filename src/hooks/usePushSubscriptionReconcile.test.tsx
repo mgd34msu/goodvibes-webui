@@ -1,5 +1,5 @@
 /**
- * usePushSubscriptionReconcile — fires on the rising edge into `enabled`, and
+ * usePushSubscriptionReconcile, fires on the rising edge into `enabled`, and
  * again on a service-worker `goodvibes-push-subscription-changed` message.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';

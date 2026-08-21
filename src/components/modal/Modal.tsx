@@ -1,5 +1,5 @@
 /**
- * Modal — a generic centered dialog: the "configuration surface" machinery
+ * Modal, a generic centered dialog: the "configuration surface" machinery
  * this repo doesn't have yet. PeekPanel (src/components/peek/PeekPanel.tsx)
  * is a right-side slide-over for look-something-up/overlay reads; CommandPalette
  * is command-specific. Neither is an open-change-close configuration surface.
@@ -7,7 +7,7 @@
  * being duplicated per-consumer.
  *
  * Unmounts entirely when closed (mirrors CommandPalette's `if (!open) return
- * null`, not PeekPanel's keep-mounted-for-exit-animation approach) — simpler,
+ * null`, not PeekPanel's keep-mounted-for-exit-animation approach), simpler,
  * and it means a consumer's data queries never fire while the modal is closed.
  *
  * Accessibility: role="dialog" + aria-modal, focus moves to the first
@@ -117,7 +117,7 @@ export function Modal({ open, onClose, title, children, headerExtra, size = 'md'
 
   if (!open) return null;
 
-  // Backdrop and panel are SIBLINGS, not parent/child (mirrors PeekPanel's structure) —
+  // Backdrop and panel are SIBLINGS, not parent/child (mirrors PeekPanel's structure),
   // aria-hidden on the backdrop must never be an ANCESTOR of the dialog, or the whole
   // dialog subtree is excluded from the accessibility tree too (aria-hidden is
   // inherited by descendants). A wrapping fixed-position container positions both.

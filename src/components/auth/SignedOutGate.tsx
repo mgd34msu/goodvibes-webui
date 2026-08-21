@@ -1,5 +1,5 @@
 /**
- * SignedOutGate — the honest first-paint front door.
+ * SignedOutGate, the honest first-paint front door.
  *
  * Replaces the old behavior where the full operator shell rendered regardless of auth
  * and merely dropped a dismissible banner while every API call 401'd. When auth.current
@@ -8,12 +8,12 @@
  *
  * PRIMARY path: scan the QR shown by `goodvibes pair` in the terminal. That QR encodes
  * a link back here with the operator token in the URL fragment; opening it hands the
- * token off automatically (usePairingHandoff → setExplicitAuthToken) — no copy/paste.
+ * token off automatically (usePairingHandoff → setExplicitAuthToken), no copy/paste.
  * This screen leads with that flow and explains it prominently.
  *
  * FALLBACK path: paste the operator token by hand (setExplicitAuthToken self-validates
  * via auth.current and auto-clears on failure). Password login is offered only as a
- * de-emphasized tertiary path — on hosts where the bootstrap credential was already
+ * de-emphasized tertiary path, on hosts where the bootstrap credential was already
  * consumed it is structurally dead, so it must not be presented co-equal.
  *
  * `pairingError` is set when a pairing link's token was rejected by the daemon (an
@@ -51,7 +51,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
     mutationFn: () => setExplicitAuthToken(token.trim()),
     onSuccess: async () => {
       setToken('');
-      // Revalidate everything — auth/boot/health flip to signed-in and the shell reveals.
+      // Revalidate everything, auth/boot/health flip to signed-in and the shell reveals.
       await queryClient.invalidateQueries();
     },
   });
@@ -69,7 +69,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
     if (token.trim()) tokenMutation.mutate();
   }
 
-  // Relay pairing is transport-only — it never signs anyone in, so this is a plain
+  // Relay pairing is transport-only, it never signs anyone in, so this is a plain
   // synchronous decode + local store (lib/relay-pairing.ts), no useMutation/network
   // round trip. decodeRelayPairingCode throws the SDK's own GoodVibesSdkError on a
   // malformed code; formatError renders that the same honest way as every other
@@ -103,19 +103,19 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
         <h1>Sign in to GoodVibes</h1>
         <p className="signed-out-lede">
           This operator shell talks to a daemon that requires an operator token. The
-          quickest way in is to scan a QR from your terminal — no copy/paste.
+          quickest way in is to scan a QR from your terminal, no copy/paste.
         </p>
 
         {pairingError != null && (
           <div className="banner warning" role="alert">
-            The pairing link was rejected — {formatError(pairingError)}. Its token was
+            The pairing link was rejected: {formatError(pairingError)}. Its token was
             cleared; scan a fresh QR from <code>goodvibes pair</code>, or paste a token below.
           </div>
         )}
 
         {relayPairingError != null && (
           <div className="banner warning" role="alert">
-            The relay pairing link was not recognized — {formatError(relayPairingError)}.
+            The relay pairing link was not recognized: {formatError(relayPairingError)}.
             Scan a fresh relay QR, or paste a relay code below.
           </div>
         )}
@@ -128,7 +128,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
             <h2 id="signed-out-pair-title">Scan the QR from your terminal</h2>
             <p>
               Run <code>goodvibes pair</code> in the terminal where the daemon is running.
-              It prints a QR code — scan it with this device&rsquo;s camera and the link
+              It prints a QR code, scan it with this device&rsquo;s camera and the link
               signs you in automatically.
             </p>
           </div>
@@ -158,7 +158,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
 
         {tokenMutation.error && (
           <div className="banner warning" role="alert">
-            {formatError(tokenMutation.error)} — the token was rejected and cleared. Paste a fresh one.
+            {formatError(tokenMutation.error)}: the token was rejected and cleared. Paste a fresh one.
           </div>
         )}
 
@@ -175,11 +175,11 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
             <form className="form-grid signed-out-password" onSubmit={submitRelayCode}>
               <p className="form-note">
                 If this device cannot reach the daemon directly, scan or paste the relay
-                pairing code the daemon shows (a separate QR from the sign-in one) — it
+                pairing code the daemon shows (a separate QR from the sign-in one). It
                 lets this device reach the daemon through the relay instead. This does
                 NOT sign you in by itself; still scan/paste an operator token above (or
                 after) to sign in. Live updates (chat streaming, fleet events) are not
-                available over the relay — those views fall back to periodic refresh.
+                available over the relay, those views fall back to periodic refresh.
               </p>
               <label>
                 Relay pairing code
@@ -202,7 +202,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               )}
               {relayPasteError != null && (
                 <div className="banner warning" role="alert">
-                  {formatError(relayPasteError)} — not a recognizable relay pairing code.
+                  {formatError(relayPasteError)}: not a recognizable relay pairing code.
                 </div>
               )}
             </form>
@@ -213,7 +213,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
           <summary>Where do I find a token?</summary>
           <ul>
             <li>
-              Easiest: run <code>goodvibes pair</code> and scan the QR — it carries the
+              Easiest: run <code>goodvibes pair</code> and scan the QR: it carries the
               token for you, no copy/paste.
             </li>
             <li>
@@ -224,7 +224,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               mint one from the TUI.
             </li>
             <li>
-              Operator tokens are typically ephemeral — if sign-in stops working, the token
+              Operator tokens are typically ephemeral, if sign-in stops working, the token
               likely expired; grab the current one from the daemon output.
             </li>
           </ul>
@@ -243,7 +243,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
             <form className="form-grid signed-out-password" onSubmit={submitLogin}>
               <p className="form-note">
                 Password login only works on hosts where the daemon still holds a bootstrap
-                credential. If it was already consumed, this path will not work — use a token.
+                credential. If it was already consumed, this path will not work, use a token.
               </p>
               <label>
                 Username

@@ -1,5 +1,5 @@
 /**
- * ModelPricesModal — manual model-price editing reachable from any price
+ * ModelPricesModal, manual model-price editing reachable from any price
  * display (fleet cost badges, session cost chips, attribution rows), one
  * action away. Wraps the same ModelPricesEditor the settings surface uses, so
  * a price entered here is the identical config.set('pricing.modelPrices')
@@ -45,7 +45,7 @@ export function ModelPricesModal({ open, onClose, initialModelKey }: ModelPrices
     }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.config }),
-      // Manual prices apply live in the resolver — refresh every dollar display.
+      // Manual prices apply live in the resolver, refresh every dollar display.
       queryClient.invalidateQueries({ queryKey: ['cost'] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.fleet }),
       queryClient.invalidateQueries({ queryKey: queryKeys.workstream }),

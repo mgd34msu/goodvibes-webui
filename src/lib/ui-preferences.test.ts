@@ -66,10 +66,10 @@ describe('ui-preferences constants', () => {
 });
 
 // ---------------------------------------------------------------------------
-// readWebUiPreferences — no storage (SSR-like)
+// readWebUiPreferences, no storage (SSR-like)
 // ---------------------------------------------------------------------------
 
-describe('readWebUiPreferences — no window', () => {
+describe('readWebUiPreferences: no window', () => {
   beforeEach(removeWindowMock);
   afterEach(removeWindowMock);
 
@@ -79,10 +79,10 @@ describe('readWebUiPreferences — no window', () => {
 });
 
 // ---------------------------------------------------------------------------
-// readWebUiPreferences — with storage
+// readWebUiPreferences, with storage
 // ---------------------------------------------------------------------------
 
-describe('readWebUiPreferences — with storage', () => {
+describe('readWebUiPreferences: with storage', () => {
   beforeEach(installWindowMock);
   afterEach(removeWindowMock);
 
@@ -122,7 +122,7 @@ describe('readWebUiPreferences — with storage', () => {
   });
 
   test('returns defaults on null stored value (key absent after removal)', () => {
-    // getItem returns null when key missing — already covered by empty case above,
+    // getItem returns null when key missing, already covered by empty case above,
     // but explicit removal confirms the null-guard branch
     mockStorage.setItem(WEBUI_PREFERENCES_KEY, JSON.stringify({ codeBlockLineNumbers: true }));
     mockStorage.removeItem(WEBUI_PREFERENCES_KEY);
@@ -144,7 +144,7 @@ describe('readWebUiPreferences — with storage', () => {
 // writeWebUiPreference
 // ---------------------------------------------------------------------------
 
-describe('writeWebUiPreference — with storage', () => {
+describe('writeWebUiPreference: with storage', () => {
   beforeEach(installWindowMock);
   afterEach(removeWindowMock);
 
@@ -184,7 +184,7 @@ describe('writeWebUiPreference — with storage', () => {
   });
 });
 
-describe('writeWebUiPreference — no storage', () => {
+describe('writeWebUiPreference: no storage', () => {
   beforeEach(removeWindowMock);
   afterEach(removeWindowMock);
 

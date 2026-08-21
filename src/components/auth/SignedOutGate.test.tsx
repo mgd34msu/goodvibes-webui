@@ -1,5 +1,5 @@
 /**
- * SignedOutGate — the signed-out first paint and paste-token flow.
+ * SignedOutGate, the signed-out first paint and paste-token flow.
  */
 
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -69,7 +69,7 @@ describe('SignedOutGate first paint', () => {
     unmount();
   });
 
-  test('password login is NOT presented co-equal — hidden behind a secondary toggle', () => {
+  test('password login is NOT presented co-equal, hidden behind a secondary toggle', () => {
     const { el, unmount } = render();
     // Username field is not present until the secondary path is expanded.
     expect(el.querySelector('input[autocomplete="username"]')).toBeNull();

@@ -1,31 +1,31 @@
 /**
- * useOwnerProfile — the queries and mutations behind the owner-profile settings card
+ * useOwnerProfile, the queries and mutations behind the owner-profile settings card
  * (profile.* verbs, docs/owner-profile.md §11.1).
  *
  * Same shape as usePowerStatus/useMemoryDiagnostics: one query per verb, a defensive wire
  * parse in the queryFn (lib/owner-profile.ts's readProfile* readers), and an honest
  * retriable error when the daemon answers 200 with a body that is not a profile. The
  * distinction that matters here is that "the profile could not be read" is a SUCCESSFUL
- * response carrying `state.kind: 'unavailable'` and a reason — not a query error —
+ * response carrying `state.kind: 'unavailable'` and a reason, not a query error,
  * because §4.4 requires that state to be stated rather than rendered as an empty profile.
  *
  * WHAT EVERY WRITE STATES. Three things, all claims this surface can make honestly:
  *
- *   `authority: 'owner-direct'` — where the fact came from. The daemon requires every
+ *   `authority: 'owner-direct'`, where the fact came from. The daemon requires every
  *      caller to say: routes/owner-profile.ts's readAuthority 400s on an absent or
  *      unrecognised value, and it refuses rather than defaulting because §7 gives forget
  *      and undo an authority check and nothing else, so an unstated authority on a delete
  *      would be no gate at all. This surface can claim owner-direct truthfully because
  *      the only thing that reaches these calls is the owner typing into his own settings
- *      page — no page content, no message body and no document composes them. The agent
+ *      page, no page content, no message body and no document composes them. The agent
  *      must NOT hardcode this; it can genuinely be handed a purported fact by an email or
  *      a web page, and has to state which so the SDK can refuse.
- *   `surface: 'webui'` and `said: '(edited in settings)'` — §9.3's pair, which is what
+ *   `surface: 'webui'` and `said: '(edited in settings)'`, §9.3's pair, which is what
  *      keeps the resulting line's provenance answerable.
  *
  * `explicitUserRequest` is deliberately NOT sent, and that is not the same call as
  * authority. It lives in an invocation context no transport populates, and
- * refuseNonUserRequest() refuses only an explicit `false` — so sending one would assert
+ * refuseNonUserRequest() refuses only an explicit `false`, so sending one would assert
  * something this surface cannot know, and sending `false` would refuse the owner's own
  * click. Authority is a body parameter every caller is already constructing, which is
  * exactly why stating it costs one word and closes a hole.
@@ -35,7 +35,7 @@
  *
  * CONTAINMENT (§11.3): every value stays in react-query's in-memory cache and in React
  * state. Nothing here writes to localStorage/sessionStorage/IndexedDB, and nothing here
- * logs — a profile value must not reach a console, a persisted cache, or a diagnostic
+ * logs, a profile value must not reach a console, a persisted cache, or a diagnostic
  * view on this surface.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,7 +88,7 @@ export function useOwnerProfileStatus() {
 }
 
 /**
- * One field's provenance, fetched only once the operator asks for it — reachable per
+ * One field's provenance, fetched only once the operator asks for it, reachable per
  * field, never a bulk dump (§8.3).
  *
  * The verb takes a fieldId and nothing else, so there is no prose-line form of this call.
@@ -116,7 +116,7 @@ export function useOwnerProfileProvenance(fieldId: string | null) {
  * A field edit. Per §9.3 this is a supersede, not a silent overwrite: the previous value
  * moves into a `<!-- was: … -->` comment and profile.undo can promote it back.
  *
- * The outcome may be null (a body that did not carry `ok`) — the caller must render that
+ * The outcome may be null (a body that did not carry `ok`), the caller must render that
  * as "the daemon did not say", never as a success.
  */
 export function useSetOwnerProfileField() {
@@ -153,7 +153,7 @@ export function useAppendOwnerProfileLine() {
 }
 
 /**
- * Delete, permanently — no tombstone, no retention window, and every `<!-- was: … -->`
+ * Delete, permanently, no tombstone, no retention window, and every `<!-- was: … -->`
  * comment for that field goes with it (§9.2,
  * docs/decisions/2026-07-06-delete-means-delete.md). A field that was not there comes back
  * `ok: false` with the store's own "there was nothing to forget" sentence, which the
@@ -169,7 +169,7 @@ export function useForgetOwnerProfile() {
   });
 }
 
-/** Promote a field's most recent superseded value back (§9.1) — the recovery for a wrong edit. */
+/** Promote a field's most recent superseded value back (§9.1), the recovery for a wrong edit. */
 export function useUndoOwnerProfile() {
   const queryClient = useQueryClient();
   return useMutation<ProfileWriteOutcome | null, unknown, string>({

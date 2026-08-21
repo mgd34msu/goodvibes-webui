@@ -1,9 +1,9 @@
 /**
- * MailAccountSettings — the connection status for the mail and calendar surfaces,
+ * MailAccountSettings, the connection status for the mail and calendar surfaces,
  * mounted in AdminView alongside TailscaleSettings and PairingTokensSettings.
  *
  * WHAT THIS IS: a read-only status panel that probes each surface with its cheapest
- * real verb and reports what came back — `ready`, or a needs-setup state naming the
+ * real verb and reports what came back, `ready`, or a needs-setup state naming the
  * concrete next step. It reports on the daemon; it does not hold anything.
  *
  * WHAT THIS DELIBERATELY IS NOT: a credential form. There is no field here for a
@@ -12,7 +12,7 @@
  *
  *   - Anything the operator configures must keep working after this tab is closed,
  *     and must be the same account the agent and the terminal see. That means it has
- *     to live in daemon-owned config and the daemon secret tier — never in browser
+ *     to live in daemon-owned config and the daemon secret tier, never in browser
  *     state. Every write this repo makes to such a key goes through
  *     `sdk.operator.config.set`, and `surfaces.*` is already covered by
  *     DAEMON_OWNED_CONFIG_PREFIXES in config-ownership.ts, so SettingsModal's
@@ -100,7 +100,7 @@ function calendarStatus(error: unknown, ok: boolean): SurfaceStatus {
       state: 'needs-setup',
       label: STATE_LABEL['needs-setup'],
       detail:
-        'No endpoint has been brought yet. Set the CalDAV URL and account in Settings and store the password in the daemon secret tier — Settings writes through the daemon, so the terminal and the agent get the same calendar.',
+        'No endpoint has been brought yet. Set the CalDAV URL and account in Settings and store the password in the daemon secret tier; Settings writes through the daemon, so the terminal and the agent get the same calendar.',
     };
   }
   if (isCalendarAuthFailedError(error)) {
@@ -152,7 +152,7 @@ export function MailAccountSettings() {
     retry: false,
   });
 
-  // Quiet while unknown — no flash of a state about to be corrected.
+  // Quiet while unknown, no flash of a state about to be corrected.
   if (mailProbe.isPending || calendarProbe.isPending) return null;
 
   const mail = mailStatus(mailProbe.error, !mailProbe.error);
@@ -166,7 +166,7 @@ export function MailAccountSettings() {
       </div>
 
       <p className="mail-settings__intro">
-        Both surfaces are configured in Settings, under the daemon-owned keys — the daemon holds the account and its
+        Both surfaces are configured in Settings, under the daemon-owned keys. The daemon holds the account and its
         password, so it keeps working with this browser closed, and the terminal and the agent read the same one. No
         credential is ever sent to or stored in this browser.
       </p>

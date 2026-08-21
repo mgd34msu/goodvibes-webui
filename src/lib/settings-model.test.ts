@@ -30,7 +30,7 @@ describe('readConfigPath / liveLeafKeys', () => {
   });
 });
 
-describe('buildSettingsModel — domain grouping (dissolved feature model)', () => {
+describe('buildSettingsModel: domain grouping (dissolved feature model)', () => {
   const groups = buildSettingsModel({});
 
   test('every feature renders exactly once, inside its own domain group', () => {
@@ -94,10 +94,10 @@ describe('buildSettingsModel — domain grouping (dissolved feature model)', () 
   });
 });
 
-describe('buildSettingsModel — enablement state from domain settings keys', () => {
+describe('buildSettingsModel: enablement state from domain settings keys', () => {
   // 42 on: the paired-phone capability family ships enabled, with every
   // capability asking before it runs (device.capabilities.mode honor-grants),
-  // and unified-runtime-task moved on when its recorded default was corrected —
+  // and unified-runtime-task moved on when its recorded default was corrected,
   // the flag had always claimed off while the behaviour it gates shipped on.
   // 16 dark: the two wake-word features landing alongside it ship dark.
   test('a stock config resolves every feature to its ruled default (42 on / 16 dark)', () => {
@@ -147,7 +147,7 @@ describe('buildSettingsModel — enablement state from domain settings keys', ()
   });
 });
 
-describe("buildSettingsModel — honesty for unschema'd live keys", () => {
+describe("buildSettingsModel: honesty for unschema'd live keys", () => {
   test('a live key with no schema entry renders as a raw row, never hidden', () => {
     const groups = buildSettingsModel({ mysteryDomain: { unknownKnob: 'held-by-daemon' } });
     const group = groupById(groups, 'mysteryDomain');
@@ -279,7 +279,7 @@ describe('new settings keys from the snapshot schema', () => {
     'surfaces.telephony.enabled',
     'surfaces.whatsapp.enabled',
     // SDK 2.0.0 re-pin: hostedSessions.promoteInboundConversations was absent from the
-    // config schema at 1.21.0 (see contract-bridge-types.ts's SWAP history) — this pins
+    // config schema at 1.21.0 (see contract-bridge-types.ts's SWAP history), this pins
     // that the row now renders schema-driven, like every other hostedSessions.* setting,
     // with no code change to this module needed.
     'hostedSessions.promoteInboundConversations',
@@ -328,7 +328,7 @@ describe('new settings keys from the snapshot schema', () => {
   });
 });
 
-describe('voice.local.* and fleet.maxSize (SDK 1.8.0) — grouping verification', () => {
+describe('voice.local.* and fleet.maxSize (SDK 1.8.0): grouping verification', () => {
   const groups = buildSettingsModel({});
 
   function groupContaining(key: string): typeof groups[number] | undefined {
@@ -379,7 +379,7 @@ describe('voice.local.* and fleet.maxSize (SDK 1.8.0) — grouping verification'
   });
 });
 
-describe('daemonOwned metadata — config-ownership.ts surfaced onto every row', () => {
+describe('daemonOwned metadata: config-ownership.ts surfaced onto every row', () => {
   test('a surfaces.* field is flagged daemonOwned; a display.* field is not', () => {
     const groups = buildSettingsModel({ surfaces: { slack: { botToken: 'x' } } });
     const slackUnit = groupById(groups, 'surfaces')?.featureUnits.find((u) => u.feature.id === 'slack-surface');
@@ -453,7 +453,7 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     expect(field!.description.length).toBeGreaterThan(0);
     // Ruled and fixed upstream (SDK config-ownership.ts) after this round's
     // engineering report flagged the omission: daemon.timezone is the one
-    // daemon.* key that is NOT a per-installation switch — see
+    // daemon.* key that is NOT a per-installation switch, see
     // config-ownership.test.ts.
     expect(field!.daemonOwned).toBe(true);
   });
@@ -487,7 +487,7 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
 
   test('no field anywhere in the model is keyed to card material (cvv/pan/cardNumber)', () => {
     // Belt-and-suspenders: CONFIG_SCHEMA never declares such a key, but a stray
-    // one in the LIVE config must still never surface — not as a plain row, not
+    // one in the LIVE config must still never surface, not as a plain row, not
     // as a feature-owned field, not as a raw row.
     const withStrayCardMaterial = buildSettingsModel({
       payments: {
@@ -503,10 +503,10 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
       ]),
     ]);
     // Every remaining key passes the same card-material test that filtered the
-    // stray keys out in the first place — i.e. the filtering is total, nothing
+    // stray keys out in the first place, i.e. the filtering is total, nothing
     // isCardMaterialKey would flag survives into the rendered model. (Its own
-    // correctness — including that this must NOT flag payments.cvvHandling or
-    // payments.defaultCardId — is independently unit-tested in
+    // correctness, including that this must NOT flag payments.cvvHandling or
+    // payments.defaultCardId, is independently unit-tested in
     // card-material.test.ts.)
     expect(everyKey.some((k) => isCardMaterialKey(k))).toBe(false);
     // payments.defaultCardId (a card REFERENCE, not material) still renders.
@@ -521,8 +521,8 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
  *
  * The existing card-material test above uses a nested `payments.cards.visa.*`
  * shape. What the card-entry surfaces actually write is four FLAT keys under
- * `payments.` — the TUI's /payments card flow and this app's own card panel
- * both land there — and in practice they hold a `goodvibes://secrets/...`
+ * `payments.`, the TUI's /payments card flow and this app's own card panel
+ * both land there, and in practice they hold a `goodvibes://secrets/...`
  * reference rather than a value, because the value goes to the daemon secret
  * store. Both halves are asserted here: the keys never render, and a stray raw
  * value under one of them never renders either.
@@ -570,7 +570,7 @@ describe('the four flat card keys the entry surfaces write never reach the model
     expect(serialized).not.toContain('Jane Q. Fakename');
   });
 
-  test('the billing and shipping address fields beside them still render — the filter is scoped, not a blanket', () => {
+  test('the billing and shipping address fields beside them still render; the filter is scoped, not a blanket', () => {
     const groups = buildSettingsModel({
       payments: { cardNumber: '4000056655665556', billingAddress: { name: 'Jane Q. Fakename' } },
     });

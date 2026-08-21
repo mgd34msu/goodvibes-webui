@@ -1,5 +1,5 @@
 /**
- * phone-node-client.test.ts — the web app as a paired device node.
+ * phone-node-client.test.ts, the web app as a paired device node.
  *
  * The node announces only what this browser can really do, pairs through the
  * SDK peer contract, serves `device.capability` work, and discards a token the
@@ -9,6 +9,7 @@ import { describe, expect, test } from 'bun:test';
 import { announcedCapabilities, type BrowserBindings } from './capability-bindings';
 import {
   PhoneNodeClient,
+  type ExecutedWorkRecord,
   type PhoneNodeIdentity,
   type PhoneNodeStorage,
 } from './phone-node-client';
@@ -30,12 +31,26 @@ function bindings(overrides: Partial<BrowserBindings> = {}): BrowserBindings {
   };
 }
 
-function memoryStorage(initial: PhoneNodeIdentity | null = null): PhoneNodeStorage & { current: PhoneNodeIdentity | null } {
+/**
+ * A storage double that also backs readExecuted/writeExecuted with a plain
+ * array (like browserPhoneNodeStorage's real localStorage-backed pair), so
+ * tests can construct a SECOND client sharing the same `store` to simulate a
+ * reload: the new client's constructor reads whatever the first one wrote.
+ */
+function memoryStorage(initial: PhoneNodeIdentity | null = null): PhoneNodeStorage & {
+  current: PhoneNodeIdentity | null;
+  executed: [string, ExecutedWorkRecord][];
+} {
   const store = {
     current: initial,
+    executed: [] as [string, ExecutedWorkRecord][],
     read: (): PhoneNodeIdentity | null => store.current,
     write: (identity: PhoneNodeIdentity): void => { store.current = identity; },
-    clear: (): void => { store.current = null; },
+    clear: (): void => { store.current = null; store.executed = []; },
+    readExecuted: (): ReadonlyArray<readonly [string, ExecutedWorkRecord]> => store.executed,
+    writeExecuted: (entries: ReadonlyArray<readonly [string, ExecutedWorkRecord]>): void => {
+      store.executed = entries.map(([id, record]) => [id, record]);
+    },
   };
   return store;
 }
@@ -255,5 +270,118 @@ describe('serving work', () => {
     });
     for (let index = 0; index < 6; index += 1) await client.pumpOnce();
     expect(client.getState().activity.length).toBe(3);
+  });
+
+  test('a lost completion report does not cause the capability to run twice on redelivery', async () => {
+    // The daemon's lease-based queue keeps redelivering an item until it sees a
+    // completion, so both pulls in this test hand back the SAME work item id,
+    // exactly what a lost report (network drop right after execution) produces.
+    let runs = 0;
+    const completions: { status: unknown }[] = [];
+    const impl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/work/pull')) {
+        return {
+          status: 200,
+          json: async () => ({ work: [{ id: 'w1', type: 'device.capability', payload: { capabilityId: 'device.command.vibrate', input: {} } }] }),
+        } as unknown as Response;
+      }
+      if (url.includes('/complete')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { status: unknown };
+        completions.push(body);
+        if (completions.length === 1) throw new Error('network drop');
+        return { status: 200, json: async () => ({}) } as unknown as Response;
+      }
+      throw new Error(`unexpected request to ${url}`);
+    }) as unknown as typeof fetch;
+
+    const client = new PhoneNodeClient({
+      baseUrl: 'http://daemon.test',
+      label: 'Pixel',
+      storage: memoryStorage({ nodeId: 'node-1', token: 'secret', label: 'Pixel' }),
+      fetchImpl: impl,
+      bindings: bindings(),
+      runCapability: async () => { runs += 1; return { ok: true, data: { ran: runs } }; },
+    });
+
+    // First pump: the capability runs and its completion report is lost.
+    await expect(client.pumpOnce()).rejects.toThrow('network drop');
+    expect(runs).toBe(1);
+
+    // Redelivery on the next pull: the SAME work item comes back because the
+    // daemon never saw a completion. Only the report should be retried.
+    await client.pumpOnce();
+    expect(runs).toBe(1);
+    expect(completions).toHaveLength(2);
+    expect(completions[1]?.status).toBe('completed');
+  });
+
+  test('a tab that dies right after execution does not re-run the capability when a fresh client resumes', async () => {
+    // Simulates a reload: `storage` is shared between an "old" client (which runs
+    // the capability, persists the marker, then the tab dies before its
+    // completion POST can even be sent) and a "new" client constructed fresh
+    // against the same storage, standing in for the page coming back.
+    const storage = memoryStorage({ nodeId: 'node-1', token: 'secret', label: 'Pixel' });
+    let oldClientRuns = 0;
+    const deadTabFetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/work/pull')) {
+        return {
+          status: 200,
+          json: async () => ({ work: [{ id: 'w1', type: 'device.capability', payload: { capabilityId: 'device.command.vibrate', input: {} } }] }),
+        } as unknown as Response;
+      }
+      // The tab dies before the completion POST resolves; the request never lands.
+      throw new Error('tab died before the completion report landed');
+    }) as unknown as typeof fetch;
+
+    const oldClient = new PhoneNodeClient({
+      baseUrl: 'http://daemon.test',
+      label: 'Pixel',
+      storage,
+      fetchImpl: deadTabFetch,
+      bindings: bindings(),
+      runCapability: async () => { oldClientRuns += 1; return { ok: true, data: { ran: oldClientRuns } }; },
+    });
+    await expect(oldClient.pumpOnce()).rejects.toThrow('tab died');
+    expect(oldClientRuns).toBe(1);
+    // The marker was persisted synchronously, before the completion POST was
+    // even attempted, so it survived the "reload" even though the report did not.
+    expect(storage.executed).toHaveLength(1);
+    expect(storage.executed[0]?.[0]).toBe('w1');
+
+    let newClientRuns = 0;
+    const completions: { status: unknown }[] = [];
+    const resumedFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/work/pull')) {
+        // Redelivered: same item id, because the daemon still never saw a completion.
+        return {
+          status: 200,
+          json: async () => ({ work: [{ id: 'w1', type: 'device.capability', payload: { capabilityId: 'device.command.vibrate', input: {} } }] }),
+        } as unknown as Response;
+      }
+      if (url.includes('/complete')) {
+        completions.push(JSON.parse(String(init?.body ?? '{}')) as { status: unknown });
+        return { status: 200, json: async () => ({}) } as unknown as Response;
+      }
+      throw new Error(`unexpected request to ${url}`);
+    }) as unknown as typeof fetch;
+
+    // A fresh PhoneNodeClient, standing in for the reloaded page, constructed
+    // against the SAME storage the dead tab wrote its marker to.
+    const resumedClient = new PhoneNodeClient({
+      baseUrl: 'http://daemon.test',
+      label: 'Pixel',
+      storage,
+      fetchImpl: resumedFetch,
+      bindings: bindings(),
+      runCapability: async () => { newClientRuns += 1; return { ok: true, data: { ran: newClientRuns } }; },
+    });
+    await resumedClient.pumpOnce();
+
+    expect(newClientRuns).toBe(0);
+    expect(completions).toHaveLength(1);
+    expect(completions[0]?.status).toBe('completed');
   });
 });

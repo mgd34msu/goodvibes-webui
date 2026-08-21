@@ -64,7 +64,7 @@ describe('voiceLocalInstallStateLabel', () => {
   });
 });
 
-describe('readVoiceLocalStatus — defensive wire parse', () => {
+describe('readVoiceLocalStatus: defensive wire parse', () => {
   test('a full schema-shaped payload parses verbatim', () => {
     const parsed = readVoiceLocalStatus(status());
     expect(parsed).not.toBeNull();
@@ -92,7 +92,7 @@ describe('readVoiceLocalStatus — defensive wire parse', () => {
   });
 });
 
-describe('readVoiceLocalStatus — the optional installInProgress section (SDK 5357f09e)', () => {
+describe('readVoiceLocalStatus: the optional installInProgress section (SDK 5357f09e)', () => {
   const IN_PROGRESS = {
     startedAt: 1_752_600_000_000,
     components: [
@@ -150,7 +150,7 @@ describe('voiceLocalPhaseLabel', () => {
   });
 });
 
-describe('readVoiceLocalInstallResult — defensive wire parse', () => {
+describe('readVoiceLocalInstallResult: defensive wire parse', () => {
   const RECEIPT = {
     provisioned: true,
     platform: 'linux-x64',
@@ -175,7 +175,7 @@ describe('readVoiceLocalInstallResult — defensive wire parse', () => {
     expect(readVoiceLocalInstallResult(null)).toBeNull();
   });
 
-  test('a receipt missing a per-engine terminal state parses to null — the receipt is meaningless without both', () => {
+  test('a receipt missing a per-engine terminal state parses to null, the receipt is meaningless without both', () => {
     expect(readVoiceLocalInstallResult({ ...RECEIPT, stt: { engine: 'whisper-cpp' } })).toBeNull();
     expect(readVoiceLocalInstallResult({ ...RECEIPT, tts: { engine: 'piper', state: 'half-done' } })).toBeNull();
   });

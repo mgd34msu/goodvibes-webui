@@ -1,5 +1,5 @@
 /**
- * client-compatibility.ts — this build's own copy of the client-build-floor check.
+ * client-compatibility.ts, this build's own copy of the client-build-floor check.
  *
  * A daemon update swaps the daemon binary. It does not restart the clients already
  * attached to it: this browser tab, opened days earlier, keeps running its own build
@@ -12,7 +12,7 @@
  *
  * PROVENANCE: this logic is also implemented in the installed
  * @pellux/goodvibes-sdk (platform/control-plane/client-compatibility.ts,
- * evaluateClientCompatibility/compareBuildVersions/readClientCompatibilityFloor) — but
+ * evaluateClientCompatibility/compareBuildVersions/readClientCompatibilityFloor), but
  * that module is exported only through the daemon-facing `@pellux/goodvibes-sdk/platform/control-plane`
  * subpath, whose barrel also carries the gateway/session-broker/route-dispatch server
  * implementation (dispatchDaemonApiRoutes, SharedSessionBroker, ControlPlaneGateway, …),
@@ -27,11 +27,11 @@
  * dist/platform/control-plane/client-compatibility.js at this re-pin: compareBuildVersions
  * and evaluateClientCompatibility are byte-identical in logic (the browser copy's
  * messages say "reload the page" / "Reload from the current install" where the SDK's
- * process-oriented copy says "restart it" — a deliberate, permanent surface-appropriate
+ * process-oriented copy says "restart it", a deliberate, permanent surface-appropriate
  * wording divergence, not drift to fix).
  *
  * ALSO NOTE: at the installed 2.0.0 pin the daemon's own HTTP router still never actually
- * writes this header onto a response — it only threads the constant name partway into an
+ * writes this header onto a response, it only threads the constant name partway into an
  * internal context object with no consumer that calls it. So this module has nothing real
  * to read against a live 2.0.0 daemon today; it is exercised here by unit test with a
  * fabricated header, ready for the header the day a daemon actually sends it.
@@ -53,7 +53,7 @@ export interface ClientCompatibilityVerdict {
 /**
  * Compare two dotted build versions numerically, segment by segment. Returns <0, 0, >0.
  * Pre-release suffixes ("1.14.0-rc.1") compare on their numeric prefix, so a release
- * candidate is treated as its release — this gates on behavior, and an rc carries it.
+ * candidate is treated as its release, this gates on behavior, and an rc carries it.
  */
 export function compareBuildVersions(a: string, b: string): number {
   const parse = (value: string): number[] => value
@@ -77,8 +77,8 @@ export function compareBuildVersions(a: string, b: string): number {
  *
  * An unparseable or absent client version is 'unknown', NOT 'ok': the point of the
  * floor is that a build which cannot prove it carries a required behavior is treated
- * as one that does not. An absent floor is a different thing — a daemon too old to
- * publish one — and yields 'ok', because that daemon is not asking for anything.
+ * as one that does not. An absent floor is a different thing, a daemon too old to
+ * publish one, and yields 'ok', because that daemon is not asking for anything.
  */
 export function evaluateClientCompatibility(input: {
   readonly clientVersion: string | undefined;
@@ -106,7 +106,7 @@ export function evaluateClientCompatibility(input: {
   if (compareBuildVersions(clientVersion, floor) < 0) {
     return {
       status: 'restart-required',
-      message: `This tab is running build ${clientVersion}; the daemon requires ${floor} or newer. It has stopped taking shared-session work — reload the page to pick up the current build.`,
+      message: `This tab is running build ${clientVersion}; the daemon requires ${floor} or newer. It has stopped taking shared-session work, reload the page to pick up the current build.`,
       clientVersion,
       floor,
     };
@@ -134,7 +134,7 @@ export function readClientCompatibilityFloor(headers: { get(name: string): strin
 // goodvibes.ts's requestJson/requestStream is the one HTTP helper every operator
 // call passes through; it records whatever floor (or absence of one) the MOST
 // RECENT response carried here, so any part of the app can read the daemon's
-// current stance without threading a value through every call site — the same
+// current stance without threading a value through every call site, the same
 // external-store shape lib/relay-connection.ts's active-route tracking already
 // uses (subscribe/get, driven with React's useSyncExternalStore).
 

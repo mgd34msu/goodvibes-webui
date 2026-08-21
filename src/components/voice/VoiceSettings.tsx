@@ -1,12 +1,12 @@
 /**
- * VoiceSettings — the shared spoken-voice config surface.
+ * VoiceSettings, the shared spoken-voice config surface.
  *
  * There is ONE voice config across terminal, desktop, and agent: the tts.provider /
  * tts.voice keys now resolve from the surface-root-independent shared tier
- * (~/.goodvibes/shared/settings.json — ConfigManager's shared-config-tier.ts), so every
+ * (~/.goodvibes/shared/settings.json, ConfigManager's shared-config-tier.ts), so every
  * surface reads and writes the same voice regardless of its own surface root. This
  * popover READS those keys (config.get) and WRITES them (config.set) through the daemon,
- * whose ConfigManager persists to that same shared file — so choosing a voice here
+ * whose ConfigManager persists to that same shared file, so choosing a voice here
  * changes it on the TUI, desktop, and agent too, never a web-only voice. Availability and
  * the provider list come straight from voice.status, rendered with the shared
  * presentation-contract tone/glyph so the state reads the same as it does on every other
@@ -15,13 +15,13 @@
  * Local voice setup (SDK 1.9.0-dev's memory-relay-voice-hardening work): the 'local'
  * provider only appears in the dropdown above once it has at least one configured
  * capability (provider-registry.ts's `status()` reports `capabilities: []` for a fully
- * unprovisioned install) — so on a fresh daemon it is invisible there, with nothing
+ * unprovisioned install), so on a fresh daemon it is invisible there, with nothing
  * pointing at how to get it. This section is driven independently by
  * voice.local.status (the managed-runtime provisioning state, distinct from
  * voice.status's provider-availability posture) and offers the one-act
  * voice.local.install setup whenever the resting state isn't 'provisioned'. See
  * lib/voice/voice-local-setup.ts's header comment for the exact wire states rendered
- * (and this round's adoption note: no streamed per-step progress exists on the wire —
+ * (and this round's adoption note: no streamed per-step progress exists on the wire,
  * install is a single request/response call).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -206,7 +206,7 @@ export function VoiceSettings() {
 
               {localStatus.isError && (
                 <p className="voice-settings-hint" role="alert">
-                  Local voice status unavailable — {formatError(localStatus.error)}
+                  Local voice status unavailable: {formatError(localStatus.error)}
                 </p>
               )}
 
@@ -224,8 +224,8 @@ export function VoiceSettings() {
                     {!needsSetup && (
                       <p className="voice-settings-hint">
                         {status.state === 'provisioned'
-                          ? `Installed — TTS: ${status.tts.engine}${status.stt.supported ? `, STT: ${status.stt.engine}` : ''}.`
-                          : `${voiceLocalStateLabel(status.state)} — no pinned engine build exists for this host.`}
+                          ? `Installed: TTS: ${status.tts.engine}${status.stt.supported ? `, STT: ${status.stt.engine}` : ''}.`
+                          : `${voiceLocalStateLabel(status.state)}, no pinned engine build exists for this host.`}
                       </p>
                     )}
 
@@ -259,9 +259,9 @@ export function VoiceSettings() {
                             <span className="voice-settings-local-progress__phase">
                               {voiceLocalPhaseLabel(component.phase)}
                               {typeof component.bytesDone === 'number' && typeof component.bytesTotal === 'number'
-                                ? ` — ${formatBytes(component.bytesDone)} of ${formatBytes(component.bytesTotal)}`
+                                ? `: ${formatBytes(component.bytesDone)} of ${formatBytes(component.bytesTotal)}`
                                 : typeof component.bytesTotal === 'number'
-                                  ? ` — ${formatBytes(component.bytesTotal)}`
+                                  ? `: ${formatBytes(component.bytesTotal)}`
                                   : ''}
                             </span>
                             {component.phase === 'error' && component.message && (
@@ -283,11 +283,11 @@ export function VoiceSettings() {
                       <div className="voice-settings-local-receipt" role="status">
                         <p>
                           TTS ({result.tts.engine}): {voiceLocalInstallStateLabel(result.tts.state)}
-                          {result.tts.reason ? ` — ${result.tts.reason}` : ''}
+                          {result.tts.reason ? `: ${result.tts.reason}` : ''}
                         </p>
                         <p>
                           STT ({result.stt.engine}): {voiceLocalInstallStateLabel(result.stt.state)}
-                          {result.stt.reason ? ` — ${result.stt.reason}` : ''}
+                          {result.stt.reason ? `, ${result.stt.reason}` : ''}
                         </p>
                         {result.configured.set.length > 0 && (
                           <p className="voice-settings-hint">

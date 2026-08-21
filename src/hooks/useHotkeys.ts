@@ -61,9 +61,9 @@ function normaliseToken(token: string): string {
   if (lower === 'cmd' || lower === 'meta') return 'Meta';
   if (lower === 'alt') return 'Alt';
   if (lower === 'shift') return 'Shift';
-  // Single letter — keep as lower
+  // Single letter, keep as lower
   if (token.length === 1) return token.toLowerCase();
-  // Named keys — keep PascalCase
+  // Named keys, keep PascalCase
   return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
 }
 
@@ -85,7 +85,7 @@ export function normaliseCombo(combo: string): string {
       .join(' ');
   }
 
-  // Single combo — split on '+'
+  // Single combo, split on '+'
   const parts = combo
     .split('+')
     .map((p) => p.trim())
@@ -102,7 +102,7 @@ export function eventToCombo(event: KeyboardEvent): string {
   if (event.metaKey) parts.push('Meta');
   if (event.ctrlKey) parts.push('Control');
   if (event.altKey) parts.push('Alt');
-  // Do NOT push Shift for BARE printable single characters (no other modifier held) —
+  // Do NOT push Shift for BARE printable single characters (no other modifier held),
   // the character itself already encodes the shift state (e.g. Shift+/ yields "?" not "Shift+?").
   // Shift IS pushed for:
   //   - Named keys like Tab, Enter, ArrowUp, etc. (key.length > 1)
@@ -117,7 +117,7 @@ export function eventToCombo(event: KeyboardEvent): string {
   if (event.shiftKey && !isBareShiftedChar) {
     parts.push('Shift');
   }
-  // Key value — lower for single chars, preserve named keys
+  // Key value, lower for single chars, preserve named keys
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
   parts.push(key);
   return parts.join('+');
@@ -150,7 +150,6 @@ export function useHotkeys(bindings: HotkeyBinding[]): void {
           const [firstKey, secondKey] = normCombo.split(' ');
           const pending = pendingSeqRef.current;
 
-          // Check if we're in the second step of this sequence
           if (
             pending?.key === firstKey &&
             Date.now() - (pending?.ts ?? Infinity) < SEQUENCE_TIMEOUT_MS &&
@@ -162,9 +161,8 @@ export function useHotkeys(bindings: HotkeyBinding[]): void {
             return;
           }
 
-          // First key press: arm the sequence but do NOT preventDefault so
-          // that the raw keypress (e.g. 'g') is not swallowed for any other
-          // listeners that may also care about it.
+          // Do NOT preventDefault here so the raw keypress (e.g. 'g') is not
+          // swallowed for any other listeners that may also care about it.
           if (currentCombo === firstKey) {
             // Only start sequence if not in editable (already guarded above)
             pendingSeqRef.current = { key: firstKey, ts: Date.now() };

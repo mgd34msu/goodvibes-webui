@@ -1,12 +1,12 @@
 /**
- * typecheck-coverage.test.ts — the gate's own gate.
+ * typecheck-coverage.test.ts, the gate's own gate.
  *
  * A coverage check that silently covers nothing is the exact failure it exists to
  * catch, so the first thing proved here is that findUncoveredFiles can answer NO:
  * given a covered set with a file genuinely missing, it names that file. Then the
  * usual direction (a fully covered set passes), then two facts about the real repo:
  * the project list this gate walks is the same list `bun run typecheck` runs, and
- * the enumeration actually finds files under scripts/ and e2e/ — the directories
+ * the enumeration actually finds files under scripts/ and e2e/, the directories
  * that were blind.
  */
 import { describe, expect, test } from 'bun:test';
@@ -31,7 +31,7 @@ describe('findUncoveredFiles can answer NO', () => {
     expect(findUncoveredFiles(all, covered)).toEqual(['scripts/b.ts']);
   });
 
-  test('the exact historical gap — an entire directory outside every project — is reported', () => {
+  test('the exact historical gap, an entire directory outside every project, is reported', () => {
     // The real 2026-07 shape: tsconfig included src only, so all of scripts/ and
     // e2e/ were invisible. If this gate had existed, this is what it would have said.
     const all = ['src/main.tsx', 'scripts/release-gate.ts', 'e2e/support/mock-daemon.ts', 'e2e/pwa.e2e.ts'];

@@ -1,8 +1,8 @@
 /**
- * ChatSearch — companion-history search panel.
+ * ChatSearch, companion-history search panel.
  *
  * Two distinct result sections, never merged (see useChatSearch's module doc
- * for why): a SESSIONS section (backend sessions.search — id/title match,
+ * for why): a SESSIONS section (backend sessions.search, id/title match,
  * full history, honors the includeClosed toggle) and a MESSAGES section
  * (client-side content match, within the caller's already-fetched sessions).
  * Selecting a session-level result opens that session with no specific
@@ -14,11 +14,11 @@
  * this component does NOT mutate URL state directly.
  *
  * Keyboard navigation:
- *   ArrowDown / ArrowUp — move selection within the Messages list
- *   Enter               — activate selected result
- *   Escape              — clear query (caller can use to close the panel)
+ *   ArrowDown / ArrowUp, move selection within the Messages list
+ *   Enter              , activate selected result
+ *   Escape             , clear query (caller can use to close the panel)
  * Session results and the "load more" control are reached by Tab, each
- * individually activatable via Enter/Space — a separate, secondary
+ * individually activatable via Enter/Space, a separate, secondary
  * navigation zone from the message combobox above.
  */
 
@@ -96,7 +96,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
     [onSelect],
   );
 
-  // Session-level result: no specific message to scroll to — open the session.
+  // Session-level result: no specific message to scroll to, open the session.
   const handleSelectSession = useCallback(
     (result: ChatSessionSearchResult) => {
       onSelect({ sessionId: result.sessionId, messageId: '' });
@@ -128,7 +128,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
     [results, activeIndex, handleSelect],
   );
 
-  // Scroll active item into view — in a layout effect to avoid DOM mutations during render.
+  // Scroll active item into view, in a layout effect to avoid DOM mutations during render.
   useLayoutEffect(() => {
     if (activeIndex >= 0 && listRef.current) {
       const item = listRef.current.children[activeIndex] as HTMLElement | undefined;
@@ -190,7 +190,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
             </div>
             <label
               className="chat-search__closed-toggle"
-              title="Also search closed and idle-reaped sessions — hidden by default"
+              title="Also search closed and idle-reaped sessions: hidden by default"
             >
               <input
                 type="checkbox"
@@ -210,7 +210,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
           {showSessionUnavailable && (
             <EmptyState
               title="Search unavailable"
-              description="The daemon did not serve session search — try again later."
+              description="The daemon did not serve session search, try again later."
               className="chat-search__empty"
             />
           )}
@@ -218,7 +218,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
           {showSessionError && (
             <EmptyState
               title="Session search failed"
-              description="Something went wrong searching sessions — try again."
+              description="Something went wrong searching sessions: try again."
               className="chat-search__empty"
             />
           )}
@@ -229,7 +229,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
               description={
                 includeClosed
                   ? `No sessions match “${query}”, including closed ones.`
-                  : `No sessions match “${query}”. Closed sessions are hidden — include them?`
+                  : `No sessions match “${query}”. Closed sessions are hidden, include them?`
               }
               action={includeClosed ? undefined : { label: 'Include closed sessions', onClick: () => setIncludeClosed(true) }}
               className="chat-search__empty"

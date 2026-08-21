@@ -1,14 +1,14 @@
 /**
- * AccountsPanel — structured provider accounts/subscription health, replacing
+ * AccountsPanel, structured provider accounts/subscription health, replacing
  * ProvidersView's bare `<DataBlock title="Account Snapshot" .../>` raw JSON
  * dump with the TUI-parity depth the brief calls for (accounts.snapshot's
  * ProviderAccountSnapshot: per-provider active route, auth freshness, usage
- * windows, issues, recommended actions — packages/sdk/src/platform/runtime/
+ * windows, issues, recommended actions, packages/sdk/src/platform/runtime/
  * provider-accounts/registry.ts, verified against source).
  *
  * Read-only display: the underlying accounts.snapshot() query and its
  * loading/error states are owned by the caller (ProvidersView already fetches
- * it for the boot snapshot) — this component only renders whatever result it
+ * it for the boot snapshot), this component only renders whatever result it
  * is handed, honestly.
  */
 import { StatusBadge } from './StatusBadge';

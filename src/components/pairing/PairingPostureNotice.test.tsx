@@ -1,5 +1,5 @@
 /**
- * PairingPostureNotice — the standalone one-shot banner for a plain #pair=<token>
+ * PairingPostureNotice, the standalone one-shot banner for a plain #pair=<token>
  * hand-off (no offer set) that lands on a plain-http-on-LAN origin.
  */
 import { describe, expect, test } from 'bun:test';

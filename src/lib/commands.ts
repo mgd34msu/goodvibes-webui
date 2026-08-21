@@ -108,7 +108,7 @@ function scoreCommand(cmd: CommandDef, q: string): number {
   const group = cmd.group.toLowerCase();
   const keywords = (cmd.keywords ?? []).map((k) => k.toLowerCase()).join(' ');
 
-  // Exact prefix on title — best score
+  // Exact prefix on title, best score
   if (title.startsWith(q)) return 0;
   // Prefix on any keyword
   if (keywords.split(' ').some((k) => k.startsWith(q))) return 1;

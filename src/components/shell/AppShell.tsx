@@ -1,5 +1,5 @@
 /**
- * AppShell — Phase-2 composition module.
+ * AppShell, Phase-2 composition module.
  *
  * Nests all UX provider modules into ONE mountable shell, removing the
  * serialization bottleneck from App.tsx. App.tsx edit is exactly 3 lines:
@@ -72,7 +72,7 @@ function InnerShell({ children, onNavigate }: InnerShellProps) {
   const { AnnouncerRegion } = useAnnouncer();
 
   // Register AppShell-owned commands (theme + density toggles).
-  // Guard: registerCommand is idempotent on id — if this runs twice in
+  // Guard: registerCommand is idempotent on id, if this runs twice in
   // StrictMode the second call silently overwrites with the same def.
   // Cleanup unregisters so they are removed on unmount.
   useEffect(() => {
@@ -118,7 +118,7 @@ function InnerShell({ children, onNavigate }: InnerShellProps) {
 // ─── AppShell (public export) ───────────────────────────────────────────────
 
 export default function AppShell({ children, view: _view, onNavigate }: AppShellProps) {
-  // _view is accepted but not used internally — CommandProvider receives
+  // _view is accepted but not used internally, CommandProvider receives
   // onNavigate and fires it; the current view is owned by App via useUrlState.
   // It is in the prop signature so App.tsx has a clear contract and can
   // conditionally pass data-view attributes or similar in a future iteration.

@@ -61,7 +61,7 @@ function makeCmd(
   };
 }
 
-// IDs we register per test — cleaned up in afterEach.
+// IDs we register per test, cleaned up in afterEach.
 const TEST_CMD_IDS = [
   'test.alpha',
   'test.beta',
@@ -113,7 +113,7 @@ afterEach(() => {
 // Rendering
 // ---------------------------------------------------------------------------
 
-describe('CommandPalette — rendering', () => {
+describe('CommandPalette: rendering', () => {
   test('renders nothing when open=false', () => {
     const onClose = mock(() => undefined);
     const { container, unmount } = renderPalette({ open: false, onClose });
@@ -187,7 +187,7 @@ describe('CommandPalette — rendering', () => {
 // Keyboard navigation
 // ---------------------------------------------------------------------------
 
-describe('CommandPalette — keyboard navigation', () => {
+describe('CommandPalette: keyboard navigation', () => {
   test('first item is active by default (aria-selected=true on first option)', () => {
     const onClose = mock(() => undefined);
     const { container, unmount } = renderPalette({ open: true, onClose });
@@ -216,12 +216,10 @@ describe('CommandPalette — keyboard navigation', () => {
     const onClose = mock(() => undefined);
     const { container, unmount } = renderPalette({ open: true, onClose });
 
-    // Move down first.
     fireKeyDown(container, 'ArrowDown');
     const mid = container.querySelectorAll('[role="option"]');
     expect(mid[1].getAttribute('aria-selected')).toBe('true');
 
-    // Then back up.
     fireKeyDown(container, 'ArrowUp');
     const after = container.querySelectorAll('[role="option"]');
     expect(after[0].getAttribute('aria-selected')).toBe('true');
@@ -266,7 +264,7 @@ describe('CommandPalette — keyboard navigation', () => {
     const firstId = firstOption.getAttribute('id');
     expect(input.getAttribute('aria-activedescendant')).toBe(firstId);
 
-    // Move down — aria-activedescendant should update to second option id.
+    // Move down, aria-activedescendant should update to second option id.
     fireKeyDown(container, 'ArrowDown');
     const secondOption = container.querySelectorAll('[role="option"]')[1];
     const secondId = secondOption.getAttribute('id');
@@ -304,7 +302,7 @@ describe('CommandPalette — keyboard navigation', () => {
 // Dispatch / close
 // ---------------------------------------------------------------------------
 
-describe('CommandPalette — command dispatch and close', () => {
+describe('CommandPalette: command dispatch and close', () => {
   test('Enter runs the active command and calls onClose', () => {
     const ran = mock(() => undefined);
     const onClose = mock(() => undefined);
@@ -394,7 +392,7 @@ describe('CommandPalette — command dispatch and close', () => {
 // Filter
 // ---------------------------------------------------------------------------
 
-describe('CommandPalette — fuzzy filter via registry + re-render', () => {
+describe('CommandPalette: fuzzy filter via registry + re-render', () => {
   test('all commands shown when palette opens (empty query)', () => {
     const onClose = mock(() => undefined);
     const { container, unmount } = renderPalette({ open: true, onClose });
@@ -473,7 +471,7 @@ describe('CommandPalette — fuzzy filter via registry + re-render', () => {
     // Initially 3 commands.
     expect(container.querySelectorAll('[role="option"]').length).toBe(3);
 
-    // Register a new command — the palette subscribes and should update.
+    // Register a new command, the palette subscribes and should update.
     flushSync(() => {
       registerCommand(makeCmd('test.navigation', {
         title: 'Navigate Somewhere',

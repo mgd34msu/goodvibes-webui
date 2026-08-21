@@ -1,7 +1,7 @@
 /**
- * usePairingHandoff — turn a `#pair=<token>` fragment into a signed-in session,
- * and — when the link is a hand-off bundle (SDK 1.8.0's pairing.handoff.create,
- * `#pair=<token>&offers=…`) — surface the offer set for a caller to drive
+ * usePairingHandoff, turn a `#pair=<token>` fragment into a signed-in session,
+ * and, when the link is a hand-off bundle (SDK 1.8.0's pairing.handoff.create,
+ * `#pair=<token>&offers=…`), surface the offer set for a caller to drive
  * (see PairingHandoffOffers, which calls pairing.handoff.complete).
  *
  * When the URL fragment carries a pairing token (the QR from `goodvibes pair` in
@@ -12,14 +12,14 @@
  *   2. stores it via the existing token store and validates it against the
  *      daemon's cheap authenticated `auth.current` call (setExplicitAuthToken,
  *      which self-clears a token the daemon rejects);
- *   3. on success, invalidates every query so the shell reveals itself, and —
- *      if the link carried a non-empty offer set — publishes it via `offers` so
+ *   3. on success, invalidates every query so the shell reveals itself, and,
+ *      if the link carried a non-empty offer set, publishes it via `offers` so
  *      the app can render the accept/decline UI. A plain `#pair=<token>` link
  *      (no offers) behaves exactly as before: `offers` stays [].
  *   4. also reads this device's own TLS/capability posture (pairing.posture.get,
  *      SDK 1.8.0's LAN-http posture work) for `window.location.origin` and, when
  *      it carries the one honest plain-http-on-LAN notice line, publishes it via
- *      `postureNotice` — verbatim daemon wording, rendered ONCE by the caller
+ *      `postureNotice`, verbatim daemon wording, rendered ONCE by the caller
  *      (App.tsx) and cleared via `dismissPostureNotice`, never re-shown on this
  *      hand-off. A posture read failure is swallowed (this is a nice-to-have
  *      notice, never a blocker on completing the pairing itself).
@@ -28,8 +28,8 @@
  * mount effect normalizes a bare URL to `?view=chat` and, in doing so, drops the
  * fragment. Its effect runs before this hook's effect (earlier hook order), so an
  * effect here would read an already-stripped hash and lose the token. The capture
- * runs once, synchronously, the first time the hook module is exercised — before
- * any effect — so it always beats that normalization.
+ * runs once, synchronously, the first time the hook module is exercised, before
+ * any effect, so it always beats that normalization.
  *
  * The status drives first paint: `pending` shows a neutral "pairing" splash
  * INSTEAD of the signed-out gate (no gate flash while the token validates);
@@ -48,20 +48,20 @@ export interface PairingHandoff {
   error: unknown;
   /** The hand-off offer set this link carried, once the token has validated. [] for a plain token link, and [] again after dismissOffers(). */
   offers: readonly PairingOfferKind[];
-  /** Clears `offers` — call once the offer-decision UI has finished (submitted or explicitly skipped). */
+  /** Clears `offers`, call once the offer-decision UI has finished (submitted or explicitly skipped). */
   dismissOffers: () => void;
   /**
    * The daemon's one honest plain-http-on-LAN notice line for this device's own origin,
-   * once read — null when the origin is already a secure context (nothing to say), the
+   * once read, null when the origin is already a secure context (nothing to say), the
    * read hasn't finished yet, or it failed. Present for exactly one render pass unless
    * dismissed sooner; never re-appears for this hand-off.
    */
   postureNotice: string | null;
-  /** Clears `postureNotice` — call once the caller has shown it (or chooses to skip it). */
+  /** Clears `postureNotice`, call once the caller has shown it (or chooses to skip it). */
   dismissPostureNotice: () => void;
 }
 
-// The pairing token/offers captured ONCE, the first time either is asked for —
+// The pairing token/offers captured ONCE, the first time either is asked for,
 // before any router normalization can strip the fragment. Consuming it here
 // (and stripping the URL) is idempotent across React StrictMode's double render.
 const capture: { done: boolean; token: string | null; offers: PairingOfferKind[] } = {
@@ -90,8 +90,8 @@ export function resetPairingCaptureForTest(): void {
 
 export function usePairingHandoff(): PairingHandoff {
   const queryClient = useQueryClient();
-  // capturePairingHandoff() runs during this first-render initializer — before
-  // any effect (including useUrlState's URL normalization) — so the fragment is
+  // capturePairingHandoff() runs during this first-render initializer, before
+  // any effect (including useUrlState's URL normalization), so the fragment is
   // read and scrubbed before it can be dropped.
   const [status, setStatus] = useState<PairingStatus>(() =>
     capturePairingHandoff().token ? 'pending' : 'idle',
@@ -122,7 +122,7 @@ export function usePairingHandoff(): PairingHandoff {
         const { posture } = await sdk.operator.pairing.posture.get(origin);
         if (posture.notice) setPostureNotice(posture.notice);
       } catch {
-        // Swallowed — see above.
+        // Swallowed, see above.
       }
     })();
     // Mount-once: the token was captured synchronously above; a later hash change

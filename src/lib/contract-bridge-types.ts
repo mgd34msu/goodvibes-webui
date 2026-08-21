@@ -1,5 +1,5 @@
 /**
- * contract-bridge-types.ts — contract-typed bridges for the operator method families the
+ * contract-bridge-types.ts, contract-typed bridges for the operator method families the
  * webui facade calls (fleet.*, checkpoints.*, sessions.search).
  *
  * As of the SDK 1.0.0 pin-bump (see CHANGELOG.md), the SDK's generated
@@ -11,7 +11,7 @@
  * contract types they mirrored.
  *
  * goodvibes.ts imports these names ONLY from this module (never redefines them), so the
- * facade's exported names (FleetProcessNode, WorkspaceCheckpoint, ...) do not change —
+ * facade's exported names (FleetProcessNode, WorkspaceCheckpoint, ...) do not change,
  * only their definition now derives from the SDK contract. The item-level aliases
  * (FleetProcessNode = FleetSnapshotResult['nodes'][number], etc.) keep every existing
  * consumer import compiling unchanged.
@@ -106,7 +106,7 @@ export type CheckpointsRevertHunkResult = OperatorMethodOutput<'checkpoints.reve
 // conversation to a turn anchor would change, mints a single-use confirmToken); apply
 // consumes it, records an undo point (a pre-restore safety checkpoint and/or a captured
 // conversation snapshot) so the rewind is itself reversible, and emits REWIND_APPLIED.
-// `transport: ["ws"]` only — generic-invoke-only, routed through invokeGatewayMethod.
+// `transport: ["ws"]` only, generic-invoke-only, routed through invokeGatewayMethod.
 export type RewindPlanInput = OperatorMethodInput<'rewind.plan'>;
 export type RewindPlanResult = OperatorMethodOutput<'rewind.plan'>;
 export type RewindApplyInput = OperatorMethodInput<'rewind.apply'>;
@@ -117,7 +117,7 @@ export type RewindApplyResult = OperatorMethodOutput<'rewind.apply'>;
 // list is read-only (held groups with per-candidate diffs + any prior judge proposal);
 // judge PROPOSES a winner with reasons, explicitly model judgment (scoredBy:'model'), never
 // an auto-pick; pick accepts one candidate as the winner (merging it, cleaning losers) and
-// is a 409 CONFLICT for an unknown/not-ready group. `transport: ["ws"]` only — generic-
+// is a 409 CONFLICT for an unknown/not-ready group. `transport: ["ws"]` only, generic-
 // invoke-only, routed through invokeGatewayMethod.
 export type FleetAttemptsListInput = OperatorMethodInput<'fleet.attempts.list'>;
 export type FleetAttemptsListResult = OperatorMethodOutput<'fleet.attempts.list'>;
@@ -131,12 +131,12 @@ export type FleetAttemptsJudgeResult = OperatorMethodOutput<'fleet.attempts.judg
 
 // ─── Observed foreign agents (fleet.observed.steer) ───────────────────────────
 // SDK 1.8.0's read-only visibility of externally-launched coding-agent sessions
-// (an `observed-external` fleet.snapshot node — see the ProcessObserved fields on
+// (an `observed-external` fleet.snapshot node, see the ProcessObserved fields on
 // FleetProcessNode). Steer is the ONE verb offered, and only via the row's
-// drill-in detail (steerDrillInOnly:true, an owner-ruled UX weight) — never a
+// drill-in detail (steerDrillInOnly:true, an owner-ruled UX weight), never a
 // primary/bulk affordance, and never stop (observing is not owning the
-// lifecycle). `id` addresses the observed node itself (not a sessionId — these
-// rows carry no sessionRef). `transport: ["ws"]` only — generic-invoke-only,
+// lifecycle). `id` addresses the observed node itself (not a sessionId, these
+// rows carry no sessionRef). `transport: ["ws"]` only, generic-invoke-only,
 // same family as fleet.attempts.* above.
 export type FleetObservedSteerInput = OperatorMethodInput<'fleet.observed.steer'>;
 export type FleetObservedSteerResult = OperatorMethodOutput<'fleet.observed.steer'>;
@@ -160,7 +160,7 @@ export type SessionParticipant = SessionsDetachResult['session']['participants']
 // ─── Session workspace changes (sessions.changes.get) ─────────────────────────
 // SWAP applied from day one: sessions.changes.get shipped with a real
 // OperatorMethodInputMap/OutputMap entry (SDK 1.6.1's session-changes repack).
-// `transport: ["ws"]` only, no `http` route — same generic-invoke-only shape as
+// `transport: ["ws"]` only, no `http` route, same generic-invoke-only shape as
 // checkpoints.*/sessions.search, routed through invokeGatewayMethod in goodvibes.ts's
 // sdk.operator.sessions.changes.get.
 export type SessionsChangesGetInput = OperatorMethodInput<'sessions.changes.get'>;
@@ -169,10 +169,10 @@ export type SessionsChangesGetResult = OperatorMethodOutput<'sessions.changes.ge
 // ─── Cost attribution (cost.attribution.get) ───────────────────────────────────
 // SDK 1.6.1: windowed (24h/7d), cache-aware-priced cost attribution grouped by a
 // dimension (agent/tool/hook/mcp/model/provider/session). Real generated I/O map entry,
-// `transport: ["ws"]` only — same generic-invoke-only shape as sessions.changes.get
+// `transport: ["ws"]` only, same generic-invoke-only shape as sessions.changes.get
 // above, routed through invokeGatewayMethod. Honest-unpriced: a row's costUsd is `null`
 // when nothing in it could be priced (an unrecognized model), costState says whether the
-// figure is priced/estimated/unpriced — callers must render that state, never treat a
+// figure is priced/estimated/unpriced, callers must render that state, never treat a
 // null cost as zero.
 export type CostAttributionGetInput = OperatorMethodInput<'cost.attribution.get'>;
 export type CostAttributionGetResult = OperatorMethodOutput<'cost.attribution.get'>;
@@ -181,21 +181,21 @@ export type CostAttributionRow = CostAttributionGetResult['rows'][number];
 // ─── Hosted sessions (sessions.hosted.*) ───────────────────────────────────────
 // SWAP applied (2.0.0 pin): sessions.hosted.list/create/attach/detach/kill now carry
 // real OperatorMethodInputMap/OutputMap entries (verified against the installed
-// @pellux/goodvibes-contracts's operator-method-ids.ts and operator-contract.json — the
+// @pellux/goodvibes-contracts's operator-method-ids.ts and operator-contract.json, the
 // `sessions.hosted.` ids appear in both), so these flow straight from the generated
 // contract the same way sessions.detach's own SWAP applied above. HostedSessionRecord
 // and HostedSessionHistoryMessage are item-level aliases (this file's existing
 // convention) derived from the list/attach outputs rather than redeclared by hand.
 // goodvibes.ts now calls these through invokeGatewayMethod like every other family in
-// this file — invokeGatewayMethodUncheckedInput (its pre-SWAP escape hatch) is gone.
+// this file, invokeGatewayMethodUncheckedInput (its pre-SWAP escape hatch) is gone.
 //
-// Deliberately NOT bridged here: a hosted-specific steer/cancel verb. There is none —
+// Deliberately NOT bridged here: a hosted-specific steer/cancel verb. There is none,
 // see the SDK's method-catalog-hosted-sessions.ts header comment. A hosted session is
 // steered with the ORDINARY sessions.steer/followUp/toolCalls.cancel, which resolve a
 // hosted id the same way they resolve any other session.
 export type SessionsHostedListInput = OperatorMethodInput<'sessions.hosted.list'>;
 export type SessionsHostedListResult = OperatorMethodOutput<'sessions.hosted.list'>;
-/** The record every hosted-session verb returns — one row of sessions.hosted.list. */
+/** The record every hosted-session verb returns, one row of sessions.hosted.list. */
 export type HostedSessionRecord = SessionsHostedListResult['sessions'][number];
 export type SessionsHostedCreateInput = OperatorMethodInput<'sessions.hosted.create'>;
 export type SessionsHostedCreateResult = OperatorMethodOutput<'sessions.hosted.create'>;

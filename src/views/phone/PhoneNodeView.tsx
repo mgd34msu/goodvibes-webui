@@ -1,5 +1,5 @@
 /**
- * PhoneNodeView — this browser acting as a paired device node.
+ * PhoneNodeView, this browser acting as a paired device node.
  *
  * Open it on a phone, pair once, and the phone's cameras, screen, location,
  * clipboard, and device commands become capabilities the agent can ask for.
@@ -9,7 +9,7 @@
  *
  * What is announced is what this browser can actually do. A capability whose
  * API is missing, or that a browser gates behind a secure context this origin
- * does not have, is not announced at all — the desktop then says why it is
+ * does not have, is not announced at all, the desktop then says why it is
  * unavailable instead of offering a control that would fail.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -109,7 +109,7 @@ export function PhoneNodeView() {
 
         <h3 className="device-panel__heading">What this phone offers</h3>
         {state.announced.length === 0 ? (
-          <p>Nothing yet — this browser offers none of the device capabilities on this connection.</p>
+          <p>Nothing yet: this browser offers none of the device capabilities on this connection.</p>
         ) : (
           <ul className="device-list">
             {state.announced.map((id) => (

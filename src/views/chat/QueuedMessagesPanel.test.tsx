@@ -1,5 +1,5 @@
 /**
- * QueuedMessagesPanel — messages posted mid-turn sit queued until delivery.
+ * QueuedMessagesPanel, messages posted mid-turn sit queued until delivery.
  * Covers: honest absence (renders nothing when empty), listing, inline edit,
  * delete-with-confirm, and error surfacing.
  */
@@ -20,7 +20,7 @@ const calls = { edit: [] as { id: string; text: string }[], delete: [] as string
 
 mock.module('../../lib/goodvibes', () => ({
   // Not called by anything this panel renders, but src/lib/queries.ts (imported for
-  // queryKeys) statically imports these two names from this module — they must
+  // queryKeys) statically imports these two names from this module, they must
   // resolve or the import itself fails before any test runs.
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),

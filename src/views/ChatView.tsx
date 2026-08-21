@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, Dispatch, FormEvent, KeyboardEvent, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
@@ -27,6 +27,8 @@ import {
   messageCreatedAt,
   messageTone,
   messageText,
+  IDLE_TURN_PHASE,
+  type TurnPhase,
 } from './chat/message-utils';
 import { buildLineage } from './chat/lineage';
 import { resolveScrollTarget, isScrollTargetReady, findMessageElement } from './chat/search-jump';
@@ -55,8 +57,27 @@ export function ChatView({
   const [draft, setDraft] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [liveText, setLiveText] = useState('');
-  const [turnState, setTurnState] = useState('idle');
-  const [turnError, setTurnError] = useState('');
+  // turnState and turnError are ONE value (see TurnPhase in message-utils.ts),
+  // not two independently-mutated useState strings: every write, including the
+  // reset-on-session-switch effect below, sets both fields in a single setTurn
+  // call, so a terminal state (e.g. 'send failed') can never survive a reset
+  // that only clears the error text. setTurnState/setTurnError below are thin
+  // adapters kept so useChatStream/useChatSend, which only ever touch one field
+  // at a time, need no changes.
+  const [turn, setTurn] = useState<TurnPhase>(IDLE_TURN_PHASE);
+  const { state: turnState, error: turnError } = turn;
+  const setTurnState = useCallback<Dispatch<SetStateAction<string>>>((next) => {
+    setTurn((current) => ({
+      ...current,
+      state: (typeof next === 'function' ? (next as (prev: string) => string)(current.state) : next) as TurnPhase['state'],
+    }));
+  }, []);
+  const setTurnError = useCallback<Dispatch<SetStateAction<string>>>((next) => {
+    setTurn((current) => ({
+      ...current,
+      error: typeof next === 'function' ? (next as (prev: string) => string)(current.error) : next,
+    }));
+  }, []);
   const [localMessages, setLocalMessages] = useState<LocalCompanionMessage[]>([]);
   const [pendingUserMessageId, setPendingUserMessageId] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState('');
@@ -66,7 +87,7 @@ export function ChatView({
   const [sessionTitleDraft, setSessionTitleDraft] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   // Search jump-to-message: set when a MESSAGE-level search result is selected
-  // (session-level results carry messageId '' and never set this — see
+  // (session-level results carry messageId '' and never set this, see
   // ChatSearch's module doc). Cleared once the target message is found and
   // scrolled to, or the operator navigates to a different session first.
   const [pendingScrollTarget, setPendingScrollTarget] = useState<{ sessionId: string; messageId: string } | null>(null);
@@ -153,7 +174,7 @@ export function ChatView({
     retry: (failureCount, error) => !isSessionNotFoundError(error) && failureCount < 2,
     // 'stream paused' is deliberately NOT an ACTIVE_TURN_STATE (isStreaming must go
     // false once the live channel gives up), but it still needs the periodic-refresh
-    // fallback — the honest promise a paused stream makes ("live updates are off,
+    // fallback, the honest promise a paused stream makes ("live updates are off,
     // falling back to periodic refresh") only holds if something actually keeps
     // polling for a reply that streamed back while nobody was listening.
     refetchInterval: ACTIVE_TURN_STATES.includes(turnState) || turnState === 'syncing' || turnState === 'stream paused' ? 1000 : false,
@@ -161,7 +182,7 @@ export function ChatView({
 
   // Auth-expiry handoff shared by both chat hooks: re-probe auth.current so a
   // genuinely dead token (401 mid-stream or mid-send) flips the whole app to the
-  // signed-out gate (App.tsx unmounts this view when auth.current confirms it) —
+  // signed-out gate (App.tsx unmounts this view when auth.current confirms it),
   // rather than either hook retrying a dead token or collapsing to a dead-end error.
   const onChatAuthExpired = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.auth });
@@ -183,6 +204,15 @@ export function ChatView({
     setShowJumpToBottom(false);
   }, [activeSessionId]);
 
+  // Reset the turn lifecycle to idle on every session switch, in ONE setTurn
+  // call. Without this, a terminal turnState left over from a prior session's
+  // failed/dropped turn (e.g. 'send failed', 'stream paused') rendered in
+  // SessionHeader until the next send or turn event in the NEWLY active
+  // session, even though that session never did anything.
+  useEffect(() => {
+    setTurn(IDLE_TURN_PHASE);
+  }, [activeSessionId]);
+
   const {
     isStreaming, stop, retryStream, activeToolCalls, toolActivityByMessageId, cancelToolCall: cancelToolCallRaw,
   } = useChatStream({
@@ -199,14 +229,14 @@ export function ChatView({
     turnState,
   });
 
-  // Cancel ONE running tool call — the turn continues (unlike stop(), which ends the
+  // Cancel ONE running tool call, the turn continues (unlike stop(), which ends the
   // whole turn). A refusal or transport failure surfaces through the same turnError
   // banner the rest of the composer already renders.
   const cancelToolCall = useCallback(
     async (callId: string) => {
       try {
         const result = await cancelToolCallRaw(callId);
-        if (!result.cancelled) setTurnError('Could not cancel that tool call — it may have already finished.');
+        if (!result.cancelled) setTurnError('Could not cancel that tool call; it may have already finished.');
       } catch (error) {
         setTurnError(formatError(error));
       }
@@ -238,7 +268,7 @@ export function ChatView({
     // Fold in tool activity observed live by this browser tab (see useChatStream's
     // toolActivityByMessageId doc comment): attached by message id regardless of
     // whether the message came from local optimistic state or the server-fetched
-    // history — both end up with the same id once the turn completes. A message
+    // history, both end up with the same id once the turn completes. A message
     // whose id has no entry (older history, or a full page reload) simply renders
     // without a fold, honestly, rather than fabricating one.
     if (toolActivityByMessageId.size === 0) return merged;
@@ -263,12 +293,12 @@ export function ChatView({
 
   // Search jump-to-message: once the target session is active AND its messages
   // have loaded, locate the message in the DOM and scroll to it. Session switch
-  // (onActiveSessionChange) and the messages fetch it triggers are both async —
+  // (onActiveSessionChange) and the messages fetch it triggers are both async,
   // the target message may not exist in lineageNodes/the DOM yet on the render
   // right after selecting a search result, so this effect just no-ops until a
   // later render (driven by lineageNodes changing as messages arrive) finds it.
   // The readiness/lookup rules live in search-jump.ts (framework-free, unit
-  // tested there) — this effect is just the async-retry wiring around them.
+  // tested there), this effect is just the async-retry wiring around them.
   useEffect(() => {
     if (!isScrollTargetReady(pendingScrollTarget, activeSessionId, lineageNodes) || !pendingScrollTarget) return;
     const target = pendingScrollTarget;
@@ -321,7 +351,7 @@ export function ChatView({
   // Client-side auto-title: once a fresh chat has its first user message AND a first
   // assistant reply, replace the crude create-time title (a raw slice of the first
   // message) with a cleaned title derived from that message, via the existing
-  // companion.chat.sessions.update verb (there is no server auto-title verb — this is
+  // companion.chat.sessions.update verb (there is no server auto-title verb, this is
   // the ruled client-side path). Fires at most once per session and never overwrites a
   // title the operator set by hand.
   useEffect(() => {
@@ -349,7 +379,7 @@ export function ChatView({
   // A confirmed wake's transcript lands in the SAME two places a dictated one does:
   // appended to the draft for review, or sent straight away when
   // voice.wake.autoSubmit says so. The handler is held in a ref and the sink itself is
-  // stable, so registering it does not re-register on every keystroke — the wake host
+  // stable, so registering it does not re-register on every keystroke, the wake host
   // outlives this view and must not be churned by it.
   const wakeHandlerRef = useRef<(text: string, autoSubmit: boolean) => void>(() => undefined);
   useEffect(() => {
@@ -453,7 +483,7 @@ export function ChatView({
     const nextTitle = sessionTitleDraft.trim();
     setIsRenamingTitle(false);
     if (!activeSessionId || !nextTitle || nextTitle === activeSessionTitle) return;
-    // A hand-set title is authoritative — never auto-title over it afterwards.
+    // A hand-set title is authoritative, never auto-title over it afterwards.
     manuallyTitledSessionsRef.current.add(activeSessionId);
     renameSession.mutate({ sessionId: activeSessionId, title: nextTitle });
   }

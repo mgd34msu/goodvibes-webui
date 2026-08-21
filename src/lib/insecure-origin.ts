@@ -1,21 +1,21 @@
 /**
- * insecure-origin.ts — the entry guard for the plain-http-on-a-genuinely-PUBLIC-origin
+ * insecure-origin.ts, the entry guard for the plain-http-on-a-genuinely-PUBLIC-origin
  * white screen.
  *
  * THE FAILURE THIS CATCHES: the SDK transport refuses an insecure PUBLIC baseUrl by
  * THROWING at module evaluation (`SDK_TRANSPORT_INSECURE_BASE_URL` in
  * @pellux/goodvibes-transport-http). That throw fires the instant `src/lib/goodvibes.ts`
- * is imported — before React mounts — so an operator who opens the daemon over a plain
+ * is imported, before React mounts, so an operator who opens the daemon over a plain
  * `http://` public hostname used to get a silent blank `#root` with only a console
  * pageerror. The guard itself is correct (a genuinely public origin is meant to run over
  * HTTPS); the gap was purely the SILENT failure mode.
  *
- * PRIVATE-NETWORK LAN POSTURE (SDK 1.8.0): plain http on a private-network origin —
- * loopback, an RFC 1918 range (10/8, 172.16/12, 192.168/16), or an mDNS `.local` name —
+ * PRIVATE-NETWORK LAN POSTURE (SDK 1.8.0): plain http on a private-network origin,
+ * loopback, an RFC 1918 range (10/8, 172.16/12, 192.168/16), or an mDNS `.local` name,
  * is a DELIBERATE, SUPPORTED posture (a phone on the same LAN talking to the daemon), not
  * a mistake to wall off: TLS on a home network is the user's own responsibility and the
  * daemon never mints certificates, so the transport WORKS over http there and no longer
- * throws. This wall now fires ONLY for a genuinely public http/ws origin — the browser-
+ * throws. This wall now fires ONLY for a genuinely public http/ws origin, the browser-
  * gated capabilities (service worker/PWA install, push, microphone) on a private-network
  * http origin instead render as labeled degradation from `pairing.posture.get`
  * (src/hooks/useOriginPosture.ts), never a dead button and never this wall.
@@ -31,14 +31,14 @@
 export const INSECURE_ORIGIN_TITLE = 'This page needs HTTPS';
 
 export const INSECURE_ORIGIN_BODY =
-  'GoodVibes needs a secure (HTTPS) connection over the public internet — open it over '
+  'GoodVibes needs a secure (HTTPS) connection over the public internet; open it over '
   + 'HTTPS instead of plain http. The daemon refuses to talk to an insecure public '
   + 'origin, so the app cannot start here. Plain http is supported on your own LAN '
-  + '(localhost, a private network address, or a .local name) — this page would work '
+  + '(localhost, a private network address, or a .local name), this page would work '
   + 'there.';
 
 /**
- * The baseUrl the SDK transport would be handed — identical source to
+ * The baseUrl the SDK transport would be handed, identical source to
  * `GOODVIBES_BASE_URL` in lib/goodvibes.ts, re-derived here so we never import that
  * (throwing) module. `VITE_GOODVIBES_BASE_URL` wins if set; otherwise the page origin.
  */
@@ -52,7 +52,7 @@ function effectiveBaseUrl(): string {
 /**
  * Mirror of `isPrivateNetworkHost` (packages/transport-http/src/paths.ts, SDK 1.8.0):
  * loopback, an RFC 1918 range, or an mDNS `.local` name. Kept as a local, dependency-free
- * duplicate rather than an import for the reason in the file header — this predicate must
+ * duplicate rather than an import for the reason in the file header, this predicate must
  * stay correct even if the SDK package can't be loaded at all.
  */
 function isPrivateNetworkHost(hostname: string): boolean {
@@ -73,10 +73,10 @@ function isPrivateNetworkHost(hostname: string): boolean {
 /**
  * Mirror of the transport guard's insecure predicate: an http/ws baseUrl on a genuinely
  * PUBLIC host (never a private-network one), unless GOODVIBES_ALLOW_INSECURE_TRANSPORT=true
- * opts out. Returns true exactly when the SDK would throw SDK_TRANSPORT_INSECURE_BASE_URL —
+ * opts out. Returns true exactly when the SDK would throw SDK_TRANSPORT_INSECURE_BASE_URL,
  * so the honest message shows in precisely the cases the app would otherwise blank-screen,
  * and never otherwise. A private-network http origin (LAN IP, .local, localhost) is a
- * supported posture and never trips this wall — see the file header.
+ * supported posture and never trips this wall, see the file header.
  */
 export function isInsecureTransportOrigin(): boolean {
   // Honor the same explicit override the SDK guard honors, so an intentional insecure

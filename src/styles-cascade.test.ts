@@ -4,10 +4,10 @@
  * The bug this test exists to prevent: .topbar (and the sibling
  * .chat-surface/.chat-header/.detail-header/.knowledge-search surfaces) used
  * to declare a light-literal background AND a separately-positioned unscoped
- * "dark" override of the same property — both selectors carry identical
+ * "dark" override of the same property, both selectors carry identical
  * specificity, so whichever rule happened to sit LATER in the file won,
  * regardless of theme. At HEAD (before this fix) the dark override always
- * came later and so always won, masking the bug — but reordering the two
+ * came later and so always won, masking the bug, but reordering the two
  * blocks (an entirely plausible future edit, since nothing in the source
  * signals they are coupled) would have resurrected a white top band in dark
  * theme. See commit fc6dcf8 for the identical anti-pattern, previously fixed
@@ -15,7 +15,7 @@
  *
  * This is a structural/textual guard (a "scoped-selector lint"), not a
  * rendered-style assertion: happy-dom's CSS engine does not reliably resolve
- * attribute-selector specificity (verified during this fix — a manual check
+ * attribute-selector specificity (verified during this fix, a manual check
  * against a [data-theme="light"] rule and a same-specificity plain-class rule
  * returned the wrong winner), so it cannot be trusted to assert real cascade
  * behavior. The live, real-browser proof (computed background color in both
@@ -50,10 +50,10 @@ function findRuleBlocks(selectorRe: RegExp): string[] {
   return blocks;
 }
 
-describe('styles.css — .topbar / dark-surface cascade region', () => {
-  test('.topbar declares `background` exactly once — no unscoped duplicate to reorder', () => {
+describe('styles.css: .topbar / dark-surface cascade region', () => {
+  test('.topbar declares `background` exactly once, no unscoped duplicate to reorder', () => {
     // Matches a selector block whose selector list is EXACTLY `.topbar` (not
-    // `.topbar h1`, `.topbar-actions`, etc. — those are unrelated declarations
+    // `.topbar h1`, `.topbar-actions`, etc., those are unrelated declarations
     // this guard must not trip on).
     const topbarBlocks = findRuleBlocks(/(^|,)\s*\.topbar\s*(,|$)/);
     const blocksWithBackground = topbarBlocks.filter((block) => /(?<![-\w])background\s*:/.test(block));
@@ -69,7 +69,7 @@ describe('styles.css — .topbar / dark-surface cascade region', () => {
 
   test('the shared panel/chat-surface/detail-header/knowledge-search light background is theme-scoped, not a bare unscoped literal', () => {
     // The near-white rgb(255 255 255 / 94%) literal must live under
-    // :root[data-theme="light"] — never as a bare, unscoped selector, which
+    // :root[data-theme="light"], never as a bare, unscoped selector, which
     // is exactly what let the later unscoped dark block's win depend on file
     // order instead of the theme attribute.
     const scopedLightBlocks = findRuleBlocks(/:root\[data-theme="light"\]\s*\.(panel|data-block|answer-panel|side-panel|chat-surface|detail-header|knowledge-search)\b/);
@@ -77,7 +77,7 @@ describe('styles.css — .topbar / dark-surface cascade region', () => {
     expect(hasScopedLightLiteral).toBe(true);
 
     // And the SAME literal must not also appear on a bare (unscoped) selector
-    // list for that group — that would reintroduce the two-rules-same-
+    // list for that group, that would reintroduce the two-rules-same-
     // specificity race this fix removed.
     const bareBlocks = findRuleBlocks(/(^|,)\s*\.(panel|data-block|answer-panel|side-panel|chat-surface|detail-header|knowledge-search)\s*(,|{|$)/);
     const bareHasLightLiteral = bareBlocks.some((block) => /background:\s*rgb\(255 255 255 \/ 94%\)/.test(block));

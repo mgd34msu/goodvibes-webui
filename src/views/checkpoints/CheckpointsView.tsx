@@ -1,5 +1,5 @@
 /**
- * CheckpointsView — the workspace checkpoints browser over checkpoints.*.
+ * CheckpointsView, the workspace checkpoints browser over checkpoints.*.
  *
  * Master/detail: list checkpoints (checkpoints.list), select one to see its
  * diff against the live working tree (checkpoints.diff), create a new
@@ -15,7 +15,7 @@
  * fabricated checkpoint.
  *
  * checkpoints.* emits NO wire event yet (pinned by the SDK's own checkpoints
- * test suite) — freshness comes from mutation-driven invalidation (create/restore
+ * test suite), freshness comes from mutation-driven invalidation (create/restore
  * refetch the list) plus a manual refresh, not realtime invalidation.
  */
 
@@ -57,7 +57,7 @@ export function CheckpointsView() {
   // Compare target for the detail-pane diff: '' means "working tree" (the long-standing
   // default); a non-empty value is another checkpoint's id, giving checkpoint-to-checkpoint
   // diff over checkpoints.diff's already-existing `b` input (CheckpointsDiffInput.b in
-  // lib/goodvibes.ts) — the wire has always supported this, the view just never exposed it.
+  // lib/goodvibes.ts), the wire has always supported this, the view just never exposed it.
   const [compareToId, setCompareToId] = useState('');
   const [labelDraft, setLabelDraft] = useState('');
 
@@ -150,7 +150,7 @@ export function CheckpointsView() {
       toast({
         title: isNotFound(error) ? 'Checkpoint no longer exists' : 'Restore failed',
         description: isNotFound(error)
-          ? `"${checkpoint.label || checkpoint.id}" was not found — it may have been garbage-collected.`
+          ? `"${checkpoint.label || checkpoint.id}" was not found; it may have been garbage-collected.`
           : formatError(error),
         tone: 'danger',
       });
@@ -160,7 +160,7 @@ export function CheckpointsView() {
   const [restoringId, setRestoringId] = useState('');
 
   // Restore is a destructive, git-backed workspace rewrite the daemon executes
-  // immediately, so it ALWAYS confirms — on desktop and phone alike — via the
+  // immediately, so it ALWAYS confirms, on desktop and phone alike, via the
   // touch-first confirm sheet (replacing the old window.confirm). Before asking,
   // fetch a non-destructive restorePreview so the sheet names how many files
   // would change; the preview also mints the single-use token used to authorize
@@ -178,7 +178,7 @@ export function CheckpointsView() {
       if (isNotFound(error)) {
         toast({
           title: 'Checkpoint no longer exists',
-          description: `"${checkpoint.label || checkpoint.id}" was not found — it may have been garbage-collected.`,
+          description: `"${checkpoint.label || checkpoint.id}" was not found; it may have been garbage-collected.`,
           tone: 'danger',
         });
         return;
@@ -358,7 +358,7 @@ function CheckpointDetail({
           className="checkpoint-detail__restore"
           onClick={onRestore}
           disabled={restoring}
-          title="Restore the workspace to this checkpoint (destructive — confirms first)"
+          title="Restore the workspace to this checkpoint (destructive: confirms first)"
         >
           <RotateCcw size={14} /> {restoring ? 'Restoring…' : 'Restore this checkpoint'}
         </button>

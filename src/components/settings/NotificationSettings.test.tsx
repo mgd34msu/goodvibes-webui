@@ -1,10 +1,10 @@
 /**
- * NotificationSettings — the push + install capability labels.
+ * NotificationSettings, the push + install capability labels.
  *
  * Both the push banner (support === 'insecure-context') and the install section's
  * insecure-origin banner render the DAEMON's own reason text from pairing.posture.get
- * ("needs https — available via tailscale") once it has loaded, honestly falling back to
- * a still-true generic HTTPS pointer before it answers or if the fetch fails — never a
+ * ("needs https, available via tailscale") once it has loaded, honestly falling back to
+ * a still-true generic HTTPS pointer before it answers or if the fetch fails, never a
  * blank label, never a dead button, never a client-fabricated guess about the daemon's
  * own deployment.
  */
@@ -16,9 +16,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
 
 let postureResult: unknown = { posture: { origin: 'http://192.168.0.131:3423', scheme: 'http', privateNetwork: true, secureContext: false, notice: 'lan notice', capabilities: [
-  { capability: 'service-worker', available: false, reason: 'needs https — available via tailscale' },
-  { capability: 'push', available: false, reason: 'needs https — available via tailscale' },
-  { capability: 'microphone', available: false, reason: 'needs https — available via tailscale' },
+  { capability: 'service-worker', available: false, reason: 'needs https, available via tailscale' },
+  { capability: 'push', available: false, reason: 'needs https, available via tailscale' },
+  { capability: 'microphone', available: false, reason: 'needs https, available via tailscale' },
 ] } };
 let postureRejects = false;
 
@@ -90,8 +90,8 @@ afterEach(() => {
 describe('push capability label', () => {
   test('renders the daemon posture reason once pairing.posture.get answers', async () => {
     const { el, unmount } = render();
-    await waitFor(() => el.textContent?.includes('needs https — available via tailscale') === true);
-    expect(el.textContent).toContain('needs https — available via tailscale');
+    await waitFor(() => el.textContent?.includes('needs https, available via tailscale') === true);
+    expect(el.textContent).toContain('needs https, available via tailscale');
     unmount();
   });
 
@@ -104,7 +104,7 @@ describe('push capability label', () => {
     await new Promise((r) => setTimeout(r, 20));
     flushSync(() => {});
     expect(el.textContent).toContain('secure (HTTPS) connection');
-    expect(el.textContent).not.toContain('needs https — available via tailscale');
+    expect(el.textContent).not.toContain('needs https, available via tailscale');
     unmount();
   });
 
@@ -127,11 +127,11 @@ describe('install (service-worker) capability label', () => {
   test('a private-network origin (insecure context, no install prompt available) shows the daemon reason, never a dead generic fallback', async () => {
     installAffordanceValue = 'none';
     const { el, unmount } = render();
-    await waitFor(() => el.textContent?.includes('needs https — available via tailscale') === true);
+    await waitFor(() => el.textContent?.includes('needs https, available via tailscale') === true);
     // The two capability labels ("push" and "service-worker") both render the same
     // daemon reason text; this proves the install section specifically ALSO renders
     // it (not just the push section) by checking it appears at least twice.
-    const occurrences = el.textContent?.split('needs https — available via tailscale').length ?? 1;
+    const occurrences = el.textContent?.split('needs https, available via tailscale').length ?? 1;
     expect(occurrences - 1).toBeGreaterThanOrEqual(2);
     expect(el.textContent).not.toContain('Use your browser’s menu to add this app');
     unmount();

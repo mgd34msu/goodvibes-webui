@@ -1,11 +1,11 @@
 /**
- * ProvidersView — real provider status pills.
+ * ProvidersView, real provider status pills.
  *
  * Proves the pill is derived from the actual per-route freshness the wire
  * returns (ProviderAuthRouteDescriptor.freshness), never a decorative
  * default, and that the header's "configured" text is sourced correctly
  * even when the merged list record lacks a flat `configured` field (the
- * bug this brief fixes — see src/lib/provider-status.ts).
+ * bug this brief fixes, see src/lib/provider-status.ts).
  */
 
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -18,7 +18,7 @@ import { PeekProvider } from '../components/peek/PeekPanel';
 
 const getCalls: string[] = [];
 
-// Providers as returned by providers.list()/providers.get() — ProviderRuntimeSnapshot
+// Providers as returned by providers.list()/providers.get(), ProviderRuntimeSnapshot
 // shape: routes live nested at runtime.auth.routes, configured at runtime.auth.configured.
 const OPENAI_SNAPSHOT = {
   providerId: 'openai',
@@ -48,7 +48,7 @@ const ANTHROPIC_SNAPSHOT = {
   models: [],
 };
 
-// Present ONLY in providers.list (no models.list catalog match) — the
+// Present ONLY in providers.list (no models.list catalog match), the
 // merged record has no flat `configured`/`configuredVia`, only the nested
 // runtime.auth.configured. Proves the header sources from the real signal.
 const MISTRAL_SNAPSHOT = {
@@ -93,7 +93,7 @@ const PROVIDERS_LIST_FIXTURE = {
   providers: [OPENAI_SNAPSHOT, ANTHROPIC_SNAPSHOT, MISTRAL_SNAPSHOT, AZURE_SNAPSHOT],
 };
 
-// models.list() catalog — ModelRouteProviderRecord shape: flat configured/configuredVia/routes.
+// models.list() catalog, ModelRouteProviderRecord shape: flat configured/configuredVia/routes.
 // Deliberately omits 'mistral' to simulate the catalog-mismatch bug.
 const MODELS_LIST_FIXTURE = {
   providers: [
@@ -162,7 +162,7 @@ mock.module('../lib/goodvibes', () => ({
       },
       credentials: {
         // Mirrors the real 200 shape ({ available: true, credentials: [...] })
-        // — deriveCredentialAvailability reads value.credentials, so this
+        //, deriveCredentialAvailability reads value.credentials, so this
         // exercises the panel's normal "available" rendering path within the
         // existing ProvidersView suite. Dedicated available/degraded/refused
         // coverage lives in CredentialStatusPanel.test.tsx.
@@ -230,7 +230,7 @@ afterEach(() => {
   getCalls.length = 0;
 });
 
-describe('ProvidersView — real per-provider pills (never decorative "unknown")', () => {
+describe('ProvidersView: real per-provider pills (never decorative "unknown")', () => {
   test('a provider with a healthy route shows a "healthy" pill', async () => {
     const { el, unmount } = render();
     await waitFor(() => rows(el).length > 0);
@@ -240,7 +240,7 @@ describe('ProvidersView — real per-provider pills (never decorative "unknown")
     unmount();
   });
 
-  test('a multi-route provider rolls up to the worst freshness — expired beats healthy', async () => {
+  test('a multi-route provider rolls up to the worst freshness: expired beats healthy', async () => {
     const { el, unmount } = render();
     await waitFor(() => rows(el).length > 0);
     const row = rowFor(el, 'azure');
@@ -258,7 +258,7 @@ describe('ProvidersView — real per-provider pills (never decorative "unknown")
   });
 });
 
-describe('ProvidersView — header sourced from the real configured signal', () => {
+describe('ProvidersView: header sourced from the real configured signal', () => {
   test('the default-selected (first) provider header reads "configured via env"', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('configured via'));
@@ -272,7 +272,7 @@ describe('ProvidersView — header sourced from the real configured signal', () 
     click(rowFor(el, 'mistral'));
     await waitFor(() => getCalls.includes('mistral'));
     // mistral's runtime.auth.configured is true but it has no catalog
-    // configuredVia — the honest header text is bare "configured".
+    // configuredVia, the honest header text is bare "configured".
     await waitFor(() => (el.textContent ?? '').includes('mistral'));
     expect(el.textContent).toContain('configured');
     expect(el.textContent).not.toContain('not configured');
@@ -290,7 +290,7 @@ describe('ProvidersView — header sourced from the real configured signal', () 
   });
 });
 
-describe('ProvidersView — per-route detail on selection', () => {
+describe('ProvidersView: per-route detail on selection', () => {
   test('selecting a provider with an expired route shows its detail and repair hints', async () => {
     const { el, unmount } = render();
     await waitFor(() => rows(el).length > 0);

@@ -9,7 +9,7 @@
  * 5. aria-live region is present during streaming
  *
  * Uses createRoot + flushSync (project pattern from toast.dom.test.tsx).
- * matchMedia is stubbed in test-setup.ts — useReducedMotion reads it via
+ * matchMedia is stubbed in test-setup.ts, useReducedMotion reads it via
  * window.matchMedia; we override it per-test when needed.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
@@ -24,7 +24,7 @@ import type { ChatMessage } from './types';
 import type { ActiveToolCall } from './useChatStream';
 
 // Assistant-tone messages with text mount SpeakButton (useTts -> sdk.operator.voice.status /
-// config.get, both routed through react-query). Mocked here — never a real network call —
+// config.get, both routed through react-query). Mocked here, never a real network call,
 // and MessageList is imported dynamically AFTER this mock so the module graph never loads
 // the real goodvibes.ts first (mock.module only wins if it runs before the first import).
 mock.module('../../lib/goodvibes', () => ({
@@ -74,7 +74,7 @@ function renderMessageList(props: Partial<typeof baseProps & {
   flushSync(() => {
     // MessageItem calls useArtifactsPanel unconditionally (for its "View
     // artifacts" affordance), which needs ToastProvider + PeekProvider
-    // ancestors whenever `nodes` is non-empty — most existing tests here pass
+    // ancestors whenever `nodes` is non-empty, most existing tests here pass
     // nodes: [] and never actually mount a MessageItem, but the highlight
     // tests below do. QueryClientProvider is needed too: an assistant message
     // with text mounts SpeakButton -> useTts -> react-query (mocked above).
@@ -138,7 +138,7 @@ function installGlobal(key: string, value: unknown): void {
       enumerable: false,
     });
   } catch {
-    // non-configurable — skip
+    // non-configurable, skip
   }
 }
 
@@ -146,8 +146,8 @@ function installGlobal(key: string, value: unknown): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('MessageList — streaming caret', () => {
-  test('caret renders while streaming even before the first token — Stop must be reachable during the thinking window', () => {
+describe('MessageList: streaming caret', () => {
+  test('caret renders while streaming even before the first token; Stop must be reachable during the thinking window', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: '' });
     expect(container.querySelector('.stream-caret')).not.toBeNull();
     unmount();
@@ -172,7 +172,7 @@ describe('MessageList — streaming caret', () => {
   });
 });
 
-describe('MessageList — Stop button', () => {
+describe('MessageList: Stop button', () => {
   test('Stop button is absent when onStop is not provided', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
     expect(container.querySelector('.stream-stop-btn')).toBeNull();
@@ -216,7 +216,7 @@ describe('MessageList — Stop button', () => {
   });
 });
 
-describe('MessageList — aria attributes', () => {
+describe('MessageList: aria attributes', () => {
   test('aria-live polite region is present during streaming', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'hello' });
     const liveRegion = container.querySelector('[aria-live="polite"]');
@@ -245,9 +245,9 @@ describe('MessageList — aria attributes', () => {
   });
 });
 
-describe('MessageList — search jump-to-message highlight', () => {
+describe('MessageList: search jump-to-message highlight', () => {
   // Both nodes use tone 'user': an assistant node with text would also mount
-  // SpeakButton (useTts -> real sdk.operator.voice.status() network call —
+  // SpeakButton (useTts -> real sdk.operator.voice.status() network call,
   // unrelated to what this suite covers), so 'user' keeps the fixture
   // focused on the highlight/data-message-id wiring under test.
   const nodes: LineageNode[] = [
@@ -286,7 +286,7 @@ describe('MessageList — search jump-to-message highlight', () => {
   });
 });
 
-describe('MessageList — reduced-motion class', () => {
+describe('MessageList: reduced-motion class', () => {
   test('stream-caret--reduced class is NOT applied when prefers-reduced-motion is false', () => {
     // matchMedia returns matches: false (set in beforeEach)
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
@@ -313,7 +313,7 @@ describe('MessageList — reduced-motion class', () => {
   });
 });
 
-describe('MessageList — running tool calls + cancel (SDK 1.8.0 interaction-wins round)', () => {
+describe('MessageList: running tool calls + cancel (SDK 1.8.0 interaction-wins round)', () => {
   test('no active-tool-calls list renders when activeToolCalls is empty', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
     expect(container.querySelector('.active-tool-calls')).toBeNull();
@@ -390,12 +390,12 @@ describe('MessageList — running tool calls + cancel (SDK 1.8.0 interaction-win
 });
 
 // ---------------------------------------------------------------------------
-// Compaction-handoff folding — a compactor-authored user message folds to a
+// Compaction-handoff folding, a compactor-authored user message folds to a
 // <details> disclosure instead of rendering the re-injected instruction wall.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Tool-activity folding — a completed turn's tool calls, attached to the
+// Tool-activity folding, a completed turn's tool calls, attached to the
 // assistant message that produced them (ChatMessage.toolActivity, populated by
 // useChatStream's toolActivityByMessageId), render folded rather than
 // vanishing once the turn ends.
@@ -434,7 +434,7 @@ describe('tool activity folding (rendered through MessageItem)', () => {
     const { container, unmount } = renderMessageList({ nodes });
     const details = container.querySelector('details.message-tool-activity--group');
     expect(details).not.toBeNull();
-    expect(details?.querySelector('summary')?.textContent).toBe('2 tools · read, exec — expand');
+    expect(details?.querySelector('summary')?.textContent).toBe('2 tools · read, exec; expand');
     unmount();
   });
 

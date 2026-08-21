@@ -4,15 +4,15 @@
  * Same three properties generate-presentation-tokens.test.ts and the
  * generate-config-schema suite already check for their generators:
  *
- *   1. Determinism — rendering the SAME snapshot twice yields byte-identical
+ *   1. Determinism, rendering the SAME snapshot twice yields byte-identical
  *      output.
- *   2. Drift gate — mutating the snapshot (simulating an SDK change to the
+ *   2. Drift gate, mutating the snapshot (simulating an SDK change to the
  *      ownership lists) changes the rendered output, so
  *      `writeIfChanged(..., checkOnly: true)` reports drift (would exit 1 in
  *      `bun run config-ownership:check`, wired into `bun run build`).
  *   3. The checked-in artifact under src/lib/generated/config-ownership.ts is
  *      itself up to date with the real, installed @pellux/goodvibes-sdk
- *      ownership tables — the same check `--check` performs, exercised
+ *      ownership tables, the same check `--check` performs, exercised
  *      directly here rather than via subprocess.
  */
 import { describe, expect, test } from 'bun:test';

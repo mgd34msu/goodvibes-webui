@@ -1,5 +1,5 @@
 /**
- * Daemon receipts — the connect-time notices. The daemon holds undelivered
+ * Daemon receipts, the connect-time notices. The daemon holds undelivered
  * receipts (a crash restart, a self-update, a migration) and hands them over
  * ONCE, when control.status is called with receipts=consume on connect. The
  * webui surfaces each as a one-line dismissible notice, exactly once: a reload
@@ -57,7 +57,7 @@ test('a feature announcement rides the same queue, linkifies its URL, and shows 
   const link = notice.getByRole('link', { name: 'https://gv.example/s/abc123' });
   await expect(link).toHaveAttribute('href', 'https://gv.example/s/abc123');
 
-  // Reconnect (reload) — the announcement was delivered, so it never re-shows.
+  // Reconnect (reload), the announcement was delivered, so it never re-shows.
   await page.reload();
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('[data-testid="daemon-receipt"]')).toHaveCount(0);

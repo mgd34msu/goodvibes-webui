@@ -4,15 +4,15 @@ import type { MemorySearchResult } from '../../lib/goodvibes';
 /**
  * The recall-honesty contract, surfaced verbatim (memory-recall-contract.ts, promoted
  * onto the wire by memory.records.search). Three things this MUST NEVER do:
- *   1. Hide `indexUnavailableReason` — a silent empty result here would read as
+ *   1. Hide `indexUnavailableReason`, a silent empty result here would read as
  *      "nothing was ever stored" when the truth is "the semantic index couldn't be
  *      consulted, so this fell back to a literal scan". Shown verbatim, unparaphrased.
- *   2. Hide `caveat` — the softer "ran on the hashed-only fallback provider" note.
- *   3. Hide the recall-filter exclusion counts when `recallFiltered` is true — a
+ *   2. Hide `caveat`, the softer "ran on the hashed-only fallback provider" note.
+ *   3. Hide the recall-filter exclusion counts when `recallFiltered` is true, a
  *      caller who asked "what would the agent actually see" needs to know how many
  *      records were excluded and why, not just the surviving count.
  *
- * `totalBeforeRecallFilter` is NOT "every record that matches" — it is
+ * `totalBeforeRecallFilter` is NOT "every record that matches", it is
  * `baseRecords.length` from `runHonestMemorySearch` (memory-recall-contract.ts), i.e.
  * whatever the underlying search returned, which is itself capped at the caller's own
  * `limit`. Labeling it "total before filtering" over-claims completeness (300 could
@@ -22,7 +22,7 @@ import type { MemorySearchResult } from '../../lib/goodvibes';
  *
  * The recall floor itself (`excludedBelowFloorCount`'s threshold) now travels on the
  * wire as `result.recallFloor` (memory-recall-contract.ts's `MIN_PROMPT_MEMORY_CONFIDENCE`,
- * promoted onto `HonestMemorySearchResult`) — the label states it directly from that
+ * promoted onto `HonestMemorySearchResult`), the label states it directly from that
  * value, never a hardcoded percentage, so it can never silently drift if the store's
  * floor is retuned.
  */

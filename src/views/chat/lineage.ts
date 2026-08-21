@@ -1,10 +1,10 @@
 /**
- * lineage.ts — the honest-lineage view model for companion chat.
+ * lineage.ts, the honest-lineage view model for companion chat.
  *
  * The daemon never deletes conversation history. When a response is regenerated or a
  * message is edited and the conversation branches, the affected messages are marked
  * SUPERSEDED (a `supersededAt` timestamp + a `supersededReason`) and RETAINED in the
- * message list — `companion.chat.messages.list` returns them alongside the active chain.
+ * message list, `companion.chat.messages.list` returns them alongside the active chain.
  * A replacement user message additionally carries `revisionOf` back to the original it
  * was edited from.
  *
@@ -15,7 +15,7 @@
  * survives reloads and reflects exactly what the daemon retained.
  *
  * Grouping rule: a superseded message is a fork's old branch. A contiguous run of
- * superseded messages is attached to the next ACTIVE message that follows it — that
+ * superseded messages is attached to the next ACTIVE message that follows it, that
  * active message is the fork's new branch head (the regenerated response, or the edited
  * user message). The UI renders the active message normally and offers to reveal the
  * attached retained history inline.
@@ -55,7 +55,7 @@ export function revisionOf(message: unknown): string {
 export interface LineageNode {
   /** The active (non-superseded) message to render as the live conversation. */
   readonly message: ChatMessage;
-  /** Superseded messages retained behind the fork this node heads — oldest first. */
+  /** Superseded messages retained behind the fork this node heads, oldest first. */
   readonly priorMessages: readonly ChatMessage[];
   /** Why the attached run was superseded ('regenerate' | 'edit'); undefined when none. */
   readonly reason?: SupersededReason;
@@ -68,9 +68,9 @@ export interface LineageNode {
  *
  * Active messages become top-level nodes in order. A contiguous run of superseded
  * messages is buffered and attached as `priorMessages` to the next active node (the fork
- * head). A trailing superseded run with no following active message — which the daemon
+ * head). A trailing superseded run with no following active message, which the daemon
  * should not produce, since a fork always ends with a new active branch, but which is
- * handled here so history is never dropped — is attached to the last active node, or, if
+ * handled here so history is never dropped, is attached to the last active node, or, if
  * there is none, surfaced as its own history-only node so it stays viewable.
  */
 export function buildLineage(messages: readonly ChatMessage[]): LineageNode[] {
@@ -106,7 +106,7 @@ export function buildLineage(messages: readonly ChatMessage[]): LineageNode[] {
         reason: last.reason ?? pendingReason ?? 'unknown',
       };
     } else {
-      // No active message at all — surface the retained history as its own node.
+      // No active message at all, surface the retained history as its own node.
       nodes.push({
         message: pending.at(-1)!,
         priorMessages: pending.slice(0, -1),
@@ -119,8 +119,8 @@ export function buildLineage(messages: readonly ChatMessage[]): LineageNode[] {
 }
 
 /**
- * Stable key for a lineage node — the message's real id alone when present, so the node
- * does NOT remount (losing any open <details> disclosure — retained-history reveal, the
+ * Stable key for a lineage node, the message's real id alone when present, so the node
+ * does NOT remount (losing any open <details> disclosure, retained-history reveal, the
  * compaction-handoff fold, or a folded tool-activity group) if the list re-renders with
  * the same message at a different array position (an optimistic-to-fetched merge can do
  * this). Falls back to an ordinal-based key, clearly shaped so it can never collide with
@@ -133,9 +133,9 @@ export function lineageNodeKey(node: LineageNode, index: number): string {
 /** A human, honest label for a retained-history run given its reason and size. */
 export function retainedHistoryLabel(reason: SupersededReason | undefined, count: number): string {
   const plural = count === 1 ? '' : 's';
-  if (reason === 'edit') return count <= 1 ? 'Edited — view original' : `Edited — view ${count} retained message${plural}`;
+  if (reason === 'edit') return count <= 1 ? 'Edited: view original' : `Edited: view ${count} retained message${plural}`;
   if (reason === 'regenerate') {
-    return count <= 1 ? 'Regenerated — view previous response' : `Regenerated — view ${count} previous message${plural}`;
+    return count <= 1 ? 'Regenerated: view previous response' : `Regenerated: view ${count} previous message${plural}`;
   }
   return `View ${count} retained message${plural}`;
 }

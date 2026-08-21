@@ -21,7 +21,7 @@ export function shouldSubmitComposerKey(event: ComposerKeyEventLike): boolean {
 }
 
 /**
- * Ctrl+Enter (or Cmd+Enter): STEER — send immediately, interrupting the
+ * Ctrl+Enter (or Cmd+Enter): STEER, send immediately, interrupting the
  * in-flight turn (companion.chat.messages.steer). Distinct from plain Enter,
  * which queues behind an active turn.
  */

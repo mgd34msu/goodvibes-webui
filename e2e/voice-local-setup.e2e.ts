@@ -1,5 +1,5 @@
 /**
- * Local voice setup — the one-act managed provisioning flow (voice.local.status /
+ * Local voice setup, the one-act managed provisioning flow (voice.local.status /
  * voice.local.install, SDK 1.9.0-dev), proven end to end against the hermetic voice
  * mock inside the voice-settings popover:
  *   - unprovisioned -> a size-labeled "Set up local voice" action.
@@ -30,7 +30,7 @@ test('an unprovisioned runtime offers the size-labeled one-act setup, and instal
   const local = popover.locator('.voice-settings-local');
   await expect(local).toBeVisible();
 
-  // The action is size-labeled from the daemon's own offerBytes — never an unlabeled download.
+  // The action is size-labeled from the daemon's own offerBytes, never an unlabeled download.
   const setup = local.getByRole('button', { name: /Set up local voice/ });
   await expect(setup).toBeVisible();
   await expect(setup).toContainText('209.0 MB');
@@ -47,7 +47,7 @@ test('an unprovisioned runtime offers the size-labeled one-act setup, and instal
 
 test('a slow install renders live per-component progress from the polled status, then the receipt', async ({ page }) => {
   await installChatMockDaemon(page);
-  // 2.5s window ≈ three of the surface's 750ms polls — the installInProgress
+  // 2.5s window ≈ three of the surface's 750ms polls, the installInProgress
   // section is only served while the install POST is genuinely in flight.
   await installVoiceRoutes(page, { localInstallDurationMs: 2500 });
 
@@ -56,19 +56,19 @@ test('a slow install renders live per-component progress from the polled status,
   await local.getByRole('button', { name: /Set up local voice/ }).click();
 
   // Live progress: the completed component byte-labeled, the in-flight download
-  // showing only its pinned total (bytes land at completion boundaries — never a
+  // showing only its pinned total (bytes land at completion boundaries, never a
   // fabricated live percentage), the extract phase byte-less.
   const progress = local.locator('[data-testid="voice-local-progress"]');
   await expect(progress).toBeVisible();
   await expect(progress).toContainText('piper-voice-onnx');
-  await expect(progress).toContainText('Done — 60.3 MB of 60.3 MB');
-  await expect(progress).toContainText('Downloading — 6.6 MB');
+  await expect(progress).toContainText('Done: 60.3 MB of 60.3 MB');
+  await expect(progress).toContainText('Downloading: 6.6 MB');
   await expect(progress).toContainText('Extracting');
 
   // The run completes: progress yields to the receipt and the flipped resting state.
   await expect(local).toContainText('TTS (piper): Installed');
   await expect(progress).toHaveCount(0);
-  await expect(local).toContainText('Installed — TTS: piper, STT: whisper-cpp.');
+  await expect(local).toContainText('Installed: TTS: piper, STT: whisper-cpp.');
 });
 
 test('a retriable download failure renders the honest reason and a Retry action that re-invokes install', async ({ page }) => {
@@ -79,7 +79,7 @@ test('a retriable download failure renders the honest reason and a Retry action 
   const local = popover.locator('.voice-settings-local');
   await local.getByRole('button', { name: /Set up local voice/ }).click();
 
-  await expect(local).toContainText('TTS (piper): Download failed — network timeout fetching piper.tar.gz');
+  await expect(local).toContainText('TTS (piper): Download failed: network timeout fetching piper.tar.gz');
   const retry = local.getByRole('button', { name: 'Retry' });
   await expect(retry).toBeVisible();
   await retry.click();
@@ -92,7 +92,7 @@ test('a provisioned runtime shows the quiet installed line, no setup button', as
 
   const popover = await openVoiceSettings(page);
   const local = popover.locator('.voice-settings-local');
-  await expect(local).toContainText('Installed — TTS: piper, STT: whisper-cpp.');
+  await expect(local).toContainText('Installed: TTS: piper, STT: whisper-cpp.');
   await expect(local.getByRole('button', { name: /Set up local voice/ })).toHaveCount(0);
 });
 
@@ -102,11 +102,11 @@ test('an unsupported platform reports honestly instead of offering an install th
 
   const popover = await openVoiceSettings(page);
   const local = popover.locator('.voice-settings-local');
-  await expect(local).toContainText('Not supported on this platform — no pinned engine build exists for this host.');
+  await expect(local).toContainText('Not supported on this platform, no pinned engine build exists for this host.');
   await expect(local.getByRole('button', { name: /Set up local voice/ })).toHaveCount(0);
 });
 
-test('an older daemon build (voice.local.status 404s) renders no local section at all — honest omission, not an error banner', async ({ page }) => {
+test('an older daemon build (voice.local.status 404s) renders no local section at all; honest omission, not an error banner', async ({ page }) => {
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, { localRuntime: 'unavailable' });
 

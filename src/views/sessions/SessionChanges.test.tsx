@@ -1,7 +1,7 @@
 /**
- * SessionChanges.test.tsx — the session review COCKPIT end to end.
+ * SessionChanges.test.tsx, the session review COCKPIT end to end.
  *
- * Drives the PRIMARY source (sessions.changes.get — session-scoped) and the explicit
+ * Drives the PRIMARY source (sessions.changes.get, session-scoped) and the explicit
  * workspace-scoped fallback (checkpoints.list + checkpoints.diff): expand → the aggregate
  * diff is parsed into the multibuffer → tapping a hunk opens the action chooser →
  *   - APPROVE marks the hunk reviewed (client-side progress, reviewed/total indicator);
@@ -185,7 +185,7 @@ describe('SessionChanges', () => {
     await settle();
 
     expect(container.textContent).toContain('src/foo.ts');
-    expect(container.textContent).toContain('Session-scoped — filtered to this session\'s own checkpoints only');
+    expect(container.textContent).toContain('Session-scoped: filtered to this session\'s own checkpoints only');
     const hunk = container.querySelector('.diff-mb__hunk');
     expect(hunk).not.toBeNull();
     expect(hunk?.textContent).toContain('const c = 3;');

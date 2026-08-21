@@ -1,14 +1,14 @@
 /**
- * FleetApprovalInline — "approve from the tree": renders the real, correlated
+ * FleetApprovalInline, "approve from the tree": renders the real, correlated
  * approvals for a selected fleet/workstream node inline in its detail pane, using the
  * SAME ApprovalCard the Approvals view renders (src/views/approvals/ApprovalCard.tsx)
  * so approve/deny/claim/cancel behave identically everywhere.
  *
- * Correlation is lib/fleet.ts's approvalsForNode — the exact sessionId/metadata.agentId
+ * Correlation is lib/fleet.ts's approvalsForNode, the exact sessionId/metadata.agentId
  * matching the daemon's own fleet registry uses to derive a node's 'awaiting-approval'
  * state, not a guess. Shares the queryKeys.approvals cache key with ApprovalsTasksView,
  * so approving here is immediately reflected there (and vice versa) without a second
- * subscription — the `permissions` realtime domain already invalidates this key.
+ * subscription, the `permissions` realtime domain already invalidates this key.
  */
 
 import { useMemo, useState } from 'react';
@@ -23,13 +23,13 @@ import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 
 function friendlyError(error: unknown): string {
-  if (isSessionClosedError(error)) return 'That session is closed — the approval can no longer be actioned.';
+  if (isSessionClosedError(error)) return 'That session is closed. The approval can no longer be actioned.';
   return formatError(error);
 }
 
 export function FleetApprovalInline({ node, onOpenSession }: {
   node: FleetProcessNode;
-  /** Navigate to a session's chat view — the "open fix session" affordance on a
+  /** Navigate to a session's chat view, the "open fix session" affordance on a
    * resolved approved CI fix offer (record.fixSessionId). */
   onOpenSession?: (sessionId: string) => void;
 }) {
@@ -73,13 +73,13 @@ export function FleetApprovalInline({ node, onOpenSession }: {
         }
         toast(recordedTier
           ? { title: 'Approved', description: `Remembered (${recordedTier}).`, tone: 'success' }
-          : { title: 'Approved', description: 'The daemon did not record the remember request — applied once.', tone: 'info' });
+          : { title: 'Approved', description: 'The daemon did not record the remember request, applied once.', tone: 'info' });
         return;
       }
       if (variables.answer !== undefined) {
         toast(recordedAnswerDelivered(result)
           ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
-          : { title: 'Approved', description: 'The daemon did not record the answer — the command may stop on its prompt.', tone: 'info' });
+          : { title: 'Approved', description: 'The daemon did not record the answer, the command may stop on its prompt.', tone: 'info' });
         return;
       }
       toast({ title: 'Approved', tone: 'success' });

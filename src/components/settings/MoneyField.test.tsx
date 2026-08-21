@@ -52,7 +52,7 @@ describe('MoneyField', () => {
     unmount();
   });
 
-  test('a whole-number amount renders and commits 1:1 — "100" stays 100, never scaled', () => {
+  test('a whole-number amount renders and commits 1:1; "100" stays 100, never scaled', () => {
     const { input, unmount } = render({ value: 100, currency: 'JPY', onCommit: () => {} });
     expect(input.value).toBe('100');
     unmount();
@@ -72,7 +72,7 @@ describe('MoneyField', () => {
     unmount();
   });
 
-  test('a round amount commits as typed — "50" stays 50, never becomes 5000', () => {
+  test('a round amount commits as typed: "50" stays 50, never becomes 5000', () => {
     const commits: number[] = [];
     const { input, unmount } = render({ value: 0, currency: 'USD', onCommit: (v) => commits.push(v) });
     typeAndBlur(input, '50');

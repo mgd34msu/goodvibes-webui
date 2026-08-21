@@ -3,20 +3,20 @@
  *
  * The standard here is the one the TUI's payments-cvv-containment suite set: a
  * fake value is typed through REAL production code, and every payload this
- * surface can produce is then searched for it — the test fails if it is found.
+ * surface can produce is then searched for it, the test fails if it is found.
  * Nothing is mocked except `globalThis.fetch`, which is the actual network
  * boundary; the component, the sdk client, the route table, the transport and
  * the query cache are all the real ones.
  *
  * The payloads searched are the browser's equivalents of the TUI's export file
- * and diagnostic dump — the places a value on this surface could actually
+ * and diagnostic dump, the places a value on this surface could actually
  * survive:
  *
  *   - the request URL (condition 2: never in a URL)
  *   - the rendered DOM (condition 3: never rendered back)
  *   - localStorage and sessionStorage (state that survives navigation)
  *   - the react-query cache, serialized (a store, and the specific reason this
- *     component does not use useMutation — a mutation cache retains its
+ *     component does not use useMutation, a mutation cache retains its
  *     `variables`, which here would be the card)
  *   - the input elements' own values (condition 6: cleared after submit)
  *
@@ -38,7 +38,7 @@ const FAKE_CVV = '731';
 const FAKE_HOLDER = 'Jane Q. Fakename';
 const FAKE_LABEL = 'errands card';
 
-/** Every value typed in this suite — what each payload below is searched for. */
+/** Every value typed in this suite, what each payload below is searched for. */
 const TYPED_VALUES = [FAKE_NUMBER, FAKE_CVV, FAKE_HOLDER];
 
 /** The metadata the daemon answers a create with. Note what is absent: any card value. */
@@ -166,7 +166,7 @@ afterEach(() => {
 });
 
 describe('a typed card reaches the daemon and nowhere else', () => {
-  test('the card goes out over the authenticated daemon channel as a POST body — never in the URL', async () => {
+  test('the card goes out over the authenticated daemon channel as a POST body, never in the URL', async () => {
     const { container, unmount } = render();
     fillCard(container);
     await submitCard(container);
@@ -178,7 +178,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     // transport every other secret takes.
     expect(create!.url).toContain('/api/payments/cards');
 
-    // Condition 2: not one card value appears anywhere in the URL — not as a
+    // Condition 2: not one card value appears anywhere in the URL, not as a
     // query parameter, not a fragment, not a path segment.
     for (const value of TYPED_VALUES) {
       expect(create!.url).not.toContain(value);
@@ -224,7 +224,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     unmount();
   });
 
-  test('after submit, every card input is cleared — condition 6, on the elements themselves', async () => {
+  test('after submit, every card input is cleared, condition 6, on the elements themselves', async () => {
     const { container, unmount } = render();
     fillCard(container);
     // Precondition: the values really were there, so the assertion below is
@@ -249,7 +249,7 @@ describe('a typed card reaches the daemon and nowhere else', () => {
     unmount();
   });
 
-  test('after submit, no card value is in the react-query cache — including the mutation cache', async () => {
+  test('after submit, no card value is in the react-query cache, including the mutation cache', async () => {
     const { container, unmount } = render();
     fillCard(container);
     await submitCard(container);
@@ -282,7 +282,7 @@ describe('the daemon never sends card material back', () => {
     fillCard(container);
     await submitCard(container);
 
-    // The stub answers with the real CARD_METADATA shape — which has no field
+    // The stub answers with the real CARD_METADATA shape, which has no field
     // for a number, a security code or a cardholder name. If a read path ever
     // appeared, this shape is where it would show up first.
     expect(Object.keys(CARD_METADATA)).not.toContain('number');
@@ -350,7 +350,7 @@ describe('a failed store keeps the draft but still leaks nothing', () => {
     }
 
     // The draft is intentionally kept on failure so a network blip does not
-    // cost a retype — but it is still only in the inputs, nowhere else.
+    // cost a retype, but it is still only in the inputs, nowhere else.
     const dump = storageDump() + queryCacheDump();
     for (const value of TYPED_VALUES) {
       expect(dump).not.toContain(value);
@@ -360,7 +360,7 @@ describe('a failed store keeps the draft but still leaks nothing', () => {
 });
 
 describe('a surface the gate refuses is never even offered the fields', () => {
-  test('no card input is rendered at all — a disabled field would still be an invitation to type', () => {
+  test('no card input is rendered at all. A disabled field would still be an invitation to type', () => {
     const { container, unmount } = render('telegram');
 
     expect(container.querySelector('[data-testid="payment-card-entry-refused"]')).not.toBeNull();
@@ -375,7 +375,7 @@ describe('a surface the gate refuses is never even offered the fields', () => {
     unmount();
   });
 
-  test('the refused panel makes no daemon call — it does not even list cards', async () => {
+  test('the refused panel makes no daemon call; it does not even list cards', async () => {
     const { unmount } = render('telegram');
     await new Promise((resolve) => setTimeout(resolve, 25));
     expect(calls).toHaveLength(0);

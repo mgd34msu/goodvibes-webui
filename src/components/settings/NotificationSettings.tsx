@@ -1,15 +1,15 @@
 /**
- * NotificationSettings — the settings-area surface for Web Push + install.
+ * NotificationSettings, the settings-area surface for Web Push + install.
  *
  * Two capabilities, each with honest per-state copy (never a dead toggle):
  *
- *   Push notifications — subscribe/unsubscribe this device for the approval and
+ *   Push notifications, subscribe/unsubscribe this device for the approval and
  *   completion pushes the daemon fans out. Every "can't" is named: an insecure
  *   context points at HTTPS (the Tailscale-serve pointer the dictation surface
  *   already uses); a blocked permission explains how to re-enable it; an
  *   unsupported browser says so plainly (iOS has real web-push caveats).
  *
- *   Install — add-to-home-screen. A button on Chromium (replaying the captured
+ *   Install, add-to-home-screen. A button on Chromium (replaying the captured
  *   beforeinstallprompt); the Share-menu instructions on iOS; nothing when the
  *   app is already installed.
  */
@@ -33,14 +33,14 @@ import '../../styles/components/notifications.css';
 
 const pushErrorMessage = describePushSubscribeError;
 
-// The honest fallback while pairing.posture.get hasn't answered yet (or errored) — still
+// The honest fallback while pairing.posture.get hasn't answered yet (or errored), still
 // true, just less specific than the daemon's own wording about ITS deployment.
 const PUSH_INSECURE_FALLBACK =
-  'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS — for a home '
+  'Web Push needs a secure (HTTPS) connection. Open this app over HTTPS, for a home '
   + 'machine, tailscale serve fronts the daemon with an HTTPS hostname, and push then '
   + 'works same-origin.';
 const INSTALL_INSECURE_FALLBACK =
-  'Installing needs a secure (HTTPS) connection — this browser will not register a '
+  'Installing needs a secure (HTTPS) connection; this browser will not register a '
   + 'service worker over plain HTTP to a LAN address. Open this app over HTTPS (for '
   + 'example via Tailscale) to install it.';
 
@@ -54,12 +54,12 @@ export function NotificationSettings() {
   const [permission, setPermission] = useState<NotificationPermissionState>(() => readNotificationPermission());
   const { affordance, promptInstall } = useInstallPrompt();
   // pairing.posture.get is the daemon's own labeled-degradation reason for this exact
-  // origin ("needs https — available via tailscale") — never a client-fabricated guess.
+  // origin ("needs https, available via tailscale"), never a client-fabricated guess.
   // The fallbacks above cover the brief window before it answers.
   const { posture } = useOriginPosture();
   const pushReason = capabilityReason(posture, 'push') ?? PUSH_INSECURE_FALLBACK;
   // Chromium never fires beforeinstallprompt over an insecure origin (its service worker
-  // never registers there — register-sw.ts's shouldRegisterServiceWorker), so 'none' on a
+  // never registers there, register-sw.ts's shouldRegisterServiceWorker), so 'none' on a
   // non-iOS browser is ambiguous between "insecure origin" and "just no prompt yet". The
   // origin's own secureContext answers which one this is.
   const installBlockedByInsecureOrigin = affordance === 'none' && posture !== undefined && !posture.secureContext;
@@ -117,14 +117,14 @@ export function NotificationSettings() {
       ) : support === 'unsupported' ? (
         <div className="banner warning" role="status">
           <ShieldAlert size={16} aria-hidden="true" />{' '}
-          This browser does not support Web Push. On iOS, add the app to your Home Screen first —
+          This browser does not support Web Push. On iOS, add the app to your Home Screen first;
           iOS delivers push only to an installed app (iOS 16.4+).
         </div>
       ) : (
         <div className="notifications-push">
           <p className="form-note">
             Get an approval or completion as a notification on this device, even when the app
-            isn&rsquo;t open. Notifications come straight from your daemon — nothing is stored
+            isn&rsquo;t open. Notifications come straight from your daemon, nothing is stored
             elsewhere.
           </p>
           {permission === 'denied' && (

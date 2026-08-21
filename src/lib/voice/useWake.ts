@@ -1,5 +1,5 @@
 /**
- * useWake.ts — React glue for wake-word detection in this tab.
+ * useWake.ts, React glue for wake-word detection in this tab.
  *
  *   useWakeProvisioning()  voice.wake.status + the explicit voice.wake.provision act.
  *   useWakeHost()          mounts the singleton host: resolve settings, start/stop,
@@ -8,7 +8,7 @@
  *
  * The host itself (lib/voice/wake-host.ts) holds no React and no daemon client; this
  * file is where the two are joined, which is why the daemon-facing dependencies are
- * INSTALLED here rather than imported there — a component that only wants the
+ * INSTALLED here rather than imported there, a component that only wants the
  * indicator must not pull the whole SDK client surface in behind it.
  */
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
@@ -147,7 +147,7 @@ export function useWakeHost(onTranscript?: WakeTranscriptSink): WakeHostState {
  *
  * The host is mounted at the shell (it holds a microphone across view changes); the
  * composer belongs to a view. So the view registers the sink and unregisters on
- * unmount, and the host keeps listening either way — recording the transcript in its
+ * unmount, and the host keeps listening either way, recording the transcript in its
  * own state so a wake is never silently lost because no composer was mounted.
  */
 export function useWakeTranscriptSink(sink: WakeTranscriptSink): void {
@@ -157,7 +157,7 @@ export function useWakeTranscriptSink(sink: WakeTranscriptSink): void {
 /**
  * The settings the indicator and the settings UI both read, without either of them
  * re-resolving them. Exported so a component can render `blockers`/`limitations`
- * verbatim — those strings are the resolver's own written reasons, never re-worded
+ * verbatim, those strings are the resolver's own written reasons, never re-worded
  * here.
  */
 export function useWakeSurfaceSettings(): WakeRuntimeSettings {

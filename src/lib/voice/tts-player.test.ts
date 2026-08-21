@@ -114,7 +114,7 @@ describe('TtsEngine', () => {
     expect(engine.getState().error).toBeTruthy();
   });
 
-  test('stop() interrupts mid-reply instantly — no further segments play', async () => {
+  test('stop() interrupts mid-reply instantly: no further segments play', async () => {
     const engine = new TtsEngine();
     const sink = new FakeSink(false); // gated: playback holds after the first enqueue
     const done = engine.speak({

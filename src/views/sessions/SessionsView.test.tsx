@@ -1,5 +1,5 @@
 /**
- * SessionsView — union rendering from a fixture, covering the honesty markers:
+ * SessionsView, union rendering from a fixture, covering the honesty markers:
  * all kinds render (incl. an unknown future kind verbatim), closed-as-history,
  * the retainedMessageCount truncation marker, and the capped-50 affordance.
  */
@@ -39,13 +39,13 @@ let unionReopenCalls: string[] = [];
 let unionDeleteCalls: string[] = [];
 let unionDeleteReallyRemoves = true;
 let methodInfoAvailable = true;
-// When true, the capability probe fails with a TRANSIENT (non-404) error — a network/
+// When true, the capability probe fails with a TRANSIENT (non-404) error, a network/
 // 5xx blip, NOT the daemon's honest "Unknown gateway method" absence. The view must
 // treat this as "couldn't check", never as "delete unavailable".
 let methodInfoTransientError = false;
-// Permission-mode / context-usage fixtures (PermissionModeControl, ContextUsageChip —
+// Permission-mode / context-usage fixtures (PermissionModeControl, ContextUsageChip,
 // sessions.permissionMode.get/set + sessions.contextUsage.get). `permissionModeLocalId`
-// names the ONE session id these mocked verbs answer for honestly — any other selected
+// names the ONE session id these mocked verbs answer for honestly, any other selected
 // session gets the real SESSION_NOT_LOCAL 404, matching the daemon's own session-scoped
 // contract. Defaults to '' (no session is "local") so most tests exercise the honest
 // unavailable state; individual tests reassign it to prove the available path.
@@ -53,9 +53,9 @@ let permissionModeLocalId = '';
 let permissionMode = 'normal';
 let permissionModeSetCalls: { sessionId: string; mode: string }[] = [];
 let contextUsageFixture: { estimatedContextTokens: number; contextWindow: number; contextUsagePct: number; contextRemainingTokens: number } | null = null;
-// Cost attribution fixture (CostChip — cost.attribution.get, SDK 1.6.1). One row per
+// Cost attribution fixture (CostChip, cost.attribution.get, SDK 1.6.1). One row per
 // entry, keyed by session id; a session with no entry has no recorded usage in the
-// window — the honest "no cost recorded" state, not a fabricated $0.
+// window, the honest "no cost recorded" state, not a fabricated $0.
 let costAttributionRows: { key: string; costUsd: number | null; costState: 'priced' | 'estimated' | 'unpriced'; pricedRecordCount: number; unpricedRecordCount: number; tokens: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number } }[] = [];
 
 function sessionNotLocal(sessionId: string) {
@@ -85,7 +85,7 @@ mock.module('../../lib/goodvibes', () => ({
   invokeMethod: () => Promise.resolve({}),
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
   sdk: {
-    // useCompactionReceipts (mounted inside SessionDetail) opens this raw stream —
+    // useCompactionReceipts (mounted inside SessionDetail) opens this raw stream,
     // a no-op open that never delivers a frame keeps the compaction chip/receipts
     // in their honest "not observed yet" empty state for these fixture-driven tests.
     streams: {
@@ -134,11 +134,11 @@ mock.module('../../lib/goodvibes', () => ({
             return Promise.resolve({ sessionId, deleted: true });
           }
           // A daemon whose delete lies (resolves success without actually removing
-          // the record) — the proof-of-gone reconcile below must catch this, not the
+          // the record), the proof-of-gone reconcile below must catch this, not the
           // resolved value here.
           return Promise.resolve({ sessionId, deleted: true });
         },
-        // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) —
+        // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1),
         // session-scoped, honest SESSION_NOT_LOCAL for any id other than
         // permissionModeLocalId (see that fixture's header comment above).
         permissionMode: {
@@ -307,7 +307,7 @@ describe('SessionsView: filtered-empty vs true-empty honesty', () => {
   test('filtering down to zero rows shows a distinct "no match" note with a clear-filters affordance, not the true-empty copy', () => {
     const { el, unmount } = render();
     // The project select has no option matching a kind of 'quantum-surface' AND
-    // project 'goodvibes-tui' at once — pick a kind filter with zero matches
+    // project 'goodvibes-tui' at once, pick a kind filter with zero matches
     // among the TUI-project rows by combining two selects that don't co-occur.
     const kindSelect = el.querySelector('select[aria-label="Filter by kind"]') as HTMLSelectElement;
     const projectSelect = el.querySelector('select[aria-label="Filter by project"]') as HTMLSelectElement;
@@ -323,7 +323,7 @@ describe('SessionsView: filtered-empty vs true-empty honesty', () => {
     });
 
     // s-chat (companion-chat) has no project, and goodvibes-tui rows are never
-    // kind 'companion-chat' — this combination matches zero records.
+    // kind 'companion-chat', this combination matches zero records.
     expect(el.textContent).toContain('No sessions match the current filters.');
     expect(el.textContent).not.toContain('No sessions in the union yet.');
 
@@ -466,7 +466,7 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
     unmount();
   });
 
-  test('a TRANSIENT probe failure (5xx/network, not a 404) shows a neutral "couldn\'t check" with a Retry — never a false "unavailable"', async () => {
+  test('a TRANSIENT probe failure (5xx/network, not a 404) shows a neutral "couldn\'t check" with a Retry, never a false "unavailable"', async () => {
     methodInfoTransientError = true;
     const { el, unmount } = render();
     await flushMicrotasks();
@@ -508,7 +508,7 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
     unmount();
   });
 
-  test('a genuine delete: closes first, then removes — proof-of-gone confirms real absence, session detail clears', async () => {
+  test('a genuine delete: closes first, then removes, proof-of-gone confirms real absence, session detail clears', async () => {
     window.confirm = () => true;
     unionDeleteReallyRemoves = true;
     const { el, unmount } = render();
@@ -523,7 +523,7 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
     expect(unionCloseCalls).toEqual(['s-closed']);
     expect(unionDeleteCalls).toEqual(['s-closed']);
     expect(unionListFixture.sessions.some((s) => s.id === 's-closed')).toBe(false);
-    // The record is genuinely gone — the union list no longer renders it, and the
+    // The record is genuinely gone, the union list no longer renders it, and the
     // detail pane falls back to the empty "select a session" state.
     expect(el.textContent).not.toContain('Old session');
     expect(el.textContent).toContain('Select a session to view and steer it.');
@@ -543,7 +543,7 @@ describe('SessionsView: close/reopen/delete (delete-means-delete)', () => {
     await flushMicrotasks();
 
     expect(unionDeleteCalls).toEqual(['s-closed']);
-    // The mocked delete() resolved {deleted:true} without touching unionListFixture —
+    // The mocked delete() resolved {deleted:true} without touching unionListFixture,
     // the reconcile (a fresh sessions.list()) must catch this lie rather than trust it.
     expect(el.textContent).toContain('Old session');
     expect(el.textContent).toContain('Delete did not complete');
@@ -599,7 +599,7 @@ describe('SessionsView permission-mode control (session-scoped: sessions.permiss
 
     expect(el.textContent).toContain('Set permission mode');
     const options = [...el.querySelectorAll('.permission-mode-sheet__option')];
-    // 'Custom' must never appear as a selectable option — it is read-only on the wire.
+    // 'Custom' must never appear as a selectable option, it is read-only on the wire.
     expect(options.some((b) => b.textContent?.startsWith('Custom'))).toBe(false);
     click(options.find((b) => b.textContent?.startsWith('Auto')));
     await flushMicrotasks();
@@ -696,7 +696,7 @@ describe('SessionsView cost chip (cost.attribution.get, SDK 1.6.1)', () => {
     const chip = el.querySelector('.cost-chip');
     expect(chip?.textContent).toContain('$0.18 (est.)');
     // The blind spot behind the estimate is stated, not implied.
-    expect(chip?.textContent).toContain('1 of 5 records unpriced — dollars shown are a floor');
+    expect(chip?.textContent).toContain('1 of 5 records unpriced: dollars shown are a floor');
     unmount();
   });
 });

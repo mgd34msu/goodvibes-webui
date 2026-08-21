@@ -1,5 +1,5 @@
 /**
- * PriceSourceNote — the price provenance line on dollar displays, rendered
+ * PriceSourceNote, the price provenance line on dollar displays, rendered
  * straight from the wire's `costSource` + `pricingAsOf`.
  * Pins: 'user' → "your price" with an Edit action; 'catalog' → "catalog price,
  * as of <date>"; 'provider'/'mixed' → their honest labels; absent → no source
@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
 import type { WireCostSource } from '../../lib/cost-source';
 
-// The note no longer probes the daemon for provenance — the source rides its
+// The note no longer probes the daemon for provenance, the source rides its
 // props. The editor modal it can open still imports lib/goodvibes transitively,
 // so the module is stubbed to the minimum those imports need.
 mock.module('../../lib/goodvibes', () => ({
@@ -109,7 +109,7 @@ describe('PriceSourceNote', () => {
     unmount();
   });
 
-  test('an absent source makes no claim — only the Set price action', async () => {
+  test('an absent source makes no claim, only the Set price action', async () => {
     const { el, unmount } = render({ costSource: null, provider: 'openrouter', model: 'x' });
     await settle();
     expect(el.querySelector('.price-source-note__label')).toBeNull();

@@ -1,8 +1,8 @@
 /**
- * ArtifactsPanel — slide-over panel for viewing message artifacts and code blocks.
+ * ArtifactsPanel, slide-over panel for viewing message artifacts and code blocks.
  *
  * Exports:
- *   useArtifactsPanel()  — returns { openArtifacts(message) }
+ *   useArtifactsPanel() , returns { openArtifacts(message) }
  *
  * The panel renders:
  *   - Fenced code blocks extracted from message content (syntax-highlighted)
@@ -192,7 +192,7 @@ function ArtifactFileItem({ artifact }: ArtifactFileItemProps) {
 }
 
 // ---------------------------------------------------------------------------
-// ArtifactsPanelContent — rendered inside usePeek
+// ArtifactsPanelContent, rendered inside usePeek
 // ---------------------------------------------------------------------------
 
 interface ArtifactsPanelContentProps {
@@ -248,11 +248,11 @@ function ArtifactsPanelContent({
 }
 
 // ---------------------------------------------------------------------------
-// Public hook — useArtifactsPanel
+// Public hook, useArtifactsPanel
 // ---------------------------------------------------------------------------
 
 /**
- * Hook that provides `openArtifacts(message)` — opens the PeekPanel
+ * Hook that provides `openArtifacts(message)`, opens the PeekPanel
  * populated with the message's code blocks and file attachments.
  *
  * Must be used inside both PeekProvider and ToastProvider.

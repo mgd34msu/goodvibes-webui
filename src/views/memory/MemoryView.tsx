@@ -1,5 +1,5 @@
 /**
- * MemoryView — the web UI's first consumer of the canonical, cross-surface memory
+ * MemoryView, the web UI's first consumer of the canonical, cross-surface memory
  * store (memory.records.* / memory.review-queue, SDK 1.1.0). Search & browse, add,
  * review-queue, delete, and a read-only personas surface (VIBE.md constraint records).
  *
@@ -57,9 +57,9 @@ export function MemoryView() {
   const [recall, setRecall] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<MemorySearchInput>(DEFAULT_FILTERS);
   // One-tap route from a consolidation proposal to the existing review flow: the
-  // referenced record ids highlight in the review queue below (if present there —
+  // referenced record ids highlight in the review queue below (if present there,
   // consolidation marks them into it, but a longer queue may push them past the
-  // fetched limit) and the panel scrolls into view. Never filters the queue down —
+  // fetched limit) and the panel scrolls into view. Never filters the queue down,
   // a jump lands on the row, it does not hide the rest of the queue.
   const [reviewHighlightIds, setReviewHighlightIds] = useState<ReadonlySet<string>>(new Set());
   const reviewQueueSectionRef = useRef<HTMLElement>(null);
@@ -113,7 +113,7 @@ export function MemoryView() {
   }, [peek]);
 
   const requestDelete = useCallback((record: MemoryRecord) => {
-    if (!window.confirm(`Delete "${record.summary}" permanently?\n\nThis removes the memory record — it cannot be undone.`)) return;
+    if (!window.confirm(`Delete "${record.summary}" permanently?\n\nThis removes the memory record: it cannot be undone.`)) return;
     deleteMutation.mutate(record);
   }, [deleteMutation]);
 
@@ -142,7 +142,7 @@ export function MemoryView() {
   }
 
   // Honest degrade: this daemon build genuinely does not serve the memory verbs at
-  // all (a real 404 METHOD_NOT_FOUND on the capability, not a transient failure) —
+  // all (a real 404 METHOD_NOT_FOUND on the capability, not a transient failure),
   // replace the whole view rather than showing five separately-broken panels.
   const memoryUnavailable = list.isError && isMethodUnavailableError(list.error);
   if (memoryUnavailable) {

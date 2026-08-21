@@ -1,11 +1,11 @@
 /**
- * assert-contract-shape.test.ts — proves the e2e fixtures actually conform to
+ * assert-contract-shape.test.ts, proves the e2e fixtures actually conform to
  * the SDK's operator-contract.json, and proves the assertion is not a rubber stamp: a
  * deliberately-drifted fixture (a renamed/dropped required field, exactly the shape of
- * the provider-pills incident this closes — see seed.ts's providersResponse() header)
+ * the provider-pills incident this closes, see seed.ts's providersResponse() header)
  * must FAIL it.
  *
- * Runs under `bun test` (a plain *.test.ts file, not a Playwright *.e2e.ts spec — see
+ * Runs under `bun test` (a plain *.test.ts file, not a Playwright *.e2e.ts spec, see
  * playwright.config.ts's testMatch), and never touches a Page or a port: every sample
  * here comes straight from the exported, pure fixture builders in seed.ts /
  * mock-daemon.ts, the same functions installMockDaemon wires into its `page.route`
@@ -83,24 +83,24 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     expect(() => assertFixtureMatchesOperatorContract('control.methods.get', methodInfoResponse('sessions.delete'))).not.toThrow();
   });
 
-  test('fleet.graph.get: fleetGraphResponse() conforms — proves every node state tell (ready/running/blocked/stalled/done) and the at-cap pool state against the real contract', () => {
+  test('fleet.graph.get: fleetGraphResponse() conforms; proves every node state tell (ready/running/blocked/stalled/done) and the at-cap pool state against the real contract', () => {
     expect(() => assertFixtureMatchesOperatorContract('fleet.graph.get', fleetGraphResponse(FLEET_GRAPH_WORKSTREAM_ID))).not.toThrow();
   });
 
-  test('power.status.get / power.keepAwake.set: powerStatusResponse() conforms — the held, honest lid-split case', () => {
+  test('power.status.get / power.keepAwake.set: powerStatusResponse() conforms, the held, honest lid-split case', () => {
     expect(() => assertFixtureMatchesOperatorContract('power.status.get', powerStatusResponse())).not.toThrow();
     expect(() => assertFixtureMatchesOperatorContract('power.keepAwake.set', powerStatusResponse())).not.toThrow();
   });
 
-  test('ops.memory.get: opsMemoryResponse() conforms — the elevated tier with caches, a paused job, and tripwire state', () => {
+  test('ops.memory.get: opsMemoryResponse() conforms, the elevated tier with caches, a paused job, and tripwire state', () => {
     expect(() => assertFixtureMatchesOperatorContract('ops.memory.get', opsMemoryResponse())).not.toThrow();
   });
 
-  test('voice.local.status: voiceLocalStatusResponse() conforms — the size-labeled not-provisioned offer', () => {
+  test('voice.local.status: voiceLocalStatusResponse() conforms. The size-labeled not-provisioned offer', () => {
     expect(() => assertFixtureMatchesOperatorContract('voice.local.status', voiceLocalStatusResponse())).not.toThrow();
   });
 
-  test('voice.local.status: the in-progress variant conforms — the optional installInProgress section of an active install', () => {
+  test('voice.local.status: the in-progress variant conforms, the optional installInProgress section of an active install', () => {
     expect(() => assertFixtureMatchesOperatorContract('voice.local.status', voiceLocalStatusInProgressResponse())).not.toThrow();
   });
 
@@ -109,7 +109,7 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     expect(() => assertFixtureMatchesOperatorContract('voice.local.install', voiceLocalInstallResponse('download-failed'))).not.toThrow();
   });
 
-  // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the mock
+  // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1), the mock
   // daemon's own answer shapes for the local-session-only verbs, pinned against the
   // real installed contract the same way every other fixture above is.
   test('sessions.permissionMode.get: the mock daemon\'s response shape conforms', () => {
@@ -131,7 +131,7 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
     })).not.toThrow();
   });
 
-  // sessions.changes.get + cost.attribution.get (SDK 1.6.1) — the mock daemon's own
+  // sessions.changes.get + cost.attribution.get (SDK 1.6.1), the mock daemon's own
   // answer shapes for these two new generic-invoke verbs, pinned against the real
   // installed contract the same way every other fixture above is.
   test('sessions.changes.get: the mock daemon\'s honest-empty response shape conforms', () => {
@@ -168,7 +168,7 @@ describe('e2e fixtures conform to the SDK operator contract', () => {
   });
 
   test('fleet.snapshot: FLEET_SNAPSHOT conforms, including the derived needsAttention marker', () => {
-    // FLEET_BLOCKED_NODE carries needsAttention: { reason:'input', detail } — the new
+    // FLEET_BLOCKED_NODE carries needsAttention: { reason:'input', detail }, the new
     // SDK field this consumer round adopts. This pins the fixture against the real
     // fleet.snapshot output schema so a drift in the attention shape is caught here.
     expect(() => assertFixtureMatchesOperatorContract('fleet.snapshot', FLEET_SNAPSHOT)).not.toThrow();

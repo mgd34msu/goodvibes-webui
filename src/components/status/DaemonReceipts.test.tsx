@@ -1,9 +1,9 @@
 /**
- * DaemonReceipts — the connect-time receipt notices.
+ * DaemonReceipts, the connect-time receipt notices.
  * Pins: control.status is called with { receipts: 'consume' } exactly once on
  * the attach edge (connected + signed-in), each returned receipt renders as a
  * dismissible one-line notice, a plain (disconnected / signed-out) state never
- * consumes, and a dismissed receipt is gone — the "shows once" contract.
+ * consumes, and a dismissed receipt is gone, the "shows once" contract.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -109,7 +109,7 @@ describe('DaemonReceipts', () => {
     const { el, rerender, unmount } = render({ connected: true, signedIn: true });
     await settle();
     expect(notices(el)).toHaveLength(1);
-    // Re-render with the same attached props — no second consume.
+    // Re-render with the same attached props, no second consume.
     rerender({ connected: true, signedIn: true });
     await settle();
     expect(statusCalls.filter((c) => c?.receipts === 'consume')).toHaveLength(1);
@@ -120,7 +120,7 @@ describe('DaemonReceipts', () => {
 
   test('a feature announcement rides the same queue and linkifies its URL', async () => {
     // Announcements arrive through the SAME receipts=consume read, same shape,
-    // same show-once semantics — the web-surface URL line becomes a real link.
+    // same show-once semantics, the web-surface URL line becomes a real link.
     stagedReceipts = [
       { id: 'ann-web', text: 'Reach this session from your phone: https://gv.example/s/abc123', at: 1 },
     ];

@@ -1,14 +1,14 @@
 /**
- * ToolActivityGroup — folds a completed turn's tool calls into the assistant
+ * ToolActivityGroup, folds a completed turn's tool calls into the assistant
  * message that produced them, instead of letting them evaporate once the turn
  * ends (see useChatStream's toolActivityByMessageId doc comment for where the
  * data comes from and why it is only ever present for a turn this browser tab
  * watched run live).
  *
  * Single-tool turns render one compact entry directly. Multi-tool turns fold
- * behind a <details>/<summary> disclosure — the same idiom MessageItem already
- * uses for compaction-handoff messages — with a real, counted summary line
- * ("3 tools · read×2, exec — expand"), never an invented total.
+ * behind a <details>/<summary> disclosure, the same idiom MessageItem already
+ * uses for compaction-handoff messages, with a real, counted summary line
+ * ("3 tools · read×2, exec, expand"), never an invented total.
  */
 import {
   toolFriendlyLabel,
@@ -62,7 +62,7 @@ export function ToolActivityGroup({ toolActivity }: { toolActivity: readonly Com
 
   return (
     <details className="message-tool-activity message-tool-activity--group">
-      <summary>{toolActivity.length} tools · {summarizeToolActivity(toolActivity)} — expand</summary>
+      <summary>{toolActivity.length} tools · {summarizeToolActivity(toolActivity)}; expand</summary>
       <ul className="message-tool-activity__list">
         {toolActivity.map((call) => <ToolActivityEntry key={call.toolCallId} call={call} />)}
       </ul>

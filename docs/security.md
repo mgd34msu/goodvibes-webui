@@ -1,10 +1,10 @@
-# Security Notes
+# Security notes
 
 GoodVibes WebUI is a local/operator surface over a daemon. It should keep
 security ownership with the daemon and avoid creating duplicate secret or auth
 stores in browser code.
 
-## Trust Boundary
+## Trust boundary
 
 - The daemon/control-plane API is the authority for auth, config, providers,
   chat, artifacts, and Knowledge/Wiki.
@@ -56,21 +56,21 @@ should connect to `127.0.0.1:3421` even when the daemon binds to `0.0.0.0`.
 Do not expose the dev server directly to untrusted networks. A production
 deployment should add explicit TLS, host allow-listing, and daemon auth policy.
 
-## Attachments and Artifacts
+## Attachments and artifacts
 
 Chat attachments are uploaded to daemon artifacts before being referenced from a
 chat message. The browser sends file bytes to the daemon as base64 through the
 published SDK helper. Operators should avoid attaching secrets unless they intend
 the daemon and selected model route to process them.
 
-## Logging and Screenshots
+## Logging and screenshots
 
 - Do not log raw tokens, passwords, or bootstrap credentials.
 - Avoid committing screenshots that show private chat content, local secrets,
   provider keys, or sensitive Knowledge records.
 - Documentation screenshots should use empty or non-sensitive states.
 
-## Dependency and SDK Safety
+## Dependency and SDK safety
 
 - Use the npm-published `@pellux/goodvibes-sdk` package.
 - Do not point WebUI to a local SDK checkout for validation.
@@ -80,7 +80,7 @@ the daemon and selected model route to process them.
 node -p "require('./node_modules/@pellux/goodvibes-sdk/package.json').version"
 ```
 
-## Security Issue Checklist
+## Security issue checklist
 
 When investigating a security-relevant bug, capture:
 

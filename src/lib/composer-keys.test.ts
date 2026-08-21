@@ -28,13 +28,13 @@ describe('shouldSteerComposerKey', () => {
     expect(shouldSteerComposerKey({ key: 'Enter', shiftKey: false, metaKey: true })).toBe(true);
   });
 
-  test('plain Enter does NOT steer — it submits', () => {
+  test('plain Enter does NOT steer, it submits', () => {
     const plain = { key: 'Enter', shiftKey: false };
     expect(shouldSteerComposerKey(plain)).toBe(false);
     expect(shouldSubmitComposerKey(plain)).toBe(true);
   });
 
-  test('Ctrl+Enter does NOT plain-submit — the two combos are mutually exclusive', () => {
+  test('Ctrl+Enter does NOT plain-submit. The two combos are mutually exclusive', () => {
     expect(shouldSubmitComposerKey({ key: 'Enter', shiftKey: false, ctrlKey: true })).toBe(false);
   });
 

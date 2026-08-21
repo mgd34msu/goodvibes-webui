@@ -8,7 +8,7 @@ export interface WebUiPreferences {
   /**
    * Memory provenance chip (owner-ruled, default OFF): when true, a chat turn
    * that used memories shows a small chip with drill-in listing the injection
-   * records (MemoryProvenanceChip.tsx, memory-provenance.ts). Off by default —
+   * records (MemoryProvenanceChip.tsx, memory-provenance.ts). Off by default,
    * nothing renders until the owner opts in.
    */
   memoryProvenanceChipEnabled: boolean;

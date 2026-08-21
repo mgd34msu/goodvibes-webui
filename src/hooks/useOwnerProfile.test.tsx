@@ -1,5 +1,5 @@
 /**
- * useOwnerProfile — what the write hooks actually SEND on the wire.
+ * useOwnerProfile, what the write hooks actually SEND on the wire.
  *
  * This file exists because the panel's own tests mock these hooks, so they assert what the
  * UI does with an answer and can say nothing about the request. A contract change that
@@ -7,7 +7,7 @@
  * a mock that accepts anything accepts a body the daemon would 400. So every assertion
  * here is on the request payload, not on the response.
  *
- * The generated input types cannot catch this either — `authority` is optional in
+ * The generated input types cannot catch this either, `authority` is optional in
  * OperatorMethodInput<'profile.set'> and friends (the schemas' `required` arrays do not
  * list it) while routes/owner-profile.ts's readAuthority refuses an absent value at
  * runtime. The handler is stricter than the declared schema, which leaves this test as the
@@ -175,7 +175,7 @@ describe('every profile write states its authority', () => {
       authority: AUTHORITY,
     });
     // A position captured at render time may name a different line by click time (§9.2),
-    // so the verb refuses one outright — nothing here may send it.
+    // so the verb refuses one outright, nothing here may send it.
     expect('lineIndex' in (call.input as Record<string, unknown>)).toBe(false);
   });
 
@@ -215,7 +215,7 @@ describe('every profile write states its authority', () => {
  * happens: he opens the card, walks away, edits the file in his editor, comes back and
  * clicks delete on a row rendered from the pre-edit read. These tests drive a fake
  * document that removes by CONTENT the way forgetProseByText does, and prove the two
- * outcomes that matter — the right line goes even though every index moved, and a line
+ * outcomes that matter, the right line goes even though every index moved, and a line
  * that is gone takes nothing with it.
  */
 describe('a document that changed under the view', () => {
@@ -254,7 +254,7 @@ describe('a document that changed under the view', () => {
     people = ['Sarah, sister, sarah@example.com', 'Dave from work, handles the Pellux contracts'];
     render();
 
-    // He edits the file meanwhile — a new first line pushes everything down by one.
+    // He edits the file meanwhile, a new first line pushes everything down by one.
     people = ['Ken, neighbour', 'Sarah, sister, sarah@example.com', 'Dave from work, handles the Pellux contracts'];
 
     // He clicks delete on the Dave row, still rendered from the pre-edit read.
@@ -262,7 +262,7 @@ describe('a document that changed under the view', () => {
 
     expect(outcome.ok).toBe(true);
     // Dave went, and nothing else did. A positional delete carrying the rendered index 1
-    // would have removed Sarah — this asserts exactly that it did not.
+    // would have removed Sarah, this asserts exactly that it did not.
     expect(people).toEqual(['Ken, neighbour', 'Sarah, sister, sarah@example.com']);
   });
 
@@ -277,7 +277,7 @@ describe('a document that changed under the view', () => {
 
     expect(outcome.ok).toBe(false);
     expect(outcome.reason).toContain('not in People any more');
-    // The survivor is untouched — nothing was removed in its place.
+    // The survivor is untouched, nothing was removed in its place.
     expect(people).toEqual(['Sarah, sister, sarah@example.com']);
   });
 });
@@ -288,7 +288,7 @@ describe('a document that changed under the view', () => {
  * The check reads OPERATOR_CONTRACT's own `inputSchema` rather than a list written here,
  * so it re-derives itself on every pin bump: when the SDK renames, retires or requires a
  * property, this fails without anyone remembering to update an expectation. That is the
- * point — the two contract changes that broke this surface (`authority` becoming required,
+ * point, the two contract changes that broke this surface (`authority` becoming required,
  * and `forget` moving off `lineIndex`) both produced zero type errors, because the
  * generated input for an id can be a catch-all and because excess properties are only
  * rejected on fresh object literals.
@@ -353,7 +353,7 @@ describe('the request bodies conform to the declared contract input', () => {
 
   test('the schemas this asserts against really are strict about unknown properties', () => {
     // If additionalProperties ever stopped being false, the assertions above would still
-    // pass while the daemon quietly accepted junk — so the strictness itself is pinned.
+    // pass while the daemon quietly accepted junk, so the strictness itself is pinned.
     for (const id of ['profile.set', 'profile.append', 'profile.forget', 'profile.undo']) {
       expect(inputSchemaFor(id).additionalProperties, `${id} input schema`).toBe(false);
     }

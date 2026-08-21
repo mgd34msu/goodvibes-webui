@@ -1,16 +1,16 @@
 /**
- * mockPushApis — install a fake serviceWorker + PushManager + Notification
+ * mockPushApis, install a fake serviceWorker + PushManager + Notification
  * before the app loads, so the push client runs its REAL logic (VAPID fetch →
  * subscribe → register with the daemon) against controllable fakes. Shared by
  * pwa.e2e.ts (the settings toggle) and pairing-handoff.e2e.ts (the hand-off
- * bundle's notifications offer) — both drive the same browser-side ceremony.
+ * bundle's notifications offer), both drive the same browser-side ceremony.
  */
 import type { Page } from '@playwright/test';
 
 export interface MockPushApisOptions {
   /**
    * Seed an ALREADY-ACTIVE browser subscription (as if a prior session had
-   * subscribed) so a test can drive the reconcile-on-open path —
+   * subscribed) so a test can drive the reconcile-on-open path,
    * usePushSubscriptionReconcile fires only when getSubscription() already
    * returns something; the plain subscribe flow covers the empty case.
    */
@@ -68,11 +68,11 @@ export async function mockPushApis(
       });
       // A stand-in PushManager + Notification so detectPushSupport() reports 'ok'.
       (window as unknown as { PushManager: unknown }).PushManager = function () {
-        /* presence-only stand-in — detectPushSupport checks the constructor exists */
+        /* presence-only stand-in, detectPushSupport checks the constructor exists */
       };
       (window as unknown as { Notification: unknown }).Notification = Object.assign(
         function () {
-          /* presence-only stand-in — never constructed by the shell */
+          /* presence-only stand-in, never constructed by the shell */
         },
         {
           permission: perm,

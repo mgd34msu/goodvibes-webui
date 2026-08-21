@@ -77,7 +77,7 @@ afterEach(() => {
 // Children
 // ---------------------------------------------------------------------------
 
-describe('CommandProvider — children', () => {
+describe('CommandProvider: children', () => {
   test('renders children into the DOM', () => {
     const { container, unmount } = renderProvider({
       children: <span data-testid="child">Hello</span>,
@@ -98,7 +98,7 @@ describe('CommandProvider — children', () => {
 // Command registration
 // ---------------------------------------------------------------------------
 
-describe('CommandProvider — command registration', () => {
+describe('CommandProvider: command registration', () => {
   test('registers default commands on mount', () => {
     const { unmount } = renderProvider({});
     const ids = getCommands().map((c) => c.id);
@@ -131,7 +131,7 @@ describe('CommandProvider — command registration', () => {
     expect(chatCmd).toBeDefined();
     chatCmd!.run();
     expect(onNavigate).toHaveBeenCalledTimes(1);
-    // onNavigate?.('chat') passes only one argument — no second arg is passed.
+    // onNavigate?.('chat') passes only one argument, no second arg is passed.
     expect(onNavigate).toHaveBeenCalledWith('chat');
     unmount();
   });
@@ -151,7 +151,7 @@ describe('CommandProvider — command registration', () => {
 // Palette open / close
 // ---------------------------------------------------------------------------
 
-describe('CommandProvider — palette open/close', () => {
+describe('CommandProvider: palette open/close', () => {
   test('palette is closed on initial render', () => {
     const { container, unmount } = renderProvider({});
     expect(container.querySelector('[role="dialog"]')).toBeNull();

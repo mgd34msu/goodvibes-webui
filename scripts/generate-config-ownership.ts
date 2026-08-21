@@ -2,8 +2,8 @@
 /**
  * generate-config-ownership.ts
  *
- * Snapshots the SDK's config-ownership data — which config keys/prefixes the
- * daemon owns — into one checked-in, browser-safe TS module:
+ * Snapshots the SDK's config-ownership data, which config keys/prefixes the
+ * daemon owns, into one checked-in, browser-safe TS module:
  *
  *   src/lib/generated/config-ownership.ts
  *
@@ -15,11 +15,11 @@
  * "keep in sync by hand" mirror. It drifted: it was missing the
  * `conversationGate.` and `cluster.` prefixes, and it never carried
  * DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS at all (so keys like
- * `email.passwordRef` and `calendar.google.icsUrl` — daemon-owned per the SDK
- * because they hold mail/calendar credentials — read as NOT daemon-owned in
+ * `email.passwordRef` and `calendar.google.icsUrl`, daemon-owned per the SDK
+ * because they hold mail/calendar credentials, read as NOT daemon-owned in
  * this UI's badge, even though the daemon is in fact the only writer). Because
  * routing happens server-side (daemon-config-route.ts), the drift never broke
- * routing — it just made the "daemon-owned" badge lie to the operator about
+ * routing, it just made the "daemon-owned" badge lie to the operator about
  * which settings the daemon owns.
  *
  * A hand-maintained mirror with a comment asking people to remember is not a
@@ -28,11 +28,11 @@
  * the Vite bundle) and snapshots them as plain literals. The browser only
  * ever imports the emitted literal, so importing
  * `@pellux/goodvibes-sdk/platform/config` here does not pull SecretsManager /
- * OAuth / google-auth into the bundle — same reasoning generate-config-schema.ts
+ * OAuth / google-auth into the bundle, same reasoning generate-config-schema.ts
  * already relies on for CONFIG_SCHEMA and FEATURE_SETTINGS.
  *
  * `--check` fails (exit 1) the moment the artifact drifts from a fresh
- * regeneration — same generate-or-check convention as presentation:check and
+ * regeneration, same generate-or-check convention as presentation:check and
  * config-schema:check, wired into `bun run build` so an SDK ownership change
  * that was not regenerated fails the build, not just CI.
  *
@@ -56,7 +56,7 @@ const CHECK_ONLY = process.argv.includes('--check');
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-ownership.ts');
 
 // ---------------------------------------------------------------------------
-// Snapshot shape — the exact serialisable data the ownership predicate needs.
+// Snapshot shape, the exact serialisable data the ownership predicate needs.
 // ---------------------------------------------------------------------------
 
 export interface ConfigOwnershipSnapshot {
@@ -75,7 +75,7 @@ export function loadOwnershipSnapshot(): ConfigOwnershipSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// Rendering — pure, deterministic for a given snapshot.
+// Rendering, pure, deterministic for a given snapshot.
 // ---------------------------------------------------------------------------
 
 const GENERATED_BANNER = [
@@ -108,7 +108,7 @@ export function renderTs(snapshot: ConfigOwnershipSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI — generate-or-check against the checked-in artifact.
+// CLI, generate-or-check against the checked-in artifact.
 // ---------------------------------------------------------------------------
 
 export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
@@ -133,7 +133,7 @@ if (import.meta.main) {
   const snapshot = loadOwnershipSnapshot();
   const drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY);
   if (CHECK_ONLY && drifted) {
-    console.error('[config-ownership:check] drift detected — run `bun run config-ownership:generate`');
+    console.error('[config-ownership:check] drift detected: run `bun run config-ownership:generate`');
     process.exit(1);
   }
   console.log(

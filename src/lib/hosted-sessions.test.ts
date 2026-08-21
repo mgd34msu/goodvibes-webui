@@ -28,7 +28,7 @@ const RECORD: HostedSessionRecord = {
   restoredFromDisk: false,
 };
 
-describe('hostedSessionsFromListResult — honesty bar', () => {
+describe('hostedSessionsFromListResult: honesty bar', () => {
   test('reads the sessions array from a well-formed response', () => {
     expect(hostedSessionsFromListResult({ sessions: [RECORD] })).toEqual([RECORD]);
   });
@@ -41,7 +41,7 @@ describe('hostedSessionsFromListResult — honesty bar', () => {
   });
 });
 
-describe('hostedAttachResultFrom — honesty bar', () => {
+describe('hostedAttachResultFrom: honesty bar', () => {
   test('reads session + history from a well-formed response', () => {
     const result = hostedAttachResultFrom({ session: RECORD, history: [{ role: 'user', content: 'hi' }] });
     expect(result.session).toEqual(RECORD);
@@ -88,7 +88,7 @@ describe('status labels/tones', () => {
   });
 });
 
-describe('effectiveDetachPolicyLabel — never a guess', () => {
+describe('effectiveDetachPolicyLabel: never a guess', () => {
   test('kill states the session will end', () => {
     expect(effectiveDetachPolicyLabel('kill')).toContain('end this session');
   });
@@ -117,7 +117,7 @@ describe('hostedTerminationLabel', () => {
   });
 
   test('an unrecognized reason still renders verbatim rather than being dropped', () => {
-    expect(hostedTerminationLabel({ status: 'terminated', terminatedReason: 'some-future-reason' })).toBe('terminated — some-future-reason');
+    expect(hostedTerminationLabel({ status: 'terminated', terminatedReason: 'some-future-reason' })).toBe('terminated: some-future-reason');
   });
 
   test('no reason recorded is stated honestly', () => {

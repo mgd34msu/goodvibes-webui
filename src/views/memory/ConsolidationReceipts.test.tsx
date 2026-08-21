@@ -1,5 +1,5 @@
 /**
- * ConsolidationReceipts — memory.consolidation.receipts (SDK 1.8.0). Covers every
+ * ConsolidationReceipts, memory.consolidation.receipts (SDK 1.8.0). Covers every
  * honest state (pending, unavailable via 404 and 501, genuinely empty, pending
  * proposals present, resolved runs with no pending proposals) in isolation. The
  * one-tap route to the review queue is covered end to end in MemoryView.test.tsx
@@ -74,7 +74,7 @@ afterEach(() => {
   reviewIdsCalls = [];
 });
 
-describe('ConsolidationReceipts — honest states', () => {
+describe('ConsolidationReceipts: honest states', () => {
   test('a genuinely empty store (no runs ever) says so, distinct from unavailable', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('No consolidation runs yet'));
@@ -105,7 +105,7 @@ describe('ConsolidationReceipts — honest states', () => {
   });
 });
 
-describe('ConsolidationReceipts — pending proposals', () => {
+describe('ConsolidationReceipts: pending proposals', () => {
   test('renders kind, reason, and referenced record ids; Review fires onReviewIds with exactly those ids', async () => {
     receiptsImpl = () => Promise.resolve({
       receipts: [],

@@ -1,12 +1,12 @@
 /**
- * highlight.ts — Shared highlight.js instance for the GoodVibes web UI.
+ * highlight.ts, Shared highlight.js instance for the GoodVibes web UI.
  *
  * Registers all supported languages exactly once (module-level singleton).
  * Exports:
- *   - LANGUAGE_ALIASES  — normalised alias map
- *   - escapeHtml        — minimal HTML escaper
- *   - normalizeLanguage — alias resolution
- *   - highlightCode     — highlight or auto-detect, falling back to escapeHtml
+ *   - LANGUAGE_ALIASES , normalised alias map
+ *   - escapeHtml       , minimal HTML escaper
+ *   - normalizeLanguage, alias resolution
+ *   - highlightCode    , highlight or auto-detect, falling back to escapeHtml
  */
 
 import hljs from 'highlight.js/lib/core';
@@ -36,7 +36,7 @@ import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 
 // ---------------------------------------------------------------------------
-// One-time registration (module singleton — safe to import from multiple files)
+// One-time registration (module singleton, safe to import from multiple files)
 // ---------------------------------------------------------------------------
 
 hljs.registerLanguage('bash', bash);

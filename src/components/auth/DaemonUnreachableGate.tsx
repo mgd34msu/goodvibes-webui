@@ -1,5 +1,5 @@
 /**
- * DaemonUnreachableGate — the honest "can't reach the daemon" state.
+ * DaemonUnreachableGate, the honest "can't reach the daemon" state.
  *
  * When auth.current fails with a NETWORK error (the daemon is down or unreachable) and a
  * token is still stored, the app must NOT fall through to the sign-in front door: that
@@ -7,7 +7,7 @@
  * was never the problem. Instead we keep the stored token untouched and show this plain
  * unreachable state. The auth query keeps re-probing while unreachable (App wires a
  * conditional refetchInterval), so the shell reveals itself automatically the moment the
- * daemon answers again — no user action required. A manual "Retry now" is offered for
+ * daemon answers again, no user action required. A manual "Retry now" is offered for
  * impatience.
  */
 
@@ -33,7 +33,7 @@ export function DaemonUnreachableGate({ detail, retrying, onRetry }: DaemonUnrea
         <h1>Can&rsquo;t reach the daemon</h1>
         <p className="signed-out-lede">
           The operator shell can&rsquo;t reach the GoodVibes daemon right now. Your token is
-          still saved — this is a connection problem, not a sign-in problem. The shell will
+          still saved. This is a connection problem, not a sign-in problem. The shell will
           reconnect and pick up where it left off as soon as the daemon is back.
         </p>
 
@@ -59,7 +59,7 @@ export function DaemonUnreachableGate({ detail, retrying, onRetry }: DaemonUnrea
             <li>The daemon may have stopped, restarted, or is still booting.</li>
             <li>Check that the daemon process is running and bound to the expected port.</li>
             <li>
-              Nothing here signs you out — your stored token is kept and reused
+              Nothing here signs you out: your stored token is kept and reused
               automatically once the daemon responds.
             </li>
           </ul>

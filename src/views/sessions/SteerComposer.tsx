@@ -1,8 +1,8 @@
 /**
- * SteerComposer — the hero flow. Injects a mid-turn steer (sessions.steer) while an
+ * SteerComposer, the hero flow. Injects a mid-turn steer (sessions.steer) while an
  * agent is bound, or queues a follow-up turn (sessions.followUp) otherwise.
  *
- * Honesty: the composer is fire-and-optimistic — it reflects the dispatched text
+ * Honesty: the composer is fire-and-optimistic, it reflects the dispatched text
  * locally with an explicit delivery state (queued → delivered, or failed) and never
  * blocks on the POST resolving. The queued/delivered/failed labels mirror the wire's
  * input lifecycle (session-input-queued / -delivered / -completed / -failed); the
@@ -31,14 +31,14 @@ export interface LocalDispatch {
 
 interface SteerComposerProps {
   sessionId: string;
-  /** True while an agent is bound and the session is open — steer is available. */
+  /** True while an agent is bound and the session is open, steer is available. */
   canSteer: boolean;
-  /** True when the session is closed — dispatch is disabled with an honest note. */
+  /** True when the session is closed, dispatch is disabled with an honest note. */
   closed: boolean;
   /**
    * True when the live session-update stream is currently paused/reconnecting
    * (threaded down from App). A steer still sends over HTTP while
-   * the stream is down — but the delivered/failed confirmation, which is reconciled
+   * the stream is down, but the delivered/failed confirmation, which is reconciled
    * off the stream-driven refetch, may lag. The composer says so rather than looking
    * silently stuck.
    */
@@ -75,9 +75,9 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
     onError: (error, variables) => {
       if (isSessionClosedError(error)) {
         // The chrome (status badge, composer enablement) is driven by the sessions
-        // query, not by this local dispatch state — without this invalidation the
+        // query, not by this local dispatch state, without this invalidation the
         // session keeps reading as "active" and the user can keep firing 409s.
-        setState(variables.id, 'failed', 'This session is closed — reopen it to continue.');
+        setState(variables.id, 'failed', 'This session is closed. Reopen it to continue.');
         void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
         return;
       }
@@ -97,7 +97,7 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
   }
 
   // THE SOFT-KEYBOARD HERO FIX: the steer used to submit ONLY on
-  // Cmd/Ctrl+Enter — a key combination no phone soft keyboard can produce, which
+  // Cmd/Ctrl+Enter, a key combination no phone soft keyboard can produce, which
   // made the flagship "steer from your phone" action literally impossible. Adopt the
   // companion composer's exact semantics (shouldSubmitComposerKey): plain Enter sends,
   // Shift+Enter inserts a newline, and an in-progress IME composition is never
@@ -113,7 +113,7 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
     <div className="steer-composer">
       <div className="steer-composer__mode">
         {closed ? (
-          <span className="badge neutral">Session closed — reopen to send</span>
+          <span className="badge neutral">Session closed: reopen to send</span>
         ) : mode === 'steer' ? (
           <span className="badge ok">Steer · agent bound</span>
         ) : (
@@ -123,7 +123,7 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
 
       {streamPaused && !closed && (
         <p className="steer-composer__stream-note" role="status">
-          Live updates paused — your {mode === 'steer' ? 'steer' : 'follow-up'} will still
+          Live updates paused: your {mode === 'steer' ? 'steer' : 'follow-up'} will still
           send; the delivered/failed result may take a moment to appear.
         </p>
       )}

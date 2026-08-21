@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 /**
- * internal-identifier-check — bans internal planning identifiers (workstream
+ * internal-identifier-check, bans internal planning identifiers (workstream
  * ids, wave ids, work-order ids, debt-register ids, round ids, and lettered
  * finding/brief ids) from every git-tracked text file in this repo.
  *
  * Ported from goodvibes-tui/scripts/internal-identifier-rule.ts and extended
  * with the workstream-id shape ("WS" + digits) that had leaked into this
  * repo's file headers. These tokens are coordination shorthand for planning
- * conversations only — the owner's doctrine, quoted verbatim in the failure
+ * conversations only, the owner's doctrine, quoted verbatim in the failure
  * message below, is that they must never appear in code, comments, docs, or
  * test names. A sweep removed every instance from this repo; this check
  * exists so a new one can never land again without failing the build.
@@ -19,7 +19,7 @@
  *  - F-plus-digits is deliberately NOT in the lettered-finding range: F1..F12
  *    are function keys, genuine technical vocabulary.
  *  - The bare lettered token (a capital A-E plus one or two digits, no
- *    surrounding delimiter) is deliberately NOT banned — it has too many
+ *    surrounding delimiter) is deliberately NOT banned, it has too many
  *    genuine technical uses (API object ids, base64 fragments, spreadsheet
  *    cells) to ban without an unacceptable false-positive rate. Only three
  *    unambiguous shapes are banned: the token alone inside parentheses, a
@@ -27,7 +27,7 @@
  *    and two or more tokens chained by forward slashes.
  *  - Only git-TRACKED files are scanned: build artifacts (dist/, the
  *    playwright report under e2e/.artifacts/) contain minified variable
- *    names that pattern-collide — compiler output, not planning shorthand.
+ *    names that pattern-collide, compiler output, not planning shorthand.
  *
  * Run standalone: `bun run internal-identifiers:check`
  * Wired into: `bun run build` (and therefore `bun run ci`, `bun run gate`,
@@ -100,7 +100,7 @@ export function checkNoInternalIdentifiers(
         const match = pattern.exec(line);
         if (match) {
           violations.push(
-            `${relPath}:${i + 1}: internal planning identifier "${match[0]}" — ${OWNER_DOCTRINE} [internal-identifier]`,
+            `${relPath}:${i + 1}: internal planning identifier "${match[0]}": ${OWNER_DOCTRINE} [internal-identifier]`,
           );
           break;
         }
@@ -155,7 +155,7 @@ if (import.meta.main) {
   const candidates = collectTrackedTextCandidates(root);
   const violations = checkNoInternalIdentifiers(candidates);
   if (violations.length > 0) {
-    console.error('[internal-identifiers:check] FAILED — internal planning identifiers found:');
+    console.error('[internal-identifiers:check] FAILED: internal planning identifiers found:');
     for (const v of violations) console.error(`  ${v}`);
     console.error(
       `\n[internal-identifiers:check] Owner doctrine: ${OWNER_DOCTRINE}. ` +
@@ -164,7 +164,7 @@ if (import.meta.main) {
     process.exit(1);
   }
   console.log(
-    `[internal-identifiers:check] PASSED — ${String(candidates.length)} tracked text files, no internal planning identifiers.`,
+    `[internal-identifiers:check] PASSED: ${String(candidates.length)} tracked text files, no internal planning identifiers.`,
   );
   process.exit(0);
 }

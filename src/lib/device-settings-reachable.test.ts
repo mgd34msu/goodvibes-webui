@@ -1,5 +1,5 @@
 /**
- * device-settings-reachable.test.ts — the `device.*` config keys are reachable
+ * device-settings-reachable.test.ts, the `device.*` config keys are reachable
  * and readable in the settings workspace.
  *
  * The paired-phone feature is configured entirely through config keys, so a key

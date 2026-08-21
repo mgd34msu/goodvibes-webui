@@ -1,11 +1,11 @@
 /**
- * hosted-sessions.ts — display helpers + honesty-bar tolerant readers for
+ * hosted-sessions.ts, display helpers + honesty-bar tolerant readers for
  * sessions.hosted.* (daemon-hosted sessions, already shipped in the SDK): a
  * conversation whose loop runs INSIDE the daemon rather than inside this
  * browser tab, so it does not end when the tab that started it goes away.
  *
  * HONESTY BAR: sessions.hosted.* is real, generated OperatorMethodOutputMap-typed
- * data (contract-bridge-types.ts) — but the hermetic e2e mock daemon answers an
+ * data (contract-bridge-types.ts), but the hermetic e2e mock daemon answers an
  * unmodeled/unknown invoke id with `{}` (mock-daemon.ts's documented fallback),
  * and a real daemon predating this feature would 404 rather than shape-match.
  * Every read here optional-chains so a `{}` response degrades to a STATED empty
@@ -23,7 +23,7 @@ import type {
 const CLIENT_ID_STORAGE_KEY = 'goodvibes.webui.hosted.clientId';
 
 /**
- * A stable per-browser-profile client id for sessions.hosted.attach/detach —
+ * A stable per-browser-profile client id for sessions.hosted.attach/detach,
  * minted once, persisted, and distinct from the push device id (push-client.ts):
  * this one names WHICH ATTACHED CLIENT a hosted session sees, not a push
  * subscription endpoint. Mirrors push-client.ts's ensureDeviceId exactly.
@@ -43,7 +43,7 @@ export function ensureHostedClientId(): string {
 }
 
 /**
- * Tolerant read of sessions.hosted.list's output — `[]` (never a crash, never
+ * Tolerant read of sessions.hosted.list's output, `[]` (never a crash, never
  * indistinguishable from a genuine "none exist") when the daemon answered an
  * unmodeled/unknown shape.
  */
@@ -54,7 +54,7 @@ export function hostedSessionsFromListResult(value: unknown): HostedSessionRecor
 
 /**
  * Tolerant read of sessions.hosted.attach's output. A null `session` means the
- * response did not carry the shape this client expects — the caller must render
+ * response did not carry the shape this client expects, the caller must render
  * an honest "could not attach" rather than a fabricated session.
  */
 export function hostedAttachResultFrom(value: unknown): {
@@ -91,7 +91,7 @@ export function hostedStatusLabel(status: string): string {
 }
 
 /**
- * The policy line rendered BEFORE a detach happens — never a guess: reads the
+ * The policy line rendered BEFORE a detach happens, never a guess: reads the
  * record's own `effectiveDetachPolicy`, the field the daemon computes from the
  * session's own override (if any) and the `hostedSessions.detachPolicy` setting
  * otherwise (HostedSessionRecord's own doc comment, types.ts).
@@ -108,7 +108,7 @@ export function effectiveDetachPolicyLabel(policy: string): string {
 }
 
 /**
- * Human line for a terminated hosted session's reason — verbatim mapping of
+ * Human line for a terminated hosted session's reason, verbatim mapping of
  * HostedSessionTerminationReason (types.ts), never a guess for a reason this
  * client has never seen (falls through to the raw string).
  */
@@ -117,13 +117,13 @@ export function hostedTerminationLabel(record: Pick<HostedSessionRecord, 'status
   const reason = record.terminatedReason;
   if (!reason) return 'terminated (no reason recorded)';
   switch (reason) {
-    case 'detached': return 'terminated — the last client detached (detach policy: kill)';
-    case 'killed': return 'terminated — ended with sessions.hosted.kill';
-    case 'daemon-shutdown': return 'terminated — the daemon shut down while hosting it';
-    case 'restart-unresumable': return 'terminated — restored from disk but its composition could not be rebuilt';
-    case 'retired': return 'terminated — retired after the retention window';
-    case 'evicted': return 'terminated — the engine could not keep it (a bound was exceeded, or its workspace went away)';
-    default: return `terminated — ${reason}`;
+    case 'detached': return 'terminated: the last client detached (detach policy: kill)';
+    case 'killed': return 'terminated: ended with sessions.hosted.kill';
+    case 'daemon-shutdown': return 'terminated: the daemon shut down while hosting it';
+    case 'restart-unresumable': return 'terminated: restored from disk but its composition could not be rebuilt';
+    case 'retired': return 'terminated: retired after the retention window';
+    case 'evicted': return 'terminated: the engine could not keep it (a bound was exceeded, or its workspace went away)';
+    default: return `terminated: ${reason}`;
   }
 }
 

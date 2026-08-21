@@ -1,43 +1,43 @@
 /**
- * HostedSessionsView — daemon-hosted sessions (already shipped in the SDK): a
+ * HostedSessionsView, daemon-hosted sessions (already shipped in the SDK): a
  * conversation whose loop runs INSIDE the daemon rather than
  * inside this browser tab, so it does not end when the tab that started it
  * goes away.
  *
  * List: sessions.hosted.list, with an includeTerminated toggle. Terminated rows
- * show `terminatedReason` verbatim (mapped to a human line — see
+ * show `terminatedReason` verbatim (mapped to a human line, see
  * lib/hosted-sessions.ts's hostedTerminationLabel).
  *
  * Attach/view: selecting a row calls sessions.hosted.attach with this browser's
- * stable client id (lib/hosted-sessions.ts's ensureHostedClientId — persisted in
+ * stable client id (lib/hosted-sessions.ts's ensureHostedClientId, persisted in
  * localStorage, distinct from the push device id), renders the returned
- * `history`, then renders the LIVE stream — the same `turn`/`tools` domain
+ * `history`, then renders the LIVE stream, the same `turn`/`tools` domain
  * frames a local session emits, filtered to this session's id
  * (useHostedSessionRealtime, lib/hosted-session-stream.ts). Steering rides the
- * ORDINARY SteerComposer/sessions.steer — there is no hosted-specific steer verb
+ * ORDINARY SteerComposer/sessions.steer, there is no hosted-specific steer verb
  * (method-catalog-hosted-sessions.ts's header comment).
  *
  * Create: the toolbar's "New session" form takes a workspace path (required),
  * an optional title, and a detach-policy choice that DEFAULTS to "use the
- * daemon's configured default" (an empty field on the wire — sessions.hosted.create's
+ * daemon's configured default" (an empty field on the wire, sessions.hosted.create's
  * `detachPolicy` is optional and the daemon applies its own `hostedSessions.detachPolicy`
  * setting when it is omitted, so this client never has to know or guess that value to
  * offer the default). A created session is attached immediately.
  *
  * End: an explicit "End session" button in the detail header calls
- * sessions.hosted.kill directly, regardless of the session's own detach policy —
+ * sessions.hosted.kill directly, regardless of the session's own detach policy,
  * this is the one action that can end a `survive`-policy session (Leave/detach
  * on one of those deliberately does NOT end it; see hosted-sessions.ts's
  * effectiveDetachPolicyLabel). Confirmed first (danger tone) since it is
  * immediate and affects every other attached client too.
  *
  * Detach: fired when the attached session changes or this view unmounts. Before
- * an EXPLICIT "Leave" click, a confirm sheet states what leaving will do —
+ * an EXPLICIT "Leave" click, a confirm sheet states what leaving will do,
  * read from the record's own `effectiveDetachPolicy` (kill terminates it,
  * survive leaves it idle and reattachable), never guessed client-side.
  *
- * HONESTY BAR: every response read (list, attach) optional-chains — see
- * lib/hosted-sessions.ts's tolerant readers — so an unmodeled/unknown-shaped
+ * HONESTY BAR: every response read (list, attach) optional-chains, see
+ * lib/hosted-sessions.ts's tolerant readers, so an unmodeled/unknown-shaped
  * response (the hermetic e2e mock's `{}` fallback for an uncataloged invoke id,
  * or a daemon predating this feature) renders a STATED "could not be read"
  * message, never an empty list indistinguishable from "no hosted sessions
@@ -82,7 +82,7 @@ import { useToast } from '../../lib/toast';
 import '../../styles/components/hosted-sessions.css';
 
 /** Whether a sessions.hosted.list response carried the shape this client
- * expects (`{ sessions: [...] }`) — distinct from a genuinely empty list, so
+ * expects (`{ sessions: [...] }`), distinct from a genuinely empty list, so
  * the view can tell "no hosted sessions" from "the daemon answered something
  * this client cannot read" (an unmodeled invoke id, an older daemon). */
 function isWellFormedListResponse(value: unknown): boolean {
@@ -92,7 +92,7 @@ function isWellFormedListResponse(value: unknown): boolean {
 /**
  * Poll cadence, same fallback/safety-net split FleetView uses for its own
  * subscription. When the hosted-session stream is DOWN this is the honest
- * fallback — the list (and, via the reconciliation effect below, the attached
+ * fallback, the list (and, via the reconciliation effect below, the attached
  * session's own status) still catch up on a plain timer instead of freezing
  * until the operator refocuses the tab. When the stream is LIVE, its frames
  * drive freshness and the poll recedes to a slow safety net.
@@ -134,7 +134,7 @@ export function HostedSessionsView() {
     }
     if (isTerminalTurnFrame(frame)) {
       setActiveToolCalls([]);
-      // A completed turn changed turnCount/messageCount/lastTurnAt — the list
+      // A completed turn changed turnCount/messageCount/lastTurnAt, the list
       // row for this session is stale until the next hosted-session-update
       // (turn-ended fires one, but this refetches immediately rather than
       // waiting on it).
@@ -163,7 +163,7 @@ export function HostedSessionsView() {
   });
 
   // Stream-down honesty: the banner below claims the list "falls back to
-  // periodic refresh" — this is what makes that true. `refetchIntervalInBackground`
+  // periodic refresh", this is what makes that true. `refetchIntervalInBackground`
   // is left at its default (off): a backgrounded tab does not need this fallback to
   // keep polling, only a foregrounded one whose stream happens to be down.
   const list = useQuery({
@@ -179,12 +179,12 @@ export function HostedSessionsView() {
   const listWellFormed = list.isSuccess ? isWellFormedListResponse(list.data) : true;
 
   // Keeps the ATTACHED session's own status current off the same poll/invalidation
-  // that refreshes the list rows above — without this, a session terminated while
+  // that refreshes the list rows above, without this, a session terminated while
   // the stream is down (so no hosted-session-update lifecycle frame ever arrives)
   // would go on rendering its steer composer as if still live until the operator
   // manually refetches or refocuses the tab. Only ever moves attachedSession
   // STRICTLY FORWARD, to a row the daemon has since confirmed is newer (a strictly
-  // greater updatedAt) for the SAME session id — never sideways or backward, so a
+  // greater updatedAt) for the SAME session id, never sideways or backward, so a
   // list read that merely lags the attach response (a race between the two, not a
   // real update) can never regress what attach/a lifecycle frame already confirmed.
   useEffect(() => {
@@ -222,7 +222,7 @@ export function HostedSessionsView() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.hostedSessionsAll });
       setShowCreate(false);
       if (!session) {
-        toast({ title: 'Hosted session created', description: 'The daemon did not return a session in a shape this client understands — refresh the list to find it.', tone: 'info' });
+        toast({ title: 'Hosted session created', description: 'The daemon did not return a session in a shape this client understands, refresh the list to find it.', tone: 'info' });
         return;
       }
       toast({ title: 'Hosted session created', tone: 'success' });
@@ -251,7 +251,7 @@ export function HostedSessionsView() {
     const confirmed = await confirm.ask({
       title: 'End this hosted session?',
       target: attachedSession.title || attachedSession.id,
-      description: 'This ends the session immediately for every attached client, regardless of its detach policy — including a "survive" session that would otherwise stay running. This cannot be undone.',
+      description: 'This ends the session immediately for every attached client, regardless of its detach policy, including a "survive" session that would otherwise stay running. This cannot be undone.',
       confirmLabel: 'End session',
       tone: 'danger',
     });
@@ -265,7 +265,7 @@ export function HostedSessionsView() {
   }, [attachedSession, clientId]);
 
   // Fire-and-forget detach for the PASSIVE paths (switching rows, leaving the view,
-  // a tab closing/backgrounding — never the explicit "Leave" click below, which
+  // a tab closing/backgrounding, never the explicit "Leave" click below, which
   // awaits the call and confirms first). "Fire-and-forget" means this component
   // stops waiting on the result, not that a failure goes unheard: a passive detach
   // that never reaches the daemon leaves this browser listed as an attached client
@@ -284,7 +284,7 @@ export function HostedSessionsView() {
 
   // Read through a ref inside the mount/unmount-only effect below (empty deps, so its
   // cleanup fires ONLY on a genuine unmount, never merely because passiveDetach's own
-  // identity moved — the same reason detachRef above exists rather than closing over
+  // identity moved, the same reason detachRef above exists rather than closing over
   // attachedSession/clientId directly).
   const passiveDetachRef = useRef(passiveDetach);
   useEffect(() => {
@@ -298,16 +298,16 @@ export function HostedSessionsView() {
     if (pending) passiveDetachRef.current(pending.sessionId, pending.clientId);
   }, []);
 
-  // A closed tab never reaches the unmount effect above — React does not run cleanup
+  // A closed tab never reaches the unmount effect above, React does not run cleanup
   // when the page itself goes away, so without this a closed tab stayed listed as an
   // attached client permanently. `pagehide` is the real signal for that (navigation
-  // away, tab close, and — unlike `beforeunload` — it also fires on a bfcache-eligible
+  // away, tab close, and, unlike `beforeunload`, it also fires on a bfcache-eligible
   // navigation that has no visibility-change event of its own). `visibilitychange`
   // firing to 'hidden' is added because a backgrounded PWA on mobile is frequently
   // suspended without pagehide ever firing at all; the tradeoff is that switching tabs
   // also detaches, which the ordinary attach-on-select flow reverses the moment the
   // operator picks this session again. Both go through hostedSessionDetachBeacon
-  // (fetch keepalive), never sdk.operator.sessions.hosted.detach's own promise — there
+  // (fetch keepalive), never sdk.operator.sessions.hosted.detach's own promise, there
   // is no time left for that round trip to be awaited at this point.
   useEffect(() => {
     function beaconDetach(): void {
@@ -481,7 +481,7 @@ function CreateHostedSessionForm({ pending, onCreate }: {
     onCreate({
       workspaceRoot: trimmedWorkspaceRoot,
       ...(title.trim() ? { title: title.trim() } : {}),
-      // Omitted entirely (not sent as '') when left on "Use daemon default" — the
+      // Omitted entirely (not sent as '') when left on "Use daemon default", the
       // daemon applies hostedSessions.detachPolicy itself when this field is absent
       // (see the header comment's Create section), so this client never guesses it.
       ...(detachPolicy ? { detachPolicy } : {}),

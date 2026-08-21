@@ -1,5 +1,5 @@
 /**
- * Calendar view — events (list/get/create) + ICS import/export over the daemon's
+ * Calendar view, events (list/get/create) + ICS import/export over the daemon's
  * calendar.* verbs, proven against a real HTTP round-trip through the mock daemon
  * (not just a unit-mocked module). Runs on both the phone and desktop Playwright
  * projects (playwright.config.ts) since no test here gates on project name.
@@ -15,7 +15,7 @@ test('configured: events render sorted by start time, no fabricated state', asyn
   await expect(view).toBeVisible();
   const rows = view.locator('.calendar-event-row');
   await expect(rows).toHaveCount(2);
-  // Seed has ev-1 (Aug 1) before ev-2 (Aug 2) — the view must sort by start, not
+  // Seed has ev-1 (Aug 1) before ev-2 (Aug 2), the view must sort by start, not
   // return-order (the seed lists ev-2 first).
   await expect(rows.nth(0)).toContainText('Team standup');
   await expect(rows.nth(1)).toContainText('Design review');
@@ -48,7 +48,7 @@ test('creating an event posts confirm:true and the new event id renders honestly
   await page.getByLabel('Event start').fill('2026-08-05T09:00');
   await page.getByLabel('Event end').fill('2026-08-05T09:30');
   await page.getByRole('button', { name: 'Create Event' }).click();
-  await expect(page.getByText('Created — event id ev-new')).toBeVisible();
+  await expect(page.getByText('Created: event id ev-new')).toBeVisible();
 });
 
 test('exporting the range as .ics reports the honest event count', async ({ page }) => {
@@ -71,7 +71,7 @@ test.describe('phone: a long, unbroken event title never forces the page wider (
 
   test('the title ellipsizes instead of stretching the row past the viewport', async ({ page }) => {
     await installMockDaemon(page, { calendar: 'configured' });
-    // A single unbreakable token (no spaces) — the min-content overflow class this
+    // A single unbreakable token (no spaces), the min-content overflow class this
     // suite sweeps for: white-space:nowrap text needs min-width:0 to actually shrink.
     const longTitle = 'Quarterly-Cross-Team-Infrastructure-Migration-And-Rollback-Readiness-Review-Session';
     await page.route('**/api/calendar/**', async (route) => {

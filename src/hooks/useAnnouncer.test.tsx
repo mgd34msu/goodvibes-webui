@@ -106,13 +106,12 @@ describe('useAnnouncer', () => {
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);
 
-    // First announce
     handle.announce('Saved');
     await new Promise((r) => setTimeout(r, 80));
     flushSync(() => {});
     expect(region.el.querySelector('[aria-live="polite"]')?.textContent).toBe('Saved');
 
-    // Second announce — must clear first, then re-set
+    // Second announce, must clear first, then re-set
     handle.announce('Saved');
     await new Promise((r) => setTimeout(r, 10));
     flushSync(() => {});
@@ -127,7 +126,7 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('rapid announce() calls cancel previous timer — only last message shows', async () => {
+  test('rapid announce() calls cancel previous timer, only last message shows', async () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);

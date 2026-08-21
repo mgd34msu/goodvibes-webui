@@ -1,5 +1,5 @@
 /**
- * usePairingHandoff — fragment consumption + history cleanup + status flow.
+ * usePairingHandoff, fragment consumption + history cleanup + status flow.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -84,7 +84,7 @@ beforeEach(() => {
   dismiss = null;
   lastPostureNotice = null;
   dismissPosture = null;
-  // The token is captured once at module scope — reset it, and set the URL, BEFORE
+  // The token is captured once at module scope, reset it, and set the URL, BEFORE
   // each render so every case starts from a clean, un-captured state.
   resetPairingCaptureForTest();
 });

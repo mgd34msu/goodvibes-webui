@@ -1,5 +1,5 @@
 /**
- * mic-arbiter.ts — one device, two consumers, one policy for who holds it.
+ * mic-arbiter.ts, one device, two consumers, one policy for who holds it.
  *
  * Wake detection holds the microphone continuously for as long as the user has
  * it on. Push-to-talk dictation wants the same device, on a keypress, right now.
@@ -13,7 +13,7 @@
  *   Push-to-talk WINS, by suspending wake detection first.
  *
  * A deliberate press is the user asking for the microphone now, so dictation
- * takes it. The wake listener is stopped — really stopped, device released —
+ * takes it. The wake listener is stopped, really stopped, device released,
  * before the dictation stream is opened, and restarted when dictation finishes,
  * including when it fails. The alternative (dictation refusing while wake holds
  * the device) makes the headline affordance stop working the moment the always-on
@@ -78,7 +78,7 @@ export class MicArbiter {
 
   /**
    * The opener both consumers use. Refuses a second concurrent stream instead of
-   * opening one — the bug this class exists to prevent.
+   * opening one, the bug this class exists to prevent.
    */
   readonly openCapture: AudioCaptureOpener = async (
     request: AudioCaptureRequest,
@@ -116,7 +116,7 @@ export class MicArbiter {
    * Take the device for a deliberate press: stand wake detection down, wait for
    * the device to actually be free, and return the lease that resumes it.
    *
-   * Overlapping calls are serialised — a second press waits for the first lease
+   * Overlapping calls are serialised, a second press waits for the first lease
    * to be released rather than suspending an already-suspended listener and
    * resuming it underneath the first holder.
    */
@@ -150,7 +150,7 @@ export class MicArbiter {
           await wake.resume();
         } catch {
           // Resume failure is reported by the wake host's own state, which owns
-          // the restart/latch policy — not swallowed into the dictation path.
+          // the restart/latch policy, not swallowed into the dictation path.
         }
       }
     };

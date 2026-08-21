@@ -1,5 +1,5 @@
 /**
- * ApprovalsTasksView — rendering from a mocked approvals.* and tasks.* client,
+ * ApprovalsTasksView, rendering from a mocked approvals.* and tasks.* client,
  * covering the honesty markers: the per-hunk approve flow sends ONLY
  * selected indices (never a computed diff), approve-all omits selectedHunks
  * (back-compat), a claimed-by-another approval is not actionable, a resolved
@@ -25,10 +25,10 @@ const taskRetryCalls: string[] = [];
 
 let approvalsListImpl: () => Promise<unknown> = () => Promise.resolve(APPROVALS_FIXTURE);
 let tasksListImpl: () => Promise<unknown> = () => Promise.resolve(TASKS_FIXTURE);
-// The decision the mocked approve() returns on the record — lets a test drive
+// The decision the mocked approve() returns on the record, lets a test drive
 // the response-verified remember/answer honesty via the back-compat fallback.
 let approveResultDecision: Record<string, unknown> | undefined;
-// The authoritative `recorded` block the mocked approve()/deny() return — lets a
+// The authoritative `recorded` block the mocked approve()/deny() return, lets a
 // test prove the UI trusts the block over what it sent or the decision snapshot.
 let approveResultRecorded: Record<string, unknown> | undefined;
 let denyResultRecorded: Record<string, unknown> | undefined;
@@ -37,7 +37,7 @@ let rulesFixture: { id: string; effect: string; tier: string; tool: string; desc
 let ruleDeleteResult = true;
 
 // Captured so a test can prove ApprovalsSection opened the approval-update
-// stream at the right path (?domains=permissions) — see useApprovalUpdates.ts.
+// stream at the right path (?domains=permissions), see useApprovalUpdates.ts.
 const streamOpenCalls: string[] = [];
 
 mock.module('../../lib/goodvibes', () => ({
@@ -45,7 +45,7 @@ mock.module('../../lib/goodvibes', () => ({
   invokeMethod: () => Promise.resolve({}),
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 3 },
   sdk: {
-    // Never calls onReady/onEvent by default — the hook stays in its honest
+    // Never calls onReady/onEvent by default, the hook stays in its honest
     // "not yet connected" state, matching useSessionRealtime.test.tsx's stance
     // that a hook under test drives its OWN assertions off captured handlers,
     // not off a real network round trip.
@@ -235,7 +235,7 @@ afterEach(() => {
   ruleDeleteResult = true;
 });
 
-describe('ApprovalsTasksView — approvals rendering', () => {
+describe('ApprovalsTasksView: approvals rendering', () => {
   test('renders every approval hunk for an edit-tool approval', () => {
     const { el, unmount } = render();
     expect(el.querySelectorAll('.hunk-row').length).toBe(3);
@@ -277,7 +277,7 @@ describe('ApprovalsTasksView — approvals rendering', () => {
   });
 
   // B2: the SDK's approval audit trail (SharedApprovalAuditRecord) rides the
-  // wire as `audit` — the webui's ApprovalRecord type previously omitted it
+  // wire as `audit`, the webui's ApprovalRecord type previously omitted it
   // entirely. It belongs on the resolved card's detail as decision provenance.
   test('a resolved approval with an audit trail renders every entry (action, actor, surface, note)', () => {
     const { el, unmount } = render();
@@ -307,7 +307,7 @@ describe('ApprovalsTasksView — approvals rendering', () => {
   });
 });
 
-describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () => {
+describe('ApprovalsTasksView: per-hunk approve (the S3 parity contract)', () => {
   test('approving with two checked hunks sends exactly those indices, never a computed diff', async () => {
     const { el, unmount } = render();
     const card = [...el.querySelectorAll('.approval-card')].find((c) => c.querySelectorAll('.hunk-row').length === 3)!;
@@ -382,7 +382,7 @@ describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () 
     unmount();
   });
 
-  test('claimed/resolved approvals offer no Claim/Cancel — only a pending approval is actionable', () => {
+  test('claimed/resolved approvals offer no Claim/Cancel, only a pending approval is actionable', () => {
     const { el, unmount } = render();
     const claimedCard = [...el.querySelectorAll('.approval-card')].find((c) => c.textContent?.includes('surface:tui-A'))!;
     expect([...claimedCard.querySelectorAll('button')].some((b) => b.textContent?.includes('Claim'))).toBe(false);
@@ -392,7 +392,7 @@ describe('ApprovalsTasksView — per-hunk approve (the S3 parity contract)', () 
   });
 });
 
-describe('ApprovalsTasksView — approval-class matrix (WEBUI-FLEET-DEPTH)', () => {
+describe('ApprovalsTasksView: approval-class matrix (WEBUI-FLEET-DEPTH)', () => {
   test('breaks the loaded approvals down by category with a risk-level count per category', () => {
     const { el, unmount } = render();
     const matrix = el.querySelector('.approval-class-matrix');
@@ -426,7 +426,7 @@ describe('ApprovalsTasksView — approval-class matrix (WEBUI-FLEET-DEPTH)', () 
   });
 });
 
-describe('ApprovalsTasksView — approve toast carries a subset count', () => {
+describe('ApprovalsTasksView: approve toast carries a subset count', () => {
   test('approving 2 of 3 hunks shows "Approved 2 of 3 hunks", not the generic toast', async () => {
     const { el, unmount } = render();
     const card = [...el.querySelectorAll('.approval-card')].find((c) => c.querySelectorAll('.hunk-row').length === 3)!;
@@ -465,7 +465,7 @@ describe('ApprovalsTasksView — approve toast carries a subset count', () => {
   });
 });
 
-describe('ApprovalsTasksView — approvals honest empty/error', () => {
+describe('ApprovalsTasksView: approvals honest empty/error', () => {
   test('a true-empty approvals list says "No pending approvals"', () => {
     approvalsListImpl = () => Promise.resolve({ ...APPROVALS_FIXTURE, approvals: [] });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -485,7 +485,7 @@ describe('ApprovalsTasksView — approvals honest empty/error', () => {
   });
 });
 
-describe('ApprovalsTasksView — approval-update push subscription (control.approval_update)', () => {
+describe('ApprovalsTasksView: approval-update push subscription (control.approval_update)', () => {
   test('opens the approval-update stream narrowed to the permissions domain, and shows "Polling every 15s" until it connects', async () => {
     streamOpenCalls.length = 0;
     const { el, unmount } = render();
@@ -497,7 +497,7 @@ describe('ApprovalsTasksView — approval-update push subscription (control.appr
   });
 });
 
-describe('ApprovalsTasksView — tasks rendering', () => {
+describe('ApprovalsTasksView: tasks rendering', () => {
   test('renders honest statuses verbatim, including a failed task\'s error', () => {
     const { el, unmount } = render();
     const text = el.textContent ?? '';
@@ -641,7 +641,7 @@ function setSelect(select: HTMLSelectElement | null, value: string) {
   });
 }
 
-describe('ApprovalsTasksView — remember tiers', () => {
+describe('ApprovalsTasksView: remember tiers', () => {
   test('the ask\'s rememberOptions render verbatim with "just this once" as the default', () => {
     const { el, unmount } = renderWith(REMEMBER_FIXTURE);
     const select = el.querySelector('.approval-card__remember select') as HTMLSelectElement;
@@ -685,7 +685,7 @@ describe('ApprovalsTasksView — remember tiers', () => {
     unmount();
   });
 
-  test('the response `recorded` block is authoritative — a tier it reports drives the toast even with a silent decision snapshot', async () => {
+  test('the response `recorded` block is authoritative. A tier it reports drives the toast even with a silent decision snapshot', async () => {
     approveResultDecision = undefined; // decision carries no tier
     approveResultRecorded = { approved: true, rememberTier: 'command-class', reasonStored: false, modifiedArgsDelivered: false };
     const { el, unmount } = renderWith(REMEMBER_FIXTURE);
@@ -719,19 +719,19 @@ describe('ApprovalsTasksView — remember tiers', () => {
   });
 });
 
-describe('ApprovalsTasksView — deny carries an optional reason', () => {
+describe('ApprovalsTasksView: deny carries an optional reason', () => {
   test('a typed reason rides the deny call as note AND reason (one text, both wire fields)', async () => {
     const { el, unmount } = renderWith(REMEMBER_FIXTURE);
     const details = el.querySelector('.approval-card__deny-reason') as HTMLDetailsElement;
     expect(details).not.toBeNull();
     details.open = true;
-    setInput(el.querySelector('.approval-card__deny-reason input'), 'wrong branch — run it on main');
+    setInput(el.querySelector('.approval-card__deny-reason input'), 'wrong branch: run it on main');
     click(el.querySelector('.approval-card__deny'));
     await waitFor(() => denyCalls.length > 0);
     expect(denyCalls[0]).toEqual({
       approvalId: 'appr-remember',
-      note: 'wrong branch — run it on main',
-      reason: 'wrong branch — run it on main',
+      note: 'wrong branch: run it on main',
+      reason: 'wrong branch: run it on main',
     });
     unmount();
   });
@@ -777,7 +777,7 @@ describe('ApprovalsTasksView — deny carries an optional reason', () => {
   });
 });
 
-describe('ApprovalsTasksView — exec-prompt answerable card', () => {
+describe('ApprovalsTasksView: exec-prompt answerable card', () => {
   test('renders the waiting command, the prompt line, and the recent output', () => {
     const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
     const card = el.querySelector('[data-testid="exec-prompt-card"]');
@@ -803,7 +803,7 @@ describe('ApprovalsTasksView — exec-prompt answerable card', () => {
     unmount();
   });
 
-  test('the recorded block drives the answer-sent claim — delivered only when it says so', async () => {
+  test('the recorded block drives the answer-sent claim; delivered only when it says so', async () => {
     // Decision snapshot is silent; the authoritative block reports delivery.
     approveResultRecorded = { approved: true, rememberTier: null, reasonStored: false, modifiedArgsDelivered: true };
     const { el, unmount } = renderWith(EXEC_PROMPT_FIXTURE);
@@ -836,7 +836,7 @@ describe('ApprovalsTasksView — exec-prompt answerable card', () => {
   });
 });
 
-describe('PermissionRulesSection — durable approval rules', () => {
+describe('PermissionRulesSection: durable approval rules', () => {
   test('lists every rule with effect, tier, tool, and delete; delete revokes', async () => {
     rulesFixture = [
       { id: 'rule-1', effect: 'allow', tier: 'command-class', tool: 'bash', description: 'bun ...', createdAt: 400 },
@@ -876,13 +876,13 @@ describe('PermissionRulesSection — durable approval rules', () => {
   });
 });
 
-describe('ApprovalsTasksView — open the fix session an accepted CI offer spawned', () => {
+describe('ApprovalsTasksView: open the fix session an accepted CI offer spawned', () => {
   const ciFixBase = {
     id: 'appr-ci-fix', callId: 'ci-fix-1', createdAt: 90, updatedAt: 100, metadata: { source: 'ci-watch' },
     request: {
       callId: 'ci-fix-1', tool: 'ci:fix-session',
       args: { repo: 'acme/example', failingJobs: ['lint'] }, category: 'delegate',
-      analysis: analysis({ summary: 'CI went red on acme/example — start a fix session for lint?' }),
+      analysis: analysis({ summary: 'CI went red on acme/example: start a fix session for lint?' }),
     },
   };
 
@@ -905,7 +905,7 @@ describe('ApprovalsTasksView — open the fix session an accepted CI offer spawn
     unmount();
   });
 
-  test('a denied record never offers the affordance — the wire never stamps denied records, and neither does the card', () => {
+  test('a denied record never offers the affordance. The wire never stamps denied records, and neither does the card', () => {
     const fixture = {
       ...APPROVALS_FIXTURE,
       approvals: [{
@@ -945,12 +945,12 @@ describe('ApprovalsTasksView — open the fix session an accepted CI offer spawn
       }],
     };
     const { el, unmount } = renderWith(fixture, { onOpenSession: () => { throw new Error('must not open'); } });
-    expect(el.textContent).toContain('The fix session could not start — background automation is disabled on this daemon');
+    expect(el.textContent).toContain('The fix session could not start; background automation is disabled on this daemon');
     expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
     unmount();
   });
 
-  test('a denied record never renders a spawn-failure line either — the wire never stamps denied records', () => {
+  test('a denied record never renders a spawn-failure line either. The wire never stamps denied records', () => {
     const fixture = {
       ...APPROVALS_FIXTURE,
       approvals: [{

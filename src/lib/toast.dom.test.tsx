@@ -127,7 +127,7 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     unmount();
   });
 
-  test('hover pause stops timer; hover leave resumes — fires after remaining time', async () => {
+  test('hover pause stops timer; hover leave resumes: fires after remaining time', async () => {
     const onDismiss = mock((_id: string) => {});
     const { handlers, unmount } = renderHook({ durationMs: 200, onDismiss });
 
@@ -135,11 +135,11 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     await wait(60);
     handlers.handleMouseEnter();
 
-    // Wait well past original 200ms deadline — timer should stay paused
+    // Wait well past original 200ms deadline, timer should stay paused
     await wait(180);
     expect(onDismiss).not.toHaveBeenCalled();
 
-    // Resume hover — remaining ~140ms should fire
+    // Resume hover, remaining ~140ms should fire
     handlers.handleMouseLeave();
     await wait(200);
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -147,7 +147,7 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     unmount();
   });
 
-  test('focus pause stops timer; focus-blur resumes — fires after remaining time', async () => {
+  test('focus pause stops timer; focus-blur resumes: fires after remaining time', async () => {
     const onDismiss = mock((_id: string) => {});
     const { handlers, unmount } = renderHook({ durationMs: 200, onDismiss });
 
@@ -188,7 +188,7 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
       await wait(20);
       handlers.handleMouseLeave();
 
-      // Wait past original 300ms — must stay paused
+      // Wait past original 300ms, must stay paused
       await wait(300);
       expect(onDismiss).not.toHaveBeenCalled();
 
@@ -214,7 +214,7 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     await wait(40);
     handlers.handleFocus();
 
-    // Blur where focus stays inside the element — should NOT resume
+    // Blur where focus stays inside the element, should NOT resume
     const innerNode = document.createElement('button');
     const fakeBlur = {
       currentTarget: { contains: (_n: Node | null) => true },

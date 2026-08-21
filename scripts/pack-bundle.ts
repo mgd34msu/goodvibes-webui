@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 /**
- * pack-bundle — turn the built `dist/` into the release asset the suite
+ * pack-bundle, turn the built `dist/` into the release asset the suite
  * installer downloads.
  *
  * WHY THIS EXISTS
  *
  * The browser operator surface installs alongside the daemon, the terminal app
  * and the agent from one curl. It is the only one of the four that is not a
- * binary — it is static files the daemon serves on its own listener — so what it
+ * binary, it is static files the daemon serves on its own listener, so what it
  * publishes is a bundle: one gzipped tar, named for its version, attached to the
  * GitHub release with a SHA256SUMS.txt the installer verifies it against, on
  * exactly the same terms as every binary in the suite. A missing manifest entry
@@ -18,7 +18,7 @@
  * The archive holds a single top-level directory, `goodvibes-webui/`, containing
  * `index.html` and everything beside it. The installer unpacks to a scratch
  * directory, checks `goodvibes-webui/index.html` exists, and only then moves it
- * into place — so an interrupted download can never leave a half-extracted
+ * into place, so an interrupted download can never leave a half-extracted
  * directory that a daemon then serves as if it were an app. `index.html` is what
  * the daemon serves at `/` and falls back to for app routes; an archive without
  * it is not a bundle, and this script refuses to produce one.
@@ -85,7 +85,7 @@ export function packBundle(options: PackBundleOptions): PackedBundle {
   const { distDir, outDir, version } = options;
   if (!existsSync(join(distDir, 'index.html'))) {
     throw new Error(
-      `${distDir} holds no index.html — that is the file the daemon serves at / and falls back to for app routes, so this is not a bundle. Run the build first.`,
+      `${distDir} holds no index.html; that is the file the daemon serves at / and falls back to for app routes, so this is not a bundle. Run the build first.`,
     );
   }
 

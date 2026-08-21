@@ -1,18 +1,18 @@
 /**
- * TailscaleSettings — the one confirmed action behind a "needs https — available
+ * TailscaleSettings, the one confirmed action behind a "needs https, available
  * via tailscale" label, reachable from the browser instead of only the TUI
  * (tailscale.get / tailscale.serve.run, SDK 1.8.0's LAN-http posture work).
  *
  * READ-ONLY detection first: tailscale.get reports whether the binary is present,
  * the node is logged in, and its MagicDNS name. This panel renders NOTHING while
- * that detection is pending or when tailscale is not a usable environment — no nag,
+ * that detection is pending or when tailscale is not a usable environment, no nag,
  * no dead button, matching the daemon's own "quiet when absent" contract. Only when
  * tailscale reports available && loggedIn && a resolvable httpsUrl does the one
  * action appear: "Serve over tailscale", behind the shared ConfirmSheet idiom (same
  * pattern as PairingTokensSettings' revoke/migrate actions).
  *
  * tailscale.serve.run is the ONE state-changing tailscale command the daemon ever
- * runs. The attempt is recorded with an honest receipt either way — a failure
+ * runs. The attempt is recorded with an honest receipt either way, a failure
  * renders the daemon's own detail text, never a generic error. On success the
  * resulting https MagicDNS URL renders as a real link, and the daemon's
  * web.publicBaseUrl updates to it (publicBaseUrlUpdated echoes whether that write
@@ -56,14 +56,14 @@ export function TailscaleSettings() {
       title: 'Serve over tailscale',
       description:
         'Runs `tailscale serve --bg` so tailscale fronts this daemon at its https MagicDNS URL. '
-        + 'The daemon never mints its own certificate — tailscale terminates TLS. Safe to run again.',
+        + 'The daemon never mints its own certificate, tailscale terminates TLS. Safe to run again.',
       confirmLabel: 'Serve over tailscale',
     });
     if (!ok) return;
     serveRun.mutate();
   }
 
-  // Quiet by construction: pending, errored, or genuinely absent all render nothing —
+  // Quiet by construction: pending, errored, or genuinely absent all render nothing,
   // no nag, no dead button. A daemon build without tailscale.get at all (an older
   // daemon) also lands here since detection.data stays undefined.
   const usable = detection.data?.available && detection.data.loggedIn && detection.data.httpsUrl;
@@ -85,7 +85,7 @@ export function TailscaleSettings() {
       </div>
       <p className="form-note">
         Connected as <strong>{detection.data.magicDnsName}</strong>. Serving over tailscale fronts this
-        daemon at an https MagicDNS URL — the one browser-gated capabilities need, without the daemon
+        daemon at an https MagicDNS URL, the one browser-gated capabilities need, without the daemon
         ever minting its own certificate.
       </p>
 

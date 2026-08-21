@@ -1,34 +1,34 @@
 /**
- * ApprovalCard — one approval's full interactive card: per-hunk edit selection,
+ * ApprovalCard, one approval's full interactive card: per-hunk edit selection,
  * approve/deny/claim/cancel, remember tiers, deny-with-reason, the exec-prompt
  * answer path, decision trail, and the "why" reasons.
  *
  * Extracted out of ApprovalsTasksView.tsx (fleet-depth work) so FleetView can render
  * the SAME card inline on a fleet node that has a live pending approval correlated to
- * it (lib/fleet.ts's approvalsForNode) — approve-from-the-tree parity with the TUI.
+ * it (lib/fleet.ts's approvalsForNode), approve-from-the-tree parity with the TUI.
  *
  *   - Claim: approvals.claim locks a pending approval to "claimed" so a second surface
  *     sharing the same operator token doesn't also resolve it. `claimedBy` is whatever
  *     the daemon's authenticated-actor derivation resolves to (a real username, or the
- *     literal string 'shared-token'/'operator' under bearer-token auth) — this client
+ *     literal string 'shared-token'/'operator' under bearer-token auth), this client
  *     has no reliable way to tell "claimed by THIS tab" from "claimed by another tab
  *     sharing the same token", so a claimed approval stays non-actionable here exactly
  *     like before (see isActionableApproval): claim is offered, but the view never
  *     auto-unlocks itself afterward. That is a deliberate, honest limitation, not a
- *     bug — two surfaces must never both resolve one approval.
+ *     bug, two surfaces must never both resolve one approval.
  *   - Cancel: approvals.cancel withdraws a pending approval WITHOUT deciding it (denied
- *     means "no"; cancelled means "never mind, no decision needed") — a distinct
+ *     means "no"; cancelled means "never mind, no decision needed"), a distinct
  *     terminal outcome the audit trail already renders (see auditEntryLabel).
  *   - Remember tiers (snapshot rounds 4-6): the ask's own rememberOptions render
  *     VERBATIM as a scope picker, defaulting to "just this once". The chosen tier
  *     rides the approve call; whether it was actually recorded is the CALLER's job
- *     to verify from the response (see recordedRememberTier) — this card never
+ *     to verify from the response (see recordedRememberTier), this card never
  *     claims a rule was created.
  *   - Deny reason: optional free text; on the wire it rides both `note` (audit
  *     trail) and `reason` (structured user-declined feedback to the model).
  *   - Exec prompt: a running command blocked on its own terminal (tool
  *     'exec:prompt', attribution kind 'exec-prompt') renders as an ANSWERABLE
- *     card — the typed answer feeds the waiting run via the approve decision's
+ *     card, the typed answer feeds the waiting run via the approve decision's
  *     modifiedArgs.answer; Deny stops the run honestly.
  */
 
@@ -56,7 +56,7 @@ import {
 } from '../../lib/approvals';
 import { formatRelative } from '../../lib/object';
 
-/** What an approve action carries beyond the id — assembled by this card. */
+/** What an approve action carries beyond the id, assembled by this card. */
 export interface ApprovalCardApproveInput {
   readonly selectedHunks?: readonly number[];
   /** The remember tier the user picked (undefined = just this once). */
@@ -73,13 +73,13 @@ export interface ApprovalCardProps {
   onDeny: (reason?: string) => void;
   approving: boolean;
   denying: boolean;
-  /** Optional — omit to hide Claim/Cancel (e.g. a read-only surface). */
+  /** Optional, omit to hide Claim/Cancel (e.g. a read-only surface). */
   onClaim?: () => void;
   onCancel?: () => void;
   claiming?: boolean;
   cancelling?: boolean;
   /** Navigate to a session's chat view. When provided and a resolved APPROVED
-   * record carries `fixSessionId` (the session its acceptance spawned — SDK
+   * record carries `fixSessionId` (the session its acceptance spawned, SDK
    * 1d6a85e2, stamped live by the broker), the card offers to open it. */
   onOpenSession?: (sessionId: string) => void;
 }
@@ -117,11 +117,11 @@ export function ApprovalCard({
   const approveExtras = rememberTier ? { rememberTier } : {};
   const deny = () => onDeny(denyReason.trim() || undefined);
 
-  // The spawn outcome of this acceptance — only ever honored on an APPROVED
+  // The spawn outcome of this acceptance, only ever honored on an APPROVED
   // record (the wire never stamps denied records, and this card never implies
   // a denied ask started anything). fixSessionId and fixSessionError are
   // mutually exclusive on the wire: a REAL attachable session id, or the
-  // honest failure — never a dead id (SDK bb4b9c30).
+  // honest failure, never a dead id (SDK bb4b9c30).
   const fixSessionId = record.status === 'approved' ? record.fixSessionId : undefined;
   const fixSessionError = record.status === 'approved' ? record.fixSessionError : undefined;
 
@@ -187,7 +187,7 @@ export function ApprovalCard({
           <span className={`badge ${riskTone(record.request.analysis.riskLevel)}`}>{record.request.analysis.riskLevel}</span>
           <span className={`badge ${statusTone(record.status)}`}>{statusLabel(record.status)}</span>
           {verdict && (
-            <span className={`badge ${judgmentTone(verdict)}`} title="Proposed by the sandbox model-judgment tier — annotate-only, the human still decides">
+            <span className={`badge ${judgmentTone(verdict)}`} title="Proposed by the sandbox model-judgment tier: annotate-only, the human still decides">
               {judgmentLabel(verdict)}
             </span>
           )}
@@ -203,7 +203,7 @@ export function ApprovalCard({
 
       {record.status === 'claimed' && (
         <p className="approval-card__note" role="note">
-          Claimed by {record.claimedBy ?? 'another surface'} — not actionable here.
+          Claimed by {record.claimedBy ?? 'another surface'}, not actionable here.
         </p>
       )}
 
@@ -212,8 +212,8 @@ export function ApprovalCard({
           {statusLabel(record.status)}
           {record.resolvedAt ? ` ${formatRelative(record.resolvedAt)}` : ''}
           {record.resolvedBy ? ` by ${record.resolvedBy}` : ''}
-          {partialLabel ? ` — ${partialLabel}` : ''}
-          {record.decision?.reason ? ` — reason: ${record.decision.reason}` : ''}
+          {partialLabel ? `, ${partialLabel}` : ''}
+          {record.decision?.reason ? `, reason: ${record.decision.reason}` : ''}
         </p>
       )}
 
@@ -234,7 +234,7 @@ export function ApprovalCard({
           session, so say so plainly — never a dead open button. */}
       {fixSessionError && (
         <p className="approval-card__fix-session-error" role="note">
-          The fix session could not start — {fixSessionError}
+          The fix session could not start; {fixSessionError}
         </p>
       )}
 
@@ -245,7 +245,7 @@ export function ApprovalCard({
             <ul>
               {auditEntries.map((entry) => (
                 <li key={entry.id}>
-                  {auditEntryLabel(entry)} — {formatRelative(entry.createdAt)}
+                  {auditEntryLabel(entry)}: {formatRelative(entry.createdAt)}
                 </li>
               ))}
             </ul>
@@ -283,7 +283,7 @@ export function ApprovalCard({
               className="approval-card__approve-all"
               disabled={busy || execAnswer.length === 0}
               onClick={() => onApprove({ answer: execAnswer })}
-              title="Approve with this answer — it feeds the waiting command"
+              title="Approve with this answer: it feeds the waiting command"
             >
               <SendHorizonal size={14} /> Send answer
             </button>
@@ -319,7 +319,7 @@ export function ApprovalCard({
               className="approval-card__approve-selected"
               disabled={selected.size === 0 || busy}
               onClick={() => onApprove({ selectedHunks: [...selected], ...approveExtras })}
-              title="Approve only the checked hunks — the daemon computes the modified edit"
+              title="Approve only the checked hunks: the daemon computes the modified edit"
             >
               <Check size={14} /> Approve selected ({selected.size})
             </button>

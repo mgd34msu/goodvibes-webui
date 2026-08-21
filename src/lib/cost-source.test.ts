@@ -78,7 +78,7 @@ describe('costAmountLabel', () => {
     expect(costAmountLabel(2, 'estimated')).toBe('~$2.00');
   });
 
-  test('unpriced is the explicit marker — never $0.00', () => {
+  test('unpriced is the explicit marker, never $0.00', () => {
     expect(costAmountLabel(null, 'unpriced')).toBe('price unknown');
     expect(costAmountLabel(0.5, 'unpriced')).toBe('price unknown');
     expect(costAmountLabel(null, 'priced')).toBe('price unknown');
@@ -88,7 +88,7 @@ describe('costAmountLabel', () => {
 
 describe('unpricedBlindSpotLabel', () => {
   test('mixed aggregates state the floor', () => {
-    expect(unpricedBlindSpotLabel(3, 1)).toBe('1 of 4 records unpriced — dollars shown are a floor');
+    expect(unpricedBlindSpotLabel(3, 1)).toBe('1 of 4 records unpriced: dollars shown are a floor');
   });
 
   test('fully-unpriced aggregates say so', () => {

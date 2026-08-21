@@ -21,7 +21,7 @@ describe('isSecretConfigKey', () => {
     // surfaces.telephony.* keys are real (schema-domain-surfaces.ts) and were
     // previously caught only by the generic suffix heuristic (or, for
     // .webhookSecret, not distinguished from being declared at all). They are
-    // now named in SECRET_CONFIG_KEYS itself — the declared list is the
+    // now named in SECRET_CONFIG_KEYS itself, the declared list is the
     // primary classifier, not the fallback.
     expect(SECRET_CONFIG_KEYS.has('surfaces.telephony.token')).toBe(true);
     expect(SECRET_CONFIG_KEYS.has('surfaces.telephony.authToken')).toBe(true);
@@ -31,7 +31,7 @@ describe('isSecretConfigKey', () => {
     expect(isSecretConfigKey('surfaces.telephony.webhookSecret')).toBe(true);
   });
 
-  test('mail and calendar credentials are declared — the mail/calendar passwords', () => {
+  test('mail and calendar credentials are declared, the mail/calendar passwords', () => {
     expect(SECRET_CONFIG_KEYS.has('surfaces.email.password')).toBe(true);
     expect(SECRET_CONFIG_KEYS.has('surfaces.email.imapPassword')).toBe(true);
     expect(SECRET_CONFIG_KEYS.has('surfaces.calendar.caldavPassword')).toBe(true);
@@ -40,9 +40,9 @@ describe('isSecretConfigKey', () => {
     expect(isSecretConfigKey('surfaces.calendar.caldavPassword')).toBe(true);
   });
 
-  test('mail and calendar secret REFERENCES are declared — none of these end in a suffix the old fallback caught', () => {
+  test('mail and calendar secret REFERENCES are declared; none of these end in a suffix the old fallback caught', () => {
     // These are DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS (app-layer paths, not
-    // CONFIG_SCHEMA scalars) — the old suffix-only implementation never even
+    // CONFIG_SCHEMA scalars), the old suffix-only implementation never even
     // saw them in a schema scan, and several (icsUrl, clientSecretRef,
     // passwordRef) do not end in "token"/"secret"/"password" either.
     for (const key of [
@@ -66,7 +66,7 @@ describe('isSecretConfigKey', () => {
     expect(isSecretConfigKey('cluster.groupMaterial')).toBe(true);
   });
 
-  test('Cloudflare provisioning tokens are declared — every one ends in "Ref", which the suffix fallback does not match', () => {
+  test('Cloudflare provisioning tokens are declared; every one ends in "Ref", which the suffix fallback does not match', () => {
     for (const key of [
       'cloudflare.apiTokenRef',
       'cloudflare.workerTokenRef',
@@ -82,7 +82,7 @@ describe('isSecretConfigKey', () => {
     }
   });
 
-  test('resource identifiers that sit next to a secret are deliberately NOT masked — they are not the secret itself', () => {
+  test('resource identifiers that sit next to a secret are deliberately NOT masked; they are not the secret itself', () => {
     // Same shape as calendar.google.clientId (not masked): an id that names or
     // locates a credential, not the credential's value.
     expect(isSecretConfigKey('surfaces.telegram.discoveredBotTokenId')).toBe(false);
@@ -104,7 +104,7 @@ describe('isSecretConfigKey', () => {
 
   test('LLM-token settings are not credential-shaped despite containing the word "token"', () => {
     // display.showTokenSpeed, planner.tokenCeiling etc. are about LLM token
-    // counts, not authentication tokens — the last-segment suffix regex only
+    // counts, not authentication tokens, the last-segment suffix regex only
     // matches a segment that ENDS in "token", so these are correctly excluded.
     expect(isSecretConfigKey('display.showTokenSpeed')).toBe(false);
     expect(isSecretConfigKey('planner.tokenCeiling')).toBe(false);
@@ -112,16 +112,16 @@ describe('isSecretConfigKey', () => {
   });
 });
 
-describe('declared-list coverage — a content-shaped scan over the REAL schema, reported by a test rather than silently rendered', () => {
+describe('declared-list coverage: a content-shaped scan over the REAL schema, reported by a test rather than silently rendered', () => {
   // The brief's own example of why a naming heuristic is not enough: a field
   // whose CONTENT is sensitive (a card number, a cardholder name) but whose
   // NAME carries no signal at all cannot be found by any naming scan, declared
-  // or heuristic. That gap is real and is not closed here — see the module
+  // or heuristic. That gap is real and is not closed here, see the module
   // header. What CAN be enforced automatically is the weaker property: every
   // real schema key or daemon-owned non-schema path that DOES contain a
   // secret-suggestive word anywhere in its dotted name (not just as the last
   // segment) must be classified as secret. A key matching this broad net but
-  // not SECRET_CONFIG_KEYS fails here — "reported by a test" — instead of
+  // not SECRET_CONFIG_KEYS fails here, "reported by a test", instead of
   // silently rendering in the UI the day it ships.
   const BROAD_CONTENT_SIGNAL = /token|secret|password|apikey|api_key|credential|clientsecret|refreshtoken/i;
   // Named, confirmed-safe exceptions: identifiers/labels that contain a
@@ -214,7 +214,7 @@ describe('displayConfigValue', () => {
   });
 });
 
-describe('categoryLabelForKey — TUI CATEGORY_LABELS naming parity', () => {
+describe('categoryLabelForKey: TUI CATEGORY_LABELS naming parity', () => {
   test('maps a shared namespace to the exact TUI rail label', () => {
     expect(categoryLabelForKey('helper.globalModel')).toBe('Helper');
     expect(categoryLabelForKey('tts.llmModel')).toBe('TTS');

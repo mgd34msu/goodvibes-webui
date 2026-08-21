@@ -1,5 +1,5 @@
 /**
- * wake-models.ts — how a browser tab gets the pinned wake-word models.
+ * wake-models.ts, how a browser tab gets the pinned wake-word models.
  *
  * NOT FROM THE INTERNET. The pinned release assets answer without an
  * `access-control-allow-origin` header, so a tab's `fetch` of the model URL is
@@ -9,15 +9,15 @@
  * the PINNED sha256 of the whole file.
  *
  * SO THE CHECKSUM IS VERIFIED HERE, ON THE ASSEMBLED BYTES, before a session is
- * created from them. A chunked read has three ways to go wrong quietly — a
- * dropped chunk, a duplicated offset, a mid-read provision that swaps the file —
+ * created from them. A chunked read has three ways to go wrong quietly, a
+ * dropped chunk, a duplicated offset, a mid-read provision that swaps the file,
  * and none of them produces an error. What they produce is a model that loads and
  * then never detects anything, which is indistinguishable from a microphone that
  * is not working. A mismatch therefore fails loudly and creates no session.
  *
  * Verified bytes are cached in the Cache API under a key that carries the model
  * version AND the sha256, so a reload does not re-download 3.7 MB and a pin
- * change cannot be served a stale hit — a different pin is a different key.
+ * change cannot be served a stale hit, a different pin is a different key.
  */
 
 import type { OperatorMethodInput } from '../goodvibes';
@@ -26,8 +26,8 @@ import type { OperatorMethodInput } from '../goodvibes';
  * Every component `voice.wake.model.get` serves, DERIVED from the generated
  * contract rather than copied.
  *
- * The daemon's set grows — the tflite twin, the speech gate and its notice, an
- * embedding notice — and a hand-written copy here would refuse a valid component
+ * The daemon's set grows, the tflite twin, the speech gate and its notice, an
+ * embedding notice, and a hand-written copy here would refuse a valid component
  * client-side the moment one was added, which is a failure the consumer causes and
  * the daemon cannot see. A tab only ever FETCHES what it needs (classifier,
  * embedding, and the gate when a voice-activity floor is configured); this type is
@@ -112,7 +112,7 @@ export function wakeModelCacheKey(
   sha256: string,
 ): string {
   // A synthetic same-origin URL: the Cache API keys on request URLs, and these
-  // are never fetched — the version and the digest are both in the path so a pin
+  // are never fetched, the version and the digest are both in the path so a pin
   // change is a different entry rather than a stale hit.
   return `/__goodvibes-wake-model/${modelVersion ?? 'unversioned'}/${component}/${sha256}`;
 }
@@ -182,7 +182,7 @@ export async function loadWakeModel(
   const digest = deps.digest ?? webCryptoDigest;
 
   // The first chunk carries the pinned sha256 and the total size, which is what
-  // makes a cache lookup possible at all — the key includes the digest, so it
+  // makes a cache lookup possible at all, the key includes the digest, so it
   // cannot be built before the daemon has stated it.
   let first: WakeModelChunk;
   try {
@@ -271,7 +271,7 @@ export async function loadWakeModel(
       'checksum-mismatch',
       component,
       `The ${component} model failed verification: expected sha256 ${chunk.sha256}, assembled ${actual}. `
-      + 'No session was created from it — a model that loads but never matches the pin would look exactly like a '
+      + 'No session was created from it. A model that loads but never matches the pin would look exactly like a '
       + 'microphone that is not working.',
     );
   }

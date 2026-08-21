@@ -4,15 +4,15 @@
  * Both are fully actionable on a phone now: browsing stays available AND the
  * mutations (checkpoints create/restore; task submit/cancel/retry) are present,
  * each routed through a touch-first confirm sheet before it runs. Checkpoint
- * restore — a destructive, git-backed workspace rewrite the daemon executes
- * immediately — confirms on every viewport, desktop included.
+ * restore, a destructive, git-backed workspace rewrite the daemon executes
+ * immediately, confirms on every viewport, desktop included.
  *
  * Each phone mutation gets two proofs: one that opens the sheet and backs out
  * (Cancel), and one that confirms through to a real call against the mock
- * daemon — checking the resulting toast and the list/row state the mock's
+ * daemon, checking the resulting toast and the list/row state the mock's
  * in-memory store reflects afterward (not just that the sheet appeared).
  *
- * Approvals — the other half of this view — are audited as the headline mobile
+ * Approvals, the other half of this view, are audited as the headline mobile
  * action and proven elsewhere (fleet-depth.e2e.ts, touch-targets.e2e.ts); this
  * file only re-checks they stay actionable alongside the tasks changes.
  */
@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   await installMockDaemon(page);
 });
 
-test.describe('Checkpoints — desktop', () => {
+test.describe('Checkpoints: desktop', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('create and restore controls are present; restore confirms via a sheet', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Checkpoints — desktop', () => {
   });
 });
 
-test.describe('Checkpoints — phone: browsable AND actionable via confirm sheets', () => {
+test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the list is browsable and creating opens a confirm sheet', async ({ page }) => {
@@ -97,13 +97,13 @@ test.describe('Checkpoints — phone: browsable AND actionable via confirm sheet
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
     // The mock daemon's checkpoints.restore executed (confirmToken from the
-    // restorePreview satisfied the confirmation gate) — a success toast lands.
+    // restorePreview satisfied the confirmation gate), a success toast lands.
     await expect(page.getByText('Workspace restored')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 });
 
-test.describe('Tasks — desktop', () => {
+test.describe('Tasks: desktop', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('submit, cancel, and retry controls are present and run bare on desktop', async ({ page }) => {
@@ -111,13 +111,13 @@ test.describe('Tasks — desktop', () => {
     await expect(page.locator('.tasks-create')).toBeVisible();
     await expect(page.locator('.task-row', { hasText: 'Run the release checklist' }).locator('.task-row__cancel')).toBeVisible();
     await expect(page.locator('.task-row', { hasText: 'Rebuild the search index' }).locator('.task-row__retry')).toBeVisible();
-    // Desktop cancel runs immediately — no confirm sheet.
+    // Desktop cancel runs immediately, no confirm sheet.
     await page.locator('.task-row', { hasText: 'Run the release checklist' }).locator('.task-row__cancel').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
   });
 });
 
-test.describe('Tasks — phone: fully actionable via confirm sheets', () => {
+test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the queue is readable and cancel opens a confirm sheet', async ({ page }) => {
@@ -151,7 +151,7 @@ test.describe('Tasks — phone: fully actionable via confirm sheets', () => {
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
     await expect(page.getByText('Task cancelled')).toBeVisible();
-    // The mock daemon flipped the task to cancelled (not cancellable) — the
+    // The mock daemon flipped the task to cancelled (not cancellable), the
     // cancel control is gone, and a cancelled task is retry-eligible.
     await expect(row.locator('.task-row__cancel')).toHaveCount(0);
     await expect(row.locator('.task-row__retry')).toBeVisible();
@@ -169,7 +169,7 @@ test.describe('Tasks — phone: fully actionable via confirm sheets', () => {
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
     await expect(page.getByText('Task retried')).toBeVisible();
-    // The mock daemon requeued the task — retry (failed/cancelled only) is gone.
+    // The mock daemon requeued the task, retry (failed/cancelled only) is gone.
     await expect(row.locator('.task-row__retry')).toHaveCount(0);
     await expectNoHorizontalScroll(page);
   });

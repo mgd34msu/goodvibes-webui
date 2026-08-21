@@ -1,14 +1,14 @@
 /**
- * MemoryProvenanceChip — owner-ruled, default-OFF drill-in for a chat turn
+ * MemoryProvenanceChip, owner-ruled, default-OFF drill-in for a chat turn
  * that used memories (see lib/memory-provenance.ts for the reading contract
  * and lib/ui-preferences.ts's memoryProvenanceChipEnabled for the setting).
  *
  * Renders NOTHING when the preference is off, or when this turn carries no
- * memory-provenance ids — the honest-absence idiom this codebase uses
+ * memory-provenance ids, the honest-absence idiom this codebase uses
  * everywhere else (never a dead chip, never a fabricated "0 used" state).
  *
  * The drill-in fetches each record's real detail (sdk.operator.memory.get)
- * lazily, only once expanded — the chip itself never blocks on a fetch.
+ * lazily, only once expanded, the chip itself never blocks on a fetch.
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -46,7 +46,7 @@ export function MemoryProvenanceChip({ recordIds }: MemoryProvenanceChipProps) {
         type="button"
         className="memory-provenance-chip__toggle"
         aria-expanded={expanded}
-        aria-label={`Memory used: ${recordIds.length} record${recordIds.length === 1 ? '' : 's'} — show details`}
+        aria-label={`Memory used: ${recordIds.length} record${recordIds.length === 1 ? '' : 's'}, show details`}
         onClick={() => setExpanded((prev) => !prev)}
       >
         <Database size={13} aria-hidden="true" />
@@ -74,7 +74,7 @@ export function MemoryProvenanceChip({ recordIds }: MemoryProvenanceChipProps) {
                     </>
                   ) : (
                     <span className="memory-provenance-chip__missing">
-                      {entry.id} — no longer available ({formatError(entry.error)})
+                      {entry.id}: no longer available ({formatError(entry.error)})
                     </span>
                   )}
                 </li>

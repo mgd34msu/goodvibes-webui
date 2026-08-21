@@ -1,5 +1,5 @@
 /**
- * WakeWordSettings — the surface that makes wake detection RUNNABLE in a browser.
+ * WakeWordSettings, the surface that makes wake detection RUNNABLE in a browser.
  *
  * Three things are asserted because none of them is expressible as a config row:
  * the provisioning act carries its real download size, the per-origin opt-in writes

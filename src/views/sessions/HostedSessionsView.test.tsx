@@ -1,5 +1,5 @@
 /**
- * HostedSessionsView — list rendering (incl. the includeTerminated toggle and
+ * HostedSessionsView, list rendering (incl. the includeTerminated toggle and
  * the terminatedReason honesty line), attach/history rendering, and the
  * honesty-bar degrade for an unmodeled sessions.hosted.list response.
  */
@@ -127,7 +127,7 @@ afterEach(() => {
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
 });
 
-describe('HostedSessionsView — list', () => {
+describe('HostedSessionsView: list', () => {
   test('renders a hosted session row with title, status, workspace, detach policy and counts', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -158,7 +158,7 @@ describe('HostedSessionsView — list', () => {
     expect(toggle).not.toBeNull();
     flushSync(() => toggle?.click());
     await waitFor(() => el.textContent?.includes('One-off cleanup') ?? false);
-    expect(el.textContent).toContain('terminated — ended with sessions.hosted.kill');
+    expect(el.textContent).toContain('terminated: ended with sessions.hosted.kill');
     unmount();
   });
 
@@ -171,7 +171,7 @@ describe('HostedSessionsView — list', () => {
   });
 });
 
-describe('HostedSessionsView — attach/steer', () => {
+describe('HostedSessionsView: attach/steer', () => {
   test('selecting a row attaches with a stable client id and renders the history', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -219,7 +219,7 @@ describe('HostedSessionsView — attach/steer', () => {
   });
 });
 
-describe('HostedSessionsView — passive detach honesty', () => {
+describe('HostedSessionsView: passive detach honesty', () => {
   test('a passive detach failure (switching rows) is logged and toasted, never silent', async () => {
     detachImpl = () => Promise.reject(new Error('daemon unreachable'));
     const consoleWarn = console.warn;
@@ -233,7 +233,7 @@ describe('HostedSessionsView — passive detach honesty', () => {
     flushSync(() => (rows[0] as HTMLButtonElement).click());
     await waitFor(() => el.textContent?.includes('hello') ?? false);
 
-    // Switching to the OTHER row passively detaches the first — which is rigged
+    // Switching to the OTHER row passively detaches the first, which is rigged
     // above to fail.
     flushSync(() => (rows[1] as HTMLButtonElement).click());
 
@@ -246,7 +246,7 @@ describe('HostedSessionsView — passive detach honesty', () => {
   });
 });
 
-describe('HostedSessionsView — the attached session reconciles against a fresher list row', () => {
+describe('HostedSessionsView: the attached session reconciles against a fresher list row', () => {
   test('a session that terminates while the stream is down updates the attached view on the next list refresh', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -256,7 +256,7 @@ describe('HostedSessionsView — the attached session reconciles against a fresh
     expect(el.querySelector('.steer-composer .badge.neutral')).toBeNull();
 
     // The daemon terminated hosted-1 while no lifecycle frame reached this client
-    // (the scenario the stream-down fallback poll targets) — the next list
+    // (the scenario the stream-down fallback poll targets), the next list
     // read reflects it.
     listImpl = () => Promise.resolve({
       sessions: [{ ...RUNNING, status: 'terminated', terminatedReason: 'killed', updatedAt: 999 }],
@@ -269,7 +269,7 @@ describe('HostedSessionsView — the attached session reconciles against a fresh
   });
 });
 
-describe('HostedSessionsView — create a hosted session', () => {
+describe('HostedSessionsView: create a hosted session', () => {
   test('the create form is hidden until "New session" is toggled', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -379,7 +379,7 @@ describe('HostedSessionsView — create a hosted session', () => {
   });
 });
 
-describe('HostedSessionsView — end (kill) a hosted session, including a survive-policy one', () => {
+describe('HostedSessionsView: end (kill) a hosted session, including a survive-policy one', () => {
   test('a survive-policy session shows an End session button, confirmed before it fires', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -416,7 +416,7 @@ describe('HostedSessionsView — end (kill) a hosted session, including a surviv
   });
 });
 
-describe('HostedSessionsView — a closed tab detaches via keepalive beacon', () => {
+describe('HostedSessionsView: a closed tab detaches via keepalive beacon', () => {
   test('pagehide fires the keepalive beacon for the attached session', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
@@ -467,7 +467,7 @@ describe('HostedSessionsView — a closed tab detaches via keepalive beacon', ()
     unmount();
   });
 
-  test('pagehide never fires the ordinary async detach — only the beacon', async () => {
+  test('pagehide never fires the ordinary async detach, only the beacon', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('Refactor the parser') ?? false);
     const row = el.querySelector('.hosted-session-row__button');

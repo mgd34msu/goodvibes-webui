@@ -1,5 +1,5 @@
 /**
- * onnx-fixture.ts — genuinely loadable ONNX models for the hermetic harness.
+ * onnx-fixture.ts, genuinely loadable ONNX models for the hermetic harness.
  *
  * WHY NOT JUST SERVE RANDOM BYTES. The point of the wake e2e is that
  * onnxruntime-web really initialises in a real browser over bytes the daemon really
@@ -8,7 +8,7 @@
  * error path, which the unit suite already covers.
  *
  * WHY NOT THE REAL PINNED MODELS. They are 3.7 MB of downloaded artifacts that live
- * on a provisioned host, and the harness is hermetic by construction — no daemon, no
+ * on a provisioned host, and the harness is hermetic by construction, no daemon, no
  * network, nothing outside this repo. So this builds the smallest models that satisfy
  * the SDK engine's two shape contracts, from scratch, as ONNX protobuf:
  *
@@ -17,7 +17,7 @@
  *
  * An `Identity` graph is a real model with real declared inputs and outputs: the
  * runtime loads it, the engine feeds it, and it returns finite floats. The SCORES are
- * meaningless, which is correct division of labour — scripted scores and the
+ * meaningless, which is correct division of labour, scripted scores and the
  * detection rules are unit-tested against a stub session, and this file exists to
  * prove the runtime, the bundle, the chunked read and the device path.
  *

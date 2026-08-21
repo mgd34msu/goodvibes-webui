@@ -1,5 +1,5 @@
 /**
- * approval-action-link.ts — fragment parse + history cleanup for a push
+ * approval-action-link.ts, fragment parse + history cleanup for a push
  * "Allow"/"Deny" hand-off.
  */
 import { afterEach, describe, expect, test } from 'bun:test';

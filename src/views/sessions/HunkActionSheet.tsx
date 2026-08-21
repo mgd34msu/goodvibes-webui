@@ -1,17 +1,17 @@
 /**
- * HunkActionSheet — the touch-first action chooser for ONE reviewed hunk in the session
+ * HunkActionSheet, the touch-first action chooser for ONE reviewed hunk in the session
  * review cockpit. Tapping a hunk in the multibuffer opens this; it names the change (file
  * + line ranges + excerpt) and offers the three cockpit actions as full-width ≥44px sheet
  * buttons, so a phone review is thumb-driven:
- *   - APPROVE — mark this hunk reviewed (purely client-side progress tracking; toggles back
+ *   - APPROVE, mark this hunk reviewed (purely client-side progress tracking; toggles back
  *     to "Mark reviewed" when already approved). No wire call.
- *   - COMMENT & STEER — hand off to the existing HunkCommentSheet / steer-follow-up flow.
- *   - REJECT & REVERT — hand off to the revert preview → confirm → checkpoints.revertHunk
+ *   - COMMENT & STEER, hand off to the existing HunkCommentSheet / steer-follow-up flow.
+ *   - REJECT & REVERT, hand off to the revert preview → confirm → checkpoints.revertHunk
  *     flow (HunkRevertSheet).
  *
  * Presentational only: it renders when `open` and calls the handler the parent supplies.
  * Bottom sheet on a phone, centered dialog on desktop, focus trap + Escape/backdrop cancel
- * — the same idiom as ConfirmSheet / HunkCommentSheet.
+ *, the same idiom as ConfirmSheet / HunkCommentSheet.
  */
 import { useEffect, useId, type KeyboardEvent } from 'react';
 import { Check, MessageSquare, Undo2 } from 'lucide-react';
@@ -23,9 +23,9 @@ export interface HunkActionSheetProps {
   open: boolean;
   filePath: string;
   hunk: DiffHunk;
-  /** True when this hunk is already marked reviewed — the Approve button toggles it off. */
+  /** True when this hunk is already marked reviewed, the Approve button toggles it off. */
   reviewed: boolean;
-  /** 'steer' while an agent is bound, else 'followUp' — labels the Comment action honestly. */
+  /** 'steer' while an agent is bound, else 'followUp', labels the Comment action honestly. */
   commentMode: 'steer' | 'followUp';
   onApprove: () => void;
   onComment: () => void;
@@ -78,7 +78,7 @@ export function HunkActionSheet({
         <div className="hunk-actions">
           <button type="button" className="hunk-actions__btn hunk-actions__btn--approve" onClick={onApprove}>
             <Check size={16} aria-hidden="true" />
-            {reviewed ? 'Marked reviewed — undo' : 'Approve (mark reviewed)'}
+            {reviewed ? 'Marked reviewed: undo' : 'Approve (mark reviewed)'}
           </button>
           <button type="button" className="hunk-actions__btn" onClick={onComment}>
             <MessageSquare size={16} aria-hidden="true" />

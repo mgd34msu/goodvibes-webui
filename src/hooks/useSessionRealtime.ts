@@ -1,12 +1,12 @@
 /**
- * useSessionRealtime — consume the un-domained `session-update` wire event.
+ * useSessionRealtime, consume the un-domained `session-update` wire event.
  *
  * WHY THIS EXISTS (the live-updates blocker): the spine broadcasts every session
  * lifecycle change on a SINGLE un-domained wire event named `session-update`, whose
  * inner `payload.event` discriminant names the transition. The scoped viaSse() feed
  * opens one SSE per domain and hard-filters `if (eventName !== domain) return`, so the
  * `session-update` frame arriving on the ?domains=session stream is DROPPED
- * (browser-scoped.ts) — `sdk.realtime.viaSse().domain('session')` can NEVER see it.
+ * (browser-scoped.ts), `sdk.realtime.viaSse().domain('session')` can NEVER see it.
  *
  * So we bypass viaSse and open the RAW control-plane stream directly
  * (sdk.streams.open → ScopedRawEventStream), dispatching on the raw event name. This
@@ -62,7 +62,7 @@ export function useSessionRealtime(enabled: boolean): SessionRealtimeState {
 
     // Invalidating queryKeys.sessions (['sessions']) non-exactly refetches the union
     // list AND every prefixed detail/messages query. We only INVALIDATE (trigger a
-    // revalidate) off the stream — never render straight from the frame — matching the
+    // revalidate) off the stream, never render straight from the frame, matching the
     // existing useRealtimeInvalidation fast-path-off-the-socket model.
     const invalidateAll = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
@@ -81,7 +81,7 @@ export function useSessionRealtime(enabled: boolean): SessionRealtimeState {
             if (disposed) return;
             if (eventName === RELAY_OVERFLOW_EVENT) {
               // Live events were dropped over the relay tunnel. Record the honest notice
-              // AND revalidate now — the missed frames were only invalidation triggers, so
+              // AND revalidate now, the missed frames were only invalidation triggers, so
               // a refetch restores the true session state (the banner still shows so the
               // operator knows a gap happened and can resync explicitly).
               noteRelayOverflow(readDroppedCount(payload));
@@ -103,7 +103,7 @@ export function useSessionRealtime(enabled: boolean): SessionRealtimeState {
           onTerminate: () => {
             if (disposed) return;
             setConnected(false);
-            setError('Session event stream disconnected — live updates paused, falling back to periodic refresh.');
+            setError('Session event stream disconnected: live updates paused, falling back to periodic refresh.');
           },
         },
         { reconnect: DEFAULT_SSE_RECONNECT },

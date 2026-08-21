@@ -1,9 +1,9 @@
 /**
- * fleet-graph.ts — display helpers for fleet.graph.get (SDK 1.8.0's fix-phase
+ * fleet-graph.ts, display helpers for fleet.graph.get (SDK 1.8.0's fix-phase
  * workstream rework): the dependency-graph view of one workstream (nodes,
  * edges, elastic-pool state).
  *
- * Node `state` is a WorkItemState (platform/orchestration/types.ts) — a
+ * Node `state` is a WorkItemState (platform/orchestration/types.ts), a
  * DIFFERENT vocabulary from fleet.snapshot's ProcessState (lib/fleet.ts):
  * this is the work item's own internal scheduling state ('pending' /
  * 'awaiting-capacity' / 'in-phase' / 'passed' / 'failed' / 'blocked-budget' /
@@ -11,7 +11,7 @@
  * reason lib/fleet.ts reads ProcessState as one: this client is hand-mirrored
  * from the SDK source (contract-bridge-types.ts's generic bridge for
  * fleet.graph.get) rather than generated, so a daemon newer than this client
- * may report a state it has never seen — render it verbatim, never drop it.
+ * may report a state it has never seen, render it verbatim, never drop it.
  */
 import type { OperatorMethodOutput } from '@pellux/goodvibes-sdk/contracts';
 import type { BadgeTone } from './presentation-bridge';
@@ -36,7 +36,7 @@ export function isKnownGraphNodeState(state: string): boolean {
   return (KNOWN_GRAPH_NODE_STATES as readonly string[]).includes(state);
 }
 
-/** The plain-language "tell" a task-graph row shows for its state — matches the
+/** The plain-language "tell" a task-graph row shows for its state, matches the
  *  brief's own vocabulary (ready/running/blocked/at-cap/stalled) where it maps
  *  cleanly, and states an unknown value verbatim otherwise. */
 export function graphNodeStateLabel(state: string): string {
@@ -69,9 +69,9 @@ export function graphNodeStateTone(state: string): BadgeTone {
 
 /**
  * The pool summary line, verbatim in the brief's own wording:
- * "N ready, M running, at cap (fleet.maxSize=N)" — only the "at cap" clause is
+ * "N ready, M running, at cap (fleet.maxSize=N)", only the "at cap" clause is
  * conditional (pool.atCap). `pool` is null when the daemon reports no elastic
- * pool for this workstream (a fixed-capacity or single-agent run) — callers
+ * pool for this workstream (a fixed-capacity or single-agent run), callers
  * should not render a summary line at all in that case.
  */
 export function poolSummaryLabel(pool: NonNullable<FleetGraphPool>): string {

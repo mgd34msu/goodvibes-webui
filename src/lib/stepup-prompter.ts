@@ -1,5 +1,5 @@
 /**
- * stepup-prompter.ts — the seam between the transport layer and the step-up ceremony UI.
+ * stepup-prompter.ts, the seam between the transport layer and the step-up ceremony UI.
  *
  * routedFetch (relay-connection.ts) is plain, non-React transport code: when a mutating
  * relay call comes back `401 step-up-required`, it cannot itself open a modal or touch a
@@ -8,7 +8,7 @@
  *
  * The React host (StepUpHost) registers the real prompter on mount; it runs the inline
  * ceremony (mint a challenge, navigator.credentials.get, encode the header) and resolves the
- * header value — or null if the operator cancels or the ceremony cannot run. When no prompter
+ * header value, or null if the operator cancels or the ceremony cannot run. When no prompter
  * is registered (e.g. in a headless context), resolveStepUp returns null and the original 401
  * surfaces honestly rather than hanging.
  */
@@ -36,7 +36,7 @@ export function hasStepUpPrompter(): boolean {
 }
 
 /**
- * Ask the registered prompter for an assertion header value. Returns null — never throws —
+ * Ask the registered prompter for an assertion header value. Returns null, never throws,
  * when no prompter is registered or the ceremony fails/cancels, so the caller can surface the
  * original 401 honestly instead of a dead-end.
  */

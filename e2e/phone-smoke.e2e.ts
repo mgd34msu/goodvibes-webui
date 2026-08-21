@@ -1,6 +1,6 @@
 /**
  * Phone smoke: every view renders at 390x844 with no horizontal
- * overflow and a tappable key affordance. Honest bar — a view that can only show an
+ * overflow and a tappable key affordance. Honest bar, a view that can only show an
  * empty/degraded state still must not scroll sideways or hide its primary control.
  */
 import { test, expect } from '@playwright/test';
@@ -37,9 +37,9 @@ for (const { view, label } of VIEWS) {
     const frame = page.locator('.view-frame');
     await expect(frame).toBeVisible();
     await expect(frame).not.toBeEmpty();
-    // No sideways scroll — the cardinal phone sin.
+    // No sideways scroll, the cardinal phone sin.
     await expectNoHorizontalScroll(page);
-    // The topbar's primary control clears the touch floor — except Chat, which hides
+    // The topbar's primary control clears the touch floor, except Chat, which hides
     // the app topbar (`.workspace-chat .topbar { display: none }`) in favor of its own
     // chat-toolbar. Chat's key affordances are audited in the dedicated test below.
     if (view !== 'chat') {
@@ -48,7 +48,7 @@ for (const { view, label } of VIEWS) {
   });
 }
 
-test('Sessions: the list is usable — refresh is tappable, rows readable', async ({ page }) => {
+test('Sessions: the list is usable; refresh is tappable, rows readable', async ({ page }) => {
   await page.goto('/?view=sessions');
   await expect(page.locator('.sessions-view')).toBeVisible();
   await expectTappable(page, '.sessions-toolbar .icon-button', 'sessions refresh');
@@ -71,7 +71,7 @@ test('Providers: per-provider status pills render', async ({ page }) => {
   await expectNoHorizontalScroll(page);
 });
 
-test('drawer opened on a phone does not trap — the scrim closes it from any view', async ({ page }) => {
+test('drawer opened on a phone does not trap; the scrim closes it from any view', async ({ page }) => {
   await page.goto('/?view=fleet');
   await page.locator('.brand-mark-button').click();
   await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();

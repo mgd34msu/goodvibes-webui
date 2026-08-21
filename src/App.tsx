@@ -85,7 +85,7 @@ const views: {
 }[] = [
   { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
   { id: 'sessions', label: 'Sessions', short: 'Union', icon: Network },
-  // sessions.hosted.* (daemon-hosted sessions) — a conversation whose loop runs inside
+  // sessions.hosted.* (daemon-hosted sessions), a conversation whose loop runs inside
   // the daemon, so it does not end when the tab that started it goes away.
   { id: 'hosted-sessions', label: 'Hosted', short: 'Daemon-run', icon: Boxes },
   { id: 'fleet', label: 'Fleet', short: 'Processes', icon: Boxes },
@@ -93,31 +93,31 @@ const views: {
   { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
   { id: 'memory', label: 'Memory', short: 'Recall', icon: Database },
   { id: 'calendar', label: 'Calendar', short: 'Events', icon: CalendarDays },
-  // email.* — the inbox, reader and composer over the daemon's mail verbs. Sits next
+  // email.*, the inbox, reader and composer over the daemon's mail verbs. Sits next
   // to Calendar because they are the same kind of thing: a personal account the
   // daemon holds, which every surface reads through the daemon rather than its own.
   { id: 'mail', label: 'Mail', short: 'Inbox', icon: Inbox },
-  // occasions.* — birthdays, anniversaries, and plans the daemon holds and
+  // occasions.*, birthdays, anniversaries, and plans the daemon holds and
   // proactively nudges about on its own (docs/occasions.md). This panel is
   // pull-only: nudges themselves push to Telegram and the agent, never here
-  // (docs/occasions.md §4.2 — the TUI/webui "get work done" interfaces stay out of
+  // (docs/occasions.md §4.2, the TUI/webui "get work done" interfaces stay out of
   // proactive personal nudging by owner ruling).
   { id: 'dates', label: 'Dates', short: 'Occasions', icon: Gift },
   { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
   { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
   // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
-  // ViewIds/query keys/realtime domains — no edits needed to router.ts,
+  // ViewIds/query keys/realtime domains, no edits needed to router.ts,
   // queries.ts, or useRealtimeInvalidation.ts.
   { id: 'approvals-tasks', label: 'Approvals', short: 'Decisions', icon: ClipboardCheck },
   { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
-  // ci.watches.* (SDK 1.6.1's initiative family) — standing CI watches + per-job status.
+  // ci.watches.* (SDK 1.6.1's initiative family), standing CI watches + per-job status.
   { id: 'ci-watches', label: 'CI', short: 'Watches', icon: GitBranch },
-  // checkin.* (SDK 1.6.1's initiative family) — proactive check-in config + receipts.
+  // checkin.* (SDK 1.6.1's initiative family), proactive check-in config + receipts.
   { id: 'checkin', label: 'Check-in', short: 'Proactive', icon: BellRing },
-  // principals.* / channels.profiles.* (SDK 1.6.1's initiative family) — identity
+  // principals.* / channels.profiles.* (SDK 1.6.1's initiative family), identity
   // registry + per-channel model/permission defaults admin.
   { id: 'principals', label: 'Principals', short: 'Identities', icon: Users },
-  // devices.* — this browser as a paired device node, plus the grants surface
+  // devices.*, this browser as a paired device node, plus the grants surface
   // for the durable "always allow" approvals a phone capability can hold.
   { id: 'phone', label: 'Phone', short: 'Device', icon: Smartphone },
 ];
@@ -132,7 +132,7 @@ export default function App() {
   const [deletedChatSessionIds, setDeletedChatSessionIds] = useState<Set<string>>(() => new Set());
   // Drawer default is VIEWPORT-AWARE. On a phone (≤980px) the sidebar overlays
   // the whole workspace, so defaulting it OPEN would cover the content on every single
-  // load — you'd tap it away before you could do anything. Initialize it COLLAPSED at
+  // load, you'd tap it away before you could do anything. Initialize it COLLAPSED at
   // phone width (a narrow icon rail; the workspace is visible first) and OPEN on the
   // desktop it was designed for. The scrim + tap-away and the toggle stay as they were,
   // so opening the drawer is always one explicit tap. matchMedia is read once at mount
@@ -147,12 +147,12 @@ export default function App() {
     }
   });
   // Pairing hand-off: a `#pair=<token>` fragment (from the terminal's `goodvibes pair`
-  // QR) is consumed once at mount — the token is stripped from the URL, stored, and
+  // QR) is consumed once at mount, the token is stripped from the URL, stored, and
   // validated. `pending` shows the pairing splash instead of the gate; `error` surfaces
   // on the gate. See usePairingHandoff.
   const pairing = usePairingHandoff();
   // Relay pairing hand-off: a `#relay=<gvrelay1.…>` fragment is consumed once at
-  // mount, same discipline as the token pairing above, but for a DIFFERENT payload —
+  // mount, same discipline as the token pairing above, but for a DIFFERENT payload,
   // transport bootstrap, not identity. Storing it is synchronous/local (no daemon
   // round trip), so it never gates first paint the way `pairing.status === 'pending'`
   // does; only a malformed code surfaces, as a banner on the signed-out gate.
@@ -171,7 +171,7 @@ export default function App() {
     refetchInterval: (query) => (isDaemonUnreachableError(query.state.error) ? 5_000 : false),
   });
   // D-WEBUI-3: auth.current only re-probes once it has ALREADY errored (see
-  // refetchInterval above) — while healthy it never re-runs on its own, so a daemon
+  // refetchInterval above), while healthy it never re-runs on its own, so a daemon
   // death during an idle session would otherwise surface nothing until the user does
   // something that happens to trigger a query. The health poll already re-probes the
   // daemon unconditionally every 15s (useDaemonHealth), so it is the signal that
@@ -189,7 +189,7 @@ export default function App() {
   const sessionRealtime = useSessionRealtime(auth.isSuccess);
   // Control-plane invalidation stream: SAME auth gate as the session stream. Opening it
   // unconditionally at mount meant the paste-token sign-in flow (app mounts signed-out)
-  // fired it with no token, 401'd, and — because its enable flag never changed — the
+  // fired it with no token, 401'd, and, because its enable flag never changed, the
   // stream never re-opened after the token was applied, leaving live invalidation dead
   // for the whole session AND painting the raw 401 body across every banner. Gating on
   // auth.isSuccess opens it only once authenticated and re-opens it on every auth
@@ -206,8 +206,8 @@ export default function App() {
   const fleetSubscriptionActive = realtimeError == null;
   // App-level fleet snapshot: kept warm regardless of the active view so the Fleet
   // nav entry can show an attention badge (count of nodes blocked on a human) even
-  // while you are elsewhere. It shares queryKeys.fleet with FleetView — React Query
-  // dedupes the fetch and both read the same cache — and it is invalidated by fleet
+  // while you are elsewhere. It shares queryKeys.fleet with FleetView, React Query
+  // dedupes the fetch and both read the same cache, and it is invalidated by fleet
   // events (useRealtimeInvalidation) for liveness, with the poll as the honest
   // fallback when the subscription is down. Derived purely from current data; no new
   // client store.
@@ -250,11 +250,11 @@ export default function App() {
   // DELETE-MEANS-DELETE. "Delete" now names a real hard-delete distinct from
   // "close": companion.chat.sessions.delete permanently removes the on-disk
   // record but requires the session to already be closed (409 SESSION_ACTIVE
-  // otherwise), so this always closes first — a no-op if the daemon has no separate
+  // otherwise), so this always closes first, a no-op if the daemon has no separate
   // close route yet (isMethodUnavailableError) or the session is already closed
   // (SESSION_NOT_FOUND from a double-close race). The mutation never trusts the
   // delete call's 200 at face value: it reconciles against a real re-fetch with
-  // includeClosed:true and only reports success once the record is genuinely absent —
+  // includeClosed:true and only reports success once the record is genuinely absent,
   // the exact anti-pattern this replaces was trusting the client-side filter
   // (deletedChatSessionIds) as proof, which just hides a soft-closed record whose file
   // never left disk. A daemon that still only soft-closes (pre-S1) is caught here and
@@ -276,7 +276,7 @@ export default function App() {
         .some((session) => bestId(session) === sessionId);
       if (stillPresent) {
         throw Object.assign(
-          new Error('Delete did not complete — the record still exists'),
+          new Error('Delete did not complete, the record still exists'),
           { code: 'DELETE_INCOMPLETE' },
         );
       }
@@ -297,9 +297,9 @@ export default function App() {
       }
     },
     onError: (error, sessionId) => {
-      // A 404 here means the target is already gone (e.g. a double-delete race) —
+      // A 404 here means the target is already gone (e.g. a double-delete race),
       // the outcome the user wanted is already true, so leave it hidden. Every OTHER
-      // failure — including DELETE_INCOMPLETE from the proof-of-gone reconcile above —
+      // failure, including DELETE_INCOMPLETE from the proof-of-gone reconcile above,
       // restores visibility rather than leaving a false "it's deleted" impression: the
       // optimistic hide was a guess, and this says plainly that the guess was wrong.
       if (isSessionNotFoundError(error)) return;
@@ -385,7 +385,7 @@ export default function App() {
     [setView, setSession],
   );
 
-  // Open a specific session in the chat view — one history entry (view + session
+  // Open a specific session in the chat view, one history entry (view + session
   // together), used by the CI "open fix session" affordance.
   const handleOpenSession = useCallback(
     (sessionId: string) => setUrlState({ view: 'chat', session: sessionId }),
@@ -402,25 +402,25 @@ export default function App() {
   // no working-looking-but-401ing shell).
   const authPending = auth.isPending;
   const hasToken = hasStoredTokenSync();
-  // A genuine 401 (not a network failure) is the ONLY thing that means "signed out" —
+  // A genuine 401 (not a network failure) is the ONLY thing that means "signed out",
   // this classification must win over everything else below, including a health-poll
   // outage that happens to be in flight at the same moment: a bad token always routes
   // to sign-in, never the unreachable overlay.
   const authIsUnauthorized = auth.isError && !isDaemonUnreachableError(auth.error);
   // D-WEBUI-3: the daemon is "unreachable" either because auth.current itself just
   // failed with a network error, OR because the independent health poll has declared
-  // the connection 'down' (2+ consecutive probe failures) — the latter is what catches
+  // the connection 'down' (2+ consecutive probe failures), the latter is what catches
   // a daemon that dies mid-session while auth.current was sitting on old success data
   // and had no reason to re-fire. A network failure/health-down state with a stored
   // token means the daemon is unreachable, NOT that the operator is signed out: keep
   // the token and show the honest unreachable state. Recovery is driven by whichever
-  // probe flips back first — auth.current's own 5s re-probe once IT has errored, or the
+  // probe flips back first, auth.current's own 5s re-probe once IT has errored, or the
   // health poll's next successful 15s cycle.
   const healthUnreachable = health.connection === 'down';
   const daemonUnreachable = !authIsUnauthorized
     && ((auth.isError && isDaemonUnreachableError(auth.error)) || healthUnreachable)
     && hasToken;
-  // D-WEBUI-2: no stored token means signed-out, full stop — this must NOT wait on
+  // D-WEBUI-2: no stored token means signed-out, full stop, this must NOT wait on
   // auth.current's pending/cached state. Gating this on `authPending` let a stale
   // cached success from a previously-cleared token leak through as a flash of the
   // full authenticated shell (401 banners and all) before the query re-settled; a
@@ -429,7 +429,7 @@ export default function App() {
   const showSplash = hasToken && authPending && !auth.isError;
 
   // The daemon-unreachable gate promises the operator will "pick up where it left
-  // off" once the daemon comes back — that's only true if the workspace underneath
+  // off" once the daemon comes back, that's only true if the workspace underneath
   // stays mounted through the outage. Render it as an overlay ON TOP of the still-
   // mounted (and inert, so it can't be typed into or clicked while hidden) workspace
   // instead of early-returning in its place; a remount would reset the selected
@@ -564,7 +564,7 @@ export default function App() {
                 // Accessible name is REQUIRED here: at phone width the drawer collapses
                 // to an icon-only rail (.nav-copy is display:none), so the visible label
                 // text leaves the accessibility tree. aria-label keeps every nav target
-                // named for a screen reader — and reachable by name for a tap/test.
+                // named for a screen reader, and reachable by name for a tap/test.
                 aria-label={ariaLabel}
                 aria-current={navItem.id === activeView ? 'page' : undefined}
                 onClick={() => setView(navItem.id)}
@@ -624,15 +624,15 @@ export default function App() {
                       title={
                         deleteChat.isPending && deleteChat.variables === id
                           ? 'Deleting…'
-                          : `Delete ${bestTitle(session, id)} permanently — this removes the record, it cannot be reopened`
+                          : `Delete ${bestTitle(session, id)} permanently: this removes the record, it cannot be reopened`
                       }
                       disabled={deleteChat.isPending}
                       onClick={(event) => {
                         event.stopPropagation();
                         // Truthful confirm text: this is a hard delete, not the close-
-                        // in-disguise it used to be — see the deleteChat mutation above.
+                        // in-disguise it used to be, see the deleteChat mutation above.
                         if (!window.confirm(
-                          `Delete "${bestTitle(session, id)}" permanently?\n\nThis removes the chat record — it cannot be reopened.`,
+                          `Delete "${bestTitle(session, id)}" permanently?\n\nThis removes the chat record: it cannot be reopened.`,
                         )) return;
                         deleteChat.mutate(id);
                       }}
@@ -686,7 +686,7 @@ export default function App() {
             <Plug size={16} />
             {' '}
             {realtimeError && sessionRealtime.error
-              ? 'Live updates paused — reconnecting. Views fall back to periodic refresh until the stream returns.'
+              ? 'Live updates paused: reconnecting. Views fall back to periodic refresh until the stream returns.'
               : (realtimeError ?? sessionRealtime.error)}
           </div>
         )}

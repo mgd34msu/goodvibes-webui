@@ -1,22 +1,22 @@
 /**
- * ConsolidationReceipts — makes memory consolidation's judgment proposals actionable
+ * ConsolidationReceipts, makes memory consolidation's judgment proposals actionable
  * (memory.consolidation.receipts, SDK 1.8.0's consolidation-reaches-the-review-queue
  * work). Idle/scheduled consolidation performs only REVERSIBLE operations on its own
- * (merge exact duplicates into a survivor, decay never-referenced aged records) —
+ * (merge exact duplicates into a survivor, decay never-referenced aged records),
  * anything that needs a human call (a contradiction, a cross-scope duplicate, a
  * long-stale delete) is emitted as a PROPOSAL instead of applied automatically.
  *
  * The records a proposal references are already marked into the review queue by the
- * consolidation pass itself (reviewState set to 'fresh' or 'contradicted' —
+ * consolidation pass itself (reviewState set to 'fresh' or 'contradicted',
  * packages/sdk/src/platform/state/memory-consolidation.ts), so this panel's job is
  * to make those proposals legible (what kind, which records, why) and ONE-TAP
- * jumpable to the existing review queue below — never a second resolution path.
+ * jumpable to the existing review queue below, never a second resolution path.
  * `route` on the wire is an internal agent-tool invocation string
  * (`memory action:"curator" query:"consolidation"`), never a browser route or link.
  *
  * Honest states: a daemon build with no memory.consolidation.receipts id at all
  * (isMethodUnavailableError, 404) and a build that HAS the id but no consolidation
- * scheduler wired (isConsolidationUnavailableError, 501 — the descriptor's own
+ * scheduler wired (isConsolidationUnavailableError, 501, the descriptor's own
  * documented refusal) both render the same honest "not available" state, never a
  * blank panel that reads as "nothing pending." Zero runs ever having happened is a
  * genuinely different, honest empty state.
@@ -35,7 +35,7 @@ import { formatRelative } from '../../lib/object';
 const PROPOSAL_KIND_LABEL: Record<MemoryConsolidationProposal['kind'], string> = {
   contradiction: 'Contradiction',
   'cross-scope-duplicate': 'Cross-scope duplicate',
-  'stale-delete': 'Stale — propose delete',
+  'stale-delete': 'Stale: propose delete',
 };
 
 function proposalKey(proposal: MemoryConsolidationProposal, index: number): string {
@@ -64,7 +64,7 @@ export function ConsolidationReceipts({ onReviewIds }: ConsolidationReceiptsProp
       </div>
       <p className="form-note">
         Idle-time consolidation merges exact duplicates and decays never-referenced records
-        automatically — reversible, nothing ever deleted. Anything needing a human call is
+        automatically; reversible, nothing ever deleted. Anything needing a human call is
         proposed here instead; the referenced records are already waiting in the review queue.
       </p>
 
@@ -126,7 +126,7 @@ export function ConsolidationReceipts({ onReviewIds }: ConsolidationReceiptsProp
             )}
 
             {pending.length === 0 && runs.length > 0 && (
-              <p className="form-note">Nothing currently pending a human call — every prior proposal has been resolved.</p>
+              <p className="form-note">Nothing currently pending a human call; every prior proposal has been resolved.</p>
             )}
 
             {runs.length > 0 && (
@@ -143,7 +143,7 @@ export function ConsolidationReceipts({ onReviewIds }: ConsolidationReceiptsProp
                       </p>
                       {!receipt.usageSignalAvailable && (
                         <p className="form-note" role="note">
-                          No usage instrumentation available for this run — decay ordering was best-effort.
+                          No usage instrumentation available for this run; decay ordering was best-effort.
                         </p>
                       )}
                     </li>

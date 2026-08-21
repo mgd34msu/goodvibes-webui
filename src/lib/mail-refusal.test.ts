@@ -1,5 +1,5 @@
 /**
- * mail-refusal — the classifier's ORDERING is the contract (see mail-refusal.ts's own
+ * mail-refusal, the classifier's ORDERING is the contract (see mail-refusal.ts's own
  * top-of-file comment: capability-absent, then configuration, then credentials, each
  * step only reachable once the prior one is genuinely satisfied). These tests pin
  * that order against overlapping status codes, not just each predicate in isolation.
@@ -7,7 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import { mailRefusalNote } from './mail-refusal';
 
-describe('mailRefusalNote — ordering contract', () => {
+describe('mailRefusalNote: ordering contract', () => {
   test('a 501 (cataloged but not invokable) classifies as not-available even though 501 is also "not a 412"', () => {
     const note = mailRefusalNote({ status: 501, body: { code: 'METHOD_NOT_INVOKABLE' } });
     expect(note?.kind).toBe('not-available');
@@ -33,7 +33,7 @@ describe('mailRefusalNote — ordering contract', () => {
   });
 
   test('a genuine 401 (daemon session expiry, not an email-specific refusal) also returns null here', () => {
-    // mailRefusalNote has no opinion on daemon-session auth at all — isAuthExpiredError
+    // mailRefusalNote has no opinion on daemon-session auth at all, isAuthExpiredError
     // owns that signal elsewhere. A bare 401 must not be misread as an email refusal.
     expect(mailRefusalNote({ status: 401, category: 'authentication' })).toBeNull();
   });

@@ -1,12 +1,12 @@
 /**
- * sdk-dev.test.ts — checks for the sdk-dev ALIAS (scripts/sdk-dev.ts).
+ * sdk-dev.test.ts, checks for the sdk-dev ALIAS (scripts/sdk-dev.ts).
  *
  * scripts/sdk-dev.ts is now a thin alias (the overlay tool was consolidated
  * into the SDK checkout):
  * the overlay lifecycle logic (status states, the pin reader, the restore
  * version-agreement check, workspace-package enumeration incl. contracts)
  * moved to the SDK checkout's own scripts/sdk-dev.ts and is unit-tested
- * there (goodvibes-sdk/test/sdk-dev-tool.test.ts) — that is now the ONE
+ * there (goodvibes-sdk/test/sdk-dev-tool.test.ts), that is now the ONE
  * place this logic is tested, closing the drift the three independently-
  * maintained copies (this one included, which never picked up the
  * all-siblings/contracts fix) had fallen into.
@@ -15,7 +15,7 @@
  * clauses (missing checkout, checkout present but stale/missing the tool
  * script) and that a present checkout is actually forwarded to. The
  * forwarding assertions are skipped when no local SDK checkout exists at the
- * resolved default path (no CI machine has one — the same precedent this
+ * resolved default path (no CI machine has one, the same precedent this
  * suite already used pre-consolidation for its "real overlay active" case).
  *
  * The full link -> build -> overlay(9 pkgs incl. contracts) -> status ->
@@ -29,7 +29,7 @@ import { join, resolve } from 'node:path';
 import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
 
 // process.on('exit') (makeProjectTempDir's fallback cleanup) never fires
-// under bun:test's runner — only afterAll does. Both tests below already
+// under bun:test's runner, only afterAll does. Both tests below already
 // rmSync their own dir in a try/finally, so this is belt-and-suspenders
 // against a future test in this file that forgets to, not the only thing
 // standing between this file and a leak.
@@ -39,7 +39,7 @@ const SCRIPT_PATH = resolve(import.meta.dir, 'sdk-dev.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');
 const DEFAULT_SDK_ROOT = resolve(process.env.GOODVIBES_SDK_PATH ?? resolve(homedir(), 'Projects/goodvibes-sdk'));
 // Forwarding only succeeds once the checkout HAS the canonical tool (this
-// brief's own deliverable) — a checkout dir existing without it (e.g. an SDK
+// brief's own deliverable), a checkout dir existing without it (e.g. an SDK
 // main that predates the consolidated tool) must gate the same as "no checkout".
 const SDK_TOOL_AVAILABLE = existsSync(join(DEFAULT_SDK_ROOT, 'scripts/sdk-dev.ts'));
 

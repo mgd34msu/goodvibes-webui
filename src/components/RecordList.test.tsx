@@ -58,7 +58,7 @@ describe('RecordList', () => {
     expect(html).toContain('record-row');
   });
 
-  test('renders all items — one row per item', () => {
+  test('renders all items, one row per item', () => {
     const items = [
       { id: 'r1', name: 'First' },
       { id: 'r2', name: 'Second' },
@@ -80,7 +80,7 @@ describe('RecordList', () => {
   test('item without id field falls back to index as id', () => {
     const item = { name: 'No ID Item' };
     const html = renderToStaticMarkup(<RecordList items={[item]} />);
-    // Index 0 used as fallback id — assert the id <span> specifically
+    // Index 0 used as fallback id, assert the id <span> specifically
     expect(html).toContain('<span>0</span>');
     expect(html).toContain('No ID Item');
   });

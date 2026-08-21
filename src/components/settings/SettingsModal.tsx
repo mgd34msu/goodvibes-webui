@@ -1,12 +1,12 @@
 /**
- * SettingsModal — the schema-driven config/settings surface.
+ * SettingsModal, the schema-driven config/settings surface.
  *
  * Rows are driven by the SDK's CONFIG_SCHEMA (types / enums / defaults /
  * descriptions / validation hints), merged with the daemon's live config.get()
  * values, so each key gets a TYPED editor: booleans toggle, enums select,
  * numbers validate, strings text, secrets stay masked/write-only
  * (config-redaction.ts). Every platform capability renders as ONE unit in its
- * DOMAIN group — its enablement control in its real shape (boolean toggle /
+ * DOMAIN group, its enablement control in its real shape (boolean toggle /
  * enum mode select / constant, per SDK FEATURE_SETTINGS) together with the
  * settings keys it owns (settings-model.ts). Features live on first-class
  * domain settings keys; there is no separate enablement bucket. Owned keys
@@ -14,7 +14,7 @@
  *
  * Restart honesty: a restart-gated feature whose enablement was changed here
  * shows a pending-restart marker (tracked per feature id from THIS session's
- * confirmed config.set writes — the daemon exposes no per-process pending
+ * confirmed config.set writes, the daemon exposes no per-process pending
  * state over the wire, and nothing is fabricated).
  *
  * Honesty bars preserved from the read-only version:
@@ -52,7 +52,7 @@ export interface SettingsModalProps {
   onClose: () => void;
 }
 
-/** Mirrors CredentialStatusPanel's isAdminRequiredError — the daemon's real 403
+/** Mirrors CredentialStatusPanel's isAdminRequiredError, the daemon's real 403
  *  admin-scope refusal on config.get carries no machine `code`, status only. */
 function isAdminRequiredError(error: unknown): boolean {
   const serialized = serializeError(error);
@@ -67,12 +67,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [activeGroup, setActiveGroup] = useState<string>('');
   const [search, setSearch] = useState('');
   // Feature ids whose enablement changed this session and only apply after a
-  // daemon restart (feature.restartRequired) — drives the honest pending
+  // daemon restart (feature.restartRequired), drives the honest pending
   // marker at the point of change. Held at modal level so switching category
   // tabs never drops a marker.
   const [pendingRestartIds, setPendingRestartIds] = useState<ReadonlySet<string>>(new Set());
   // What the daemon reported back for the last successful config.set of each key this
-  // session (persistedTo / tier / daemonOwned) — never fabricated from config.get, which
+  // session (persistedTo / tier / daemonOwned), never fabricated from config.get, which
   // returns the persisted tree only and carries none of these fields. Cleared implicitly
   // whenever the modal remounts; not persisted across sessions.
   const [persistedByKey, setPersistedByKey] = useState<Readonly<Record<string, ConfigSetOutcome>>>({});
@@ -89,7 +89,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const allGroups = useMemo(() => buildSettingsModel(config.data), [config.data]);
   const groups = useMemo(() => filterSettingsModel(allGroups, search), [allGroups, search]);
-  // payments.currency's live value, for MoneyField's currency label — read
+  // payments.currency's live value, for MoneyField's currency label, read
   // directly from the live config rather than the built model, since it may
   // sit in a different group than the money field being rendered.
   const currency = useMemo(() => {
@@ -105,7 +105,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   /**
    * Single write path: config.set one key, reconcile via refetch, surface errors.
    *
-   * config.set REJECTS on a non-2xx or network failure (requestJson throws) — nothing
+   * config.set REJECTS on a non-2xx or network failure (requestJson throws), nothing
    * here catches that and reports success anyway; the catch below re-throws so the
    * calling SettingsField/FeatureUnitCard row keeps its edit state and shows the failure
    * inline (its own onCommit awaits this and displays `error`), on top of the toast here.
@@ -120,7 +120,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         await queryClient.invalidateQueries({ queryKey: ['config'] });
         toast({
           title: 'Config saved',
-          description: outcome.persistedTo ? `${key} updated — stored in ${outcome.persistedTo}.` : `${key} updated.`,
+          description: outcome.persistedTo ? `${key} updated: stored in ${outcome.persistedTo}.` : `${key} updated.`,
           tone: 'success',
         });
       } catch (error) {
@@ -136,14 +136,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       const key = rawKey.trim();
       if (!key) throw new Error('Config key is required');
       // secret-store-only-config-keys.ts: these keys' real value is resolved
-      // exclusively from the daemon's secret store — a config.set write here
+      // exclusively from the daemon's secret store, a config.set write here
       // would leave a plaintext, never-read copy in the daemon's config file
       // and configure nothing (verified against the SDK's mail/calendar
       // connector code, cited in that module). Refuse rather than send it,
       // and name the real command instead of reporting a false success.
       if (isSecretStoreOnlyConfigKey(key)) {
         throw new Error(
-          `${key} is only ever read from the daemon's secret store, never from config — writing it here `
+          `${key} is only ever read from the daemon's secret store, never from config, writing it here `
           + `would save a plaintext copy that the mail/calendar connector ignores. Run `
           + `"${secretStoreSetCommandFor(key)}" from a terminal with daemon access instead.`,
         );
@@ -264,7 +264,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   {currentGroup.rawRows.length > 0 && (
                     <div className="settings-raw-rows">
                       <p className="settings-raw-note">
-                        Held by the daemon but not in the config schema — shown read-only. Edit via the
+                        Held by the daemon but not in the config schema; shown read-only. Edit via the
                         Advanced form below.
                       </p>
                       <table className="settings-table">
@@ -302,7 +302,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
       <section className="settings-advanced panel">
         <div className="panel-title">
-          <h2>Advanced — unschema'd keys</h2>
+          <h2>Advanced: unschema'd keys</h2>
           <Save size={16} aria-hidden="true" />
         </div>
         <p className="settings-advanced-note">

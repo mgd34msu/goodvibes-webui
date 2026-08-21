@@ -1,9 +1,9 @@
 /**
- * QueuedMessagesPanel — messages posted while another turn is still running sit
+ * QueuedMessagesPanel, messages posted while another turn is still running sit
  * queued (not yet delivered to the model) until that turn ends
  * (sessions.queuedMessages.list/edit/delete, SDK 1.8.0's interaction-wins
  * round). This panel lets the operator review, edit, or drop a queued message
- * before it is ever sent — renders nothing when there is nothing queued (the
+ * before it is ever sent, renders nothing when there is nothing queued (the
  * common case), never a dead empty section.
  *
  * No wire event exists for this verb family yet (the same standing gap
@@ -21,7 +21,7 @@ import '../../styles/components/queued-messages.css';
 
 export interface QueuedMessagesPanelProps {
   sessionId: string;
-  /** Poll only while a turn is actually active — a queued message can only exist then. */
+  /** Poll only while a turn is actually active, a queued message can only exist then. */
   active: boolean;
 }
 
@@ -63,7 +63,7 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
   return (
     <div className="queued-messages-panel" aria-label="Queued messages">
       <p className="queued-messages-panel__note" role="note">
-        Queued — will be sent once the current reply finishes. Edit or drop it before then.
+        Queued: will be sent once the current reply finishes. Edit or drop it before then.
       </p>
       <ul className="queued-messages-list">
         {messages.map((message) => (

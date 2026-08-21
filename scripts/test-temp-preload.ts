@@ -1,11 +1,11 @@
 /**
- * test-temp-preload — the bun test preload entry that performs the temp-directory
+ * test-temp-preload, the bun test preload entry that performs the temp-directory
  * redirect described in scripts/test-temp-root.ts.
  *
  * This file exists SEPARATELY from test-temp-root.ts so the redirect is a
  * consequence of bunfig.toml preloading it, and of nothing else. When the sweep
  * and the redirect lived at the top of test-temp-root.ts, importing that module
- * (which its own test does) performed them — so the test asserting "os.tmpdir()
+ * (which its own test does) performed them, so the test asserting "os.tmpdir()
  * points inside the repo" passed even with the preload entry removed from
  * bunfig.toml. A guard that its subject cannot escape is not a guard.
  *

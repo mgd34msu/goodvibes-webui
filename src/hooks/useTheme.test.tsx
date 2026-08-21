@@ -5,7 +5,7 @@
  * With @happy-dom/global-registrator (installed by test-setup.ts), `window`
  * IS a real happy-dom Window whose dispatchEvent/addEventListener/
  * removeEventListener are all native happy-dom methods. No event-bus patch
- * is needed — events dispatched on `window` are received by listeners on
+ * is needed, events dispatched on `window` are received by listeners on
  * `window` directly.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -81,7 +81,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// useTheme — error boundary
+// useTheme, error boundary
 // ---------------------------------------------------------------------------
 
 describe('useTheme outside ThemeProvider', () => {
@@ -98,7 +98,7 @@ describe('useTheme outside ThemeProvider', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ThemeProvider — initial state
+// ThemeProvider, initial state
 // ---------------------------------------------------------------------------
 
 describe('ThemeProvider initial state', () => {

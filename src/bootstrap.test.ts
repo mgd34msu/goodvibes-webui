@@ -1,11 +1,11 @@
 /**
- * bootstrap / insecure-origin guard — Finding 3 (plain-http LAN white screen), and its
+ * bootstrap / insecure-origin guard, Finding 3 (plain-http LAN white screen), and its
  * SDK 1.8.0 narrowing to public-only.
  *
  * Proves the entry guard: on an insecure PUBLIC origin the honest "needs HTTPS" message
  * renders and the app graph (mount-app, which pulls the throwing SDK transport at module
  * load) is NEVER imported; on a secure origin, or a private-network http origin (localhost,
- * a LAN IP, a .local name — the supported plain-http-on-LAN posture), the app mounts
+ * a LAN IP, a .local name, the supported plain-http-on-LAN posture), the app mounts
  * normally.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -41,7 +41,7 @@ describe('isInsecureTransportOrigin', () => {
     expect(isInsecureTransportOrigin()).toBe(false);
   });
 
-  test('plain http on a LAN IP (10/8, 172.16/12, 192.168/16) is NOT insecure — the supported LAN posture', () => {
+  test('plain http on a LAN IP (10/8, 172.16/12, 192.168/16) is NOT insecure, the supported LAN posture', () => {
     for (const origin of ['http://192.168.0.131:4360/', 'http://10.0.0.7:4360/', 'http://172.16.4.2:4360/', 'http://172.31.255.9:4360/']) {
       setOrigin(origin);
       expect(isInsecureTransportOrigin()).toBe(false);

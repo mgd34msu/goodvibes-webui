@@ -1,5 +1,5 @@
 /**
- * useVoice.ts — React glue for the voice surface.
+ * useVoice.ts, React glue for the voice surface.
  *
  *   useVoiceStatus()      the honest availability posture (voice.status), cached/shared.
  *   useSharedVoiceConfig() the shared tts.provider/tts.voice defaults (config.get).
@@ -9,13 +9,13 @@
  * WHAT CHANGED UNDERNEATH useVoiceInput, and why its external contract did not:
  * capture no longer runs a MediaRecorder of its own. It goes through the ONE browser
  * capture primitive (lib/voice/capture.ts) and the SDK's `PushToTalkSession`, so
- * dictation and always-on wake detection share a single device path — and through the
+ * dictation and always-on wake detection share a single device path, and through the
  * arbiter (lib/voice/mic-arbiter.ts), so a press while the wake listener holds the
  * microphone stands that listener down instead of opening a second stream.
  *
  * The audio therefore leaves as 16 kHz mono PCM in a WAV container
  * (`utteranceToAudioArtifact`) rather than a webm/opus blob. Same `voice.stt` verb, same
- * artifact shape — mimeType/format/dataBase64 — just an encoding both surfaces can
+ * artifact shape, mimeType/format/dataBase64, just an encoding both surfaces can
  * produce from raw frames without a codec, which is what let the terminal have voice
  * input at all.
  */
@@ -139,12 +139,12 @@ export function useTts(): UseTtsResult {
  *
  * Two consumers: the wake host (which starts a detector only when `.active`), and
  * push-to-talk (which takes its device, ceiling and frame size from the SAME rows
- * — that is what `voice.wake.inputDevice`'s description means by "shared by BOTH
+ *, that is what `voice.wake.inputDevice`'s description means by "shared by BOTH
  * microphone consumers").
  */
 /**
  * The `voice.wake.status` cache key. Defined here rather than in useWake.ts
- * because that module imports this one, and both read this endpoint — two keys
+ * because that module imports this one, and both read this endpoint, two keys
  * for one read would mean two fetches and two answers that can disagree.
  */
 export const WAKE_STATUS_QUERY_KEY = ['voice', 'wake', 'status'] as const;
@@ -167,7 +167,7 @@ export function useWakeSettings(): { settings: WakeRuntimeSettings; isLoading: b
     retry: false,
   });
   // No tree yet resolves to the SHIPPED defaults (enabled false, surfaces.webui
-  // false) rather than to zeroes — so a tab that has not loaded its config never
+  // false) rather than to zeroes, so a tab that has not loaded its config never
   // opens a device on the strength of a blank read.
   const settings = useMemo(
     () => resolveWebuiWakeSettings(query.data ?? {}, gate.data?.vadReady === true),
@@ -200,7 +200,7 @@ export interface UseVoiceInputResult {
  * Send one captured utterance to `voice.stt` and return the words.
  *
  * Shared by dictation and by the wake host, because a wake's utterance goes to the
- * SAME verb with the SAME artifact — that handoff is the reason both consumers sit
+ * SAME verb with the SAME artifact, that handoff is the reason both consumers sit
  * on one device path in the first place.
  */
 export async function transcribeUtterance(
@@ -237,7 +237,7 @@ export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInp
 
   // The capture rows are the SHARED ones: device, ceiling and frame size come from
   // voice.wake.*, so a device chosen for the detector is the device dictation uses.
-  // silenceStopMs is deliberately 0 here — someone holding a button through a pause
+  // silenceStopMs is deliberately 0 here, someone holding a button through a pause
   // has not finished talking, so stopping is the user's call, not a timer's.
   const captureOptions = useMemo(() => ({
     device: settings.capture.device,
@@ -330,7 +330,7 @@ export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInp
       await releaseLease();
     }
     if (utterance) await transcribe(utterance);
-    // A released button with nothing recorded is a no-op, not an error — but a stop
+    // A released button with nothing recorded is a no-op, not an error, but a stop
     // that FAILED keeps its error phase rather than being reset to idle underneath it.
     else if (!failed) setPhase('idle');
   }, [releaseLease, transcribe]);

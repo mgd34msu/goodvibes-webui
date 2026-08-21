@@ -4,7 +4,7 @@
  * The PWA is installable only if the manifest is well-formed and declares the
  * right icons + display mode. And its theme/background color must be the SAME
  * color the app actually paints its chrome (tokens.css --surface-base, dark
- * default) — a manifest color that drifted from the real UI would flash a
+ * default), a manifest color that drifted from the real UI would flash a
  * different color on the install splash and status bar than the app shows,
  * which is a small dishonesty. This test fails if either drifts.
  */

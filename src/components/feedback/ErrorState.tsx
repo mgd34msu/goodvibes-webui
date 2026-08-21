@@ -1,5 +1,5 @@
 /**
- * ErrorState — inline failed-query state with a Retry action.
+ * ErrorState, inline failed-query state with a Retry action.
  * Use inside data-fetching views when a query errors but the whole page
  * should not crash (as opposed to ErrorBoundary for render errors).
  *

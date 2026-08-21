@@ -1,16 +1,16 @@
 /**
- * request-policy.ts — the bounded spoken-output request policy, client-side.
+ * request-policy.ts, the bounded spoken-output request policy, client-side.
  *
  * The TUI and agent now ship a spoken-output request policy with three properties, and
  * the browser must behave the same way so a spoken reply sounds identical across
  * surfaces:
  *
- *   1. COALESCE TO THE FEWEST REQUESTS — a reply is split into as few synthesis requests
+ *   1. COALESCE TO THE FEWEST REQUESTS, a reply is split into as few synthesis requests
  *      as possible (only split when a single request would exceed the provider's
  *      comfortable length), so a short or medium reply is one request, not many.
- *   2. CAP CONCURRENCY AT 2 — never more than two synthesis requests in flight at once,
+ *   2. CAP CONCURRENCY AT 2, never more than two synthesis requests in flight at once,
  *      so a long reply does not fan out into a burst the provider rate-limits.
- *   3. TRANSIENT-429 RETRY WITH HONEST SKIP-AND-CONTINUE — a request that comes back 429
+ *   3. TRANSIENT-429 RETRY WITH HONEST SKIP-AND-CONTINUE, a request that comes back 429
  *      (rate limited) is retried with backoff; if it still fails after the retries, that
  *      one segment is SKIPPED and the rest of the reply still plays, and the skip is
  *      reported honestly (never silently dropped, never aborting the whole reply).
@@ -21,8 +21,8 @@
  * (platform/voice/spoken-turn) that drives the same three properties, but it is a
  * daemon-side engine: it is constructed around a live VoiceService (the provider
  * registry that holds real synthesis credentials and does the actual network call) and
- * driven by the daemon's TurnEvent lifecycle stream, neither of which exists — or
- * should exist — in the browser. The browser only ever calls the daemon's synthesis
+ * driven by the daemon's TurnEvent lifecycle stream, neither of which exists, or
+ * should exist, in the browser. The browser only ever calls the daemon's synthesis
  * endpoint over HTTP for text it already has in hand, so this module's segment
  * scheduler (coalesce, cap, retry-then-skip over an injected `synth` function) is the
  * correct browser-side counterpart, not a stand-in awaiting removal.
@@ -78,9 +78,9 @@ export function isTransientTtsError(error: unknown): boolean {
 const SENTENCE_BOUNDARY = /(?<=[.!?…])\s+/;
 
 /**
- * coalesceForSpeech — split a reply into the FEWEST synthesis segments each within
+ * coalesceForSpeech, split a reply into the FEWEST synthesis segments each within
  * `maxChars`. A reply that already fits is a single segment (one request). Longer text
- * is split on paragraph, then sentence, then whitespace boundaries — never mid-word — so
+ * is split on paragraph, then sentence, then whitespace boundaries, never mid-word, so
  * the seams fall where a human would pause. Returns [] for empty/whitespace-only text.
  */
 export function coalesceForSpeech(text: string, maxChars = 1800): string[] {
@@ -162,13 +162,13 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 /**
- * scheduleTtsRequests — run `synth` over `segments` under the bounded policy.
+ * scheduleTtsRequests, run `synth` over `segments` under the bounded policy.
  *
  * A pool of `concurrency` workers pulls the next un-started segment, synthesises it with
  * transient-retry, and resolves that segment's slot. The player awaits slots in order via
  * resultFor(), so playback is gapless-in-order while up to `concurrency` requests fetch
  * ahead. A transient failure retries with exponential backoff up to `maxRetries`; if it
- * still fails — or fails non-transiently — that segment resolves as `skipped` and the run
+ * still fails, or fails non-transiently, that segment resolves as `skipped` and the run
  * continues. cancel()/an aborted signal stops the pool and resolves any unfinished slots
  * as skipped (so a consumer awaiting them never hangs).
  */
@@ -216,7 +216,7 @@ export function scheduleTtsRequests(
         return;
       } catch (error) {
         lastError = error;
-        // A deliberate interrupt is not a skip-worthy provider failure — bail quietly.
+        // A deliberate interrupt is not a skip-worthy provider failure, bail quietly.
         if (controller.signal.aborted) {
           settle({ index, text, status: 'skipped', error, attempts });
           return;

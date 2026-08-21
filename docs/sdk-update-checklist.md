@@ -1,4 +1,4 @@
-# SDK Update Checklist
+# SDK update checklist
 
 Use this checklist for routine `@pellux/goodvibes-sdk` updates.
 
@@ -54,7 +54,7 @@ Run local CI:
 bun run ci
 ```
 
-## Version and Changelog
+## Version and changelog
 
 Bump WebUI patch version in `package.json`.
 
@@ -70,7 +70,7 @@ Add a `CHANGELOG.md` entry:
 
 Update cache-bust values in `index.html` to the new WebUI version.
 
-## Source Checks
+## Source checks
 
 Confirm no accidental local SDK or extension-specific code was introduced:
 
@@ -84,7 +84,7 @@ The second and third checks are not always errors, but they force an explicit
 review. Do not add WRFC/workmap surfaces unless there is a WebUI-facing product
 request and SDK handoff. Do not add Home Graph behavior to regular Knowledge.
 
-## Commit, Tag, Push
+## Commit, tag, push
 
 ```bash
 git add CHANGELOG.md bun.lock index.html package.json
@@ -96,7 +96,7 @@ git push origin main --tags
 If code changes are required by the SDK handoff, include those files in the
 commit and use a message that names the behavior, not only the dependency bump.
 
-## Restart Dev Server
+## Restart dev server
 
 Stop existing Vite processes and restart with fresh optimized deps:
 

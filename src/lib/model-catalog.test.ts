@@ -46,7 +46,7 @@ const PROVIDERS_RESPONSE = {
   ],
 };
 
-describe('modelsFromProvidersResponse — reads tier/pricing from providers.list, not models.list', () => {
+describe('modelsFromProvidersResponse: reads tier/pricing from providers.list, not models.list', () => {
   test('flattens every provider\'s models with real tier/pricing when present', () => {
     const models = modelsFromProvidersResponse(PROVIDERS_RESPONSE);
     expect(models).toHaveLength(4);
@@ -83,7 +83,7 @@ describe('providerIdsFromProvidersResponse / configuredProviderIdsFromProvidersR
   });
 });
 
-describe('detectFamily — mirrors the TUI FAMILY_PATTERNS regex list', () => {
+describe('detectFamily: mirrors the TUI FAMILY_PATTERNS regex list', () => {
   test('classifies known families', () => {
     const model = (id: string, label: string): CatalogModel => ({ id, registryKey: `p:${id}`, provider: 'p', label });
     expect(detectFamily(model('claude-opus-4', 'Claude Opus 4'))).toBe('Claude');
@@ -94,7 +94,7 @@ describe('detectFamily — mirrors the TUI FAMILY_PATTERNS regex list', () => {
   });
 });
 
-describe('tierToCategoryFilter — matches the TUI\'s tierToCategoryFilter mapping', () => {
+describe('tierToCategoryFilter: matches the TUI\'s tierToCategoryFilter mapping', () => {
   test('free and subscription pass through; standard/premium/anything else configured is paid', () => {
     expect(tierToCategoryFilter('free')).toBe('free');
     expect(tierToCategoryFilter('subscription')).toBe('subscription');
@@ -107,14 +107,14 @@ describe('tierToCategoryFilter — matches the TUI\'s tierToCategoryFilter mappi
   });
 });
 
-describe('hasAnyTierData / hasAnyCapabilityData / hasAnyQualityTierData — honest forward-compat detection', () => {
+describe('hasAnyTierData / hasAnyCapabilityData / hasAnyQualityTierData, honest forward-compat detection', () => {
   const models = modelsFromProvidersResponse(PROVIDERS_RESPONSE);
 
   test('tier data is genuinely present in this fixture', () => {
     expect(hasAnyTierData(models)).toBe(true);
   });
 
-  test('capability and quality-tier data are never fabricated — always false today (no wire source exists)', () => {
+  test('capability and quality-tier data are never fabricated, always false today (no wire source exists)', () => {
     expect(hasAnyCapabilityData(models)).toBe(false);
     expect(hasAnyQualityTierData(models)).toBe(false);
   });
@@ -168,7 +168,7 @@ describe('groupModels', () => {
   });
 });
 
-describe('readTargetRouting / buildTargetWriteEntries / buildTargetEnableEntry — target routing mirrors the TUI\'s model-picker-types.ts mapping exactly', () => {
+describe('readTargetRouting / buildTargetWriteEntries / buildTargetEnableEntry, target routing mirrors the TUI\'s model-picker-types.ts mapping exactly', () => {
   test('main reads from currentModel, not config, and has no enable entry (it is not a config key)', () => {
     const routing = readTargetRouting('main', {}, { provider: 'anthropic', id: 'claude-opus-4', registryKey: 'anthropic:claude-opus-4' });
     expect(routing.provider).toBe('anthropic');
@@ -202,7 +202,7 @@ describe('readTargetRouting / buildTargetWriteEntries / buildTargetEnableEntry �
     ]);
   });
 
-  test('tts reads tts.llmProvider/llmModel (not tts.provider/voice/speed — VOICE-WEBUI\'s domain) and has no enable flag', () => {
+  test('tts reads tts.llmProvider/llmModel (not tts.provider/voice/speed; VOICE-WEBUI\'s domain) and has no enable flag', () => {
     const routing = readTargetRouting('tts', { tts: { provider: 'elevenlabs', voice: 'x', llmProvider: '', llmModel: '' } }, null);
     expect(routing.unset).toBe(true);
     expect(routing.configuredNote).toContain('active chat provider/model');

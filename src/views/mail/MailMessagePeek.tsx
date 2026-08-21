@@ -1,5 +1,5 @@
 /**
- * MailMessagePeek — the full-message body shown in the peek panel when an inbox
+ * MailMessagePeek, the full-message body shown in the peek panel when an inbox
  * row is selected. Reads `email.inbox.read`, which carries what the summary row
  * cannot: the full body text and attachment metadata. A genuine detail fetch, the
  * same relationship CalendarEventPeek has to the calendar event list.
@@ -7,20 +7,20 @@
  * TWO DELIBERATE RESTRAINTS, both about not doing more than the surface should:
  *
  * 1. `bodyHtml` is NEVER rendered. The detail schema carries it and this component
- *    reads it, but only to say that an HTML alternative exists — the text part is
+ *    reads it, but only to say that an HTML alternative exists, the text part is
  *    what gets displayed. Rendering an arbitrary sender's HTML inside the operator
  *    console would let mail from anyone style, lay out, and (via remote image loads)
  *    phone home from a page that also holds the daemon session. Showing bodyText and
  *    naming the HTML part is the honest version: nothing is hidden from the operator,
  *    and nothing a stranger wrote gets to run in here.
  *
- * 2. Attachments are listed, never fetched. The schema is metadata only — filename,
- *    content type, size — and there is no attachment-download verb in the contract at
+ * 2. Attachments are listed, never fetched. The schema is metadata only, filename,
+ *    content type, size, and there is no attachment-download verb in the contract at
  *    all. So this lists what is attached and stops, rather than rendering a download
  *    control that no daemon method backs. Naming the attachment is useful; a button
  *    that cannot do anything is not.
  *
- * The read verb is explicitly non-mutating on the server (BODY.PEEK — the SDK's own
+ * The read verb is explicitly non-mutating on the server (BODY.PEEK, the SDK's own
  * description says it does not mark the message read), so opening the peek does not
  * silently change the operator's mailbox state. The unread pill in the list stays
  * truthful after a read, which is why this component never optimistically clears it.
@@ -103,7 +103,7 @@ export function MailMessagePeekBody({ uid, onReply }: MailMessagePeekProps) {
 
       {message.bodyHtml ? (
         <p className="mail-peek-body__html-note">
-          This message also has an HTML part. The plain-text part is shown above — the console does not render
+          This message also has an HTML part. The plain-text part is shown above. The console does not render
           sender HTML, so nothing from the message can style or load anything inside this page.
         </p>
       ) : null}

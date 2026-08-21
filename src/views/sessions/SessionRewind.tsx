@@ -1,5 +1,5 @@
 /**
- * SessionRewind — the session-detail REWIND surface (rewind.plan / rewind.apply, SDK 1.6.1).
+ * SessionRewind, the session-detail REWIND surface (rewind.plan / rewind.apply, SDK 1.6.1).
  *
  * A terraform-style dry-run/apply flow: pick a recent turn anchor (or the session's most
  * recent checkpoint) and a scope (files / conversation / both) → rewind.plan previews
@@ -10,7 +10,7 @@
  *
  * HONEST PARTS: rewind.plan reports a part with no store wired on this runtime as
  * unavailable (in the plan's `warnings` and/or the part's `available:false`) rather than
- * faking it — the files scope is live; the conversation scope may report unavailable, and
+ * faking it, the files scope is live; the conversation scope may report unavailable, and
  * this renders that verbatim. The receipt's undo point: the file restore's pre-restore
  * safety checkpoint is reversible from the browser (checkpoints.restore); the conversation
  * snapshot id is shown but has no browser-side restore verb (an honest note, never a
@@ -33,7 +33,7 @@ type RewindScope = 'files' | 'conversation' | 'both';
 
 interface SessionRewindProps {
   sessionId: string;
-  /** True when the session is closed — rewind still previews/applies against its history. */
+  /** True when the session is closed, rewind still previews/applies against its history. */
   closed?: boolean;
 }
 
@@ -142,7 +142,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
           {messages.isPending && <SkeletonBlock variant="text" lines={2} />}
           {anchors.length === 0 && messages.isSuccess && (
             <p className="session-rewind__note" role="note">
-              No turn-anchored messages retained for this session — you can still rewind to its most recent checkpoint.
+              No turn-anchored messages retained for this session, you can still rewind to its most recent checkpoint.
             </p>
           )}
 
@@ -166,7 +166,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
                     <strong>Files:</strong>{' '}
                     {planData.files?.available
                       ? `restore ${planData.files.affectedFileCount} file${planData.files.affectedFileCount === 1 ? '' : 's'} from checkpoint "${planData.files.checkpointLabel ?? planData.files.checkpointId ?? 'nearest'}"`
-                      : 'unavailable on this runtime — no workspace checkpoint store is wired.'}
+                      : 'unavailable on this runtime: no workspace checkpoint store is wired.'}
                   </li>
                 )}
                 {(scope === 'conversation' || scope === 'both') && (
@@ -174,7 +174,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
                     <strong>Conversation:</strong>{' '}
                     {planData.conversation?.available
                       ? `drop ${planData.conversation.messagesToDrop} message${planData.conversation.messagesToDrop === 1 ? '' : 's'}, keep ${planData.conversation.messagesRemaining}`
-                      : 'unavailable on this runtime — no conversation store is wired for a rewind here.'}
+                      : 'unavailable on this runtime: no conversation store is wired for a rewind here.'}
                   </li>
                 )}
               </ul>
@@ -196,7 +196,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
           {apply.isError && <p className="session-rewind__error" role="alert">{formatError(apply.error)}</p>}
           {applyRefused && (
             <p className="session-rewind__error" role="alert">
-              {apply.data?.refusal?.reason ?? 'The rewind was refused — preview it again to mint a fresh confirmation.'}
+              {apply.data?.refusal?.reason ?? 'The rewind was refused, preview it again to mint a fresh confirmation.'}
             </p>
           )}
 
@@ -244,7 +244,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
                 {receipt.undo.conversation && (
                   <p className="session-rewind__note" role="note">
                     The conversation rewind is reversible from its captured snapshot
-                    ({receipt.undo.conversation.undoSnapshotId}), but the browser has no conversation-restore verb — use
+                    ({receipt.undo.conversation.undoSnapshotId}), but the browser has no conversation-restore verb, use
                     the TUI to reverse it.
                   </p>
                 )}

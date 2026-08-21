@@ -1,5 +1,5 @@
 /**
- * Voice surface public exports — TTS playback (request policy + Web Audio player),
+ * Voice surface public exports, TTS playback (request policy + Web Audio player),
  * the ONE browser microphone path and the arbiter that keeps it single, wake-word
  * detection inside the tab, the shared voice config reads, and the React glue. See
  * each module for the honest-state and single-sink design notes.

@@ -1,5 +1,5 @@
 /**
- * ModelWorkspaceModal — the multi-target model picker (main/helper/tool/tts/
+ * ModelWorkspaceModal, the multi-target model picker (main/helper/tool/tts/
  * embeddings), search + filter, toward the TUI's Model Workspace standard
  * (src/renderer/model-workspace.ts + src/input/model-picker.ts). Launched from
  * ProvidersView's "Browse Models" button. See src/lib/model-catalog.ts for the
@@ -108,7 +108,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
       }
       const entries = buildTargetWriteEntries(target, model.provider, model.id) ?? [];
       // Sequential, not Promise.all: the daemon's /config route accepts one key at a
-      // time (see src/lib/goodvibes.ts's config.set comment) — writing several keys
+      // time (see src/lib/goodvibes.ts's config.set comment), writing several keys
       // for one target (e.g. helper.globalProvider + helper.globalModel + helper.enabled)
       // means several awaited config.set calls in a row.
       for (const [key, value] of entries) {
@@ -174,7 +174,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
       <div className="model-workspace-routing" aria-live="polite">
         {routing.unset ? (
           <span className="model-workspace-routing__note">
-            {routing.label}: not configured{routing.configuredNote ? ` — ${routing.configuredNote}` : ''}
+            {routing.label}: not configured{routing.configuredNote ? `: ${routing.configuredNote}` : ''}
           </span>
         ) : (
           <span className="model-workspace-routing__current">

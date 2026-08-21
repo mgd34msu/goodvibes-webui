@@ -1,5 +1,5 @@
 /**
- * ErrorBoundary — React class error boundary.
+ * ErrorBoundary, React class error boundary.
  * The app currently has no top-level error boundary; this is the critical missing piece.
  *
  * Contract: default export, prop `fallback?: (error, reset) => ReactNode`

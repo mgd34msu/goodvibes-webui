@@ -1,5 +1,5 @@
 /**
- * Onboarding — first-run teaching panel, dismissible and persisted via the
+ * Onboarding, first-run teaching panel, dismissible and persisted via the
  * ui-preferences pattern. Each surface gets its own dismissal key via `id`.
  *
  * Persistence: uses the same localStorage key as WebUiPreferences but under

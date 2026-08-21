@@ -2,7 +2,7 @@
  * Wake-word settings reach the web settings view under the Voice group.
  *
  * `voice.wake.*` shares the `voice` namespace with the local STT/TTS engine
- * paths, so it groups with them — the platform's category rule is "one group
+ * paths, so it groups with them, the platform's category rule is "one group
  * per top-level namespace", and wake-word detection gets its own titled block
  * inside that group from the SDK's FEATURE_SETTINGS surface rather than from a
  * second, sub-namespace category. This pins the label and the grouping so a

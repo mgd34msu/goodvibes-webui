@@ -1,5 +1,5 @@
 /**
- * Visual proofs — retro-covers screenshots deferred earlier for
+ * Visual proofs, retro-covers screenshots deferred earlier for
  * this harness: provider pills, the knowledge map, chat degraded states (mocked stream
  * drop), the delete affordance, and both themes for the white-band surfaces. Runs on
  * BOTH the phone and desktop projects; filenames carry the project name. Artifacts land
@@ -79,7 +79,7 @@ test('delete-means-delete affordance', async ({ page }, testInfo) => {
 });
 
 for (const theme of ['dark', 'light'] as const) {
-  test(`white-band surfaces — ${theme} theme`, async ({ page }, testInfo) => {
+  test(`white-band surfaces: ${theme} theme`, async ({ page }, testInfo) => {
     await seedTheme(page, theme);
     await installMockDaemon(page);
     await page.goto('/?view=sessions');
@@ -104,10 +104,10 @@ function luminanceOf(rgb: string): number {
 
 // F2 (hero legibility): the session-detail header is a themed surface card, so its
 // title never renders dark-on-dark in light theme. Asserted by computed contrast, not
-// only by eye — the header background and its title must land on opposite luminance
+// only by eye, the header background and its title must land on opposite luminance
 // sides in BOTH themes.
 for (const theme of ['dark', 'light'] as const) {
-  test(`session-detail hero title stays legible — ${theme} theme`, async ({ page }, testInfo) => {
+  test(`session-detail hero title stays legible, ${theme} theme`, async ({ page }, testInfo) => {
     await seedTheme(page, theme);
     await installMockDaemon(page);
     await page.goto('/?view=sessions');

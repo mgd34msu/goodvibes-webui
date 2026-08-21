@@ -1,9 +1,9 @@
 /**
- * approvals.ts — tolerant readers + display helpers for approvals.* (existing
+ * approvals.ts, tolerant readers + display helpers for approvals.* (existing
  * verb family; per-hunk selection lives in packages/sdk/src/platform/
  * control-plane/approval-hunk-apply.ts).
  *
- * Edit hunks are read DEFENSIVELY off `request.args.edits` — mirrors the SDK's
+ * Edit hunks are read DEFENSIVELY off `request.args.edits`, mirrors the SDK's
  * own `readApprovalEditHunks` (approval-hunk-apply.ts): a request whose args
  * are not edit-shaped (no `edits` array, empty, or any entry missing
  * path/find/replace) simply has no hunks to render, never a crash.
@@ -11,7 +11,7 @@
  * PARITY CONTRACT: this module never computes a modified-edit result. It only
  * reads hunks for display and packages a selected-index array for
  * `approvals.approve`. The daemon (S3's moved `buildModifiedEditArgs`) is the
- * single source of the applied result — see goodvibes.ts's ApprovalApproveInput
+ * single source of the applied result, see goodvibes.ts's ApprovalApproveInput
  * doc and the ApprovalsTasksView component, which sends indices only.
  */
 
@@ -75,7 +75,7 @@ export function isEditApproval(record: ApprovalRecord): boolean {
  * than the whole request? The daemon's `decision.modifiedArgs.edits` carries
  * the filtered hunk list only when a `selectedHunks` subset was sent
  * (APPROVAL_APPROVE_INPUT_SCHEMA's selectedHunks doc, operator-contract-
- * schemas-runtime.ts) — comparing its length against the original request's
+ * schemas-runtime.ts), comparing its length against the original request's
  * hunk count is enough to say "partial (2/5 hunks)" from data already on the
  * record, no extra wire call. Returns null when not applicable: not
  * approved, no edit hunks on the request, or modifiedArgs absent/covers
@@ -137,9 +137,9 @@ export function hunkSummary(hunk: ApprovalEditHunk): string {
 
 /**
  * The full decision trail, oldest first (the wire already appends in
- * chronological order — see approval-broker.ts's `buildAudit` call sites —
+ * chronological order, see approval-broker.ts's `buildAudit` call sites,
  * but this never assumes ordering it does not itself guarantee). `audit` is
- * absent, never null, on a mixed-version or pre-audit record — never inferred
+ * absent, never null, on a mixed-version or pre-audit record, never inferred
  * as "no history", just "not reported here".
  */
 export function auditTrail(record: ApprovalRecord): readonly ApprovalAuditRecord[] {
@@ -155,7 +155,7 @@ export function auditEntryLabel(entry: ApprovalAuditRecord): string {
 
 /**
  * One-line, human-honest summary of who/what asked, for a non-foreground
- * approval — read only from `record.request.attribution`'s discriminated
+ * approval, read only from `record.request.attribution`'s discriminated
  * `kind`, never inferred. Null on a foreground ask (the common case, no
  * `attribution` on the wire).
  */
@@ -192,7 +192,7 @@ function isRememberOptionLike(value: unknown): value is ApprovalRememberOption {
 /**
  * The remember-tier options offered on an ask, read defensively off
  * `request.rememberOptions` (a record from a pre-tier daemon simply offers
- * none). Options render VERBATIM — label/detail come from the SDK's
+ * none). Options render VERBATIM, label/detail come from the SDK's
  * buildRememberOptions, never re-derived policy language.
  */
 export function readRememberOptions(record: ApprovalRecord): ApprovalRememberOption[] {
@@ -216,7 +216,7 @@ export interface ExecPromptAsk {
 }
 
 /**
- * Read an exec-prompt ask — a RUNNING command blocked on its terminal — from
+ * Read an exec-prompt ask, a RUNNING command blocked on its terminal, from
  * an approval record. Detected by the attribution's discriminated kind first,
  * with the tool id as the fallback tell (both stamped by the SDK's
  * buildExecPromptAnswerHandler). Field values come from `request.args`
@@ -238,7 +238,7 @@ export function readExecPromptAsk(record: ApprovalRecord): ExecPromptAsk | null 
 }
 
 /**
- * The remember tier the daemon actually recorded for this resolved approval —
+ * The remember tier the daemon actually recorded for this resolved approval,
  * read from the response's authoritative `recorded` block, never from what the
  * client sent. The HTTP route forwards the requested tier into broker
  * resolution and reports the tier it recorded (or null) back in that block, so
@@ -256,7 +256,7 @@ export function recordedRememberTier(result: ApprovalActionResult | undefined): 
 
 /**
  * Whether the daemon persisted the decision's free-text reason (a deny reason,
- * or an approve note) — from the `recorded` block. Falls back to the presence
+ * or an approve note), from the `recorded` block. Falls back to the presence
  * of a reason on the resolved record's decision for a pre-block daemon.
  */
 export function recordedReasonStored(result: ApprovalActionResult | undefined): boolean {
@@ -268,7 +268,7 @@ export function recordedReasonStored(result: ApprovalActionResult | undefined): 
 
 /**
  * Whether the daemon delivered the decision's modifiedArgs to the waiting run
- * (e.g. an exec-prompt answer reaching the blocked command) — from the
+ * (e.g. an exec-prompt answer reaching the blocked command), from the
  * `recorded` block. Falls back to an answer stamped on the resolved record's
  * decision.modifiedArgs for a pre-block daemon.
  */
@@ -281,11 +281,11 @@ export function recordedAnswerDelivered(result: ApprovalActionResult | undefined
 /**
  * The optional model-judgment verdict for a sandbox-escalation ask
  * (`sandbox-model-judgment` flag), read from `record.metadata.judgmentVerdict`
- * — the ONE place the daemon's annotate-only judgment tier stamps a verdict on
+ *, the ONE place the daemon's annotate-only judgment tier stamps a verdict on
  * the wire (createSandboxEscalationApprovalHandler, sandbox-escalation.ts).
  * Absent when the judgment tier is off, unwired, or auto-approved the ask
  * (auto-approve never reaches a broker request, so no record exists to stamp).
- * Read defensively — `metadata` is an open `Record<string, unknown>` this
+ * Read defensively, `metadata` is an open `Record<string, unknown>` this
  * client never runtime-validates.
  */
 export function judgmentVerdict(record: ApprovalRecord): string | null {
@@ -293,7 +293,7 @@ export function judgmentVerdict(record: ApprovalRecord): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** Badge tone for a model-judgment verdict — mirrors riskTone's ok/warning/neutral vocabulary. */
+/** Badge tone for a model-judgment verdict, mirrors riskTone's ok/warning/neutral vocabulary. */
 export function judgmentTone(verdict: string): string {
   switch (verdict) {
     case 'looks-safe':

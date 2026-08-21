@@ -1,5 +1,5 @@
 /**
- * relay-stream-overflow.ts — the honest accounting store for live events dropped over the relay.
+ * relay-stream-overflow.ts, the honest accounting store for live events dropped over the relay.
  */
 import { afterEach, describe, expect, test } from 'bun:test';
 import {

@@ -57,7 +57,7 @@ function render(props: Partial<React.ComponentProps<typeof AccountsPanel>> = {})
   };
 }
 
-describe('AccountsPanel — honest states, never a fabricated one', () => {
+describe('AccountsPanel: honest states, never a fabricated one', () => {
   test('loading shows a skeleton, not stale/empty content', () => {
     const { el, unmount } = render({ isLoading: true });
     expect(el.querySelector('[aria-busy="true"]')).not.toBeNull();

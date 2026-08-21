@@ -1,13 +1,13 @@
 /**
- * sw.test.ts — proves the service worker's OWN `linkForNotification` copy (public/sw.js)
+ * sw.test.ts, proves the service worker's OWN `linkForNotification` copy (public/sw.js)
  * actually enforces the same in-app-only guard as the pure helper (notification-link.ts).
  *
- * public/sw.js is a plain script that runs in a ServiceWorkerGlobalScope, not a module —
+ * public/sw.js is a plain script that runs in a ServiceWorkerGlobalScope, not a module,
  * it cannot be `import`-ed. This test instead reads the real file off disk and executes
  * it (via `new Function`, with the ambient happy-dom `self`/`caches` this project's
  * test-setup.ts already registers), then captures the top-level `linkForNotification`
  * declaration via a trailing `return`. That is the actual runtime code path a real
- * notification tap executes — not a hand-transcribed copy that could silently drift
+ * notification tap executes, not a hand-transcribed copy that could silently drift
  * from the file the browser loads (the cohesion review's exact finding: the two copies
  * "kept deliberately in sync" had drifted, and nothing loaded sw.js to catch it).
  */
@@ -22,7 +22,7 @@ const SW_PATH = resolve(__dirname, '../../../public/sw.js');
 function loadServiceWorkerLinkForNotification(): (data: unknown, action?: string) => string {
   const source = readFileSync(SW_PATH, 'utf8');
   // The top level only defines constants/functions and calls `self.addEventListener`
-  // (a real happy-dom EventTarget method — a no-op registration here since none of
+  // (a real happy-dom EventTarget method, a no-op registration here since none of
   // those events fire in this test). Nothing else executes at load time.
   const factory = new Function(`${source}\nreturn linkForNotification;`);
   return factory() as (data: unknown, action?: string) => string;
@@ -45,7 +45,7 @@ describe('sw.js linkForNotification (loaded and executed from the real file, not
     expect(linkForNotification({ url: '/?view=sessions' })).toBe('/?view=sessions');
   });
 
-  test('an off-site (non-relative) url is refused, falling back to the app root — the guard notification-link.ts documents as shared', () => {
+  test('an off-site (non-relative) url is refused, falling back to the app root, the guard notification-link.ts documents as shared', () => {
     const linkForNotification = loadServiceWorkerLinkForNotification();
     expect(linkForNotification({ url: 'https://evil.example/phish' })).toBe('/');
   });
@@ -88,12 +88,12 @@ describe('sw.js linkForNotification (loaded and executed from the real file, not
 // ─── handlePushSubscriptionChange (real sw.js copy) ─────────────────────────
 //
 // A REAL browser-triggered endpoint rotation cannot be produced in this (or any
-// headless) test environment — there is no way to make the OS push service
+// headless) test environment, there is no way to make the OS push service
 // actually rotate a live subscription. What IS tested here, against the exact
 // code the browser runs: given a synthetic pushsubscriptionchange event, the
 // handler (a) re-subscribes using the old subscription's own options (no
 // separately-cached VAPID key needed) and (b) posts the new endpoint/keys to
-// every open window client — the two things the handler can do without a
+// every open window client, the two things the handler can do without a
 // daemon auth token (see the file's own header comment on that boundary).
 describe('sw.js handlePushSubscriptionChange (real sw.js copy)', () => {
   const selfGlobal = globalThis as unknown as {

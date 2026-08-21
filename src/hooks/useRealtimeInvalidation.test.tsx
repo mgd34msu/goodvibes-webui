@@ -1,5 +1,5 @@
 /**
- * useRealtimeInvalidation — the connection-budget regression test.
+ * useRealtimeInvalidation, the connection-budget regression test.
  *
  * The bug this pins: the hook used to open ONE SSE connection PER domain (five of them)
  * via sdk.realtime.viaSse(). Together with useSessionRealtime's own stream that reached
@@ -116,7 +116,7 @@ describe('useRealtimeInvalidation', () => {
     // The broad 'sessions' prefix is included (not 'config') because
     // PERMISSION_MODE_CHANGED rides the same 'permissions' domain, carries no
     // sessionId, and the session-scoped permission-mode/context-usage queries are
-    // prefixed with 'sessions' (queries.ts) — see useRealtimeInvalidation.ts's
+    // prefixed with 'sessions' (queries.ts), see useRealtimeInvalidation.ts's
     // DOMAIN_INVALIDATIONS comment.
     expect(invalidatedKeys(invalidate)).toEqual([['approvals'], ['sessions'], ['permissions', 'rules'], ['providers']]);
     unmount();
@@ -154,7 +154,7 @@ describe('useRealtimeInvalidation', () => {
     unmount();
   });
 
-  test('an `ops` frame (OPS_MEMORY_PRESSURE) invalidates the SAME two queries — one domain, no separate event feed', () => {
+  test('an `ops` frame (OPS_MEMORY_PRESSURE) invalidates the SAME two queries, one domain, no separate event feed', () => {
     const { invalidate, unmount } = renderHook();
     capturedHandlers?.onEvent?.('ops', { payload: { type: 'OPS_MEMORY_PRESSURE', tier: 'high', previousTier: 'elevated', rssMb: 900, heapMb: 400, budgetMb: 1024, usedPct: 88 } });
     expect(invalidatedKeys(invalidate)).toEqual([['power', 'status'], ['ops', 'memory']]);
@@ -183,7 +183,7 @@ describe('useRealtimeInvalidation', () => {
     const handle = renderHook(false);
     expect(openCalls.length).toBe(0);
     // The paste-token sign-in flips the auth gate to true; the effect must re-run and
-    // open the stream — the exact recovery the old unconditional-enable code never did.
+    // open the stream, the exact recovery the old unconditional-enable code never did.
     handle.rerender(true);
     expect(openCalls.length).toBe(1);
     expect(openCalls[0]).toContain('/api/control-plane/events');

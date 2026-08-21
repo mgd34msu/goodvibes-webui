@@ -31,7 +31,7 @@ import { getActiveRoute, probeRelayReachability, setActiveRoute, subscribeActive
 const HEALTH_PROBE_INTERVAL_MS = 15_000;
 
 /**
- * Ping endpoint — lightweight, always-available.
+ * Ping endpoint, lightweight, always-available.
  * We treat this probe as PURE LIVENESS: ok = status < 500 (includes 401 when
  * the daemon is up but unauthenticated).
  */
@@ -83,7 +83,7 @@ async function probeCall(fn: () => Promise<unknown>): Promise<{ ok: boolean; sta
  */
 export function useDaemonHealth(): DaemonHealth {
   // -- Route state ------------------------------------------------------------
-  // Reactive view of the module-level active-route store (lib/relay-connection.ts) —
+  // Reactive view of the module-level active-route store (lib/relay-connection.ts),
   // the SAME store routedFetch reads for every actual request, so this never drifts
   // from what the SDK client is genuinely dispatching over. The store only ever holds
   // 'direct' or 'relay' (never a 'down'/null verdict); the connection probe below is
@@ -93,7 +93,7 @@ export function useDaemonHealth(): DaemonHealth {
 
   // -- Client-build compatibility floor --------------------------------------
   // Reactive view of the module-level observed-floor store (lib/client-compatibility.ts),
-  // updated by every requestJson/requestStream response (goodvibes.ts) — not a
+  // updated by every requestJson/requestStream response (goodvibes.ts), not a
   // dedicated probe of its own, since the floor rides on responses this hook (and the
   // rest of the app) is already making. Null until at least one response has been
   // observed at all.
@@ -107,14 +107,14 @@ export function useDaemonHealth(): DaemonHealth {
     : evaluateClientCompatibility({ clientVersion: WEBUI_VERSION, floor: observedFloor });
 
   // -- SSE state ------------------------------------------------------------
-  // Stays 'connecting' until the first real envelope arrives — do NOT set
+  // Stays 'connecting' until the first real envelope arrives, do NOT set
   // 'active' synchronously before any event, as that would show "Live" even
   // on a dead/stalled stream.
   const [sseState, setSseState] = useState<SseState>('connecting');
 
   useEffect(() => {
     // Event streams are not tunneled over the relay (see relay-connection.ts's header
-    // comment) — an honest, immediate verdict rather than attempting a subscription
+    // comment), an honest, immediate verdict rather than attempting a subscription
     // that can only time out. Skip the attempt entirely while routed over relay.
     if (storeRoute === 'relay') {
       setSseState('relay-unsupported');
@@ -136,7 +136,7 @@ export function useDaemonHealth(): DaemonHealth {
 
       if (turnDomain?.onEnvelope) {
         // Only flip to 'active' when the first real envelope arrives from the
-        // stream — proving the transport is genuinely delivering events.
+        // stream, proving the transport is genuinely delivering events.
         const unsubTurn = turnDomain.onEnvelope('TURN_STARTED', () => {
           if (mounted) setSseState('active');
         });
@@ -144,10 +144,10 @@ export function useDaemonHealth(): DaemonHealth {
           if (mounted) setSseState('active');
         });
         unsubs.push(unsubTurn, unsubTurnEnd);
-        // Intentionally NOT setting 'active' here — stay 'connecting' until
+        // Intentionally NOT setting 'active' here, stay 'connecting' until
         // an envelope actually arrives.
       }
-      // else: domain absent — remain 'connecting'; cannot confirm stream health.
+      // else: domain absent, remain 'connecting'; cannot confirm stream health.
     } catch {
       if (mounted) setSseState('error');
     }
@@ -155,7 +155,7 @@ export function useDaemonHealth(): DaemonHealth {
     return () => {
       mounted = false;
       for (const fn of unsubs) fn();
-      // Don't flip to error on unmount — component teardown, not a real failure
+      // Don't flip to error on unmount, component teardown, not a real failure
     };
   }, [storeRoute]);
 
@@ -166,7 +166,7 @@ export function useDaemonHealth(): DaemonHealth {
   /**
    * Consecutive probe-failure counter (persists across refetch intervals).
    * 1st failure → 'reconnecting'; 2nd+ consecutive failure → 'down' (or a relay
-   * fallback probe, if a relay pairing is stored — see the effect below).
+   * fallback probe, if a relay pairing is stored, see the effect below).
    * Any direct success resets it to 0.
    */
   const failureCountRef = useRef<number>(0);
@@ -175,7 +175,7 @@ export function useDaemonHealth(): DaemonHealth {
   const FAILURE_THRESHOLD = 2;
 
   // Use TanStack Query so we get deduplication and window-focus coordination.
-  // refetchIntervalInBackground: true — intentional trade-off: keeps the strip
+  // refetchIntervalInBackground: true, intentional trade-off: keeps the strip
   // accurate even when the tab is backgrounded (battery/network cost is low at
   // 15 s intervals; a stale connection indicator would be misleading to users
   // who return to the tab expecting current status).
@@ -223,7 +223,7 @@ export function useDaemonHealth(): DaemonHealth {
         return;
       }
 
-      // Direct is down. Try the relay ONLY if this device has a stored pairing —
+      // Direct is down. Try the relay ONLY if this device has a stored pairing,
       // with none, behavior is byte-identical to before this file existed.
       if (getStoredRelayPairing()) {
         const relayOk = await probeRelayReachability();
@@ -283,7 +283,7 @@ export function useDaemonHealth(): DaemonHealth {
   const modelQuery = useQuery({
     queryKey: ['daemon-health', 'model'] as const,
     queryFn: () => sdk.operator.models.current.get(),
-    // Models change rarely — refresh every 60 s
+    // Models change rarely, refresh every 60 s
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     retry: 0,
@@ -299,7 +299,7 @@ export function useDaemonHealth(): DaemonHealth {
 
   return {
     connection: connectionState,
-    // Down means neither path answered — a stale 'relay' from a prior success has no
+    // Down means neither path answered, a stale 'relay' from a prior success has no
     // meaning once nothing is reachable, so this reports null rather than a route that
     // is not actually carrying anything right now.
     route: connectionState === 'down' ? null : storeRoute,

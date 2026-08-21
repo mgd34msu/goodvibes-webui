@@ -1,22 +1,22 @@
 /**
- * PairingTokensSettings — the settings/security surface for per-device pairing
+ * PairingTokensSettings, the settings/security surface for per-device pairing
  * tokens (SDK 1.8.0's pairing.tokens.* family), replacing the old single
  * shared token model. Lists every paired device (pairing.tokens.list: name,
- * created, last-seen) — the token secret itself is NEVER served here; it is
+ * created, last-seen), the token secret itself is NEVER served here; it is
  * only ever handed back once, at mint time (create/migrate/handoff.create),
  * which is why this list never shows one.
  *
  * Two extra affordances, each with a plain-language description of what it
  * actually does:
  *
- *   - Migrate this browser — mints a fresh, named token for THIS session and
+ *   - Migrate this browser, mints a fresh, named token for THIS session and
  *     immediately swaps the stored auth token to it (setExplicitAuthToken), so
  *     a browser still relying on the legacy shared token gets its own without
  *     ever being signed out mid-flow.
- *   - Revoke the shared token — a one-way action, gated by a danger confirm
+ *   - Revoke the shared token, a one-way action, gated by a danger confirm
  *     naming the exact consequence (every device still on the shared token is
  *     signed out at once, including this one if it has not migrated yet).
- *     Hidden once legacySharedRevoked is already true — nothing left to revoke.
+ *     Hidden once legacySharedRevoked is already true, nothing left to revoke.
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -77,14 +77,14 @@ export function PairingTokensSettings() {
   const migrate = useMutation({
     mutationFn: (name: string) => sdk.operator.pairing.tokens.migrate(name),
     onSuccess: async (result) => {
-      // Swap THIS browser over to its own new token immediately — the daemon just
+      // Swap THIS browser over to its own new token immediately, the daemon just
       // minted it for the same principal, so the swap never signs this tab out.
       await setExplicitAuthToken(result.token.token);
       await invalidateTokens();
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth });
       toast({
         title: 'This browser now has its own token',
-        description: `Named "${result.token.name}" — it no longer relies on the shared token.`,
+        description: `Named "${result.token.name}": it no longer relies on the shared token.`,
         tone: 'success',
       });
     },
@@ -116,7 +116,7 @@ export function PairingTokensSettings() {
     const ok = await confirm.ask({
       title: 'Give this browser its own pairing token',
       description:
-        'Mints a new token for this browser and switches it over immediately — you stay signed in, and this browser no longer relies on the shared token.',
+        'Mints a new token for this browser and switches it over immediately, you stay signed in, and this browser no longer relies on the shared token.',
       confirmLabel: 'Migrate this browser',
     });
     if (!ok) return;
@@ -127,7 +127,7 @@ export function PairingTokensSettings() {
     const ok = await confirm.ask({
       title: 'Revoke the shared token',
       description:
-        'This permanently disables it. Any device that has not yet migrated to its own token — including this one, if it still relies on the shared token — is signed out immediately. This cannot be undone.',
+        'This permanently disables it. Any device that has not yet migrated to its own token, including this one, if it still relies on the shared token, is signed out immediately. This cannot be undone.',
       confirmLabel: 'Revoke the shared token',
       tone: 'danger',
     });
@@ -158,7 +158,7 @@ export function PairingTokensSettings() {
       </div>
       <p className="form-note">
         Every paired surface (a phone, another browser…) has its own token. Renaming or
-        revoking one never affects any other device — the token itself is only ever shown
+        revoking one never affects any other device. The token itself is only ever shown
         once, at the moment it is minted; this list never shows one.
       </p>
 
@@ -256,7 +256,7 @@ export function PairingTokensSettings() {
           <>
             <p className="form-note">
               Older devices may still be signed in with one shared token. Give each its own token
-              before revoking the shared one — revoking it signs out anything still using it.
+              before revoking the shared one, revoking it signs out anything still using it.
             </p>
             <div className="pairing-tokens-legacy__actions">
               <button

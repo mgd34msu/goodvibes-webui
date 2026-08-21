@@ -4,7 +4,7 @@
  * docs/owner-profile.md §12.1 makes this registration mandatory rather than cosmetic in
  * the TUI and the agent, where a namespace with no matching category is silently dropped.
  * This webui derives its groups from the SDK schema with no hand-maintained category list,
- * so it cannot drop the domain — but without the CATEGORY_LABELS entry the group would
+ * so it cannot drop the domain, but without the CATEGORY_LABELS entry the group would
  * render as a Title-Cased "Profile", which collides in the reader's mind with
  * platform/profiles' saved display/provider presets. This pins the label AND the fact that
  * the eight keys actually arrive in the generated schema, so a regeneration that lost them
@@ -45,7 +45,7 @@ describe('the owner-profile settings group', () => {
     }
   });
 
-  test('profile.* is exactly these ten keys — an eleventh would be an unregistered addition', () => {
+  test('profile.* is exactly these ten keys. An eleventh would be an unregistered addition', () => {
     const keys = CONFIG_SCHEMA_ENTRIES.map((entry) => entry.key).filter((key) => key.startsWith('profile.'));
     expect(keys.sort()).toEqual(Object.keys(EXPECTED_KEYS).sort());
   });

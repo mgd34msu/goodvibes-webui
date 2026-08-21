@@ -1,5 +1,5 @@
 /**
- * wake-config.ts — `config.get`'s nested tree read as the resolver's flat keys, and
+ * wake-config.ts, `config.get`'s nested tree read as the resolver's flat keys, and
  * the honest capability answers for a browser tab.
  *
  * The path reader matters more than it looks: returning `undefined` for a key the
@@ -52,7 +52,7 @@ describe('configPathReader', () => {
   });
 
   test('every key the resolver reads is reachable through this reader', () => {
-    // Not a claim that all values are set — a claim that no key SHAPE (nested
+    // Not a claim that all values are set, a claim that no key SHAPE (nested
     // surfaces.*, plain voice.wake.*) is unreadable by this adapter.
     const read = configPathReader({ voice: { wake: { surfaces: {} } } });
     for (const key of WAKE_SETTING_KEYS) {

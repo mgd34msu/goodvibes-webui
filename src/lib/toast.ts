@@ -42,7 +42,7 @@ const MAX_VISIBLE = 5;
 
 /**
  * Exit animation duration in ms. Matches --motion-base (180ms) in tokens.css.
- * Single source of truth — update both when changing the token.
+ * Single source of truth, update both when changing the token.
  */
 export const TOAST_EXIT_DURATION_MS = 180;
 
@@ -50,7 +50,7 @@ export const TOAST_EXIT_DURATION_MS = 180;
 
 interface ToastState {
   toasts: ToastEntry[];
-  /** IDs currently playing their exit animation — still mounted, present=false. */
+  /** IDs currently playing their exit animation, still mounted, present=false. */
   leavingIds: ReadonlySet<string>;
 }
 
@@ -69,7 +69,7 @@ export function toastReducer(state: ToastState, action: ToastAction_Dispatch): T
       };
     }
     case 'DISMISS': {
-      // Mark as leaving — keep mounted so exit animation can run.
+      // Mark as leaving, keep mounted so exit animation can run.
       const next = new Set(state.leavingIds);
       next.add(action.id);
       return { ...state, leavingIds: next };
@@ -139,7 +139,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
    * Routes through `dismiss()` so each toast animates out individually.
    */
   const dismissAll = useCallback(() => {
-    // Snapshot ids at call time — avoid mutating while iterating.
+    // Snapshot ids at call time, avoid mutating while iterating.
     const ids = state.toasts.map((t) => t.id);
     ids.forEach((id) => dismiss(id));
   }, [state.toasts, dismiss]);
@@ -166,7 +166,7 @@ export function useToast(): {
 }
 
 /**
- * Safe variant — returns null when called outside a ToastProvider.
+ * Safe variant, returns null when called outside a ToastProvider.
  * Use in leaf components that may be rendered in test environments without
  * the full provider tree.
  */
@@ -286,7 +286,7 @@ export function useAutoDismiss({ id, durationMs, onDismiss }: UseAutoDismissOpti
     (e: React.FocusEvent) => {
       if (durationMs <= 0) return;
       // relatedTarget is null when focus leaves the document, or when focus moves
-      // outside this toast — resume only in the latter case.
+      // outside this toast, resume only in the latter case.
       if (e.currentTarget.contains(e.relatedTarget)) return;
       resumeSource('focus');
     },

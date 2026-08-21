@@ -1,5 +1,5 @@
 /**
- * Settings modal — the config/settings surface (config.get/config.set),
+ * Settings modal, the config/settings surface (config.get/config.set),
  * per the platform's surface doctrine: configuration lives in a modal, not
  * an always-visible page section. Runs on BOTH phone and desktop.
  */
@@ -50,7 +50,7 @@ test('voice.local.* and fleet.maxSize (SDK 1.8.0) render under their real domain
   await expectNoHorizontalScroll(page);
 });
 
-test('opens from the "Open Settings" launcher and shows domain categories — no enablement bucket', async ({ page }) => {
+test('opens from the "Open Settings" launcher and shows domain categories, no enablement bucket', async ({ page }) => {
   await page.getByRole('button', { name: 'Open Settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog).toBeVisible();
@@ -74,7 +74,7 @@ test('changing an enum feature mode writes the domain key and survives reopen', 
   await expect(unit).toBeVisible();
   const mode = unit.getByLabel('HITL UX Modes mode');
   await expect(mode).toHaveValue('balanced'); // live seeded value
-  // The full schema mode set is a real choice list — the inactive mode included.
+  // The full schema mode set is a real choice list, the inactive mode included.
   await expect(mode.locator('option')).toHaveText(['off', 'quiet', 'balanced', 'operator']);
   await mode.selectOption('quiet');
   await expect(page.getByText('Config saved')).toBeVisible();
@@ -132,7 +132,7 @@ test('a feature description renders complete and un-clipped at phone width', asy
   await dialog.getByRole('button', { name: 'Behavior' }).click();
   const desc = dialog.locator('[data-feature-id="hitl-ux-modes"] .feature-unit-desc');
   await expect(desc).toBeVisible();
-  // Character-exact parity with the SDK's full description — no truncation.
+  // Character-exact parity with the SDK's full description, no truncation.
   const meta = FEATURE_SETTINGS.find((f) => f.id === 'hitl-ux-modes');
   if (!meta) throw new Error('hitl-ux-modes missing from the generated feature snapshot');
   await expect(desc).toHaveText(meta.description);
@@ -182,7 +182,7 @@ test('the Advanced editor writes through config.set and the change is honestly r
   // Reopen: the Display category's typed editor for display.theme shows the value
   // just written, proving this is a real config.get/config.set round-trip, not a
   // client-side-only form. display.theme is a schema-known string key, so it
-  // renders as a labelled text input — the written value lives in that field's
+  // renders as a labelled text input, the written value lives in that field's
   // value, not as free-standing page text.
   await page.getByRole('button', { name: 'Open Settings' }).click();
   dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -191,8 +191,8 @@ test('the Advanced editor writes through config.set and the change is honestly r
   await expect(dialog.getByLabel('display.theme', { exact: true })).toHaveValue('cyberpunk');
 });
 
-test.describe('pricing.modelPrices — the structured per-model price editor', () => {
-  test('renders as price rows with full description — never a JSON blob textarea', async ({ page }) => {
+test.describe('pricing.modelPrices: the structured per-model price editor', () => {
+  test('renders as price rows with full description, never a JSON blob textarea', async ({ page }) => {
     await page.getByRole('button', { name: 'Open Settings' }).click();
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Pricing' }).click();
@@ -219,7 +219,7 @@ test.describe('pricing.modelPrices — the structured per-model price editor', (
     await expectNoHorizontalScroll(page);
     await dialog.getByRole('button', { name: 'Close' }).click();
 
-    // Reopen — the mock daemon's mutable config tree round-trips the object key.
+    // Reopen, the mock daemon's mutable config tree round-trips the object key.
     await page.getByRole('button', { name: 'Open Settings' }).click();
     dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Pricing' }).click();
@@ -236,7 +236,7 @@ test.describe('pricing.modelPrices — the structured per-model price editor', (
     await expectNoHorizontalScroll(page);
   });
 
-  test('an invalid entry is refused inline with the exact problem — nothing silently written', async ({ page }) => {
+  test('an invalid entry is refused inline with the exact problem, nothing silently written', async ({ page }) => {
     await page.getByRole('button', { name: 'Open Settings' }).click();
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     await dialog.getByRole('button', { name: 'Pricing' }).click();
@@ -250,7 +250,7 @@ test.describe('pricing.modelPrices — the structured per-model price editor', (
   });
 });
 
-test.describe('daemon.timezone — searchable IANA picker', () => {
+test.describe('daemon.timezone: searchable IANA picker', () => {
   test('renders a search box, an explicit "UTC (unset)" option, and real zone names', async ({ page }) => {
     await page.getByRole('button', { name: 'Open Settings' }).click();
     const dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -290,14 +290,14 @@ test.describe('daemon.timezone — searchable IANA picker', () => {
     await expect(page.getByText('Config saved').last()).toBeVisible();
     await select.selectOption('');
     // .last(): the first save's toast may still be visible (5s auto-dismiss),
-    // so two "Config saved" toasts can be stacked at once — scope to the most
+    // so two "Config saved" toasts can be stacked at once, scope to the most
     // recent one rather than a bare getByText, which strict-mode-fails on 2 matches.
     await expect(page.getByText('Config saved').last()).toBeVisible();
     await expect(select).toHaveValue('');
   });
 });
 
-test.describe('payments.* — budget money fields and the cvvHandling trade-off warning', () => {
+test.describe('payments.*: budget money fields and the cvvHandling trade-off warning', () => {
   test('a budget field is entered in ordinary currency units and stored/read back as the exact amount typed', async ({ page }) => {
     await page.getByRole('button', { name: 'Open Settings' }).click();
     let dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -340,7 +340,7 @@ test.describe('payments.* — budget money fields and the cvvHandling trade-off 
 
     await select.selectOption('stored');
     // .last(): the first save's toast may still be on screen (5s auto-dismiss),
-    // so two "Config saved" toasts can be stacked — scope to the most recent one.
+    // so two "Config saved" toasts can be stacked, scope to the most recent one.
     await expect(page.getByText('Config saved').last()).toBeVisible();
     await expect(field.locator('[data-testid="cvv-prompt-warning"]')).toHaveCount(0);
     await expectNoHorizontalScroll(page);

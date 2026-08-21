@@ -1,4 +1,4 @@
-# SDK Surface Matrix
+# SDK surface matrix
 
 This matrix records the public SDK/daemon surfaces WebUI is expected to use.
 It is a maintenance aid: when a route moves into a public browser helper, remove
@@ -10,7 +10,7 @@ local shims and update this table.
 - Prefer `@pellux/goodvibes-sdk/browser/knowledge` for WebUI.
 - Do not deep-import SDK internals.
 - Do not use Home Assistant Home Graph routes for regular Knowledge/Wiki.
-- Do not pass provider/model on chat message sends; routing belongs to session
+- Do not pass provider/model on chat message sends. Routing belongs to session
   creation/update or the daemon current model.
 
 ## Matrix
@@ -54,12 +54,12 @@ local shims and update this table.
 | Local auth status | daemon local auth route via SDK/route shim | Admin | Daemon | Show user/session metadata only, never raw secrets. |
 | Config | daemon config route via SDK/route shim | Admin | Daemon config | Do not create a separate WebUI config store. |
 
-## Explicit Non-Surfaces
+## Explicit non-surfaces
 
 | Non-surface | Why it is excluded |
 | --- | --- |
 | `homeassistant.homeGraph.*` | Home Graph is an extension surface, not regular Knowledge/Wiki. |
-| `sessions.followUp` as a companion-chat send path | It is a legitimate Sessions-view surface for continuing a closed operator session (see matrix above), but it can spawn/queue agent work — never use it to send plain companion chat. |
+| `sessions.followUp` as a companion-chat send path | It is a legitimate Sessions-view surface for continuing a closed operator session (see matrix above), but it can spawn/queue agent work, never use it to send plain companion chat. |
 | `sessions.messages.create` fallback | Can persist a user message without a daemon-owned assistant turn. |
 | `~/.goodvibes` browser reads | Private daemon/TUI implementation state. |
 | local SDK checkout | Does not validate the installed npm contract. |

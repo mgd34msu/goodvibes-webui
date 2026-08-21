@@ -98,7 +98,7 @@ afterEach(() => {
   configSetCalls.length = 0;
 });
 
-describe('ModelWorkspaceModal — multi-target routing', () => {
+describe('ModelWorkspaceModal: multi-target routing', () => {
   test('renders all five targets with TUI-parity labels', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
@@ -108,7 +108,7 @@ describe('ModelWorkspaceModal — multi-target routing', () => {
     unmount();
   });
 
-  test('the price filter is enabled — real tier data is present in this fixture', async () => {
+  test('the price filter is enabled; real tier data is present in this fixture', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
     const priceSelect = [...el.querySelectorAll('select')].find((s) => s.closest('label')?.textContent?.startsWith('Price'));
@@ -116,7 +116,7 @@ describe('ModelWorkspaceModal — multi-target routing', () => {
     unmount();
   });
 
-  test('the capability filter is honestly disabled — no wire data exists for it', async () => {
+  test('the capability filter is honestly disabled, no wire data exists for it', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
     expect(el.textContent).toContain('Not reported by this daemon');
@@ -154,7 +154,7 @@ describe('ModelWorkspaceModal — multi-target routing', () => {
     unmount();
   });
 
-  test('embeddings target: no model concept — lists providers only, "Use" writes provider.embeddingProvider alone', async () => {
+  test('embeddings target: no model concept; lists providers only, "Use" writes provider.embeddingProvider alone', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
     const embeddingsTab = [...el.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Embeddings');

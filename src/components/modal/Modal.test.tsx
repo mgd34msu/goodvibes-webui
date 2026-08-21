@@ -29,7 +29,7 @@ function render(props: { open: boolean; onClose: () => void }) {
   };
 }
 
-describe('Modal — unmounts entirely when closed', () => {
+describe('Modal: unmounts entirely when closed', () => {
   test('renders nothing when open=false', () => {
     const { el, unmount } = render({ open: false, onClose: () => {} });
     expect(el.querySelector('[role="dialog"]')).toBeNull();
@@ -47,7 +47,7 @@ describe('Modal — unmounts entirely when closed', () => {
   });
 });
 
-describe('Modal — closes honestly on Escape and backdrop click', () => {
+describe('Modal: closes honestly on Escape and backdrop click', () => {
   test('Escape calls onClose', () => {
     let closed = false;
     const { unmount } = render({ open: true, onClose: () => { closed = true; } });
@@ -81,12 +81,12 @@ describe('Modal — closes honestly on Escape and backdrop click', () => {
   });
 });
 
-describe('Modal — focus management', () => {
+describe('Modal: focus management', () => {
   test('focus moves to the first focusable element inside the panel on open', async () => {
     const { el, unmount } = render({ open: true, onClose: () => {} });
     await new Promise((resolve) => setTimeout(resolve, 0));
     const closeButton = el.querySelector('.modal-close');
-    // Either the explicit close button or the "Inside" button should hold focus —
+    // Either the explicit close button or the "Inside" button should hold focus,
     // both are inside the panel, proving focus did not stay on <body>.
     expect(document.activeElement === closeButton || el.contains(document.activeElement)).toBe(true);
     expect(document.activeElement).not.toBe(document.body);

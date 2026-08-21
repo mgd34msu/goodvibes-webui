@@ -1,5 +1,5 @@
 /**
- * PairingTokensSettings — list/rename/revoke per-device tokens, plus the
+ * PairingTokensSettings, list/rename/revoke per-device tokens, plus the
  * migrate-this-browser and revoke-shared-token affordances, each gated by the
  * real ConfirmSheet (never a bare click-to-destroy).
  */
@@ -176,7 +176,7 @@ describe('PairingTokensSettings rename', () => {
   });
 });
 
-describe('PairingTokensSettings revoke — confirm gate', () => {
+describe('PairingTokensSettings revoke: confirm gate', () => {
   test('cancelling the confirm sheet does not revoke', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Phone'));

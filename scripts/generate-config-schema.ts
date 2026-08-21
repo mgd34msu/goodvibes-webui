@@ -2,36 +2,36 @@
 /**
  * generate-config-schema.ts
  *
- * Snapshots the two SDK data tables the settings surface renders from — the
- * typed config schema and the per-feature settings metadata — into one
+ * Snapshots the two SDK data tables the settings surface renders from, the
+ * typed config schema and the per-feature settings metadata, into one
  * checked-in, browser-safe TS module:
  *
  *   src/lib/generated/config-schema.ts
  *
  * Why a generator (mirrors scripts/generate-presentation-tokens.ts): the SDK's
  * `@pellux/goodvibes-sdk/platform/config` barrel re-exports CONFIG_SCHEMA but
- * ALSO pulls SecretsManager, OAuth listeners, google-auth, etc. — node-only code
+ * ALSO pulls SecretsManager, OAuth listeners, google-auth, etc., node-only code
  * that must never enter the browser Vite bundle. Snapshotting the pure data at
  * build time keeps those heavy barrels out of the bundle entirely; the browser
  * imports only the emitted literal.
  *
  * Data sources:
- *   - CONFIG_SCHEMA — from the exported `@pellux/goodvibes-sdk/platform/config`
+ *   - CONFIG_SCHEMA, from the exported `@pellux/goodvibes-sdk/platform/config`
  *     subpath (types / enums / defaults / descriptions / validation hints per
  *     key). The `validate` closures are dropped (not serialisable); the daemon's
  *     config.set is the authoritative validator, and `validationHint` carries the
  *     human-readable constraint into the UI.
- *   - FEATURE_SETTINGS — from the SDK's public
+ *   - FEATURE_SETTINGS, from the SDK's public
  *     `@pellux/goodvibes-sdk/platform/runtime/feature-flags` subpath export:
  *     every platform capability as a first-class domain setting (name, real
  *     description, domain, enablement shape, owned settings keys, restart
- *     requirement, stock default). There is no separate enablement namespace —
+ *     requirement, stock default). There is no separate enablement namespace,
  *     features are configured through their domain settings keys.
  *     Nothing here reaches the browser bundle (this script only runs at build
  *     time, via config-schema:generate/:check).
  *
  * `--check` fails (exit 1) the moment the artifact drifts from a fresh
- * regeneration — same generate-or-check convention as presentation:check, wired
+ * regeneration, same generate-or-check convention as presentation:check, wired
  * into `bun run build` so an SDK schema change that was not regenerated fails the
  * build, not just CI.
  *
@@ -52,7 +52,7 @@ const CHECK_ONLY = process.argv.includes('--check');
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-schema.ts');
 
 // ---------------------------------------------------------------------------
-// Snapshot shapes — the exact serialisable rows the settings model consumes.
+// Snapshot shapes, the exact serialisable rows the settings model consumes.
 // ---------------------------------------------------------------------------
 
 export interface ConfigSchemaEntrySnapshot {
@@ -66,7 +66,7 @@ export interface ConfigSchemaEntrySnapshot {
    * What kind of quantity a `number` key holds, when that changes how a value
    * is read or shown. `'money'` marks a key holding a plain amount of
    * `payments.currency`, written the way a person says it (SDK 2.0.5's
-   * money-value.ts) — the mark a surface asks the SCHEMA for instead of
+   * money-value.ts), the mark a surface asks the SCHEMA for instead of
    * pattern-matching the key's NAME, which is exactly what tied every
    * consumer to a naming scheme and broke them all when the names changed.
    */
@@ -124,7 +124,7 @@ export async function loadSchemaSnapshot(): Promise<ConfigSchemaSnapshot> {
 }
 
 // ---------------------------------------------------------------------------
-// Rendering — pure, deterministic for a given snapshot.
+// Rendering, pure, deterministic for a given snapshot.
 // ---------------------------------------------------------------------------
 
 const GENERATED_BANNER = [
@@ -182,7 +182,7 @@ export function renderTs(snapshot: ConfigSchemaSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI — generate-or-check against the checked-in artifact.
+// CLI, generate-or-check against the checked-in artifact.
 // ---------------------------------------------------------------------------
 
 export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
@@ -207,7 +207,7 @@ if (import.meta.main) {
   const snapshot = await loadSchemaSnapshot();
   const drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY);
   if (CHECK_ONLY && drifted) {
-    console.error('[config-schema:check] drift detected — run `bun run config-schema:generate`');
+    console.error('[config-schema:check] drift detected: run `bun run config-schema:generate`');
     process.exit(1);
   }
   console.log(

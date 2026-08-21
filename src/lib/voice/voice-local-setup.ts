@@ -1,11 +1,11 @@
 /**
- * voice-local-setup.ts — the managed local-voice provisioning shapes and pure helper
+ * voice-local-setup.ts, the managed local-voice provisioning shapes and pure helper
  * functions (voice.local.status / voice.local.install, SDK 1.9.0-dev's
  * memory-relay-voice-hardening work).
  *
  * `voice.local.status` reports the RESTING state of the managed runtime on disk
  * (piper TTS always; whisper.cpp STT only where goodvibes has a pinned, checksummed
- * build — today that is linux-x64 only, everywhere else STT reports honestly
+ * build, today that is linux-x64 only, everywhere else STT reports honestly
  * unsupported with a reason). `voice.local.install` is the one-act setup; its result
  * carries a FINER per-engine terminal state than status's resting enum (e.g.
  * checksum-mismatch, bundle-unavailable, sideload-mismatch) because it describes what
@@ -14,17 +14,17 @@
  * SDK ADOPTION NOTE (round: webui memory+voice compose, SDK commit efc1b380): the
  * calling brief's own context described voice.local.install as returning/streaming
  * "structured progress" and voice.local.status as reporting a `not-yet-published`
- * engine state. Neither exists on the wire at this commit — verified against
+ * engine state. Neither exists on the wire at this commit, verified against
  * packages/sdk/src/platform/control-plane/routes/voice-setup.ts (install is a plain
  * POST returning ONE final JSON result; the provisioner's internal onProgress callback
  * is never wired to any runtime event, SSE frame, or chunked response) and against
  * method-catalog-voice-setup.ts's actual output enums (no `not-yet-published` value
- * anywhere — the closest analogues are `bundle-unavailable`, a hosted-but-not-yet-
+ * anywhere, the closest analogues are `bundle-unavailable`, a hosted-but-not-yet-
  * uploaded engine bundle, currently unreachable in practice since every platform in
  * the manifest that has an entry at all already has a real URL; and
  * `unsupported-platform` with an honest `reason` string for platforms with no pinned
  * build at all). This module and its UI render the REAL enums verbatim rather than
- * inventing the promised-but-absent ones — reported back per this round's brief,
+ * inventing the promised-but-absent ones, reported back per this round's brief,
  * not patched around.
  */
 
@@ -59,16 +59,16 @@ export interface VoiceLocalInstallProgressComponent {
   readonly message?: string;
   /** The component's pinned size in bytes, where the manifest knows it. */
   readonly bytesTotal?: number;
-  /** Bytes landed on disk, where known — completion boundaries only (downloads
+  /** Bytes landed on disk, where known, completion boundaries only (downloads
    * verify whole-file; bytes are not streamed mid-transfer). */
   readonly bytesDone?: number;
 }
 
 /**
  * voice.local.status's OPTIONAL `installInProgress` section (SDK 5357f09e): present
- * while — and only while — an install run is active, so a surface polling status
+ * while, and only while, an install run is active, so a surface polling status
  * during its own install call renders live per-component progress. Absent on an
- * older daemon (or between installs) — the surface falls back to a plain busy state.
+ * older daemon (or between installs), the surface falls back to a plain busy state.
  */
 export interface VoiceLocalInstallProgress {
   readonly startedAt: number;
@@ -80,14 +80,14 @@ export interface VoiceLocalStatusSnapshot {
   readonly state: VoiceLocalRuntimeState;
   readonly tts: VoiceLocalTtsStatus;
   readonly stt: VoiceLocalSttStatus;
-  /** Size-labeled offer for the one-act install, in bytes — null when no pinned build
+  /** Size-labeled offer for the one-act install, in bytes, null when no pinned build
    * exists for this platform at all (nothing to offer). */
   readonly offerBytes: number | null;
-  /** Live progress of the ACTIVE install run — see VoiceLocalInstallProgress. */
+  /** Live progress of the ACTIVE install run, see VoiceLocalInstallProgress. */
   readonly installInProgress?: VoiceLocalInstallProgress;
 }
 
-/** The real wire enum for an install attempt's per-engine terminal state — richer than
+/** The real wire enum for an install attempt's per-engine terminal state, richer than
  * VoiceLocalRuntimeState because it names WHY an attempt didn't land. */
 export type VoiceLocalInstallEngineState =
   | 'provisioned'
@@ -217,7 +217,7 @@ function readInstallEngineOutcome(value: unknown, fallbackEngine: string): Voice
   };
 }
 
-/** Defensive wire parse for the voice.local.install receipt — null when the answer
+/** Defensive wire parse for the voice.local.install receipt, null when the answer
  * does not carry one (same stance as readVoiceLocalStatus above). Both per-engine
  * terminal states are load-bearing (the receipt is meaningless without them). */
 export function readVoiceLocalInstallResult(value: unknown): VoiceLocalInstallResult | null {
@@ -259,7 +259,7 @@ export function readVoiceLocalInstallResult(value: unknown): VoiceLocalInstallRe
   };
 }
 
-/** True when the resting status justifies offering the one-act setup action —
+/** True when the resting status justifies offering the one-act setup action,
  * 'unsupported-platform' gets an honest message instead (no pinned build exists for
  * this platform at all, so an install attempt cannot succeed). */
 export function voiceLocalNeedsSetup(status: VoiceLocalStatusSnapshot): boolean {
@@ -288,7 +288,7 @@ export function voiceLocalInstallStateLabel(state: VoiceLocalInstallEngineState)
   }
 }
 
-/** True when retrying the SAME one-act install (the only retry surface that exists —
+/** True when retrying the SAME one-act install (the only retry surface that exists,
  * there is no per-engine retry verb) is a genuinely useful action for this terminal
  * state: a download or checksum failure may well succeed on a fresh attempt. A
  * platform gap, an unpublished bundle, or a mismatched sideloaded file will not be

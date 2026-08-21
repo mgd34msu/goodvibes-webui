@@ -1,10 +1,10 @@
 /**
- * model-prices.ts — pure model for the manual model-price table
+ * model-prices.ts, pure model for the manual model-price table
  * (`pricing.modelPrices`): a record keyed "provider:model" whose entries are
  * { input, output, cacheRead?, cacheWrite? } in USD per 1M tokens. A manual
  * price always wins over provider-served and catalog pricing and applies live.
  *
- * No React, no I/O — the editor component and any "set a price for this model"
+ * No React, no I/O, the editor component and any "set a price for this model"
  * affordance share these helpers so validation and shape stay identical
  * everywhere the table is written.
  */
@@ -48,7 +48,7 @@ export function readModelPriceTable(raw: unknown): ModelPriceTable {
   return table;
 }
 
-/** Draft form values for one entry — strings straight from the inputs. */
+/** Draft form values for one entry, strings straight from the inputs. */
 export interface ModelPriceDraft {
   readonly modelKey: string;
   readonly input: string;

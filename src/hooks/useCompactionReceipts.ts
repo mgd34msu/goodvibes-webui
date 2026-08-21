@@ -1,21 +1,21 @@
 /**
- * useCompactionReceipts — live compaction signal for ONE session's detail view.
+ * useCompactionReceipts, live compaction signal for ONE session's detail view.
  *
  * Opens the raw control-plane stream scoped to the 'compaction' runtime-event
  * domain (see lib/compaction.ts's header for why this is the only wire-honest
  * source of post-compaction receipts and live token-usage numbers). Filters
- * every frame to the given sessionId — the domain is daemon-wide, so a receipt
+ * every frame to the given sessionId, the domain is daemon-wide, so a receipt
  * for a DIFFERENT session must never bleed into this view.
  *
  * Content-consuming, not invalidate-only: unlike useRealtimeInvalidation (which
  * only triggers a React Query refetch), there is no GET-equivalent for a
- * compaction receipt — it is an event with no queryable snapshot — so the frame
+ * compaction receipt, it is an event with no queryable snapshot, so the frame
  * itself is the only copy of this data. This follows useSessionRealtime's raw-
  * stream-escape-hatch precedent rather than the typed viaSse() domain facade.
  *
  * Connection-budget note (see useRealtimeInvalidation.ts's header on the ~6
  * connections-per-origin cap): this hook is meant to be mounted ONLY while a
- * session's detail pane is open (SessionsView's SessionDetail), not app-wide —
+ * session's detail pane is open (SessionsView's SessionDetail), not app-wide,
  * closed on unmount/session change, same as useChatStream's per-turn stream.
  * App-wide connections (useSessionRealtime, useRealtimeInvalidation) stay at 2;
  * this is a 3rd, transient one, and SessionsView is never mounted alongside
@@ -28,7 +28,7 @@ import { parseCompactionCheck, parseCompactionReceipt, type CompactionCheck, typ
 
 const COMPACTION_EVENTS_PATH = '/api/control-plane/events?domains=compaction';
 
-/** Cap retained receipts per session — an honest live log, not an unbounded leak. */
+/** Cap retained receipts per session, an honest live log, not an unbounded leak. */
 const MAX_RECEIPTS = 20;
 
 export interface CompactionReceiptsState {
@@ -44,8 +44,8 @@ export function useCompactionReceipts(sessionId: string, enabled: boolean): Comp
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reset the log when the session changes, during render (the React-blessed
-  // "adjust state when a prop changes" pattern — plain useState, not a ref read
-  // during render) — before the effect below re-opens the stream, avoiding a
+  // "adjust state when a prop changes" pattern, plain useState, not a ref read
+  // during render), before the effect below re-opens the stream, avoiding a
   // one-frame flash of the PREVIOUS session's receipts.
   const [trackedSessionId, setTrackedSessionId] = useState(sessionId);
   if (trackedSessionId !== sessionId) {

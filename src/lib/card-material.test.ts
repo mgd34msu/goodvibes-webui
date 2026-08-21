@@ -17,7 +17,7 @@ describe('isCardMaterialKey', () => {
     expect(isCardMaterialKey('cardNum')).toBe(true);
   });
 
-  test('matches a compound key ending in "pan" — the trailing word identifies the material', () => {
+  test('matches a compound key ending in "pan", the trailing word identifies the material', () => {
     expect(isCardMaterialKey('payments.cards.visa.rawPan')).toBe(true);
     expect(isCardMaterialKey('payments.cards.visa.visaPan')).toBe(true);
   });
@@ -28,14 +28,14 @@ describe('isCardMaterialKey', () => {
   });
 
   test('does NOT match a compound key where "pan"/"cvv" is the LEADING word of a real setting name', () => {
-    // payments.cvvHandling is a real, non-secret policy setting ('stored' | 'prompt') —
+    // payments.cvvHandling is a real, non-secret policy setting ('stored' | 'prompt'),
     // "cvv" here qualifies "Handling", it is not the trailing identifying word.
     expect(isCardMaterialKey('payments.cvvHandling')).toBe(false);
     // Same shape hypothetically for a map "pan" (as in pan/zoom) feature flag.
     expect(isCardMaterialKey('knowledge.map.panEnabled')).toBe(false);
   });
 
-  test('does NOT match payments.defaultCardId — a card reference, not card material', () => {
+  test('does NOT match payments.defaultCardId; a card reference, not card material', () => {
     expect(isCardMaterialKey('payments.defaultCardId')).toBe(false);
   });
 
@@ -59,7 +59,7 @@ describe('isCardMaterialKey', () => {
  * The four keys the card-entry surfaces actually write.
  *
  * "Never rendered back after entry" is a condition of the owner's card-entry
- * ruling, and it has to hold for every card field — not only the two whose
+ * ruling, and it has to hold for every card field, not only the two whose
  * names happen to end in a word the trailing-token rule already catches.
  * payments.cardExpiry and payments.cardholderName end in "expiry" and "name",
  * which must never become token rules (a "name" token would hide
@@ -76,7 +76,7 @@ describe('the four card-material keys the entry surfaces write', () => {
 
   test('the exact-key rule does not spill onto ordinary keys ending in the same words', () => {
     // These are real, displayable settings. A trailing-word rule for "name" or
-    // "expiry" would have hidden them — which is why the two card keys above
+    // "expiry" would have hidden them, which is why the two card keys above
     // are matched whole rather than by their last word.
     expect(isCardMaterialKey('payments.billingAddress.name')).toBe(false);
     expect(isCardMaterialKey('payments.shippingAddress.name')).toBe(false);

@@ -1,11 +1,11 @@
 /**
- * Approvals depth — remember tiers, the pending queue, the exec-prompt
+ * Approvals depth, remember tiers, the pending queue, the exec-prompt
  * answerable card, deny with a reason, and the durable-rules view. Runs on
  * BOTH phone and desktop; the mock daemon forwards the decision fields into
  * resolution and returns the authoritative `recorded` block
  * (rememberTier / reasonStored / modifiedArgsDelivered) plus its
  * remembered-decision sweep, so every honesty path here exercises the same
- * recorded-block reporting a supporting daemon drives — the UI claims only
+ * recorded-block reporting a supporting daemon drives, the UI claims only
  * what the daemon actually recorded.
  */
 import { test, expect } from '@playwright/test';
@@ -39,7 +39,7 @@ test('an approval granted at the command-class tier records a rule and suppresse
   await expect(card.getByText('bun ...')).toBeVisible();
   await card.getByRole('button', { name: 'Approve', exact: true }).click();
 
-  // The response carried the recorded tier — reported as remembered, never assumed.
+  // The response carried the recorded tier, reported as remembered, never assumed.
   await expect(page.getByText('Remembered (command-class)')).toBeVisible();
   expect(daemon.approvalActions[0]).toMatchObject({
     approvalId: PENDING_APPROVAL.id,
@@ -47,7 +47,7 @@ test('an approval granted at the command-class tier records a rule and suppresse
     body: { remember: true, rememberTier: 'command-class' },
   });
 
-  // The remembered decision swept the identical pending ask — nothing left to answer.
+  // The remembered decision swept the identical pending ask, nothing left to answer.
   await expect(page.locator('.approvals-toolbar__summary').first()).toContainText('0 pending');
   // …and the durable rule is now listed in the rules view.
   const rules = page.locator('[data-testid="permission-rules"]');
@@ -60,13 +60,13 @@ test('deny accepts an optional reason that rides the wire with the denial', asyn
   await page.goto('/?view=approvals-tasks');
   const card = page.locator('.approval-card', { hasText: 'Run the full test suite before merging' });
   await card.locator('.approval-card__deny-reason summary').click();
-  await card.getByLabel('Deny reason for bash').fill('wrong branch — run it on main');
+  await card.getByLabel('Deny reason for bash').fill('wrong branch: run it on main');
   await card.getByRole('button', { name: 'Deny' }).click();
   await expect(page.getByText('Reason fed back with the denial.')).toBeVisible();
   expect(daemon.approvalActions[0]).toMatchObject({
     approvalId: PENDING_APPROVAL.id,
     action: 'deny',
-    body: { note: 'wrong branch — run it on main', reason: 'wrong branch — run it on main' },
+    body: { note: 'wrong branch: run it on main', reason: 'wrong branch: run it on main' },
   });
 });
 

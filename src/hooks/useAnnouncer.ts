@@ -1,5 +1,5 @@
 /**
- * useAnnouncer — renders a visually-hidden aria-live region and returns
+ * useAnnouncer, renders a visually-hidden aria-live region and returns
  * an `announce` function that pushes messages to screen readers.
  *
  * Contract: `useAnnouncer()` → `announce(message, politeness?)`
@@ -12,8 +12,8 @@
  *
  *   1. `AnnouncerRegion` re-renders on every message regardless of where it
  *      is mounted in the tree (A11Y-101 fix).
- *   2. `AnnouncerRegion` has a STABLE component identity — same function
- *      reference across all renders — so the live-region DOM node is never
+ *   2. `AnnouncerRegion` has a STABLE component identity, same function
+ *      reference across all renders, so the live-region DOM node is never
  *      unmounted/remounted (PERF-001 preserved).
  *   3. Timers are cleared before each new announce call so rapid calls
  *      cannot leak pending timeouts (A11Y-102 fix).
@@ -30,7 +30,7 @@ export interface AnnouncerHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Module-level store — shared across all hook instances.
+// Module-level store, shared across all hook instances.
 // ---------------------------------------------------------------------------
 
 interface AnnouncerState {
@@ -130,8 +130,8 @@ function AnnouncerRegionComponent(): React.ReactElement {
  * component. Mount `<AnnouncerRegion />` once near the app root; call
  * `announce` from anywhere in the tree.
  *
- * `AnnouncerRegion` has a STABLE component identity — the same function
- * reference on every render — so the live-region DOM node is never
+ * `AnnouncerRegion` has a STABLE component identity, the same function
+ * reference on every render, so the live-region DOM node is never
  * unmounted/remounted between announcements.
  *
  * @example
@@ -149,14 +149,14 @@ export function useAnnouncer(): AnnouncerHandle {
     [],
   );
 
-  // AnnouncerRegion is the stable module-level component reference — same
+  // AnnouncerRegion is the stable module-level component reference, same
   // identity on every call, guaranteed. DOM stability is handled by
   // useSyncExternalStore inside AnnouncerRegionComponent.
   return { announce, AnnouncerRegion: AnnouncerRegionComponent };
 }
 
 // ---------------------------------------------------------------------------
-// Test helpers — exported for unit tests only.
+// Test helpers, exported for unit tests only.
 // ---------------------------------------------------------------------------
 
 /** @internal Reset module-level store state. Only for tests. */

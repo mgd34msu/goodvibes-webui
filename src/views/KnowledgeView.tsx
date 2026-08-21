@@ -36,7 +36,7 @@ function pageSlice<T>(items: T[], page: number, pageSize: number): T[] {
 interface ProjectionSelection {
   key: string;
   /**
-   * Verbatim from the daemon, NOT narrowed — a target from a daemon newer than
+   * Verbatim from the daemon, NOT narrowed, a target from a daemon newer than
    * this client still appears in the list with its real name, rather than
    * vanishing. `renderableKind` is what decides whether it can be sent.
    */

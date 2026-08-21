@@ -1,10 +1,10 @@
 /**
- * PermissionRulesSection — the durable approval rules view: every remembered
+ * PermissionRulesSection, the durable approval rules view: every remembered
  * decision at a generalizing tier (permissions.rules.list), with revocation
- * (permissions.rules.delete). Rules are write-only from decisions — nothing
+ * (permissions.rules.delete). Rules are write-only from decisions, nothing
  * here mints one; deleting a grant makes matching asks prompt again, which is
  * exactly what the delete confirmation says. A `deleted:false` response is the
- * daemon's honest "no such rule" (already gone) — surfaced as info, not error.
+ * daemon's honest "no such rule" (already gone), surfaced as info, not error.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
@@ -89,7 +89,7 @@ export function PermissionRulesSection() {
                 className="secondary-button permission-rule-row__delete"
                 disabled={remove.isPending && remove.variables === rule.id}
                 aria-label={`Delete rule: ${ruleSummary(rule)}`}
-                title="Delete this rule — matching asks will prompt again"
+                title="Delete this rule: matching asks will prompt again"
                 onClick={() => remove.mutate(rule.id)}
               >
                 <Trash2 size={14} /> {remove.isPending && remove.variables === rule.id ? 'Deleting…' : 'Delete'}

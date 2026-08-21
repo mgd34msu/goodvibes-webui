@@ -1,11 +1,11 @@
 /**
- * relay-connection.ts — the active-route store and routedFetch's routing decisions.
+ * relay-connection.ts, the active-route store and routedFetch's routing decisions.
  *
  * Deliberately does NOT exercise a real relay handshake (createRelayClient talks real
- * WebSocket/E2E crypto) — that belongs to an integration test against a real or stubbed
+ * WebSocket/E2E crypto), that belongs to an integration test against a real or stubbed
  * relay server. These cases cover what is unit-testable without one: the route store's
  * pub/sub, routedFetch falling through to the plain fetch on the direct route (the
- * common, unchanged case), and that a stream request over relay is NO LONGER rejected —
+ * common, unchanged case), and that a stream request over relay is NO LONGER rejected,
  * the relay tunnel now carries event streams, so a stream request routes like any other
  * (falling through to the plain fetch when no pairing is stored). A real tunnelled stream
  * belongs to an integration test against a real or stubbed relay server.
@@ -75,7 +75,7 @@ describe('routedFetch', () => {
     }
   });
 
-  test('no longer rejects an event-stream request over relay — it routes like any other call', async () => {
+  test('no longer rejects an event-stream request over relay; it routes like any other call', async () => {
     // The relay tunnel now carries event streams, so the old immediate rejection is gone.
     // With no pairing stored there is no relay client, so the request falls through to the
     // global fetch (proving it is NOT special-cased into a rejection anymore).

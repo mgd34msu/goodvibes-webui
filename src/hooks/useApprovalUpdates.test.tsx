@@ -1,5 +1,5 @@
 /**
- * useApprovalUpdates — the browser-side `control.approval_update` push consumer
+ * useApprovalUpdates, the browser-side `control.approval_update` push consumer
  * (see the hook's own header comment for the wire-shape rationale). This test
  * proves the stream is opened at the right path/domain, that an
  * `approval-update` frame invalidates the approvals + permission-rules caches,

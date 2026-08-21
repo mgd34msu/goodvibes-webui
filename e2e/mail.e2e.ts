@@ -1,5 +1,5 @@
 /**
- * Mail view — proven against a real HTTP round-trip through the mock daemon (not a
+ * Mail view, proven against a real HTTP round-trip through the mock daemon (not a
  * unit-mocked module), mirroring calendar.e2e.ts's shape for the sibling surface.
  * Covers all three honest refusal states plus the populated inbox/peek happy path,
  * the HTML-suppression restraint, and the mobile no-horizontal-scroll sweep.
@@ -51,7 +51,7 @@ test('configured: the peek for uid 1002 lists the attachment and never renders t
   const peek = page.getByTestId('mail-message-peek');
   await expect(peek).toBeVisible();
   await expect(peek).toContainText('build-log.txt');
-  // The literal HTML source string must not appear turned into markup — no <b>
+  // The literal HTML source string must not appear turned into markup, no <b>
   // element inside the peek body, even though the fixture's bodyHtml contains one.
   await expect(peek.locator('b')).toHaveCount(0);
   await expect(peek).toContainText('does not render sender HTML');

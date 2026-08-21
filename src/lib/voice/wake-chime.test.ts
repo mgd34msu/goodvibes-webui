@@ -1,5 +1,5 @@
 /**
- * wake-chime.ts — the sound a confirmed wake makes.
+ * wake-chime.ts, the sound a confirmed wake makes.
  *
  * Worth its own tests for one reason: the host reports "this tab could not play the
  * activation chime" based on this function's return value, so a chime that silently
@@ -71,7 +71,7 @@ describe('playWakeChime', () => {
     expect(recorded.oscillators).toHaveLength(2);
     expect(recorded.oscillators[0].hz).toBeLessThan(recorded.oscillators[1].hz);
     expect(recorded.oscillators.every((entry) => entry.type === 'sine')).toBe(true);
-    // Both notes are scheduled relative to the context's own clock, not from zero —
+    // Both notes are scheduled relative to the context's own clock, not from zero,
     // scheduling in the past plays nothing.
     for (const entry of recorded.oscillators) {
       expect(entry.startedAt).toBeGreaterThanOrEqual(10);
@@ -107,7 +107,7 @@ describe('playWakeChime', () => {
 
   test('no Web Audio at all reports FALSE rather than pretending a sound played', () => {
     // This is the value the host turns into "a wake confirmed but this tab could not
-    // play the activation chime" — the honest state, not a silent success.
+    // play the activation chime", the honest state, not a silent success.
     expect(playWakeChime(() => undefined)).toBe(false);
   });
 

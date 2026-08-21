@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 import { expectTappable, only, PHONE } from './support/app';
 
-test('tailscale absent: the panel renders nothing — no nag, no dead button', async ({ page }) => {
+test('tailscale absent: the panel renders nothing, no nag, no dead button', async ({ page }) => {
   await installMockDaemon(page);
   await page.goto('/?view=admin');
   await expect(page.locator('.stack')).toBeVisible();
@@ -18,7 +18,7 @@ test('tailscale absent: the panel renders nothing — no nag, no dead button', a
   await expect(page.getByText('Serve over tailscale')).toHaveCount(0);
 });
 
-test('tailscale installed but not logged in: still quiet — no action offered', async ({ page }) => {
+test('tailscale installed but not logged in: still quiet, no action offered', async ({ page }) => {
   await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: false, detail: 'tailscale is installed but not connected (state: Stopped)' },
   });
@@ -40,7 +40,7 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
   await expect(serveButton).toBeVisible();
   await serveButton.click();
 
-  // Gated by the shared confirm-sheet idiom — not applied on the raw click.
+  // Gated by the shared confirm-sheet idiom, not applied on the raw click.
   await expect(page.locator('.confirm-sheet')).toBeVisible();
   await expect(page.locator('.confirm-sheet')).toContainText('tailscale serve --bg');
   await page.locator('.confirm-sheet__confirm').click();
@@ -63,9 +63,9 @@ test('cancelling the confirm sheet never runs serve', async ({ page }) => {
   await expect(panel.locator('.tailscale-panel__receipt--ok')).toHaveCount(0);
 });
 
-test('no MagicDNS name resolved: still quiet — the same honest gating as full absence', async ({ page }) => {
+test('no MagicDNS name resolved: still quiet, the same honest gating as full absence', async ({ page }) => {
   await installMockDaemon(page, {
-    // No httpsUrl (available but no resolvable MagicDNS route) — the "usable" gate
+    // No httpsUrl (available but no resolvable MagicDNS route), the "usable" gate
     // (available && loggedIn && httpsUrl) never opens, matching the daemon's own
     // affordance-gating contract.
     tailscale: { available: true, loggedIn: true, detail: 'tailscale is connected but reports no MagicDNS name' },

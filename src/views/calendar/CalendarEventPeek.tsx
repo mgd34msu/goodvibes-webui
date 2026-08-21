@@ -1,7 +1,7 @@
 /**
- * CalendarEventPeek — the event-detail body shown in the peek panel when a
+ * CalendarEventPeek, the event-detail body shown in the peek panel when a
  * calendar event row is selected. Reads `calendar.events.get`, which carries
- * fields the summary list does not (uid, recurrence) — a genuine detail
+ * fields the summary list does not (uid, recurrence), a genuine detail
  * fetch, not a re-render of the row's own data.
  */
 import { useQuery } from '@tanstack/react-query';

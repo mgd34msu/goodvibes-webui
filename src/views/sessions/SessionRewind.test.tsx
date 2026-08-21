@@ -1,5 +1,5 @@
 /**
- * SessionRewind.test.tsx — the session-detail rewind surface end to end.
+ * SessionRewind.test.tsx, the session-detail rewind surface end to end.
  *
  * Expand → turn anchors are derived from the session's messages → Preview rewind runs
  * rewind.plan and renders exactly what would change (files + conversation, honest about a

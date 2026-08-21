@@ -1,8 +1,8 @@
 /**
- * KnowledgePacketPanel — build a compact structured knowledge packet for a task
+ * KnowledgePacketPanel, build a compact structured knowledge packet for a task
  * and write scope (knowledge.packet), a never-called-before verb this brief
  * adopts. A packet is the packed, budget-aware context an agent would carry into
- * a task — surfacing it here lets an operator preview exactly what an agent
+ * a task, surfacing it here lets an operator preview exactly what an agent
  * would receive before actually running anything.
  */
 import { SyntheticEvent, useState } from 'react';
@@ -18,10 +18,10 @@ type PacketDetail = NonNullable<OperatorMethodInput<'knowledge.packet'>['detail'
 
 /**
  * Hand-authored: the installed `@pellux/goodvibes-sdk` contracts package (1.1.0) predates
- * these fields — the SDK added them post-1.2.0 (packet.ts's `truncated` / `totalCandidates` /
+ * these fields, the SDK added them post-1.2.0 (packet.ts's `truncated` / `totalCandidates` /
  * `droppedCount`, "a partial packet must never read as complete"). All three are OPTIONAL
  * here because they are additive on the wire: an older daemon simply omits them, and this
- * view must keep rendering that daemon's response exactly as it always has — no fabricated
+ * view must keep rendering that daemon's response exactly as it always has, no fabricated
  * claim. Once the webui pins a contracts package whose `OperatorMethodOutput<'knowledge.packet'>`
  * carries these, this local type can be dropped for the generated one.
  */
@@ -30,7 +30,7 @@ interface KnowledgePacketTruncation {
   readonly droppedCount: number;
 }
 
-/** Only a genuinely truncated, post-1.2.0-daemon response yields a disclosure — a daemon
+/** Only a genuinely truncated, post-1.2.0-daemon response yields a disclosure, a daemon
  * that never sends `truncated`/`totalCandidates`/`droppedCount` renders exactly as it did
  * before these fields existed, matching FleetView.tsx's `snapshot.data.truncated` cap-note. */
 function truncationInfo(data: unknown): KnowledgePacketTruncation | null {

@@ -1,17 +1,17 @@
 /**
- * PowerSettings — the admin/ops surface for the host sleep-ownership state
+ * PowerSettings, the admin/ops surface for the host sleep-ownership state
  * (power.status.get / power.keepAwake.set, SDK 1.8.0). Same non-schema-driven
  * pattern as NotificationSettings/PairingTokensSettings: these two verbs carry
  * no CONFIG_SCHEMA entry (they are dedicated wire verbs, not config.set keys),
  * so they get their own panel rather than a schema-driven SettingsModal row.
  *
- * The ruled shape (owner ruling, 2026-07): ONE toggle — no timers, no AC-only
+ * The ruled shape (owner ruling, 2026-07): ONE toggle, no timers, no AC-only
  * sub-options. The always-visible "sleep disabled" chip (StatusStrip/PowerChip)
  * is the safety mechanism that keeps this override from being forgotten, not a
  * countdown.
  *
  * "Held because X": the automatic work inhibitor's live reasons render
- * verbatim whenever it holds — this is the daemon's own honest accounting of
+ * verbatim whenever it holds, this is the daemon's own honest accounting of
  * why sleep is currently blocked (e.g. an active turn), never a client guess.
  * The keep-awake toggle's own state (granted vs. denied classes, and the
  * honest lid-split `note` when part of the requested coverage was refused)
@@ -60,7 +60,7 @@ export function PowerSettings() {
   }
 
   // status.isPending/isError are both false here, so react-query's discriminated
-  // union guarantees status.data is defined (the 'success' branch) — no defensive
+  // union guarantees status.data is defined (the 'success' branch), no defensive
   // null check needed (and eslint's no-unnecessary-condition catches one if added).
   const { work, keepAwake } = status.data;
   const pendingEnabled = setKeepAwake.isPending ? setKeepAwake.variables : keepAwake.enabled;
@@ -74,7 +74,7 @@ export function PowerSettings() {
 
       <p className="form-note">
         Keep this machine from sleeping while you want it reachable. No timers, no AC-only
-        mode — one toggle, and the status strip always shows a chip while it holds.
+        mode; one toggle, and the status strip always shows a chip while it holds.
       </p>
 
       <label className="check-row preference-row">
@@ -95,7 +95,7 @@ export function PowerSettings() {
         <div className="power-panel__state power-panel__state--danger" role="status">
           <MoonStar size={15} aria-hidden="true" />
           <span>
-            Sleep disabled — holding: {classesLabel(keepAwake.grantedClasses)}
+            Sleep disabled: holding: {classesLabel(keepAwake.grantedClasses)}
             {keepAwake.deniedClasses.length > 0 ? ` (refused: ${classesLabel(keepAwake.deniedClasses)})` : ''}
           </span>
         </div>
@@ -115,11 +115,11 @@ export function PowerSettings() {
             {typeof work.heldSince === 'number' ? ` (since ${formatRelative(work.heldSince)})` : ''}
           </p>
         ) : (
-          <p className="form-note">Not currently held — no active work requires it.</p>
+          <p className="form-note">Not currently held, no active work requires it.</p>
         )}
         {work.capExpired && (
           <p className="banner warning" role="alert">
-            The work inhibitor's cap ({work.capMinutes}m) has expired — the host may sleep during
+            The work inhibitor's cap ({work.capMinutes}m) has expired, the host may sleep during
             active work.
           </p>
         )}

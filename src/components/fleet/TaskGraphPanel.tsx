@@ -1,14 +1,14 @@
 /**
- * TaskGraphPanel — the fix-phase task graph for one workstream
+ * TaskGraphPanel, the fix-phase task graph for one workstream
  * (fleet.graph.get, SDK 1.8.0), rendered in the workstream/fleet detail pane.
  *
  * Deliberately a vertical list, not a node-link diagram: legible at phone
  * width is the bar (per the brief), and every state tell (ready/running/
- * blocked/at-cap/stalled) is expressible as text + a badge — a diagram earns
+ * blocked/at-cap/stalled) is expressible as text + a badge, a diagram earns
  * its complexity only once this list stops being readable, which it is not.
  *
  * The pool summary line renders the brief's own vocabulary verbatim: "N
- * ready, M running, at cap (fleet.maxSize=N)" — the "at cap" clause only
+ * ready, M running, at cap (fleet.maxSize=N)", the "at cap" clause only
  * when the daemon reports it. `pool` is null for a workstream with no
  * elastic pool (a fixed-capacity/single-agent run); no summary line renders
  * then, never a fabricated "0 ready, 0 running".
@@ -42,7 +42,7 @@ function GraphNodeRow({ node }: { node: FleetGraphNode }) {
         <span
           className={`badge ${tone}`}
           data-contract-state={contractStateForBadgeTone(tone)}
-          title={isKnownGraphNodeState(node.state) ? undefined : 'State not known to this client — shown verbatim'}
+          title={isKnownGraphNodeState(node.state) ? undefined : 'State not known to this client, shown verbatim'}
         >
           {graphNodeStateLabel(node.state)}
         </span>
@@ -100,7 +100,7 @@ export function TaskGraphPanel({ workstreamId }: TaskGraphPanelProps) {
       {pool && (
         <p className="task-graph-panel__pool" data-testid="task-graph-pool">
           {poolSummaryLabel(pool)}
-          {pool.refusal && ` — ${pool.refusal}`}
+          {pool.refusal && `: ${pool.refusal}`}
         </p>
       )}
       {nodes.length === 0 ? (

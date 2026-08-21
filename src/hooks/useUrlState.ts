@@ -1,5 +1,5 @@
 /**
- * useUrlState — React hook that reads/writes AppUrlState via the URL.
+ * useUrlState, React hook that reads/writes AppUrlState via the URL.
  *
  * Subscribes to `popstate` so browser back/forward triggers re-renders.
  * Setters call pushState (navigateTo) by default; pass `replace: true`
@@ -52,7 +52,7 @@ export function useUrlState(): UseUrlStateReturn {
   // Runs in an effect (not in the lazy initializer) to avoid render-phase
   // side effects that double-fire under StrictMode.
   // Reuse the already-decoded `urlState` (from the lazy initializer) rather
-  // than calling decodeUrlState() again — avoids a redundant decode and an
+  // than calling decodeUrlState() again, avoids a redundant decode and an
   // unconditional extra render when the URL is already normalized.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -78,7 +78,7 @@ export function useUrlState(): UseUrlStateReturn {
   }, []);
 
   const setView = useCallback((view: ViewId, options?: { replace?: boolean }): void => {
-    // Compute next state from the current closure value — NOT inside the
+    // Compute next state from the current closure value, NOT inside the
     // setLocalState updater. This ensures the history side-effect fires exactly
     // once per call even under React StrictMode, which double-invokes updaters.
     const nextState: AppUrlState = { ...urlState, view };

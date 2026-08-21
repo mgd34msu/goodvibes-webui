@@ -1,8 +1,8 @@
 /**
- * payments-cards.ts — the pure half of card entry on THIS surface: which
+ * payments-cards.ts, the pure half of card entry on THIS surface: which
  * surface we are, whether the SDK's allowlist lets a card be typed here, and
  * how a typed draft becomes the `payments.cards.create` input the daemon
- * accepts. No React, no I/O — so every rule below is unit-testable without a
+ * accepts. No React, no I/O, so every rule below is unit-testable without a
  * DOM or a daemon.
  *
  * ── Why the webui may take a card at all ──────────────────────────────────
@@ -15,7 +15,7 @@
  *   "so is the webui getting card input? i said yes..."
  *
  * Recorded in the SDK as docs/decisions/2026-07-27-card-entry-surfaces.md, and
- * enforced in code by `platform/payments/entry-surface.ts` — whose
+ * enforced in code by `platform/payments/entry-surface.ts`, whose
  * CARD_ENTRY_SURFACES allowlist is the authority this module defers to. The
  * surface list is NEVER duplicated here: `mayEnterCardDetailsHere()` asks the
  * SDK. If a later ruling closes the webui again, that one edit in the SDK
@@ -25,7 +25,7 @@
  *
  * The option he selected carried them; they are part of what he chose, not
  * advice added afterwards. The SDK ships them as `WEBUI_CARD_ENTRY_CONDITIONS`
- * so no surface can implement a weaker version — but that export is not in the
+ * so no surface can implement a weaker version, but that export is not in the
  * SDK version this app pins (see the note on CARD_ENTRY_CONDITIONS below), so
  * the text is mirrored here verbatim and pinned by a test against the SDK's
  * copy the moment the pin catches up.
@@ -40,7 +40,7 @@ import { majorTextToMinorUnits, InvalidMoneyInputError } from './money';
  * This surface's identity, as the SDK's entry-surface allowlist names it.
  *
  * A constant rather than a literal at each call site so the gate below is
- * checking a real, single answer to "which surface is this?" — and so a test
+ * checking a real, single answer to "which surface is this?", and so a test
  * can drive the refusal path with a different surface without pretending this
  * app is something else.
  */
@@ -73,7 +73,7 @@ export const CARD_ENTRY_CONDITIONS: readonly string[] = [
  * Pinned as data so a test can assert it rather than trust it. POST is not a
  * stylistic preference here: `invokeOperator` puts a GET method's input in the
  * query string and a POST method's input in the request body, so a route that
- * ever flipped to GET would put the card number in a URL — condition 2, broken
+ * ever flipped to GET would put the card number in a URL, condition 2, broken
  * silently and without any change to this file. The test that reads this
  * constant is what makes that a build failure instead.
  */
@@ -85,7 +85,7 @@ export const CARD_CREATE_PATH = '/api/payments/cards';
  * The attributes every card input carries, in one place.
  *
  * Spread onto each input rather than typed out per field, so a fifth card field
- * cannot be added without them — the failure mode this guards against is a new
+ * cannot be added without them, the failure mode this guards against is a new
  * input that quietly misses one, which no amount of care at the call site
  * prevents reliably.
  *
@@ -95,8 +95,8 @@ export const CARD_CREATE_PATH = '/api/payments/cards';
  * explicitly. The other half of condition 5 is structural and lives in the
  * component: no <form> element to submit, and no `name` attribute to match on.
  *
- * Lives here rather than beside the component so this module — the one with no
- * React in it — owns every rule the ruling imposed, and so the component file
+ * Lives here rather than beside the component so this module, the one with no
+ * React in it, owns every rule the ruling imposed, and so the component file
  * exports only a component.
  */
 export const CARD_INPUT_GUARDS = {
@@ -110,7 +110,7 @@ export const CARD_INPUT_GUARDS = {
   'data-form-type': 'other',
 } as const;
 
-/** The four fields that are card MATERIAL — the values every condition is about. */
+/** The four fields that are card MATERIAL, the values every condition is about. */
 export const CARD_MATERIAL_FIELDS = ['number', 'expiry', 'cvv', 'cardholderName'] as const;
 export type CardMaterialField = (typeof CARD_MATERIAL_FIELDS)[number];
 
@@ -129,7 +129,7 @@ export interface CardDraft {
 /**
  * A blank draft.
  *
- * Also the reset used after a successful submit — condition 6 is implemented by
+ * Also the reset used after a successful submit, condition 6 is implemented by
  * assigning this back over component state, so "cleared" means every card field
  * returns to the same empty value it started at, not merely the ones someone
  * remembered to list at the clear site.
@@ -161,7 +161,7 @@ export interface CardCreateInput {
  *
  * The message NEVER contains the offending value. A rejected card number is
  * still a card number, and an error string reaches the DOM, a toast, and
- * anything reading either — the same reason the daemon's own create handler
+ * anything reading either, the same reason the daemon's own create handler
  * refuses to forward its underlying error message.
  */
 export class CardDraftError extends Error {
@@ -214,7 +214,7 @@ export function buildCardCreateInput(draft: CardDraft, currency = 'USD'): CardCr
   if (!label) throw new CardDraftError('label', 'Give the card a label so you can tell it apart later.');
 
   // Widened to string on purpose. The DRAFT type says this is already one of
-  // two values, so TypeScript considers the check dead — but the draft is built
+  // two values, so TypeScript considers the check dead, but the draft is built
   // from what a <select> reported, and a runtime guard on the boundary between
   // typed code and typed-by-assertion input is exactly where a real check
   // belongs. The daemon rejects a bad kind too; this just refuses it before the

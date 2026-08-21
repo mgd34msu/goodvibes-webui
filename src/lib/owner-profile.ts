@@ -1,11 +1,11 @@
 /**
- * owner-profile.ts — the view types and wire readers for the daemon's owner-profile
+ * owner-profile.ts, the view types and wire readers for the daemon's owner-profile
  * verbs (profile.read / .get / .person / .provenance / .set / .append / .forget / .undo
  * / .status), per docs/owner-profile.md §11.1.
  *
  * BOUND TO THE GENERATED CONTRACT
  * Every shape below is derived from `OperatorMethodOutput<'profile.*'>` in the installed
- * @pellux/goodvibes-contracts — not from prose. The `Wire*` aliases at the top ARE the
+ * @pellux/goodvibes-contracts, not from prose. The `Wire*` aliases at the top ARE the
  * generated types, so a future contract change that alters a field name breaks this file
  * at compile time instead of silently reading `undefined`. The named view types exist for
  * the same reason memory-governance.ts's MemoryGovernanceSnapshot does: the hook, the
@@ -19,7 +19,7 @@
  * still carry anything. Each reader therefore narrows the body to its generated output
  * type with an explicit `as unknown as Wire…` immediately after an `isRecord` guard, then
  * checks the load-bearing fields before projecting. A body that is not a profile returns
- * null, which the caller renders as an honest error — never an empty profile, and never a
+ * null, which the caller renders as an honest error, never an empty profile, and never a
  * crash on `undefined.length`.
  *
  * The alias tolerance the pre-contract version of this file carried (accepting `key` or
@@ -28,7 +28,7 @@
  *
  * CONTAINMENT (§10, §11.3)
  * Nothing here logs, and nothing here persists. `readProfileStatus` reads state, path,
- * section NAMES, counts and invalid-field reasons — the generated `profile.status` output
+ * section NAMES, counts and invalid-field reasons, the generated `profile.status` output
  * has no `value` property anywhere, which is what makes that verb safe in a diagnostics
  * bundle, and this reader does not reintroduce one. `sectionHoldsThirdPartyData` marks the
  * `People` section so the rendering surface can keep it out of copy/export affordances.
@@ -62,7 +62,7 @@ export type ProfileState = 'loaded' | 'disabled' | 'unavailable';
 export type ProfileTier = 'open' | 'closed';
 
 /** The provenance suffix a learned line carries (§4.2). All three parts are required by
- *  the contract — a line with no suffix carries no provenance object at all. */
+ *  the contract, a line with no suffix carries no provenance object at all. */
 export interface ProfileProvenance {
   readonly surface: string;
   readonly date: string;
@@ -81,11 +81,11 @@ export interface ProfileField {
   readonly provenance?: ProfileProvenance;
 }
 
-/** A prose line — a bullet or a paragraph, preserved as written (§4.4). */
+/** A prose line, a bullet or a paragraph, preserved as written (§4.4). */
 export interface ProfileProseLine {
   /**
    * Position in the raw line array. The in-memory model is legitimately positional (§5.1)
-   * and this is a stable react key and the document order, so it is kept — but it must
+   * and this is a stable react key and the document order, so it is kept, but it must
    * NEVER reach a verb. `profile.forget` refuses a `lineIndex` outright (400), because a
    * position taken from an earlier read may be a different line by the time the owner
    * clicks: he edits this file himself, and a settings page left open is exactly where a
@@ -98,14 +98,14 @@ export interface ProfileProseLine {
 }
 
 export interface ProfileSection {
-  /** The heading text as written — his renames are respected (§4.5). */
+  /** The heading text as written, his renames are respected (§4.5). */
   readonly heading: string;
   readonly tier: ProfileTier;
   readonly fields: readonly ProfileField[];
   readonly prose: readonly ProfileProseLine[];
 }
 
-/** `profile.read` — the whole document, by section (§8.3), with its load state flattened. */
+/** `profile.read`, the whole document, by section (§8.3), with its load state flattened. */
 export interface ProfileDocument {
   readonly state: ProfileState;
   /** Why it could not be read, when state is 'unavailable' (§4.4). */
@@ -119,7 +119,7 @@ export interface ProfileInvalidField {
   readonly reason: string;
 }
 
-/** `profile.status` — the diagnostic answer. State, path, names, counts, reasons. No values. */
+/** `profile.status`, the diagnostic answer. State, path, names, counts, reasons. No values. */
 export interface ProfileStatus {
   readonly state: ProfileState;
   readonly reason?: string;
@@ -132,7 +132,7 @@ export interface ProfileStatus {
   readonly invalidFields: readonly ProfileInvalidField[];
 }
 
-/** One `<!-- was: … -->` predecessor (§9.1) — what `profile.undo` would promote back. */
+/** One `<!-- was: … -->` predecessor (§9.1), what `profile.undo` would promote back. */
 export interface ProfileSupersededValue {
   readonly fieldId: string;
   readonly section: string;
@@ -141,13 +141,13 @@ export interface ProfileSupersededValue {
   readonly provenance?: ProfileProvenance;
 }
 
-/** `profile.provenance` — surface, date, verbatim, and superseded predecessors (§8.3). */
+/** `profile.provenance`, surface, date, verbatim, and superseded predecessors (§8.3). */
 export interface ProfileProvenanceAnswer {
   readonly fieldId: string;
   /** Whether the field is in the document at all. */
   readonly present: boolean;
   /**
-   * True when the field exists but carries no provenance suffix — he wrote or edited it
+   * True when the field exists but carries no provenance suffix, he wrote or edited it
    * by hand, and §4.2's honest answer is to say so rather than dress it up as a source.
    */
   readonly handEdited: boolean;
@@ -165,7 +165,7 @@ export interface ProfileChange {
 }
 
 /**
- * What every write verb answers. `ok: false` always carries the daemon's own reason —
+ * What every write verb answers. `ok: false` always carries the daemon's own reason,
  * which is how "there was nothing to forget" and "that write was refused" stay two
  * different sentences without this surface having to guess which one it is looking at.
  */
@@ -180,7 +180,7 @@ export interface ProfileWriteOutcome {
  * What a mutating verb is being asked about.
  *
  * A mechanical field is addressed by its `fieldId`. A prose line is addressed by its
- * CONTENT — the section it sits in plus its exact text — never by its position (§9.2).
+ * CONTENT, the section it sits in plus its exact text, never by its position (§9.2).
  * The owner is a concurrent writer: he can edit the file in his editor while this page is
  * open, so an index captured at render time may name a different line by the time he
  * clicks. Content addressing degrades honestly instead, matching nothing and removing
@@ -201,7 +201,7 @@ export type ProfileForgetTarget =
 /**
  * The full `profile.forget` body: a target plus the required authority claim. Narrower
  * than the generated input, which still declares the retired `lineIndex` and makes every
- * property optional — the daemon 400s on a body missing a target, missing an authority, or
+ * property optional, the daemon 400s on a body missing a target, missing an authority, or
  * carrying a lineIndex at all, so this type makes each of those a compile error here
  * rather than a round trip.
  */
@@ -297,7 +297,7 @@ function readSection(value: unknown): ProfileSection | null {
 /**
  * `profile.read` → the whole document, or null when the answer does not carry one.
  *
- * Null means "render the honest cannot-read state" — it is NOT an empty profile, and the
+ * Null means "render the honest cannot-read state", it is NOT an empty profile, and the
  * distinction is the whole point of §4.4: "I could not open the file" and "I know nothing
  * about you" are different sentences. Sections are dropped for a non-loaded state, so a
  * disabled or unreadable profile can never render content beneath its own banner.
@@ -390,7 +390,7 @@ function readSupersededValue(value: unknown): ProfileSupersededValue | null {
  * `profile.provenance` → where a field came from, or null when the body carries nothing
  * recognisable. A field that exists with no suffix comes back `handEdited: true` with no
  * provenance, which is §4.2's own answer ("no provenance recorded; you edited this line
- * by hand") — never dressed up as a recorded source.
+ * by hand"), never dressed up as a recorded source.
  */
 export function readProfileProvenanceAnswer(value: unknown): ProfileProvenanceAnswer | null {
   if (!isRecord(value)) return null;
@@ -402,7 +402,7 @@ export function readProfileProvenanceAnswer(value: unknown): ProfileProvenanceAn
     fieldId,
     present: wire.present,
     // The generated type says this is a boolean, so a `=== true` compare reads as
-    // redundant to the linter — but the wire is not the type, and a body missing the flag
+    // redundant to the linter, but the wire is not the type, and a body missing the flag
     // must not read as "hand edited". typeof keeps the runtime check without the compare.
     handEdited: typeof wire.handEdited === 'boolean' ? wire.handEdited : false,
     ...(provenance !== undefined ? { provenance } : {}),
@@ -434,7 +434,7 @@ function readChange(value: unknown): ProfileChange | null {
  * Every write verb's answer, or null when the body does not carry one.
  *
  * `ok` is required by the contract, so its absence is a malformed answer rather than a
- * failure — and the two are reported differently. Null must never be rendered as a
+ * failure, and the two are reported differently. Null must never be rendered as a
  * success: for a delete in particular, a daemon that did not say it deleted has not told
  * us it deleted (§9.2).
  */
@@ -474,7 +474,7 @@ export function profileTargetId(target: ProfileTarget): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Headings match case-insensitively with whitespace collapsed — the same rule the
+ * Headings match case-insensitively with whitespace collapsed, the same rule the
  * daemon's own `canonicalProfileSection` applies, so this surface classifies a heading
  * exactly the way the store does. A heading the owner has renamed outside the canonical
  * set is recognised by neither, which is a property of the design rather than a gap here:
@@ -515,8 +515,8 @@ export function profileStateBadgeClass(state: ProfileState): 'ok' | 'neutral' | 
 /** One line saying what a section's tier means for the agent, in plain terms (§11.2). */
 export function tierNote(tier: ProfileTier): string {
   return tier === 'open'
-    ? 'Open — this is in the agent’s context every turn, so it never has to ask.'
-    : 'Closed — never put in the agent’s context. It is read only when something asks for it by name, and every read is disclosed.';
+    ? 'Open: this is in the agent’s context every turn, so it never has to ask.'
+    : 'Closed: never put in the agent’s context. It is read only when something asks for it by name, and every read is disclosed.';
 }
 
 /**
@@ -530,14 +530,14 @@ export function profileUnavailableLine(reason: string | undefined, path: string)
   return `${head} (${path})`;
 }
 
-/** §12's stated disabled state — never an empty profile. */
+/** §12's stated disabled state, never an empty profile. */
 export function profileDisabledLine(): string {
   return 'Your profile is turned off, so nothing is loaded. Turn on profile.enabled in Settings to use it.';
 }
 
 /** One line for a provenance record: which surface, when, and his words (§4.2). */
 export function provenanceSummary(provenance: ProfileProvenance): string {
-  return `${provenance.surface}, ${provenance.date} — "${provenance.said}"`;
+  return `${provenance.surface}, ${provenance.date}: "${provenance.said}"`;
 }
 
 /**
@@ -572,7 +572,7 @@ export function deletedWhat(outcome: ProfileWriteOutcome, fallbackLabel: string)
  * Appended whenever a delete finds nothing to delete.
  *
  * A forget names a row this page rendered from an earlier read, so a failure usually means
- * the file has moved on since — he edited it himself, or another surface did. Saying only
+ * the file has moved on since, he edited it himself, or another surface did. Saying only
  * "nothing was removed" would be true and useless; the useful part is that the page may no
  * longer match the file, and that it is being re-read.
  *
@@ -581,18 +581,18 @@ export function deletedWhat(outcome: ProfileWriteOutcome, fallbackLabel: string)
  * a section holding both `- Foo` and a bare `Foo` produces two matches and is refused as
  * ambiguous. The file is exactly as the page showed it there. Claiming "the file changed"
  * would be a confident false statement in that case, and this note is appended without
- * classifying the cause on purpose — deciding which branch fired would mean sniffing a
+ * classifying the cause on purpose, deciding which branch fired would mean sniffing a
  * reason string the SDK is free to reword, and re-reading is correct after any of them.
  */
 export const STALE_VIEW_NOTE =
-  'This page may no longer match the file — reloading it so you can see what is actually there.';
+  'This page may no longer match the file; reloading it so you can see what is actually there.';
 
 /**
  * What a delete did, in one line.
  *
- * Success names what actually went, from the daemon's own change list. Every failure —
+ * Success names what actually went, from the daemon's own change list. Every failure,
  * an absent field, a note whose text is no longer there, a section renamed away, or two
- * identical notes the daemon will not guess between — relays the daemon's own sentence and
+ * identical notes the daemon will not guess between, relays the daemon's own sentence and
  * adds the staleness note, because in all of them the row he clicked no longer matches the
  * document. A body that never said `ok` is reported as unsaid, never as a deletion.
  */
@@ -618,7 +618,7 @@ export const SETTINGS_EDIT_UTTERANCE = '(edited in settings)';
 
 /**
  * The surface name a write from this app declares. One of the daemon's own
- * `ProfileSurface` values (tui | agent | webui | voice | hand-edit) — anything else is a
+ * `ProfileSurface` values (tui | agent | webui | voice | hand-edit), anything else is a
  * 400 from routes/owner-profile.ts's readSurface, never a silent default.
  */
 export const WEBUI_PROFILE_SURFACE = 'webui';
@@ -634,7 +634,7 @@ export const WEBUI_PROFILE_SURFACE = 'webui';
  * It is stated on every write because the daemon requires every caller to say where a
  * fact came from: routes/owner-profile.ts's readAuthority refuses an absent or
  * unrecognised value with a 400. It refuses rather than defaulting because §7 gives
- * `forget` and `undo` an authority check and nothing else — an unstated authority on a
+ * `forget` and `undo` an authority check and nothing else, an unstated authority on a
  * delete would not be a weakened gate, it would be no gate, and a caller sending none
  * could delete the owner's shipping address.
  *

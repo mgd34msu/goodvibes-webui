@@ -1,26 +1,26 @@
 /**
- * SessionChanges — the session review COCKPIT: every changed file the session made in one
+ * SessionChanges, the session review COCKPIT: every changed file the session made in one
  * scrollable multibuffer (DiffMultibuffer), each hunk a tap target with three actions.
  *
  * DAEMON SURFACE: sessions.changes.get (SDK 1.6.1) returns a session's aggregate workspace
- * diff, joined over the workspace checkpoints stamped with that session's id — the net
+ * diff, joined over the workspace checkpoints stamped with that session's id, the net
  * change from before the session's earliest stamped checkpoint to its latest. That is the
  * PRIMARY, default source. A session with no stamped checkpoints answers honestly with
- * `checkpointCount: 0` and an empty diff — rendered as an explicit "no captured changes"
+ * `checkpointCount: 0` and an empty diff, rendered as an explicit "no captured changes"
  * state with a one-tap workspace-scoped fallback (checkpoints.list + checkpoints.diff),
  * never a blank panel. Both modes parse their unified diff with parseUnifiedDiff.
  *
  * PER-HUNK ACTIONS (HunkActionSheet, opened by tapping a hunk):
- *   - APPROVE — mark the hunk reviewed. Purely client-side progress tracking (a
- *     reviewed/total indicator); no wire call, resets on refresh (honest — a refreshed diff
+ *   - APPROVE, mark the hunk reviewed. Purely client-side progress tracking (a
+ *     reviewed/total indicator); no wire call, resets on refresh (honest, a refreshed diff
  *     is a new capture).
- *   - COMMENT & STEER — the existing flow: HunkCommentSheet composes a comment sent through
+ *   - COMMENT & STEER, the existing flow: HunkCommentSheet composes a comment sent through
  *     the same steer path (sessions.steer when an agent is bound, sessions.followUp
  *     otherwise), prefixed with a structured context block naming the file/ranges/excerpt.
- *   - REJECT & REVERT — checkpoints.revertHunkPreview → render exactly what would be
+ *   - REJECT & REVERT, checkpoints.revertHunkPreview → render exactly what would be
  *     reverted → confirm → checkpoints.revertHunk with the minted confirm token. A stale
  *     hunk (preview applies:false, or a 409 CONFLICT on apply) renders the honest conflict
- *     state and refreshes the diff — NEVER a partial apply.
+ *     state and refreshes the diff, NEVER a partial apply.
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,9 +42,9 @@ import '../../styles/components/session-changes.css';
 
 interface SessionChangesProps {
   sessionId: string;
-  /** True while an agent is bound and the session is open — steer is available. */
+  /** True while an agent is bound and the session is open, steer is available. */
   canSteer: boolean;
-  /** True when the session is closed — comments queue as follow-ups, never steer. */
+  /** True when the session is closed, comments queue as follow-ups, never steer. */
   closed: boolean;
   streamPaused?: boolean;
 }
@@ -65,7 +65,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const [mode, setMode] = useState<ViewMode>('session');
   const [baselineId, setBaselineId] = useState('');
 
-  // Per-hunk client-review state (all keyed by hunkReviewKey — namespaced by path + header).
+  // Per-hunk client-review state (all keyed by hunkReviewKey, namespaced by path + header).
   const [reviewedKeys, setReviewedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [revertedKeys, setRevertedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [conflictKeys, setConflictKeys] = useState<ReadonlySet<string>>(() => new Set());
@@ -80,7 +80,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const [sendError, setSendError] = useState<string | null>(null);
   const [lastSent, setLastSent] = useState<string | null>(null);
 
-  // ── Primary: sessions.changes.get — genuinely session-scoped ──────────────────
+  // ── Primary: sessions.changes.get, genuinely session-scoped ──────────────────
   const sessionChanges = useQuery({
     queryKey: queryKeys.sessionChanges(sessionId),
     queryFn: () => sdk.operator.sessions.changes.get(sessionId),
@@ -105,7 +105,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   // Derive the effective baseline rather than defaulting via a setState-in-effect: the
   // user's explicit pick when it is still a live checkpoint, else the newest one. A chosen
   // baseline that GC'd out of the list falls back to the newest rather than querying a
-  // dangling id — same behavior as the old effect, with no render cascade.
+  // dangling id, same behavior as the old effect, with no render cascade.
   const effectiveBaselineId = useMemo(() => {
     if (baselineId && checkpoints.some((c) => c.id === baselineId)) return baselineId;
     return checkpoints[0]?.id ?? '';
@@ -133,14 +133,14 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
     if (mode === 'session') {
       if (!sessionChanges.data) return "Session changes, aggregated over this session's own captured checkpoints.";
       if (sessionHasNoCapturedChanges) {
-        return "No captured changes for this session — no workspace checkpoints have been stamped with this session's id.";
+        return "No captured changes for this session, no workspace checkpoints have been stamped with this session's id.";
       }
       const { checkpointCount, from, to } = sessionChanges.data;
-      return `Session changes across ${checkpointCount} checkpoint${checkpointCount === 1 ? '' : 's'} this session made (from "${from}" to "${to}"). Session-scoped — filtered to this session's own checkpoints only.`;
+      return `Session changes across ${checkpointCount} checkpoint${checkpointCount === 1 ? '' : 's'} this session made (from "${from}" to "${to}"). Session-scoped: filtered to this session's own checkpoints only.`;
     }
     return baseline
-      ? `Workspace changes since checkpoint "${baseline.label || baseline.id}" (${kindLabel(baseline.kind)}, ${formatRelative(baseline.createdAt)}), compared to the live working tree. Workspace-scoped (fallback) — not filtered to this session.`
-      : 'Workspace diff vs. the live working tree. Workspace-scoped (fallback) — not filtered to this session.';
+      ? `Workspace changes since checkpoint "${baseline.label || baseline.id}" (${kindLabel(baseline.kind)}, ${formatRelative(baseline.createdAt)}), compared to the live working tree. Workspace-scoped (fallback), not filtered to this session.`
+      : 'Workspace diff vs. the live working tree. Workspace-scoped (fallback), not filtered to this session.';
   }, [mode, sessionChanges.data, sessionHasNoCapturedChanges, baseline]);
 
   const mutationMode: 'steer' | 'followUp' = canSteer && !closed ? 'steer' : 'followUp';
@@ -186,7 +186,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
       setSendState('failed');
       setSendError(
         isSessionClosedError(error)
-          ? 'This session is closed — reopen it to continue.'
+          ? 'This session is closed. Reopen it to continue.'
           : formatError(error),
       );
       if (isSessionClosedError(error)) {
@@ -349,7 +349,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
                 type="button"
                 className="session-changes__mode-toggle"
                 onClick={() => setMode('workspace')}
-                title="Older sessions predate session-id stamping on checkpoints — this reads the raw workspace checkpoint timeline instead"
+                title="Older sessions predate session-id stamping on checkpoints, this reads the raw workspace checkpoint timeline instead"
               >
                 Workspace-scoped view (fallback)
               </button>
@@ -399,14 +399,14 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
           )}
 
           {lastSent && sendState === 'delivered' && (
-            <p className="session-changes__sent" role="status">Comment sent — {lastSent}.</p>
+            <p className="session-changes__sent" role="status">Comment sent: {lastSent}.</p>
           )}
           {sendState === 'failed' && sendError && !commentTarget && (
             <p className="session-changes__send-error" role="alert">{sendError}</p>
           )}
           {streamPaused && (
             <p className="session-changes__stale" role="note">
-              Live updates paused — this diff may lag the working tree until the stream reconnects.
+              Live updates paused: this diff may lag the working tree until the stream reconnects.
             </p>
           )}
 
@@ -427,7 +427,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
               )}
               {sessionHasNoCapturedChanges && (
                 <div className="session-changes__empty" role="note">
-                  No captured changes for this session — no workspace checkpoints have been stamped with this
+                  No captured changes for this session, no workspace checkpoints have been stamped with this
                   session&apos;s id yet (older sessions predate session-id stamping).
                   {' '}
                   <button type="button" className="session-changes__inline-link" onClick={() => setMode('workspace')}>
@@ -456,7 +456,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
               )}
               {list.isSuccess && !checkpoints.length && (
                 <div className="session-changes__empty" role="note">
-                  No workspace checkpoints yet — the daemon captures them per turn/agent-run (or create one from the
+                  No workspace checkpoints yet. The daemon captures them per turn/agent-run (or create one from the
                   Checkpoints view). Without one there is no file diff to show.
                 </div>
               )}

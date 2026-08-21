@@ -1,5 +1,5 @@
 /**
- * internal-identifier-check.test.ts — exercises the rule function directly
+ * internal-identifier-check.test.ts, exercises the rule function directly
  * (per-pattern hit and legitimate-token non-regression cases) and the CLI
  * end-to-end against throwaway git fixture repos, proving a planted
  * violation fails with the owner doctrine quoted and that untracked files
@@ -21,7 +21,7 @@ import {
 import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
 
 // process.on('exit') (makeProjectTempDir's fallback cleanup) never fires
-// under bun:test's runner — only afterAll does. This repo's own afterEach
+// under bun:test's runner, only afterAll does. This repo's own afterEach
 // below already rmSync's every fixture dir per-test, so this is
 // belt-and-suspenders against a future test in this file that forgets to,
 // not the only thing standing between this file and a leak.
@@ -36,7 +36,7 @@ function check(line: string): string[] {
 
 describe('banned internal-identifier shapes', () => {
   const banned: Record<string, string> = {
-    'workstream id': '// CommandPalette — WS1 Command System',
+    'workstream id': '// CommandPalette: WS1 Command System',
     'hyphenated workstream id': '// see the WS-2 module',
     'wave.item id': '// carried over from W4.2',
     'numeric work-order id': '// wo123 follow-up',
@@ -49,7 +49,7 @@ describe('banned internal-identifier shapes', () => {
     'wave-round id': '// docstring for the W4-R1 parity audit',
     'parenthesized lettered finding id': "/* Decision trail (B2): audit provenance. */",
     'finding-id test title with colon': "test('B1: idle-reaped session badges reaped', () => {});",
-    'finding-id test title with em-dash': "describe('C3 — approvals decision trail', () => {});",
+    'finding-id test title with em-dash': "describe('C3: approvals decision trail', () => {});",
     'slash-chained finding ids': '// covers A1/B2 from the review',
   };
   for (const [name, line] of Object.entries(banned)) {
@@ -151,7 +151,7 @@ describe('CLI end-to-end', () => {
   test('a tracked planted violation fails the check quoting the owner doctrine', () => {
     const dir = buildGitFixture();
     mkdirSync(join(dir, 'src'), { recursive: true });
-    writeFileSync(join(dir, 'src/palette.tsx'), '/** CommandPalette — WS1 Command System */\n');
+    writeFileSync(join(dir, 'src/palette.tsx'), '/** CommandPalette: WS1 Command System */\n');
     execFileSync('git', ['add', '.'], { cwd: dir });
     const result = runCli(dir);
     expect(result.exitCode).toBe(1);

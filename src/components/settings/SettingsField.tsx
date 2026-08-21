@@ -1,5 +1,5 @@
 /**
- * SettingsField — one typed config editor row, driven by the SDK schema.
+ * SettingsField, one typed config editor row, driven by the SDK schema.
  *
  *   boolean → toggle (commits immediately)
  *   enum    → <select> of the schema's enumValues (commits immediately)
@@ -21,7 +21,7 @@
  *                             CVV_PROMPT_TRADEOFF_WARNING the moment 'prompt'
  *                             is selected.
  *   payments.budget.*      → MoneyField for any schema key marked
- *                             `unit: 'money'` (SDK 2.0.5's money-value.ts) —
+ *                             `unit: 'money'` (SDK 2.0.5's money-value.ts),
  *                             the plain amount is displayed and entered as-is,
  *                             with no unit conversion; detection reads the
  *                             schema's `unit` mark, never the key's name.
@@ -52,7 +52,7 @@ interface SettingsFieldProps {
   readonly field: ConfigFieldModel;
   readonly onCommit: (key: string, value: unknown) => Promise<void>;
   /** What the daemon reported for the last successful config.set of THIS key this
-   *  session (SettingsModal's persistedByKey, looked up by the caller) — undefined
+   *  session (SettingsModal's persistedByKey, looked up by the caller), undefined
    *  until this row has been saved at least once. */
   readonly persisted?: ConfigSetOutcome;
   /** The live `payments.currency` value, used only by `unit: 'money'` fields
@@ -95,7 +95,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
   }
 
   const defaultNote = !field.present ? (
-    <span className="settings-field-default" title="Not set in the daemon config — showing the schema default.">
+    <span className="settings-field-default" title="Not set in the daemon config, showing the schema default.">
       default
     </span>
   ) : null;
@@ -104,7 +104,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
     // Object-typed keys get structured editors (see module header).
     if (field.type === 'object') {
       if (field.key === 'pricing.modelPrices') {
-        // The editor owns its saving/error state — commits go straight to the
+        // The editor owns its saving/error state, commits go straight to the
         // parent's config.set so a rejection surfaces inside the editor row.
         return <ModelPricesEditor value={effectiveValue(field)} onCommit={(next) => onCommit(field.key, next)} />;
       }
@@ -112,7 +112,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
     }
 
     // Secret string whose real value the daemon resolves ONLY from its own
-    // secret store (secret-store-only-config-keys.ts) — never editable here.
+    // secret store (secret-store-only-config-keys.ts), never editable here.
     // A config.set write would save a plaintext copy the mail/calendar
     // connector never reads, while reporting success. Refuse and name the
     // real command instead of offering a write that cannot work.
@@ -121,7 +121,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
     // a refusal has to be reached before anything below can offer an editor
     // for the same key. None of the three payments/timezone editors that
     // follow currently matches a secret-store-only key, so the order is not
-    // load-bearing today — it is what keeps it from becoming load-bearing.
+    // load-bearing today, it is what keeps it from becoming load-bearing.
     if (field.isSecret && field.type === 'string' && field.secretStoreOnly) {
       const raw = effectiveValue(field);
       const masked = typeof raw === 'string' && raw ? maskSecretValue(raw) : '(unset)';
@@ -129,7 +129,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
         <div className="settings-field-secret settings-field-secret--store-only">
           <span className="settings-value settings-value--secret">{masked}</span>
           <p className="settings-field-secret-store-only-note" role="note">
-            Only readable from the daemon's own secret store — a value saved here would never be
+            Only readable from the daemon's own secret store. A value saved here would never be
             used. Run <code>{secretStoreSetCommandFor(field.key)}</code> from a terminal with daemon
             access to set it.
           </p>
@@ -137,14 +137,14 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       );
     }
 
-    // daemon.timezone — a searchable IANA-zone picker, never free text.
+    // daemon.timezone, a searchable IANA-zone picker, never free text.
     if (field.key === 'daemon.timezone') {
       const current = effectiveValue(field);
       const value = typeof current === 'string' ? current : '';
       return <TimezonePicker value={value} disabled={saving} onCommit={(next) => void commit(next)} />;
     }
 
-    // payments.cvvHandling — an enum select that surfaces the trade-off
+    // payments.cvvHandling, an enum select that surfaces the trade-off
     // warning at the moment 'prompt' is selected.
     if (field.type === 'enum' && field.key === 'payments.cvvHandling' && field.enumValues) {
       const current = effectiveValue(field);
@@ -159,7 +159,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       );
     }
 
-    // A schema key marked unit: 'money' — a plain amount, displayed and
+    // A schema key marked unit: 'money', a plain amount, displayed and
     // entered as-is with no unit conversion.
     if (field.type === 'number' && isMoneyField(field.unit)) {
       const current = effectiveValue(field);
@@ -174,7 +174,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       );
     }
 
-    // Secret string — masked, write-only replace.
+    // Secret string, masked, write-only replace.
     if (field.isSecret && field.type === 'string') {
       const raw = effectiveValue(field);
       const masked = typeof raw === 'string' && raw ? maskSecretValue(raw) : '(unset)';
@@ -322,7 +322,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       <div className="settings-field-control">{control}</div>
       {persisted?.persistedTo && (
         <p className="settings-field-persisted" role="status">
-          Saved — stored in {persisted.persistedTo}.
+          Saved: stored in {persisted.persistedTo}.
         </p>
       )}
       {error && (
@@ -337,8 +337,8 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
 /**
  * Fallback editor for an object-typed schema key that has no dedicated
  * structured editor yet: shows the current value and accepts a replacement as
- * validated JSON (must parse to a plain object — never silently committed as a
- * string). pricing.modelPrices never reaches this — it has ModelPricesEditor.
+ * validated JSON (must parse to a plain object, never silently committed as a
+ * string). pricing.modelPrices never reaches this, it has ModelPricesEditor.
  */
 function ObjectJsonField({
   field,

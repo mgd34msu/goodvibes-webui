@@ -13,14 +13,14 @@ GoodVibes daemon. It should:
   calendar, approvals/tasks/workstream, providers/models, admin) over the same
   typed wire the terminal UI uses
 - expose regular Knowledge/Wiki without leaking extension-specific Home Graph UI
-- serve desktop and phone from one app — the phone gets a drawer layout of the
+- serve desktop and phone from one app: the phone gets a drawer layout of the
   same views, never a different mental model
 - install from the browser (app shell offline, Web Push), with daemon data
   never cached
 - stay on public SDK/browser seams with contract-typed method I/O
 - avoid creating a second local state store for canonical daemon data
 
-## Runtime Topology
+## Runtime topology
 
 The WebUI has two important origins in development:
 
@@ -35,7 +35,7 @@ precedence.
 The browser should usually talk to `window.location.origin`. Direct backend
 origins are only for explicit development overrides.
 
-## SDK Boundary
+## SDK boundary
 
 Application code imports the scoped browser Knowledge SDK:
 
@@ -65,7 +65,7 @@ Operator method families without a convenience helper (`fleet.*`,
 `checkpoints.*`, `sessions.search`, ...) ride the generic typed invoke path.
 Their input/output types derive from the SDK's generated
 `OperatorMethodInputMap`/`OperatorMethodOutputMap` via
-`src/lib/contract-bridge-types.ts` — no hand-typed wire shapes. A test pins the
+`src/lib/contract-bridge-types.ts`, no hand-typed wire shapes. A test pins the
 bridge types against the installed SDK's `operator-contract.json`, and another
 pins the retirement of the old `EXTRA_METHOD_ROUTES` shim so per-route
 definitions do not creep back.
@@ -76,7 +76,7 @@ contract into `src/lib/generated/presentation-tokens.ts` and the CSS custom
 properties consumed by `src/styles/tokens.css`, so terminal, agent, and browser
 share one visual vocabulary.
 
-## Auth Model
+## Auth model
 
 Auth belongs to the daemon.
 
@@ -87,7 +87,7 @@ Auth belongs to the daemon.
 - GoodVibes secret refs are daemon-side downstream credential resolution, not
   WebUI auth.
 
-## Chat Model
+## Chat model
 
 Standalone WebUI chat uses daemon-owned companion chat, not operator session
 continuation.
@@ -106,7 +106,7 @@ Do not use `sessions.followUp` for plain companion chat. That path is for shared
 operator session continuation and can spawn or queue agent work. Do not use
 `sessions.messages.create` as a fallback send path for companion chat.
 
-### Chat State
+### Chat state
 
 Daemon session/message data is canonical. Browser local storage is a cache for:
 
@@ -132,7 +132,7 @@ Companion chat attachments are real daemon artifacts:
 Message sends must not carry provider/model routing. Routing belongs to the
 chat session or daemon current model.
 
-### Markdown and Code
+### Markdown and code
 
 Assistant, chat, and Knowledge text render as Markdown with GFM support.
 Code blocks support:
@@ -144,30 +144,30 @@ Code blocks support:
 
 Line numbers are UI-only and must not be copied with code content.
 
-## Session Union and Steering
+## Session union and steering
 
 The Sessions view is the cross-surface session union: sessions started from the
 terminal, agent, or browser, listed and searched over `sessions.list` /
 `sessions.search` (closed sessions included by explicit `includeClosed` choice,
-surfaced in the UI). A live session can be steered; a closed session offers a
-follow-up — a new linked session — and is labeled as such, never disguised as
+surfaced in the UI). A live session can be steered. A closed session offers a
+follow-up, a new linked session, and is labeled as such, never disguised as
 steering. Steer sends stamp this browser as the originating surface. This is
-the operator-session continuation surface; it is distinct from companion chat
+the operator-session continuation surface. It is distinct from companion chat
 and does not share its send path.
 
-### Permission Mode and Compaction
+### Permission mode and compaction
 
 The Sessions view also surfaces the SDK's permission-mode and auto-compaction
 state, built directly against the daemon wire (there is no TUI precedent for
-this over the wire — the TUI embeds the SDK runtime in-process and reads it
+this over the wire. The TUI embeds the SDK runtime in-process and reads it
 locally, e.g. `configManager.get('permissions.mode')`, rather than through the
 daemon's operator API).
 
 - Permission mode (`src/lib/permission-mode.ts`) is daemon-wide, not
-  per-session — the SDK's `PERMISSION_MODE_CHANGED` runtime event carries no
-  `sessionId`. There is no dedicated `sessions.permissionMode` wire method;
-  the mode lives at the `permissions.mode` config key, read via
-  `config.get()` (which returns the daemon's full config tree, unredacted —
+  per-session. The SDK's `PERMISSION_MODE_CHANGED` runtime event carries no
+  `sessionId`. There is no dedicated `sessions.permissionMode` wire method.
+  The mode lives at the `permissions.mode` config key, read via
+  `config.get()` (which returns the daemon's full config tree, unredacted,
   see `config-redaction.ts`) and written one key at a time via
   `config.set('permissions.mode', mode)`. The control renders once, in the
   Sessions toolbar, clearly labeled as daemon-wide rather than implied
@@ -181,41 +181,41 @@ daemon's operator API).
   summary). No numeric context-window/token-budget value exists anywhere else
   on the wire for an arbitrary session (checked: `sessions.get`/`list`,
   `fleet.snapshot`, `config.get`), so the context-usage chip shows an honest
-  "not observed yet" state until the daemon actually reports one — never a
+  "not observed yet" state until the daemon actually reports one, never a
   computed-from-nowhere percentage. Receipts render as distinct cards
-  appended to the session transcript as they arrive live; there is no
+  appended to the session transcript as they arrive live. There is no
   history endpoint for past receipts. This hook opens its own raw stream,
   scoped to the open session detail only (closed on unmount) to stay under
   the per-origin connection budget documented in
   `useRealtimeInvalidation.ts`.
 
-## Memory Model
+## Memory model
 
 The Memory view reads and mutates the shared cross-surface memory store over
 the daemon memory wire. Recall-honesty metadata from the daemon (search mode,
 vector-index availability or its `platformLimitReason`, exclusion counts,
-recall floor) renders verbatim — a literal-match fallback is labeled as one.
+recall floor) renders verbatim. A literal-match fallback is labeled as one.
 Deletion is verified: after a delete the view proves the record is gone rather
 than just dropping it from a local list.
 
-## Voice Model
+## Voice model
 
 Voice rides the daemon's voice routes (`voice.tts.stream`, `voice.stt`,
 provider/voice listing) so browser, terminal, and agent get identical provider
 behavior. Spoken replies batch and cap concurrent synthesis with quiet retry;
 dictation always shows the transcript for review before send. Voice
-configuration lives in the shared config tier — one config for all surfaces.
+configuration lives in the shared config tier, one config for all surfaces.
 
-## Installable App (PWA)
+## Installable app (PWA)
 
 `public/manifest.webmanifest` + `public/sw.js` make the app installable. The
-service worker caches the app shell only — never a daemon API response — so an
+service worker caches the app shell only, never a daemon API response, so an
 offline open loads the shell and shows the ordinary "can't reach the daemon"
 state instead of stale data dressed as live. Web Push subscriptions go through
 the daemon's `push.vapid.get` / `push.subscriptions.*` verbs
 (`src/lib/push/`); registration is production-gated (`src/lib/pwa/`).
 
-## Knowledge/Wiki Model
+## Knowledge/Wiki model
 
 The Knowledge page uses regular/base Knowledge routes through the scoped browser
 Knowledge SDK.
@@ -240,7 +240,7 @@ filter Home Graph data client-side. If extension records appear in regular
 Knowledge by default, report the exact endpoint, payload, and record identifiers
 to SDK/daemon maintainers.
 
-## Provider/Model Model
+## Provider/model model
 
 Provider and model selection must follow daemon/provider registry semantics.
 
@@ -253,7 +253,7 @@ Provider and model selection must follow daemon/provider registry semantics.
 
 Provider/model helper logic lives in `src/lib/provider-models.ts`.
 
-## Admin Surface
+## Admin surface
 
 Admin owns diagnostics and operational settings that are not part of the main
 chat flow:
@@ -264,23 +264,23 @@ chat flow:
 - display preferences such as code block line numbers
 - service/network posture where exposed by daemon APIs
 
-## Realtime and Invalidation
+## Realtime and invalidation
 
-Realtime events are used as invalidation and rendering signals, not as the only
-source of truth. The app loads snapshots/lists first, then refreshes affected
+The app uses realtime events as invalidation and rendering signals, not as the
+only source of truth. It loads snapshots/lists first, then refreshes affected
 queries on relevant events.
 
 App-wide invalidation rides ONE multiplexed SSE stream (connected only after
-sign-in, reconnected on every auth change) rather than per-view connections —
-per-view streams starved the browser's per-origin connection pool. Domain
-scoping is negotiated with the daemon; the default remains deliver-all so an
+sign-in, reconnected on every auth change) rather than per-view connections.
+Per-view streams starved the browser's per-origin connection pool. Domain
+scoping is negotiated with the daemon. The default remains deliver-all so an
 older daemon stays correct. Chat streams are session-scoped through companion
-chat SSE helpers. Terminal events matter; intermediate stream iteration events
+chat SSE helpers. Terminal events matter. Intermediate stream iteration events
 should not be treated as complete turns. Stream drops surface as honest
 degraded states (reconnecting / paused / expired) with real retry, per-effect
 stream epochs preventing stale handlers from acting.
 
-## Non-Goals and Boundaries
+## Non-goals and boundaries
 
 - Do not read TUI or daemon private files from browser code.
 - Do not point WebUI to a local SDK checkout.

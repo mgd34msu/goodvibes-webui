@@ -1,10 +1,10 @@
 /**
- * ApprovalsTasksView — Approvals + Tasks.
+ * ApprovalsTasksView, Approvals + Tasks.
  *
  * Approvals: lists pending/claimed/historical approvals (approvals.list). The
  * hero interaction is per-hunk edit approval: a pending `edit` tool
  * approval's `request.args.edits` are rendered as individually selectable
- * hunks. "Approve selected" sends `approvals.approve({ selectedHunks })` — an
+ * hunks. "Approve selected" sends `approvals.approve({ selectedHunks })`, an
  * INDEX ARRAY ONLY. This view never computes the modified edit itself; the
  * daemon's moved `buildModifiedEditArgs` (approval-hunk-apply.ts) is the single
  * source of the applied result, so the webui and the TUI always agree. Omitting
@@ -14,13 +14,13 @@
  * resolved (approved/denied/cancelled/expired) approval renders as history,
  * never with action buttons.
  *
- * Claim locks a pending approval (still not actionable-by-self afterward — see
+ * Claim locks a pending approval (still not actionable-by-self afterward, see
  * ApprovalCard.tsx); Cancel withdraws a pending approval without deciding it.
  * ApprovalClassMatrix (above the list) breaks the loaded set down by category ×
  * risk level (WEBUI-FLEET-DEPTH).
  *
  * Tasks: list/create/cancel/retry over the existing tasks.* verbs
- * (method-catalog-control-core.ts). Statuses are rendered verbatim — no
+ * (method-catalog-control-core.ts). Statuses are rendered verbatim, no
  * invented "in progress" percentage, no synthesized ETA. Cancel is offered
  * only when the task reports itself cancellable; retry only for a
  * failed/cancelled task (TaskManager.retryTask's own transition guard).
@@ -28,7 +28,7 @@
  * Realtime: task events ride the `tasks` domain, already wired into
  * useRealtimeInvalidation's DOMAIN_INVALIDATIONS (W1). Approval transitions
  * are a DIFFERENT wire event (`approval-update`, a fixed name filter-tagged
- * `permissions` — not a domain-forwarded frame useRealtimeInvalidation can see;
+ * `permissions`, not a domain-forwarded frame useRealtimeInvalidation can see;
  * see useApprovalUpdates.ts's header comment), so this view opens its own
  * dedicated subscription (useApprovalUpdates) rather than relying on that
  * hook. Push is the fast path: while connected, the approvals query stops
@@ -64,19 +64,19 @@ import { useToast } from '../../lib/toast';
 import '../../styles/components/approvals.css';
 
 /** tasks.* emits no event this view doesn't already subscribe to (the `tasks`
- * domain, W1) — no extra poll needed there beyond the default staleness the
+ * domain, W1), no extra poll needed there beyond the default staleness the
  * realtime invalidation keeps fresh. Approvals now push (useApprovalUpdates)
- * with a 15s poll fallback while push is down — see ApprovalsSection. A slow
+ * with a 15s poll fallback while push is down, see ApprovalsSection. A slow
  * manual refresh button is offered either way for the honest "nothing has
  * arrived yet" case. */
 
 function friendlyError(error: unknown): string {
-  if (isSessionClosedError(error)) return 'That session is closed — the approval or task can no longer be actioned.';
+  if (isSessionClosedError(error)) return 'That session is closed. The approval or task can no longer be actioned.';
   return formatError(error);
 }
 
 export interface ApprovalsTasksViewProps {
-  /** Navigate to a session's chat view — used by the "open fix session"
+  /** Navigate to a session's chat view, used by the "open fix session"
    * affordance on a resolved approved CI fix offer (record.fixSessionId). */
   readonly onOpenSession?: (sessionId: string) => void;
 }
@@ -98,7 +98,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   const { toast } = useToast();
   const [selections, setSelections] = useState<Record<string, ReadonlySet<number>>>({});
 
-  // Push is the fast path; the poll is the honest fallback, never removed —
+  // Push is the fast path; the poll is the honest fallback, never removed,
   // see useApprovalUpdates.ts's header comment and this file's own header.
   const approvalUpdates = useApprovalUpdates(true);
 
@@ -141,7 +141,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
       // A subset was sent only when selectedHunks is non-empty AND shorter than
-      // the full hunk count on the request — selecting every hunk (or omitting
+      // the full hunk count on the request, selecting every hunk (or omitting
       // selectedHunks entirely, "Approve all") is a full approval, not a subset.
       const selectedCount = variables.selectedHunks?.length ?? 0;
       const isPartial = selectedCount > 0
@@ -158,16 +158,16 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
           if (isDurableRememberTier(recordedTier)) {
             await queryClient.invalidateQueries({ queryKey: queryKeys.permissionRules });
           }
-          toast({ title, description: `Remembered (${recordedTier}) — matching asks will not prompt again.`, tone: 'success' });
+          toast({ title, description: `Remembered (${recordedTier}): matching asks will not prompt again.`, tone: 'success' });
         } else {
-          toast({ title, description: 'The daemon did not record the remember request — this decision applied once.', tone: 'info' });
+          toast({ title, description: 'The daemon did not record the remember request, this decision applied once.', tone: 'info' });
         }
         return;
       }
       if (variables.answer !== undefined) {
         toast(recordedAnswerDelivered(result)
           ? { title: 'Answer sent', description: 'The reply is feeding the waiting command.', tone: 'success' }
-          : { title, description: 'The daemon did not record the answer — the command was approved without input and may stop on its prompt.', tone: 'info' });
+          : { title, description: 'The daemon did not record the answer. The command was approved without input and may stop on its prompt.', tone: 'info' });
         return;
       }
       toast({ title, tone: 'success' });
@@ -178,7 +178,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   });
 
   const deny = useMutation({
-    // The one optional reason text rides both wire fields (note + reason) —
+    // The one optional reason text rides both wire fields (note + reason),
     // see sdk.operator.approvals.deny.
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       sdk.operator.approvals.deny(id, reason ? { note: reason, reason } : undefined),
@@ -195,8 +195,8 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
     },
   });
 
-  // Claim/cancel (WEBUI-FLEET-DEPTH — approvals depth): both operate on 'pending'
-  // approvals only, same as approve/deny. Claim does NOT unlock further action here —
+  // Claim/cancel (WEBUI-FLEET-DEPTH, approvals depth): both operate on 'pending'
+  // approvals only, same as approve/deny. Claim does NOT unlock further action here,
   // see ApprovalCard's header comment on why "claimed by me" can't be told apart from
   // "claimed by another surface sharing the same token".
   const claim = useMutation({
@@ -304,10 +304,10 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
 }
 
 /**
- * ApprovalClassMatrix — an at-a-glance category × risk breakdown of the approvals
+ * ApprovalClassMatrix, an at-a-glance category × risk breakdown of the approvals
  * currently loaded, the "approval-class matrix" parity depth the TUI's fleet
  * mega-panel offers. Grounded entirely in fields already on ApprovalRecord
- * (request.category, request.analysis.riskLevel) — no new wire call. Both are open
+ * (request.category, request.analysis.riskLevel), no new wire call. Both are open
  * strings (a daemon-defined vocabulary this client renders verbatim, never drops an
  * unrecognized value), so the matrix groups by whatever strings are actually present
  * rather than a fixed enum.

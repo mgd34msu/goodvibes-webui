@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 // operator-contract.json is the SAME runtime schema source contract-bridge-types.ts's
-// hand-authored shapes are cross-checked against (see that module's header) — imported
+// hand-authored shapes are cross-checked against (see that module's header), imported
 // from the SDK's own public export path, not by reaching into a transitive dependency.
 import operatorContract from '@pellux/goodvibes-sdk/contracts/operator-contract.json';
 import {
@@ -136,7 +136,7 @@ describe('isRuntimeDomain', () => {
 });
 
 describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
-  test('sessions.get/steer/followUp resolve NATIVELY — no EXTRA row', () => {
+  test('sessions.get/steer/followUp resolve NATIVELY, no EXTRA row', () => {
     // These gained native coverage in the 0.38 browser SDK (SHARED_BROWSER_ROUTES);
     // they must fall through to scopedSdk.operator.invoke, not a hand-written route.
     expect(isExtraRoutedMethod('sessions.get')).toBe(false);
@@ -169,28 +169,28 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   test('sessions.delete / companion.chat.sessions.close / control.methods.get are table-routed (delete-means-delete)', () => {
     // None of these three ids are in the installed 0.38 OperatorMethodId union
     // (sessions.delete, companion.chat.sessions.close) or have a browser-SDK REST
-    // binding (control.methods.get) — every one needs its own EXTRA_METHOD_ROUTES row.
+    // binding (control.methods.get), every one needs its own EXTRA_METHOD_ROUTES row.
     expect(isExtraRoutedMethod('sessions.delete')).toBe(true);
     expect(isExtraRoutedMethod('companion.chat.sessions.close')).toBe(true);
     expect(isExtraRoutedMethod('control.methods.get')).toBe(true);
   });
 
-  test('fleet.*/checkpoints.* are NOT extra-routed — they ride the generic invoke path, not EXTRA_METHOD_ROUTES', () => {
+  test('fleet.*/checkpoints.* are NOT extra-routed. They ride the generic invoke path, not EXTRA_METHOD_ROUTES', () => {
     for (const method of ['fleet.snapshot', 'fleet.list', 'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore', 'checkpoints.restorePreview']) {
       expect(isExtraRoutedMethod(method)).toBe(false);
     }
   });
 
   // sessions.changes.get / cost.attribution.get (SDK 1.6.1): `transport: ["ws"]` only,
-  // no `http` route — same generic-invoke-only shape as fleet.*/checkpoints.* above, not
+  // no `http` route, same generic-invoke-only shape as fleet.*/checkpoints.* above, not
   // a table-routed EXTRA_METHOD_ROUTES entry.
-  test('sessions.changes.get and cost.attribution.get are NOT extra-routed — generic invoke path', () => {
+  test('sessions.changes.get and cost.attribution.get are NOT extra-routed, generic invoke path', () => {
     expect(isExtraRoutedMethod('sessions.changes.get')).toBe(false);
     expect(isExtraRoutedMethod('cost.attribution.get')).toBe(false);
   });
 
   // sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1): real REST
-  // routes with real generated I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES —
+  // routes with real generated I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES,
   // same table-routed shape as sessions.close/reopen above, not the generic-invoke path.
   test('sessions.permissionMode.get/set and sessions.contextUsage.get are table-routed', () => {
     expect(isExtraRoutedMethod('sessions.permissionMode.get')).toBe(true);
@@ -199,7 +199,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   });
 
   // ci.* (SDK 1.6.1's initiative-family repack): real REST routes with real generated
-  // I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES — same table-routed shape as
+  // I/O maps, but not in SHARED/KNOWLEDGE_BROWSER_ROUTES, same table-routed shape as
   // sessions.permissionMode.*/contextUsage.get above.
   test('ci.status and ci.watches.* are table-routed', () => {
     expect(isExtraRoutedMethod('ci.status')).toBe(true);
@@ -230,7 +230,7 @@ describe('EXTRA_METHOD_ROUTES retirement (W2B)', () => {
   });
 
   // occasions.* (docs/occasions.md, the dates panel): same table-routed shape as
-  // checkin.*/ci.*/principals.* above — real REST routes, no browser-SDK coverage.
+  // checkin.*/ci.*/principals.* above, real REST routes, no browser-SDK coverage.
   test('occasions.* is table-routed', () => {
     for (const method of [
       'occasions.list', 'occasions.pending', 'occasions.propose', 'occasions.confirm', 'occasions.remove',
@@ -251,7 +251,7 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
   // webui acts on is the generated one. Until the 2.0.0 re-pin, models.list/models.current/
   // models.select were the sole documented exception (no contract backing at all); the
   // 2.0.0 contract now carries real models.list/models.current.get/models.current.set
-  // entries with real REST bindings, so that exception is retired — see the test below.
+  // entries with real REST bindings, so that exception is retired, see the test below.
   const MODELS_METHOD_IDS = ['models.list', 'models.current.get', 'models.current.set'];
 
   test('every table route matches the generated WEBUI_METHOD_ROUTES artifact EXACTLY (no hand-written row shadows or diverges from a generated one)', () => {
@@ -267,7 +267,7 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
-  test('models.list/current.get/current.set now arrive DERIVED from the generated artifact (the 2.0.0 contract gap closed — no more hand-written row)', () => {
+  test('models.list/current.get/current.set now arrive DERIVED from the generated artifact (the 2.0.0 contract gap closed, no more hand-written row)', () => {
     for (const id of MODELS_METHOD_IDS) {
       expect(webuiRouteFor(id), `${id} should be table-routed`).toBeDefined();
       expect(id in WEBUI_METHOD_ROUTES, `${id} should now be present in the generated artifact`).toBe(true);
@@ -302,10 +302,10 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
-  test('the nine profile.* verbs arrive DERIVED — real REST rows from the generated artifact, no hand-written row', () => {
+  test('the nine profile.* verbs arrive DERIVED: real REST rows from the generated artifact, no hand-written row', () => {
     // The owner profile added no route wiring to goodvibes.ts at all: every row below comes
     // from WEBUI_METHOD_ROUTES via buildExtraMethodRoutes. This pins that they are present,
-    // that they are REST (not ws-invoke), and that each resolves to the generated path — so
+    // that they are REST (not ws-invoke), and that each resolves to the generated path, so
     // a future contract change to any of these paths fails here rather than at runtime.
     const expected = {
       'profile.read': { method: 'GET', path: '/api/profile' },
@@ -326,9 +326,9 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
-  test('the sixteen occasions.* verbs arrive DERIVED — real REST rows from the generated artifact, no hand-written row', () => {
+  test('the sixteen occasions.* verbs arrive DERIVED: real REST rows from the generated artifact, no hand-written row', () => {
     // Same shape as the profile.* pin above: DatesView/goodvibes.ts add no route
-    // wiring of their own — every row below comes from WEBUI_METHOD_ROUTES via
+    // wiring of their own, every row below comes from WEBUI_METHOD_ROUTES via
     // buildExtraMethodRoutes.
     const expected = {
       'occasions.list': { method: 'GET', path: '/api/occasions' },
@@ -356,13 +356,13 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     }
   });
 
-  // channels.inbox.list (2.0.0 pin): the daemon's unified inbox — Slack DMs, Discord
+  // channels.inbox.list (2.0.0 pin): the daemon's unified inbox, Slack DMs, Discord
   // messages, and email threads merged into one feed, distinct from the mail-specific
   // email.inbox.list this app already wires up in ChatView/MailView. No view calls it
   // yet, but it arrives table-routed the same DERIVED way as profile.*/occasions.* above,
-  // with no route wiring of its own needed here — this pins that it is genuinely reachable
+  // with no route wiring of its own needed here, this pins that it is genuinely reachable
   // over REST the moment a consumer is built.
-  test('channels.inbox.list (the unified inbox verb) arrives DERIVED — real REST row, no hand-written wiring, no consumer yet', () => {
+  test('channels.inbox.list (the unified inbox verb) arrives DERIVED, real REST row, no hand-written wiring, no consumer yet', () => {
     expect(webuiRouteFor('channels.inbox.list')).toEqual({ method: 'GET', path: '/api/channels/inbox' });
     expect(isExtraRoutedMethod('channels.inbox.list')).toBe(true);
     expect(WEBUI_METHOD_DISPOSITION['channels.inbox.list']).toBe('rest');
@@ -379,7 +379,7 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
   });
 });
 
-describe('sdk.operator.fleet / sdk.operator.checkpoints — generic invoke-by-id', () => {
+describe('sdk.operator.fleet / sdk.operator.checkpoints: generic invoke-by-id', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; method: string; body: unknown }[];
 
@@ -512,7 +512,7 @@ describe('delete-means-delete: sessions.delete / chat.sessions.close / control.m
   });
 
   test('operator.sessions.delete surfaces a 409 SESSION_ACTIVE honestly (never a silent success)', async () => {
-    stubFetch({ error: 'Session is active — close it, then delete.', code: 'SESSION_ACTIVE' }, 409);
+    stubFetch({ error: 'Session is active; close it, then delete.', code: 'SESSION_ACTIVE' }, 409);
     let caught: unknown;
     try {
       await sdk.operator.sessions.delete('sess-1');
@@ -898,11 +898,11 @@ describe('principals.* / channels.profiles.* (SDK 1.6.1 initiative family) wire 
   });
 });
 
-describe('typed client — wrong-typed input is a COMPILE error, not a runtime cast', () => {
+describe('typed client: wrong-typed input is a COMPILE error, not a runtime cast', () => {
   // These functions are defined but deliberately never invoked: the assertion under
   // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
-  // itself fails the build if the line does NOT actually error — "Unused '@ts-expect-
-  // error' directive" — so this is a real, gate-enforced compile check, not a comment).
+  // itself fails the build if the line does NOT actually error, "Unused '@ts-expect-
+  // error' directive", so this is a real, gate-enforced compile check, not a comment).
 
   test('sessions.steer: a numeric body is rejected now that `as never` is gone', () => {
     function typeOnly(): void {
@@ -932,7 +932,7 @@ describe('typed client — wrong-typed input is a COMPILE error, not a runtime c
   });
 });
 
-describe('sdk facade shape — byte-compatible surface', () => {
+describe('sdk facade shape: byte-compatible surface', () => {
   // Guards the ~15 view/hook files that import `sdk` structurally (never by destructuring
   // its own type) against an accidental rename/removal in this refactor. `search` is the
   // one intentional addition this scaffolds for the session-search feature; everything
@@ -948,28 +948,28 @@ describe('sdk facade shape — byte-compatible surface', () => {
     // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
     // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
     // 'pairing' added for SDK 1.8.0's per-device pairing tokens + hand-off bundle
-    // (pairing.tokens.*, pairing.handoff.*) — same ws-only generic-invoke family.
+    // (pairing.tokens.*, pairing.handoff.*), same ws-only generic-invoke family.
     // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
     // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
     // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
     // 'permissions' added for the durable approval rules (permissions.rules.*).
     // 'power' added for SDK 1.8.0's host sleep-ownership work (power.status.get,
-    // power.keepAwake.set — both real REST routes, resolving through
+    // power.keepAwake.set, both real REST routes, resolving through
     // EXTRA_METHOD_ROUTES like config.* above).
     // 'tailscale' added for SDK 1.8.0's one-action https affordance (tailscale.get,
-    // tailscale.serve.run — both ws-only, resolving through invokeGatewayMethod like
+    // tailscale.serve.run, both ws-only, resolving through invokeGatewayMethod like
     // fleet.*/permissions.rules.* above).
     // 'ops' added for SDK 1.9.0-dev's memory-relay-voice-hardening work (ops.memory.get
-    // — a real REST route, resolving through EXTRA_METHOD_ROUTES like power.* above).
+    //, a real REST route, resolving through EXTRA_METHOD_ROUTES like power.* above).
     // 'email' added for the Mail surface (email.inbox.list/read, email.send,
-    // email.draft.create) — its own namespace for the same reason calendar has one:
+    // email.draft.create), its own namespace for the same reason calendar has one:
     // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
-    // 'profile' added for the owner profile (docs/owner-profile.md §11.1) — the nine
+    // 'profile' added for the owner profile (docs/owner-profile.md §11.1), the nine
     // profile.* verbs over the one hand-editable Markdown document at daemon scope.
     // 'payments' added for card entry on this surface (payments.cards.list/create/
-    // delete — real REST routes already carried by the pinned contracts facade, so
+    // delete, real REST routes already carried by the pinned contracts facade, so
     // they resolve through EXTRA_METHOD_ROUTES like config.* and power.* above).
-    // 'occasions' added for the dates panel (docs/occasions.md) — sixteen occasions.*
+    // 'occasions' added for the dates panel (docs/occasions.md), sixteen occasions.*
     // verbs, real generated I/O maps throughout, same no-bridge-override shape as
     // checkin/principals above (see the operator.occasions section comment in
     // goodvibes.ts).
@@ -1034,7 +1034,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
 
   test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs plus consolidation', () => {
     // 'consolidation' added for SDK 1.8.0's memory.consolidation.receipts (retained
-    // consolidation run receipts + pending judgment proposals) — surfaced in
+    // consolidation run receipts + pending judgment proposals), surfaced in
     // ConsolidationReceipts.
     expect(Object.keys(sdk.operator.memory).sort()).toEqual(
       ['add', 'consolidation', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
@@ -1047,10 +1047,10 @@ describe('sdk facade shape — byte-compatible surface', () => {
 
   test('sdk.operator.voice exposes the wire voice verbs', () => {
     // 'local' added for SDK 1.9.0-dev's managed local-voice provisioning
-    // (voice.local.status/install — both real REST routes, resolving through
+    // (voice.local.status/install, both real REST routes, resolving through
     // EXTRA_METHOD_ROUTES like the rest of this namespace).
     // 'wake' added for browser wake-word detection (voice.wake.status /
-    // voice.wake.provision / voice.wake.model — same generated-REST story).
+    // voice.wake.provision / voice.wake.model, same generated-REST story).
     expect(Object.keys(sdk.operator.voice).sort()).toEqual(
       ['local', 'providers', 'status', 'stt', 'tts', 'ttsStream', 'voices', 'wake'].sort(),
     );
@@ -1082,7 +1082,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
   });
 
-  // occasions.* (docs/occasions.md, the dates panel) — sixteen verbs across the flat
+  // occasions.* (docs/occasions.md, the dates panel), sixteen verbs across the flat
   // group plus three sub-namespaces (conflict, interview, plans), same
   // dotted-verb-becomes-sub-namespace convention pairing.tokens/channels.profiles use.
   test('sdk.operator.occasions exposes the full sixteen-verb surface', () => {
@@ -1100,7 +1100,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     );
   });
 
-  test('sdk.operator.sessions.hosted exposes exactly list/create/attach/detach/kill — no hosted-specific steer/cancel (steered via the ordinary sessions.steer/followUp/toolCalls.cancel)', () => {
+  test('sdk.operator.sessions.hosted exposes exactly list/create/attach/detach/kill, no hosted-specific steer/cancel (steered via the ordinary sessions.steer/followUp/toolCalls.cancel)', () => {
     expect(Object.keys(sdk.operator.sessions.hosted).sort()).toEqual(['attach', 'create', 'detach', 'kill', 'list'].sort());
   });
 
@@ -1117,7 +1117,7 @@ describe('sdk facade shape — byte-compatible surface', () => {
     expect(Object.keys(sdk.operator.sessions.queuedMessages).sort()).toEqual(['delete', 'edit', 'list'].sort());
   });
 
-  test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH — fleet is a reader, not a watcher-authoring surface)', () => {
+  test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH, fleet is a reader, not a watcher-authoring surface)', () => {
     expect(Object.keys(sdk.operator.watchers).sort()).toEqual(['stop']);
   });
 
@@ -1173,14 +1173,14 @@ describe('sdk facade shape — byte-compatible surface', () => {
   });
 });
 
-describe('bridge-matches-schema — contract-bridge-types.ts pinned against the SDK method catalog', () => {
+describe('bridge-matches-schema, contract-bridge-types.ts pinned against the SDK method catalog', () => {
   // WHY THESE SAMPLES STAY HAND-AUTHORED (not sourced from WEBUI_METHOD_SAMPLES):
   // the contract-generated fixtures (WEBUI_METHOD_SAMPLES) are typed `unknown`, so they can
-  // only exercise the RUNTIME schema walk below — not the compile-time half. The samples
+  // only exercise the RUNTIME schema walk below, not the compile-time half. The samples
   // here are deliberately annotated AS the bridge interfaces so tsc rejects a missing or
   // invented field (see the tsc-side note below); that interface conformance is the whole
   // point and a generic `unknown` sample cannot provide it. The generated fixtures are used
-  // where they ARE mechanical — as the mock daemon's default gateway-invoke seed
+  // where they ARE mechanical, as the mock daemon's default gateway-invoke seed
   // (e2e/support/mock-daemon.ts) and pinned for completeness by the "facade route knowledge
   // is generated" suite above. Everything below is a conformance fixture, not a scenario value.
   //
@@ -1190,12 +1190,12 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   // corresponding bridge interface (FleetSnapshotResult, SessionsSearchResult, …). That
   // closes the loop from two sides at once, WITHOUT any `as` cast or type-erasure trick:
   //
-  //   • tsc side — the samples are plain object literals typed as the bridge interfaces.
+  //   • tsc side, the samples are plain object literals typed as the bridge interfaces.
   //     The OUTPUT/Result interfaces carry NO index signature, so tsc rejects any missing
   //     required field and any INVENTED field (excess-property error) at compile time.
   //     `bun run typecheck` is therefore half of this test.
   //
-  //   • runtime side — assertConforms() walks the method's REAL JSON Schema from
+  //   • runtime side, assertConforms() walks the method's REAL JSON Schema from
   //     operator-contract.json RECURSIVELY (into nested objects AND array item shapes,
   //     not just the top level) and asserts the interface-typed sample carries every
   //     schema-`required` field at every level it populates. So if a bridge interface
@@ -1203,18 +1203,18 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   //     members) could not satisfy the schema and this fails.
   //
   // Net: the bridge interface conforms to the schema (runtime walk) and the sample
-  // conforms to the interface (tsc) — a drift on either side, including the eventual
+  // conforms to the interface (tsc), a drift on either side, including the eventual
   // pin-bump silently reshaping something, fails here or in typecheck.
   //
   // NOT enforced: INPUT interfaces intentionally carry a `[key: string]: unknown` index
-  // signature (the generic-fallback shape — see contract-bridge-types.ts header), so tsc
+  // signature (the generic-fallback shape, see contract-bridge-types.ts header), so tsc
   // cannot flag an invented INPUT field. The runtime walk still checks that every field
   // the sample DOES declare is a real schema property and that required inputs are
   // present; unpopulated optional fields are not exercised.
   // Loose on purpose: operator-contract.json's per-method schema literals don't
   // structurally line up with a strict recursive node type (a plain `as` cast to one
   // fails). `properties`/`items` are read as `unknown` and re-narrowed at each recursion
-  // step — the runtime shape is what we assert against, not a compile-time schema type.
+  // step, the runtime shape is what we assert against, not a compile-time schema type.
   interface JsonSchemaNode {
     readonly type?: string;
     readonly properties?: Record<string, unknown>;
@@ -1452,8 +1452,8 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
     'sessions.hosted.kill': { session: { ...hostedSessionRecord, status: 'terminated' } } satisfies SessionsHostedKillResult,
   };
 
-  // Inputs — fleet.snapshot takes none. The rest are typed as their bridge Input
-  // interface (index-signatured, so tsc allows extras — the runtime walk pins the fields
+  // Inputs, fleet.snapshot takes none. The rest are typed as their bridge Input
+  // interface (index-signatured, so tsc allows extras, the runtime walk pins the fields
   // that ARE present against the schema).
   const inputSamples: Partial<Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown>> = {
     'fleet.list': { kinds: ['agent'], states: ['running'], limit: 10, cursor: 'c1' } satisfies FleetListInput,
@@ -1519,7 +1519,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
   }
 });
 
-// Token honesty: the daemon's control-plane/auth is a STATUS endpoint — it
+// Token honesty: the daemon's control-plane/auth is a STATUS endpoint, it
 // answers 200 even for an invalid/expired token, carrying the verdict in the
 // `authenticated` boolean (verified against both real daemons and an isolated
 // bootDaemon). getCurrentAuth must REJECT on authenticated!==true so the signed-in
@@ -1527,7 +1527,7 @@ describe('bridge-matches-schema — contract-bridge-types.ts pinned against the 
 // where every data endpoint 401s.
 describe('getCurrentAuth honors the authenticated field (token-honesty handoff)', () => {
   const original = sdk.auth.current;
-  // Deliberate PARTIAL snapshots — the real AuthSnapshot has ~10 fields, but
+  // Deliberate PARTIAL snapshots, the real AuthSnapshot has ~10 fields, but
   // getCurrentAuth only inspects `authenticated`. Cast to the property's type so the
   // stubs stand in without hand-authoring every field.
   const stub = (value: unknown): typeof sdk.auth.current =>
@@ -1583,7 +1583,7 @@ describe('requestJson records the daemon-announced client-build floor off every 
   });
 });
 
-describe('hostedSessionDetachBeacon — the pagehide/visibilitychange keepalive detach', () => {
+describe('hostedSessionDetachBeacon: the pagehide/visibilitychange keepalive detach', () => {
   const originalFetch = globalThis.fetch;
   let calls: { url: string; init: RequestInit }[];
 

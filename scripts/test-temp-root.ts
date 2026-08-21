@@ -1,12 +1,12 @@
 /**
- * test-temp-root — give the test run its own temp directory inside the repo,
+ * test-temp-root, give the test run its own temp directory inside the repo,
  * and reap what earlier runs left behind.
  *
  * THE PROBLEM: nothing in this repo pointed the test run's temp directory
  * anywhere, so `os.tmpdir()` resolved to the system temp dir. Every directory a
  * test creates there is invisible to the repo, ignored by .gitignore, and swept
  * by nobody. Today's suite happens to clean up after itself on a green run
- * (measured — see test-temp-root.test.ts), but two things were still true:
+ * (measured, see test-temp-root.test.ts), but two things were still true:
  * a run that is KILLED (Ctrl-C, a CI timeout) leaves its directories in the
  * system temp forever, and the next test to reach for `os.tmpdir()` inherits the
  * same unswept ground.
@@ -19,7 +19,7 @@
  *     recovery path for a killed run, and it is why this file does not try to
  *     delete the current run's root on the way out: under `bun test --isolate`
  *     every test FILE re-runs this preload in the SAME process, so an `afterAll`
- *     here fires once per file — deleting the run root there would pull the
+ *     here fires once per file, deleting the run root there would pull the
  *     ground out from under the files still to come. Liveness, checked at
  *     startup, reaps exactly the abandoned roots and never a live sibling run.
  *
@@ -72,7 +72,7 @@ export function pidFromRunRootName(name: string): number | null {
 /**
  * Is this process id still running? `process.kill(pid, 0)` sends no signal; it
  * only asks the kernel. EPERM means the process exists but belongs to someone
- * else — still alive, and still not ours to reap.
+ * else, still alive, and still not ours to reap.
  */
 export function isProcessAlive(pid: number, kill: (p: number, signal: 0) => void = process.kill): boolean {
   try {
@@ -85,7 +85,7 @@ export function isProcessAlive(pid: number, kill: (p: number, signal: 0) => void
 
 /**
  * Which run roots should be reaped: the ones whose owning process is gone.
- * A live run's root — including this run's own — is never returned, so two test
+ * A live run's root, including this run's own, is never returned, so two test
  * runs in the same worktree cannot delete each other's scratch space.
  */
 export function selectStaleRunRoots(
@@ -146,7 +146,7 @@ export function installTestTempRoot(repoRoot: string = REPO_ROOT, pid: number = 
  * NO TOP-LEVEL SIDE EFFECTS IN THIS FILE, ON PURPOSE.
  *
  * The sweep and the redirect live in scripts/test-temp-preload.ts, which is what
- * bunfig.toml preloads. They used to run here, on import — and that made
+ * bunfig.toml preloads. They used to run here, on import, and that made
  * test-temp-root.test.ts's "os.tmpdir() is inside the repo" assertion
  * unfalsifiable: the test imports this module, the import performed the
  * redirect, and the assertion passed even with the preload entry deleted from

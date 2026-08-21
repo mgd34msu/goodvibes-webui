@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // Directory this config file lives in (the repo root), resolved independent
-// of process.cwd() — this config is the seam every `vite build` invocation
+// of process.cwd(), this config is the seam every `vite build` invocation
 // loads (bun run build, a wrapper script, CI, or a bare `vite build` in this
 // directory), so a guard planted here cannot be routed around the way a
 // guard in a wrapper script could be by calling vite directly.
@@ -16,13 +16,13 @@ const CONFIG_DIR = fileURLToPath(new URL('.', import.meta.url));
 /**
  * Refuses `vite build` while the local SDK overlay (scripts/sdk-dev.ts link)
  * is active. The production build bakes @pellux/goodvibes-sdk into the
- * static bundle — an overlay build (unreleased local SDK source, not the
+ * static bundle, an overlay build (unreleased local SDK source, not the
  * pinned npm version) must never ship. `apply: 'build'` means this never
  * runs for `vite` (dev server) or `vite preview`, where the overlay is the
  * intended fast-iteration workflow.
  *
  * Escape hatch: GOODVIBES_ALLOW_OVERLAY_BUILD=1 permits the build to proceed
- * with a loud, repeated warning — for local-only smoke builds of in-progress
+ * with a loud, repeated warning, for local-only smoke builds of in-progress
  * SDK changes. Never set this in CI or a release build.
  */
 function sdkOverlayGuardPlugin(): Plugin {
@@ -41,16 +41,16 @@ function sdkOverlayGuardPlugin(): Plugin {
         this.error(
           'production build refused: local SDK overlay is active ' +
           `(${marker.sdkGit ?? 'unknown'}).\n` +
-          '  The build bakes @pellux/goodvibes-sdk into the bundle — an overlay build must never ship.\n' +
+          '  The build bakes @pellux/goodvibes-sdk into the bundle: an overlay build must never ship.\n' +
           '  Run `bun scripts/sdk-dev.ts restore` to return to the pinned npm version, then rebuild.\n' +
-          '  (Local-only dev builds may bypass this with GOODVIBES_ALLOW_OVERLAY_BUILD=1 — NEVER for release.)',
+          '  (Local-only dev builds may bypass this with GOODVIBES_ALLOW_OVERLAY_BUILD=1, NEVER for release.)',
         );
         return;
       }
 
       const banner = '!'.repeat(78);
       console.warn(`\n${banner}`);
-      console.warn('!! GOODVIBES_ALLOW_OVERLAY_BUILD=1 — building with the LOCAL SDK OVERLAY active.');
+      console.warn('!! GOODVIBES_ALLOW_OVERLAY_BUILD=1: building with the LOCAL SDK OVERLAY active.');
       console.warn(`!! Source: ${marker.sdkGit ?? 'unknown'} (${marker.sourcePath ?? 'unknown'})`);
       console.warn('!! This bundle bakes in an unreleased SDK build. It must NEVER be published or deployed.');
       console.warn(`${banner}\n`);
@@ -107,7 +107,7 @@ function readWebBindingFromCli(): GoodVibesWebBinding {
  * subcommand at all, checked via its own `--help` listing before ever invoking it.
  * NOT a version-string check: some installed daemon builds treat any unrecognized
  * leading argument (including `webui`) as ignorable noise and fall straight through to
- * booting the daemon itself — which would mean `readWebBindingFromDaemon` below,
+ * booting the daemon itself, which would mean `readWebBindingFromDaemon` below,
  * called from `vite`'s own config evaluation, could accidentally start a second,
  * unmanaged daemon process bound to a real port as a side effect of running `bun run
  * dev`. `--help` is side-effect-free on every observed build and always exits
@@ -128,12 +128,12 @@ function daemonSupportsWebuiCommand(): boolean {
 }
 
 /**
- * The daemon is the authority on where the web surface is bound — `goodvibes web --json`
+ * The daemon is the authority on where the web surface is bound, `goodvibes web --json`
  * and `~/.goodvibes/tui/settings.json` (readWebBindingFromCli/readTuiSettings above) read
  * `controlPlane.*`/`web.*` keys through the TERMINAL's own CLI and settings file, which is
  * a holdover from before the daemon became its own product with its own CLI. Returns null
  * when the daemon does not answer this (no `goodvibes-daemon` on PATH, an installed daemon
- * that predates the `webui` subcommand entirely — see daemonSupportsWebuiCommand above —
+ * that predates the `webui` subcommand entirely, see daemonSupportsWebuiCommand above,
  * or one whose `webui status` predates a `--json` output mode), so the caller falls back
  * to the terminal-owned path rather than fail the whole dev server boot.
  */
@@ -192,7 +192,7 @@ function uniqueHosts(values: string[]): string[] {
 const daemonWebBinding = readWebBindingFromDaemon();
 if (!daemonWebBinding) {
   console.warn(
-    '[vite] `goodvibes-daemon webui status --json` did not answer — falling back to the ' +
+    '[vite] `goodvibes-daemon webui status --json` did not answer, falling back to the ' +
     'deprecated `goodvibes web --json` / TUI settings.json binding source. That path predates ' +
     'the daemon becoming its own product and is removed once every supported daemon answers ' +
     '`webui status --json`.',
@@ -225,7 +225,7 @@ const devAllowedHosts = uniqueHosts([
 ]);
 
 // This app's own build version, baked in at build/dev-server-start time from
-// package.json — read here (config-eval time, Node/Bun) rather than imported as JSON
+// package.json, read here (config-eval time, Node/Bun) rather than imported as JSON
 // into browser code, so no resolveJsonModule config is needed for src/. Exposed as
 // `import.meta.env.VITE_WEBUI_VERSION`, same access pattern as the other VITE_-prefixed
 // values this config already threads through (GOODVIBES_BASE_URL). Used to compare this
@@ -290,8 +290,8 @@ export default defineConfig({
           // onnxruntime-web keeps its OWN chunk instead of falling into the eagerly
           // loaded `vendor` one. It is imported dynamically and only when wake-word
           // detection is switched on for this origin (lib/voice/wake-runtime.ts), so
-          // merging it into vendor would put an inference runtime — and the reference
-          // to a 13 MB wasm binary — in front of every page load for a feature that
+          // merging it into vendor would put an inference runtime, and the reference
+          // to a 13 MB wasm binary, in front of every page load for a feature that
           // ships off. One chunk per backend build, so a tab on the wasm backend never
           // fetches the webgpu one.
           if (id.includes('onnxruntime')) return 'onnxruntime';

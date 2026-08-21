@@ -63,7 +63,7 @@ describe('normaliseCombo', () => {
     expect(normaliseCombo('  g   c  ')).toBe('g c');
   });
 
-  test('question mark passthrough — single printable', () => {
+  test('question mark passthrough: single printable', () => {
     // "?" is a single char, normalises to "?"
     expect(normaliseCombo('?')).toBe('?');
   });
@@ -95,13 +95,13 @@ describe('eventToCombo', () => {
   });
 
   test('Ctrl+Shift+N produces Control+Shift+n (Shift kept when Ctrl also held)', () => {
-    // key="N" length 1, but Ctrl is also held — so Shift is NOT suppressed.
+    // key="N" length 1, but Ctrl is also held, so Shift is NOT suppressed.
     // This is the regression: previously produced "Control+n" (Shift incorrectly dropped).
     expect(eventToCombo(mkEvent({ key: 'N', ctrlKey: true, shiftKey: true }))).toBe('Control+Shift+n');
   });
 
   test('Shift+? (bare shifted printable, no other modifier) does NOT include Shift prefix', () => {
-    // "?" is a single printable char (length 1), no Ctrl/Meta/Alt — Shift is suppressed
+    // "?" is a single printable char (length 1), no Ctrl/Meta/Alt, Shift is suppressed
     expect(eventToCombo(mkEvent({ key: '?', shiftKey: true }))).toBe('?');
   });
 
@@ -125,13 +125,13 @@ describe('eventToCombo', () => {
     expect(eventToCombo(mkEvent({ key: 'k', metaKey: true, ctrlKey: true }))).toBe('Meta+Control+k');
   });
 
-  test('space bar (key = " ") is treated as named — Shift IS included', () => {
+  test('space bar (key = " ") is treated as named; Shift IS included', () => {
     // key === ' ' has length 1 but the guard is key !== ' ', so Shift is included
     expect(eventToCombo(mkEvent({ key: ' ', shiftKey: true }))).toBe('Shift+ ');
   });
 
   test('Meta+Shift+N keeps Shift when Meta is held', () => {
-    // Same class of bug as Ctrl+Shift+N — Shift must NOT be suppressed when Meta is held
+    // Same class of bug as Ctrl+Shift+N, Shift must NOT be suppressed when Meta is held
     expect(eventToCombo(mkEvent({ key: 'N', metaKey: true, shiftKey: true }))).toBe('Meta+Shift+n');
   });
 
@@ -150,7 +150,7 @@ describe('eventToCombo', () => {
 // that handlers fire (or are blocked) as required.
 //
 // The harness imports the internal logic via the exported functions and
-// reproduces the dispatch loop in isolation — consistent with this repo's
+// reproduces the dispatch loop in isolation, consistent with this repo's
 // test style (no DOM environment required for the harness; real KeyboardEvent
 // stubs are constructed as plain objects matching the interface).
 // ---------------------------------------------------------------------------
@@ -267,7 +267,7 @@ describe('dispatch-level: full pipeline (event → combo → handler fires)', ()
   });
 
   test('? fires: Shift+/ event (key="?") dispatches to ? binding', () => {
-    // Shift is suppressed for bare printable chars — so "?" still matches
+    // Shift is suppressed for bare printable chars, so "?" still matches
     const bindings = makeBindings();
     const event = mkKeyEvent('?', { shiftKey: true });
     const { fired } = runDispatch(event, bindings);
@@ -276,14 +276,12 @@ describe('dispatch-level: full pipeline (event → combo → handler fires)', ()
 
   test('g c sequence fires within timeout', () => {
     const bindings = makeBindings();
-    // Step 1: press "g" — arms the sequence
     const gEvent = mkKeyEvent('g');
     const { fired: fired1, newPending } = runDispatch(gEvent, bindings);
     expect(fired1).toHaveLength(0); // no handler yet
     expect(newPending).not.toBeNull();
     expect(newPending?.key).toBe('g');
 
-    // Step 2: press "c" within timeout — fires the handler
     const cEvent = mkKeyEvent('c');
     const { fired: fired2 } = runDispatch(cEvent, bindings, newPending);
     expect(fired2).toContain('g c');
@@ -300,7 +298,7 @@ describe('dispatch-level: full pipeline (event → combo → handler fires)', ()
 
   test('editable-target guard: non-allowInInput binding blocked inside input', () => {
     const bindings = makeBindings();
-    // "?" has no allowInInput — should be blocked when focus is in an input
+    // "?" has no allowInInput, should be blocked when focus is in an input
     const event = mkKeyEvent('?', { shiftKey: true });
     const { fired } = runDispatch(event, bindings, null, /* isEditable */ true);
     expect(fired).not.toContain('?');

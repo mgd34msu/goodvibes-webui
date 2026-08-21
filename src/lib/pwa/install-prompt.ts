@@ -1,10 +1,10 @@
 /**
- * install-prompt.ts — add-to-home-screen, honest per platform.
+ * install-prompt.ts, add-to-home-screen, honest per platform.
  *
  * Chromium fires `beforeinstallprompt`, which we capture and replay behind an
  * explicit "Install app" button (Chrome swallows the automatic banner once we
  * preventDefault). iOS Safari does NOT fire it and has no programmatic install
- * at all — the only path is the Share → "Add to Home Screen" menu, so on iOS we
+ * at all, the only path is the Share → "Add to Home Screen" menu, so on iOS we
  * surface those plain instructions instead of a button that would do nothing.
  *
  * Already-installed (running in standalone display mode) reports as such, so we
@@ -30,7 +30,7 @@ export interface InstallPlatformEnv {
 /**
  * True for iOS devices (iPhone/iPad/iPod). Every iOS browser is WebKit and none
  * fires `beforeinstallprompt`, so the add-to-home-screen path is always the
- * Share-menu one there — the specific browser does not matter.
+ * Share-menu one there, the specific browser does not matter.
  */
 export function isIos(userAgent: string): boolean {
   return /iPad|iPhone|iPod/.test(userAgent);

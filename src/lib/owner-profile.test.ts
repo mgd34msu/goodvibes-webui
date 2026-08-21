@@ -1,5 +1,5 @@
 /**
- * owner-profile.ts — the wire readers for the profile.* verbs, against the REAL generated
+ * owner-profile.ts, the wire readers for the profile.* verbs, against the REAL generated
  * contract shapes (fieldId / heading / tier / state.kind / ok+reason+changes+disclosure).
  *
  * The load-bearing assertions are the honesty ones: a profile that could not be read must
@@ -146,7 +146,7 @@ describe('readProfileDocument', () => {
     expect(field?.invalidReason).toBe('not an IANA time zone');
   });
 
-  test('unavailable carries its reason and NO sections — never an empty profile', () => {
+  test('unavailable carries its reason and NO sections, never an empty profile', () => {
     const document = readProfileDocument({
       state: { kind: 'unavailable', path: PROFILE_PATH, reason: 'permission denied' },
       sections: [{ heading: 'Identity', tier: 'open', fields: [], prose: [] }],
@@ -306,13 +306,13 @@ describe('readProfileWriteOutcome', () => {
       ok: true,
       reason: null,
       changes: [{ kind: 'set', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: true }],
-      disclosure: 'Noted — saved your phone number to your profile.',
+      disclosure: 'Noted: saved your phone number to your profile.',
     });
     expect(outcome?.ok).toBe(true);
     expect(outcome?.reason).toBeUndefined();
     expect(outcome?.changes[0]?.label).toBe('phone');
     expect(outcome?.changes[0]?.superseded).toBe(true);
-    expect(outcome?.disclosure).toBe('Noted — saved your phone number to your profile.');
+    expect(outcome?.disclosure).toBe('Noted: saved your phone number to your profile.');
   });
 
   test('a refusal carries the daemon\'s own reason', () => {
@@ -335,7 +335,7 @@ describe('readProfileWriteOutcome', () => {
     expect(outcome?.changes[0]?.fieldId).toBeNull();
   });
 
-  test('a body that never said ok is null — never a success', () => {
+  test('a body that never said ok is null, never a success', () => {
     expect(readProfileWriteOutcome({})).toBeNull();
     expect(readProfileWriteOutcome({ changes: [], disclosure: '' })).toBeNull();
     expect(readProfileWriteOutcome(null)).toBeNull();
@@ -346,11 +346,11 @@ describe('readProfileWriteOutcome', () => {
 describe('writeReportLine', () => {
   test('a success prefers the daemon\'s own disclosure', () => {
     const line = writeReportLine(
-      { ok: true, changes: [], disclosure: 'Noted — saved your office address to your profile.' },
+      { ok: true, changes: [], disclosure: 'Noted: saved your office address to your profile.' },
       'fallback',
       'malformed',
     );
-    expect(line).toEqual({ tone: 'ok', text: 'Noted — saved your office address to your profile.' });
+    expect(line).toEqual({ tone: 'ok', text: 'Noted: saved your office address to your profile.' });
   });
 
   test('a success with no disclosure falls back to the caller\'s sentence', () => {
@@ -407,13 +407,13 @@ describe('targets', () => {
     expect(profileTargetId({ kind: 'field', fieldId: 'commerce.currency' })).toBe('field:commerce.currency');
   });
 
-  test('a prose line target sends its section and exact text — never a position', () => {
+  test('a prose line target sends its section and exact text: never a position', () => {
     const target = { kind: 'line', section: 'People', text: 'Sarah, sister, sarah@example.com' } as const;
     expect(forgetTargetInput(target)).toEqual({ section: 'People', text: 'Sarah, sister, sarah@example.com' });
     expect(profileTargetId(target)).toBe('line:People:Sarah, sister, sarah@example.com');
   });
 
-  test('no target input carries a lineIndex — the verb refuses one outright', () => {
+  test('no target input carries a lineIndex; the verb refuses one outright', () => {
     const inputs = [
       forgetTargetInput({ kind: 'field', fieldId: 'contact.phone' }),
       forgetTargetInput({ kind: 'line', section: 'Notes', text: 'Allergic to shellfish' }),
@@ -463,7 +463,7 @@ describe('forgetReportLine', () => {
     expect(line.text).toContain(STALE_VIEW_NOTE);
   });
 
-  test('an absent field flags staleness too — the row was rendered from a stale read', () => {
+  test('an absent field flags staleness too: the row was rendered from a stale read', () => {
     const line = forgetReportLine(
       { ok: false, reason: 'Your profile has no phone recorded, so there was nothing to forget.', changes: [], disclosure: '' },
       'phone',
@@ -531,7 +531,7 @@ describe('display helpers', () => {
 
   test('a provenance summary is surface, date and his words', () => {
     expect(provenanceSummary({ surface: 'tui', date: '2026-07-27', said: 'ship it to my office instead' })).toBe(
-      'tui, 2026-07-27 — "ship it to my office instead"',
+      'tui, 2026-07-27: "ship it to my office instead"',
     );
   });
 });

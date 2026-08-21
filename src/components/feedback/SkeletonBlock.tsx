@@ -1,5 +1,5 @@
 /**
- * SkeletonBlock — animated loading placeholder.
+ * SkeletonBlock, animated loading placeholder.
  * Named SkeletonBlock (not Skeleton) to avoid a name collision if the
  * toast/motion area ever grows its own Skeleton component.
  *

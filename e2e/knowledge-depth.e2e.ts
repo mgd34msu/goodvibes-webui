@@ -1,5 +1,5 @@
 /**
- * Knowledge view depth — consolidation candidates (knowledge.candidates.list/
+ * Knowledge view depth, consolidation candidates (knowledge.candidates.list/
  * .candidate.decide) and the prompt packet builder (knowledge.packet), both
  * never-called-before verbs this brief adopts. Proven against a real HTTP
  * round-trip through the mock daemon's separate knowledge.candidates/.packet
@@ -16,7 +16,7 @@ test('candidates render with score/status, and accept updates the row honestly',
   await expect(candidateRow).toBeVisible();
   await expect(candidateRow).toContainText('0.86');
   await candidateRow.getByRole('button', { name: 'Accept' }).click();
-  // The seed's decide response marks the candidate accepted — the list refetches
+  // The seed's decide response marks the candidate accepted, the list refetches
   // and the row loses its action buttons (an already-decided candidate offers none).
   await expect(candidateRow.getByRole('button', { name: 'Accept' })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
@@ -46,7 +46,7 @@ test('building a prompt packet renders the honest item count and each item\'s re
 test('a real post-1.2.0 truncated packet (the final SDK\'s full field shape) renders the truncation disclosure', async ({ page }) => {
   // packet: 'truncated' answers truncated/totalCandidates/droppedCount/droppedForBudget/
   // budgetExhausted all populated (packet.ts's real shape), not just the hand-authored
-  // truncated/totalCandidates/droppedCount subset — proving the disclosure renders from
+  // truncated/totalCandidates/droppedCount subset, proving the disclosure renders from
   // a genuine final-SDK wire response.
   await installMockDaemon(page, { packet: 'truncated' });
   await page.goto('/?view=knowledge');

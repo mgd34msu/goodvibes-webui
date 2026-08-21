@@ -1,5 +1,5 @@
 /**
- * MemorySearchHonestyNote — direct coverage for the `limit` prop's effect on the
+ * MemorySearchHonestyNote, direct coverage for the `limit` prop's effect on the
  * `totalBeforeRecallFilter` label (cohesion review finding 3): the count is capped by
  * whatever `limit` the caller searched with, so it must never read as "every matching
  * record" when a limit was actually applied, and must fall back to an honest "total"

@@ -1,5 +1,5 @@
 /**
- * MailAccountSettings — a read-only status probe, quiet by construction like
+ * MailAccountSettings, a read-only status probe, quiet by construction like
  * TailscaleSettings (renders nothing while its two probes are pending, rather than
  * flashing a state it is about to correct), and NEVER a credential form: editing
  * lives in the schema-driven settings modal, which writes through the daemon.
@@ -74,7 +74,7 @@ afterEach(() => {
   calendarProbe = () => Promise.resolve({ events: [] });
 });
 
-describe('MailAccountSettings — quiet by construction', () => {
+describe('MailAccountSettings: quiet by construction', () => {
   test('renders nothing at all while the probes are pending', () => {
     mailProbe = () => new Promise(() => {}); // never resolves within this test
     calendarProbe = () => new Promise(() => {});
@@ -85,7 +85,7 @@ describe('MailAccountSettings — quiet by construction', () => {
   });
 });
 
-describe('MailAccountSettings — status pills', () => {
+describe('MailAccountSettings: status pills', () => {
   test('a surface whose probe resolves reports Ready', async () => {
     mailProbe = () => Promise.resolve({ messages: [], total: 0 });
     const { el, unmount } = render();
@@ -107,7 +107,7 @@ describe('MailAccountSettings — status pills', () => {
   });
 });
 
-describe('MailAccountSettings — credential isolation', () => {
+describe('MailAccountSettings: credential isolation', () => {
   test('the panel contains no secret input fields: editing lives in the schema-driven settings modal', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-account-settings"]')));

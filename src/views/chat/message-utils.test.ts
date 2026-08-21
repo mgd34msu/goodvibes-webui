@@ -2,7 +2,7 @@
  * Unit tests for the tool-activity helpers in message-utils.ts:
  * toolFriendlyLabel, summarizeToolActivity, toolKeyArg, toolResultText.
  *
- * These back the folded tool-call rendering (ToolActivityGroup) — the platform-
+ * These back the folded tool-call rendering (ToolActivityGroup), the platform-
  * wide "keep tool results, fold them" fix applied to the webui.
  */
 import { describe, expect, test } from 'bun:test';

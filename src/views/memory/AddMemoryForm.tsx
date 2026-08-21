@@ -11,7 +11,7 @@ interface AddMemoryFormProps {
 }
 
 /** The add-a-memory composer. New records default to confidence 60 (the recall floor)
- * and reviewState 'fresh' on the daemon side — this form does not offer to override
+ * and reviewState 'fresh' on the daemon side, this form does not offer to override
  * either, keeping "add" honest about what a freshly-stored fact starts as. */
 export function AddMemoryForm({ isPending, error, onSubmit }: AddMemoryFormProps) {
   const [cls, setCls] = useState<MemoryClass>('fact');

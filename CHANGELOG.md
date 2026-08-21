@@ -34,15 +34,15 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   (ambient-measured silence floor, settable; the capture ceiling can be
   turned off), and the daemon this client talks to (1.28.16) carries the
   same behavior. The runtime also registers its barrel subpaths so the
-  compiled terminal products stop playing a build-order lottery at load —
-  no WebUI behavior change, the pin just rides the same train.
+  compiled terminal products stop playing a build-order lottery at load.
+  No WebUI behavior change, the pin just rides the same train.
 
 ## [1.13.10] - 2026-08-06
 
 ### Changes
 
 - Platform runtime 2.0.11: an unnamed voice request goes to the provider
-  the user configured — local engines first when provisioned — instead of
+  the user configured, local engines first when provisioned, instead of
   the first cloud provider on the internal registration list. The daemon
   this client talks to (1.28.13) carries the same fix.
 
@@ -52,8 +52,8 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 - Platform runtime 2.0.10: the event stream resumes from where it actually
   left off instead of replaying the previous turn's tail, and a
-  turn-completion frame from a turn this client did not start is refused —
-  a fresh turn's real output can no longer be dropped as leftovers, and the
+  turn-completion frame from a turn this client did not start is refused.
+  A fresh turn's real output can no longer be dropped as leftovers, and the
   previous turn's final message can no longer appear twice.
 - One busy hosted turn no longer freezes every session's heartbeat, so
   cross-visible sessions stay honestly "active" while another surface is
@@ -81,7 +81,7 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   refused them; the contract and the answers now agree, held together by a
   conformance test (platform runtime 2.0.8).
 - Session views render the agent's daemon-hosted conversations with their
-  messages — session event streams are render-grade and scoped to their
+  messages. Session event streams are render-grade and scoped to their
   session.
 
 ## [1.13.6] - 2026-08-02
@@ -93,7 +93,7 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
   of reading as project sessions rooted in a filesystem path; this client
   understands the new kind, so a Telegram conversation renders correctly in
   the session views (platform runtime 2.0.7).
-- The daemon settings file is rewritten only by the daemon — this client
+- The daemon settings file is rewritten only by the daemon, this client
   migrates its in-memory view of renamed settings and leaves the file bytes
   untouched, so updating the webui can no longer rewrite settings out from
   under an older running daemon (platform runtime 2.0.7).
@@ -102,13 +102,13 @@ This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
 - Changed: payment budget amounts display and edit as the plain amounts they
   are. The renamed platform keys (`payments.budget.perPurchaseCeiling` and
-  friends, platform runtime 2.0.5) hold what you typed — enter `100`, read
-  back `100` — with money fields detected by their schema type instead of a
+  friends, platform runtime 2.0.5) hold what you typed: enter `100`, read
+  back `100`, with money fields detected by their schema type instead of a
   name pattern, and the stored-units hint line gone because there is nothing
   to hint about.
 - Fixed: two test suites opened real network sockets to a daemon that does
   not exist in a test environment, and the runtime's own teardown of those
-  refused connections could detonate after the tests finished — the CI flake
+  refused connections could detonate after the tests finished, the CI flake
   class from this train. Every suite now answers those calls in-process; a
   sweep of all 184 test files individually confirms zero network-error lines.
 
@@ -143,8 +143,8 @@ part of GoodVibes you had to go and get: the daemon, the terminal app and the
 agent all arrived from one `curl`, and the browser surface arrived from a build
 you ran yourself.
 
-The release lane packs `dist/` into a versioned, checksummed asset —
-`goodvibes-webui-bundle-<version>.tar.gz` plus a `SHA256SUMS.txt` — and attaches
+The release lane packs `dist/` into a versioned, checksummed asset:
+`goodvibes-webui-bundle-<version>.tar.gz` plus a `SHA256SUMS.txt`, and attaches
 both to the GitHub release. The suite installer fetches it on the same terms as
 every binary in the suite (a missing manifest entry is a hard failure, never a
 skip), unpacks it beside the binaries, and points the daemon at it. There is no
@@ -158,8 +158,8 @@ serves the web UI to that machine only; reaching it from another device is a
 deliberate separate act (`goodvibes-daemon webui enable --lan`), printed in the
 install receipt.
 
-`scripts/pack-bundle.ts` is what builds the asset, and it is deterministic —
-sorted entries, zeroed ownership, epoch timestamps, no gzip header stamp — so
+`scripts/pack-bundle.ts` is what builds the asset, and it is deterministic:
+sorted entries, zeroed ownership, epoch timestamps, no gzip header stamp, so
 two runs over the same build produce byte-identical archives and the digest in
 the manifest keeps meaning "the bytes this release built". It refuses to pack a
 `dist/` with no `index.html` rather than publishing a bundle nobody can serve.
@@ -171,7 +171,7 @@ workspace path, an optional title, and a detach-policy choice that defaults to
 whatever the daemon is already configured to do; a created session attaches
 immediately and renders its live output the same way a local session does.
 "End session" ends it outright, including a session whose policy would
-otherwise let it survive every client leaving — confirmed first, since it is
+otherwise let it survive every client leaving, confirmed first, since it is
 immediate and affects every other attached client too. Closing or reloading the
 tab no longer leaves an orphaned attachment behind: a `pagehide`/hidden-tab
 beacon fires a best-effort detach with `keepalive: true` so the browser
@@ -182,23 +182,23 @@ The hosted view is honest when its live stream is down. The session list falls
 back to a real periodic refresh (15 seconds while the stream is down, 60 as a
 safety net while it's live) instead of quietly going stale, a banner says so
 while it's happening, and a reconciliation pass keeps the attached session's
-own status in sync with the freshest list row — closing the gap where a
+own status in sync with the freshest list row, closing the gap where a
 session that had already ended kept rendering its message composer as if still
 live. A passive detach (switching rows, leaving the view) that fails to reach
 the daemon now says so with a toast instead of failing silently, so a browser
 that never actually detached does not stay listed as attached with no way to
 tell why.
 
-Settings gained the row for `hostedSessions.promoteInboundConversations` — off
-by default — which hands an inbound channel conversation (Telegram, Slack,
+Settings gained the row for `hostedSessions.promoteInboundConversations`, off
+by default, which hands an inbound channel conversation (Telegram, Slack,
 email, any other configured channel) to the daemon to host from its first
 message onward, instead of letting it live only inside the surface process
 that received it.
 
 Ships against `@pellux/goodvibes-sdk` 2.0.0. The daemon's unified inbox verb,
-`channels.inbox.list` — one merged, newest-first feed across every channel
+`channels.inbox.list`: one merged, newest-first feed across every channel
 provider (Slack DMs, Discord messages, email threads), distinct from the
-mail-specific verbs the Mail view already uses — arrives with a real REST
+mail-specific verbs the Mail view already uses, arrives with a real REST
 binding this app's generated route table picks up the same way it picks up
 every other table-routed verb. No view calls it yet; it is reachable the
 moment one is built, not aspirational.
@@ -222,13 +222,13 @@ badges and index.html's favicon cache-bust move to 1.12.1 / SDK 1.21.0.
 
 ## [1.12.0] - 2026-07-30
 
-The dates the daemon has been tracking now have a place to be seen. Occasions —
-birthdays, anniversaries, travel plans with their date ranges — get a panel of
+The dates the daemon has been tracking now have a place to be seen. Occasions,
+birthdays, anniversaries, travel plans with their date ranges, get a panel of
 their own, pulling the daemon's `occasions.*` verbs into view: upcoming
 occurrences with their real next date, anything still awaiting an answer or
 stuck on an unresolved conflict, an in-progress gift interview, and the store's
 own disclosure counts. A pending nudge shows only the proximity word the daemon
-already computed for it, never a raw date — the same restraint the daemon's own
+already computed for it, never a raw date. That is the same restraint the daemon's own
 nudge wording observes, kept intact here rather than loosened because a browser
 had a date field handy. Nothing in this panel pushes a notification anywhere;
 that stays with Telegram and the agent, unchanged.
@@ -238,15 +238,15 @@ dictation rather than a second capture stack fighting the first for the same
 device. A single arbiter decides who holds the microphone: press-to-talk stands
 the wake listener down and waits for it to release before opening anything, and
 a second concurrent open is refused outright. The listener stays off unless
-`voice.wake.surfaces.webui` is explicitly turned on — no model fetch, no
-session, no permission prompt until it is — and once it is, the pinned model
+`voice.wake.surfaces.webui` is explicitly turned on: no model fetch, no
+session, no permission prompt until it is. Once it is, the pinned model
 comes from the daemon in verified chunks, checked against its published
 checksum before anything is created from it; a mismatch refuses rather than
 loading a model that could never detect correctly. On a confirmed wake: a
 chime, the utterance goes through the same transcription call dictation uses,
 and the result lands in the composer or submits per
 `voice.wake.autoSubmit`. An indicator is always on screen while the microphone
-is open — a statusline chip or a persistent banner, never a toast that could
+is open: a statusline chip or a persistent banner, never a toast that could
 dismiss itself while listening continues.
 
 Both the wake listener and dictation now go through the speex noise filter and
@@ -266,8 +266,8 @@ backends costs no extra download, and a tab set to `webgpu` without
 it has rather than fetching a different engine. `dist` drops from 40 MB to
 27 MB.
 
-Underneath all of it, the platform runtime moves from 1.19.1 to 1.20.0 —
-catching up the release this app had skipped — with the generated
+Underneath all of it, the platform runtime moves from 1.19.1 to 1.20.0,
+catching up the release this app had skipped, with the generated
 config-schema and config-ownership artifacts regenerated against the merged
 surface and verified unchanged beyond the new occasions settings the dates
 panel needed.
@@ -277,31 +277,31 @@ panel needed.
 You can give the daemon a payment card from this interface now. Settings has a
 card entry form that takes the number, expiry, security code and cardholder
 name, sends them once to the daemon's own secret store, and never reads them
-back — there is no method anywhere that returns them, so nothing can display
+back. There is no method anywhere that returns them, so nothing can display
 them again, here or elsewhere. What you see afterwards is the brand, the last
 four digits, the expiry month and year, and whether every required field is
 filled. A virtual card with a hard issuer cap bounds what any leak could cost to
 one number you can cancel; a real card number cannot be capped by anything this
 software does, and the form says so where you choose.
 
-With the card comes the spending it is bounded by. The payment settings — daily
+With the card comes the spending it is bounded by. The payment settings, daily
 limits, per-purchase ceilings, how long a purchase waits before it goes through,
-which channels get told, and how the security code is handled — are editable
+which channels get told, and how the security code is handled, are editable
 here, with money entered in ordinary units (12.50, not 1250) and converted using
 the right number of decimal places for your currency rather than assuming two.
 The daemon's timezone is now set from a searchable list of real zones instead of
 typed as free text, because that is the setting that decides when a daily budget
 rolls over, and a typo in it silently means "UTC".
 
-The owner profile has a home. The daemon keeps a single document describing you
-— how you like to be addressed, the people and places it should recognise, the
-standing preferences it should apply — and until now nothing in this browser
+The owner profile has a home. The daemon keeps a single document describing you,
+how you like to be addressed, the people and places it should recognise, the
+standing preferences it should apply, and until now nothing in this browser
 could show it. Admin has it now: you can read it, edit it, see which entries the
 daemon wrote itself versus which you wrote, and undo a change. Every write says
 who made it and on whose authority.
 
 Mail no longer hides messages it could not read. When your account returns a
-message the daemon cannot parse — a broken encoding, a malformed header — the
+message the daemon cannot parse, a broken encoding, a malformed header, the
 inbox now lists it with the reason it gave, instead of leaving it out. This
 matters most in the case that used to be worst: a window where every message
 failed to parse looked exactly like an empty inbox, and the screen told you the
@@ -309,7 +309,7 @@ account had answered normally with nothing in it. It now says nothing was
 readable and shows you why, message by message.
 
 The inbox is also ordered correctly. Messages sort by the sequence number the
-server assigns, not by the date written into the message by whoever sent it —
+server assigns, not by the date written into the message by whoever sent it,
 so nobody can pin their mail to the top of your inbox by putting a date far in
 the future in it.
 
@@ -341,7 +341,7 @@ in step with the runtime had gone stale. Regenerated, so the eleven settings for
 letting several of your machines share inbound work, the two for how the daemon
 times and rolls back its own updates, and the twenty-five for the daemon's own
 mailbox and calendar connection are now visible and editable here like every
-other setting — with anything secret masked, as always. That last group is what
+other setting, with anything secret masked, as always. That last group is what
 lets you finish mail setup from this interface at all: they were keys the daemon
 read and no surface could show. Nothing else in the app changed shape; the whole
 suite, the build and the browser tests pass against the new runtime exactly as
@@ -349,7 +349,7 @@ they did against the old one.
 
 Mail now has a screen. The daemon has published verbs for reading an inbox,
 opening a message, saving a draft to the account and sending, and nothing in
-this interface had ever shown them — so there is now a Mail view beside Calendar
+this interface had ever shown them, so there is now a Mail view beside Calendar
 with an inbox you can filter by count, date and unread, a reader that opens in
 the side panel, and a composer that can reply, save a draft into the account's
 own Drafts folder, or send. Sending asks you to confirm the recipients first,
@@ -361,8 +361,8 @@ it unrendered, so nothing written by a stranger can style, lay out or load
 anything inside the page holding your session. Attachments are listed with their
 type and size and nothing more, because the daemon publishes no way to fetch
 one, and a download button that could not download would be a lie. And when the
-surface cannot answer — either because the daemon you are talking to does not
-serve mail, or because you have not yet given it an account — it says which of
+surface cannot answer, either because the daemon you are talking to does not
+serve mail, or because you have not yet given it an account, it says which of
 those it is and what the next step would be, and the Send and Save draft
 controls go inactive with the reason beside them rather than staying lit to fail
 on click. As of this release the first case is no longer the normal one: the
@@ -370,7 +370,7 @@ platform serves mail itself now, so a current daemon answers these verbs, and
 "no account connected yet" is the state you should actually expect to see.
 
 Admin gained a panel reporting whether mail and calendar are actually working:
-ready, or the specific thing that is missing. It reports only — there is no
+ready, or the specific thing that is missing. It reports only. There is no
 credential field anywhere in it. Accounts and passwords are set through Settings,
 which writes them to the daemon and its secret store, so what you configure keeps
 running with this browser shut and is the same account the terminal and the agent
@@ -384,7 +384,7 @@ and that phone's cameras, screen, location, clipboard, and small device actions
 (show a notification, open a link, buzz) become capabilities the agent can
 request. It never takes any of them quietly: every capture and every action asks
 you first, and the page keeps an honest log of everything it actually served.
-What a phone announces is only what that browser can really do — a capability
+What a phone announces is only what that browser can really do: a capability
 whose API is missing, or that the browser withholds on this address, is not
 offered at all, and the desktop says why it is unavailable rather than showing a
 control that would fail.
@@ -402,7 +402,7 @@ Settings gained three new groups, each configurable rather than a bare switch:
 Paired Phone Capabilities (twelve settings covering how permission is asked for,
 location precision, clipboard reading, how long captures are kept, and the
 limits on paired phones and standing permissions), Watchers for the new trigger
-family (nineteen settings — triggers ship off, and nothing watches anything
+family (nineteen settings; triggers ship off, and nothing watches anything
 until you turn them on), and Voice, which now holds wake-word detection beside
 the local speech engines (twenty-five settings). Wake-word detection is not
 operable in this build and says so in the setting itself rather than appearing
@@ -466,7 +466,7 @@ release carries the platform pin plus documentation.
 
 ### Added
 
-- MIT `LICENSE` file and a `license` field in `package.json` — the repo
+- MIT `LICENSE` file and a `license` field in `package.json`. The repo
   claimed MIT in its badge without shipping the license text.
 
 
@@ -479,8 +479,8 @@ key fingerprints in store envelopes). No webui-side code changes.
 ## [1.7.4] - 2026-07-17
 
 Ships against `@pellux/goodvibes-sdk` 1.11.3. Compaction-continuation user
-messages — the compactor's re-injected instruction handoff after every
-automatic compaction — now render as a closed "Compaction handoff" disclosure
+messages, the compactor's re-injected instruction handoff after every
+automatic compaction, now render as a closed "Compaction handoff" disclosure
 in session transcripts instead of the full multi-kilobyte instruction wall.
 The detection header is pinned byte-for-byte against the SDK's
 `COMPACTION_HANDOFF_HEADER` export by a contract test.
@@ -488,13 +488,13 @@ The detection header is pinned byte-for-byte against the SDK's
 ## [1.7.3] - 2026-07-17
 
 Ships against `@pellux/goodvibes-sdk` 1.11.2, which now carries the shared
-release toolchain (`@pellux/goodvibes-toolchain`) as a dependency of its own —
-the separate direct toolchain pin in this repo's `devDependencies` is gone;
+release toolchain (`@pellux/goodvibes-toolchain`) as a dependency of its own.
+The separate direct toolchain pin in this repo's `devDependencies` is gone;
 `release-gate.ts` resolves the toolchain transitively through the SDK
 package instead. Releases are now zero-touch: a green CI run on a release
 commit pushed to `main` tags the commit and creates the GitHub release page
 itself, with no manual step afterward. SDK 1.11.x remains release-engineering
-only — no wire-contract changes affecting the WebUI.
+only: no wire-contract changes affecting the WebUI.
 
 ## [1.7.2] - 2026-07-17
 
@@ -502,7 +502,7 @@ Ships against `@pellux/goodvibes-sdk` 1.11.1 and adopts the platform's shared
 CI/CD system: the local release gate is a thin wrapper over the published
 `@pellux/goodvibes-toolchain` (sdk-pin-gate), CI single-sources its Bun
 version, and a workflow-shape test suite pins the pipeline's structure. The
-SDK 1.11.x releases are release-engineering only — no wire-contract changes
+SDK 1.11.x releases are release-engineering only: no wire-contract changes
 affecting the WebUI.
 
 ## [1.7.1] - 2026-07-16
@@ -552,7 +552,7 @@ local dev-link build onto the published 1.9.0 package.
 
 - **Fleet review acceptance checklist.** A reviewed WRFC chain or sub-deliverable
   node now renders the latest review's verdict, score, and cycle count, plus the
-  acceptance checklist itself — each requirement listed with whether it was
+  acceptance checklist itself: each requirement listed with whether it was
   independently verified (not just scored), the reviewer's evidence, and how it
   was exercised. The verdict is the controller's gate-inclusive `passed`, not the
   reviewer's own claim. An empty checklist is called out as a gate failure rather
@@ -595,7 +595,7 @@ and re-pins from the local dev-link build onto the published 1.8.0 package.
 - **Approvals depth.** Approval cards remember tiers, support
   deny-with-a-reason, render exec prompts as answerable cards with the whole
   command visible, and a durable-rules view lists the remembered decisions.
-  The card trusts the daemon's recorded block — remembered tier, stored
+  The card trusts the daemon's recorded block: remembered tier, stored
   reason, and delivered answer all render from the wire, not from client-side
   guesses.
 - **Cost provenance.** Every visible dollar figure names its source
@@ -613,7 +613,7 @@ and re-pins from the local dev-link build onto the published 1.8.0 package.
   session directly; the opened id is a real session, and a failed spawn says
   so instead of presenting a dead button.
 - **Domain-grouped settings.** Settings adopt the SDK's dissolved feature
-  model — domains replace the enablement bucket — driven end to end in e2e,
+  model: domains replace the enablement bucket, driven end to end in e2e,
   including the pricing-editor and approvals-depth journeys.
 
 ### Changed
@@ -641,7 +641,7 @@ dev-link build onto the published 1.7.0 package.
   change the daemon's permission mode (Normal/Auto/Custom/Plan/Accept edits)
   from a toolbar chip and a touch-first picker sheet. The mode is daemon-wide
   (`permissions.mode` config key, read via `config.get()` / written via
-  `config.set()`), so the TUI and every WebUI tab agree — a change from
+  `config.set()`), so the TUI and every WebUI tab agree: a change from
   either surface reflects everywhere over the existing `permissions`
   realtime domain.
 - **Context-usage chip and compaction receipts.** A session's detail pane
@@ -649,7 +649,7 @@ dev-link build onto the published 1.7.0 package.
   post-compaction receipts (strategy, token/message counts before and after,
   quality grade, outcome) as distinct cards in the transcript, fed by the
   SDK's real `compaction` runtime-event domain. Both are honest about
-  absence — a session with no observed compaction activity shows "not
+  absence: a session with no observed compaction activity shows "not
   observed yet" rather than a fabricated number.
 - **Schema-driven settings surface.** Settings render from a build-time
   snapshot of the SDK's `CONFIG_SCHEMA` plus the feature-flag registry
@@ -684,7 +684,7 @@ dev-link build onto the published 1.7.0 package.
 - Re-pinned `@pellux/goodvibes-sdk` from the local dev-link build to the
   published `1.7.0` registry package; removed the dev-link `file:` overrides
   so all nested `@pellux` resolutions come from the registry. No behavior
-  change from the pin itself — the surfaces above were validated end to end
+  change from the pin itself: the surfaces above were validated end to end
   against the published package, including a live-daemon smoke that boots a
   real daemon from `1.7.0`.
 - The webui transport layer is now derived from the generated contract
@@ -708,7 +708,7 @@ Ships against `@pellux/goodvibes-sdk` 1.6.1.
   pane, or all at once from the toolbar (`fleet.archive` /
   `fleet.archiveFinished`); archived processes stay browsable with full
   usage/cost detail and can be restored to the live view (`fleet.unarchive`).
-  The daemon refuses to archive subtrees with running members — the refusal
+  The daemon refuses to archive subtrees with running members: the refusal
   reason surfaces as a toast, never a silent no-op.
 
 ### Changed
@@ -726,7 +726,7 @@ Maintenance release on `@pellux/goodvibes-sdk` 1.5.0.
 
 - Validated against SDK 1.5.0: the daemon now compacts a session immediately
   when the model itself reports its context window filled up, and honors
-  persistent per-model context-window overrides. No WebUI code change —
+  persistent per-model context-window overrides. No WebUI code change:
   session behavior improves through the daemon; model context windows shown
   in the picker reflect any configured override automatically.
 
@@ -738,7 +738,7 @@ Maintenance release on `@pellux/goodvibes-sdk` 1.4.1.
 
 - Validated against SDK 1.4.1, which makes permission settings the sole
   authority for command-class risk in the daemon's exec tool. No WebUI
-  behavior change — the WebUI has no exec surface — this release keeps the
+  behavior change: the WebUI has no exec surface. This release keeps the
   ecosystem pinned to one SDK version.
 
 ## [1.2.0] - 2026-07-07
@@ -749,13 +749,13 @@ The turn-control release, on `@pellux/goodvibes-sdk` 1.4.0.
 
 - **Stop actually stops.** The Stop button now issues the daemon's new
   server-side cancel (`companion.chat.turns.cancel`) and keeps the live
-  stream open — the terminal `turn.cancelled` event settles this client and
+  stream open: the terminal `turn.cancelled` event settles this client and
   every other one watching the session. The partial reply is kept in the
   transcript with an explicit "stopped" badge, never disguised as a complete
   answer. On an older daemon the button falls back to the previous
   local-render stop and says exactly that.
-- **Steer: interrupt and send now.** Ctrl+Enter (Cmd+Enter on Mac) — or press
-  and hold the send button on a phone — interrupts the current reply and runs
+- **Steer: interrupt and send now.** Ctrl+Enter (Cmd+Enter on Mac), or press
+  and hold the send button on a phone, interrupts the current reply and runs
   your message immediately. Plain Enter still sends normally.
 - **Queue-when-busy.** A message sent while a reply is streaming queues
   behind it (the daemon no longer races concurrent turns against one
@@ -763,7 +763,7 @@ The turn-control release, on `@pellux/goodvibes-sdk` 1.4.0.
 
 ### Fixed
 
-- The Stop control is now reachable for the whole active turn — it previously
+- The Stop control is now reachable for the whole active turn: it previously
   required streamed text, so a turn could not be stopped while the model was
   still thinking or inside a long tool call.
 - The badges above close two honesty gaps: a queued message used to render as
@@ -771,7 +771,7 @@ The turn-control release, on `@pellux/goodvibes-sdk` 1.4.0.
 
 ## [1.1.1] - 2026-07-07
 
-Test-harness and CI honesty release — no product code changed.
+Test-harness and CI honesty release: no product code changed.
 
 ### Fixed
 
@@ -790,11 +790,11 @@ Test-harness and CI honesty release — no product code changed.
   answered in-page, and the vite proxy's former dead target is a deliberate
   stub that answers anything the in-page mocks structurally cannot intercept
   (requests made under a real service worker in the PWA specs) with an
-  unmistakable 503 `E2E_STUB` — a clean run's server log is now silent, so a
+  unmistakable 503 `E2E_STUB`: a clean run's server log is now silent, so a
   refused connection can never again be mistaken for the suite's normal state.
 - The lint and end-to-end CI jobs are now blocking. They previously ran with
   `continue-on-error`, which let the workflow report success while those jobs
-  failed — a green checkmark must mean everything is green. Ruling recorded in
+  failed: a green checkmark must mean everything is green. Ruling recorded in
   [docs/decisions/2026-07-07-e2e-ci-in-ci.md](docs/decisions/2026-07-07-e2e-ci-in-ci.md).
 - Removed a stale duplicate of the 1.1.0 installable-app notes that had been
   left under Unreleased.
@@ -841,7 +841,7 @@ typed `@pellux/goodvibes-sdk` 1.3.1 contracts.
   daemon's own encrypted push service.
 - **Cross-machine serving**: the daemon can serve this app same-origin
   (opt-in), so a browser on another machine reaches it with zero
-  cross-origin configuration — designed for `tailscale serve`.
+  cross-origin configuration, designed for `tailscale serve`.
 
 ### Fixed
 
@@ -855,44 +855,44 @@ typed `@pellux/goodvibes-sdk` 1.3.1 contracts.
 
 ### Added
 
-- **Cross-surface credential status** — the typed `sdk.operator.credentials.get`
+- **Cross-surface credential status.** The typed `sdk.operator.credentials.get`
   facade over the daemon's admin-scoped, secret-free credential-status read, plus
   `deriveCredentialAvailability`: a `503 CREDENTIAL_STORE_UNAVAILABLE`, a
   `METHOD_NOT_FOUND` from an older daemon, or any transport failure degrades to an
-  honest unavailable state with a plain reason — never a fabricated "configured",
+  honest unavailable state with a plain reason: never a fabricated "configured",
   and never a credential byte in the browser. Completes the cross-surface credential
   status adoption the 1.0.0 notes wrongly listed as deferred.
 
 ## [1.0.0] - 2026-07-06
 
-First stable release of the GoodVibes WebUI — the browser surface of the
+First stable release of the GoodVibes WebUI, the browser surface of the
 one-platform ecosystem, running on the typed `@pellux/goodvibes-sdk` 1.0.0
 operator contracts. It reaches the same daemon as the TUI and the agent, so a
 session, provider, or checkpoint is visible across every surface.
 
 ### Milestone arc
 
-- **Sessions union view** — every surface's sessions in one list, with the
+- **Sessions union view.** Every surface's sessions in one list, with the
   honest `idle-reaped` badge + tooltip and reopen-on-heartbeat semantics.
-- **Fleet, checkpoints, per-hunk approvals, tasks, and workstream views** — the
+- **Fleet, checkpoints, per-hunk approvals, tasks, and workstream views.** The
   operator process tree, checkpoint list/diff/restore, per-hunk approve/reject,
   task lifecycle, and workstream/phase composition rendered from the wire.
-- **Chat resilience** — steer/follow-up over the daemon, capability probes that
+- **Chat resilience.** Steer/follow-up over the daemon, capability probes that
   degrade honestly by machine code (not prose) when a method is unavailable, and
   a search surface that says "unavailable" rather than lying.
-- **Delete-means-delete** — companion chat hard-delete wired to the spine
+- **Delete-means-delete.** Companion chat hard-delete wired to the spine
   `sessions.delete` verb; a deleted session never resurrects.
 - **Provider pills, knowledge map, browser-history search**, and the
   **mobile steer-from-phone hero** at 390×844 with the hermetic Playwright e2e
   harness (mock daemon; never touches a real port).
-- **Typed operator client** — `src/lib/contract-bridge-types.ts` is now sourced
+- **Typed operator client.** `src/lib/contract-bridge-types.ts` is now sourced
   directly from the 1.0.0 `OperatorMethodInput`/`OperatorMethodOutput` maps
   (the `// SWAP:` seam), so a contract rename fails the `bridge-matches-schema`
   test loudly instead of drifting.
 
 ### Changed
 
-- Updated `@pellux/goodvibes-sdk` to `1.0.0` (from `0.38.0`) — the 1.0.0
+- Updated `@pellux/goodvibes-sdk` to `1.0.0` (from `0.38.0`), the 1.0.0
   release-train pin. The operator-method contract families the webui facade
   calls (`fleet.*`, `checkpoints.*`, `sessions.search`) now carry real
   `OperatorMethodInputMap`/`OperatorMethodOutputMap` entries, so
@@ -917,7 +917,7 @@ session, provider, or checkpoint is visible across every surface.
 
 ### Fixed
 
-- **CI**: pin `setup-bun` to 1.3.14 to match the locally-verified toolchain —
+- **CI**: pin `setup-bun` to 1.3.14 to match the locally-verified toolchain:
   1.3.10 produced `window is not defined` in the happy-dom +
   `bun test --isolate` test harness. Coverage step now runs with `--isolate`
   and the coverage annotation guards a missing summary file.
@@ -933,45 +933,45 @@ session, provider, or checkpoint is visible across every surface.
 
 ### Added
 
-- **Design token system + dark-mode-default foundation** — full semantic token
+- **Design token system + dark-mode-default foundation.** Full semantic token
   system (`src/styles/tokens.css`) covering color (light/dark via `[data-theme]`),
   spacing, radius, typography, elevation, motion, and z-index. App ships
   dark-first with `prefers-color-scheme` bootstrap and `prefers-reduced-motion`
   support throughout.
-- **Density modes** — compact, default, and comfortable density presets
+- **Density modes.** Compact, default, and comfortable density presets
   persisted in the existing UI-preferences store and applied globally.
-- **⌘K command palette + global hotkeys** — fuzzy-search and invoke any
+- **⌘K command palette + global hotkeys.** Fuzzy-search and invoke any
   registered action from the keyboard. Pre-bound shortcuts for navigation,
   new chat, search, and palette open. Shortcut cheatsheet overlay lists all
   registered bindings.
-- **Daemon pulse status strip** — persistent shell strip showing connection
+- **Daemon pulse status strip.** Persistent shell strip showing connection
   state (connected / reconnecting / down), round-trip latency, SSE health, and
   active-work count at all times.
-- **Chat workspace overhaul** — token streaming with stop control; edit /
+- **Chat workspace overhaul.** Token streaming with stop control; edit /
   regenerate / branch on any message; artifacts slide-over panel for structured
   data blocks and large outputs; cross-session message search; upgraded composer
   with inline model menu, slash-command trigger, drag-and-drop / paste
   attachments, and optimistic send.
-- **URL deep-linking + slide-over peek** — chat sessions, views, and peek
+- **URL deep-linking + slide-over peek.** Chat sessions, views, and peek
   targets are addressable by URL and survive page refresh; non-blocking
   slide-over overlay for sessions, artifacts, and records.
-- **Toast / undo notifications** — non-blocking toasts with optional undo
+- **Toast / undo notifications.** Non-blocking toasts with optional undo
   actions and auto-dismiss; purposeful entrance/exit animations.
-- **Feedback primitives** — consistent skeleton loaders, empty-state
+- **Feedback primitives.** Consistent skeleton loaders, empty-state
   illustrations, and error-state messages with retry actions across all views.
   Top-level `ErrorBoundary` prevents a single component failure from blanking
   the app.
-- **Full keyboard accessibility** — roving focus, visible focus rings,
+- **Full keyboard accessibility.** Roving focus, visible focus rings,
   `aria-live` announcer, focus-trap for modals/palette/slide-over.
-- **Responsive + mobile layout** — responsive breakpoints from mobile to
+- **Responsive + mobile layout.** Responsive breakpoints from mobile to
   wide-desktop; density and motion preferences stored and applied globally.
-- **ESLint + Prettier + jsx-a11y tooling** — project-wide lint/format
+- **ESLint + Prettier + jsx-a11y tooling.** Project-wide lint/format
   enforcement with `eslint-plugin-jsx-a11y` for accessibility linting.
-- **happy-dom test harness** — DOM-capable unit tests via `happy-dom`.
-- **CI caching + coverage** — GitHub Actions workflow gains dependency caching
+- **happy-dom test harness.** DOM-capable unit tests via `happy-dom`.
+- **CI caching + coverage.** GitHub Actions workflow gains dependency caching
   and test-coverage reporting.
-- **Dependabot** — automated dependency update PRs for npm and GitHub Actions.
-- **537 tests** — component, unit, and integration tests covering command
+- **Dependabot.** Automated dependency update PRs for npm and GitHub Actions.
+- **537 tests.** Component, unit, and integration tests covering command
   palette, status strip, chat stream, theme/preferences, a11y helpers, and
   per-view logic.
 

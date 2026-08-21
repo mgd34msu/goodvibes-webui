@@ -1,5 +1,5 @@
 /**
- * EmptyState — icon + title + description + optional action.
+ * EmptyState, icon + title + description + optional action.
  * Use when a list or view has no items to display.
  *
  * @example

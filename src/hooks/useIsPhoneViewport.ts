@@ -1,5 +1,5 @@
 /**
- * useIsPhoneViewport — true at phone width (≤980px), the same breakpoint the
+ * useIsPhoneViewport, true at phone width (≤980px), the same breakpoint the
  * views' CSS uses to collapse to a single pane. Drives the "confirm on phone"
  * decision: a mutation that runs bare on desktop is routed through a confirm
  * sheet on a phone, where a stray tap is easy and the target is small.

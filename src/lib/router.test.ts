@@ -1,5 +1,5 @@
 /**
- * Tests for router.ts — pure URL encoder/decoder.
+ * Tests for router.ts, pure URL encoder/decoder.
  * No DOM render needed; uses the happy-dom globals from bunfig.toml preload.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -116,7 +116,7 @@ describe('decodeUrlState', () => {
 
   // fleet/checkpoints are wired end-to-end (App.tsx); approvals-tasks/workstream
   // are registered ahead of their own views landing (see the nav-entries comment
-  // in App.tsx) — all four must round-trip now so neither silently falls back
+  // in App.tsx), all four must round-trip now so neither silently falls back
   // to 'chat'.
   test('decodes the fleet/checkpoints/approvals-tasks/workstream view ids', () => {
     expect(decodeUrlState('?view=fleet').view).toBe('fleet');
@@ -125,22 +125,22 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=workstream').view).toBe('workstream');
   });
 
-  // ci-watches (SDK 1.6.1's initiative family — CI watches/status view).
+  // ci-watches (SDK 1.6.1's initiative family, CI watches/status view).
   test('decodes the ci-watches view id', () => {
     expect(decodeUrlState('?view=ci-watches').view).toBe('ci-watches');
   });
 
-  // checkin (SDK 1.6.1's initiative family — proactive check-in config/receipts view).
+  // checkin (SDK 1.6.1's initiative family, proactive check-in config/receipts view).
   test('decodes the checkin view id', () => {
     expect(decodeUrlState('?view=checkin').view).toBe('checkin');
   });
 
-  // principals (SDK 1.6.1's initiative family — principals/channel-profiles admin view).
+  // principals (SDK 1.6.1's initiative family, principals/channel-profiles admin view).
   test('decodes the principals view id', () => {
     expect(decodeUrlState('?view=principals').view).toBe('principals');
   });
 
-  // dates (docs/occasions.md — occasions/plans dates panel).
+  // dates (docs/occasions.md, occasions/plans dates panel).
   test('decodes the dates view id', () => {
     expect(decodeUrlState('?view=dates').view).toBe('dates');
   });
@@ -178,7 +178,7 @@ describe('decodeUrlState', () => {
   });
 
   test('ignores malformed filter keys (no closing bracket)', () => {
-    // "filter[noclosing" — key does not end with ] so ignored
+    // "filter[noclosing", key does not end with ] so ignored
     const state = decodeUrlState('?view=chat&filter%5Bnoclosing=x');
     expect(state.filters).toEqual({});
   });

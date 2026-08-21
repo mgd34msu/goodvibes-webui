@@ -1,15 +1,15 @@
 /**
- * installMockDaemon — the hermetic seam for the Playwright harness.
+ * installMockDaemon, the hermetic seam for the Playwright harness.
  *
  * Intercepts every `/api/**` request in the browser and answers it from the in-memory
- * seed (support/seed.ts). NO real daemon is ever contacted — not 3421, not 4444, not
+ * seed (support/seed.ts). NO real daemon is ever contacted, not 3421, not 4444, not
  * any port. The vite dev server the tests run against proxies `/api` to a dead
  * localhost target that is never reached, because these routes short-circuit the
  * request in-page before it leaves the browser.
  *
  * Streams (Accept: text/event-stream) are, by default, left hanging (a "connecting"
  * EventSource that never errors) so the live-updates layer reports neither connected
- * nor paused — a clean baseline. Pass `dropStreams: true` to instead close them
+ * nor paused, a clean baseline. Pass `dropStreams: true` to instead close them
  * immediately, which drives the reconnect/paused honesty (used by the chat
  * degraded-state proof).
  */
@@ -59,7 +59,7 @@ import {
 } from './seed';
 
 /**
- * The wire shape of one memory record — the single definition the in-memory store,
+ * The wire shape of one memory record, the single definition the in-memory store,
  * the add handler, and the review handler all agree on. Sourced from
  * memoryRecordWire() in seed.ts so it cannot drift from the seed.
  */
@@ -71,7 +71,7 @@ export type MemoryRecordWire = ReturnType<typeof memoryRecordWire>;
  * PrincipalsView each derive their own row type from these exact method outputs).
  *
  * Without these annotations each list's element type was inferred from its single
- * seed literal, `as const` and all — so `lastOverall` was the literal 'passed',
+ * seed literal, `as const` and all, so `lastOverall` was the literal 'passed',
  * `outcome` the literal 'skipped-quiet-hours', and `channelId`/`prNumber`/`provider`
  * did not exist at all. Every handler that appended a row with a different state, or
  * read an optional field, was writing against a type that could not describe the
@@ -88,7 +88,7 @@ const MEMORY_REVIEW_STATES: readonly string[] = ['fresh', 'reviewed', 'stale', '
  * The add/review handlers below take their values from an arbitrary request body,
  * so they must narrow those values to the enumerations the real daemon's
  * MEMORY_RECORD_SCHEMA accepts before storing them. Without this the store would
- * happily hold a record with, say, scope 'banana' — a state no real daemon can
+ * happily hold a record with, say, scope 'banana', a state no real daemon can
  * produce, which would make a test pass against a fiction.
  */
 function asMemoryScope(value: unknown): SeedMemoryRecord['scope'] {
@@ -127,15 +127,15 @@ function asProvenanceArray(value: unknown): { kind: string; ref: string; label?:
 }
 
 /**
- * describeOriginPostureForMock — a byte-for-byte mirror of the daemon's own
+ * describeOriginPostureForMock, a byte-for-byte mirror of the daemon's own
  * describeOriginPosture (packages/sdk/src/platform/pairing/origin-posture.ts): the ONE
- * honest plain-http-on-LAN notice line, and per-capability "needs https — available via
+ * honest plain-http-on-LAN notice line, and per-capability "needs https, available via
  * tailscale" labels, so an e2e test at a simulated private-range origin sees EXACTLY the
- * wording a real daemon would send — never a placeholder the fixture invented.
+ * wording a real daemon would send, never a placeholder the fixture invented.
  */
 const LAN_PLAIN_HTTP_NOTICE_MOCK =
   'Connection is unencrypted on your LAN. Everything works except browser-gated features; Tailscale gives encrypted access with the full app.';
-const NEEDS_HTTPS_REASON_MOCK = 'needs https — available via tailscale';
+const NEEDS_HTTPS_REASON_MOCK = 'needs https, available via tailscale';
 const BROWSER_GATED_CAPABILITIES_MOCK = ['service-worker', 'push', 'microphone'] as const;
 
 function isLoopbackHostMock(hostname: string): boolean {
@@ -198,11 +198,11 @@ export function describeOriginPostureForMock(origin: string): {
 }
 
 /**
- * Shared, mutable pairing-token state for pairing.tokens.* — a plain object
+ * Shared, mutable pairing-token state for pairing.tokens.*, a plain object
  * (not per-call closure state) so TWO installMockDaemon calls (two Playwright
  * pages/contexts, standing in for two devices) can be pointed at the SAME
  * store and observe each other's writes: revoke one device's token from page A
- * and page B's next request — bearing that same token — genuinely 401s,
+ * and page B's next request, bearing that same token, genuinely 401s,
  * proving revoke actually signs the device out, while page A's own (different)
  * token keeps working untouched. Create with createMockPairingStore(); pass to
  * installMockDaemon via { pairingStore }.
@@ -210,7 +210,7 @@ export function describeOriginPostureForMock(origin: string): {
 export interface MockPairingStore {
   tokens: { id: string; name: string; token: string; createdAt: number; lastSeenAt?: number }[];
   legacySharedRevoked: boolean;
-  /** Raw token VALUES (not ids) that pairing.tokens.delete has revoked — checked on every request. */
+  /** Raw token VALUES (not ids) that pairing.tokens.delete has revoked, checked on every request. */
   revokedTokenValues: Set<string>;
 }
 
@@ -228,7 +228,7 @@ export interface MockDaemonOptions {
   /** When false, the sessions.delete capability probe 404s (Delete unavailable). */
   deleteAvailable?: boolean;
   /**
-   * GET /config/credentials behavior — the admin-scoped credential-status
+   * GET /config/credentials behavior, the admin-scoped credential-status
    * read (credentials.get). 'available' (default) answers the honest
    * configured/usable list; 'store-unavailable' answers the daemon's real
    * 503 CREDENTIAL_STORE_UNAVAILABLE shape; 'admin-required' answers the
@@ -236,21 +236,21 @@ export interface MockDaemonOptions {
    */
   credentials?: 'available' | 'store-unavailable' | 'admin-required';
   /** When false, every /api/memory/* route 404s with the honest
-   * `{ code: 'METHOD_NOT_FOUND' }` shape — the "this daemon does not serve memory"
+   * `{ code: 'METHOD_NOT_FOUND' }` shape, the "this daemon does not serve memory"
    * degrade MemoryView renders. Default true. */
   memoryAvailable?: boolean;
   /** When true, a semantic memory.records.search request falls back to a literal scan
-   * with a stated `indexUnavailableReason` — the honest degraded-search proof.
+   * with a stated `indexUnavailableReason`, the honest degraded-search proof.
    * Default false (a semantic request succeeds as semantic). */
   memoryIndexUnavailable?: boolean;
   /**
    * memory.consolidation.receipts (SDK 1.8.0) behavior. 'available' (default) answers
    * one seeded run with a pending contradiction proposal referencing two real seeded
-   * memory record ids (mem-fact-1, mem-review-1 — both already in the mock review
+   * memory record ids (mem-fact-1, mem-review-1, both already in the mock review
    * queue), proving the receipts-are-actionable round trip end to end. 'unavailable'
-   * answers the daemon's own honest 501 (no consolidation scheduler wired — distinct
+   * answers the daemon's own honest 501 (no consolidation scheduler wired, distinct
    * from memoryAvailable:false's 404, which means the memory.* family itself is
-   * absent). 'empty' answers zero receipts and zero pending proposals — the genuinely
+   * absent). 'empty' answers zero receipts and zero pending proposals, the genuinely
    * different "nothing has run yet" honest state.
    */
   consolidationReceipts?: 'available' | 'unavailable' | 'empty';
@@ -274,18 +274,18 @@ export interface MockDaemonOptions {
   email?: 'configured' | 'unconfigured' | 'not-available';
   /**
    * occasions.* handler behavior (docs/occasions.md, the dates panel). 'available'
-   * (default) answers the honest seeded fixtures for every occasions.* route — unlike
+   * (default) answers the honest seeded fixtures for every occasions.* route, unlike
    * calendar.* and email.*, occasions.* ships `invokable: true` from day one in the
    * installed operator-contract.json (it is a builtin daemon feature, not a
    * bring-your-own-account integration), so 'available' is the truthful baseline here.
    * 'not-available' answers the honest 501 every occasions.* route gives on a daemon
-   * build that predates this SDK's occasions composition — the same not-wired-yet
+   * build that predates this SDK's occasions composition, the same not-wired-yet
    * state calendar/email answer by default, proved so DatesView's notAvailableNote()
    * has a real state to render against.
    */
   occasions?: 'available' | 'not-available';
   /**
-   * GET/POST /config behavior (config.get/config.set — the Settings modal and
+   * GET/POST /config behavior (config.get/config.set, the Settings modal and
    * ModelWorkspaceModal's helper/tool/tts/embeddings targets). 'ok' (default)
    * answers a real, mutable config.get()/config.set() round-trip seeded from
    * configGetResponse(); 'admin-required' answers the daemon's real 403
@@ -295,7 +295,7 @@ export interface MockDaemonOptions {
   config?: 'ok' | 'admin-required';
   /**
    * knowledge.packet response shape. 'complete' (default) answers a real, untruncated
-   * packet (truncated: false, droppedCount: 0, budgetExhausted: false) — the every-
+   * packet (truncated: false, droppedCount: 0, budgetExhausted: false), the every-
    * candidate-fit case. 'truncated' answers the final SDK's real truncation field
    * shape (truncated/totalCandidates/droppedCount/droppedForBudget/budgetExhausted all
    * populated, some candidates dropped for the token budget specifically), proving the
@@ -307,7 +307,7 @@ export interface MockDaemonOptions {
    * Fleet runtime events to emit over the multiplexed control-plane subscription
    * (the `?domains=…,fleet` stream FleetView now rides). When non-empty, the FIRST
    * request for that stream is fulfilled with these frames as SSE (`event: fleet`,
-   * one per entry) instead of being left pending — so a test can prove the
+   * one per entry) instead of being left pending, so a test can prove the
    * subscription path is live. Emitting also flips the fleet snapshot to its
    * ENRICHED form (FLEET_EVENT_NODE appended), so the event-driven invalidation
    * surfaces a node that the baseline snapshot did not contain. Default [] (the
@@ -315,7 +315,7 @@ export interface MockDaemonOptions {
    */
   fleetEvents?: readonly unknown[];
   /**
-   * sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1) — the
+   * sessions.permissionMode.get/set + sessions.contextUsage.get (SDK 1.6.1), the
    * session id these two mocked verbs answer for honestly, standing in for "the
    * daemon's own live local runtime". Any OTHER session id (including '' /
    * unselected) gets the real 404 SESSION_NOT_LOCAL the daemon returns for a session
@@ -333,7 +333,7 @@ export interface MockDaemonOptions {
   /**
    * Seed for the durable approval-rule store (permissions.rules.list/.delete).
    * Default []. Approving with a durable rememberTier also appends here, and
-   * SWEEPS other pending asks for the same tool — mirroring the broker's
+   * SWEEPS other pending asks for the same tool, mirroring the broker's
    * remembered-decision sweep so a suppression test is meaningful at mock level.
    */
   permissionRules?: readonly Record<string, unknown>[];
@@ -342,7 +342,7 @@ export interface MockDaemonOptions {
    * subscription (the `?domains=…,permissions` stream ApprovalsTasksView's push path
    * rides). When non-empty, the FIRST request for a stream whose `?domains=` includes
    * `permissions` is fulfilled with these frames (`event: approval-update`, one per
-   * entry, each `{ approval, createdAt }`) instead of being left pending — so a test
+   * entry, each `{ approval, createdAt }`) instead of being left pending, so a test
    * can prove the push-consumption path is live, mirroring `fleetEvents` above.
    * Default [] (the existing pending-stream baseline).
    */
@@ -350,7 +350,7 @@ export interface MockDaemonOptions {
   /**
    * Seed override for the mutable hosted-sessions store (sessions.hosted.*,
    * daemon-hosted sessions). Default: one idle, attachable session (detach policy survive) and one
-   * terminated session (reason 'killed') — real content for the includeTerminated
+   * terminated session (reason 'killed'), real content for the includeTerminated
    * toggle and the terminatedReason line to prove against. Pass [] for the genuinely
    * empty "this daemon hosts nothing" state.
    */
@@ -358,7 +358,7 @@ export interface MockDaemonOptions {
   /**
    * Seed for a hosted session's transcript (sessions.hosted.attach's `history`),
    * keyed by hosted session id. Sessions not listed here attach with an empty
-   * history — the honest "nothing happened yet" state.
+   * history, the honest "nothing happened yet" state.
    */
   hostedSessionHistory?: Readonly<Record<string, readonly { role: string; content: string; at?: number }[]>>;
   /**
@@ -366,7 +366,7 @@ export interface MockDaemonOptions {
    * session subscription (the `?domains=session,turn,tools` stream
    * useHostedSessionRealtime opens). When non-empty, the FIRST request for that
    * exact stream is fulfilled with these frames (`event: <entry.event>`, one per
-   * entry) instead of being left pending — proving a hosted session's attached
+   * entry) instead of being left pending, proving a hosted session's attached
    * view actually receives its live output. Default [] (the existing
    * pending-stream baseline), same one-shot-emission shape as fleetEvents/
    * approvalUpdateFrames above.
@@ -376,20 +376,20 @@ export interface MockDaemonOptions {
    * Seed for the daemon's undelivered receipt queue, handed over ONCE when
    * control.status is called with receipts=consume (GET /status?receipts=consume).
    * Default []. A plain status read never consumes; a second consume returns
-   * none — the "shows once, never re-shows" contract.
+   * none, the "shows once, never re-shows" contract.
    */
   daemonReceipts?: readonly { id: string; text: string; at: number }[];
   /**
    * When set, every CI fix-session spawn attempt FAILS with this error: the
    * approve of a ci:fix-session offer stamps fixSessionError on the approved
    * record (never a dead id), and ci.watches.run returns fixSessionError on the
-   * verb result — mirroring SDK bb4b9c30's honest-failure path. Default unset
+   * verb result, mirroring SDK bb4b9c30's honest-failure path. Default unset
    * (spawns succeed and mint a real, servable session).
    */
   ciFixSessionError?: string;
   /**
    * Seed the in-memory push-subscription store (push.subscriptions.list/reconcile)
-   * with existing records — e.g. a stale record for a specific deviceId, so a test
+   * with existing records, e.g. a stale record for a specific deviceId, so a test
    * can prove the reconcile-on-open flow (usePushSubscriptionReconcile) detects
    * the drift against the served endpointHash and calls push.subscriptions.reconcile
    * to heal it. Default [] (no prior device registration).
@@ -398,14 +398,14 @@ export interface MockDaemonOptions {
   /**
    * The pairing.tokens.* backing store. Defaults to a fresh, empty
    * createMockPairingStore() private to this installMockDaemon call. Pass the
-   * SAME store to two calls (two pages/devices) to prove cross-device revoke —
+   * SAME store to two calls (two pages/devices) to prove cross-device revoke,
    * see MockPairingStore's own header comment.
    */
   pairingStore?: MockPairingStore;
   /**
    * Seed for power.status.get / power.keepAwake.set (SDK 1.8.0's host
    * sleep-ownership work). Default: keep-awake off/unheld, work inhibitor not
-   * held — the honest baseline (PowerChip renders nothing, PowerSettings shows
+   * held, the honest baseline (PowerChip renders nothing, PowerSettings shows
    * the toggle off). Pass a partial to prove a held state (danger chip, "held
    * because X") or the honest lid-split note.
    */
@@ -424,14 +424,14 @@ export interface MockDaemonOptions {
    * workstreamId. Default: one representative graph under FLEET_GRAPH_WORKSTREAM_ID
    * (see that constant below) with a ready node, a running node, a
    * blocked-dependency node ("waiting on: X"), a stalled node, and an at-cap pool
-   * state — proving every state tell the task-graph panel renders. Any OTHER
+   * state, proving every state tell the task-graph panel renders. Any OTHER
    * workstreamId 404s (unknown to this daemon), matching the real verb.
    */
   fleetGraph?: Readonly<Record<string, unknown>>;
   /**
    * Seed for tailscale.get / tailscale.serve.run (SDK 1.8.0's LAN-http posture
-   * work — the one-action https affordance). Default: tailscale absent
-   * (available:false) — the honest, quiet baseline (TailscaleSettings renders
+   * work, the one-action https affordance). Default: tailscale absent
+   * (available:false), the honest, quiet baseline (TailscaleSettings renders
    * nothing). Pass a partial to prove the usable-environment panel (available,
    * loggedIn, magicDnsName, httpsUrl) or a seeded prior serve receipt.
    */
@@ -447,7 +447,7 @@ export interface MockDaemonOptions {
   opsMemory?: Partial<ReturnType<typeof opsMemoryResponse>> | 'unavailable';
   /**
    * Seed for voice.local.status / voice.local.install (SDK 1.9.0-dev's managed
-   * local-voice provisioning). Default: not-provisioned with a real offer size —
+   * local-voice provisioning). Default: not-provisioned with a real offer size,
    * the state that renders the size-labeled "Set up local voice" action. install
    * mutates this state to provisioned and answers the receipt, exactly like the
    * real one-act flow. `installOutcome: 'download-failed'` forces the install
@@ -538,8 +538,8 @@ export function voiceLocalStatusResponse() {
 
 /**
  * voice.local.status's shape DURING an active install (SDK 5357f09e): the same
- * resting fields plus the optional installInProgress section — one component done
- * (byte-labeled), one mid-download (pinned total only — bytes land at completion
+ * resting fields plus the optional installInProgress section, one component done
+ * (byte-labeled), one mid-download (pinned total only, bytes land at completion
  * boundaries, never streamed), one extracting. Exported so
  * assert-contract-shape.test.ts can bind it without a Page.
  */
@@ -558,7 +558,7 @@ export function voiceLocalStatusInProgressResponse() {
 }
 
 /**
- * voice.local.install's real receipt shape — fully provisioned by default, or the
+ * voice.local.install's real receipt shape, fully provisioned by default, or the
  * retriable TTS download failure. Exported so assert-contract-shape.test.ts can bind
  * it without a Page.
  */
@@ -657,13 +657,13 @@ function wakeFixtureFor(component: WakeModelComponentId): WakeModelFixture {
   // The speech gate is served from the classifier fixture: both are single-score
   // models, and this mock's job is the transfer, not the gate's own numbers.
   if (component === 'vad') return wakeClassifierFixture();
-  // Every remaining component is an attribution NOTICE — the classifier's, the
+  // Every remaining component is an attribution NOTICE, the classifier's, the
   // front end's, and the gate's. All three are text served over the same path.
   return wakeNoticeFixture();
 }
 
 /**
- * voice.wake.status's real shape. Not provisioned by default — an always-on
+ * voice.wake.status's real shape. Not provisioned by default, an always-on
  * microphone's model is fetched on an explicit act, never because a tab opened.
  */
 export function wakeStatusResponse(provisioned = false, vadProvisioned = false) {
@@ -682,7 +682,7 @@ export function wakeStatusResponse(provisioned = false, vadProvisioned = false) 
     classifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.onnx', classifier),
     embedding: artifact('/home/e2e/.goodvibes/voice/wake/embedding_model.onnx', embedding),
     notice: artifact('/home/e2e/.goodvibes/voice/wake/MODEL_NOTICE.md', notice),
-    // The tflite twin: provisioned and servable, but outside `ready` — nothing in
+    // The tflite twin: provisioned and servable, but outside `ready`, nothing in
     // a browser tab loads it, so a host missing only this one still detects.
     mobileClassifier: artifact('/home/e2e/.goodvibes/voice/wake/hey_goodvibes.tflite', classifier),
     // The front end's own attribution file, on the same terms as the classifier's:
@@ -767,9 +767,9 @@ export interface MockTailscaleState {
   detail: string;
   lastServe?: { at: number; command: string; ok: boolean; url?: string; detail: string };
   /**
-   * Test-only seed knob (never part of the real wire shape — stripped before this
+   * Test-only seed knob (never part of the real wire shape, stripped before this
    * daemon answers tailscale.get): forces the NEXT tailscale.serve.run to fail with
-   * this detail text even though the environment otherwise reports usable — proves
+   * this detail text even though the environment otherwise reports usable, proves
    * a genuine mid-setup failure (e.g. a permission error) renders the daemon's own
    * receipt detail, not a generic error.
    */
@@ -812,7 +812,7 @@ const DEFAULT_POWER_KEEP_AWAKE_STATE: MockPowerKeepAwakeState = {
 
 /**
  * power.status.get/keepAwake.set's real shape (platform + work + keepAwake), with a
- * held-and-refused-lid-switch example — the honest lid-split case, not the all-off
+ * held-and-refused-lid-switch example, the honest lid-split case, not the all-off
  * default. Exported so assert-contract-shape.test.ts can bind it without a Page.
  */
 export function powerStatusResponse() {
@@ -826,13 +826,13 @@ export function powerStatusResponse() {
   };
 }
 
-/** The one workstream id the default fleetGraph seed answers for — see MockDaemonOptions.fleetGraph. */
+/** The one workstream id the default fleetGraph seed answers for, see MockDaemonOptions.fleetGraph. */
 export const FLEET_GRAPH_WORKSTREAM_ID = 'ws-e2e-graph';
 
 /**
  * The default fleet.graph.get fixture: one node per state tell the task-graph
  * panel renders (ready/running/blocked/stalled/done), plus an at-cap pool state
- * — a real, representative graph, not an all-idle stub. Exported so
+ *, a real, representative graph, not an all-idle stub. Exported so
  * assert-contract-shape.test.ts can bind it without a Page.
  */
 export function fleetGraphResponse(workstreamId: string) {
@@ -870,10 +870,10 @@ export interface MockDaemon {
   observedSteerRequests: { id: string; text: string }[];
   /** How many times voice.wake.provision was asked for (it must never be automatic). */
   wakeProvisionRequests: number;
-  /** Every voice.wake.model.get read captured, in order — proves the chunk loop. */
+  /** Every voice.wake.model.get read captured, in order, proves the chunk loop. */
   wakeModelReads: { component: 'classifier' | 'embedding' | 'notice'; offset: number }[];
   /**
-   * Live reference to the mutable hosted-sessions store (sessions.hosted.*) — the
+   * Live reference to the mutable hosted-sessions store (sessions.hosted.*), the
    * SAME array create/attach/detach/kill mutate, not a snapshot, so a test can poll
    * it (e.g. `expect.poll(() => daemon.hostedSessions.find(...).status)`) to prove a
    * detach/kill genuinely reached the daemon without depending on a UI refetch.
@@ -894,7 +894,7 @@ function json(route: Route, body: unknown, status = 200) {
 
 /**
  * control.methods.get's 200 shape (the daemon's real gateway-method descriptor,
- * `{ method: {...} }`) — a hermetic stand-in, not a real registry lookup. Exported so
+ * `{ method: {...} }`), a hermetic stand-in, not a real registry lookup. Exported so
  * assert-contract-shape.test.ts can bind it to the operator contract without a Page.
  */
 export function methodInfoResponse(methodId: string) {
@@ -902,7 +902,7 @@ export function methodInfoResponse(methodId: string) {
     method: {
       id: methodId,
       title: methodId,
-      description: 'Hermetic e2e mock method descriptor — not a real gateway registry entry.',
+      description: 'Hermetic e2e mock method descriptor: not a real gateway registry entry.',
       category: methodId.split('.')[0] ?? 'misc',
       source: 'builtin',
       access: 'authenticated',
@@ -914,7 +914,7 @@ export function methodInfoResponse(methodId: string) {
 
 /**
  * sessions.steer / sessions.followUp share this output envelope on the real contract
- * ({ session, message, input, mode, agentId }, all required) — a shape wholly
+ * ({ session, message, input, mode, agentId }, all required), a shape wholly
  * different from what this mock used to invent ({ delivered, inputId }). The app
  * (SteerComposer) never reads the resolved body (it only reacts to resolve vs.
  * reject), so this reshape is behavior-neutral for every existing spec while closing
@@ -974,7 +974,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     pushSeed = [],
   } = options;
   const pairingStore = options.pairingStore ?? createMockPairingStore();
-  // sessions.permissionMode.get/set + sessions.contextUsage.get in-memory state — a
+  // sessions.permissionMode.get/set + sessions.contextUsage.get in-memory state, a
   // fresh copy per installMockDaemon call, mutated by set() exactly like the daemon's
   // real single-writer config value.
   let permissionMode: 'plan' | 'normal' | 'accept-edits' | 'auto' | 'custom' = 'normal';
@@ -1004,11 +1004,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     wakeModelReads: [],
     // Replaced below with a live reference once the hosted-sessions store itself is
     // constructed (that store's default seed is assembled further down this
-    // function) — this placeholder exists only so every MockDaemon field is present
+    // function), this placeholder exists only so every MockDaemon field is present
     // from the object literal's own construction.
     hostedSessions: [],
   };
-  // power.status.get / power.keepAwake.set in-memory state — a fresh copy per
+  // power.status.get / power.keepAwake.set in-memory state, a fresh copy per
   // installMockDaemon call, mutated by keepAwake.set exactly like the daemon's
   // real single-writer state.
   const powerState = {
@@ -1016,15 +1016,15 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     work: { ...DEFAULT_POWER_WORK_STATE, ...options.power?.work },
     keepAwake: { ...DEFAULT_POWER_KEEP_AWAKE_STATE, ...options.power?.keepAwake },
   };
-  // tailscale.get / tailscale.serve.run in-memory state — a fresh copy per
+  // tailscale.get / tailscale.serve.run in-memory state, a fresh copy per
   // installMockDaemon call, mutated by serve.run exactly like the real daemon's
   // single-writer state (lastServe records the most recent attempt either way).
   const tailscaleState: MockTailscaleState = { ...DEFAULT_TAILSCALE_STATE, ...options.tailscale };
-  // ops.memory.get in-memory state — a fresh copy per installMockDaemon call.
+  // ops.memory.get in-memory state, a fresh copy per installMockDaemon call.
   const opsMemoryState = options.opsMemory === 'unavailable'
     ? null
     : { ...opsMemoryResponse(), ...options.opsMemory };
-  // voice.local.status / voice.local.install in-memory state — install flips the
+  // voice.local.status / voice.local.install in-memory state, install flips the
   // resting state to provisioned exactly like the real one-act flow (unless the
   // seeded outcome is the retriable download failure, which keeps nothing).
   // Split the 'unavailable' sentinel off the seed OBJECT once, with an explicit
@@ -1049,25 +1049,25 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       chunkBytes: voiceWakeOption?.chunkBytes ?? WAKE_MODEL_CHUNK_BYTES,
       corruptSha: voiceWakeOption?.corruptSha ?? false,
     };
-  // sessions.queuedMessages.* in-memory store, keyed by sessionId — a fresh copy
+  // sessions.queuedMessages.* in-memory store, keyed by sessionId, a fresh copy
   // per installMockDaemon call, mutated by edit/delete.
   const queuedMessagesBySession: Record<string, { id: string; queuedAt: number; text: string }[]> = {};
   for (const [sessionId, messages] of Object.entries(options.queuedMessages ?? {})) {
     queuedMessagesBySession[sessionId] = messages.map((m) => ({ ...m }));
   }
-  // fleet.graph.get seed — defaults to the one representative graph fixture.
+  // fleet.graph.get seed, defaults to the one representative graph fixture.
   const fleetGraphs: Record<string, unknown> = options.fleetGraph
     ? { ...options.fleetGraph }
     : { [FLEET_GRAPH_WORKSTREAM_ID]: fleetGraphResponse(FLEET_GRAPH_WORKSTREAM_ID) };
   // Mutable so approve/deny/claim/cancel genuinely change what a subsequent
-  // approvals.list() sees (WEBUI-FLEET-DEPTH) — a fresh copy per installMockDaemon
+  // approvals.list() sees (WEBUI-FLEET-DEPTH), a fresh copy per installMockDaemon
   // call so tests never leak state into each other.
   const approvals: Record<string, unknown>[] = (options.approvals ?? [PENDING_APPROVAL]).map((a) => ({ ...a }));
-  // Durable rules (permissions.rules.*) — same fresh-copy-per-install policy.
+  // Durable rules (permissions.rules.*), same fresh-copy-per-install policy.
   const permissionRules: Record<string, unknown>[] = (options.permissionRules ?? []).map((r) => ({ ...r }));
   let ruleCounter = 0;
 
-  // Hosted sessions (sessions.hosted.*, daemon-hosted sessions) — mutable so
+  // Hosted sessions (sessions.hosted.*, daemon-hosted sessions), mutable so
   // create/attach/detach/kill genuinely change what a subsequent
   // sessions.hosted.list() sees, a fresh copy per installMockDaemon call. The
   // default seed carries one idle attachable session (detach policy survive, so
@@ -1094,7 +1094,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   const hostedSessionHistory: Record<string, { role: string; content: string; at?: number }[]> = {
     'hosted-e2e-1': [
       { role: 'user', content: 'Refactor the parser to use a visitor pattern.', at: 1_700_000_050_000 },
-      { role: 'assistant', content: 'Sure — starting with the AST node definitions.', at: 1_700_000_060_000 },
+      { role: 'assistant', content: 'Sure: starting with the AST node definitions.', at: 1_700_000_060_000 },
     ],
   };
   for (const [sessionId, messages] of Object.entries(options.hostedSessionHistory ?? {})) {
@@ -1102,11 +1102,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   }
   let hostedSessionIdCounter = 0;
 
-  // Undelivered daemon receipts — handed over exactly once, on a receipts=consume
+  // Undelivered daemon receipts, handed over exactly once, on a receipts=consume
   // status read, then marked delivered so a re-consume (e.g. a reconnect) returns none.
   let daemonReceipts: { id: string; text: string; at: number }[] = (options.daemonReceipts ?? []).map((r) => ({ ...r }));
 
-  // In-memory canonical store for this test only — a fresh copy of the seed per
+  // In-memory canonical store for this test only, a fresh copy of the seed per
   // installMockDaemon call, mutated by add/delete/update-review exactly like the real
   // daemon-owned single-writer store (never a second copy diverging from what the UI
   // reads back).
@@ -1121,13 +1121,13 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   ];
 
   // Fleet archive (fleet.archive/unarchive/archiveFinished/archived.list):
-  // node ids the tests have archived — snapshot/list exclude them, archived.list
+  // node ids the tests have archived, snapshot/list exclude them, archived.list
   // returns them, unarchive releases them.
   const archivedFleetIds = new Set<string>();
 
   // Principals (principals.*, SDK 1.6.1's initiative family): one seeded principal
   // with a channel identity, plus the shared unknown principal principals.resolve
-  // falls back to for an unmapped identity (real daemon behavior — never a guess).
+  // falls back to for an unmapped identity (real daemon behavior, never a guess).
   let principalList = [
     {
       id: 'prin_e2e_1', name: 'Mike', kind: 'user' as const,
@@ -1157,7 +1157,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   ];
   let checkinReceiptIdCounter = 0;
 
-  // Occasions/plans (occasions.*, docs/occasions.md — the dates panel): mutable
+  // Occasions/plans (occasions.*, docs/occasions.md, the dates panel): mutable
   // in-memory copies of the seeded fixtures so answer/remove/interview/sweep actually
   // change what a subsequent read reports, the same single-writer-store shape the
   // real daemon's OccasionStateStore gives (docs/occasions.md §3.2).
@@ -1165,7 +1165,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   let occasionsPlansState = occasionsPlansListResponse();
   let occasionsStateState = occasionsStateResponse();
   // GET /api/occasions/pending reads THIS, not a fresh occasionsPendingResponse() call
-  // each time — otherwise answering/closing the seeded interview below would never
+  // each time, otherwise answering/closing the seeded interview below would never
   // show up on the next read, same mutable-store shape occasionsListState gives.
   let occasionsPendingState = occasionsPendingResponse();
   let occasionsGiftsByOccasion: Record<string, ReturnType<typeof occasionsGiftsResponse>['gifts']> = {
@@ -1177,7 +1177,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // CI watches (ci.watches.*, SDK 1.6.1's initiative family): one seeded watch so a
   // spec has real selected-detail content to prove against, matching the checkpoints
   // seed above. ci.status/ci.watches.run always answer with a real per-job report
-  // (two jobs, one continue-on-error) — the honesty-bar shape CiWatchesView renders.
+  // (two jobs, one continue-on-error), the honesty-bar shape CiWatchesView renders.
   let ciWatchList: MockCiWatch[] = [
     {
       id: 'ciw_e2e_1', repo: 'acme/example', ref: 'main', deliveryChannel: 'slack:#ci',
@@ -1187,7 +1187,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   ];
   let ciWatchIdCounter = 0;
   let ciFixSessionCounter = 0;
-  // Companion chat sessions — STATEFUL so a spawned CI fix session becomes a
+  // Companion chat sessions, STATEFUL so a spawned CI fix session becomes a
   // real, servable session: opening it must land on a live session view, not an
   // id the session list has never heard of (App reconciles unknown ids away).
   let companionChatSessions = [
@@ -1206,7 +1206,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     const sessionId = `sess-ci-fix-${ciFixSessionCounter}`;
     companionChatSessions = [
       ...companionChatSessions,
-      { id: sessionId, sessionId, title: `CI fix session — ${repo}`, status: 'active' },
+      { id: sessionId, sessionId, title: `CI fix session: ${repo}`, status: 'active' },
     ];
     return { sessionId };
   }
@@ -1226,7 +1226,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     };
   }
 
-  // Runtime tasks (tasks.*): one cancellable, one retryable — the pair TaskRow's
+  // Runtime tasks (tasks.*): one cancellable, one retryable, the pair TaskRow's
   // two mutation buttons key off (task.cancellable / a failed/cancelled status),
   // so the phone confirm-sheet flow for cancel/retry has something to act on.
   let taskList = [
@@ -1238,10 +1238,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
   }
 
-  // Web Push (push.*, SDK 1.1.0) — a fresh per-test in-memory subscription store
+  // Web Push (push.*, SDK 1.1.0), a fresh per-test in-memory subscription store
   // so subscribe -> list -> verify -> delete round-trips honestly. The redacted
   // view only (never the capability URL or key material), exactly like the real
-  // daemon. `pushVapidKey` is a syntactically-valid base64url stand-in — enough
+  // daemon. `pushVapidKey` is a syntactically-valid base64url stand-in, enough
   // for urlBase64ToUint8Array to decode without a real keypair.
   const pushVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBO_2H6ipYIF3PBhTvbP7z4c';
   let pushSubscriptions: { id: string; principalId: string; deviceId?: string; endpointOrigin: string; endpointHash: string; createdAt: number }[] =
@@ -1251,7 +1251,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
   // Mutable server-side state for the two round-trip surfaces this brief adds:
   // the current model slot (models.current/models.select) and the config tree
-  // (config.get/config.set) — a real "select a model, see it reflected" and
+  // (config.get/config.set), a real "select a model, see it reflected" and
   // "save a setting, see it read back" proof, not a static fixture.
   let currentModel = modelsCurrentResponse();
   const configState: Record<string, unknown> = JSON.parse(JSON.stringify(configGetResponse())) as Record<string, unknown>;
@@ -1272,7 +1272,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
 
   // Mirror the daemon's pricing resolver for fleet nodes: a manual price entry
   // (config pricing.modelPrices["provider:model"]) always wins, so once one is
-  // set the node re-prices with costSource:'user' and no catalog as-of date —
+  // set the node re-prices with costSource:'user' and no catalog as-of date,
   // exactly what a fresh snapshot would carry after the operator sets a price.
   // Nodes without a manual entry keep whatever provenance the fixture stamped.
   function withManualPricing<T extends { provider?: string; model?: string }>(node: T): T {
@@ -1298,7 +1298,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     );
   }
 
-  // credentials.get resolves to GET /config/credentials — note the missing
+  // credentials.get resolves to GET /config/credentials, note the missing
   // `/api` segment (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts, matching
   // config.set's `/config`), so it needs its own route registration; the
   // `**/api/**` glob below never matches this path.
@@ -1319,7 +1319,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     });
   });
 
-  // config.get/config.set resolve to GET/POST /config — no `/api` segment,
+  // config.get/config.set resolve to GET/POST /config, no `/api` segment,
   // same reason as credentials above (EXTRA_METHOD_ROUTES in
   // src/lib/goodvibes.ts). A real, mutable round-trip: config.set actually
   // mutates configState, so a subsequent config.get (or the Settings modal's
@@ -1366,7 +1366,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     const accept = request.headers()['accept'] ?? '';
 
     // A revoked pairing token (pairing.tokens.delete) 401s EVERY request that
-    // presents it, immediately — proving revoke actually signs a device out —
+    // presents it, immediately, proving revoke actually signs a device out,
     // while a request bearing any OTHER token is untouched. Checked before
     // every other branch below, including the auth probe.
     const revokeGuardAuthz = request.headers()['authorization'] ?? '';
@@ -1381,13 +1381,13 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // carries the `fleet` domain gets the seeded fleet frames as SSE, then the
       // snapshot flips to its enriched form so the invalidation that frame triggers
       // surfaces FLEET_EVENT_NODE. Only that one stream (the invalidation feed) is
-      // targeted — the session-update stream (?domains=session) never matches.
+      // targeted, the session-update stream (?domains=session) never matches.
       const domains = url.searchParams.get('domains') ?? '';
       if (fleetEvents.length > 0 && !fleetEventsEmitted && domains.split(',').includes('fleet')) {
         fleetEventsEmitted = true;
         // Let the view's initial snapshot fetch settle before the frame lands, so the
         // invalidation the frame triggers refetches an idle query (invalidating a query
-        // that is still in flight only marks it stale — it will not fire a second
+        // that is still in flight only marks it stale, it will not fire a second
         // fetch). This mirrors real usage, where fleet events arrive after the first
         // snapshot, not simultaneously with it.
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -1399,11 +1399,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       // Approval-update subscription emit (the approvals push spec): EVERY
       // request for the EXACT `?domains=permissions` stream gets the seeded
-      // approvalUpdateFrames as SSE (`event: approval-update`, one per entry) —
+      // approvalUpdateFrames as SSE (`event: approval-update`, one per entry),
       // so a test can prove ApprovalsTasksView's push path actually receives a
       // frame and reacts to it, distinct from the poll fallback. EXACT match, not
       // "includes permissions": useRealtimeInvalidation ALSO opens a multiplexed
-      // stream whose `?domains=` includes permissions among six other domains —
+      // stream whose `?domains=` includes permissions among six other domains,
       // an "includes" check would race that unrelated stream and could hand the
       // frame to a subscriber that silently drops unrecognized wire events, never
       // reaching useApprovalUpdates at all.
@@ -1412,16 +1412,16 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // first matching request ever": React StrictMode's dev-mode double-invoke
       // mounts, tears down, then remounts every effect once, so the FIRST
       // qualifying stream request is routinely a doomed one whose underlying
-      // fetch gets aborted before this handler's delay below elapses — a
+      // fetch gets aborted before this handler's delay below elapses, a
       // once-only gate would burn the emission on that doomed request and starve
       // the SURVIVING connection. Emitting to every matching request is safe here
       // because each frame's approval is appended to the live `approvals` store
       // ONLY the first time its id is seen (mirroring a real broker publishing
-      // the record and the event together) — a repeat emission to a second
+      // the record and the event together), a repeat emission to a second
       // (surviving) connection re-sends the same frame, which is idempotent, not
       // a duplicate side effect.
       if (approvalUpdateFrames.length > 0 && domains === 'permissions') {
-        // Let the initial approvals.list() fetch settle first — same rationale as
+        // Let the initial approvals.list() fetch settle first, same rationale as
         // the fleet block above: invalidating a query still in flight only marks
         // it stale, it does not fire a second fetch.
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -1439,9 +1439,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // Hosted session live-output emit (the hosted-sessions attach spec): EVERY
       // request for the EXACT `?domains=session,turn,tools` stream
       // (useHostedSessionRealtime's one stream) gets the seeded hostedStreamFrames
-      // as SSE, one per entry — proving a hosted session's attached view actually
+      // as SSE, one per entry, proving a hosted session's attached view actually
       // receives its live turn/tool output. Deliberately not gated to "first
-      // request only" — same StrictMode double-invoke rationale as the
+      // request only", same StrictMode double-invoke rationale as the
       // approval-update block above: HostedSessionsView is view-scoped (mounted
       // only while that view is showing, not app-root-mounted like
       // useSessionRealtime/useRealtimeInvalidation), so its double-invoke window
@@ -1463,7 +1463,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           body: ':closed\n\n',
         });
       }
-      // Leave it pending: a stream that never opens and never errors — the clean
+      // Leave it pending: a stream that never opens and never errors, the clean
       // baseline (neither connected nor paused).
       return;
     }
@@ -1582,7 +1582,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         : '';
       return json(route, dispatchOutcome(session, 'steer', dispatchedBody, `in-${daemon.steerRequests.length}`));
     }
-    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round) — stop one running
+    // sessions.toolCalls.cancel (SDK 1.8.0's interaction-wins round), stop one running
     // tool call mid-flight; the turn continues (this mock never ends it).
     const toolCallCancelMatch = path.match(/^\/api\/sessions\/([^/]+)\/tool-calls\/([^/]+)\/cancel$/);
     if (method === 'POST' && toolCallCancelMatch) {
@@ -1592,7 +1592,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { sessionId, callId, cancelled: true });
     }
 
-    // sessions.queuedMessages.list/edit/delete (SDK 1.8.0's interaction-wins round) —
+    // sessions.queuedMessages.list/edit/delete (SDK 1.8.0's interaction-wins round),
     // a message posted while a turn is running sits queued until that turn ends;
     // review/edit/drop it before it is ever sent.
     const queuedMessageItemMatch = path.match(/^\/api\/sessions\/([^/]+)\/queued-messages\/([^/]+)$/);
@@ -1620,7 +1620,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { sessionId, messages: queuedMessagesBySession[sessionId] ?? [] });
     }
 
-    // sessions.detach (WEBUI-FLEET-DEPTH) — remove one participant surfaceId from a
+    // sessions.detach (WEBUI-FLEET-DEPTH), remove one participant surfaceId from a
     // session WITHOUT closing/killing it. Idempotent success regardless of whether the
     // surface was actually attached, matching the real verb's own idempotency contract.
     const detachMatch = path.match(/^\/api\/sessions\/([^/]+)\/detach$/);
@@ -1648,7 +1648,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, messagesResponse(id));
     }
 
-    // sessions.permissionMode.get/set (SDK 1.6.1) — session-scoped, honest
+    // sessions.permissionMode.get/set (SDK 1.6.1), session-scoped, honest
     // SESSION_NOT_LOCAL for any id other than localSessionId (see that option's
     // header comment above).
     const permissionModeMatch = path.match(/^\/api\/sessions\/([^/]+)\/permission-mode$/);
@@ -1664,7 +1664,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
     }
 
-    // sessions.contextUsage.get (SDK 1.6.1) — same session-scoped honesty as above.
+    // sessions.contextUsage.get (SDK 1.6.1), same session-scoped honesty as above.
     // The percentage/remaining are derived server-side from the two seeded numbers,
     // mirroring the real daemon's runtime/context-usage.ts helper.
     const contextUsageMatch = path.match(/^\/api\/sessions\/([^/]+)\/context-usage$/);
@@ -1689,7 +1689,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { sessions: companionChatSessions });
     }
     if (path.startsWith('/api/companion/chat/sessions/')) {
-      // messages / close / delete / detail — an honest empty success.
+      // messages / close / delete / detail, an honest empty success.
       return json(route, { messages: [], deleted: method === 'DELETE' });
     }
 
@@ -1749,9 +1749,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, accountsSnapshotResponse());
     }
 
-    // ── Models (models.current/models.select — the "main" target; ModelWorkspaceModal
+    // ── Models (models.current/models.select, the "main" target; ModelWorkspaceModal
     // sources its catalog from providers.list above, not this route, since this one
-    // never carries tier/pricing on the real wire either — see model-catalog.ts). ──
+    // never carries tier/pricing on the real wire either, see model-catalog.ts). ──
     if (method === 'GET' && path === '/api/models/current') {
       return json(route, currentModel);
     }
@@ -1790,12 +1790,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       const requestedSemantic = body.semantic === true;
       const indexUnavailableReason = requestedSemantic && memoryIndexUnavailable
-        ? 'Semantic index unavailable: sqlite-vec extension failed to load — falling back to a literal scan'
+        ? 'Semantic index unavailable: sqlite-vec extension failed to load, falling back to a literal scan'
         : null;
       const mode: 'literal' | 'semantic' = requestedSemantic && !indexUnavailableReason ? 'semantic' : 'literal';
       const recall = body.recall === true;
       const totalBeforeRecallFilter = records.length;
-      // Mirrors the SDK's memory-recall-contract.ts MIN_PROMPT_MEMORY_CONFIDENCE (60) —
+      // Mirrors the SDK's memory-recall-contract.ts MIN_PROMPT_MEMORY_CONFIDENCE (60),
       // the mock daemon's own confidence-floor check below, and now also promoted onto
       // the wire as `recallFloor` (recallFloor is on the wire per the final SDK's
       // HonestMemorySearchResult), so MemorySearchHonestyNote/MemoryRecordRow's labels
@@ -1894,9 +1894,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // was removed.
       return json(route, { id, deleted: memoryRecords.length < before });
     }
-    // memory.consolidation.receipts (SDK 1.8.0) — the retained consolidation run
+    // memory.consolidation.receipts (SDK 1.8.0), the retained consolidation run
     // receipts + pending judgment proposals. 'unavailable' answers the daemon's own
-    // honest 501 (no consolidation scheduler wired) — DISTINCT from memoryAvailable's
+    // honest 501 (no consolidation scheduler wired), DISTINCT from memoryAvailable's
     // 404 (the memory.* family itself absent); both render the same honest "not
     // available" state client-side (ConsolidationReceipts checks both).
     if (path === '/api/memory/consolidation/receipts' && method === 'GET') {
@@ -1934,7 +1934,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, knowledgeMapResponse());
     }
 
-    // ── Watchers (WEBUI-FLEET-DEPTH — the one fleet-node kind with a real stop verb) ──
+    // ── Watchers (WEBUI-FLEET-DEPTH, the one fleet-node kind with a real stop verb) ──
     const watcherStopMatch = path.match(/^\/api\/watchers\/([^/]+)\/stop$/);
     if (method === 'POST' && watcherStopMatch) {
       const watcherId = decodeURIComponent(watcherStopMatch[1]);
@@ -1942,7 +1942,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { id: watcherId, kind: 'watcher', label: 'Docs watcher', state: 'killed' });
     }
 
-    // ── Approvals (WEBUI-FLEET-DEPTH — approve/deny/claim/cancel, "approve from the
+    // ── Approvals (WEBUI-FLEET-DEPTH, approve/deny/claim/cancel, "approve from the
     //    tree" AND the standalone Approvals view share this same mutable list). ──
     if (method === 'GET' && path === '/api/approvals') {
       const pending = approvals.filter((a) => a.status === 'pending').length;
@@ -1972,7 +1972,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         if (action === 'approve') {
           // Mirror the broker's decision record: remember tier and the
           // exec-prompt answer land on decision, and the route forwards them
-          // into resolution — the `recorded` block reports what stuck.
+          // into resolution, the `recorded` block reports what stuck.
           const rememberTier = typeof body.rememberTier === 'string' ? body.rememberTier : undefined;
           const modifiedArgs = body.modifiedArgs && typeof body.modifiedArgs === 'object' ? body.modifiedArgs as Record<string, unknown> : undefined;
           const reason = typeof body.reason === 'string' && body.reason ? body.reason : undefined;
@@ -1995,7 +1995,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           };
           // An accepted CI "fix this?" offer spawns a fix session whose REAL,
           // attachable session id the broker stamps onto the resolved APPROVED
-          // record and publishes live — or, on a failed spawn, the honest
+          // record and publishes live, or, on a failed spawn, the honest
           // fixSessionError instead of a dead id (SDK bb4b9c30). Mirrored here:
           // the stamped record is what the next approvals read serves; the
           // spawned session is servable by the session store; denied records
@@ -2060,7 +2060,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     if (method === 'POST' && invokeMatch) {
       const methodId = decodeURIComponent(invokeMatch[1]);
       if (methodId === 'control.status') return json(route, { ok: true, status: 'running' });
-      // Durable approval rules (snapshot rounds 4-6). Explicit handlers — the
+      // Durable approval rules (snapshot rounds 4-6). Explicit handlers, the
       // recorded gotcha: an unknown invoke id answering {} crashes views that
       // don't optional-chain; these two now have real shapes AND the views
       // chain defensively anyway.
@@ -2078,7 +2078,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'sessions.search') return json(route, unionListResponse());
       if (methodId === 'fleet.snapshot') {
         // Once a fleet event has been emitted over the subscription, the snapshot
-        // gains FLEET_EVENT_NODE — the node the event announced. A test asserting
+        // gains FLEET_EVENT_NODE, the node the event announced. A test asserting
         // this node appears proves the event drove the refetch (it is never in the
         // baseline, and shows up well before the poll fallback would fire).
         const base = fleetEnriched ? [...FLEET_SNAPSHOT.nodes, FLEET_EVENT_NODE] : FLEET_SNAPSHOT.nodes;
@@ -2099,7 +2099,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const node = FLEET_SNAPSHOT.nodes.find((n) => n.id === id);
         if (!node) return json(route, { archived: false, count: 0, reason: `node ${id} not found` });
         if (!['done', 'failed', 'killed', 'interrupted'].includes(node.state)) {
-          return json(route, { archived: false, count: 0, reason: '1 node(s) in the subtree are still active — only finished subtrees can be archived' });
+          return json(route, { archived: false, count: 0, reason: '1 node(s) in the subtree are still active, only finished subtrees can be archived' });
         }
         archivedFleetIds.add(id);
         return json(route, { archived: true, count: 1 });
@@ -2111,7 +2111,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       // fleet.observed.steer (SDK 1.8.0): steer an observed foreign-agent row over its
       // genuine channel. Honest refusal for an id this daemon does not know, or one
-      // whose steer channel is 'none' — mirroring the real verb's own refusal (a
+      // whose steer channel is 'none', mirroring the real verb's own refusal (a
       // client should never call this for a 'none' channel anyway; this mock
       // enforces the same rule so a mistaken call is caught, not silently accepted).
       if (methodId === 'fleet.observed.steer') {
@@ -2145,7 +2145,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       if (methodId === 'checkpoints.list') return json(route, { checkpoints: checkpointsList });
       if (methodId === 'checkpoints.create') {
         // Same invoke-tunnel wrapper every other checkpoints.* handler above/below
-        // unwraps (`body.body?.*`) — this one read the top level and so never saw
+        // unwraps (`body.body?.*`), this one read the top level and so never saw
         // a real caller's label (it was always undefined, silently falling back to
         // the empty string every time).
         const body = (route.request().postDataJSON?.() ?? {}) as { body?: { label?: string } };
@@ -2215,7 +2215,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       // sessions.changes.get (SDK 1.6.1): the session-scoped aggregate diff, joined
       // over checkpoints stamped with a session's id. localSessionId (default
-      // 's-agent-live') is treated as the one session with a stamped checkpoint — the
+      // 's-agent-live') is treated as the one session with a stamped checkpoint, the
       // real daemon's join is genuinely session-scoped, not a fixed id-based guess, but
       // for this hermetic mock any OTHER session id gets the honest checkpointCount:0
       // empty result (from/to:"EMPTY"), same as a session that predates sessionId
@@ -2243,7 +2243,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         });
       }
       // cost.attribution.get (SDK 1.6.1): windowed, cache-aware-priced cost attribution
-      // grouped by dimension. A real, honest fixture — one priced row plus one unpriced
+      // grouped by dimension. A real, honest fixture, one priced row plus one unpriced
       // record folded into the totals, so the honest-unpriced labeling has real content
       // to prove against rather than an all-zero stub.
       if (methodId === 'cost.attribution.get') {
@@ -2254,7 +2254,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         const tokens = { inputTokens: 12000, outputTokens: 3400, cacheReadTokens: 2000, cacheWriteTokens: 500 };
         // Provenance rides the wire now: the aggregate spans more than one
         // pricing tier ('mixed'), the single session row was priced from the
-        // catalog — both dated. The webui renders these verbatim, never
+        // catalog, both dated. The webui renders these verbatim, never
         // re-deriving a source or inventing an as-of date.
         return json(route, {
           window, windowStartMs: 1_700_000_000_000, dimension,
@@ -2267,7 +2267,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           }],
         });
       }
-      // ── Web Push (push.*) — the PWA subscription lifecycle. ────────────────
+      // ── Web Push (push.*), the PWA subscription lifecycle. ────────────────
       if (methodId === 'push.vapid.get') {
         return json(route, { publicKey: pushVapidKey });
       }
@@ -2313,11 +2313,11 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         return json(route, { receipt: { subscriptionId: id, endpointOrigin: found.endpointOrigin, outcome: 'delivered' } });
       }
       // reconcile (SDK 1.8.0): heal-in-place by deviceId, honestly reporting what
-      // drifted — mirrors the real daemon's push/subscription-store.ts reconcile().
+      // drifted, mirrors the real daemon's push/subscription-store.ts reconcile().
       // The mock's endpointHash is a placeholder string (never the real sha256 the
       // client computes), so a reconcilePushSubscriptionOnOpen call against a
       // pushSeed record always reports genuine drift, exactly like a real stale
-      // record would — there is no accidental false "unchanged" here.
+      // record would, there is no accidental false "unchanged" here.
       if (methodId === 'push.subscriptions.reconcile') {
         const body = (route.request().postDataJSON?.() ?? {}) as { body?: { endpoint?: string; deviceId?: string } };
         const endpoint = body.body?.endpoint ?? 'https://push.example/endpoint';
@@ -2346,9 +2346,9 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         }
         return json(route, { subscription, drift });
       }
-      // ── Pairing tokens (pairing.tokens.*, SDK 1.8.0) — per-device revocable
+      // ── Pairing tokens (pairing.tokens.*, SDK 1.8.0), per-device revocable
       //    tokens. `token` (the literal secret) is stored HERE ONLY (never
-      //    reflected back from list/rename/delete — real custody), so a test
+      //    reflected back from list/rename/delete, real custody), so a test
       //    can capture it from create/migrate's response and use it as this
       //    "device"'s Authorization bearer on a second page/context. ──────────
       if (methodId === 'pairing.tokens.list') {
@@ -2392,12 +2392,12 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         pairingStore.legacySharedRevoked = true;
         return json(route, { legacySharedRevoked: true });
       }
-      // ── Pairing hand-off (pairing.handoff.*, SDK 1.8.0) — the QR/deep-link
+      // ── Pairing hand-off (pairing.handoff.*, SDK 1.8.0), the QR/deep-link
       //    bundle: one token + an offer set (notifications/relay/passkey), each
       //    independently declinable. create mints a token via the SAME store as
       //    pairing.tokens.* above; complete mirrors the real daemon's honest
       //    per-offer status (present in `accept` → completed, omitted or
-      //    explicitly false → declined) — good enough to prove the client
+      //    explicitly false → declined), good enough to prove the client
       //    renders each outcome honestly, without modeling `unavailable`/
       //    `failed` server-side (those are exercised as CLIENT-side ceremony
       //    failures in PairingHandoffOffers.test.tsx). ─────────────────────
@@ -2427,7 +2427,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         });
         return json(route, { results });
       }
-      // pairing.posture.get (SDK 1.8.0) — computed from the SAME algorithm the real
+      // pairing.posture.get (SDK 1.8.0), computed from the SAME algorithm the real
       // daemon runs (describeOriginPostureForMock above), keyed off the origin the
       // caller actually passed (usePairingHandoff/useOriginPosture always pass their
       // OWN window.location.origin) so an e2e test at a simulated private-range origin
@@ -2439,7 +2439,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       }
       // ── Tailscale one-action https (tailscale.get / tailscale.serve.run,
       //    SDK 1.8.0). get is read-only; serve.run is the one state-changing
-      //    action, recorded into tailscaleState.lastServe either way — a
+      //    action, recorded into tailscaleState.lastServe either way, a
       //    genuinely unusable environment (no httpsUrl) answers an honest
       //    failure receipt rather than pretending to serve. ──────────────────
       if (methodId === 'tailscale.get') {
@@ -2455,7 +2455,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         tailscaleState.lastServe = receipt;
         return json(route, { receipt, publicBaseUrlUpdated: receipt.ok });
       }
-      // ── Hosted sessions (sessions.hosted.*, daemon-hosted sessions) — a real, stateful
+      // ── Hosted sessions (sessions.hosted.*, daemon-hosted sessions), a real, stateful
       //    mock: create/attach/detach/kill genuinely mutate the `hostedSessions`
       //    store, so a test can prove the round trip (create it, see it in the
       //    list, attach and see its history, detach and see attachedClients drop,
@@ -2520,7 +2520,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         attached.delete(clientId);
         record.attachedClients = [...attached];
         record.updatedAt = Date.now();
-        // The effective policy decides ONLY when this was the last client — mirrors
+        // The effective policy decides ONLY when this was the last client, mirrors
         // the real daemon's "policy applies when the last client detaches" contract
         // (method-catalog-hosted-sessions.ts's sessions.hosted.detach description).
         if (attached.size === 0 && record.status !== 'terminated' && record.effectiveDetachPolicy === 'kill') {
@@ -2538,7 +2538,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
           return json(route, { error: `Unknown hosted session ${sessionId}`, code: 'NOT_FOUND' }, 404);
         }
         // Killing an already-terminated session returns it unchanged (real verb's
-        // own idempotence contract) — never overwrite a genuine prior reason.
+        // own idempotence contract), never overwrite a genuine prior reason.
         if (record.status !== 'terminated') {
           record.status = 'terminated';
           record.terminatedAt = Date.now();
@@ -2551,7 +2551,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       // Default: a schema-valid output for any cataloged gateway method the scenario
       // handlers above did not model, seeded from the contract-generated fixtures
       // (WEBUI_METHOD_SAMPLES). This structurally kills the "unknown invoke id answers {}"
-      // drift class — an uncataloged id still degrades to {} (an honest empty success),
+      // drift class, an uncataloged id still degrades to {} (an honest empty success),
       // but every real ws-invoke method now gets a shape its view can actually render.
       return json(route, WEBUI_METHOD_SAMPLES[methodId]?.output ?? {});
     }
@@ -2562,13 +2562,13 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // ── Knowledge candidates + packet (separate registrations — Playwright runs the
+  // ── Knowledge candidates + packet (separate registrations, Playwright runs the
   //    LAST-registered route FIRST, so these override the generic knowledge fallback
   //    above for the specific paths they match, without touching that shared handler.
   //    Kept as their own page.route() calls, per this brief's file-ownership note,
   //    since five concurrent web UI worktrees touch this file. ───────────────────
   // Tracks decide() outcomes in-memory so a refetch after accept/reject/supersede
-  // reflects the decision instead of replaying the static pending seed forever —
+  // reflects the decision instead of replaying the static pending seed forever,
   // just enough state to prove the decide-then-refresh round trip honestly.
   const decidedCandidates = new Map<string, string>();
 
@@ -2610,7 +2610,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, knowledgePacketResponse(task, packet === 'truncated'));
   });
 
-  // ── Calendar (calendar.events.*, calendar.ics.*) — a genuinely separate domain
+  // ── Calendar (calendar.events.*, calendar.ics.*), a genuinely separate domain
   //    from `/api/knowledge`, so it needs its own registration rather than piggy-
   //    backing on the generic knowledge fallback. `calendar: 'unconfigured'` answers
   //    the real 412 CALENDAR_NOT_CONFIGURED shape for every route, proving the
@@ -2642,7 +2642,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // ── Email (email.inbox.*, email.send, email.draft.create) — its own registration
+  // ── Email (email.inbox.*, email.send, email.draft.create), its own registration
   //    for the same reason calendar has one: a genuinely separate REST domain, not a
   //    knowledge-fallback path. The DEFAULT here is the 501 refusal, matching what a
   //    real daemon answers today (all four verbs ship `invokable: false` and no
@@ -2675,7 +2675,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // ── Occasions/plans (occasions.*, docs/occasions.md — the dates panel). Own
+  // ── Occasions/plans (occasions.*, docs/occasions.md, the dates panel). Own
   //    registration, same reason calendar/email/checkin have one: a genuinely
   //    separate REST domain. `occasions: 'not-available'` answers the honest 501
   //    every route gives on a daemon build that predates this SDK's occasions
@@ -2709,7 +2709,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         ok: true,
         reason: null,
         line: `${String(body.title ?? '')} · ${String(body.date ?? '')} · ${String(body.recurrence ?? 'annual')}${body.kind ? ` · ${String(body.kind)}` : ''}`,
-        confirmation: `Noted ${String(body.title ?? 'this occasion')} as ${String(body.date ?? '')} — right?`,
+        confirmation: `Noted ${String(body.title ?? 'this occasion')} as ${String(body.date ?? '')}, right?`,
         needsKind,
         conflictsWith: [],
       });
@@ -2818,7 +2818,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     }
     if (method === 'POST' && path === '/api/occasions/interview/answer') {
       // The seed interview has exactly one step, so answering it completes the
-      // interview — real behavior for a "genuinely short" interview (docs/occasions.md
+      // interview, real behavior for a "genuinely short" interview (docs/occasions.md
       // §4.10), never a second implementation of the daemon's own step sequencing.
       const interviewId = String(body.interviewId ?? '');
       let updated = occasionsPendingState.interviews.find((iv) => iv.interviewId === interviewId) ?? null;
@@ -2857,7 +2857,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
         ok: true,
         reason: null,
         line: `${String(body.title ?? '')} · ${String(body.from ?? '')}..${String(body.to ?? '')}`,
-        confirmation: `Noted ${String(body.title ?? 'this plan')}, ${String(body.from ?? '')} to ${String(body.to ?? '')} — right?`,
+        confirmation: `Noted ${String(body.title ?? 'this plan')}, ${String(body.from ?? '')} to ${String(body.to ?? '')}, right?`,
         needsKind: false,
         conflictsWith: [],
       });
@@ -2888,13 +2888,13 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   };
   // Two registrations: occasions.list's route is the bare '/api/occasions' with no
   // trailing segment at all (webui-facade's generated route, unlike every other
-  // occasions.* row which has one) — '**/api/occasions/**' alone does not match a URL
+  // occasions.* row which has one), '**/api/occasions/**' alone does not match a URL
   // with nothing after "occasions", so the exact bare path needs its own registration
   // pointed at the SAME handler rather than a second implementation of it.
   await page.route('**/api/occasions/**', handleOccasionsRoute);
   await page.route('**/api/occasions', handleOccasionsRoute);
 
-  // CI (ci.*, SDK 1.6.1's initiative family) — plain REST paths (EXTRA_METHOD_ROUTES
+  // CI (ci.*, SDK 1.6.1's initiative family), plain REST paths (EXTRA_METHOD_ROUTES
   // in src/lib/goodvibes.ts), same own-registration reason as calendar/tasks above.
   await page.route('**/api/ci/**', async (route) => {
     const request = route.request();
@@ -2934,7 +2934,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       const report = ciReportFor(watch.repo, watch.ref, watch.prNumber);
       ciWatchList = ciWatchList.map((w) => (w.id === watchId ? { ...w, lastOverall: report.overall, updatedAt: Date.now() } : w));
       // A watch that auto-starts a fix session on failure returns the started
-      // session's REAL id on the verb result — or the honest fixSessionError
+      // session's REAL id on the verb result, or the honest fixSessionError
       // when the spawn failed, never a dead id (SDK bb4b9c30). The spawned
       // session is servable by the mock's session store.
       const fixSessionTriggered = Boolean(watch.triggerFixSession) && report.overall === 'failed';
@@ -2956,7 +2956,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // Check-in (checkin.*, SDK 1.6.1's initiative family) — plain REST paths
+  // Check-in (checkin.*, SDK 1.6.1's initiative family): plain REST paths
   // (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason as
   // calendar/tasks/ci above.
   await page.route('**/api/checkin/**', async (route) => {
@@ -2997,7 +2997,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // Principals (principals.*, SDK 1.6.1's initiative family) — plain REST paths
+  // Principals (principals.*, SDK 1.6.1's initiative family), plain REST paths
   // (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason as
   // checkin/ci/calendar/tasks above.
   await page.route('**/api/principals**', async (route) => {
@@ -3056,7 +3056,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative family) — plain REST
+  // Channel profiles (channels.profiles.*, SDK 1.6.1's initiative family), plain REST
   // paths (EXTRA_METHOD_ROUTES in src/lib/goodvibes.ts), same own-registration reason.
   await page.route('**/api/channels/profiles**', async (route) => {
     const request = route.request();
@@ -3108,7 +3108,7 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     return json(route, {});
   });
 
-  // ── Tasks (tasks.*, MOBILE-ADAPT) — plain REST paths (EXTRA_METHOD_ROUTES in
+  // ── Tasks (tasks.*, MOBILE-ADAPT), plain REST paths (EXTRA_METHOD_ROUTES in
   //    src/lib/goodvibes.ts), not the `/api/control-plane/methods/{id}/invoke`
   //    tunnel, so they need their own registration like calendar/knowledge above.
   //    tasks.create posts to the legacy `/task` path with no `/api` segment.

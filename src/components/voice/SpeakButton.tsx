@@ -1,5 +1,5 @@
 /**
- * SpeakButton — read an assistant reply aloud through the streaming TTS route.
+ * SpeakButton, read an assistant reply aloud through the streaming TTS route.
  *
  * Honest states, no dead controls:
  *   - no configured voice provider  -> disabled, with the bring-your-own-key refusal.
@@ -38,7 +38,7 @@ export function SpeakButton({ messageId, text }: SpeakButtonProps) {
         type="button"
         className="voice-speak-btn voice-unavailable"
         title={reason}
-        aria-label={`Read aloud unavailable — ${reason}`}
+        aria-label={`Read aloud unavailable, ${reason}`}
         disabled
       >
         <VolumeX size={13} aria-hidden />
@@ -51,8 +51,8 @@ export function SpeakButton({ messageId, text }: SpeakButtonProps) {
       <button
         type="button"
         className="voice-speak-btn is-loading"
-        title="Preparing spoken reply — click to cancel"
-        aria-label="Preparing spoken reply — click to cancel"
+        title="Preparing spoken reply: click to cancel"
+        aria-label="Preparing spoken reply: click to cancel"
         onClick={stop}
       >
         <Loader size={13} aria-hidden className="voice-spin" />

@@ -1,5 +1,5 @@
 /**
- * KnowledgeView — the W8 honesty fix: the Knowledge Map panel used to dump
+ * KnowledgeView, the W8 honesty fix: the Knowledge Map panel used to dump
  * DataBlock's raw <pre>{JSON}</pre> branch regardless of the daemon's
  * "766 jobs ran / 0 nodes" activity signal. This covers that the map now
  * renders through KnowledgeMap (an svg <img>, or an honest named empty
@@ -89,7 +89,7 @@ afterEach(() => {
   };
 });
 
-describe('KnowledgeView — the Knowledge Map panel never dumps raw JSON', () => {
+describe('KnowledgeView: the Knowledge Map panel never dumps raw JSON', () => {
   test('a genuinely empty base (0 jobs, 0 nodes) says "No knowledge indexed yet", not a <pre> dump', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('No knowledge indexed yet'));
@@ -115,7 +115,7 @@ describe('KnowledgeView — the Knowledge Map panel never dumps raw JSON', () =>
     await waitFor(() => Boolean(el.querySelector('.knowledge-map-render img')));
     const mapPanel = el.querySelector('.knowledge-map-render');
     expect(mapPanel?.querySelector('img')).toBeTruthy();
-    // The raw JSON is demoted behind "View raw" — not present in the map panel by default
+    // The raw JSON is demoted behind "View raw", not present in the map panel by default
     // (the separate Knowledge Status diagnostic block below is untouched by this brief).
     expect(mapPanel?.querySelector('pre')).toBeFalsy();
     unmount();

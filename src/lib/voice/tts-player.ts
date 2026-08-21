@@ -1,17 +1,17 @@
 /**
- * tts-player.ts — the Web Audio playback engine for spoken replies.
+ * tts-player.ts, the Web Audio playback engine for spoken replies.
  *
  * ONE SINK, DRAIN-NOT-ABORT. The TUI's diagnosed spoken-output defects were head-clip
  * and truncation caused by tearing down and rebuilding the audio path per chunk. This
  * player avoids that class by design: a single long-lived sink per spoken reply schedules
  * each segment's decoded buffer back-to-back at a running start time, so segments play
  * gaplessly with no per-chunk restart, and a natural finish DRAINS (lets the last buffer
- * play out) rather than aborting. Only a deliberate Stop aborts — instantly.
+ * play out) rather than aborting. Only a deliberate Stop aborts, instantly.
  *
  * The engine is a small observable singleton (`ttsEngine`): starting a new reply
  * interrupts any reply already playing, so at most one voice is ever heard. It is
- * UI-agnostic and fully injectable — the AudioSink and the request scheduler are passed
- * in — so tests drive it with a fake sink and never touch real audio hardware.
+ * UI-agnostic and fully injectable, the AudioSink and the request scheduler are passed
+ * in, so tests drive it with a fake sink and never touch real audio hardware.
  */
 
 import { scheduleTtsRequests, type TtsRun, type TtsScheduleOptions } from './request-policy';
@@ -28,7 +28,7 @@ export interface AudioSink {
   close(): Promise<void>;
 }
 
-/** Minimal shape of the parts of AudioContext this player uses — declared locally so the
+/** Minimal shape of the parts of AudioContext this player uses, declared locally so the
  * module type-checks without DOM `lib` assumptions and so tests can substitute it. */
 interface MinimalAudioContext {
   readonly currentTime: number;
@@ -59,10 +59,10 @@ export function canPlayAudio(): boolean {
 }
 
 /**
- * WebAudioSink — the real gapless sink. Decodes each buffer and schedules it at
+ * WebAudioSink, the real gapless sink. Decodes each buffer and schedules it at
  * max(now, nextStart), advancing nextStart by the decoded duration so consecutive
  * segments abut with no gap and no re-init. Requires a user gesture to have created the
- * context (browser autoplay policy) — the caller creates it inside the click handler.
+ * context (browser autoplay policy), the caller creates it inside the click handler.
  */
 export class WebAudioSink implements AudioSink {
   private readonly ctx: MinimalAudioContext;
@@ -111,7 +111,7 @@ export class WebAudioSink implements AudioSink {
         source.onended = null;
         source.stop();
       } catch {
-        /* a source that never started throws on stop — ignore */
+        /* a source that never started throws on stop, ignore */
       }
     }
     this.sources.clear();
@@ -140,7 +140,7 @@ export interface TtsPlaybackState {
 }
 
 export interface TtsSpeakRequest {
-  /** The message id — used so the UI knows which message is speaking. */
+  /** The message id, used so the UI knows which message is speaking. */
   readonly id: string;
   /** The coalesced segments (from coalesceForSpeech). */
   readonly segments: readonly string[];
@@ -150,7 +150,7 @@ export interface TtsSpeakRequest {
   readonly createSink?: () => AudioSink;
   /** Inject the scheduler (default scheduleTtsRequests). */
   readonly schedule?: typeof scheduleTtsRequests;
-  /** Extra request-policy options (concurrency/retry) — merged over the defaults. */
+  /** Extra request-policy options (concurrency/retry), merged over the defaults. */
   readonly scheduleOptions?: TtsScheduleOptions;
 }
 

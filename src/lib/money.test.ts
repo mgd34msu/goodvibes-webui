@@ -20,7 +20,7 @@ describe('isMoneyField', () => {
   });
 });
 
-describe('parseMoneyAmountInput — plain amounts, no unit conversion', () => {
+describe('parseMoneyAmountInput: plain amounts, no unit conversion', () => {
   test('a whole number is returned exactly as typed', () => {
     expect(parseMoneyAmountInput('100')).toBe(100);
     expect(parseMoneyAmountInput('50')).toBe(50);
@@ -59,7 +59,7 @@ describe('parseMoneyAmountInput — plain amounts, no unit conversion', () => {
   });
 });
 
-describe('formatMoneyAmountValue — the stored value as-is, never scaled', () => {
+describe('formatMoneyAmountValue: the stored value as-is, never scaled', () => {
   test('renders a whole number and a decimal exactly', () => {
     expect(formatMoneyAmountValue(100)).toBe('100');
     expect(formatMoneyAmountValue(19.99)).toBe('19.99');
@@ -71,7 +71,7 @@ describe('formatMoneyAmountValue — the stored value as-is, never scaled', () =
   });
 });
 
-describe('major <-> minor unit round trip — exact, no float drift', () => {
+describe('major <-> minor unit round trip: exact, no float drift', () => {
   // Representative values including ones that break naive `Number(x) * 100` /
   // `/ 100` float math (0.1, 0.29 famously do not survive that round trip
   // exactly on IEEE 754 doubles).
@@ -119,7 +119,7 @@ describe('major <-> minor unit round trip — exact, no float drift', () => {
   });
 });
 
-describe('majorTextToMinorUnits — rejects malformed input honestly', () => {
+describe('majorTextToMinorUnits: rejects malformed input honestly', () => {
   test('rejects empty, non-numeric, negative, and over-precise input', () => {
     expect(() => majorTextToMinorUnits('')).toThrow(InvalidMoneyInputError);
     expect(() => majorTextToMinorUnits('abc')).toThrow(InvalidMoneyInputError);
@@ -134,14 +134,14 @@ describe('majorTextToMinorUnits — rejects malformed input honestly', () => {
   });
 });
 
-describe('minorUnitsToMajorText — rejects a value it cannot represent honestly', () => {
+describe('minorUnitsToMajorText: rejects a value it cannot represent honestly', () => {
   test('rejects negative and non-integer minor-unit values rather than fabricating an amount', () => {
     expect(() => minorUnitsToMajorText(-1)).toThrow(InvalidMoneyInputError);
     expect(() => minorUnitsToMajorText(1.5)).toThrow(InvalidMoneyInputError);
   });
 });
 
-describe('minorUnitExponent — mirrors the SDK exponent table exactly', () => {
+describe('minorUnitExponent: mirrors the SDK exponent table exactly', () => {
   test('defaults to 2 decimal places for an ordinary currency', () => {
     expect(minorUnitExponent('USD')).toBe(2);
     expect(minorUnitExponent('GBP')).toBe(2);
@@ -166,13 +166,13 @@ describe('minorUnitExponent — mirrors the SDK exponent table exactly', () => {
   });
 });
 
-describe('currency-exponent-aware conversion — the real bug a hardcoded 2 decimals would cause', () => {
-  test('JPY: a typed whole amount converts 1:1 — "5000" must stay 5000, never become 500000', () => {
+describe('currency-exponent-aware conversion: the real bug a hardcoded 2 decimals would cause', () => {
+  test('JPY: a typed whole amount converts 1:1: "5000" must stay 5000, never become 500000', () => {
     expect(majorTextToMinorUnits('5000', 'JPY')).toBe(5000);
     expect(minorUnitsToMajorText(5000, 'JPY')).toBe('5000');
   });
 
-  test('JPY rejects a fractional amount — there is no minor unit to hold it', () => {
+  test('JPY rejects a fractional amount: there is no minor unit to hold it', () => {
     expect(() => majorTextToMinorUnits('50.5', 'JPY')).toThrow(InvalidMoneyInputError);
   });
 

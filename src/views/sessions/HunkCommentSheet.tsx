@@ -1,5 +1,5 @@
 /**
- * HunkCommentSheet — the touch-first composer for a comment attached to ONE diff hunk.
+ * HunkCommentSheet, the touch-first composer for a comment attached to ONE diff hunk.
  *
  * Mirrors ConfirmSheet's idiom (bottom sheet on a phone, centered dialog on desktop,
  * focus trap, Escape/backdrop cancel) but carries a textarea instead of a yes/no: it
@@ -23,7 +23,7 @@ export interface HunkCommentSheetProps {
   hunk: DiffHunk;
   /** Trust-in-labels: how/when the diff was captured (e.g. the checkpoint label + age). */
   capturedLabel: string;
-  /** 'steer' while an agent is bound, else 'followUp' (queues a turn) — mirrors SteerComposer. */
+  /** 'steer' while an agent is bound, else 'followUp' (queues a turn), mirrors SteerComposer. */
   mode: 'steer' | 'followUp';
   pending: boolean;
   error?: string | null;
@@ -116,7 +116,7 @@ export function HunkCommentSheet({
           <p className="hunk-sheet__mode" role="status">
             {mode === 'steer'
               ? 'Sends as a mid-turn steer to the bound agent.'
-              : 'No active agent — queues a follow-up turn.'}
+              : 'No active agent: queues a follow-up turn.'}
           </p>
           {error && <p className="hunk-sheet__error" role="alert">{error}</p>}
           <div className="hunk-sheet__actions">

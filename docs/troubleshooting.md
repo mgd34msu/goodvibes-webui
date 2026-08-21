@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## Dev Server Is Not Reachable
+## Dev server is not reachable
 
 Check the Vite bind address:
 
@@ -30,7 +30,7 @@ GOODVIBES_WEB_HOST=0.0.0.0 GOODVIBES_WEB_PORT=3423 bun run dev
 If the page is reachable locally but not from another LAN device, check firewall
 rules and confirm traffic to `3423/tcp` is allowed from the local network.
 
-## Page Loads but API Calls Fail
+## Page loads but API calls fail
 
 Check daemon status:
 
@@ -48,7 +48,7 @@ ss -ltnp | rg ':3421'
 If the daemon binds to `0.0.0.0`, the Vite proxy should still connect to
 `127.0.0.1`. Do not use `0.0.0.0` as a browser or proxy target URL.
 
-## Auth Fails
+## Auth fails
 
 Expected auth paths:
 
@@ -66,7 +66,7 @@ If token auth works but username/password fails, inspect local auth status from
 Admin after authenticating with a valid token. Check that the daemon reports the
 expected user store and username list.
 
-## Chat Does Not Show New Messages Immediately
+## Chat does not show new messages immediately
 
 The expected send behavior is:
 
@@ -98,7 +98,7 @@ localStorage.removeItem('goodvibes.webui.companionSessions')
 
 Then refresh the page.
 
-## Chat Stores User Message but No Assistant Reply
+## Chat stores user message but no assistant reply
 
 Plain WebUI chat must use companion chat:
 
@@ -114,7 +114,7 @@ Do not send plain chat through:
 If a user message persists without a reply, check whether the send path used the
 wrong session API or whether companion chat SSE returned `turn.error`.
 
-## Provider or Model Is Rejected
+## Provider or model is rejected
 
 Provider/model routing must use daemon-valid provider/model semantics.
 
@@ -135,7 +135,7 @@ curl -sS http://127.0.0.1:3421/api/models/current
 Use authenticated access where required. Runtime provider ids such as
 `openai-subscriber` may differ from catalog provider prefixes such as `openai`.
 
-## Attachments Fail
+## Attachments fail
 
 Attachment send flow:
 
@@ -152,7 +152,7 @@ Common causes:
 Unknown artifacts should surface as daemon errors instead of silently dropping
 the attachment.
 
-## Knowledge Shows Home Assistant or Home Graph Records
+## Knowledge shows Home Assistant or Home Graph records
 
 Regular Knowledge/Wiki should use regular Knowledge routes only. WebUI should
 not call Home Graph routes and should not add client-side Home Graph filters.
@@ -165,7 +165,7 @@ If Home Graph records appear in regular Knowledge by default:
 
 Do not "fix" this by filtering text, tags, or ids in WebUI.
 
-## Vite Still Serves Old Code
+## Vite still serves old code
 
 Clear optimized deps and restart:
 

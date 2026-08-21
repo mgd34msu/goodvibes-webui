@@ -1,5 +1,5 @@
 /**
- * FleetSessionActions — the wire-backed session actions for a fleet process-tree node
+ * FleetSessionActions, the wire-backed session actions for a fleet process-tree node
  * that has a live sessionRef.sessionId: a compact steer input (when steerable) and a
  * "detach this browser" action (whenever a session is attached, regardless of
  * steerable).
@@ -14,7 +14,7 @@
  * why an unattached detach is an honest no-op).
  *
  * Only rendered for a node where lib/fleet.ts's wireBackedActions(node) includes
- * 'steer' and/or 'detach' — never a disabled ghost control for a node this client
+ * 'steer' and/or 'detach', never a disabled ghost control for a node this client
  * cannot act on.
  */
 
@@ -28,9 +28,9 @@ import { useToast } from '../../lib/toast';
 
 export interface FleetSessionActionsProps {
   sessionId: string;
-  /** Show the steer input — only true when the node is 'agent' + capabilities.steerable. */
+  /** Show the steer input, only true when the node is 'agent' + capabilities.steerable. */
   steerable: boolean;
-  /** Show the detach action — true for any node with a live sessionRef. */
+  /** Show the detach action, true for any node with a live sessionRef. */
   detachable: boolean;
 }
 
@@ -55,7 +55,7 @@ export function FleetSessionActions({ sessionId, steerable, detachable }: FleetS
   const detach = useMutation({
     mutationFn: () => sdk.operator.sessions.detach(sessionId, WEBUI_SURFACE_ID),
     onSuccess: async () => {
-      toast({ title: 'Detached — this browser stops receiving live updates for this session', tone: 'info' });
+      toast({ title: 'Detached: this browser stops receiving live updates for this session', tone: 'info' });
       await queryClient.invalidateQueries({ queryKey: queryKeys.fleet });
     },
     onError: (error: unknown) => {
@@ -100,7 +100,7 @@ export function FleetSessionActions({ sessionId, steerable, detachable }: FleetS
           type="button"
           className="fleet-steer-box__detach"
           disabled={detach.isPending}
-          title="Stop this browser from receiving live updates for this session — does not stop the process, and other attached surfaces are unaffected"
+          title="Stop this browser from receiving live updates for this session, does not stop the process, and other attached surfaces are unaffected"
           onClick={() => detach.mutate()}
         >
           <Unlink size={13} /> {detach.isPending ? 'Detaching…' : 'Detach this browser'}

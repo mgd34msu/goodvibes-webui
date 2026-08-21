@@ -1,10 +1,10 @@
 /**
- * MoneyField — the typed editor for the payments budget's `unit: 'money'`
+ * MoneyField, the typed editor for the payments budget's `unit: 'money'`
  * keys (SDK 2.0.5's money-value.ts).
  *
  * The schema stores these as a plain amount of `payments.currency`, written
  * exactly the way a person types it: typing "100" stores `100`, typing
- * "19.99" stores `19.99`. There is no minor-unit conversion here — what is
+ * "19.99" stores `19.99`. There is no minor-unit conversion here, what is
  * shown is what is stored, and what is typed is what gets sent, modulo a
  * tolerated leading currency symbol ("$100") which lib/money.ts strips before
  * the value is committed.

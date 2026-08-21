@@ -3,24 +3,24 @@ import { sdk, type DaemonReceipt } from '../lib/goodvibes';
 import { takeRelayPairingCorruptionNotice } from '../lib/relay-pairing';
 
 /**
- * useDaemonReceipts — consume the daemon's undelivered receipts exactly once
+ * useDaemonReceipts, consume the daemon's undelivered receipts exactly once
  * per connect and expose them as dismissible notices.
  *
  * The daemon holds a small queue of one-line receipts (a crash restart, a
- * self-update, a migration) and hands them over — marking them delivered — only
+ * self-update, a migration) and hands them over, marking them delivered, only
  * when control.status is called with { receipts: 'consume' }. This hook fires
  * that consuming call on the ATTACH EDGE (the transition into connected +
  * signed-in), never on the recurring health poll, so plain status reads stay
  * receipt-neutral and each receipt surfaces exactly once.
  *
  * Belt-and-suspenders: every id ever surfaced is remembered, so a dismissed
- * receipt — or one seen on a prior connect — never re-appears even if a
+ * receipt, or one seen on a prior connect, never re-appears even if a
  * reconnect re-consumes. A failed consume marks nothing delivered daemon-side,
  * so it is retried on the next attach edge.
  *
  * ALSO carries any pending LOCAL notice (relay-pairing.ts's
- * takeRelayPairingCorruptionNotice — a corrupt stored record this device just
- * discarded) — consumed once on mount, independent of connection/sign-in state,
+ * takeRelayPairingCorruptionNotice, a corrupt stored record this device just
+ * discarded), consumed once on mount, independent of connection/sign-in state,
  * since it describes something this browser already did to itself rather than
  * anything the daemon reported.
  */

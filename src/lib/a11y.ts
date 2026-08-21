@@ -5,26 +5,9 @@
 import type React from 'react';
 import { useId } from 'react';
 
-let _counter = 0;
-
-/**
- * Generate a stable unique DOM id for aria-labelledby / aria-describedby pairs.
- * Example: `const id = genId('dialog')` → "dialog-1"
- *
- * @deprecated NON-SSR-SAFE: uses a module-level mutable counter that is
- * shared across the entire process. This counter is NOT reset between
- * server renders, which means ids will differ between server and client
- * HTML and cause hydration mismatches. Prefer `useGenId` (below) in all
- * component code. Reserve `genId` only for non-component utilities that
- * genuinely cannot use a hook (e.g. plain functions, class methods).
- */
-export function genId(prefix: string): string {
-  return `${prefix}-${++_counter}`;
-}
-
 /**
  * React hook that generates a stable, hydration-safe unique id using
- * React's built-in `useId`. Drop-in replacement for `genId` in components.
+ * React's built-in `useId`. Use this in all component code needing a stable id.
  *
  * @example
  * function Dialog({ title }: { title: string }) {
@@ -45,7 +28,7 @@ export function useGenId(prefix: string): string {
 export const SR_ONLY_CLASS = 'sr-only';
 
 /**
- * Inline style equivalent of .sr-only — use when you cannot apply a class.
+ * Inline style equivalent of .sr-only, use when you cannot apply a class.
  */
 export const srOnlyStyle: React.CSSProperties = {
   position: 'absolute',

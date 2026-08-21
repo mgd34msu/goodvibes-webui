@@ -1,11 +1,11 @@
 /**
- * approval-action-link.ts — the app side of a push "Allow"/"Deny" tap.
+ * approval-action-link.ts, the app side of a push "Allow"/"Deny" tap.
  *
  * When the operator taps an action button on an approval notification, the
  * service worker opens the app at `/?view=approvals-tasks#approval-action=<a>&
  * approval-id=<id>` (see notification-link.ts). This module reads that fragment
  * and scrubs it, so the authenticated ApprovalsTasksView can run the real
- * approvals.approve/deny call — the mutation the service worker itself cannot
+ * approvals.approve/deny call, the mutation the service worker itself cannot
  * make. Pure over `window.location`, unit-testable, and consistent with the
  * pairing hand-off's fragment discipline.
  */

@@ -1,5 +1,5 @@
 /**
- * CiWatchesView — the "open fix session" affordance. A watch that auto-starts a
+ * CiWatchesView, the "open fix session" affordance. A watch that auto-starts a
  * fix session on failure returns the started session's id on the ci.watches.run
  * verb result; the view offers to open that session and calls onOpenSession with
  * exactly that id. When no fix session started, no affordance is shown.
@@ -82,7 +82,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('CiWatchesView — open fix session', () => {
+describe('CiWatchesView: open fix session', () => {
   test('a run that started a fix session offers to open it and calls onOpenSession with the verb-result id', async () => {
     runResult = {
       report: { repo: 'acme/example', ref: 'main', overall: 'failed', jobs: [], violations: [], checkedAt: 1 },
@@ -140,7 +140,7 @@ describe('CiWatchesView — open fix session', () => {
     clickByText(el, 'Check now');
     await waitFor(() => Boolean(el.querySelector('.ci-report')));
 
-    expect(el.textContent).toContain('The fix-session could not start — background automation is disabled on this daemon');
+    expect(el.textContent).toContain('The fix-session could not start; background automation is disabled on this daemon');
     expect(el.textContent).not.toContain('A fix-session was started.');
     expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Open fix session'))).toBe(false);
     expect(opened).toEqual([]);

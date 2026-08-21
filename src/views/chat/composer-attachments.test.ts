@@ -1,6 +1,6 @@
 /**
  * Unit tests for composer-attachments.ts.
- * Pure utility functions — no DOM, no React.
+ * Pure utility functions, no DOM, no React.
  */
 import { describe, expect, test } from 'bun:test';
 import {

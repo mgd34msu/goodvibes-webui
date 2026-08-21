@@ -1,5 +1,5 @@
 /**
- * provider-status.ts — honest per-provider health, derived from the real
+ * provider-status.ts, honest per-provider health, derived from the real
  * per-route freshness the wire returns (ProviderAuthRouteDescriptor.freshness),
  * never a decorative fallback.
  *
@@ -14,7 +14,7 @@
  * so the deriver works regardless of which query populated which field.
  *
  * This module is the ONLY place that turns route freshness into a provider
- * pill. `bestStatus` (src/lib/object.ts) stays untouched — it is a generic
+ * pill. `bestStatus` (src/lib/object.ts) stays untouched, it is a generic
  * fallback other RecordList consumers rely on and must not gain
  * provider-specific meaning.
  */
@@ -50,18 +50,18 @@ export interface ProviderStatus {
 //
 // FORWARD-COMPAT / UNKNOWN-FRESHNESS RULING (F7f): normalizeRoute maps any freshness
 // value this client build does not recognize (a future daemon could add one) to
-// 'status unavailable' when the route IS configured, or 'unconfigured' when it isn't —
+// 'status unavailable' when the route IS configured, or 'unconfigured' when it isn't,
 // NEVER silently to 'healthy'. So a new daemon freshness value can never masquerade as
 // a clean pill. The remaining question is the ROLL-UP: a configured route whose
 // freshness we can't classify must not be silently excluded either (that would let a
 // provider read 'healthy' while holding a route we can't vouch for). Ruling, weighed
-// against the honesty bar: SURFACE it — 'status unavailable' participates in worst-wins,
+// against the honesty bar: SURFACE it, 'status unavailable' participates in worst-wins,
 // ranked ABOVE healthy/pending ("we can't vouch for this") but BELOW the known-degraded
 // states expiring/expired (a known, actionable fault is genuinely more severe). It is
-// NOT relabelled as a fabricated 'warning' fault — 'status unavailable' is the honest
+// NOT relabelled as a fabricated 'warning' fault, 'status unavailable' is the honest
 // name for "health absent/unknown", so we keep it, we just stop hiding it.
 //
-// 'unconfigured' deliberately has no rank — a route reporting 'unconfigured' isn't a
+// 'unconfigured' deliberately has no rank, a route reporting 'unconfigured' isn't a
 // severity level, it's "this route isn't set up", handled separately below.
 const FRESHNESS_RANK: Record<string, number> = {
   healthy: 1,
@@ -133,7 +133,7 @@ function normalizeRoute(raw: unknown): ProviderRouteStatus {
  *   - Routes exist but every single one reports 'unconfigured' -> the whole
  *     provider is 'unconfigured' (a real, known state).
  *   - No route data at all (or an empty route list) -> 'status unavailable'
- *     (health is genuinely absent — distinct from 'unconfigured').
+ *     (health is genuinely absent, distinct from 'unconfigured').
  */
 export function deriveProviderStatus(record: unknown): ProviderStatus {
   const { configured, configuredVia } = extractConfigured(record);
@@ -156,12 +156,12 @@ export function deriveProviderStatus(record: unknown): ProviderStatus {
   };
 }
 
-/** Pill text — the freshness label itself, never a decorative fallback. */
+/** Pill text, the freshness label itself, never a decorative fallback. */
 export function providerStatusLabel(status: ProviderStatus): string {
   return status.freshness;
 }
 
-/** Header text — matched to the real `configured` flag, not the merged list record's flat (often-absent) copy of it. */
+/** Header text, matched to the real `configured` flag, not the merged list record's flat (often-absent) copy of it. */
 export function providerHeaderLabel(status: ProviderStatus): string {
   if (!status.configured) return 'not configured';
   return status.configuredVia ? `configured via ${status.configuredVia}` : 'configured';
@@ -171,7 +171,7 @@ export function providerHeaderLabel(status: ProviderStatus): string {
 // Shared credential-status consumption (secret-free, honest-degrade)
 // ---------------------------------------------------------------------------
 
-/** One credential's status metadata from the daemon's shared store — never bytes. */
+/** One credential's status metadata from the daemon's shared store, never bytes. */
 export interface CredentialStatusEntry {
   readonly key: string;
   readonly configured: boolean;
@@ -189,7 +189,7 @@ export type CredentialAvailability =
  * degrade contract (see the 1.0.1 cross-surface credential status entry in
  * CHANGELOG.md): a 503 `CREDENTIAL_STORE_UNAVAILABLE`, a `METHOD_NOT_FOUND`
  * from an older daemon, or any transport failure yields `available: false`
- * with a plain reason — NEVER a fabricated "configured".
+ * with a plain reason, NEVER a fabricated "configured".
  */
 export function deriveCredentialAvailability(outcome: { ok: true; value: unknown } | { ok: false; error: unknown }): CredentialAvailability {
   if (!outcome.ok) {

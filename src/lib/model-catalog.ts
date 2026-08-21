@@ -1,25 +1,25 @@
 /**
- * model-catalog.ts — multi-target model routing over the real wire shapes.
+ * model-catalog.ts, multi-target model routing over the real wire shapes.
  *
  * GROUNDED (verified against goodvibes-sdk source, not guessed):
  *   - The "current model" concept (models.current.get/models.current.set, PATCH
- *     /api/models/current) is a SINGLE global slot — there is no multi-target
+ *     /api/models/current) is a SINGLE global slot, there is no multi-target
  *     verb on the wire. Multi-target routing (main/helper/tool/tts/embeddings)
  *     is implemented via separate shared config keys, read/written through
  *     config.get/config.set (packages/sdk/src/platform/config/schema-domain-core.ts):
- *       main       -> models.current.set (PATCH /api/models/current) — NOT config.set;
+ *       main       -> models.current.set (PATCH /api/models/current), NOT config.set;
  *                     this is the only target with a dedicated wire verb, and it
  *                     validates the provider is configured server-side. Routing
  *                     the main target through config.set('provider.model', ...)
  *                     directly would skip that validation and never update the
- *                     provider registry's live current-model state — genuinely
+ *                     provider registry's live current-model state, genuinely
  *                     wrong, not just inconsistent.
  *       helper     -> helper.globalProvider + helper.globalModel (+ helper.enabled)
  *       tool       -> tools.llmProvider + tools.llmModel (+ tools.llmEnabled)
  *       tts        -> tts.llmProvider + tts.llmModel (LLM route for spoken-output
- *                     turns — distinct from tts.provider/voice/speed, the AUDIO
+ *                     turns, distinct from tts.provider/voice/speed, the AUDIO
  *                     synthesis settings VOICE-WEBUI's voice-config surface owns)
- *       embeddings -> provider.embeddingProvider (a provider id only — embeddings
+ *       embeddings -> provider.embeddingProvider (a provider id only, embeddings
  *                     have no model concept on this wire)
  *     Target labels below ("Main Chat", "Helper Model", "Tool LLM", "TTS LLM",
  *     "Embeddings") match the TUI's model-workspace.ts targetLabelFor() exactly,
@@ -29,11 +29,11 @@
  *     genuinely populates `tier` and `pricing` {inputPerMillionTokens,
  *     outputPerMillionTokens, currency} per model when the provider registry's
  *     pricing catalog has the data (packages/sdk/src/platform/providers/
- *     runtime-snapshot.ts toModelSnapshot()) — this is real, live wire data.
+ *     runtime-snapshot.ts toModelSnapshot()), this is real, live wire data.
  *     GET /api/models (models.list) does NOT carry tier/pricing at all
  *     (packages/sdk/src/platform/daemon/http/model-routes.ts's
  *     ProviderModelEntry projects only id/registryKey/provider/label/
- *     contextWindow) — so this module reads models from the providers.list/get
+ *     contextWindow), so this module reads models from the providers.list/get
  *     response, not the models.list catalog, specifically to get honest price
  *     data.
  *
@@ -46,7 +46,7 @@
  *     naming parity with the TUI's model picker, but hasAnyCapabilityData /
  *     hasAnyQualityTierData let a caller detect there is really nothing to
  *     filter/group by today and render an honest disabled state instead of a
- *     control that silently filters nothing — the same forward-compat honesty
+ *     control that silently filters nothing, the same forward-compat honesty
  *     ruling provider-status.ts's FRESHNESS_RANK comment documents (a future
  *     daemon adding this data should "just work" without a code change here).
  */
@@ -60,7 +60,7 @@ export type ModelTarget = 'main' | 'helper' | 'tool' | 'tts' | 'embeddings';
 
 export const MODEL_TARGETS: readonly ModelTarget[] = ['main', 'helper', 'tool', 'tts', 'embeddings'];
 
-/** Exact labels from the TUI's model-workspace.ts targetLabelFor() — naming parity. */
+/** Exact labels from the TUI's model-workspace.ts targetLabelFor(), naming parity. */
 export const TARGET_LABELS: Record<ModelTarget, string> = {
   main: 'Main Chat',
   helper: 'Helper Model',
@@ -69,7 +69,7 @@ export const TARGET_LABELS: Record<ModelTarget, string> = {
   embeddings: 'Embeddings',
 };
 
-/** True for the one target with no per-model concept — only a provider id. */
+/** True for the one target with no per-model concept, only a provider id. */
 export function targetHasNoModelConcept(target: ModelTarget): boolean {
   return target === 'embeddings';
 }
@@ -124,7 +124,7 @@ function normalizeCatalogModel(providerId: string, raw: unknown): CatalogModel |
 }
 
 /**
- * Read models from a providers.list()/providers.get() response — the source
+ * Read models from a providers.list()/providers.get() response, the source
  * that genuinely carries tier/pricing. Tolerant of both the list envelope
  * ({ providers: [...] }) and a single provider record.
  */
@@ -173,8 +173,8 @@ export function configuredProviderIdsFromProvidersResponse(value: unknown): Set<
 }
 
 // ---------------------------------------------------------------------------
-// Family detection — mirrors the TUI's model-picker-types.ts FAMILY_PATTERNS
-// exactly, for cross-surface grouping parity. Purely a label/id heuristic —
+// Family detection, mirrors the TUI's model-picker-types.ts FAMILY_PATTERNS
+// exactly, for cross-surface grouping parity. Purely a label/id heuristic,
 // no wire dependency, so it works with whatever this client build already has.
 // ---------------------------------------------------------------------------
 
@@ -217,7 +217,7 @@ export function detectFamily(model: CatalogModel): ModelFamily {
 }
 
 // ---------------------------------------------------------------------------
-// Filters — TUI vocabulary (model-picker-types.ts). 'all'/'none' are always
+// Filters, TUI vocabulary (model-picker-types.ts). 'all'/'none' are always
 // honest no-ops; the rest are backed by real per-model tier data (see the
 // module doc comment for what is/isn't wire-served today).
 // ---------------------------------------------------------------------------
@@ -239,14 +239,14 @@ export function hasAnyTierData(models: readonly CatalogModel[]): boolean {
   return models.some((model) => Boolean(model.tier));
 }
 
-/** Always false today (see module doc comment) — kept as a function, not a constant,
+/** Always false today (see module doc comment), kept as a function, not a constant,
  *  so a future daemon that starts projecting capability flags is picked up without
  *  a code change at every call site once this is wired to real data. */
 export function hasAnyCapabilityData(_models: readonly CatalogModel[]): boolean {
   return false;
 }
 
-/** Always false today — see hasAnyCapabilityData. */
+/** Always false today, see hasAnyCapabilityData. */
 export function hasAnyQualityTierData(_models: readonly CatalogModel[]): boolean {
   return false;
 }
@@ -281,7 +281,7 @@ export interface ModelGroup {
 
 /** Groups honest for 'provider'/'family'/'pricingTier'; 'qualityTier' has no wire
  *  data (see hasAnyQualityTierData) so callers should disable that mode rather than
- *  call this with it — passed through here as a single "Ungrouped" bucket if it is. */
+ *  call this with it, passed through here as a single "Ungrouped" bucket if it is. */
 export function groupModels(models: readonly CatalogModel[], groupBy: GroupByMode): ModelGroup[] {
   const buckets = new Map<string, CatalogModel[]>();
   const order: string[] = [];
@@ -307,7 +307,7 @@ export function groupModels(models: readonly CatalogModel[], groupBy: GroupByMod
 }
 
 // ---------------------------------------------------------------------------
-// Target routing — read the current selection for a target, and build the
+// Target routing, read the current selection for a target, and build the
 // config.set entries a "Use" action should write.
 // ---------------------------------------------------------------------------
 
@@ -324,7 +324,7 @@ export interface TargetRouting {
 }
 
 /**
- * config — the flat config.get() object (config manager's getAll()). currentModel —
+ * config, the flat config.get() object (config manager's getAll()). currentModel,
  * models.current.get()'s `model` field ({ registryKey, provider, id } | null), only used
  * for the 'main' target since it is not itself a config key.
  */
@@ -372,7 +372,7 @@ export function readTargetRouting(
       configuredNote: !provider || !model ? 'Empty uses the active chat provider/model for spoken-output turns.' : undefined,
     };
   }
-  // embeddings — no model concept.
+  // embeddings, no model concept.
   const provider = firstString(readPath(config, ['provider']), ['embeddingProvider']) || 'hashed-local';
   return {
     target,
@@ -381,7 +381,7 @@ export function readTargetRouting(
     unset: false,
     provider,
     model: '',
-    configuredNote: 'Embedding provider only — this target has no model selection.',
+    configuredNote: 'Embedding provider only; this target has no model selection.',
   };
 }
 
@@ -413,7 +413,7 @@ export function buildTargetWriteEntries(
       ['tts.llmModel', modelId],
     ];
   }
-  // embeddings — provider id only, no model.
+  // embeddings, provider id only, no model.
   return [['provider.embeddingProvider', providerId]];
 }
 

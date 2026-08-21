@@ -1,20 +1,20 @@
 /**
- * voice-config.ts — the shared voice posture the web UI reads before speaking or
+ * voice-config.ts, the shared voice posture the web UI reads before speaking or
  * listening.
  *
  * Two honest reads, both defensive (a daemon newer or older than this client may add or
- * omit fields — parse leniently, never assume a shape):
+ * omit fields, parse leniently, never assume a shape):
  *
- *   deriveVoiceAvailability(voice.status) — is a provider actually configured for TTS
+ *   deriveVoiceAvailability(voice.status), is a provider actually configured for TTS
  *   (read-aloud) and for STT (dictation)? Drives the honest "no provider configured"
  *   refusal, worded as a bring-your-own-key pointer, straight from the status the daemon
- *   reports — never a stale confident "on".
+ *   reports, never a stale confident "on".
  *
- *   readSharedVoiceConfig(config.get) — the SHARED tts.provider / tts.voice / tts.speed
+ *   readSharedVoiceConfig(config.get), the SHARED tts.provider / tts.voice / tts.speed
  *   defaults, so the browser speaks in the same voice the TUI does. There is one voice
- *   config across terminal, desktop, and agent — the shared, surface-root-independent
+ *   config across terminal, desktop, and agent, the shared, surface-root-independent
  *   config tier (~/.goodvibes/shared/settings.json) every surface's ConfigManager
- *   resolves tts.* from — and this reads it, it does not invent a per-surface one. See
+ *   resolves tts.* from, and this reads it, it does not invent a per-surface one. See
  *   VoiceSettings.tsx's header comment for the full picture.
  */
 
@@ -87,21 +87,21 @@ export function deriveVoiceAvailability(status: unknown): VoiceAvailability {
   };
 }
 
-/** The honest, bring-your-own-key refusal shown where read-aloud is unavailable — no
+/** The honest, bring-your-own-key refusal shown where read-aloud is unavailable, no
  * configured provider offers spoken output. */
 export const TTS_UNAVAILABLE_MESSAGE =
   'Read-aloud needs a voice provider with an API key. Add one (for example ElevenLabs or OpenAI) in the daemon config to hear replies spoken.';
 
-/** The honest refusal shown where dictation is unavailable — no configured STT provider. */
+/** The honest refusal shown where dictation is unavailable, no configured STT provider. */
 export const STT_UNAVAILABLE_MESSAGE =
   'Dictation needs a speech-to-text provider with an API key. Add one (for example OpenAI, Deepgram, or Google) in the daemon config to speak your message.';
 
 export interface SharedVoiceConfig {
-  /** tts.provider — the shared default spoken-output provider. */
+  /** tts.provider, the shared default spoken-output provider. */
   readonly provider: string;
-  /** tts.voice — the shared default voice id. */
+  /** tts.voice, the shared default voice id. */
   readonly voice: string;
-  /** tts.speed — the shared playback speed multiplier (0.25–4.0). */
+  /** tts.speed, the shared playback speed multiplier (0.25–4.0). */
   readonly speed?: number;
 }
 

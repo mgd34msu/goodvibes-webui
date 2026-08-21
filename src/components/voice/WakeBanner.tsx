@@ -1,9 +1,9 @@
 /**
- * WakeBanner — the `voice.wake.indicator: "banner"` marker.
+ * WakeBanner, the `voice.wake.indicator: "banner"` marker.
  *
  * The more prominent of the two indicators: a persistent strip across the top of
  * the shell while wake detection runs. There was no banner component for this, and
- * a transient toast was deliberately NOT reused — a toast dismisses itself, and an
+ * a transient toast was deliberately NOT reused, a toast dismisses itself, and an
  * indicator that disappears while the microphone is still open is the exact failure
  * the indicator row exists to prevent. So this is its own small persistent element,
  * following RelayOverflowBanner's `.banner` shape.

@@ -1,12 +1,12 @@
 /**
- * wake-chime.ts — the sound a confirmed wake makes.
+ * wake-chime.ts, the sound a confirmed wake makes.
  *
  * Audible confirmation is how a user knows the microphone acted; a silent wake is
  * the behaviour people distrust, which is why `voice.wake.activationSound`
  * defaults to "chime" rather than "none". A tab cannot read
  * `voice.wake.activationSoundPath` off the user's disk, so the settings resolver
  * has already downgraded a "custom" choice to "chime" and recorded that as a
- * limitation — this module only ever plays the built-in one.
+ * limitation, this module only ever plays the built-in one.
  *
  * Synthesised with two short oscillator notes rather than shipped as an audio
  * asset: it is 200 ms of two sine tones, and a bundled file would be a network

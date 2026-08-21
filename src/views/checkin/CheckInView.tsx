@@ -1,16 +1,16 @@
 /**
- * CheckInView — the proactive check-in configuration, its run receipts, and a
+ * CheckInView, the proactive check-in configuration, its run receipts, and a
  * manual run-now trigger (checkin.*).
  *
  * Single-column, phone-first: config display up top with an edit control (gated by a
- * confirm sheet — checkin.config.set can ENABLE proactive contact, so every save
+ * confirm sheet, checkin.config.set can ENABLE proactive contact, so every save
  * confirms, not just the enabling edit), a "run now" action showing the resulting
  * receipt inline, then the receipts list (newest first, from the wire) rendering each
- * outcome plainly — delivered / ran quiet / skipped-and-why / error — never collapsed
+ * outcome plainly, delivered / ran quiet / skipped-and-why / error, never collapsed
  * to a bare status dot.
  *
  * checkin.* emits no wire event yet (a standing gap shared with fleet.*, checkpoints.*,
- * ci.* — see queryKeys.checkinConfig/checkinReceipts), so freshness comes from
+ * ci.*, see queryKeys.checkinConfig/checkinReceipts), so freshness comes from
  * mutation-driven invalidation and a manual refresh, not realtime invalidation.
  */
 
@@ -33,15 +33,15 @@ type CheckinConfig = OperatorMethodOutput<'checkin.config.get'>['config'];
 type CheckinReceipt = OperatorMethodOutput<'checkin.receipts.list'>['receipts'][number];
 type CheckinRunResult = OperatorMethodOutput<'checkin.run'>;
 
-/** Plain outcome labels — the receipts.list enum (skipped-disabled/skipped-quiet-hours)
+/** Plain outcome labels, the receipts.list enum (skipped-disabled/skipped-quiet-hours)
  * and the checkin.run enum (a generic 'skipped') are distinct wire shapes; this handles
  * both rather than assuming one covers the other. */
 function outcomeLabel(outcome: string): string {
   switch (outcome) {
     case 'delivered': return 'Delivered';
-    case 'quiet': return 'Ran quiet — nothing worth surfacing';
-    case 'skipped-disabled': return 'Skipped — check-in is disabled';
-    case 'skipped-quiet-hours': return 'Skipped — within quiet hours';
+    case 'quiet': return 'Ran quiet: nothing worth surfacing';
+    case 'skipped-disabled': return 'Skipped: check-in is disabled';
+    case 'skipped-quiet-hours': return 'Skipped: within quiet hours';
     case 'skipped': return 'Skipped';
     case 'error': return 'Error';
     default: return outcome;
@@ -84,13 +84,13 @@ function ConfigEditForm({
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    // Every save confirms — this can ENABLE proactive contact (the daemon reaching out
+    // Every save confirms, this can ENABLE proactive contact (the daemon reaching out
     // on its own schedule), not just the specific edit that flips enabled on.
     const ok = await confirm.ask({
-      title: enabled ? 'Save — proactive check-ins will run' : 'Save check-in configuration',
+      title: enabled ? 'Save: proactive check-ins will run' : 'Save check-in configuration',
       description: enabled
         ? `The daemon will contact you via ${deliveryChannel || 'the configured channel'} on schedule "${cadence}", outside quiet hours "${quietHours}".`
-        : 'Check-ins remain disabled — no proactive contact will run.',
+        : 'Check-ins remain disabled: no proactive contact will run.',
       confirmLabel: 'Save',
       tone: enabled ? 'danger' : 'default',
     });

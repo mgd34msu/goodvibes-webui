@@ -1,5 +1,5 @@
 /**
- * wake-host.ts — the tab as a wake-word surface, end to end.
+ * wake-host.ts, the tab as a wake-word surface, end to end.
  *
  * These tests drive the REAL SDK engine, the REAL WakeListener, the REAL feature
  * pipeline and the REAL browser capture opener. The only things stubbed are the two
@@ -10,11 +10,11 @@
  * than a bookkeeping flag, because "the tab did not ask for the microphone" is a fact
  * about the browser API and nothing else:
  *
- *   1. DISABLED MEANS NO getUserMedia AT ALL — separately for `voice.wake.enabled`
+ *   1. DISABLED MEANS NO getUserMedia AT ALL, separately for `voice.wake.enabled`
  *      false and for `voice.wake.surfaces.webui` false. No permission prompt, no
  *      model download.
  *   2. A confirmed wake runs the whole chain: chime, utterance, `voice.stt` with a WAV
- *      artifact, transcript to the composer — or submitted, per `voice.wake.autoSubmit`.
+ *      artifact, transcript to the composer, or submitted, per `voice.wake.autoSubmit`.
  *   3. BOTH `voice.wake.browserBackend` values initialise against ONE engine binary.
  *      The runtime loader is the only place a wasm binary is named, and shipping a
  *      second one to serve the other setting put 38 MB in the built assets for a tab
@@ -452,7 +452,7 @@ describe('a confirmed wake runs the whole chain', () => {
 
     expect(harness.sink).toEqual([{ text: 'open the fleet view', autoSubmit: false }]);
     expect(harness.host.getState().lastTranscript).toBe('open the fleet view');
-    // And the device was never reopened for the utterance — same stream throughout.
+    // And the device was never reopened for the utterance, same stream throughout.
     expect(harness.spy.getUserMediaCalls).toBe(1);
     expect(harness.host.getState().phase).toBe('listening');
   });
@@ -659,7 +659,7 @@ describe('both browserBackend values run on one engine binary', () => {
     expect(fake.providers[0]).toEqual(['webgpu', 'wasm']);
   });
 
-  test('both settings resolve to the identical wasm URL — one file in the built assets', async () => {
+  test('both settings resolve to the identical wasm URL, one file in the built assets', async () => {
     const wasmFor = async (backend: 'wasm' | 'webgpu', gpu: boolean): Promise<unknown> => {
       const fake = fakeOrt();
       await loadWakeRuntime(backend, loaderFor(fake, gpu).deps);
@@ -688,7 +688,7 @@ describe('both browserBackend values run on one engine binary', () => {
 
   test('nothing in the app references the CPU-only binary, which is what keeps it out of the dist', async () => {
     // Vite emits the assets it can see referenced. The guarantee that the 13 MB
-    // wasm-only build does not ship is therefore that no source file names it —
+    // wasm-only build does not ship is therefore that no source file names it,
     // asserted here rather than left to be noticed in a dist listing.
     const sources = new Bun.Glob('**/*.{ts,tsx}').scanSync({ cwd: 'src' });
     const offenders: string[] = [];

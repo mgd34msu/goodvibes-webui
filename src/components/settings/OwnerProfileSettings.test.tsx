@@ -1,5 +1,5 @@
 /**
- * OwnerProfileSettings — the admin owner-profile panel, against the REAL contract shapes.
+ * OwnerProfileSettings, the admin owner-profile panel, against the REAL contract shapes.
  *
  * The two assertions this file exists for, both honesty rules from
  * docs/owner-profile.md:
@@ -119,7 +119,7 @@ function render(): { el: HTMLElement; unmount: () => void } {
 
 /**
  * Let the confirm sheet's promise continuation run and React render the result. The forget
- * flow is genuinely asynchronous — the sheet resolves, THEN the mutation runs — so the
+ * flow is genuinely asynchronous, the sheet resolves, THEN the mutation runs, so the
  * state update lands outside any React event handler and needs both a real task tick and
  * an explicit flush before it is observable.
  */
@@ -291,7 +291,7 @@ describe('OwnerProfileSettings', () => {
     expect(email?.querySelector('.owner-profile__field-label')?.textContent).toBe('email');
     expect(email?.querySelector('.owner-profile__value')?.textContent).toBe('owner@example.com');
 
-    // His prose is rendered as the line he wrote — not split into label/value columns.
+    // His prose is rendered as the line he wrote, not split into label/value columns.
     const people = el.querySelector('[data-testid="profile-section-People"]');
     expect(people?.querySelectorAll('.owner-profile__field').length).toBe(0);
     expect(people?.textContent).toContain('Sarah, sister, sarah@example.com');
@@ -299,7 +299,7 @@ describe('OwnerProfileSettings', () => {
 
     // The compact provenance suffix rides the line it belongs to (§4.2).
     const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
-    expect(shipping?.textContent).toContain('tui, 2026-07-27 — "ship it to my office instead"');
+    expect(shipping?.textContent).toContain('tui, 2026-07-27: "ship it to my office instead"');
   });
 
   test('each section states its tier, so it is clear what the agent can already see', () => {
@@ -321,7 +321,7 @@ describe('OwnerProfileSettings', () => {
     const people = el.querySelector('[data-testid="profile-section-People"]');
     expect(people?.getAttribute('data-third-party')).toBe('true');
     expect(people?.querySelector('.owner-profile__containment')?.textContent).toContain('facts about other people');
-    // No link, no copy affordance — plain inert text only.
+    // No link, no copy affordance, plain inert text only.
     expect(people?.querySelector('a')).toBeNull();
     expect(el.querySelector('[data-testid="profile-section-Contact"]')?.getAttribute('data-third-party')).toBeNull();
   });
@@ -408,7 +408,7 @@ describe('OwnerProfileSettings', () => {
   });
 
   // The second load-bearing honesty assertion (§9.2).
-  test('forgetting something that was not there relays the daemon\'s sentence — never a success', async () => {
+  test('forgetting something that was not there relays the daemon\'s sentence, never a success', async () => {
     mockDocument = successQuery(LOADED);
     forgetResult = {
       ok: false,
@@ -422,7 +422,7 @@ describe('OwnerProfileSettings', () => {
     const row = el.querySelector('[data-testid="profile-field-contact.phone"]');
     flushSync(() => { buttonIn(row, 'Forget').click(); });
 
-    // Confirm first — deleting is permanent, so it is never a bare click.
+    // Confirm first, deleting is permanent, so it is never a bare click.
     const confirmButton = window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm');
     expect(confirmButton).not.toBeNull();
     flushSync(() => { confirmButton?.click(); });
@@ -539,7 +539,7 @@ describe('OwnerProfileSettings', () => {
     const { el, unmount } = render();
     cleanup = unmount;
 
-    // Nothing is fetched until it is asked for — no bulk dump on mount.
+    // Nothing is fetched until it is asked for, no bulk dump on mount.
     expect(el.querySelector('[data-testid="profile-provenance-commerce.shippingAddress"]')).toBeNull();
 
     const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
@@ -593,7 +593,7 @@ describe('OwnerProfileSettings', () => {
     const email = el.querySelector('[data-testid="profile-field-contact.email"]');
     flushSync(() => { buttonIn(email, 'Where did you get that?').click(); });
     const detail = email?.querySelector('[data-testid="profile-provenance-contact.email"]');
-    expect(detail?.textContent).toContain('No provenance recorded — you wrote or edited this line by hand.');
+    expect(detail?.textContent).toContain('No provenance recorded, you wrote or edited this line by hand.');
     expect(detail?.textContent).toContain('nothing to undo');
     expect(Array.from(email?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(false);
   });
@@ -605,7 +605,7 @@ describe('OwnerProfileSettings', () => {
 
     const withSuffix = el.querySelector('[data-testid="profile-line-41"]');
     flushSync(() => { buttonIn(withSuffix, 'Where did you get that?').click(); });
-    expect(withSuffix?.textContent).toContain('tui, 2026-07-27 — "my sister Sarah, sarah@example.com"');
+    expect(withSuffix?.textContent).toContain('tui, 2026-07-27: "my sister Sarah, sarah@example.com"');
     expect(withSuffix?.textContent).toContain('notes keep no earlier versions');
     // The verb takes a fieldId, so no lookup is issued for a note.
     expect(provenanceFieldIds.filter((id) => id !== null)).toEqual([]);
@@ -633,7 +633,7 @@ describe('OwnerProfileSettings', () => {
     expect(strip?.textContent).toContain('42 lines');
     expect(strip?.textContent).toContain('5 notes');
     expect(el.querySelector('.owner-profile__invalid-list')?.textContent).toContain(
-      'location.timezone — not an IANA time zone',
+      'location.timezone: not an IANA time zone',
     );
   });
 

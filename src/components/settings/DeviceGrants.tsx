@@ -1,11 +1,11 @@
 /**
- * DeviceGrants — the grants surface for paired-phone capabilities.
+ * DeviceGrants, the grants surface for paired-phone capabilities.
  *
  * The owner's ruling of 2026-07-25 requires that "always allow" be "a durable
  * per-capability, per-node grant, visible and revocable in the grants surface".
  * This panel is that surface: every durable grant with the device it belongs
  * to, the capability it covers, when it was given, when it expires, and how
- * often it has been used — each with a revoke control — plus the recent ledger
+ * often it has been used, each with a revoke control, plus the recent ledger
  * of grants given, used, revoked, and expired, and a control to run the
  * housekeeping sweep and read back exactly what it removed.
  *
@@ -118,7 +118,7 @@ export function DeviceGrants() {
 
       <p className="device-panel__description">
         Every capability asks before it runs. Choosing &ldquo;always allow&rdquo; on that prompt
-        writes one durable grant for that one capability on that one phone — listed here, and
+        writes one durable grant for that one capability on that one phone, listed here, and
         revocable here. Revoking deletes the grant, so the next request asks again.
         {nodes.data ? ` Captures are kept for ${String(nodes.data.captureRetentionHours)} hours.` : ''}
       </p>

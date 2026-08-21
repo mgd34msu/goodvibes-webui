@@ -74,8 +74,8 @@ export function formatRelative(value: unknown): string {
 
 /**
  * Human-readable byte size ("148 KB", "142.9 MB", "1.1 GB"). `null`/`undefined`/negative
- * render as an em dash — the same "no verdict" convention formatLatency/routeLabel use
- * (daemon-health.ts) — never a fabricated "0 B". Whole bytes stay a plain integer with a
+ * render as an em dash, the same "no verdict" convention formatLatency/routeLabel use
+ * (daemon-health.ts), never a fabricated "0 B". Whole bytes stay a plain integer with a
  * "B" suffix (no decimal noise for tiny values).
  */
 export function formatBytes(bytes: number | null | undefined): string {

@@ -5,7 +5,7 @@
  * list, flagged with supersededAt/supersededReason, and links an edited replacement back
  * to its original via revisionOf. buildLineage must turn that flat, server-authoritative
  * list into a render model where the active conversation reads cleanly AND every
- * superseded message stays attached and viewable — never silently dropped.
+ * superseded message stays attached and viewable, never silently dropped.
  */
 import { describe, expect, test } from 'bun:test';
 import {
@@ -92,7 +92,7 @@ describe('buildLineage', () => {
     expect(nodes[1].priorMessages.length).toBe(0);
   });
 
-  test('a trailing superseded run is never dropped — it attaches to the last active node', () => {
+  test('a trailing superseded run is never dropped; it attaches to the last active node', () => {
     const nodes = buildLineage([
       msg('u1', 'user', 'Hello'),
       msg('a1', 'assistant', 'Reply'),

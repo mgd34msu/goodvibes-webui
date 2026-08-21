@@ -4,7 +4,7 @@
  * Covers the message-content stage (unchanged from before session search):
  *   - debounce timing (300 ms)
  *   - abort on rapid retype (no stale results)
- *   - cache hit — second query with same sessions does NOT re-fetch
+ *   - cache hit, second query with same sessions does NOT re-fetch
  *   - cache invalidation when sessions identity changes
  *   - recency ranking (most recent createdAt first)
  *
@@ -73,7 +73,7 @@ interface SessionSearchStub {
   response: { sessions: Record<string, unknown>[]; nextCursor?: string; hasMore: boolean };
   /** 'none' | 'not-invokable' | 'generic' */
   failMode: 'none' | 'not-invokable' | 'generic';
-  /** Delay (ms) applied ONLY to load-more calls (those carrying a cursor) — lets a test
+  /** Delay (ms) applied ONLY to load-more calls (those carrying a cursor), lets a test
    *  hold a load-more in flight while a fresh search completes and supersedes it. */
   loadMoreDelayMs: number;
 }
@@ -243,14 +243,14 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('useChatSearch — debounce timing (300 ms)', () => {
+describe('useChatSearch: debounce timing (300 ms)', () => {
   test('does not return results before debounce period elapses', async () => {
     const session = makeSession('s1', 'Session 1', []);
     seedMessages('s1', [{ id: 'm1', messageId: 'm1', content: 'hello world', createdAt: 1_000 }]);
 
     const handle = mountHook('', [session]);
 
-    // Start a query — should not fire yet within 200ms
+    // Start a query, should not fire yet within 200ms
     handle.setQuery('hello');
     await wait(200);
     // No results yet (debounce 300ms has not elapsed)
@@ -258,7 +258,6 @@ describe('useChatSearch — debounce timing (300 ms)', () => {
 
     // Wait past debounce
     await wait(200); // total ~400ms
-    // Now the async fetch + search has completed
     expect(handle.state.results.length).toBeGreaterThan(0);
     expect(handle.state.results[0]?.snippet).toContain('hello');
 
@@ -279,7 +278,7 @@ describe('useChatSearch — debounce timing (300 ms)', () => {
   });
 });
 
-describe('useChatSearch — abort on rapid retype (no stale results)', () => {
+describe('useChatSearch: abort on rapid retype (no stale results)', () => {
   test('only last query produces results when query changes rapidly', async () => {
     const session = makeSession('s3', 'Session 3', []);
     seedMessages('s3', [
@@ -328,19 +327,18 @@ describe('useChatSearch — abort on rapid retype (no stale results)', () => {
   });
 });
 
-describe('useChatSearch — cache hit and cache invalidation', () => {
-  test('cache hit: same sessions — does not re-fetch messages on second query', async () => {
+describe('useChatSearch: cache hit and cache invalidation', () => {
+  test('cache hit: same sessions: does not re-fetch messages on second query', async () => {
     const session = makeSession('s5', 'Session 5', []);
     seedMessages('s5', [{ id: 'm5', messageId: 'm5', content: 'cached content', createdAt: 1_000 }]);
 
     const handle = mountHook('cached', [session]);
     await wait(450);
 
-    // First query fetched once
     expect(stub.callCounts.get('s5')).toBe(1);
     expect(handle.state.results.length).toBeGreaterThan(0);
 
-    // Second query with same sessions — should use cache, not re-fetch
+    // Second query with same sessions, should use cache, not re-fetch
     handle.setQuery('content');
     await wait(450);
     expect(stub.callCounts.get('s5')).toBe(1); // still 1, not 2
@@ -358,7 +356,6 @@ describe('useChatSearch — cache hit and cache invalidation', () => {
 
     expect(stub.callCounts.get('s6')).toBe(1);
 
-    // Now update the messages but keep sessionId the same — simulates session content changing.
     // Invalidate by changing sessions identity (new array reference with different id set).
     const session2 = makeSession('s6-v2', 'Session 6 v2', []);
     seedMessages('s6-v2', [{ id: 'm6b', messageId: 'm6b', content: 'fresh content stale', createdAt: 2_000 }]);
@@ -391,7 +388,7 @@ describe('useChatSearch — cache hit and cache invalidation', () => {
     // Both results should appear
     expect(handle.state.results).toHaveLength(2);
 
-    // Second query — both served from cache
+    // Second query, both served from cache
     handle.setQuery('term');
     await wait(450);
     expect(stub.callCounts.get('s7a')).toBe(1);
@@ -401,7 +398,7 @@ describe('useChatSearch — cache hit and cache invalidation', () => {
   });
 });
 
-describe('useChatSearch — recency ranking', () => {
+describe('useChatSearch: recency ranking', () => {
   test('results are ordered by createdAt descending (most recent first)', async () => {
     const session = makeSession('s8', 'Session 8', []);
     seedMessages('s8', [
@@ -461,11 +458,11 @@ describe('useChatSearch — recency ranking', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Session-search stage (sessions.search — first consumer)
+// Session-search stage (sessions.search, first consumer)
 // ---------------------------------------------------------------------------
 
-describe('useChatSearch — session search (sessions.search) includeClosed default', () => {
-  test('defaults includeClosed to false on a fresh query — the documented divergence from sessions.list', async () => {
+describe('useChatSearch: session search (sessions.search) includeClosed default', () => {
+  test('defaults includeClosed to false on a fresh query: the documented divergence from sessions.list', async () => {
     sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
     const handle = mountHook('', []);
 
@@ -502,7 +499,7 @@ describe('useChatSearch — session search (sessions.search) includeClosed defau
     handle.setQuery('closed');
     await wait(450);
 
-    // Default (includeClosed:false) — the stub still returns the fixture (a
+    // Default (includeClosed:false), the stub still returns the fixture (a
     // stub does not enforce filtering), but the hook's own default is what
     // this test asserts: the CALL carries includeClosed:false.
     expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(false);
@@ -512,7 +509,7 @@ describe('useChatSearch — session search (sessions.search) includeClosed defau
 
     expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(true);
     expect(handle.state.includeClosed).toBe(true);
-    // The returned session is rendered with its real status — never relabeled.
+    // The returned session is rendered with its real status, never relabeled.
     expect(handle.state.sessionResults).toHaveLength(1);
     expect(handle.state.sessionResults[0]?.status).toBe('closed');
 
@@ -520,7 +517,7 @@ describe('useChatSearch — session search (sessions.search) includeClosed defau
   });
 });
 
-describe('useChatSearch — session search honest degraded states', () => {
+describe('useChatSearch: session search honest degraded states', () => {
   test('a NOT_INVOKABLE rejection surfaces as sessionSearchState "unavailable", not a silent empty result', async () => {
     sessionSearchStub.failMode = 'not-invokable';
     const handle = mountHook('', []);
@@ -579,7 +576,7 @@ describe('useChatSearch — session search honest degraded states', () => {
   });
 });
 
-describe('useChatSearch — session search pagination', () => {
+describe('useChatSearch: session search pagination', () => {
   test('hasMoreSessions/nextCursor from the first page drive loadMoreSessions, which APPENDS results', async () => {
     sessionSearchStub.response = {
       sessions: [{ id: 'p1', kind: 'companion-chat', title: 'Page 1', status: 'active', createdAt: 1, updatedAt: 1, lastActivityAt: 1, messageCount: 1, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} }],
@@ -594,7 +591,6 @@ describe('useChatSearch — session search pagination', () => {
     expect(handle.state.hasMoreSessions).toBe(true);
     expect(handle.state.sessionResults).toHaveLength(1);
 
-    // Next page: a different fixture and hasMore:false (end of results).
     sessionSearchStub.response = {
       sessions: [{ id: 'p2', kind: 'companion-chat', title: 'Page 2', status: 'active', createdAt: 2, updatedAt: 2, lastActivityAt: 2, messageCount: 1, pendingInputCount: 0, routeIds: [], surfaceKinds: [], participants: [], metadata: {} }],
       nextCursor: undefined,
@@ -640,7 +636,7 @@ describe('useChatSearch — session search pagination', () => {
       },
     });
 
-    // First search for "paginate" → page 1 (has more, cursor c1). This is generation 1.
+    // This is generation 1.
     sessionSearchStub.response = summary('p1', 'c1', true).response;
     const handle = mountHook('', []);
     handle.setQuery('paginate');
@@ -649,13 +645,13 @@ describe('useChatSearch — session search pagination', () => {
     expect(handle.state.hasMoreSessions).toBe(true);
 
     // Launch a load-more, but hold its response in flight (500ms). It carries cursor c1
-    // and would resolve to a STALE page — set that as the response it snapshots now.
+    // and would resolve to a STALE page, set that as the response it snapshots now.
     sessionSearchStub.loadMoreDelayMs = 500;
     sessionSearchStub.response = summary('stale-page-2').response;
     handle.loadMoreSessions();
     await wait(20); // let the load-more call fire and snapshot the stale response
 
-    // While it hangs, the user retypes to the SAME query (via a detour) — a FRESH search,
+    // While it hangs, the user retypes to the SAME query (via a detour), a FRESH search,
     // generation 2, replacing the list with a new first page (different backend cursor).
     sessionSearchStub.loadMoreDelayMs = 0; // the fresh call carries no cursor anyway
     sessionSearchStub.response = summary('fresh-p1').response;
@@ -664,8 +660,8 @@ describe('useChatSearch — session search pagination', () => {
     await wait(450); // fresh search debounces + completes → gen bumps, results replaced
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
 
-    // Now the delayed stale load-more resolves. Its generation (1) is stale, so it must
-    // be discarded — never appended onto the fresh (gen 2) results.
+    // The delayed stale load-more resolves; its generation (1) is stale, so it must
+    // be discarded, never appended onto the fresh (gen 2) results.
     await wait(200);
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
     expect(handle.state.sessionResults.some((r) => r.sessionId === 'stale-page-2')).toBe(false);

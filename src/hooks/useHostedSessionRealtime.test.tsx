@@ -1,5 +1,5 @@
 /**
- * useHostedSessionRealtime — one raw stream for hosted-session list liveness
+ * useHostedSessionRealtime, one raw stream for hosted-session list liveness
  * (`hosted-session-update`, invalidates the list unconditionally) and, when
  * attached, the LIVE `turn`/`tools` output filtered to that session's id.
  */

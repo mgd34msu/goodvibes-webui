@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { GROUP_LABELS, buildGroups } from './command-groups';
 import type { CommandDef } from './commands';
 
-// Minimal stubs — only the shape that buildGroups reads (group field)
+// Minimal stubs, only the shape that buildGroups reads (group field)
 function cmd(id: string, group: string): CommandDef {
   return { id, group, label: id, handler: () => {} } as unknown as CommandDef;
 }

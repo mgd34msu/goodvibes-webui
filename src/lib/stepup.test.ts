@@ -1,5 +1,5 @@
 /**
- * stepup.ts — the browser step-up wire primitives and authenticatorData parsing.
+ * stepup.ts, the browser step-up wire primitives and authenticatorData parsing.
  *
  * The ceremony calls themselves (navigator.credentials.create/get) need a real authenticator,
  * so they belong to the live/e2e proof. These cases lock the pure, testable parts: the

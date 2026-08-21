@@ -1,9 +1,9 @@
 /**
- * FeatureUnitCard — one platform capability rendered as ONE unit inside its
- * domain group: its real name, its full description (never truncated — wrap or
+ * FeatureUnitCard, one platform capability rendered as ONE unit inside its
+ * domain group: its real name, its full description (never truncated, wrap or
  * scroll, never clip), its enablement control in its REAL shape, and the typed
  * editors for the settings keys it owns. Everything writes through the same
- * config.set path as every other field — features live on first-class domain
+ * config.set path as every other field, features live on first-class domain
  * settings keys (SDK 1.7.1's dissolved feature model), not on a separate
  * enablement namespace.
  *
@@ -12,7 +12,7 @@
  *   - enum    : a mode select over the key's full schema enum (so inactive
  *               modes such as "off" are real choices); the feature is active
  *               while the value is one of enablement.enabledValues.
- *   - constant: the capability has no separate off switch — its own settings
+ *   - constant: the capability has no separate off switch, its own settings
  *               keys govern runtime activation directly, so no feature-level
  *               control renders and the keys appear as ordinary typed fields.
  *
@@ -25,7 +25,7 @@
  *     the point of change: the write persisted, the running daemon applies it
  *     on its next restart. The marker is driven by THIS session's confirmed
  *     writes (config.set resolved), never fabricated from a wire signal the
- *     daemon does not expose — config.get returns the persisted tree only.
+ *     daemon does not expose, config.get returns the persisted tree only.
  *   - the current state distinguishes an explicit config value from the schema
  *     default.
  */
@@ -38,7 +38,7 @@ interface FeatureUnitCardProps {
   readonly unit: FeatureUnitModel;
   readonly onCommit: (key: string, value: unknown) => Promise<void>;
   /** What the daemon reported for the last successful config.set of each key this session
-   *  (SettingsModal's persistedByKey) — keyed by config key, looked up here per field and
+   *  (SettingsModal's persistedByKey), keyed by config key, looked up here per field and
    *  for the enablement key itself. */
   readonly persistedByKey: Readonly<Record<string, ConfigSetOutcome>>;
   /** True when an enablement change was saved this session and awaits a daemon restart. */
@@ -46,7 +46,7 @@ interface FeatureUnitCardProps {
   /** Called after a successful enablement write (toggle or mode change). */
   readonly onEnablementCommitted: () => void;
   /** The live `payments.currency` value, forwarded to any owned field marked
-   *  `unit: 'money'` — see SettingsField's `currency` prop. */
+   *  `unit: 'money'`, see SettingsField's `currency` prop. */
   readonly currency?: string;
 }
 
@@ -115,7 +115,7 @@ export function FeatureUnitCard({
         </label>
       );
     }
-    // constant — no separate off switch; the fields below govern activation.
+    // constant, no separate off switch; the fields below govern activation.
     return null;
   })();
 
@@ -154,7 +154,7 @@ export function FeatureUnitCard({
         ))}
       {pendingRestart && (
         <p className="feature-unit-pending" role="status" data-pending-restart={feature.id}>
-          Saved — takes effect when the daemon restarts.
+          Saved: takes effect when the daemon restarts.
         </p>
       )}
       {kind === 'enum' && enablementField?.description && (
@@ -162,7 +162,7 @@ export function FeatureUnitCard({
       )}
       {enablementPersisted?.persistedTo && (
         <p className="feature-unit-persisted" role="status">
-          Saved — stored in {enablementPersisted.persistedTo}.
+          Saved: stored in {enablementPersisted.persistedTo}.
         </p>
       )}
       {error && (

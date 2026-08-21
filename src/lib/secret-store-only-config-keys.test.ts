@@ -19,7 +19,7 @@ describe('isSecretStoreOnlyConfigKey', () => {
   test('an ordinary secret-shaped key that IS read literally from config is not flagged', () => {
     // surfaces.slack.botToken supports a literal value stored directly in
     // config (resolveSecretInput falls through to the trimmed literal when the
-    // string is not a recognized secret-ref format) — config.set genuinely
+    // string is not a recognized secret-ref format), config.set genuinely
     // configures it, so it must not be refused.
     expect(isSecretStoreOnlyConfigKey('surfaces.slack.botToken')).toBe(false);
     expect(isSecretStoreOnlyConfigKey('surfaces.telegram.botToken')).toBe(false);
@@ -31,7 +31,7 @@ describe('isSecretStoreOnlyConfigKey', () => {
   });
 });
 
-describe('daemonSecretKeyFor — ported derivation matches the installed SDK exactly', () => {
+describe('daemonSecretKeyFor: ported derivation matches the installed SDK exactly', () => {
   test('matches the real SDK function for every declared key', () => {
     for (const key of SECRET_STORE_ONLY_CONFIG_KEYS) {
       expect(daemonSecretKeyFor(key)).toBe(sdkDaemonSecretKeyFor(key));

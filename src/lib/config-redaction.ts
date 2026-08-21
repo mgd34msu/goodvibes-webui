@@ -1,7 +1,7 @@
 /**
- * config-redaction.ts — secret-free config display, honestly.
+ * config-redaction.ts, secret-free config display, honestly.
  *
- * GROUNDED: GET /config (config.get) returns configManager.getAll() verbatim —
+ * GROUNDED: GET /config (config.get) returns configManager.getAll() verbatim,
  * a plain structuredClone with NO field-level redaction anywhere in the daemon
  * (packages/sdk/src/platform/config/manager.ts). Provider API keys are NOT part
  * of this object (they live in the separate SecretsManager store, resolved
@@ -21,28 +21,28 @@
  * a secondary top-up. That is backwards, and it is a real defect rather than a
  * style preference: a sibling round found the identical suffix-matching shape
  * in the agent's support-bundle redactor, and it matched NONE of `cardNumber`,
- * `cardExpiry`, `cardholderName` — fields that are obviously sensitive to a
+ * `cardExpiry`, `cardholderName`, fields that are obviously sensitive to a
  * person but carry no "token/secret/password" word anywhere in their name. The
  * same blind spot exists here: `cloudflare.apiTokenRef` ends in "Ref", not
  * "token"/"secret"/"password", so the suffix pattern let it through; so did
  * `calendar.google.icsUrl` (a private calendar feed URL that grants read
- * access to anyone holding it — config-ownership.ts treats it as a credential
+ * access to anyone holding it, config-ownership.ts treats it as a credential
  * for exactly that reason) and `cluster.groupMaterial` (literal key material).
  * A key that merely LOOKS naming-convention-compliant is not the same thing as
- * a key a person has actually decided is safe to show — only enumeration does
+ * a key a person has actually decided is safe to show, only enumeration does
  * that.
  *
  * So the order of authority is now:
- *   1. SECRET_CONFIG_KEYS — the declared, enumerated set below. This is the
+ *   1. SECRET_CONFIG_KEYS, the declared, enumerated set below. This is the
  *      thing that actually decides "mask this." It carries every mail/calendar
  *      credential and secret-reference, every `surfaces.<channel>.*` token or
  *      secret-shaped field (including surfaces.telephony's, previously
  *      missing), the Cloudflare provisioning tokens, and the cluster
- *      coordination secret/key material — and any payments/card field this
+ *      coordination secret/key material, and any payments/card field this
  *      repo defines (none exist in the current schema; see
  *      config-redaction.test.ts for the scan that would catch one arriving
  *      undeclared, to the extent a naming scan can).
- *   2. SECRET_KEY_SUFFIX — kept as an ADDITIONAL safety net, not the decision
+ *   2. SECRET_KEY_SUFFIX, kept as an ADDITIONAL safety net, not the decision
  *      maker: a key the declared list has not caught up to yet, but whose last
  *      segment still looks secret-shaped, is also masked. This can never
  *      UNDER-mask relative to declared-list-only; it only ever adds more
@@ -54,7 +54,7 @@
  *      broad, test-only content scan (keyword search anywhere in the dotted
  *      key, not just the last segment) over every real schema key and every
  *      daemon-owned non-schema path, and fails the moment one matches that
- *      broad net without being in SECRET_CONFIG_KEYS — so a new field that
+ *      broad net without being in SECRET_CONFIG_KEYS, so a new field that
  *      merely CONTAINS "secret"/"token"/"password"/"credential" anywhere is
  *      reported by a test rather than silently rendered. A field with no
  *      naming signal whatsoever is the one class this cannot catch
@@ -64,11 +64,11 @@ import { asRecord } from './object';
 
 /**
  * The declared, enumerated set of config keys that hold secret-shaped values.
- * This is the PRIMARY classifier — SECRET_KEY_SUFFIX below is an additional
+ * This is the PRIMARY classifier, SECRET_KEY_SUFFIX below is an additional
  * safety net, not a substitute for naming a key here.
  */
 export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
-  // Chat/notification surface tokens and signing secrets — ported from
+  // Chat/notification surface tokens and signing secrets, ported from
   // goodvibes-tui's src/config/secret-config.ts SECRET_CONFIG_KEYS.
   'surfaces.slack.signingSecret',
   'surfaces.slack.botToken',
@@ -90,26 +90,26 @@ export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'surfaces.bluebubbles.password',
   'surfaces.mattermost.botToken',
   'surfaces.matrix.accessToken',
-  // Telephony surface — confirmed gap: schema-domain-surfaces.ts defines these
+  // Telephony surface, confirmed gap: schema-domain-surfaces.ts defines these
   // three, none of which were in the TUI's ported list or caught by name alone
   // once considered as a set rather than case-by-case.
   'surfaces.telephony.token',
   'surfaces.telephony.authToken',
   'surfaces.telephony.webhookSecret',
-  // Mail and calendar credentials — schema-domain-daemon-mailbox.ts.
+  // Mail and calendar credentials, schema-domain-daemon-mailbox.ts.
   'surfaces.email.password',
   'surfaces.email.imapPassword',
   'surfaces.email.imap.password',
   'surfaces.email.smtp.password',
   'surfaces.calendar.caldavPassword',
   // Mail/calendar secret references and the credential-shaped calendar feed
-  // URL — DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS in the SDK's config-ownership.ts
+  // URL, DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS in the SDK's config-ownership.ts
   // (app-layer paths, not CONFIG_SCHEMA scalars, so they never showed up in
   // any suffix scan over the schema).
   'email.passwordRef',
   // Arrived with the 1.19.1 SDK, which split the single mail password reference
   // into an IMAP one and this SMTP one. Caught by the content scan in
-  // config-redaction.test.ts rather than by anyone noticing — which is what that
+  // config-redaction.test.ts rather than by anyone noticing, which is what that
   // scan is for. Undeclared, it would have rendered the operator's outgoing-mail
   // credential reference verbatim in the settings surface.
   'email.smtpPasswordRef',
@@ -117,17 +117,17 @@ export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'calendar.microsoft.clientSecretRef',
   'calendar.google.icsUrl',
   'google.oauth.refreshToken',
-  // Cluster coordination — cluster.secret is the shared signing phrase;
+  // Cluster coordination, cluster.secret is the shared signing phrase;
   // cluster.groupMaterial is literal key material (config-ownership.ts calls
   // it exactly that). cluster.secret already happened to match the old suffix
   // pattern; cluster.groupMaterial did not.
   'cluster.secret',
   'cluster.groupMaterial',
-  // Cloudflare provisioning tokens — schema-domain-runtime.ts. Every one of
+  // Cloudflare provisioning tokens, schema-domain-runtime.ts. Every one of
   // these ends in "...Ref" (a reference into the secret store), not
   // "token"/"secret"/"password", so the old suffix-only heuristic masked none
   // of them. Deliberately NOT here: cloudflare.accessServiceTokenId (the
-  // resource id, not the secret value — same shape as calendar.google.clientId)
+  // resource id, not the secret value, same shape as calendar.google.clientId)
   // and cloudflare.secretsStoreName/secretsStoreId (which store to use, not a
   // secret itself).
   'cloudflare.apiTokenRef',
@@ -139,7 +139,7 @@ export const SECRET_CONFIG_KEYS: ReadonlySet<string> = new Set([
 
 /**
  * Additional safety net: the key's last dot-segment looks secret-shaped. Never
- * the decision-maker (see the module header) — a key that needs masking
+ * the decision-maker (see the module header), a key that needs masking
  * belongs in SECRET_CONFIG_KEYS above; this only ever adds masking on top of
  * that, for a key the declared list has not caught up to yet.
  */
@@ -176,11 +176,11 @@ export function displayConfigValue(key: string, value: unknown): string {
 
 // ---------------------------------------------------------------------------
 // Namespace display labels. The GROUPING SOURCE is SDK metadata (CONFIG_SCHEMA
-// namespaces + each feature flag's configCategories — see settings-model.ts);
+// namespaces + each feature flag's configCategories, see settings-model.ts);
 // this table supplies only the human LABEL for a namespace, special-casing
 // acronyms/casing the mechanical Title Case fallback (titleCase, below) would
 // get wrong (WRFC, TTS, UI, MCP, HTTP Listener, Control Plane). A namespace with
-// no entry here Title-Cases itself — honest, never a fabricated label.
+// no entry here Title-Cases itself, honest, never a fabricated label.
 //
 // This replaces the earlier hand-copied port of the TUI's CATEGORY_LABELS: the
 // key namespaces now come from the SDK schema the TUI is also being rebuilt
@@ -229,13 +229,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   integrations: 'Integrations',
   policy: 'Policy',
   agents: 'Agents',
-  // profile.* (docs/owner-profile.md §12.1) — the owner profile's own settings
+  // profile.* (docs/owner-profile.md §12.1), the owner profile's own settings
   // (enabled, autonomousWrites, discloseWrites, injectOpenTier, …). The webui derives
   // its groups from the schema with no hand-maintained category list, so this domain
   // cannot be dropped the way the TUI and the agent can drop one; the entry here exists
   // so the group renders with a real name instead of a Title-Cased "Profile", which
   // would collide in the reader's mind with platform/profiles' saved display/provider
-  // presets — a different thing entirely.
+  // presets, a different thing entirely.
   profile: 'Owner Profile',
   // Covers both voice.local.* (STT/TTS engine paths) and voice.wake.*
   // (wake-word detection). Wake-word rows render as their own titled feature
@@ -243,7 +243,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   voice: 'Voice',
   device: 'Paired Phone Capabilities',
   // Features are configured through their domain settings keys (SDK 1.7.1's
-  // dissolved feature model) — no enablement bucket exists anymore. An OLDER
+  // dissolved feature model), no enablement bucket exists anymore. An OLDER
   // daemon can still hold the legacy `featureFlags` record, which then renders
   // honestly as read-only raw rows; this label names that leftover store
   // without resurrecting a dead category name (the daemon migrates the record
@@ -272,12 +272,12 @@ export interface ConfigEntry {
 }
 
 /** Flatten a nested config object into dotted-key rows, deepest values only
- *  (objects are descended, not shown as a row themselves — arrays are treated
+ *  (objects are descended, not shown as a row themselves, arrays are treated
  *  as leaf values). Mirrors the dotted config-key shape config.set expects. */
 export function flattenConfig(value: unknown, prefix = ''): ConfigEntry[] {
   const record = asRecord(value);
   const keys = Object.keys(record);
-  // Not a plain object at all (or an array/primitive) — nothing to flatten.
+  // Not a plain object at all (or an array/primitive), nothing to flatten.
   if (keys.length === 0 && !(value && typeof value === 'object' && !Array.isArray(value))) return [];
   const entries: ConfigEntry[] = [];
   for (const key of keys) {

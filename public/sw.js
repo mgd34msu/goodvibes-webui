@@ -1,5 +1,5 @@
 /*
- * GoodVibes operator shell — service worker.
+ * GoodVibes operator shell, service worker.
  *
  * TWO JOBS, and a hard line between them:
  *
@@ -9,13 +9,13 @@
  *  2. Receive Web Push notifications (approvals / completions the daemon fans
  *     out) and deep-link a tap into the right view.
  *
- * THE HONESTY LINE — this is the whole point, do not cross it:
+ * THE HONESTY LINE, this is the whole point, do not cross it:
  *   The daemon is the single source of truth for every piece of live data
  *   (sessions, approvals, config, auth, memory, ...). The service worker
  *   NEVER caches an API response. `/api/*`, `/login`, `/status`, `/task`,
  *   `/config`, and every event-stream go straight to the network with no
  *   fallback. So when the app opens offline (or the daemon is unreachable),
- *   the SHELL loads from cache but every data call fails — and the app shows
+ *   the SHELL loads from cache but every data call fails, and the app shows
  *   its existing "Can't reach the daemon" state (DaemonUnreachableGate). The
  *   offline app reads as an honest degraded state, never as stale-live data.
  *   A service worker that answered an API call from cache would be showing a
@@ -31,11 +31,11 @@ const ASSET_CACHE = `goodvibes-assets-${CACHE_VERSION}`;
 
 // The minimal shell precached on install: the document itself and the app
 // icons. Hashed JS/CSS chunks are filled in at runtime (cache-first) the first
-// time they are fetched — their names are build-generated, so they cannot be
+// time they are fetched, their names are build-generated, so they cannot be
 // listed here by hand.
 const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/goodvibes-icon.png'];
 
-// Paths whose responses must NEVER be cached — the daemon owns this data and it
+// Paths whose responses must NEVER be cached, the daemon owns this data and it
 // must always be fetched live or fail honestly. Matched against the pathname.
 const NEVER_CACHE_PREFIXES = ['/api/', '/login', '/status', '/task', '/config'];
 
@@ -47,7 +47,7 @@ function isNeverCache(url) {
 // build that is /assets/* (hashed chunks) plus the icons and manifest. This
 // deliberately excludes dev-server module paths (/src/*, /@vite/*, /@fs/*) so
 // running the SW against the dev server never caches a hot module and breaks
-// HMR — those fall through to the network untouched.
+// HMR, those fall through to the network untouched.
 function isCacheableAsset(url) {
   return (
     url.pathname.startsWith('/assets/') ||
@@ -101,7 +101,7 @@ async function staleWhileRevalidateShell(request) {
     })
     .catch(() => undefined);
   // Instant open: serve the cached shell immediately when we have it, and let
-  // the network copy refresh the cache for next time (best-effort — the promise
+  // the network copy refresh the cache for next time (best-effort, the promise
   // carries its own .catch so a failed revalidation is never unhandled). With no
   // cache yet, wait for the network; if that also fails, an honest offline page.
   if (cached) return cached;
@@ -111,7 +111,7 @@ async function staleWhileRevalidateShell(request) {
 
 function offlineDocument() {
   return new Response(
-    '<!doctype html><meta charset="utf-8"><title>GoodVibes — offline</title>' +
+    '<!doctype html><meta charset="utf-8"><title>GoodVibes: offline</title>' +
       '<body style="font-family:system-ui,sans-serif;background:#08080f;color:#e8e8f0;' +
       'display:grid;place-items:center;height:100vh;margin:0;text-align:center">' +
       '<div><h1 style="font-size:1.1rem">Offline</h1>' +
@@ -126,7 +126,7 @@ async function cacheFirstAsset(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  // Only cache successful, same-origin, basic responses — never an opaque or
+  // Only cache successful, same-origin, basic responses, never an opaque or
   // error response (which would poison the cache with a broken asset).
   if (response && response.ok && response.type === 'basic') cache.put(request, response.clone());
   return response;
@@ -138,7 +138,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Cross-origin (e.g. a CDN, or a separately-hosted daemon origin) — leave it
+  // Cross-origin (e.g. a CDN, or a separately-hosted daemon origin), leave it
   // to the browser's default handling; do not cache another origin's bytes.
   if (url.origin !== self.location.origin) return;
 
@@ -177,12 +177,12 @@ self.addEventListener('push', (event) => {
   const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
   // For an approval, offer Allow/Deny action buttons. Platforms without
   // notification-action support ignore this field and just show the body (a tap
-  // still deep-links to the approvals list) — an honest graceful degrade. The
+  // still deep-links to the approvals list), an honest graceful degrade. The
   // buttons do NOT approve in the background: notificationclick hands off to the
   // authenticated app, which makes the real call (see docs/push-approval-actions.md).
   const isApproval = data.kind === 'approval' && typeof data.approvalId === 'string' && data.approvalId;
   // needs-input carries no in-notification action (the operator has to look at the
-  // process to answer it) — a tap just deep-links to the focused Fleet node. Tag it
+  // process to answer it), a tap just deep-links to the focused Fleet node. Tag it
   // by node id so repeated blocks on the same node coalesce instead of stacking.
   const isNeedsInput = data.kind === 'needs-input' && typeof data.nodeId === 'string' && data.nodeId;
   const tag = typeof data.approvalId === 'string'
@@ -216,7 +216,7 @@ self.addEventListener('push', (event) => {
 // hand-copy) to pin that the guard actually runs here, not just in the pure helper.
 function linkForNotification(data, action) {
   // An Allow/Deny action tap carries the choice + approval id back in the FRAGMENT
-  // for the authenticated app to complete (the SW cannot approve on its own — no
+  // for the authenticated app to complete (the SW cannot approve on its own, no
   // operator token here; see docs/push-approval-actions.md).
   if (
     data &&
@@ -248,18 +248,18 @@ function linkForNotification(data, action) {
 // ─── Push subscription self-heal (pushsubscriptionchange) ────────────
 //
 // The browser fires this when it rotates a push endpoint on its own (a
-// certificate/key rollover on the push service, or a browser-side expiry) —
+// certificate/key rollover on the push service, or a browser-side expiry),
 // NOT something the app or daemon requested. Per the Push API spec, this can
 // fire even while no app tab is open, so the SW is the only code that ever
 // sees it.
 //
 // WHAT THE SW CAN DO ALONE: re-subscribe using event.oldSubscription.options
-// (the same userVisibleOnly/applicationServerKey the original subscribe used —
+// (the same userVisibleOnly/applicationServerKey the original subscribe used,
 // no cached VAPID key needed) so the browser side never goes dark.
 //
 // WHAT THE SW CANNOT DO ALONE: tell the daemon about the new endpoint. The
 // daemon's push.subscriptions.reconcile call needs the operator's auth token,
-// which lives in the page's localStorage — a Service Worker has no access to
+// which lives in the page's localStorage, a Service Worker has no access to
 // another context's localStorage (it is a separate global scope; there is no
 // synchronous cross-context storage API for this). So the SW best-effort
 // notifies any ALREADY-OPEN tab via postMessage, which reconciles with its own
@@ -268,7 +268,7 @@ function linkForNotification(data, action) {
 // (src/lib/push/push-client.ts) compares the live subscription (now the
 // rotated one) against the daemon's stale record and heals it then. A rotation
 // that happens while the app stays closed for a long stretch is therefore only
-// eventually healed, not instantly — an honest limit of what a page-less
+// eventually healed, not instantly, an honest limit of what a page-less
 // context can authenticate, not a bug to paper over.
 //
 // A REAL rotation cannot be produced in a headless test browser (there is no

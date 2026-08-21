@@ -24,7 +24,7 @@ Run full validation:
 bun run ci
 ```
 
-## Dev Server Binding
+## Dev server binding
 
 The WebUI should bind to the TUI-resolved web listener. The default port is
 `3423`.
@@ -48,7 +48,7 @@ Example one-off override:
 VITE_GOODVIBES_BACKEND_URL=http://127.0.0.1:3421 bun run dev
 ```
 
-## Environment Variables
+## Environment variables
 
 Use these only when the default resolver is wrong for the current run:
 
@@ -93,7 +93,7 @@ Full CI-equivalent:
 bun run ci
 ```
 
-## Local Code Organization
+## Local code organization
 
 - `src/lib/goodvibes.ts`: SDK facade, auth, extra route shims, and typed invoke
   helpers.
@@ -109,7 +109,7 @@ bun run ci
 - `src/components/MarkdownMessage.tsx`: Markdown, code block copy, highlighting,
   and decorative line numbers.
 
-## Coding Rules
+## Coding rules
 
 - Use the published npm SDK package.
 - Do not deep-import SDK internals.

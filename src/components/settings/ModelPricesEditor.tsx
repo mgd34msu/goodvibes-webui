@@ -1,9 +1,9 @@
 /**
- * ModelPricesEditor — the real editor for the object-typed
+ * ModelPricesEditor, the real editor for the object-typed
  * `pricing.modelPrices` config key: one row per "provider:model" entry with
  * input / output / cache-read / cache-write USD-per-1M-token fields, plus
  * add, edit, and remove. Every change writes the WHOLE table through the
- * caller's commit (config.set pricing.modelPrices) — the daemon's real
+ * caller's commit (config.set pricing.modelPrices), the daemon's real
  * one-key write contract; there is no JSON blob involved.
  *
  * Shared by the settings surface (SettingsField's object branch) and the

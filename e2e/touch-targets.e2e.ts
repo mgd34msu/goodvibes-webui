@@ -20,10 +20,10 @@ test('every control on the steer-from-phone journey is >=44px', async ({ page })
   // Topbar actions (were 36px).
   await expectTappable(page, '.topbar-actions .icon-button', 'topbar action');
 
-  // Collapsed-rail nav item — the tap that opens a view (were packed into ~80px cells).
+  // Collapsed-rail nav item, the tap that opens a view (were packed into ~80px cells).
   await expectTappable(page, '.nav-item', 'rail nav item');
 
-  // Brand mark — the drawer-open affordance on the rail.
+  // Brand mark, the drawer-open affordance on the rail.
   await expectTappable(page, '.brand-mark-button', 'brand mark');
 
   // Sessions refresh (was 36px).
@@ -57,7 +57,7 @@ test('the session delete is touch-reachable (not hover-only) in the chat rail', 
   await expectTappable(page, '.sidebar-session-delete', 'session delete');
 });
 
-test('nav labels are legible in the open drawer — no mid-word truncation', async ({ page }) => {
+test('nav labels are legible in the open drawer, no mid-word truncation', async ({ page }) => {
   await page.goto('/?view=sessions');
   await page.locator('.brand-mark-button').click();
   await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();

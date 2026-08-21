@@ -1,10 +1,10 @@
 /**
- * MicButton — the microphone capability label.
+ * MicButton, the microphone capability label.
  *
  * When the mic is unavailable because the page is on an insecure origin
  * (support === 'insecure-context'), the note renders the DAEMON's own reason text from
- * pairing.posture.get ("needs https — available via tailscale") once it has loaded,
- * honestly falling back to a still-true generic HTTPS pointer before it answers — never
+ * pairing.posture.get ("needs https, available via tailscale") once it has loaded,
+ * honestly falling back to a still-true generic HTTPS pointer before it answers, never
  * a blank label, never a dead button, never a client-fabricated guess.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -27,7 +27,7 @@ mock.module('../../lib/voice/useVoice', () => ({
 }));
 
 let postureCapabilities: readonly { capability: string; available: boolean; reason?: string }[] = [
-  { capability: 'microphone', available: false, reason: 'needs https — available via tailscale' },
+  { capability: 'microphone', available: false, reason: 'needs https, available via tailscale' },
 ];
 let posturePending = false;
 
@@ -59,14 +59,14 @@ function render(): { el: HTMLElement; unmount: () => void } {
 
 afterEach(() => {
   supportValue = 'insecure-context';
-  postureCapabilities = [{ capability: 'microphone', available: false, reason: 'needs https — available via tailscale' }];
+  postureCapabilities = [{ capability: 'microphone', available: false, reason: 'needs https, available via tailscale' }];
   posturePending = false;
 });
 
 describe('MicButton capability label', () => {
   test('insecure-context: renders the daemon posture reason once loaded', () => {
     const { el, unmount } = render();
-    expect(el.textContent).toContain('needs https — available via tailscale');
+    expect(el.textContent).toContain('needs https, available via tailscale');
     expect(el.querySelector('button')?.hasAttribute('disabled')).toBe(true);
     unmount();
   });
@@ -75,7 +75,7 @@ describe('MicButton capability label', () => {
     posturePending = true;
     const { el, unmount } = render();
     expect(el.textContent).toContain('secure (HTTPS) connection');
-    expect(el.textContent).not.toContain('needs https — available via tailscale');
+    expect(el.textContent).not.toContain('needs https, available via tailscale');
     unmount();
   });
 

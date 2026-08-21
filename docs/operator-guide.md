@@ -1,4 +1,4 @@
-# Operator Guide
+# Operator guide
 
 This guide describes the WebUI from an operator point of view.
 
@@ -26,7 +26,7 @@ The sidebar can collapse. In the collapsed state, primary nav icons remain
 available and keep the sidebar collapsed when clicked. At phone width the
 sidebar is a drawer: the collapsed icon rail is the default, the brand mark
 opens the full drawer, and tapping the dimmed area beside it (or navigating)
-closes it — the drawer never traps.
+closes it. The drawer never traps.
 
 ## Chat
 
@@ -65,7 +65,7 @@ Expected flows:
 If upload fails, the optimistic message is marked failed and the error remains
 visible near the composer.
 
-## Markdown Responses
+## Markdown responses
 
 Assistant and Knowledge responses support Markdown rendering. Code blocks are
 syntax highlighted when a supported language is detected.
@@ -99,7 +99,7 @@ Use it to:
 - find a session by searching titles and content (closed sessions are included
   by explicit choice, and the view says so)
 - read a session's transcript
-- steer a live session — on a phone, plain Enter sends
+- steer a live session (on a phone, plain Enter sends)
 - follow up on a closed session, which is offered honestly as a follow-up (a
   new linked session), never disguised as steering
 - distinguish reaped sessions by their badge
@@ -111,7 +111,7 @@ Fleet is the live process tree: sessions and their agents with per-node state.
 Use it to:
 
 - watch what is running right now, with per-agent detail
-- steer, detach, or stop a node — each action appears only where the wire
+- steer, detach, or stop a node, each action appears only where the wire
   genuinely supports it, with an honest note where it does not
 - act on pending approvals inline; wide screens offer per-hunk decisions
 
@@ -130,9 +130,9 @@ Use it to:
 
 - browse and search records; the recall-honesty details (search mode, index
   availability, exclusion counts, recall floor) render verbatim from the
-  daemon — a literal-match fallback says it is one
+  daemon. A literal-match fallback says it is one
 - edit review state
-- delete records — deletion is real and verified (the view proves the record
+- delete records: deletion is real and verified (the view proves the record
   is gone rather than just dropping it from the list)
 
 ## Calendar
@@ -150,7 +150,7 @@ Spoken replies and microphone dictation are available in Chat:
 - dictation records in the browser, transcribes over the daemon's
   speech-to-text, and always shows the transcript for review before send
 - voice configuration (provider, voice, settings) is the shared tier used by
-  the terminal and agent — change it once, it applies everywhere
+  the terminal and agent. Change it once, it applies everywhere
 
 ## Approvals, Tasks, and Workstream
 
@@ -164,7 +164,7 @@ Decision queues and orchestration state:
 
 The WebUI installs from the browser as a standalone app (add to home screen on
 iOS/Android, install prompt on desktop). The installed app caches only the app
-shell — never daemon data — so opening it offline shows the honest "can't
+shell, never daemon data, so opening it offline shows the honest "can't
 reach the daemon" state. Web Push subscription for approvals/completions lives
 in Admin under Notifications & install. Install and push require HTTPS; see
 [deployment.md](deployment.md).
@@ -194,7 +194,7 @@ Admin is for supporting workflows:
 
 Admin is also where clutter that does not belong in Chat should live.
 
-## Expected Failure Handling
+## Expected failure handling
 
 The WebUI should keep failures visible and retryable:
 

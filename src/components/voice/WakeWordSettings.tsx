@@ -1,5 +1,5 @@
 /**
- * WakeWordSettings — everything a user needs to actually RUN wake detection here.
+ * WakeWordSettings, everything a user needs to actually RUN wake detection here.
  *
  * The `voice.wake.*` rows already reach the schema-driven Settings "Voice" group, and
  * that is the right place to tune a threshold. It is not enough to get the feature
@@ -9,7 +9,7 @@
  *   - the models have to be provisioned on the daemon (~3.7 MB, an explicit act,
  *     never automatic) and this is where that act lives, with the size on the button;
  *   - the microphone is opted into PER ORIGIN, because a browser permission prompt is
- *     per origin — `voice.wake.surfaces.webui` is that opt-in and it defaults to off;
+ *     per origin, `voice.wake.surfaces.webui` is that opt-in and it defaults to off;
  *   - the settings resolver refuses or downgrades rows a tab cannot honour, and those
  *     refusals are written sentences that must be READ, not summarised.
  *
@@ -19,8 +19,8 @@
  *
  * The model's recall qualification rides `recallIsSyntheticOnly` from
  * `voice.wake.status` and is shown beside the setup action rather than buried: the
- * published recall figures are measured on synthesised speech only — no human
- * recording of the phrase exists — while the false-accept figures are measured on
+ * published recall figures are measured on synthesised speech only, no human
+ * recording of the phrase exists, while the false-accept figures are measured on
  * real speech. Someone deciding whether to hold a microphone open should be told that
  * before they do it, not after.
  */
@@ -58,7 +58,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
   });
 
   // A daemon build that has never heard of voice.wake.status gets no section at all,
-  // rather than a "not available" line about a verb it cannot have — the same honest
+  // rather than a "not available" line about a verb it cannot have, the same honest
   // omission the local-voice card makes.
   const verbAbsent = status.isError
     && (isMethodUnavailableError(status.error) || isMethodNotInvokableError(status.error));
@@ -77,7 +77,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
 
       {status.isError && (
         <p className="voice-settings-hint" role="alert">
-          Wake-word status unavailable — {formatError(status.error)}
+          Wake-word status unavailable: {formatError(status.error)}
         </p>
       )}
 
@@ -92,9 +92,9 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
           {corrupt > 0 && (
             <p className="voice-settings-hint" role="alert">
               {corrupt === 1
-                ? 'One installed file failed verification — it is present but torn, truncated, or the wrong asset. '
+                ? 'One installed file failed verification: it is present but torn, truncated, or the wrong asset. '
                   + 'Provisioning again replaces it.'
-                : `${corrupt} installed files failed verification — present but torn, truncated, or the wrong `
+                : `${corrupt} installed files failed verification: present but torn, truncated, or the wrong `
                   + 'assets. Provisioning again replaces them.'}
             </p>
           )}
@@ -102,7 +102,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
           {status.data.recallIsSyntheticOnly && (
             <p className="voice-settings-hint" data-testid="wake-recall-note">
               Worth knowing before you switch it on: this model’s published recall is measured on synthesised
-              speech only — no human recording of the phrase exists — while its false-accept rate is measured on
+              speech only, no human recording of the phrase exists, while its false-accept rate is measured on
               real speech. It may hear the phrase less reliably than the recall figure suggests.
             </p>
           )}
@@ -129,7 +129,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
               {provision.data.outcomes.map((outcome) => (
                 <p key={outcome.component}>
                   {outcome.component}: {outcome.state}
-                  {outcome.error ? ` — ${outcome.error}` : ''}
+                  {outcome.error ? `: ${outcome.error}` : ''}
                   {typeof outcome.bytes === 'number' ? ` (${formatBytes(outcome.bytes)})` : ''}
                 </p>
               ))}
@@ -210,14 +210,14 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
 
       {hostState.phase !== 'off' && (
         <p className="voice-settings-hint" data-testid="wake-live-state">
-          {wakeIndicatorCopy(hostState).label} — {wakeIndicatorCopy(hostState).detail}
+          {wakeIndicatorCopy(hostState).label}: {wakeIndicatorCopy(hostState).detail}
           {hostState.backend ? ` Backend: ${hostState.backend}.` : ''}
         </p>
       )}
 
       {hostState.phase === 'latched' && (
         <p className="voice-settings-hint">
-          Turn the switch above off and on again to try once more — a detector that could not stay up stops
+          Turn the switch above off and on again to try once more: a detector that could not stay up stops
           consuming the microphone rather than thrashing.
         </p>
       )}

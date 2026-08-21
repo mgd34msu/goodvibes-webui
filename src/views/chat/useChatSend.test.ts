@@ -3,7 +3,7 @@
  *
  * Tests use a lightweight React DOM harness (createRoot + flushSync) with
  * a real QueryClientProvider. The sdk module is mocked to prevent HTTP calls.
- * The mutation's network path is exercised only as a no-op stub — branch state
+ * The mutation's network path is exercised only as a no-op stub, branch state
  * changes (the focus of these tests) are synchronous and testable in isolation.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
@@ -17,13 +17,13 @@ import type { ChatMessage } from './types';
 import type { LocalCompanionMessage } from '../../lib/companion-chat';
 
 // ---------------------------------------------------------------------------
-// Mock sdk — prevents real HTTP calls from the mutation function
+// Mock sdk, prevents real HTTP calls from the mutation function
 // ---------------------------------------------------------------------------
 // `createMessageImpl` is reassignable per-test (e.g. to reject with a 401) since
 // mock.module locks in the module shape once, but not what the inner fn does.
 let createMessageImpl: () => Promise<unknown> = async () => ({ messageId: 'msg-test' });
 
-// Spies for the honest-lineage verbs — reset in afterEach.
+// Spies for the honest-lineage verbs, reset in afterEach.
 const retryCalls: { sessionId: string; input?: { messageId?: string } }[] = [];
 const editCalls: { sessionId: string; messageId: string; input: { content: string } }[] = [];
 
@@ -178,7 +178,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// editAndResend — the honest server edit-and-branch verb
+// editAndResend, the honest server edit-and-branch verb
 // ---------------------------------------------------------------------------
 
 describe('editAndResend', () => {
@@ -219,14 +219,14 @@ describe('editAndResend', () => {
     await flushMicrotasks();
 
     // No branch verb (there is no persisted message to fork), but the edit is not
-    // dropped — it goes out as a fresh send.
+    // dropped, it goes out as a fresh send.
     expect(editCalls.length).toBe(0);
     expect(harness.getTurnStates()).toContain('sending');
   });
 });
 
 // ---------------------------------------------------------------------------
-// regenerateFrom — the honest server regenerate verb
+// regenerateFrom, the honest server regenerate verb
 // ---------------------------------------------------------------------------
 
 describe('regenerateFrom', () => {
@@ -321,7 +321,7 @@ describe('send while the stream is degraded', () => {
     expect(harness.getTurnErrors()[0]).toBe('');
   });
 
-  test('the message actually sends during a reconnecting stream — it is not dropped', async () => {
+  test('the message actually sends during a reconnecting stream: it is not dropped', async () => {
     harness = renderHook({ turnState: 'reconnecting', localMessages: [] });
     const { sendMutation } = harness.getReturn();
 
@@ -354,7 +354,7 @@ describe('a 401 mid-send hands off to sign-in, not a dead-end error', () => {
     expect(harness.getTurnErrors().at(-1)).toContain('expired');
   });
 
-  test('a plain 500 does NOT trigger the auth handoff — falls back to "send failed"', async () => {
+  test('a plain 500 does NOT trigger the auth handoff, falls back to "send failed"', async () => {
     createMessageImpl = async () => {
       throw Object.assign(new Error('Internal error'), { status: 500 });
     };

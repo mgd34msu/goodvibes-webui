@@ -7,7 +7,7 @@ import { MarkdownMessage } from '../../components/MarkdownMessage';
 import { attachmentLabel, bestId, messageAttachments, messageText, messageTone } from './message-utils';
 
 interface MessageLineageProps {
-  /** Superseded messages retained behind this message's fork — oldest first. */
+  /** Superseded messages retained behind this message's fork, oldest first. */
   priorMessages?: readonly ChatMessage[];
   /** Why the retained run was superseded ('regenerate' | 'edit'). */
   reason?: SupersededReason;
@@ -18,7 +18,7 @@ interface MessageLineageProps {
 /**
  * A retained (superseded) message, rendered read-only and muted. This is the honest
  * lineage surface: history behind a regenerate or an edit is never hidden, only folded
- * away by default and revealed on demand — it is still on the server and still shown.
+ * away by default and revealed on demand, it is still on the server and still shown.
  */
 function RetainedMessage({ message }: { message: ChatMessage }) {
   const tone = messageTone(message);
@@ -80,7 +80,7 @@ export function MessageLineage({ priorMessages, reason, revisionOf }: MessageLin
       {showRetained && hasRetained && (
         <div className="message-lineage__retained" role="group" aria-label="Retained history">
           <p className="message-lineage__note">
-            Kept as history — the daemon retains superseded messages, they are never deleted.
+            Kept as history: the daemon retains superseded messages, they are never deleted.
           </p>
           {retained.map((retainedMessage, retainedIndex) => (
             <RetainedMessage

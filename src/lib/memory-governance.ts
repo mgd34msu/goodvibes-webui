@@ -1,10 +1,10 @@
 /**
- * memory-governance.ts — the MemoryGovernor observability shape and pure helper
+ * memory-governance.ts, the MemoryGovernor observability shape and pure helper
  * functions (ops.memory.get, SDK 1.9.0-dev's memory-relay-voice-hardening work).
  * Derives labels/tones from data the daemon already serves. No `any`. No side effects.
  *
  * ops.memory.get carries a real generated OperatorMethodInputMap/OutputMap entry
- * (foundation-client-types.ts) — MemoryGovernanceSnapshot below is a plain re-statement
+ * (foundation-client-types.ts), MemoryGovernanceSnapshot below is a plain re-statement
  * of that generated shape (not a divergent hand-authored type), kept local so the
  * component/hook/test files have a named type to import without reaching into the
  * generated module directly, matching daemon-health.ts's own DaemonHealth pattern.
@@ -16,7 +16,7 @@ export interface MemoryCacheFootprint {
   readonly id: string;
   readonly name: string;
   readonly entries: number;
-  /** Absent when the cache cannot estimate its own byte footprint — render as
+  /** Absent when the cache cannot estimate its own byte footprint, render as
    * "—", never a fabricated 0. */
   readonly estimatedBytes?: number;
 }
@@ -60,7 +60,7 @@ function readNumber(value: unknown): number | undefined {
 /**
  * Defensive wire parse: the REAL ops.memory.get snapshot, or null when the answer does
  * not actually carry one (a daemon or intermediary answering 200 with an empty/foreign
- * body). Null means "render the honest cannot-read state" — never crash the panel's
+ * body). Null means "render the honest cannot-read state", never crash the panel's
  * whole view tree on `undefined.length`, and never paint placeholder numbers. Same
  * lenient-read stance voice-config.ts documents ("parse leniently, never assume a
  * shape"): optional/decorative fields degrade individually; only the load-bearing core
@@ -112,7 +112,7 @@ export function readMemoryGovernanceSnapshot(value: unknown): MemoryGovernanceSn
   };
 }
 
-/** Human-facing label for the pressure tier — the chip's own text, never just the
+/** Human-facing label for the pressure tier, the chip's own text, never just the
  * raw enum value. */
 export function memoryTierLabel(tier: MemoryTier): string {
   switch (tier) {
@@ -125,10 +125,10 @@ export function memoryTierLabel(tier: MemoryTier): string {
 
 /**
  * The webui's own `.badge` tone class (src/styles.css: .badge.ok/.warning/.bad/.neutral/
- * .info) for a pressure tier — reusing the SAME chip idiom every other status surface
+ * .info) for a pressure tier, reusing the SAME chip idiom every other status surface
  * uses (StatusBadge, PowerChip's danger idiom), not inventing new chip CSS. 'elevated'
- * maps to 'info' — the app's one tone between neutral and warning ("notice": still
- * working, worth a glance, not yet a problem) — 'high'/'critical' get the two genuine
+ * maps to 'info', the app's one tone between neutral and warning ("notice": still
+ * working, worth a glance, not yet a problem), 'high'/'critical' get the two genuine
  * severities (warning/bad).
  */
 export function memoryTierBadgeClass(tier: MemoryTier): 'neutral' | 'info' | 'warning' | 'bad' {
@@ -141,7 +141,7 @@ export function memoryTierBadgeClass(tier: MemoryTier): 'neutral' | 'info' | 'wa
 }
 
 /** Format a megabyte value for display ("512 MB"). Values are already in MB on the
- * wire (budgetMb/rssMb/heapUsedMb/heapTotalMb) — this only rounds and labels them. */
+ * wire (budgetMb/rssMb/heapUsedMb/heapTotalMb), this only rounds and labels them. */
 export function formatMb(mb: number | undefined): string {
   if (typeof mb !== 'number' || !Number.isFinite(mb)) return '—';
   return `${Math.round(mb)} MB`;
@@ -154,8 +154,8 @@ export function clampUsedPct(pct: number): number {
   return Math.min(pct, 100);
 }
 
-/** One human line for the tripwire state — armed (with its live rate/duration) or not. */
+/** One human line for the tripwire state, armed (with its live rate/duration) or not. */
 export function tripwireLine(tripwire: MemoryTripwireState): string {
   if (!tripwire.armed) return 'Leak tripwire: not armed.';
-  return `Leak tripwire: armed — sustained growth of ${tripwire.rateMbPerSec.toFixed(1)} MB/s for ${tripwire.sustainedSec}s.`;
+  return `Leak tripwire: armed: sustained growth of ${tripwire.rateMbPerSec.toFixed(1)} MB/s for ${tripwire.sustainedSec}s.`;
 }

@@ -1,5 +1,5 @@
 /**
- * TimezonePicker — the typed editor for `daemon.timezone`.
+ * TimezonePicker, the typed editor for `daemon.timezone`.
  *
  * A searchable select over the real supported IANA zone set
  * (`Intl.supportedValuesOf('timeZone')`, via lib/timezones.ts), not a

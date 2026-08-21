@@ -1,4 +1,4 @@
-# Screenshot Tour
+# Screenshot tour
 
 These screenshots are captured from the WebUI dev server against the
 end-to-end suite's seeded mock daemon at `1440x1000`, dark theme. Live auth,
@@ -62,7 +62,7 @@ and operational controls that should not clutter Chat.
 
 ![Admin view](assets/screenshots/admin.png)
 
-## Collapsed Sidebar
+## Collapsed sidebar
 
 The collapsed sidebar keeps primary navigation available while giving Chat most
 of the horizontal space.

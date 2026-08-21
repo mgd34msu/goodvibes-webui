@@ -32,7 +32,7 @@ interface MessageListProps {
   onStop?: () => void;
   /** Tool calls currently running for the active turn (useChatStream's ActiveToolCall). */
   activeToolCalls?: readonly ActiveToolCall[];
-  /** Cancel ONE running tool call — the turn itself continues (unlike onStop, which ends it). */
+  /** Cancel ONE running tool call, the turn itself continues (unlike onStop, which ends it). */
   onCancelToolCall?: (callId: string) => void;
 }
 
@@ -56,7 +56,7 @@ export function MessageList({
   onCancelToolCall,
 }: MessageListProps) {
   const reducedMotion = useReducedMotion();
-  // Stop must be reachable for the WHOLE active turn — including the
+  // Stop must be reachable for the WHOLE active turn, including the
   // pre-first-token window (model thinking, long tool calls), where there is
   // no liveText yet. Requiring text here used to make a turn unstoppable
   // until it started talking.

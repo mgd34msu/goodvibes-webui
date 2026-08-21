@@ -1,5 +1,5 @@
 /**
- * TaskGraphPanel — the fix-phase task graph (fleet.graph.get, SDK 1.8.0).
+ * TaskGraphPanel, the fix-phase task graph (fleet.graph.get, SDK 1.8.0).
  * Covers every state tell the brief calls out (ready/running/blocked/at-cap/
  * stalled), the pool summary line, loading/error states, and phone-width
  * legibility (a vertical list, not a diagram).
@@ -184,7 +184,7 @@ describe('TaskGraphPanel', () => {
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('.task-graph-nodes')));
     expect(el.querySelector('.task-graph-nodes')?.tagName).toBe('UL');
-    // No diagram/canvas rendering — a small lucide <svg> icon in the panel title
+    // No diagram/canvas rendering, a small lucide <svg> icon in the panel title
     // is expected and fine; a <canvas> (a real node-link diagram) is not.
     expect(el.querySelector('canvas')).toBeNull();
   });

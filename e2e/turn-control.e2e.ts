@@ -1,5 +1,5 @@
 /**
- * Turn control — server-side stop, steer, and queue-when-busy (SDK 1.4).
+ * Turn control, server-side stop, steer, and queue-when-busy (SDK 1.4).
  *
  * Hermetic against the stateful chat mock in holdReplies mode: a send leaves
  * the turn visibly active so Stop / steer / queued markers are exercisable.
@@ -17,7 +17,7 @@ test('Stop requests the server-side cancel; the honest stopped partial lands in 
   await composer.fill('long question');
   await composer.press('Enter');
 
-  // The turn is held open — the Stop affordance appears.
+  // The turn is held open, the Stop affordance appears.
   const stopButton = page.getByRole('button', { name: 'Stop generating' });
   await expect(stopButton).toBeVisible();
   await stopButton.click();

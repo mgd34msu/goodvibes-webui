@@ -1,5 +1,5 @@
 /**
- * KnowledgeJobsPeek — the activity detail behind the Map/Nodes "View jobs" link
+ * KnowledgeJobsPeek, the activity detail behind the Map/Nodes "View jobs" link
  * (W8: the '766 jobs ran / 0 nodes' gap). Reads the previously-never-called
  * knowledge.jobs.list + knowledge.job-runs.list so a maintainer can see WHY
  * indexing produced no nodes, instead of a dead click or a bare zero.
@@ -83,7 +83,7 @@ export function KnowledgeJobsPeekBody() {
           const jobId = firstString(run, ['jobId']);
           const mappedTitle = jobTitleById.get(jobId);
           // Fall through past a genuinely-empty title (not just a nullish one) to the
-          // jobId, and past an empty jobId to a final honest label — a plain `??` would
+          // jobId, and past an empty jobId to a final honest label, a plain `??` would
           // stop at an empty-string title, so this is a truthiness fallback, not a
           // nullish one.
           const title = [mappedTitle, jobId].find((value): value is string => Boolean(value?.trim())) ?? 'Unknown job';

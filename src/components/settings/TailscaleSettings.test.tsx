@@ -1,6 +1,6 @@
 /**
- * TailscaleSettings — the one confirmed "Serve over tailscale" action behind a
- * "needs https — available via tailscale" label. Absent stays quiet (renders
+ * TailscaleSettings, the one confirmed "Serve over tailscale" action behind a
+ * "needs https, available via tailscale" label. Absent stays quiet (renders
  * nothing); present offers the action behind ConfirmSheet and renders the
  * resulting receipt.
  */
@@ -30,7 +30,7 @@ let serveRunResult: { receipt: { at: number; command: string; ok: boolean; url?:
 
 mock.module('../../lib/goodvibes', () => ({
   // Not called by anything TailscaleSettings renders, but src/lib/queries.ts (imported
-  // for queryKeys) statically imports these two names from this module — they must
+  // for queryKeys) statically imports these two names from this module, they must
   // resolve or the import itself fails before any test runs (same gotcha
   // MemoryView.test.tsx documents).
   getCurrentAuth: () => Promise.resolve({}),
@@ -102,7 +102,7 @@ afterEach(() => {
   };
 });
 
-describe('TailscaleSettings — quiet when absent', () => {
+describe('TailscaleSettings: quiet when absent', () => {
   test('renders nothing while pending', () => {
     const { el, unmount } = render();
     // Synchronous first paint: the query is still pending.
@@ -130,7 +130,7 @@ describe('TailscaleSettings — quiet when absent', () => {
   });
 });
 
-describe('TailscaleSettings — usable environment', () => {
+describe('TailscaleSettings: usable environment', () => {
   test('renders the panel with the MagicDNS name and the one action', async () => {
     getData = { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'tailscale is connected as my-host.tailnet.ts.net' };
     const { el, unmount } = render();

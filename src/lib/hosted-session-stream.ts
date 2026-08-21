@@ -1,5 +1,5 @@
 /**
- * hosted-session-stream.ts — reading the `turn` and `tools` raw event-domain
+ * hosted-session-stream.ts, reading the `turn` and `tools` raw event-domain
  * frames that carry a hosted session's LIVE output.
  *
  * There is no token-stream verb for a hosted session and no separate wire
@@ -12,16 +12,16 @@
  * `sessions.hosted.attach` handed it (gateway.ts's serializeEnvelope:
  * `{ type, ts, traceId, sessionId, source, payload }`).
  *
- * This module reads that envelope shape defensively — the same "never trust
+ * This module reads that envelope shape defensively, the same "never trust
  * the wire to be exactly what was asked for" stance sessions-union.ts and
- * approvals.ts document — so an event this client has never seen degrades to
+ * approvals.ts document, so an event this client has never seen degrades to
  * being ignored rather than crashing the attached view.
  */
 import { asRecord, firstString } from './object';
 
 /** One decoded `turn`/`tools` domain frame, narrowed to what a hosted-session
  * viewer reads. `type` is the runtime event's own discriminant (STREAM_DELTA,
- * TURN_COMPLETED, TOOL_EXECUTING, ...) — read from the envelope's top-level
+ * TURN_COMPLETED, TOOL_EXECUTING, ...), read from the envelope's top-level
  * `type` field, matching gateway-utils.ts's serializeEnvelope exactly. */
 export interface HostedStreamFrame {
   readonly type: string;
@@ -30,7 +30,7 @@ export interface HostedStreamFrame {
 }
 
 /** Decode a raw envelope payload (the SSE frame's `data:` JSON) into a
- * HostedStreamFrame, or null when it does not carry a sessionId at all — a
+ * HostedStreamFrame, or null when it does not carry a sessionId at all, a
  * frame this client cannot attribute to any session is never rendered. */
 export function readHostedStreamFrame(raw: unknown): HostedStreamFrame | null {
   const record = asRecord(raw);
@@ -43,7 +43,7 @@ export function readHostedStreamFrame(raw: unknown): HostedStreamFrame | null {
   };
 }
 
-/** One completed message this view renders after `history` — either the
+/** One completed message this view renders after `history`, either the
  * final text of a completed turn, or a system-rendered note about how the
  * turn ended (error/cancelled), matching HostedSessionHistoryMessage's shape
  * so it can be appended to the same rendered list. */
@@ -89,7 +89,7 @@ export function hostedLiveMessageFromTurnFrame(frame: HostedStreamFrame, now: ()
   }
 }
 
-/** True for a frame that means the turn is no longer in flight — the local
+/** True for a frame that means the turn is no longer in flight, the local
  * "streaming" indicator drops and any live-text buffer clears. */
 export function isTerminalTurnFrame(frame: HostedStreamFrame): boolean {
   return frame.type === 'TURN_COMPLETED' || frame.type === 'TURN_ERROR' || frame.type === 'TURN_CANCEL';

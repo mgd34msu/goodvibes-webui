@@ -1,5 +1,5 @@
 /**
- * KnowledgePacketPanel — knowledge.packet, a never-called-before verb this
+ * KnowledgePacketPanel, knowledge.packet, a never-called-before verb this
  * brief adopts. Proves the build form sends the task/detail/budget/writeScope
  * fields honestly and that the result (or its honest empty/error state) renders.
  */
@@ -130,7 +130,7 @@ test('a post-1.2.0 daemon truncated packet discloses "showing N of M (K dropped)
   unmount();
 });
 
-test('an older (pre-1.2.0) daemon response with no truncation fields renders no disclosure — no fabricated claim', async () => {
+test('an older (pre-1.2.0) daemon response with no truncation fields renders no disclosure, no fabricated claim', async () => {
   packetImpl = () => Promise.resolve({
     items: [
       { kind: 'source', id: 's1', title: 'Session spine decision record', reason: 'directly relevant', score: 0.91, estimatedTokens: 120 },

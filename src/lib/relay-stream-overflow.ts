@@ -1,15 +1,15 @@
 /**
- * relay-stream-overflow.ts — honest accounting of live events dropped over the relay tunnel.
+ * relay-stream-overflow.ts, honest accounting of live events dropped over the relay tunnel.
  *
  * When the webui is connected to the daemon over the relay, live event streams are tunnelled
  * through the relay's bounded send buffer (see the SDK's relay-transport). If that buffer
- * overflows, the daemon does NOT silently drop frames — it emits an honest `relay-overflow`
+ * overflows, the daemon does NOT silently drop frames, it emits an honest `relay-overflow`
  * SSE event carrying the count of chunks dropped since the last notice. Every stream consumer
  * (session updates, control-plane invalidation, chat turns) routes that event here.
  *
  * This tiny module-level store accumulates the dropped count and notifies React subscribers,
  * so the UI can show a persistent, non-dismissing-until-resolved notice: "live events were
- * dropped — the view may be stale — resync". A resync (refetching every query) is the honest
+ * dropped, the view may be stale, resync". A resync (refetching every query) is the honest
  * recovery: the missed events were only ever invalidation triggers, so a full refetch restores
  * the true state. acknowledgeRelayOverflow() clears the notice once the operator resyncs.
  */

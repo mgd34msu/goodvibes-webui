@@ -1,10 +1,10 @@
 /**
- * useSessionRealtime — the live-updates BLOCKER regression test.
+ * useSessionRealtime, the live-updates BLOCKER regression test.
  *
  * This is a red-if-broken test: it feeds a RAW SSE frame named `session-update` (the
  * un-domained wire event) and asserts queryKeys.sessions is invalidated. Against the
- * pre-W2B code — which bound domain('session') 'SESSION_UPDATED' through viaSse(), whose
- * per-domain filter drops the un-domained frame — this path never fired. The companion
+ * pre-W2B code, which bound domain('session') 'SESSION_UPDATED' through viaSse(), whose
+ * per-domain filter drops the un-domained frame, this path never fired. The companion
  * negative test documents the dead path: a frame named 'session' carrying a payload
  * `{type:'SESSION_UPDATED'}` must NOT be relied on to invalidate.
  */
@@ -114,7 +114,7 @@ describe('useSessionRealtime', () => {
 
   test('NEGATIVE: a frame named "session" (the dead viaSse path) is NOT relied on', () => {
     const { invalidate, unmount } = renderHook();
-    // This is exactly what the old domain('session') binding assumed — a 'session'
+    // This is exactly what the old domain('session') binding assumed, a 'session'
     // event carrying a 'SESSION_UPDATED' type. The raw stream must ignore it.
     capturedHandlers?.onEvent?.('session', { type: 'SESSION_UPDATED', payload: { sessionId: 's1' } });
     expect(invalidate).not.toHaveBeenCalled();

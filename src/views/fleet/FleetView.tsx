@@ -1,12 +1,12 @@
 /**
- * FleetView — the live process/session tree over fleet.*.
+ * FleetView, the live process/session tree over fleet.*.
  *
  * Renders sdk.operator.fleet.snapshot() (a flat, parentId-linked node list,
  * daemon-capped at 2000 nodes) as a master/detail browser mirroring
  * SessionsView.tsx's list+detail pattern. The SDK now emits per-node lifecycle
  * deltas on the runtime-event `fleet` domain, which App subscribes to over the
  * existing multiplexed control-plane stream (useRealtimeInvalidation) and turns
- * into a revalidation of this view's snapshot — so the tree updates ON the event,
+ * into a revalidation of this view's snapshot, so the tree updates ON the event,
  * not only on the timer. The background poll stays as the HONEST FALLBACK: when
  * the subscription is live (`subscriptionActive`) it drops to a slow safety cadence;
  * when the stream is down it returns to the original 15s poll. A manual refresh
@@ -15,23 +15,23 @@
  * Honest states: a truly empty fleet says so; a snapshot the daemon
  * truncated at its node cap says so (never silently implies completeness);
  * daemon-unreachable rides the app-level DaemonUnreachableGate overlay
- * (App.tsx) — this view does not duplicate that state.
+ * (App.tsx), this view does not duplicate that state.
  *
  * WEBUI-FLEET-DEPTH additions (the observability-layer vision in the browser):
- *   - Per-node capability actions, gated on lib/fleet.ts's wireBackedActions — steer
+ *   - Per-node capability actions, gated on lib/fleet.ts's wireBackedActions, steer
  *     (an 'agent' node with a live sessionRef.sessionId) and detach (any node with a
  *     live sessionRef) reuse the same sessions.steer/sessions.detach verbs the
  *     Sessions view already exercises; stop is offered ONLY for a 'watcher' node
- *     (watchers.stop — the one fleet-kind whose node id genuinely maps to a
+ *     (watchers.stop, the one fleet-kind whose node id genuinely maps to a
  *     verb-addressable entity). Every other true killable/interruptible/pausable/
- *     resumable flag gets an honest note instead of a fabricated button — see
+ *     resumable flag gets an honest note instead of a fabricated button, see
  *     unbackedCapabilityNote's header comment for exactly why.
  *   - "Approve from the tree": a node correlated to a real pending approval
  *     (lib/fleet.ts's approvalsForNode) renders that approval inline
  *     (FleetApprovalInline), reusing the same ApprovalCard the Approvals view uses.
  *   - Phone (≤980px): master/detail collapses to one pane at a time (mirrors
  *     SessionsView.tsx's pattern) and the new mutation actions above are desktop-only
- *     — an honest note says so rather than cramming a steer form into a 375px
+ *    , an honest note says so rather than cramming a steer form into a 375px
  *     column. Browsing the tree remains fully available on phone.
  */
 
@@ -80,7 +80,7 @@ import { parseFleetFocusFromHash, stripFleetFocusFragment } from '../../lib/push
 import '../../styles/components/fleet.css';
 
 /**
- * Poll cadence. When the fleet subscription is DOWN this is the honest fallback —
+ * Poll cadence. When the fleet subscription is DOWN this is the honest fallback,
  * the original 15s poll, so a stalled stream never silently freezes the tree. When
  * the subscription is LIVE, fleet events drive freshness and the poll recedes to a
  * slow safety net (a belt-and-suspenders re-sync in case a delta is ever missed).
@@ -105,17 +105,17 @@ function AttentionBadge({ reason, detail }: { reason: string; detail?: string })
 function KindBadge({ kind }: { kind: string }) {
   const known = isKnownProcessKind(kind);
   return (
-    <span className={`badge ${known ? 'neutral' : 'warning'}`} title={known ? undefined : 'Kind not known to this client — shown verbatim'}>
+    <span className={`badge ${known ? 'neutral' : 'warning'}`} title={known ? undefined : 'Kind not known to this client, shown verbatim'}>
       {kindLabel(kind)}
     </span>
   );
 }
 
 /**
- * ObservedBadge — the honest liveness tell for an observed foreign-agent row
+ * ObservedBadge, the honest liveness tell for an observed foreign-agent row
  * (node.observed.liveness). 'active' means the process's CPU time advanced
  * since the last detection pass; 'quiet' does NOT mean idle (it may be
- * blocked on the network or a human) — the daemon's own `detail` states that
+ * blocked on the network or a human), the daemon's own `detail` states that
  * distinction verbatim in the title, never a client-invented gloss.
  */
 function ObservedBadge({ node }: { node: FleetProcessNode }) {
@@ -130,17 +130,17 @@ function ObservedBadge({ node }: { node: FleetProcessNode }) {
 }
 
 /**
- * ObservedAgentDetail — the drill-in-only detail for an observed foreign-agent
+ * ObservedAgentDetail, the drill-in-only detail for an observed foreign-agent
  * row (node.kind === 'observed-external'). Renders the honest facts (pid,
  * liveness, cwd is already shown via node.task above) and the ONE verb this
- * kind ever offers — steer — gated on a genuine channel:
+ * kind ever offers, steer, gated on a genuine channel:
  *   - steer.kind 'tmux': a small composer driving fleet.observed.steer, weighted
- *     as a drill-in-only capability (steerDrillInOnly is always true here —
+ *     as a drill-in-only capability (steerDrillInOnly is always true here,
  *     never a primary/bulk action, matching this component's placement).
- *   - steer.kind 'none': the daemon's own plain-language reason, verbatim —
+ *   - steer.kind 'none': the daemon's own plain-language reason, verbatim,
  *     never a dead button standing in for a missing channel.
  * Stop/kill/interrupt/pause/resume are NEVER offered for this kind (observing a
- * foreign session is not owning its lifecycle) — there is no code path here
+ * foreign session is not owning its lifecycle), there is no code path here
  * that could render one.
  */
 function ObservedAgentDetail({ node, observed }: { node: FleetProcessNode; observed: NonNullable<FleetProcessNode['observed']> }) {
@@ -165,7 +165,7 @@ function ObservedAgentDetail({ node, observed }: { node: FleetProcessNode; obser
   return (
     <div className="fleet-detail__observed" aria-label="Observed foreign agent">
       <p className="fleet-detail__observed-note" role="note">
-        This is an externally-launched coding-agent session goodvibes did not spawn — visibility only.
+        This is an externally-launched coding-agent session goodvibes did not spawn; visibility only.
         It is never stoppable or interruptible from here.
       </p>
       <dl className="fleet-detail__observed-facts">
@@ -175,7 +175,7 @@ function ObservedAgentDetail({ node, observed }: { node: FleetProcessNode; obser
         </div>
         <div>
           <dt>Liveness</dt>
-          <dd>{observed.liveness.state === 'active' ? 'Active' : 'Quiet'} — {observed.liveness.detail}</dd>
+          <dd>{observed.liveness.state === 'active' ? 'Active' : 'Quiet'}: {observed.liveness.detail}</dd>
         </div>
       </dl>
 
@@ -210,7 +210,7 @@ function ObservedAgentDetail({ node, observed }: { node: FleetProcessNode; obser
 
 /** Which fleet process states map to which severity is genuinely webui/fleet-local
  * business logic (stalled/awaiting-approval/failed/killed have no SDK-contract
- * analogue) — the presentation-bridge cannot derive this, so it stays hand-written.
+ * analogue), the presentation-bridge cannot derive this, so it stays hand-written.
  * Typed as BadgeTone (not `string`) so the tone this produces is exactly the same
  * vocabulary contractStateForBadgeTone below already has a 1:1 mapping for. */
 function stateTone(state: string): BadgeTone {
@@ -223,7 +223,7 @@ function stateTone(state: string): BadgeTone {
 
 /** `data-contract-state` routes the tone through the shared presentation bridge
  * (contractStateForBadgeTone) instead of re-deriving the good/warn/bad/info bucket
- * locally — the same mapping StatusStrip's REACHABLE axis mounts, applied here too
+ * locally, the same mapping StatusStrip's REACHABLE axis mounts, applied here too
  * (see status.css / this file's fleet.css sibling for the `::before` glyph rule that
  * consumes it). */
 function StateBadge({ state }: { state: string }) {
@@ -237,7 +237,7 @@ function StateBadge({ state }: { state: string }) {
 
 export function FleetView({ subscriptionActive = true, onOpenSession }: {
   subscriptionActive?: boolean;
-  /** Navigate to a session's chat view — threads to the inline approval card's
+  /** Navigate to a session's chat view, threads to the inline approval card's
    * "open fix session" affordance (record.fixSessionId). */
   onOpenSession?: (sessionId: string) => void;
 } = {}) {
@@ -246,7 +246,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
   // target ONCE via a lazy initializer (no setState-in-effect cascade), seed it as
   // the initial selection in the live tree, then scrub the fragment in a mount
   // effect so a reload does not re-focus it. If the node is not in the snapshot yet,
-  // seeding its id is harmless — the detail pane resolves the moment the node
+  // seeding its id is harmless, the detail pane resolves the moment the node
   // appears (or stays on the picker).
   const [initialFocus] = useState(() =>
     typeof window !== 'undefined' ? parseFleetFocusFromHash(window.location.hash) : null,
@@ -272,7 +272,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
     queryFn: () => sdk.operator.fleet.archivedList(),
     refetchInterval: pollInterval,
   });
-  // Best-of-N held-merge groups (fleet.attempts.list) — polled with the fleet. An older
+  // Best-of-N held-merge groups (fleet.attempts.list), polled with the fleet. An older
   // daemon that has never heard of the verb answers METHOD_NOT_FOUND; we degrade to "no
   // attempt groups" rather than surfacing a scary error (retry:false so it does not spin).
   const attempts = useQuery({
@@ -315,13 +315,13 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
   );
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
   const running = useMemo(() => activeCount(nodes), [nodes]);
-  // Own-agent totals: observed foreign-agent rows are excluded (isObservedKind) — goodvibes
+  // Own-agent totals: observed foreign-agent rows are excluded (isObservedKind), goodvibes
   // did not spawn them, so folding them into "N node(s)" would overstate its own fleet.
   // Rendered as a separate, honestly-labeled count instead (never hidden, never conflated).
   const ownCount = useMemo(() => ownNodeCount(nodes), [nodes]);
   const observedCount = useMemo(() => observedNodeCount(nodes), [nodes]);
   // Optional-chain `nodes` too: an older daemon (or a degraded surface)
-  // answers the unknown verb with an empty object — that must render as an
+  // answers the unknown verb with an empty object, that must render as an
   // empty archive, never crash the whole Fleet view.
   const archivedCount = archivedList.data?.nodes?.length ?? 0;
 
@@ -402,7 +402,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
                       <span className="fleet-attempts__group-title">{g.sourceTitle || g.groupId}</span>
                       <span className="fleet-attempts__group-badges">
                         {g.ready
-                          ? <span className="badge attention">Ready — compare &amp; pick</span>
+                          ? <span className="badge attention">Ready: compare &amp; pick</span>
                           : <span className="badge neutral">Waiting for attempts</span>}
                         <span className="badge neutral">{held}/{g.candidates.length} held</span>
                         {g.judgment && <span className="badge neutral">judge ready</span>}
@@ -431,7 +431,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
 
         {view === 'active' && snapshot.isSuccess && snapshot.data.truncated && (
           <div className="fleet-cap-note" role="note">
-            Showing {snapshot.data.nodes.length} of {snapshot.data.totalCount} nodes — truncated at the daemon's
+            Showing {snapshot.data.nodes.length} of {snapshot.data.totalCount} nodes: truncated at the daemon's
             2000-node cap. Use a narrower fleet.list filter for the rest (not yet exposed in this view).
           </div>
         )}
@@ -440,7 +440,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
           <EmptyState
             icon={<Archive size={28} />}
             title="Archive is empty"
-            description="Archive finished agents and swarms from the live fleet to keep the working view clean — they stay browsable here."
+            description="Archive finished agents and swarms from the live fleet to keep the working view clean, they stay browsable here."
           />
         ) : (
           <EmptyState

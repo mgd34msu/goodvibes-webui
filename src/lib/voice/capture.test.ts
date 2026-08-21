@@ -1,10 +1,10 @@
 /**
- * capture.ts — the browser capture primitive.
+ * capture.ts, the browser capture primitive.
  *
  * Replaces stt-recorder.test.ts, which tested a MediaRecorder path that no longer
  * exists (nothing captures through MediaRecorder now; both consumers go through this
  * opener). Its support-detection matrix and its honest-failure-reason matrix are
- * carried over intact, because those behaviours did not change — only what happens
+ * carried over intact, because those behaviours did not change, only what happens
  * after the device opens did.
  *
  * The frame contract gets the most attention here because every way of getting it
@@ -15,7 +15,7 @@
  * The fake context drives the ScriptProcessor tap rather than the AudioWorklet one.
  * That is a real product path (a deployment whose content policy refuses blob:
  * scripts, or a browser without the API falls back to it), and the conversions under
- * test — scale, resample, re-cut — are shared by both taps. The worklet path itself
+ * test, scale, resample, re-cut, are shared by both taps. The worklet path itself
  * is exercised in a real browser by the e2e run, which is the only place a genuine
  * AudioWorklet exists.
  */

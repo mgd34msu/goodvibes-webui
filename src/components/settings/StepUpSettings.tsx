@@ -1,5 +1,5 @@
 /**
- * StepUpSettings — the operator-facing passkey management surface for relay step-up.
+ * StepUpSettings, the operator-facing passkey management surface for relay step-up.
  *
  * Two ceremonies, wired honestly:
  *   - Register a passkey: navigator.credentials.create (the daemon accepts 'none' attestation),
@@ -8,9 +8,9 @@
  *     assert ceremony can hint the right passkey.
  *   - Verify now: mint a server challenge and run navigator.credentials.get against it, proving
  *     the passkey produces a valid assertion on this device. (Full server-side verification runs
- *     on every real mutating relay call — this button confirms the local ceremony works.)
+ *     on every real mutating relay call, this button confirms the local ceremony works.)
  *
- * Every failure — unsupported browser, no authenticator, user cancel, register/verify error — is
+ * Every failure, unsupported browser, no authenticator, user cancel, register/verify error, is
  * rendered plainly with a specific message; nothing is faked or silently swallowed.
  */
 import { useState } from 'react';
@@ -97,7 +97,7 @@ export function StepUpSettings() {
   return (
     <section className="settings-stepup panel">
       <div className="panel-title">
-        <h2>Security — step-up verification</h2>
+        <h2>Security: step-up verification</h2>
         <ShieldCheck size={16} aria-hidden="true" />
       </div>
 

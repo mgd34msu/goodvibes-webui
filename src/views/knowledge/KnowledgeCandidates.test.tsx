@@ -1,5 +1,5 @@
 /**
- * KnowledgeCandidatesPanel — knowledge.candidates.list / .candidate.decide, a
+ * KnowledgeCandidatesPanel, knowledge.candidates.list / .candidate.decide, a
  * never-called-before verb pair this brief adopts. Proves the empty/error/
  * populated states render honestly and that accept/reject/supersede send the
  * right decision and refresh the list.

@@ -1,10 +1,10 @@
 /**
- * PeekPanel — right-side slide-over panel.
+ * PeekPanel, right-side slide-over panel.
  *
  * Exports:
- *   PeekProvider   — wrap the app shell to enable peek
- *   usePeek()      — { open, close, isOpen } per TOKEN-CONTRACT.md
- *   PeekPanel      — the rendered panel (consumed by PeekProvider internally)
+ *   PeekProvider  , wrap the app shell to enable peek
+ *   usePeek()     , { open, close, isOpen } per TOKEN-CONTRACT.md
+ *   PeekPanel     , the rendered panel (consumed by PeekProvider internally)
  *
  * Features:
  *   - Closes on Escape key
@@ -48,7 +48,7 @@ interface PeekContextValue {
 const PeekContext = createContext<PeekContextValue | null>(null);
 
 // ---------------------------------------------------------------------------
-// Hook — public API (TOKEN-CONTRACT.md: usePeek() => { open, close, isOpen })
+// Hook, public API (TOKEN-CONTRACT.md: usePeek() => { open, close, isOpen })
 // ---------------------------------------------------------------------------
 
 export function usePeek(): PeekContextValue {
@@ -110,7 +110,6 @@ function PeekPanelInner({ payload, isOpen, onClose }: PeekPanelProps) {
     }
   }, [isOpen, payload]);
 
-  // Return focus to trigger element on close
   useEffect(() => {
     if (!isOpen && triggerRef.current instanceof HTMLElement) {
       triggerRef.current.focus();

@@ -149,7 +149,7 @@ afterEach(() => {
 // Initial state
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — initial state', () => {
+describe('useUrlState: initial state', () => {
   test('defaults to chat when no view param', () => {
     const { getHandle, unmount } = renderHook();
     expect(getHandle().view).toBe('chat');
@@ -188,7 +188,7 @@ describe('useUrlState — initial state', () => {
 // setView
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — setView', () => {
+describe('useUrlState: setView', () => {
   test('updates view in returned state', () => {
     const { getHandle, unmount } = renderHook();
     flushSync(() => { getHandle().setView('admin'); });
@@ -238,7 +238,7 @@ describe('useUrlState — setView', () => {
 // setSession
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — setSession', () => {
+describe('useUrlState: setSession', () => {
   test('updates session in returned state', () => {
     const { getHandle, unmount } = renderHook();
     flushSync(() => { getHandle().setSession('sess-xyz'); });
@@ -267,7 +267,7 @@ describe('useUrlState — setSession', () => {
 // setFilters
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — setFilters', () => {
+describe('useUrlState: setFilters', () => {
   test('merges new filter keys into existing filters', () => {
     removeSpies();
     window.history.replaceState(null, '', '/?view=chat&filter%5Ba%5D=1');
@@ -309,7 +309,7 @@ describe('useUrlState — setFilters', () => {
 // resetFilters
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — resetFilters', () => {
+describe('useUrlState: resetFilters', () => {
   test('replaces entire filters object', () => {
     removeSpies();
     window.history.replaceState(null, '', '/?view=chat&filter%5Bold%5D=x');
@@ -333,7 +333,7 @@ describe('useUrlState — resetFilters', () => {
 // setUrlState
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — setUrlState', () => {
+describe('useUrlState: setUrlState', () => {
   test('merges partial state', () => {
     const { getHandle, unmount } = renderHook();
     flushSync(() => { getHandle().setUrlState({ view: 'admin', session: 'x' }); });
@@ -355,7 +355,7 @@ describe('useUrlState — setUrlState', () => {
 // popstate (back/forward navigation)
 // ---------------------------------------------------------------------------
 
-describe('useUrlState — popstate', () => {
+describe('useUrlState: popstate', () => {
   test('popstate event updates state to new URL', () => {
     withPopstateTrap((hook, triggerPopstate) => {
       const { getHandle, unmount } = hook;

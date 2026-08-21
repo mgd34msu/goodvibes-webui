@@ -1,18 +1,18 @@
 /**
- * PrincipalsView — read-first admin over the named-identity registry (principals.*)
+ * PrincipalsView, read-first admin over the named-identity registry (principals.*)
  * and per-channel profile bindings (channels.profiles.*).
  *
  * Principals: list every principal with its channel identities (principals.list);
- * create/update/delete each go through a confirm sheet — these mutate who a channel
+ * create/update/delete each go through a confirm sheet, these mutate who a channel
  * message resolves to, and delete is permanent (delete-means-delete, an honest
  * `deleted` boolean, never a phantom-removal 200).
  *
- * Channel profiles: list every surface/channel binding (channels.profiles.list) — the
- * model/provider/permission defaults a channel's originated sessions inherit — with
+ * Channel profiles: list every surface/channel binding (channels.profiles.list), the
+ * model/provider/permission defaults a channel's originated sessions inherit, with
  * set (upsert) and delete (behind a confirm sheet).
  *
  * Neither family emits a wire event yet (a standing gap shared with fleet.*,
- * checkpoints.*, ci.*, checkin.* — see queryKeys.principals/channelProfiles), so
+ * checkpoints.*, ci.*, checkin.*, see queryKeys.principals/channelProfiles), so
  * freshness comes from mutation-driven invalidation and a manual refresh.
  */
 
@@ -39,7 +39,7 @@ const PRINCIPAL_KINDS: readonly PrincipalKind[] = ['user', 'bot', 'service', 'to
 const PERMISSION_MODES: readonly PermissionMode[] = ['plan', 'normal', 'accept-edits', 'auto'];
 
 function identitiesFromDraft(draft: string): OperatorMethodInput<'principals.create'>['identities'] {
-  // One "channel:value" pair per line — the simplest phone-friendly encoding for a
+  // One "channel:value" pair per line, the simplest phone-friendly encoding for a
   // repeatable field without a dynamic row-add control.
   return draft
     .split('\n')
@@ -170,7 +170,7 @@ function PrincipalsSection() {
     const ok = await confirm.ask({
       title: 'Save changes to this principal',
       target: principal.name,
-      description: `Name: ${input.name}. Kind: ${input.kind}. ${input.identities?.length ?? 0} channel identit${(input.identities?.length ?? 0) === 1 ? 'y' : 'ies'} mapped — this REPLACES the identity set.`,
+      description: `Name: ${input.name}. Kind: ${input.kind}. ${input.identities?.length ?? 0} channel identit${(input.identities?.length ?? 0) === 1 ? 'y' : 'ies'} mapped: this REPLACES the identity set.`,
       confirmLabel: 'Save',
     });
     if (!ok) return;
@@ -301,7 +301,7 @@ function ChannelProfileForm({
         <input type="text" value={surfaceKind} onChange={(e) => setSurfaceKind(e.target.value)} placeholder="slack" disabled={submitting || Boolean(initial?.surfaceKind)} required />
       </label>
       <label>
-        Channel id (optional — scopes the binding to one channel)
+        Channel id (optional: scopes the binding to one channel)
         <input type="text" value={channelId} onChange={(e) => setChannelId(e.target.value)} disabled={submitting || Boolean(initial?.channelId)} />
       </label>
       <label>

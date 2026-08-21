@@ -13,7 +13,7 @@ describe('readHostedStreamFrame', () => {
     expect(frame).toEqual({ type: 'STREAM_DELTA', sessionId: 'hosted-1', payload: { accumulated: 'hi' } });
   });
 
-  test('null when there is no sessionId — a frame this client cannot attribute to any session', () => {
+  test('null when there is no sessionId, a frame this client cannot attribute to any session', () => {
     expect(readHostedStreamFrame({ type: 'STREAM_DELTA', payload: {} })).toBeNull();
     expect(readHostedStreamFrame({})).toBeNull();
     expect(readHostedStreamFrame(undefined)).toBeNull();

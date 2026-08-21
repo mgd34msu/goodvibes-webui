@@ -1,5 +1,5 @@
 /**
- * Workflow-shape gate — local proof that .github/workflows/ci.yml is
+ * Workflow-shape gate, local proof that .github/workflows/ci.yml is
  * well-formed, since CI itself can't be exercised without pushing.
  *
  * Follows goodvibes-sdk/test/workflow-shape.test.ts's approach (parse the

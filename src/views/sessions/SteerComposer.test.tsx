@@ -1,8 +1,8 @@
 /**
- * SteerComposer — SESSION_CLOSED honesty.
+ * SteerComposer, SESSION_CLOSED honesty.
  *
  * Before this fix, a steer/follow-up that raced a session close got a 409
- * SESSION_CLOSED reply that only marked the local dispatch entry "failed" — the
+ * SESSION_CLOSED reply that only marked the local dispatch entry "failed", the
  * sessions query was never invalidated, so the chrome (status badge, composer
  * enablement) kept reading the session as live and the user could keep firing 409s.
  * This test drives the mutation to reject with the daemon's real wire shape
@@ -113,8 +113,8 @@ describe('SteerComposer: SESSION_CLOSED honesty', () => {
 
     await typeAndSubmit(container, 'Focus on the failing test');
 
-    expect(container.textContent).toContain('This session is closed — reopen it to continue.');
-    // The raw daemon message embeds the session id — must not leak into the UI copy.
+    expect(container.textContent).toContain('This session is closed. Reopen it to continue.');
+    // The raw daemon message embeds the session id, must not leak into the UI copy.
     expect(container.textContent).not.toContain('Session is closed: s-agent');
     expect(container.textContent).not.toContain('HTTP 409');
     unmount();
@@ -128,7 +128,7 @@ describe('SteerComposer: SESSION_CLOSED honesty', () => {
     await typeAndSubmit(container, 'Focus on the failing test');
 
     expect(container.textContent).toContain('Rate limited');
-    expect(container.textContent).not.toContain('This session is closed — reopen it to continue.');
+    expect(container.textContent).not.toContain('This session is closed. Reopen it to continue.');
     const state = client.getQueryState(queryKeys.sessions);
     expect(state?.isInvalidated).toBe(false);
     unmount();

@@ -4,8 +4,8 @@
  * What only a real browser can prove, and therefore what this file is for:
  *
  *  - DISABLED MEANS NO PERMISSION PROMPT. `navigator.mediaDevices.getUserMedia` is
- *    wrapped by an init script and counted. With `voice.wake.surfaces.webui` false —
- *    the shipped default — the count stays 0 for the whole page lifetime.
+ *    wrapped by an init script and counted. With `voice.wake.surfaces.webui` false,
+ *    the shipped default, the count stays 0 for the whole page lifetime.
  *  - THE BUNDLE ACTUALLY RUNS. onnxruntime-web is dynamically imported, its wasm
  *    binary resolves from the emitted asset URL, and two inference sessions are
  *    created over bytes the mock daemon served in chunks and the tab verified against
@@ -31,7 +31,7 @@ test.use({
 
 /**
  * Count every getUserMedia call the page makes, before any app code runs. This is the
- * only honest way to assert "the tab never asked for the microphone" — an in-app flag
+ * only honest way to assert "the tab never asked for the microphone", an in-app flag
  * would be asserting the app's own bookkeeping.
  */
 async function countGetUserMedia(page: import('@playwright/test').Page): Promise<void> {
@@ -146,7 +146,7 @@ test('a multi-chunk model read reassembles and the tab still reaches listening',
 
   const classifierReads = voice.wakeModelReads.filter((read) => read.component === 'classifier');
   expect(classifierReads.length).toBeGreaterThan(1);
-  // Offsets advance monotonically by the chunk size — the loop, not a retry storm.
+  // Offsets advance monotonically by the chunk size, the loop, not a retry storm.
   expect(classifierReads.map((read) => read.offset)).toEqual(
     classifierReads.map((_read, index) => index * 64),
   );
@@ -294,7 +294,7 @@ test('speex is honoured rather than blocked: the tab listens with the filter on'
   // Deliberately NOT installFakeAudio: that shim replaces AudioContext with a
   // playback-only fake for the TTS tests, and capture needs a real audio graph
   // (Chromium's, over the fake media device from the launch args) to reach
-  // listening at all — the same setup the other listening tests use.
+  // listening at all, the same setup the other listening tests use.
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, {
     wake: { provisioned: true },

@@ -1,5 +1,5 @@
 /**
- * checkpoints.ts — display helpers for checkpoints.*
+ * checkpoints.ts, display helpers for checkpoints.*
  * (packages/sdk/src/platform/control-plane/method-catalog-fleet.ts /
  * WorkspaceCheckpointManager).
  */
@@ -39,10 +39,10 @@ export function formatBytes(bytes: number | undefined): string {
 
 /**
  * The exact honest wording for a create() response that reported noop:true
- * (WorkspaceCheckpointManager: tree identical to the most recent checkpoint —
+ * (WorkspaceCheckpointManager: tree identical to the most recent checkpoint,
  * no commit, ref, or manifest entry created). Never phrased as a failure.
  */
-export const CHECKPOINT_NOOP_MESSAGE = 'Nothing to snapshot — the workspace tree is unchanged since the last checkpoint.';
+export const CHECKPOINT_NOOP_MESSAGE = 'Nothing to snapshot: the workspace tree is unchanged since the last checkpoint.';
 
 /**
  * The exact wording of the destructive-restore confirm prompt. Named here
@@ -70,7 +70,7 @@ export function restoreConfirmMessageWithPreview(
   const base = restoreConfirmMessage(checkpoint);
   const count = preview.affectedPathCount;
   if (count <= 0) {
-    return `${base}\n\nThis checkpoint matches the current working tree — no files would change.`;
+    return `${base}\n\nThis checkpoint matches the current working tree, no files would change.`;
   }
   const noun = count === 1 ? 'file' : 'files';
   const sample = preview.affectedPathSample.slice(0, 5);

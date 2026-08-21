@@ -5,7 +5,7 @@
  * (PairingHandoffOffers → pairing.handoff.complete). Both paths, at phone width:
  *   - accept: notifications + relay are gathered/acknowledged and complete
  *     honestly as Completed.
- *   - decline: every offer is unchecked before continuing — nothing is sent to
+ *   - decline: every offer is unchecked before continuing, nothing is sent to
  *     the daemon, and each renders as Declined, never silently half-applied.
  *
  * Passkey is left out of both e2e paths (its ceremony needs a real WebAuthn

@@ -1,5 +1,5 @@
 /**
- * THE HERO — steer from your phone.
+ * THE HERO, steer from your phone.
  *
  * The flagship journey at 390x844: boot signed-in with the workspace visible (drawer
  * collapsed), find a session, read its transcript, STEER it from the soft keyboard
@@ -24,7 +24,7 @@ test('the workspace loads signed-in with the drawer collapsed; open + scrim clos
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('.signed-out-gate, .auth-gate')).toHaveCount(0);
 
-  // Drawer COLLAPSED on load — the workspace is visible first, not covered.
+  // Drawer COLLAPSED on load, the workspace is visible first, not covered.
   await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
   await expect(page.locator('.sidebar.collapsed')).toBeVisible();
   await expectNoHorizontalScroll(page);
@@ -45,7 +45,7 @@ test('find → read → STEER via plain Enter → the steer lands over the wire'
   await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  // ── FIND: the union list is usable on a phone — the session is right there. ──
+  // ── FIND: the union list is usable on a phone, the session is right there. ──
   const row = page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) });
   await expect(row).toBeVisible();
   await expectNoHorizontalScroll(page);

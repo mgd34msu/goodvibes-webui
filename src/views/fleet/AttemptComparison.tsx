@@ -1,13 +1,13 @@
 /**
- * AttemptComparison — the best-of-N candidate comparison + pick surface (fleet.attempts.*).
+ * AttemptComparison, the best-of-N candidate comparison + pick surface (fleet.attempts.*).
  *
  * Opened from a ready attempt group in FleetView. Renders every candidate side by side:
  * its per-attempt diff (via the shared DiffMultibuffer from the review cockpit, read-only),
  * usage/cost, and outcome. The optional judge (fleet.attempts.judge) PROPOSES a winner with
- * reasons — shown CLEARLY LABELLED as model judgment, never an auto-pick. The operator
+ * reasons, shown CLEARLY LABELLED as model judgment, never an auto-pick. The operator
  * selects a held candidate and confirms; fleet.attempts.pick merges the winner and cleans
  * the losers. A not-ready/unknown group is an honest 409 CONFLICT (isConflictError), never
- * a partial merge — rendered as "no longer ready — refresh", and the fleet is revalidated.
+ * a partial merge, rendered as "no longer ready, refresh", and the fleet is revalidated.
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -58,28 +58,28 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
 
   const pick = useMutation({
     // confirm defaults to true (the operator already confirmed via the ConfirmSheet
-    // below) — the daemon still reports applied/requiresConfirm honestly, and a
+    // below), the daemon still reports applied/requiresConfirm honestly, and a
     // false applied (e.g. the group went stale between confirm and this call) is
     // NOT treated as a completed merge: onSuccess only closes the modal when the
     // daemon actually applied it.
     mutationFn: (winnerItemId: string) => sdk.operator.fleet.attempts.pick(group.groupId, winnerItemId),
     onSuccess: (result) => {
       if (!result.applied) {
-        setConflict('The daemon did not apply this pick — the group may no longer be ready. Refresh the fleet and try again.');
+        setConflict('The daemon did not apply this pick. The group may no longer be ready. Refresh the fleet and try again.');
         return;
       }
       onPicked();
       onClose();
     },
     onError: (error) => {
-      if (isConflictError(error)) setConflict('This group is no longer ready to pick — refresh the fleet and try again.');
+      if (isConflictError(error)) setConflict('This group is no longer ready to pick, refresh the fleet and try again.');
     },
   });
 
   const judgeUnavailable = judge.isError && isMethodNotInvokableError(judge.error);
 
   return (
-    <Modal open={open} onClose={onClose} title={`Compare attempts — ${group.sourceTitle}`} size="lg">
+    <Modal open={open} onClose={onClose} title={`Compare attempts: ${group.sourceTitle}`} size="lg">
       <div className="attempt-cmp">
         <p className="attempt-cmp__intro">
           {heldCandidates.length} held candidate{heldCandidates.length === 1 ? '' : 's'} of {group.candidates.length}.
@@ -91,7 +91,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
           <div className="attempt-cmp__judge-head">
             <Gavel size={14} aria-hidden="true" />
             <strong>Model judgment</strong>
-            <span className="attempt-cmp__judge-tag">proposal only — a human still confirms</span>
+            <span className="attempt-cmp__judge-tag">proposal only, a human still confirms</span>
             <button
               type="button"
               className="attempt-cmp__judge-btn"
@@ -102,7 +102,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
             </button>
           </div>
           {judgeUnavailable && (
-            <p className="attempt-cmp__note" role="note">No judge model is configured on this engine — pick manually.</p>
+            <p className="attempt-cmp__note" role="note">No judge model is configured on this engine, pick manually.</p>
           )}
           {judge.isError && !judgeUnavailable && (
             <p className="attempt-cmp__error" role="alert">{formatError(judge.error)}</p>

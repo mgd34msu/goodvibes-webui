@@ -1,8 +1,8 @@
 /**
- * capability-bindings.ts — what this web app can actually do on a phone.
+ * capability-bindings.ts, what this web app can actually do on a phone.
  *
  * The SDK's device capability contract says WHAT a capability is; this file is
- * the web platform's binding for each one — getUserMedia for the cameras,
+ * the web platform's binding for each one, getUserMedia for the cameras,
  * getDisplayMedia for the screen, geolocation for location, the async clipboard
  * for clipboard, Notification/window.open/vibrate for device commands.
  *
@@ -13,7 +13,7 @@
  * case" means in practice.
  *
  * Availability is reported honestly. A capability whose browser API is absent,
- * or whose origin is not a secure context, is simply not announced — the host
+ * or whose origin is not a secure context, is simply not announced, the host
  * then labels it "not offered" or "needs https" instead of rendering a control
  * that would fail when pressed.
  */
@@ -178,7 +178,7 @@ async function readLocation(bindings: BrowserBindings, precise: boolean, maxAgeS
     geolocation.getCurrentPosition(
       (position) => {
         // A coarse reading is deliberately rounded here, on the device, before
-        // it ever leaves it — asking for "approximate" must not ship an exact
+        // it ever leaves it, asking for "approximate" must not ship an exact
         // fix that a host then chooses to round.
         const round = precise ? (value: number): number => value : (value: number): number => Math.round(value * 100) / 100;
         resolve({

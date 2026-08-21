@@ -1,5 +1,5 @@
 /**
- * Queued messages (SDK 1.8.0's interaction-wins round) — a message posted
+ * Queued messages (SDK 1.8.0's interaction-wins round), a message posted
  * while another turn is running sits queued until that turn ends. This
  * proves QueuedMessagesPanel end to end against the stateful chat mock:
  * listing, inline edit, and delete, all reaching the real wire verbs
@@ -10,7 +10,7 @@ import { installChatMockDaemon } from './support/chat-mock';
 import { expectTappable, only, PHONE } from './support/app';
 
 const COMPOSER = 'textarea[aria-label="Message GoodVibes"]';
-// The chat mock assigns session ids sequentially per fresh daemon instance —
+// The chat mock assigns session ids sequentially per fresh daemon instance,
 // the FIRST session created in a test is always 'sess-1'.
 const FIRST_SESSION_ID = 'sess-1';
 
@@ -21,7 +21,6 @@ test('a queued message renders with its text and can be edited in place', async 
   await page.goto('/?view=chat');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  // Create the first session by sending a message.
   const composer = page.locator(COMPOSER);
   await composer.fill('start a chat');
   await composer.press('Enter');

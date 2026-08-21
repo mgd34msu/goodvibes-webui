@@ -1,11 +1,11 @@
 /**
- * Voice routes for the hermetic harness — layered on top of installChatMockDaemon.
+ * Voice routes for the hermetic harness, layered on top of installChatMockDaemon.
  *
  * Answers voice.status / voice.voices.list / voice.tts.stream / voice.stt and config.get
  * in-page, so the voice surface exercises every honest state with NO real voice provider
  * and NO real network. Audio is faked two ways: the TTS stream returns throwaway bytes,
  * and an injected fake AudioContext (installFakeAudio) decodes/plays them without touching
- * real audio hardware — the tests assert the STATES, never real sound.
+ * real audio hardware, the tests assert the STATES, never real sound.
  *
  * Registered AFTER the chat mock's '**\/api\/**' catch-all, so these more specific
  * handlers win for the voice/config paths.
@@ -49,15 +49,15 @@ export interface VoiceMockOptions {
    * resting state, exactly like the real one-act flow). */
   localInstallOutcome?: 'provisioned' | 'download-failed';
   /**
-   * How long the install POST stays in flight, in ms (default 0 — answers
+   * How long the install POST stays in flight, in ms (default 0, answers
    * immediately). While it is in flight, voice.local.status serves the
-   * installInProgress section (SDK 5357f09e) — set this to a couple of poll
+   * installInProgress section (SDK 5357f09e), set this to a couple of poll
    * intervals to prove the live-progress rendering end to end.
    */
   localInstallDurationMs?: number;
   /**
    * The `voice.wake.*` rows config.get reports. Merged over the shipped defaults, so
-   * omitting this leaves wake detection OFF and the tab never calls getUserMedia —
+   * omitting this leaves wake detection OFF and the tab never calls getUserMedia,
    * which is the state most voice tests want and the one the product ships.
    */
   wakeConfig?: Record<string, unknown>;
@@ -81,7 +81,7 @@ export interface VoiceMock {
   sttRequests: { body: unknown }[];
   configWrites: { key: unknown; value: unknown }[];
   localInstallRequests: number;
-  /** voice.wake.provision calls — it must never happen without an explicit act. */
+  /** voice.wake.provision calls, it must never happen without an explicit act. */
   wakeProvisionRequests: number;
   /** Every voice.wake.model.get read, in order: the chunk loop, observable. */
   wakeModelReads: { component: string; offset: number }[];
@@ -173,7 +173,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
       corruptSha: wakeOption?.corruptSha ?? false,
     };
 
-  // voice.local.status / voice.local.install in-memory state — install flips the
+  // voice.local.status / voice.local.install in-memory state, install flips the
   // resting state to provisioned (unless seeded to the retriable download failure,
   // which keeps nothing), exactly like the real one-act flow.
   let installActive = false;
@@ -237,7 +237,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
 
     // Managed local voice (voice.local.status / voice.local.install, SDK 1.9.0-dev).
     // While an install POST is in flight, status carries the installInProgress
-    // section (SDK 5357f09e) — present during, and only during, the active run,
+    // section (SDK 5357f09e), present during, and only during, the active run,
     // exactly like the daemon's single-flight tracker.
     if (method === 'GET' && path === '/api/voice/local/status') {
       if (!voiceLocalState) return json(route, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' }, 404);
@@ -295,7 +295,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     }
     if (method === 'POST' && path === '/api/voice/tts/stream') {
       mock.ttsRequests.push({ body: request.postDataJSON?.() });
-      // Throwaway bytes — the fake AudioContext ignores their content.
+      // Throwaway bytes, the fake AudioContext ignores their content.
       return route.fulfill({
         status: 200,
         contentType: 'audio/mpeg',

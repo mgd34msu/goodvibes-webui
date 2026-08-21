@@ -1,5 +1,5 @@
 /**
- * Credential status panel (ProvidersView) — the cross-surface credential-status
+ * Credential status panel (ProvidersView), the cross-surface credential-status
  * facade's display-site adoption. Proves the three honest outcomes render
  * against a real HTTP round-trip through the mock daemon (mock-daemon.ts's
  * `credentials` option), not just against a unit-mocked module.
@@ -15,7 +15,7 @@ test('available: configured/usable credentials render honestly, no fabricated st
   await expect(panel).toBeVisible();
   await expect(panel.getByText('ANTHROPIC_API_KEY')).toBeVisible();
   await expect(panel.getByText('usable', { exact: true }).first()).toBeVisible();
-  // GOOGLE_API_KEY is configured but not usable in the seed — the honest
+  // GOOGLE_API_KEY is configured but not usable in the seed, the honest
   // degraded label, distinct from plain "usable".
   await expect(panel.getByText('configured, not usable')).toBeVisible();
   await expectNoHorizontalScroll(page);

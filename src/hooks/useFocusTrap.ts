@@ -1,5 +1,5 @@
 /**
- * useFocusTrap — traps keyboard focus within a container element.
+ * useFocusTrap, traps keyboard focus within a container element.
  * Intended for palette, peek slide-over, and modal surfaces.
  *
  * Contract: part of a11y helpers per docs/ux-overhaul/TOKEN-CONTRACT.md
@@ -34,11 +34,11 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
  *
  * Two complementary mechanisms enforce the trap:
  *
- * 1. **keydown on container** — intercepts Tab/Shift+Tab and cycles focus
+ * 1. **keydown on container**, intercepts Tab/Shift+Tab and cycles focus
  *    within the focusable elements list. Handles the common case where the
  *    user navigates by keyboard and focus never leaves the container.
  *
- * 2. **focusin on document** — recovery guard. Fires whenever focus moves
+ * 2. **focusin on document**, recovery guard. Fires whenever focus moves
  *    to ANY element in the document. If focus has escaped the container
  *    (e.g. programmatic `.focus()` call, browser chrome interaction, or
  *    a race during SSR hydration), focus is immediately returned to the
@@ -69,7 +69,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
       container.focus();
     }
 
-    // 1. Tab cycling — bound at container level for efficient routing
+    // 1. Tab cycling, bound at container level for efficient routing
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key !== 'Tab') return;
 
@@ -95,13 +95,13 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
       }
     }
 
-    // 2. Focusin recovery — bound at document level.
+    // 2. Focusin recovery, bound at document level.
     //    Catches programmatic focus escapes that bypass Tab handling.
     function handleFocusIn(event: FocusEvent): void {
       // Ignore focus events targeting the container itself or its descendants
       if (trapContainer.contains(event.target as Node | null)) return;
 
-      // Focus escaped — pull it back to the first focusable element
+      // Focus escaped, pull it back to the first focusable element
       const focusableNow = getFocusableElements(trapContainer);
       if (focusableNow.length > 0) {
         // Intentional recovery: always return to the first focusable element on escape.

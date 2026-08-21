@@ -1,5 +1,5 @@
 /**
- * useConfirmSheet + ConfirmSheet — ask() resolves true on Confirm, false on
+ * useConfirmSheet + ConfirmSheet, ask() resolves true on Confirm, false on
  * Cancel/Escape, renders the action name/target, and never stacks two sheets.
  */
 import { afterEach, describe, expect, test } from 'bun:test';

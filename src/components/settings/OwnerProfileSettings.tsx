@@ -1,32 +1,32 @@
 /**
- * OwnerProfileSettings — the owner-profile surface for this webui
+ * OwnerProfileSettings, the owner-profile surface for this webui
  * (profile.* verbs, docs/owner-profile.md). Mounted in AdminView beside PowerSettings and
  * MemoryDiagnostics, and built the same non-schema-driven way they are: these verbs carry
  * no CONFIG_SCHEMA entry, so they get a bespoke panel rather than a SettingsModal row.
- * (The `profile.*` CONFIG keys — enabled, autonomousWrites, discloseWrites and the rest of
- * §12 — do go through the schema-driven modal, under the "Owner Profile" group label added
+ * (The `profile.*` CONFIG keys, enabled, autonomousWrites, discloseWrites and the rest of
+ * §12, do go through the schema-driven modal, under the "Owner Profile" group label added
  * in config-redaction.ts.)
  *
  * The panel answers §8.3's three questions on this surface:
  *
- *   "what do you know about me?"  — profile.read, rendered by section. Mechanical fields
+ *   "what do you know about me?" , profile.read, rendered by section. Mechanical fields
  *      (§4.3) render as labelled values; everything else renders as the prose it is. His
- *      prose is NOT restyled into a table — the file is a document he wrote, and the writer
+ *      prose is NOT restyled into a table, the file is a document he wrote, and the writer
  *      never normalises it (§4.5), so neither does this reader.
- *   "where did you get that?"     — profile.provenance, per field, from that field's own
+ *   "where did you get that?"    , profile.provenance, per field, from that field's own
  *      button. Every learned line already shows its compact suffix (§4.2: surface, date,
  *      his verbatim words); the button adds the `<!-- was: … -->` predecessors. Per line,
  *      never one bulk dump.
- *   "forget that"                 — profile.forget, behind a confirm, then a report of what
+ *   "forget that"                , profile.forget, behind a confirm, then a report of what
  *      actually went. Deleting is permanent (§9.2 and
  *      docs/decisions/2026-07-06-delete-means-delete.md): no tombstone, no retention
  *      window, and the history that would have made it undoable goes with it. A forget of
  *      something that was not there comes back `ok: false` with the store's own sentence,
- *      which this panel relays verbatim — it never renders as a success.
+ *      which this panel relays verbatim, it never renders as a success.
  *
  * WHERE UNDO LIVES, AND WHY. profile.read carries no superseded count, so the only honest
  * source for "does an earlier value exist" is profile.provenance. Undo therefore sits
- * INSIDE the provenance disclosure, directly under the earlier values it would restore —
+ * INSIDE the provenance disclosure, directly under the earlier values it would restore,
  * so the button appears exactly where a superseded value has been shown to exist, rather
  * than on every field as a mostly-dead affordance.
  *
@@ -44,7 +44,7 @@
  *
  * THIRD-PARTY PERSONAL DATA (§10). The People section holds facts about people who never
  * agreed to be in a database. This repo has no existing marker convention for such
- * material to reuse — its nearest analogues are config-redaction.ts (secret-shaped config
+ * material to reuse, its nearest analogues are config-redaction.ts (secret-shaped config
  * values are masked, and SettingsField renders them write-only) and MemoryRecordDetail (a
  * sensitive-looking ref renders as plain inert text, never a link, never fetched). Neither
  * is a containment marker for third-party data, so this panel uses the most conservative
@@ -101,7 +101,7 @@ interface RowActions {
 }
 
 // ---------------------------------------------------------------------------
-// Provenance disclosure — "where did you get that?", per field
+// Provenance disclosure, "where did you get that?", per field
 // ---------------------------------------------------------------------------
 
 function FieldProvenance({ field, actions }: { field: ProfileField; actions: RowActions }) {
@@ -131,7 +131,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
       {!answer.present && <p>This is not in your profile.</p>}
       {answer.present && answer.provenance && <p>{provenanceSummary(answer.provenance)}</p>}
       {answer.present && !answer.provenance && (
-        <p>No provenance recorded — you wrote or edited this line by hand.</p>
+        <p>No provenance recorded, you wrote or edited this line by hand.</p>
       )}
 
       {answer.superseded.length > 0 ? (
@@ -142,7 +142,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
               <li key={`${entry.value}-${String(index)}`}>
                 <span className="owner-profile__value">{entry.value}</span>
                 {entry.provenance && (
-                  <span className="owner-profile__provenance"> — {provenanceSummary(entry.provenance)}</span>
+                  <span className="owner-profile__provenance">, {provenanceSummary(entry.provenance)}</span>
                 )}
                 {entry.supersededOn.length > 0 && (
                   <span className="form-note"> (superseded {entry.supersededOn})</span>
@@ -156,7 +156,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
             disabled={actions.busy}
             onClick={() => { actions.onUndo(field.fieldId, field.label); }}
           >
-            Undo — put the most recent earlier value back
+            Undo: put the most recent earlier value back
           </button>
         </>
       ) : (
@@ -167,7 +167,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
 }
 
 // ---------------------------------------------------------------------------
-// A mechanical field (§4.3) — labelled value, editable, forgettable
+// A mechanical field (§4.3), labelled value, editable, forgettable
 // ---------------------------------------------------------------------------
 
 function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions }) {
@@ -212,7 +212,7 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
           <>
             <span className="owner-profile__value">{field.value}</span>
             {field.provenance && (
-              <span className="owner-profile__provenance"> — {provenanceSummary(field.provenance)}</span>
+              <span className="owner-profile__provenance">, {provenanceSummary(field.provenance)}</span>
             )}
             {!field.valid && (
               <p className="owner-profile__invalid" role="note">
@@ -255,7 +255,7 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
 }
 
 // ---------------------------------------------------------------------------
-// A prose line (§4.4) — rendered as the prose it is
+// A prose line (§4.4), rendered as the prose it is
 // ---------------------------------------------------------------------------
 
 function ProseRow({
@@ -279,7 +279,7 @@ function ProseRow({
       <p className="owner-profile__prose">
         {line.text}
         {line.provenance && (
-          <span className="owner-profile__provenance"> — {provenanceSummary(line.provenance)}</span>
+          <span className="owner-profile__provenance">, {provenanceSummary(line.provenance)}</span>
         )}
       </p>
       <div className="owner-profile__row-actions">
@@ -304,7 +304,7 @@ function ProseRow({
         <div className="owner-profile__provenance-detail">
           {line.provenance
             ? <p>{provenanceSummary(line.provenance)}</p>
-            : <p>No provenance recorded — you wrote or edited this line by hand.</p>}
+            : <p>No provenance recorded, you wrote or edited this line by hand.</p>}
           <p className="form-note">
             That is the whole answer for a note: notes keep no earlier versions, so there is
             nothing further to look up and nothing to undo.
@@ -473,7 +473,7 @@ export function OwnerProfileSettings() {
       title: 'Forget this permanently',
       target: label,
       description:
-        'This deletes the line from your profile file, together with the earlier values kept for it — so there is nothing left to undo. No copy is retained anywhere.',
+        'This deletes the line from your profile file, together with the earlier values kept for it, so there is nothing left to undo. No copy is retained anywhere.',
       confirmLabel: 'Forget it',
       tone: 'danger',
     });
@@ -500,7 +500,7 @@ export function OwnerProfileSettings() {
 
       <p className="form-note">
         One Markdown file the daemon keeps, holding what the platform knows about you. Edit it here
-        or by hand — your hand edits win and are never rewritten. Lines it learned from you carry a
+        or by hand, your hand edits win and are never rewritten. Lines it learned from you carry a
         short note saying where it heard them.
       </p>
 
@@ -535,7 +535,7 @@ export function OwnerProfileSettings() {
           <strong>Values kept as written but not valid</strong>
           <ul>
             {status.data.invalidFields.map((entry) => (
-              <li key={entry.fieldId}>{entry.fieldId} — {entry.reason}</li>
+              <li key={entry.fieldId}>{entry.fieldId}: {entry.reason}</li>
             ))}
           </ul>
         </div>
@@ -573,7 +573,7 @@ export function OwnerProfileSettings() {
         <div className="banner warning" role="alert" data-testid="profile-unavailable">
           <p>{profileUnavailableLine(profile.data.reason, profile.data.path)}</p>
           <p className="form-note">
-            Nothing is shown below because the file could not be read — not because your profile is
+            Nothing is shown below because the file could not be read, not because your profile is
             empty.
           </p>
         </div>

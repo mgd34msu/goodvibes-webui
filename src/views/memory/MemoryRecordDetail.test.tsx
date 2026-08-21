@@ -1,7 +1,7 @@
 /**
- * MemoryRecordDetail — record detail (type/scope/review-state/provenance) plus a
+ * MemoryRecordDetail, record detail (type/scope/review-state/provenance) plus a
  * no-secret-render pin: a provenance ref that looks like a filesystem path (or any
- * other sensitive-looking string) must render as plain, inert text — never as a link,
+ * other sensitive-looking string) must render as plain, inert text, never as a link,
  * never fetched, never specially parsed. This view has no file-read capability and
  * must not invent one via a provenance ref.
  */
@@ -42,7 +42,7 @@ function render(node: React.ReactElement) {
   };
 }
 
-describe('MemoryRecordDetail — type/scope/review-state/provenance', () => {
+describe('MemoryRecordDetail: type/scope/review-state/provenance', () => {
   test('renders the type, scope, and review-state facts', () => {
     const { el, unmount } = render(
       <MemoryRecordDetail record={record({ cls: 'decision', scope: 'team', reviewState: 'reviewed', confidence: 92 })} />,
@@ -68,7 +68,7 @@ describe('MemoryRecordDetail — type/scope/review-state/provenance', () => {
         provenance: [{ kind: 'file', ref: '/home/user/.env', label: undefined }],
       })} />,
     );
-    // The path IS shown — provenance is meant to be legible — but only as inert text.
+    // The path IS shown, provenance is meant to be legible, but only as inert text.
     expect(el.textContent).toContain('/home/user/.env');
     // Never as a navigable/fetchable link.
     expect(el.querySelector('a[href*=".env"]')).toBeFalsy();

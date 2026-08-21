@@ -1,5 +1,5 @@
 /**
- * sessions-union.ts — pure, tolerant readers for the cross-surface session union.
+ * sessions-union.ts, pure, tolerant readers for the cross-surface session union.
  *
  * The union list is served by GET /api/sessions (sdk.operator.sessions.list) and
  * wrapped as `{ totals, sessions }` where each entry is a SharedSessionRecordResponse
@@ -7,7 +7,7 @@
  * shape defensively: `kind` / `status` / `project` are treated as OPEN STRINGS even
  * though the wire enum is a closed union, so a spine daemon newer than the pinned
  * 0.38 client can return a kind we have never seen and we render it verbatim rather
- * than crash or drop it (no zod on this path — see src/lib/object.ts).
+ * than crash or drop it (no zod on this path, see src/lib/object.ts).
  */
 
 import { asArray, firstString, readPath } from './object';
@@ -75,18 +75,18 @@ export interface UnionSessionRecord {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
-  /** null when the wire omitted it — absence means FULLY RETAINED, never inferred loss. */
+  /** null when the wire omitted it, absence means FULLY RETAINED, never inferred loss. */
   retainedMessageCount: number | null;
   pendingInputCount: number;
   surfaceKinds: string[];
   activeAgentId: string;
   lastError: string;
   /**
-   * Why a closed session closed, when the daemon reported one — the SDK's
+   * Why a closed session closed, when the daemon reported one, the SDK's
    * SharedSessionCloseReason ('idle-reaped' | 'user' | 'surface'), carried on
    * the wire under `metadata.closeReason` (see the SDK's
    * platform/control-plane/session-broker-sessions.ts, SESSION_CLOSE_REASON_METADATA_KEY).
-   * Empty string when absent — a build that predates this field, or a session
+   * Empty string when absent, a build that predates this field, or a session
    * that was never closed. Read tolerantly (not validated against the known
    * enum) so an unrecognized value is still preserved rather than dropped.
    */
@@ -96,10 +96,10 @@ export interface UnionSessionRecord {
    * bridge-channel intake stamps `metadata.attributedPrincipalId/Name/Known` on a
    * session it originates (channel-profiles/intake.ts, ATTRIBUTED_PRINCIPAL_*_KEY).
    * `attributedPrincipalKnown` is null when the wire never stamped this session at
-   * all (most sessions — non-channel-originated, or a pre-feature daemon build) —
+   * all (most sessions, non-channel-originated, or a pre-feature daemon build),
    * distinct from `false`, which means the sender identity resolved to the honest
    * unknown principal (unmapped, never a guess). Only render an attribution line
-   * when `attributedPrincipalKnown !== null` — see SessionsView's SessionDetail.
+   * when `attributedPrincipalKnown !== null`, see SessionsView's SessionDetail.
    */
   attributedPrincipalName: string;
   attributedPrincipalKnown: boolean | null;
@@ -125,7 +125,7 @@ function stringAtPath(record: Record<string, unknown>, path: string[]): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** null when absent (or not a boolean) — never inferred from absence, matching
+/** null when absent (or not a boolean), never inferred from absence, matching
  * retentionLabel's "absence means no marker, not a false" stance elsewhere in this file. */
 function booleanAtPathOrNull(record: Record<string, unknown>, path: string[]): boolean | null {
   const value = readPath(record, path);
@@ -185,12 +185,12 @@ export function isKnownKind(kind: string): boolean {
   return (KNOWN_SESSION_KINDS as readonly string[]).includes(kind);
 }
 
-/** Display label for a kind badge — verbatim for unknown kinds, 'unknown' when absent. */
+/** Display label for a kind badge, verbatim for unknown kinds, 'unknown' when absent. */
 export function kindLabel(kind: string): string {
   return kind.trim() || 'unknown';
 }
 
-/** Display label for a project badge — 'unknown' for home-scoped / absent projects. */
+/** Display label for a project badge, 'unknown' for home-scoped / absent projects. */
 export function projectLabel(project: string): string {
   return project.trim() || 'unknown';
 }
@@ -206,7 +206,7 @@ export function statusLabel(status: string): string {
 
 /**
  * An idle-reaped closed session AUTO-REOPENS on the next heartbeat from any
- * participant — it is not the same event as a deliberate user/surface close,
+ * participant, it is not the same event as a deliberate user/surface close,
  * so it must not render under the same "closed · history" badge. Tolerant of
  * records without `closeReason` (pre-feature builds, or a deliberate close).
  */
@@ -229,8 +229,8 @@ export function retentionLabel(record: UnionSessionRecord): string | null {
 /**
  * Attribution label (principals.*, SDK 1.6.1's initiative family). Returns null when
  * the wire never stamped this session with attribution at all (attributedPrincipalKnown
- * is null — most sessions), so a plain, unattributed session renders no line. Otherwise
- * "known:false" (unmapped sender identity) renders "unknown principal" PLAINLY — never
+ * is null, most sessions), so a plain, unattributed session renders no line. Otherwise
+ * "known:false" (unmapped sender identity) renders "unknown principal" PLAINLY, never
  * silently as the resolved name and never hidden.
  */
 export function attributionLabel(record: Pick<UnionSessionRecord, 'attributedPrincipalName' | 'attributedPrincipalKnown'>): string | null {

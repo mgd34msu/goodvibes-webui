@@ -1,5 +1,5 @@
 /**
- * mic-arbiter.ts — one device, two consumers.
+ * mic-arbiter.ts, one device, two consumers.
  *
  * The bug this whole refactor exists to prevent is two concurrent getUserMedia
  * streams on one input, so these tests are about exactly that: a second open is

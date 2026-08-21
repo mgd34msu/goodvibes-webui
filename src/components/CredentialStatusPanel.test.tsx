@@ -1,5 +1,5 @@
 /**
- * CredentialStatusPanel — the credential-status facade's display-site adoption.
+ * CredentialStatusPanel, the credential-status facade's display-site adoption.
  *
  * Proves the three honest outcomes render distinctly and that no secret byte
  * can ever reach the DOM: the panel only ever reads
@@ -13,7 +13,7 @@ import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
-// Module mock — mutable per-test credentials.get implementation
+// Module mock, mutable per-test credentials.get implementation
 // ---------------------------------------------------------------------------
 
 let _credentialsGet: () => Promise<unknown> = () => Promise.resolve({ available: true, credentials: [] });
@@ -77,10 +77,10 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AVAILABLE — configured/usable, configured-but-unusable, and unconfigured
+// AVAILABLE, configured/usable, configured-but-unusable, and unconfigured
 // ---------------------------------------------------------------------------
 
-describe('CredentialStatusPanel — available (credentials.get resolves)', () => {
+describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
   test('a configured+usable credential reads "usable", not a fabricated "ok"/"healthy"', async () => {
     _credentialsGet = () =>
       Promise.resolve({
@@ -149,10 +149,10 @@ describe('CredentialStatusPanel — available (credentials.get resolves)', () =>
 });
 
 // ---------------------------------------------------------------------------
-// DEGRADED — the facade's honest unavailable states, never fabricated-configured
+// DEGRADED, the facade's honest unavailable states, never fabricated-configured
 // ---------------------------------------------------------------------------
 
-describe('CredentialStatusPanel — degraded (store unavailable / older daemon / transport failure)', () => {
+describe('CredentialStatusPanel: degraded (store unavailable / older daemon / transport failure)', () => {
   test('a 503 CREDENTIAL_STORE_UNAVAILABLE shows the facade\'s own reason text', async () => {
     _credentialsGet = () => rejection(503, { error: 'Shared credential store unavailable', code: 'CREDENTIAL_STORE_UNAVAILABLE' });
     const { el, unmount } = render();
@@ -182,16 +182,16 @@ describe('CredentialStatusPanel — degraded (store unavailable / older daemon /
 });
 
 // ---------------------------------------------------------------------------
-// REFUSED — admin-scope refusal, distinct from a broken/unavailable store
+// REFUSED, admin-scope refusal, distinct from a broken/unavailable store
 // ---------------------------------------------------------------------------
 
-describe('CredentialStatusPanel — refused (non-admin token, 403)', () => {
+describe('CredentialStatusPanel: refused (non-admin token, 403)', () => {
   test('a 403 "Admin role required" renders the honest refused message, not the generic degraded one', async () => {
     _credentialsGet = () => rejection(403, { error: 'Admin role required' });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Admin access required'));
     expect(el.textContent).toContain('Sign in with an admin-scoped token to view credential status.');
-    // Distinct from the store-unavailable degraded copy — never conflated.
+    // Distinct from the store-unavailable degraded copy, never conflated.
     expect(el.textContent).not.toContain('Credential status unavailable right now.');
     expect(el.textContent).not.toContain('shared credential store');
     unmount();
@@ -199,10 +199,10 @@ describe('CredentialStatusPanel — refused (non-admin token, 403)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// SECRET-FREE PIN — the type carries no value field; pin it dynamically too.
+// SECRET-FREE PIN, the type carries no value field; pin it dynamically too.
 // ---------------------------------------------------------------------------
 
-describe('CredentialStatusPanel — no secret bytes can render', () => {
+describe('CredentialStatusPanel: no secret bytes can render', () => {
   test('even if a wire response smuggled a `value`/`secret` field, the rendered DOM never contains it', async () => {
     _credentialsGet = () =>
       Promise.resolve({
@@ -213,7 +213,7 @@ describe('CredentialStatusPanel — no secret bytes can render', () => {
             configured: true,
             usable: true,
             source: 'env',
-            // A malicious/buggy daemon build could add these — the entry
+            // A malicious/buggy daemon build could add these, the entry
             // extraction in deriveCredentialAvailability only reads the five
             // known fields, so they must never reach the DOM.
             value: 'sk-ant-super-secret-do-not-render',

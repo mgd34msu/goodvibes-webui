@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { deriveProviderStatus, providerHeaderLabel, providerStatusLabel, deriveCredentialAvailability } from './provider-status';
 import { bestStatus } from './object';
 
-describe('deriveProviderStatus — worst-wins freshness roll-up', () => {
+describe('deriveProviderStatus: worst-wins freshness roll-up', () => {
   test('a single healthy route reads healthy, not "unknown"', () => {
     const status = deriveProviderStatus({
       routes: [{ route: 'api-key', label: 'API Key', configured: true, freshness: 'healthy' }],
@@ -36,7 +36,7 @@ describe('deriveProviderStatus — worst-wins freshness roll-up', () => {
     expect(rollup('expired', 'pending')).toBe('expired');
   });
 
-  test('a bad route is never hidden behind a good one — the detail list still carries every route', () => {
+  test('a bad route is never hidden behind a good one. The detail list still carries every route', () => {
     const status = deriveProviderStatus({
       routes: [
         { route: 'api-key', configured: true, freshness: 'healthy' },
@@ -49,7 +49,7 @@ describe('deriveProviderStatus — worst-wins freshness roll-up', () => {
   });
 });
 
-describe('deriveProviderStatus — configured header sourcing', () => {
+describe('deriveProviderStatus: configured header sourcing', () => {
   test('a configured provider with a usable model list reads "configured via env", not "not configured"', () => {
     const status = deriveProviderStatus({
       configured: true,
@@ -72,7 +72,7 @@ describe('deriveProviderStatus — configured header sourcing', () => {
   });
 });
 
-describe('deriveProviderStatus — unconfigured vs status-unavailable (different truths)', () => {
+describe('deriveProviderStatus: unconfigured vs status-unavailable (different truths)', () => {
   test('every route explicitly reporting "unconfigured" -> the pill reads "unconfigured"', () => {
     const status = deriveProviderStatus({
       routes: [{ route: 'api-key', configured: false, freshness: 'unconfigured' }],
@@ -92,8 +92,8 @@ describe('deriveProviderStatus — unconfigured vs status-unavailable (different
   });
 });
 
-describe('deriveProviderStatus — unknown/future freshness on a configured route (F7f forward-compat ruling)', () => {
-  test('an unrecognized freshness value on a CONFIGURED route is never read as healthy — it surfaces as "status unavailable"', () => {
+describe('deriveProviderStatus: unknown/future freshness on a configured route (F7f forward-compat ruling)', () => {
+  test('an unrecognized freshness value on a CONFIGURED route is never read as healthy, it surfaces as "status unavailable"', () => {
     const status = deriveProviderStatus({
       routes: [{ route: 'api-key', configured: true, freshness: 'quantum-degraded' }],
     });
@@ -131,7 +131,7 @@ describe('deriveProviderStatus — unknown/future freshness on a configured rout
   });
 });
 
-describe('deriveProviderStatus — per-route detail', () => {
+describe('deriveProviderStatus: per-route detail', () => {
   test('carries freshness, detail, and repairHints per route for the expanded view', () => {
     const status = deriveProviderStatus({
       routes: [
@@ -177,7 +177,7 @@ describe('deriveCredentialAvailability (honest degrade)', () => {
     if (out.available) {
       expect(out.credentials).toHaveLength(2);
       expect(out.credentials[0]).toEqual({ key: 'SHARED_CHANNEL_TOKEN', configured: true, usable: true, source: 'store', secure: true });
-      // The type carries no value field — statically true; pin it dynamically too.
+      // The type carries no value field, statically true; pin it dynamically too.
       for (const c of out.credentials) expect('value' in c).toBe(false);
     }
   });

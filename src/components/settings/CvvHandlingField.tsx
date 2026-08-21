@@ -1,11 +1,11 @@
 /**
- * CvvHandlingField — the typed editor for `payments.cvvHandling`.
+ * CvvHandlingField, the typed editor for `payments.cvvHandling`.
  *
  * An ordinary enum select ('stored' | 'prompt'), with one addition: selecting
- * 'prompt' shows CVV_PROMPT_TRADEOFF_WARNING at the moment of selection — the
+ * 'prompt' shows CVV_PROMPT_TRADEOFF_WARNING at the moment of selection, the
  * SDK's own wording, imported directly from
  * `@pellux/goodvibes-sdk/platform/payments` (that subpath has no node-only
- * dependencies, so it is safe to import at runtime — unlike `platform/config`,
+ * dependencies, so it is safe to import at runtime, unlike `platform/config`,
  * which generate-config-schema.ts snapshots at build time instead). Selecting
  * 'stored' shows no warning: 'stored' is the owner's settled default, not
  * something this surface argues against.

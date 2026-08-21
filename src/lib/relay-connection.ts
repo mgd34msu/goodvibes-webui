@@ -1,21 +1,21 @@
 /**
- * relay-connection.ts — the transport ROUTE the SDK client dispatches requests over.
+ * relay-connection.ts, the transport ROUTE the SDK client dispatches requests over.
  *
  * Two transports can answer a request:
  *   - direct: an ordinary `fetch` against GOODVIBES_BASE_URL (the LAN/co-located path,
  *     unchanged from before this file existed).
  *   - relay: `createRelayClient` (@pellux/goodvibes-transport-realtime) tunnels unary
- *     request/response calls, end-to-end encrypted, through a relay server — for when
+ *     request/response calls, end-to-end encrypted, through a relay server, for when
  *     this device cannot reach the daemon directly. It requires a stored pairing (see
  *     relay-pairing.ts).
  *
  * STREAMING OVER RELAY: the relay tunnel now carries live event streams. A request whose
- * `Accept` is `text/event-stream` (the SSE opener's header — see
+ * `Accept` is `text/event-stream` (the SSE opener's header, see
  * @pellux/goodvibes-transport-http's sse-stream.js) is opened by the relay client as a
  * tunnelled stream: the returned `Response` carries a `ReadableStream` body fed by the
  * tunnel's `stream-data` frames, and a dropped-chunk overflow surfaces as a visible
  * `relay-overflow` SSE event (never a silent gap). So `routedFetch` no longer rejects SSE
- * over relay — it hands the request straight to the relay client like any other, and the
+ * over relay, it hands the request straight to the relay client like any other, and the
  * webui's stream consumers render the `relay-overflow` notice honestly (see
  * relay-stream-overflow.ts).
  *
@@ -25,12 +25,12 @@
  * `routedFetch` intercepts exactly that response, asks the registered UI prompter to run the
  * passkey ceremony (stepup-prompter.ts), and retries the original call ONCE with the
  * assertion header attached. If no prompter is registered, or the operator cancels, or the
- * server reports no verifier is available, the original 401 surfaces honestly — never a
+ * server reports no verifier is available, the original 401 surfaces honestly, never a
  * silent skip of verification.
  *
  * `routedFetch` is the one `fetch` implementation the SDK client is built with
  * (lib/goodvibes.ts). It always exists and behaves exactly like the plain global fetch
- * when no relay pairing is stored — this file changes nothing for the common LAN/
+ * when no relay pairing is stored, this file changes nothing for the common LAN/
  * co-located case.
  */
 
@@ -42,7 +42,7 @@ import { resolveStepUp } from './stepup-prompter';
 export type ConnectionRoute = 'direct' | 'relay';
 
 // ---------------------------------------------------------------------------
-// Route store — a tiny module-level pub/sub. Plain (non-React) code, like
+// Route store, a tiny module-level pub/sub. Plain (non-React) code, like
 // routedFetch below, reads the snapshot directly; React reads it reactively via
 // useSyncExternalStore in useDaemonHealth.
 // ---------------------------------------------------------------------------
@@ -68,7 +68,7 @@ export function subscribeActiveRoute(listener: () => void): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Relay client — lazy singleton over the stored pairing. Rebuilt if the stored
+// Relay client, lazy singleton over the stored pairing. Rebuilt if the stored
 // pairing changes (e.g. a fresh scan replacing an old one).
 // ---------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ export function closeRelayClient(): void {
 
 /**
  * Attempt to reach the daemon over the relay: connect the client (idempotent) and
- * confirm the end-to-end channel is ready. Returns false — never throws — on any
+ * confirm the end-to-end channel is ready. Returns false, never throws, on any
  * failure (no pairing stored, handshake failure, relay unreachable, timeout).
  */
 export async function probeRelayReachability(): Promise<boolean> {
@@ -119,7 +119,7 @@ export async function probeRelayReachability(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// routedFetch — the fetch the SDK client is built with.
+// routedFetch, the fetch the SDK client is built with.
 // ---------------------------------------------------------------------------
 
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -130,7 +130,7 @@ function requestMethod(input: RequestInfo | URL, init: RequestInit | undefined):
   return method.toUpperCase();
 }
 
-/** The request path (no host) a fetch call targets — what the step-up ceremony binds against. */
+/** The request path (no host) a fetch call targets, what the step-up ceremony binds against. */
 function requestPath(input: RequestInfo | URL): string {
   try {
     const href = input instanceof Request ? input.url : String(input);
@@ -145,7 +145,7 @@ async function isStepUpRequired(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
   if (!/WebAuthn/i.test(response.headers.get('www-authenticate') ?? '')) return false;
   // Distinguish 'step-up-required' (retry with an assertion helps) from
-  // 'step-up-verifier-unavailable' (retrying cannot help — surface it). Peek a clone so
+  // 'step-up-verifier-unavailable' (retrying cannot help, surface it). Peek a clone so
   // the caller's response body stays intact when we decide not to retry.
   try {
     const body = (await response.clone().json()) as { error?: string };

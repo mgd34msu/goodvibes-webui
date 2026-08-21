@@ -1,15 +1,15 @@
 /**
- * unified-diff.ts — a tolerant parser for the git unified-diff string the daemon
+ * unified-diff.ts, a tolerant parser for the git unified-diff string the daemon
  * returns from `checkpoints.diff` (result.diff.unifiedDiff), plus the helpers that
  * turn one selected hunk into a structured, human-readable steer context block.
  *
  * WHY THIS EXISTS: the only file-diff surface the daemon exposes is workspace
- * checkpoints (checkpoints.list + checkpoints.diff — verified against the installed
+ * checkpoints (checkpoints.list + checkpoints.diff, verified against the installed
  * operator contract: there is NO per-session file-diff verb; checkpoints carry
  * turnId/agentId but no sessionId). CheckpointsView already renders that unifiedDiff
  * as one opaque <pre>. To let a user select a single hunk and comment on it, we first
  * need to break the diff into files → hunks with real line ranges. This parser does
- * only that — no rendering, no network — so it is unit-testable in isolation.
+ * only that, no rendering, no network, so it is unit-testable in isolation.
  *
  * Tolerance: the parser prefers the `--- a/…` / `+++ b/…` header lines for paths and
  * falls back to the `diff --git a/… b/…` line; a block with neither still yields its
@@ -30,7 +30,7 @@ export interface DiffLine {
 }
 
 export interface DiffHunk {
-  /** Stable within a file: `${fileIndex}:${hunkIndex}` — safe as a React key / selection id. */
+  /** Stable within a file: `${fileIndex}:${hunkIndex}`, safe as a React key / selection id. */
   readonly id: string;
   /** The verbatim `@@ -a,b +c,d @@ section` header. */
   readonly header: string;
@@ -46,7 +46,7 @@ export interface DiffHunk {
 export type DiffFileStatus = 'added' | 'deleted' | 'modified' | 'renamed';
 
 export interface DiffFile {
-  /** The path shown to the user — the new path unless the file was deleted. */
+  /** The path shown to the user, the new path unless the file was deleted. */
   readonly path: string;
   readonly oldPath: string;
   readonly newPath: string;
@@ -64,7 +64,7 @@ function stripPrefix(raw: string): string {
 }
 
 function parseDiffGitPaths(line: string): { oldPath: string; newPath: string } | null {
-  // `diff --git a/foo b/foo`. Paths with spaces are ambiguous here — we treat the
+  // `diff --git a/foo b/foo`. Paths with spaces are ambiguous here, we treat the
   // `--- `/`+++ ` lines as authoritative when present and only fall back to this.
   const match = /^diff --git (.+) (.+)$/.exec(line);
   if (!match) return null;
@@ -201,7 +201,7 @@ export function parseUnifiedDiff(unifiedDiff: string): DiffFile[] {
       oldCursor += 1;
       delCount += 1;
     } else if (line.startsWith('\\')) {
-      // "\ No newline at end of file" — metadata, belongs to neither side.
+      // "\ No newline at end of file", metadata, belongs to neither side.
       hunkLines.push({ type: 'meta', text: line, oldLine: null, newLine: null });
     } else if (line.startsWith(' ') || line === '') {
       hunkLines.push({ type: 'context', text: line.slice(1), oldLine: oldCursor, newLine: newCursor });
@@ -262,11 +262,11 @@ export function hunkExcerpt(hunk: DiffHunk, maxLines = 40): string {
 }
 
 /**
- * The COMPLETE, exact unified-diff text of one hunk — its `@@` header followed by
+ * The COMPLETE, exact unified-diff text of one hunk, its `@@` header followed by
  * every body line with its verbatim +/-/space/meta marker, UNCAPPED. This is the
  * string checkpoints.revertHunkPreview / checkpoints.revertHunk consume: the daemon
  * parses exactly one `@@ … @@` block and reverse-applies it against the live file, so
- * unlike hunkExcerpt this never truncates or appends a "… N more" marker — a capped or
+ * unlike hunkExcerpt this never truncates or appends a "… N more" marker, a capped or
  * annotated patch would fail to apply cleanly (an honest conflict, not the revert).
  */
 export function hunkToPatch(hunk: DiffHunk): string {
@@ -286,7 +286,7 @@ export interface HunkCommentContextInput {
 /**
  * Build the structured, human-readable context block that PREFIXES the steer message,
  * so the model knows exactly which change the comment is about: the file, the old/new
- * line ranges, when the diff was captured, and the hunk excerpt itself — then the
+ * line ranges, when the diff was captured, and the hunk excerpt itself, then the
  * user's comment last. Fenced so the excerpt's leading +/- characters read as a code
  * block rather than markdown list/quote syntax.
  */

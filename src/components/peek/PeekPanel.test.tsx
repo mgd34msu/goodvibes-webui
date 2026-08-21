@@ -14,7 +14,7 @@
  *   PeekPanel's focus useEffect runs synchronously within flushSync (React 19
  *   production + bun flushes passive effects in the same microtask batch).
  *   IMPORTANT: PeekPanel focuses the first focusable element in the *entire
- *   panel div* — the peek-close button in the header comes before the body
+ *   panel div*, the peek-close button in the header comes before the body
  *   content. Tests that check "first focusable" must account for this ordering.
  *
  * DOM click events on happy-dom elements work correctly: PeekPanel uses React
@@ -173,7 +173,7 @@ afterEach(() => {
 // Rendering
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — rendering', () => {
+describe('PeekPanel: rendering', () => {
   test('panel is initially closed (no peek-panel--open class)', () => {
     const panel = container.querySelector('[role="dialog"]');
     expect(panel).not.toBeNull();
@@ -225,7 +225,7 @@ describe('PeekPanel — rendering', () => {
 // not any button in the content body.
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — focus on open', () => {
+describe('PeekPanel: focus on open', () => {
   test('focus lands inside the panel when opened (first focusable = close button)', () => {
     handle.open(
       'Focus Test',
@@ -234,7 +234,7 @@ describe('PeekPanel — focus on open', () => {
     // The panel div contains the active element
     const panel = container.querySelector('[role="dialog"]')!;
     expect(panel.contains(document.activeElement)).toBe(true);
-    // The close button is the first focusable — it gets focus
+    // The close button is the first focusable, it gets focus
     expect(document.activeElement?.classList.contains('peek-close')).toBe(true);
   });
 
@@ -252,11 +252,11 @@ describe('PeekPanel — focus on open', () => {
 // Escape key closes panel
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — Escape key', () => {
+describe('PeekPanel: Escape key', () => {
   test('Escape key closes the panel', () => {
     handle.open();
     expect(handle.isOpen()).toBe(true);
-    // keydown handler is registered in useEffect after open() — captured via installCapture
+    // keydown handler is registered in useEffect after open(), captured via installCapture
     fireKeydown('Escape');
     expect(handle.isOpen()).toBe(false);
   });
@@ -279,7 +279,7 @@ describe('PeekPanel — Escape key', () => {
 // Backdrop click closes panel
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — backdrop click', () => {
+describe('PeekPanel: backdrop click', () => {
   test('clicking the backdrop closes the panel', () => {
     handle.open();
     expect(handle.isOpen()).toBe(true);
@@ -295,7 +295,7 @@ describe('PeekPanel — backdrop click', () => {
 // Close button
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — close button', () => {
+describe('PeekPanel: close button', () => {
   test('close button click closes the panel', () => {
     handle.open();
     const closeBtn = container.querySelector('.peek-close')!;
@@ -307,7 +307,7 @@ describe('PeekPanel — close button', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Focus trap — Tab / Shift+Tab wrapping
+// Focus trap, Tab / Shift+Tab wrapping
 //
 // PeekPanel's focus-trap useEffect registers keydown on window after open().
 // The handler is captured via installCapture() which was installed in beforeEach
@@ -315,11 +315,11 @@ describe('PeekPanel — close button', () => {
 // from useEffect triggered by open()) are intercepted.
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — focus trap', () => {
+describe('PeekPanel: focus trap', () => {
   test('Tab on last focusable element wraps focus to first', () => {
     handle.open(
       'Trap',
-      // Note: peek-close is BEFORE this button — focusable order is:
+      // Note: peek-close is BEFORE this button, focusable order is:
       // [0] peek-close  [1] extra-btn
       <button type="button" data-testid="extra-btn">Extra</button>,
     );
@@ -364,7 +364,7 @@ describe('PeekPanel — focus trap', () => {
     // Neither Tab nor Shift+Tab should change focus since there is only one element
     // The handler returns early when first === last
     fireKeydown('Tab', false);
-    // No assertion on exact focus target since handler returns early — panel stays open
+    // No assertion on exact focus target since handler returns early, panel stays open
     expect(handle.isOpen()).toBe(true);
   });
 
@@ -393,7 +393,7 @@ describe('PeekPanel — focus trap', () => {
 // Focus restoration on close
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — focus restoration on close', () => {
+describe('PeekPanel: focus restoration on close', () => {
   test('focus returns to the trigger element after close', () => {
     const trigger = container.querySelector<HTMLElement>('[data-testid="trigger"]')!;
     trigger.focus();
@@ -404,7 +404,7 @@ describe('PeekPanel — focus restoration on close', () => {
     const panel = container.querySelector('[role="dialog"]')!;
     expect(panel.contains(document.activeElement)).toBe(true);
 
-    // Close — useEffect fires synchronously within flushSync, restores focus to trigger
+    // Close, useEffect fires synchronously within flushSync, restores focus to trigger
     handle.close();
     expect(document.activeElement).toBe(trigger);
   });
@@ -415,7 +415,7 @@ describe('PeekPanel — focus restoration on close', () => {
 // PeekPanel.tsx:250-254: close() calls setTimeout(() => setPayload(null), 320)
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — deferred payload cleanup', () => {
+describe('PeekPanel: deferred payload cleanup', () => {
   test('payload content is cleared after PEEK_EXIT_DELAY_MS following close()', async () => {
     handle.open('Cleanup Test', <span data-testid="cleanup-content">Content</span>);
     expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
@@ -444,7 +444,7 @@ describe('PeekPanel — deferred payload cleanup', () => {
 // the focus trap's candidate list.
 // ---------------------------------------------------------------------------
 
-describe('PeekPanel — aria-hidden focus exclusion', () => {
+describe('PeekPanel: aria-hidden focus exclusion', () => {
   test('element inside aria-hidden container is excluded from Tab target list', () => {
     // Content: one real button + one button hidden from AT inside aria-hidden wrapper.
     // The Tab trap should only see the real button (plus the close button),
@@ -479,7 +479,7 @@ describe('PeekPanel — aria-hidden focus exclusion', () => {
 // usePeek hook error boundary
 // ---------------------------------------------------------------------------
 
-describe('usePeek — context validation', () => {
+describe('usePeek: context validation', () => {
   test('throws with a helpful message when used outside PeekProvider', () => {
     const el = document.createElement('div');
     document.body.appendChild(el);

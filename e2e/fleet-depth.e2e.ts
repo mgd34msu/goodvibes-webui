@@ -1,11 +1,11 @@
 /**
- * Fleet depth (WEBUI-FLEET-DEPTH) — the process tree's steer/detach/stop actions and
+ * Fleet depth (WEBUI-FLEET-DEPTH), the process tree's steer/detach/stop actions and
  * "approve from the tree", proved against the hermetic mock daemon on both viewports.
  *
  * Desktop: every new action (steer, detach, stop, approve/deny/claim/cancel inline)
  * is available and reaches the real wire route. Phone: the tree stays browsable and
  * a correlated approval is still decidable, but the new mutation controls (steer
- * input, detach, stop) are desktop-only — an honest note says so instead of cramming
+ * input, detach, stop) are desktop-only, an honest note says so instead of cramming
  * them into a 375px column, and there is never a horizontal scroll.
  */
 import { test, expect } from '@playwright/test';
@@ -63,7 +63,7 @@ test.describe('desktop actions', () => {
   test('a killable/interruptible node with no wire verb (agent kind) shows the honest unbacked note, never a fabricated Stop', async ({ page }) => {
     await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
     // The agent node IS killable/interruptible per its capabilities, but this client
-    // has no wire verb to act on that for an 'agent' kind — say so, don't fake it.
+    // has no wire verb to act on that for an 'agent' kind, say so, don't fake it.
     await expect(page.locator('.fleet-detail__unbacked-note')).toContainText("no control verb for 'agent' processes yet");
     await expect(page.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
   });

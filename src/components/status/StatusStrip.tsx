@@ -20,7 +20,7 @@ import '../../styles/components/status.css';
  *
  * Accessibility:
  * - Outer element is a semantic <footer> (implicit contentinfo role).
- *   It does NOT carry role="status" — that would broadcast every latency
+ *   It does NOT carry role="status", that would broadcast every latency
  *   update and task count to screen readers repeatedly.
  * - The single visually-hidden aria-live="polite" region owns all
  *   screen-reader announcements (connection state changes only).
@@ -71,7 +71,7 @@ export function StatusStrip() {
           className={`status-strip__segment status-strip__segment--route-${route}`}
           aria-label={`Route: ${routeLabel(route)}`}
           title={route === 'relay'
-            ? 'Connected via relay — live event streams are unavailable; affected views poll instead.'
+            ? 'Connected via relay: live event streams are unavailable; affected views poll instead.'
             : 'Connected directly'}
         >
           <Router className="status-strip__icon" aria-hidden="true" size={11} />

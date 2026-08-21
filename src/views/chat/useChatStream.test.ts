@@ -52,7 +52,7 @@ interface StreamControl {
 }
 
 let activeStreamControl: StreamControl | null = null;
-// Every stream() opened this test, in order — the epoch/handshake-race tests need to
+// Every stream() opened this test, in order, the epoch/handshake-race tests need to
 // hold BOTH the superseded stream and its successor at once (activeStreamControl only
 // tracks the most recent).
 let allStreamControls: StreamControl[] = [];
@@ -66,7 +66,7 @@ let turnsCancelBehavior: (sessionId: string) => Promise<unknown> = () =>
   Promise.resolve({ cancelled: true, turnId: 'turn-1', partialPersisted: false });
 const turnsCancelMock = mock((sessionId: string) => turnsCancelBehavior(sessionId));
 
-// sessions.toolCalls.cancel — controllable per test, capturing every call.
+// sessions.toolCalls.cancel, controllable per test, capturing every call.
 let toolCallsCancelBehavior: (sessionId: string, callId: string) => Promise<{ sessionId: string; callId: string; cancelled: boolean }> =
   (sessionId, callId) => Promise.resolve({ sessionId, callId, cancelled: true });
 const toolCallsCancelCalls: { sessionId: string; callId: string }[] = [];
@@ -120,7 +120,7 @@ interface HookOwnerProps {
 }
 
 function HookOwner({ activeSessionId, turnState, setTurnState, setTurnError, onAuthExpired, onResult }: HookOwnerProps): null {
-  // Stable across re-renders — matching the real caller (ChatView), where these are
+  // Stable across re-renders, matching the real caller (ChatView), where these are
   // useState setters / useCallback / a ref and therefore identity-stable. Creating fresh
   // mocks per render would make them change every render and spuriously re-run the
   // connect effect (a new SSE stream on every setTurnState), which is NOT how the hook
@@ -255,7 +255,7 @@ function renderHookHelper({
  * itself flushSync's on every call), activeToolCalls is useState INSIDE the
  * hook, and an update queued from a bare event-handler invocation or a
  * promise continuation is not guaranteed to have committed by the very next
- * synchronous line — a single flushSync no-op is not always enough.
+ * synchronous line, a single flushSync no-op is not always enough.
  */
 async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
@@ -285,7 +285,7 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — isStreaming derivation from turnState prop', () => {
+describe('useChatStream: isStreaming derivation from turnState prop', () => {
   test('isStreaming is false when turnState is omitted (defaults to idle)', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -373,7 +373,7 @@ describe('useChatStream — isStreaming derivation from turnState prop', () => {
   });
 });
 
-describe('useChatStream — stop() correctness', () => {
+describe('useChatStream: stop() correctness', () => {
   /**
    * For stop() tests we use a simple non-reactive setTurnState mock to avoid
    * nested flushSync (stop() → setTurnState → flushSync(render) inside outer
@@ -439,7 +439,7 @@ describe('useChatStream — stop() correctness', () => {
     await Promise.resolve();
 
     expect(turnsCancelMock).toHaveBeenCalledWith('session-stop');
-    // The stream must STAY open — every subscriber (this client included)
+    // The stream must STAY open, every subscriber (this client included)
     // converges on the terminal turn.cancelled event, not on a local teardown.
     expect(disconnectFn).toHaveBeenCalledTimes(0);
     expect(setTurnState).toHaveBeenCalledWith('stopping');
@@ -463,7 +463,7 @@ describe('useChatStream — stop() correctness', () => {
     await Promise.resolve();
 
     expect(ctrl!.disconnect).toHaveBeenCalledTimes(0);
-    // Never rendered as an error — the machine code is the benign race.
+    // Never rendered as an error, the machine code is the benign race.
     expect(setTurnError).not.toHaveBeenCalledWith(expect.stringContaining('No turn is in flight'));
     // The functional updater flips 'stopping' back to 'idle'.
     const updater = setTurnState.mock.calls.at(-1)?.[0];
@@ -473,7 +473,7 @@ describe('useChatStream — stop() correctness', () => {
     unmount();
   });
 
-  test('pre-1.4 daemon (method unavailable): falls back to the honest LOCAL stop — disconnect, label, idempotent', async () => {
+  test('pre-1.4 daemon (method unavailable): falls back to the honest LOCAL stop, disconnect, label, idempotent', async () => {
     turnsCancelBehavior = () => Promise.reject(methodUnavailableError());
     const { result, setTurnState, setTurnError, unmount } = renderForStop('session-fallback');
     const ctrl = activeStreamControl;
@@ -490,7 +490,7 @@ describe('useChatStream — stop() correctness', () => {
     expect(setTurnState).toHaveBeenCalledWith('stopped locally');
     expect(setTurnError).toHaveBeenCalledWith(expect.stringContaining('Stopped rendering only'));
 
-    // Second stop — disconnectRef was cleared, no second disconnect.
+    // Second stop, disconnectRef was cleared, no second disconnect.
     result.stop();
     await Promise.resolve();
     await Promise.resolve();
@@ -507,19 +507,19 @@ describe('useChatStream — stop() correctness', () => {
 
     const disconnectFn = ctrl!.disconnect;
 
-    // Fallback stop() BEFORE .then resolves — disconnectRef.current is still undefined
+    // Fallback stop() BEFORE .then resolves, disconnectRef.current is still undefined
     result.stop();
     await Promise.resolve();
     await Promise.resolve();
 
-    // Resolve the stream promise — .then must detect stoppedRef=true and call nextDisconnect()
+    // Resolve the stream promise, .then must detect stoppedRef=true and call nextDisconnect()
     ctrl!.resolveFn(disconnectFn);
     await Promise.resolve();
     await Promise.resolve();
 
     expect(disconnectFn).toHaveBeenCalledTimes(1);
 
-    // Call stop() again — disconnectRef was never stored, so this is a no-op on disconnect
+    // disconnectRef was never stored, so calling stop() again is a no-op on disconnect
     result.stop();
     await Promise.resolve();
     expect(disconnectFn).toHaveBeenCalledTimes(1);
@@ -553,7 +553,7 @@ describe('useChatStream — stop() correctness', () => {
 // Resilience: reconnecting / stream paused / session expired / retry
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — reconnect passed to the SDK', () => {
+describe('useChatStream: reconnect passed to the SDK', () => {
   test('opens the stream with DEFAULT_SSE_RECONNECT so a drop actually retries', () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-reconnect-opt' });
     const ctrl = activeStreamControl;
@@ -564,7 +564,7 @@ describe('useChatStream — reconnect passed to the SDK', () => {
   });
 });
 
-describe('useChatStream — onReconnect: a daemon blip / SSE drop is honest, not a dead "stream error"', () => {
+describe('useChatStream: onReconnect: a daemon blip / SSE drop is honest, not a dead "stream error"', () => {
   test('onReconnect sets turnState to "reconnecting" with an attempt-count message', () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-drop', initialTurnState: 'streaming' });
     const ctrl = activeStreamControl;
@@ -575,7 +575,7 @@ describe('useChatStream — onReconnect: a daemon blip / SSE drop is honest, not
     expect(ctx.turnState).toBe('reconnecting');
     expect(ctx.turnError).toContain('attempt 2 of 10');
     // 'reconnecting' must count as an active turn state (Stop stays meaningful, the
-    // 1s message-poll fallback keeps running) — never collapse to a dead stream error.
+    // 1s message-poll fallback keeps running), never collapse to a dead stream error.
     expect(ctx.turnState).not.toBe('stream error');
 
     ctx.unmount();
@@ -603,7 +603,7 @@ describe('useChatStream — onReconnect: a daemon blip / SSE drop is honest, not
   });
 
   test('a genuine turn error mid-reconnect is NOT clobbered by onReady', () => {
-    // onReady's functional updater only clears 'reconnecting' specifically — a
+    // onReady's functional updater only clears 'reconnecting' specifically, a
     // concurrent genuine 'error' (turn.error event) must survive.
     const ctx = renderHookHelper({ activeSessionId: 'session-guard' });
     const ctrl = activeStreamControl;
@@ -614,14 +614,14 @@ describe('useChatStream — onReconnect: a daemon blip / SSE drop is honest, not
     expect(ctx.turnState).toBe('error');
 
     ctrl!.options.onReady?.();
-    // Must stay 'error' — onReady only resets when turnState is still 'reconnecting'.
+    // Must stay 'error', onReady only resets when turnState is still 'reconnecting'.
     expect(ctx.turnState).toBe('error');
 
     ctx.unmount();
   });
 });
 
-describe('useChatStream — onTerminate: the built-in reconnect gave up ("stream paused")', () => {
+describe('useChatStream: onTerminate: the built-in reconnect gave up ("stream paused")', () => {
   test('onTerminate sets turnState to "stream paused" and isStreaming goes false', () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-terminate', initialTurnState: 'streaming' });
     const ctrl = activeStreamControl;
@@ -654,7 +654,7 @@ describe('useChatStream — onTerminate: the built-in reconnect gave up ("stream
   });
 });
 
-describe('useChatStream — token expiry mid-session hands off, never loops', () => {
+describe('useChatStream: token expiry mid-session hands off, never loops', () => {
   test('a 401 on the first connect (before ever succeeding) hands off instead of "stream error"', () => {
     const onAuthExpired = mock(() => {});
     const ctx = renderHookHelper({ activeSessionId: 'session-expired-first', onAuthExpired });
@@ -677,7 +677,7 @@ describe('useChatStream — token expiry mid-session hands off, never loops', ()
     const ctrl = activeStreamControl;
     expect(ctrl).not.toBeNull();
 
-    // Successful first connect — resolve so disconnectRef is populated (the auth-expiry
+    // Successful first connect, resolve so disconnectRef is populated (the auth-expiry
     // handler calls disconnectRef.current?.() to stop the built-in retry loop early).
     ctrl!.resolveFn(ctrl!.disconnect);
 
@@ -688,10 +688,10 @@ describe('useChatStream — token expiry mid-session hands off, never loops', ()
 
       expect(onAuthExpired).toHaveBeenCalledTimes(1);
       expect(ctx.turnState).toBe('session expired');
-      // The retry loop must be told to stop — not left burning attempts on a dead token.
+      // The retry loop must be told to stop, not left burning attempts on a dead token.
       expect(ctrl!.disconnect).toHaveBeenCalled();
 
-      // A further paired onError call (defensive — the real SDK never double-fires
+      // A further paired onError call (defensive, the real SDK never double-fires
       // for one failure) must not re-invoke the handoff a second time.
       ctrl!.options.onError(authError);
       expect(onAuthExpired).toHaveBeenCalledTimes(1);
@@ -716,14 +716,14 @@ describe('useChatStream — token expiry mid-session hands off, never loops', ()
     ctx.unmount();
   });
 
-  test('"session expired" is NOT an active turn state — isStreaming goes false', () => {
+  test('"session expired" is NOT an active turn state; isStreaming goes false', () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-expired-active', initialTurnState: 'session expired' });
     expect(ctx.result.isStreaming).toBe(false);
     ctx.unmount();
   });
 });
 
-describe('useChatStream — retryStream() re-opens after "stream paused"', () => {
+describe('useChatStream: retryStream() re-opens after "stream paused"', () => {
   test('calling retryStream triggers a fresh sdk.chat.events.stream connect', () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-retry' });
     expect(streamCallCount).toBe(1);
@@ -741,7 +741,7 @@ describe('useChatStream — retryStream() re-opens after "stream paused"', () =>
 // stream's late callbacks or late-resolving handle touch the NEW session (F1).
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — session switch / retry mid-handshake is inert (epoch guard)', () => {
+describe('useChatStream: session switch / retry mid-handshake is inert (epoch guard)', () => {
   /** Non-reactive render harness that can swap activeSessionId without nested flushSync. */
   function renderForSwitch(initialSessionId: string) {
     let result!: UseChatStreamResult;
@@ -787,7 +787,7 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
     const h = renderForSwitch('session-A');
     const ctrlA = allStreamControls[0];
     expect(ctrlA).toBeDefined();
-    // ctrlA has NOT resolved — we are inside its handshake window.
+    // ctrlA has NOT resolved, we are inside its handshake window.
 
     // Switch to session B while A is still handshaking.
     h.renderWith('session-B');
@@ -819,7 +819,7 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
 
     // Proof the live handle is B's, not A's: unmount cleanup disconnects B
     // exactly once (A stays at its single stale-discard call). stop() is no
-    // longer a teardown probe — a wire stop keeps the stream open.
+    // longer a teardown probe, a wire stop keeps the stream open.
     h.unmount();
     expect(ctrlB!.disconnect).toHaveBeenCalledTimes(1);
     expect(ctrlA!.disconnect).toHaveBeenCalledTimes(1);
@@ -830,7 +830,7 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
     const ctrlA = allStreamControls[0];
     expect(streamCallCount).toBe(1);
 
-    // Retry BEFORE ctrlA resolves — a fresh connect supersedes it mid-handshake.
+    // Retry BEFORE ctrlA resolves, a fresh connect supersedes it mid-handshake.
     flushSync(() => { ctx.result.retryStream(); });
     expect(streamCallCount).toBe(2);
     const ctrlB = allStreamControls[1];
@@ -861,7 +861,7 @@ describe('useChatStream — session switch / retry mid-handshake is inert (epoch
 // turn.cancelled is terminal
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — turn.cancelled terminal event', () => {
+describe('useChatStream: turn.cancelled terminal event', () => {
   test('settles the turn to stopped, clears live text, and refetches history', async () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-cancelled' });
     const ctrl = activeStreamControl;
@@ -892,7 +892,7 @@ describe('useChatStream — turn.cancelled terminal event', () => {
 // Running tool calls + cancel (SDK 1.8.0's interaction-wins round)
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — activeToolCalls tracking', () => {
+describe('useChatStream: activeToolCalls tracking', () => {
   test('a turn.tool_call event adds an entry; a matching turn.tool_result removes it', async () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-tools' });
     const ctrl = activeStreamControl;
@@ -979,7 +979,7 @@ describe('useChatStream — activeToolCalls tracking', () => {
   });
 });
 
-describe('useChatStream — cancelToolCall()', () => {
+describe('useChatStream: cancelToolCall()', () => {
   beforeEach(() => {
     toolCallsCancelCalls.length = 0;
     toolCallsCancelBehavior = (sessionId, callId) => Promise.resolve({ sessionId, callId, cancelled: true });
@@ -1019,7 +1019,7 @@ describe('useChatStream — cancelToolCall()', () => {
     await waitFor(() => ctx.result.activeToolCalls.some((c) => c.cancelled));
     expect(ctx.result.activeToolCalls).toEqual([{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: true }]);
 
-    // The turn continues — a later, unrelated tool call still tracks normally.
+    // The turn continues, a later, unrelated tool call still tracks normally.
     flushSync(() => {
       ctrl!.options.onEvent?.('companion-chat.turn.tool_call', {
         type: 'turn.tool_call', sessionId: 'session-cancel-tool-2', turnId: 't1', toolCallId: 'call-2', toolName: 'read',
@@ -1027,7 +1027,7 @@ describe('useChatStream — cancelToolCall()', () => {
     });
     expect(ctx.result.activeToolCalls.map((c) => c.toolCallId).sort()).toEqual(['call-1', 'call-2']);
 
-    // The daemon's real result for the cancelled call arrives — NOW it is removed.
+    // The daemon's real result for the cancelled call arrives, NOW it is removed.
     flushSync(() => {
       ctrl!.options.onEvent?.('companion-chat.turn.tool_result', {
         type: 'turn.tool_result', sessionId: 'session-cancel-tool-2', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'cancelled', isError: true,
@@ -1093,7 +1093,7 @@ describe('useChatStream — cancelToolCall()', () => {
     });
     await waitFor(() => result.activeToolCalls.length === 1);
 
-    // Switch sessions — the new connect effect resets activeToolCalls, exactly
+    // Switch sessions, the new connect effect resets activeToolCalls, exactly
     // like it resets liveText/turnError.
     renderWith('session-cancel-tool-4b');
     await waitFor(() => result.activeToolCalls.length === 0);
@@ -1105,12 +1105,12 @@ describe('useChatStream — cancelToolCall()', () => {
 });
 
 // ---------------------------------------------------------------------------
-// toolActivityByMessageId — completed tool calls folded onto the message that
+// toolActivityByMessageId, completed tool calls folded onto the message that
 // produced them, instead of evaporating once the turn ends (the platform-wide
 // "keep tool results, fold them" fix, webui idiom).
 // ---------------------------------------------------------------------------
 
-describe('useChatStream — toolActivityByMessageId', () => {
+describe('useChatStream: toolActivityByMessageId', () => {
   test('a completed tool call is attached to the turn\'s assistant message id on turn.completed', async () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-activity-1' });
     const ctrl = activeStreamControl;
@@ -1128,7 +1128,7 @@ describe('useChatStream — toolActivityByMessageId', () => {
         type: 'turn.tool_result', sessionId: 'session-activity-1', turnId: 't1', toolCallId: 'call-1', toolName: 'bash', result: 'file.txt', isError: false,
       });
     });
-    // Not attached yet — the turn has not reached a terminal event.
+    // Not attached yet, the turn has not reached a terminal event.
     expect(ctx.result.toolActivityByMessageId.size).toBe(0);
 
     flushSync(() => {
@@ -1187,7 +1187,7 @@ describe('useChatStream — toolActivityByMessageId', () => {
     ctx.unmount();
   });
 
-  test('turn.error discards accumulated tool activity — no assistant message was produced to attach it to', async () => {
+  test('turn.error discards accumulated tool activity, no assistant message was produced to attach it to', async () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-activity-3' });
     const ctrl = activeStreamControl;
     ctrl!.resolveFn(ctrl!.disconnect);
@@ -1244,7 +1244,7 @@ describe('useChatStream — toolActivityByMessageId', () => {
     ctx.unmount();
   });
 
-  test('turn.cancelled with no assistantMessageId (no partial persisted) discards the tool activity — nothing to attach it to', async () => {
+  test('turn.cancelled with no assistantMessageId (no partial persisted) discards the tool activity, nothing to attach it to', async () => {
     const ctx = renderHookHelper({ activeSessionId: 'session-activity-5' });
     const ctrl = activeStreamControl;
     ctrl!.resolveFn(ctrl!.disconnect);

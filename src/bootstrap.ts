@@ -1,9 +1,9 @@
 /**
- * bootstrap.ts — the entry decision that runs before anything mounts.
+ * bootstrap.ts, the entry decision that runs before anything mounts.
  *
  * Two paths, chosen by the origin guard:
  *   - INSECURE non-local origin (plain http on a LAN IP): render the honest "needs HTTPS"
- *     message and STOP — never import the app graph, which would throw at module load and
+ *     message and STOP, never import the app graph, which would throw at module load and
  *     leave a silent blank #root (Finding 3).
  *   - otherwise: dynamically import mount-app and boot the real app.
  *
@@ -18,7 +18,7 @@ import {
 
 /**
  * Render the honest HTTPS-required message into the root node with self-contained inline
- * styles — it must read correctly even though the app's own stylesheet/theme never mount
+ * styles, it must read correctly even though the app's own stylesheet/theme never mount
  * on this path. Wording matches MicButton's secure-context family.
  */
 export function renderInsecureOriginNotice(root: HTMLElement): void {

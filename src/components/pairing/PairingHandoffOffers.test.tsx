@@ -1,5 +1,5 @@
 /**
- * PairingHandoffOffers — per-offer accept/decline, then pairing.handoff.complete,
+ * PairingHandoffOffers, per-offer accept/decline, then pairing.handoff.complete,
  * with honest outcomes: a genuinely declined offer never touches the ceremony or
  * the daemon; a ceremony that fails locally (permission denied, cancelled
  * passkey) renders as 'failed' with the client's own reason, never silently
@@ -137,7 +137,7 @@ describe('PairingHandoffOffers rendering', () => {
   });
 });
 
-describe('PairingHandoffOffers — accept path', () => {
+describe('PairingHandoffOffers: accept path', () => {
   test('accepting notifications gathers the real subscription and sends it to handoff.complete', async () => {
     completeImpl = () => Promise.resolve({ results: [{ kind: 'notifications', status: 'completed' }] });
     const { el, unmount } = render(['notifications']);
@@ -160,8 +160,8 @@ describe('PairingHandoffOffers — accept path', () => {
   });
 });
 
-describe('PairingHandoffOffers — decline path', () => {
-  test('unchecking an offer declines it locally — never reaches the ceremony or the daemon payload', async () => {
+describe('PairingHandoffOffers: decline path', () => {
+  test('unchecking an offer declines it locally, never reaches the ceremony or the daemon payload', async () => {
     completeImpl = () => Promise.resolve({ results: [{ kind: 'relay', status: 'declined' }] });
     const { el, unmount } = render(['notifications', 'relay']);
     const checkboxes = [...el.querySelectorAll('input[type="checkbox"]')] as HTMLInputElement[];
@@ -187,7 +187,7 @@ describe('PairingHandoffOffers — decline path', () => {
   });
 });
 
-describe('PairingHandoffOffers — ceremony failures are never silently declined', () => {
+describe('PairingHandoffOffers: ceremony failures are never silently declined', () => {
   test('a passkey ceremony that fails locally renders failed with the real reason, and is never sent to the daemon', async () => {
     registerPasskeyImpl = () => Promise.reject(new Error('The authenticator was not available.'));
     completeImpl = () => Promise.resolve({ results: [] });

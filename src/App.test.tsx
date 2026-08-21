@@ -1,9 +1,9 @@
 /**
- * App — daemon-unreachable gate recovery.
+ * App, daemon-unreachable gate recovery.
  *
  * DaemonUnreachableGate's copy promises the operator will "pick up where it left
  * off" once the daemon comes back. Before this fix, App.tsx early-returned the gate
- * IN PLACE of the workspace subtree, which unmounted SessionsView and SteerComposer —
+ * IN PLACE of the workspace subtree, which unmounted SessionsView and SteerComposer,
  * discarding the selected session and any half-typed steer/follow-up draft. The fix
  * renders the gate as an overlay ON TOP of the still-mounted (inert) workspace, so
  * this is a regression test: it types a draft and selects a session, forces a daemon
@@ -34,11 +34,11 @@ function unauthorizedError() {
 }
 
 // D-WEBUI-3: the health poll (useDaemonHealth) is a SEPARATE, independently-firing
-// signal from auth.current — it re-probes every 15s unconditionally, unlike
+// signal from auth.current, it re-probes every 15s unconditionally, unlike
 // auth.current which only re-probes once it has already errored. Modeled here as an
 // external store so a test can flip `connection` to 'down' with NO auth-query
 // interaction at all, mirroring "the health poll's own timer fired, nothing the user
-// did" — then flip it back to prove recovery.
+// did", then flip it back to prove recovery.
 type HealthConnection = 'connected' | 'reconnecting' | 'down';
 let healthConnection: HealthConnection = 'connected';
 const healthListeners = new Set<() => void>();
@@ -63,7 +63,7 @@ const SESSIONS_FIXTURE = {
   ],
 };
 
-// DELETE-MEANS-DELETE fixtures/state — a small in-memory companion-chat
+// DELETE-MEANS-DELETE fixtures/state, a small in-memory companion-chat
 // session store the mocked sdk.chat.sessions.* methods read/write, so a test can
 // simulate BOTH an honest daemon that hard-deletes (delete really removes the record)
 // and an older daemon that only soft-closes (delete only closes it, file retained) by
@@ -83,14 +83,14 @@ function resetChatDeleteFixtures() {
 }
 resetChatDeleteFixtures();
 
-// Full replacement of src/lib/goodvibes.ts — App.tsx's whole reachable import graph
+// Full replacement of src/lib/goodvibes.ts, App.tsx's whole reachable import graph
 // (queries.ts, useSessionRealtime, useRealtimeInvalidation, SessionsView,
 // SteerComposer, and the statically-imported-but-not-rendered other views) resolves
 // through this one module, so every name any of them import must be present.
 // StatusStrip (always-on chrome inside AppShell) calls useDaemonHealth(), which does
 // a raw `fetch()` outside the sdk facade and polls sdk.operator.models.current.get() (not
 // stubbed above). Neither matters to this test, so mock the whole hook the same way
-// StatusStrip.test.tsx does — avoids real-network noise and an unstubbed method call.
+// StatusStrip.test.tsx does, avoids real-network noise and an unstubbed method call.
 mock.module('./hooks/useDaemonHealth', () => ({
   useDaemonHealth: () => {
     React.useSyncExternalStore(
@@ -119,13 +119,13 @@ mock.module('./lib/goodvibes', () => ({
   WEBUI_SURFACE_KIND: 'webui',
   GOODVIBES_BASE_URL: 'http://localhost/test',
   // MemoryView (mounted unconditionally by App.tsx's render switch) imports this
-  // named value at module load time — a plain re-export of the SDK's constant, not
+  // named value at module load time, a plain re-export of the SDK's constant, not
   // exercised by any test in this file.
   VIBE_PERSONA_TAG: 'vibe',
   DEFAULT_SSE_RECONNECT: { enabled: true, baseDelayMs: 1, maxDelayMs: 2, backoffFactor: 2, maxAttempts: 1 },
   hasStoredTokenSync: () => hasStoredToken,
   // HostedSessionsView (mounted unconditionally in App.tsx's render switch)
-  // imports this named value at module load time — a no-op stub, not
+  // imports this named value at module load time, a no-op stub, not
   // exercised by any test in this file.
   hostedSessionDetachBeacon: () => {},
   getCurrentAuth: () => {
@@ -156,7 +156,7 @@ mock.module('./lib/goodvibes', () => ({
       },
       watchers: { stop: () => Promise.resolve({}) },
       // MemoryView is not exercised by this file's tests, but App.tsx mounts it
-      // unconditionally in the render switch — a stub keeps that reachable without
+      // unconditionally in the render switch, a stub keeps that reachable without
       // any test here depending on its shape.
       memory: {
         search: () => Promise.resolve({
@@ -194,7 +194,7 @@ mock.module('./lib/goodvibes', () => ({
       },
       events: {
         // useChatStream awaits this and stores the resolved value directly as its
-        // disconnect callback — a no-op stream is enough for the sidebar-delete flow
+        // disconnect callback, a no-op stream is enough for the sidebar-delete flow
         // this describe block exercises; it never asserts on live streaming behavior.
         stream: () => Promise.resolve(() => {}),
       },
@@ -221,7 +221,7 @@ mock.module('./lib/goodvibes', () => ({
             chatSessionsFixture = chatSessionsFixture.filter((s) => s.id !== sessionId);
             return Promise.resolve({ sessionId, deleted: true });
           }
-          // Pre-S1 daemon behavior: delete only soft-closes — the record NEVER
+          // Pre-S1 daemon behavior: delete only soft-closes, the record NEVER
           // actually leaves chatSessionsFixture, matching the real dishonest verb
           // this brief replaces (companion-chat-manager.ts's old handleDeleteSession).
           const session = chatSessionsFixture.find((s) => s.id === sessionId);
@@ -306,7 +306,7 @@ describe('App: daemon-unreachable gate preserves in-progress work', () => {
     expect(container.querySelector('.daemon-gate-overlay')).toBeTruthy();
     expect(container.textContent).toContain('reach the daemon');
 
-    // The workspace underneath must still be mounted (not remounted) — same DOM
+    // The workspace underneath must still be mounted (not remounted), same DOM
     // node, same value, just hidden behind the inert overlay.
     const appShell = container.querySelector('.app-shell');
     expect(appShell?.hasAttribute('inert')).toBe(true);
@@ -332,7 +332,7 @@ describe('App: daemon-unreachable gate preserves in-progress work', () => {
   });
 });
 
-describe('App: D-WEBUI-3 — the health poll drives the unreachable overlay on its own', () => {
+describe('App: D-WEBUI-3: the health poll drives the unreachable overlay on its own', () => {
   test('a daemon death mid-idle-session (health poll alone flips to down) surfaces the overlay with no user action, then clears on recovery', async () => {
     window.history.pushState({}, '', '/?view=sessions');
     const { container, unmount } = render();
@@ -343,7 +343,7 @@ describe('App: D-WEBUI-3 — the health poll drives the unreachable overlay on i
     expect(container.textContent).toContain('Session One');
 
     // The daemon dies while the session sits idle. auth.current never re-fires on its
-    // own (it only re-probes once it has ALREADY errored) — nothing in this test ever
+    // own (it only re-probes once it has ALREADY errored), nothing in this test ever
     // touches the auth query or the query client. Only the independently-polling
     // health hook (useDaemonHealth, mocked here as an external store) reports the
     // outage, exactly as its real 15s timer would.
@@ -392,7 +392,7 @@ describe('App: D-WEBUI-3 — the health poll drives the unreachable overlay on i
   });
 });
 
-describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash', () => {
+describe('App: D-WEBUI-2: no stored token skips the authenticated-shell flash', () => {
   test('with no stored token, the very first render shows the sign-out gate, never the 401-bannered shell', () => {
     hasStoredToken = false;
     window.history.pushState({}, '', '/?view=sessions');
@@ -401,7 +401,7 @@ describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash
     // No flushMicrotasks() here on purpose: this asserts on the FIRST synchronous
     // render, before the (never-to-resolve-in-this-test) auth query has any chance to
     // settle. hasStoredTokenSync() is a synchronous localStorage check, so "no token"
-    // must be enough on its own to show the gate — no probe required.
+    // must be enough on its own to show the gate, no probe required.
     expect(container.textContent).toContain('Sign in to GoodVibes');
     expect(container.querySelector('.app-shell')).toBeNull();
     expect(container.querySelector('.sessions-row')).toBeNull();
@@ -415,7 +415,7 @@ describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash
     const { container, unmount } = render();
     expect(container.textContent).toContain('Sign in to GoodVibes');
 
-    // Let the (successful, in this mock) auth query settle in the background — with no
+    // Let the (successful, in this mock) auth query settle in the background, with no
     // stored token, that must not flip the view to the authenticated shell.
     await flushMicrotasks();
     expect(container.textContent).toContain('Sign in to GoodVibes');
@@ -425,7 +425,7 @@ describe('App: D-WEBUI-2 — no stored token skips the authenticated-shell flash
   });
 });
 
-describe('App: delete-means-delete — companion chat sidebar delete', () => {
+describe('App: delete-means-delete, companion chat sidebar delete', () => {
   const originalConfirm = window.confirm;
 
   afterEach(() => {
@@ -440,7 +440,7 @@ describe('App: delete-means-delete — companion chat sidebar delete', () => {
     return button!;
   }
 
-  test('the confirm gate fires before any destructive call — declining leaves close/delete uncalled', async () => {
+  test('the confirm gate fires before any destructive call; declining leaves close/delete uncalled', async () => {
     window.history.pushState({}, '', '/?view=chat');
     window.confirm = () => false;
     const { container, unmount } = render();
@@ -459,7 +459,7 @@ describe('App: delete-means-delete — companion chat sidebar delete', () => {
     unmount();
   });
 
-  test('an honest post-S1 daemon: delete closes first, then really removes — proof-of-gone confirms absence, no false banner', async () => {
+  test('an honest post-S1 daemon: delete closes first, then really removes; proof-of-gone confirms absence, no false banner', async () => {
     window.history.pushState({}, '', '/?view=chat');
     window.confirm = () => true;
     chatDeleteReallyRemoves = true;
@@ -483,7 +483,7 @@ describe('App: delete-means-delete — companion chat sidebar delete', () => {
     unmount();
   });
 
-  test('a still-soft-closing pre-S1 daemon: delete does NOT make the row vanish silently — it comes back with an honest "did not complete" banner', async () => {
+  test('a still-soft-closing pre-S1 daemon: delete does NOT make the row vanish silently. It comes back with an honest "did not complete" banner', async () => {
     window.history.pushState({}, '', '/?view=chat');
     window.confirm = () => true;
     chatDeleteReallyRemoves = false;
@@ -498,7 +498,7 @@ describe('App: delete-means-delete — companion chat sidebar delete', () => {
 
     expect(chatDeleteCalls).toEqual(['c1']);
     // The record was only soft-closed server-side (chatDeleteReallyRemoves=false), so
-    // the proof-of-gone reconcile finds it still present — the anti-pattern this brief
+    // the proof-of-gone reconcile finds it still present, the anti-pattern this brief
     // removes is trusting the optimistic hide as "deleted" here; instead the row must
     // come back and the failure must be visible.
     expect(chatSessionsFixture.some((s) => s.id === 'c1')).toBe(true);

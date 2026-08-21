@@ -37,7 +37,7 @@ describe('DataBlock', () => {
     expect(html).not.toContain('No data');
   });
 
-  // ── string value — MarkdownMessage path ─────────────────────────────────
+  // ── string value, MarkdownMessage path ─────────────────────────────────
 
   test('renders string value inside data-block-markdown div', () => {
     const html = renderToStaticMarkup(
@@ -50,7 +50,7 @@ describe('DataBlock', () => {
     expect(html).not.toContain('<pre>');
   });
 
-  // ── non-string value — compactJson / pre path ────────────────────────────
+  // ── non-string value, compactJson / pre path ────────────────────────────
 
   test('renders object value as JSON inside a pre element', () => {
     const value = { key: 'value', count: 42 };

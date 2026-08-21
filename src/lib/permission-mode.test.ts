@@ -23,7 +23,7 @@ describe('isSettablePermissionMode', () => {
     for (const mode of SETTABLE_PERMISSION_MODES) expect(isSettablePermissionMode(mode)).toBe(true);
   });
 
-  test('rejects "custom" — read-only, never a settable value on the wire', () => {
+  test('rejects "custom": read-only, never a settable value on the wire', () => {
     expect(isSettablePermissionMode('custom')).toBe(false);
   });
 });

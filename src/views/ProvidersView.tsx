@@ -22,13 +22,13 @@ import '../styles/components/providers.css';
 
 /**
  * A provider-aware sibling of RecordList (src/components/RecordList.tsx).
- * RecordList's pill is bestStatus(item) — a generic status/state/phase/
+ * RecordList's pill is bestStatus(item), a generic status/state/phase/
  * health/authFreshness/kind fallback that decorative-defaults to "unknown"
  * for provider records (they carry none of those keys at top level; the
  * real per-route freshness is nested). This renders the identical markup
  * (.record-list/.record-row, so keyboard nav + CSS keep working) but reads
  * the pill from deriveProviderStatus(item) instead. RecordList itself stays
- * untouched — other consumers keep bestStatus unchanged.
+ * untouched, other consumers keep bestStatus unchanged.
  */
 function ProviderRecordList({
   items,
@@ -140,11 +140,11 @@ export function ProvidersView() {
   });
 
   const selectedProviderDetail = providerDetail.data ?? selectedProviderSnapshot ?? selectedProvider;
-  // Status is derived from BOTH the merged list record (selectedProvider —
+  // Status is derived from BOTH the merged list record (selectedProvider,
   // carries the catalog's flat `configured`/`configuredVia`/`routes` for
   // providers.list, since the merge shallow-spreads catalog on top) and the
   // freshest single-provider snapshot (selectedProviderDetail, from
-  // providers.get — carries the current runtime.auth.routes/configured but
+  // providers.get, carries the current runtime.auth.routes/configured but
   // NEVER a `configuredVia`, since ProviderRuntimeMetadata has no such
   // field). Neither source alone is honest: the list record can be stale
   // once providers.get resolves, and the raw snapshot alone loses

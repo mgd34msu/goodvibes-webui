@@ -1,17 +1,17 @@
 /**
- * usePushSubscriptionReconcile — reconcile-on-open for Web Push.
+ * usePushSubscriptionReconcile, reconcile-on-open for Web Push.
  *
  * Fires reconcilePushSubscriptionOnOpen (lib/push/push-client.ts) once on every
  * rising edge into `enabled` (App.tsx passes `health.connection === 'connected'
  * && auth.isSuccess`, mirroring useSessionRealtime/useRealtimeInvalidation's own
  * gate). A rising edge covers both the ordinary app-open case and a daemon
- * reconnect after an outage — either is a legitimate moment to notice that the
+ * reconnect after an outage, either is a legitimate moment to notice that the
  * browser's push endpoint drifted from what the daemon has on record.
  *
  * Also listens for the service worker's `goodvibes-push-subscription-changed`
  * message (public/sw.js's pushsubscriptionchange handler, fired when the
  * browser rotates the endpoint on its own while this tab IS open) and
- * re-reconciles immediately rather than waiting for the next app open — the SW
+ * re-reconciles immediately rather than waiting for the next app open, the SW
  * cannot authenticate to the daemon itself (no access to this page's
  * localStorage-held token), so this page is what actually completes the heal.
  * The message's own payload is intentionally ignored; reconcile re-reads the
@@ -19,7 +19,7 @@
  * to already be the rotated one (the SW awaited the resubscribe before
  * posting), so there is nothing to double-carry.
  *
- * Silent by design: this is a background self-heal, not a user-facing action —
+ * Silent by design: this is a background self-heal, not a user-facing action,
  * a failure (daemon hiccup, push unsupported, never subscribed) is swallowed
  * rather than surfaced, exactly like the reconcile function's own honest
  * 'not-subscribed' no-op. Nothing here blocks first paint or shows a spinner.

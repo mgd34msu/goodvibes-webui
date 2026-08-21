@@ -1,5 +1,5 @@
 /**
- * unified-diff.test.ts — the parser + steer-context builder over the git unified
+ * unified-diff.test.ts, the parser + steer-context builder over the git unified
  * diff that checkpoints.diff returns. Covers the shapes the daemon actually emits:
  * a modified file with one hunk, an added file (/dev/null → path), a deleted file,
  * a multi-file diff, a multi-hunk file, a binary block, hunk line-range math, the
@@ -187,7 +187,7 @@ describe('range + excerpt helpers', () => {
     expect(lines[0]).toBe('@@ -40,6 +40,7 @@ export function foo() {');
     expect(patch).toContain('+  const c = 3;');
     expect(patch).toContain('-  return a + b;');
-    // never a "… N more" cap — the daemon must reverse-apply the whole hunk exactly
+    // never a "… N more" cap, the daemon must reverse-apply the whole hunk exactly
     expect(patch).not.toContain('more line');
     expect(patch).not.toContain('truncated');
     // every non-header line carries a leading +/-/space marker

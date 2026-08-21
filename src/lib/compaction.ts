@@ -1,5 +1,5 @@
 /**
- * compaction.ts — parse and format the SDK's compaction runtime events.
+ * compaction.ts, parse and format the SDK's compaction runtime events.
  *
  * GROUNDED: `@pellux/goodvibes-sdk/events/compaction` ships a real, typed
  * `CompactionEvent` discriminated union (COMPACTION_CHECK, _MICROCOMPACT,
@@ -8,11 +8,11 @@
  * COMPACTION_RECEIPT emitted after every automatic/manual compaction). These
  * ride the 'compaction' runtime-event-bus domain (RUNTIME_EVENT_DOMAINS), which
  * the daemon relays over the raw control-plane SSE stream the same way it
- * relays 'permissions'/'fleet'/'tasks' — see useRealtimeInvalidation.ts's header
+ * relays 'permissions'/'fleet'/'tasks', see useRealtimeInvalidation.ts's header
  * comment for the multiplexed-stream mechanism this reuses.
  *
  * The wire type for a domain frame's payload is untyped JSON at the contracts
- * layer (RuntimeEventRecord — `{ readonly type: string } & Record<string, JsonValue>`),
+ * layer (RuntimeEventRecord, `{ readonly type: string } & Record<string, JsonValue>`),
  * so this module reads it defensively (asRecord/typeof guards), never trusting the
  * frame shape blindly, matching this codebase's established tolerant-read idiom
  * (src/lib/object.ts).
@@ -21,7 +21,7 @@
  * wire for an arbitrary remote session (checked: sessions.get/list, fleet.snapshot,
  * config.get all lack one). COMPACTION_CHECK's `tokenCount`/`threshold` pair is the
  * only SDK-provided numeric usage signal available to a remote client, and
- * COMPACTION_RECEIPT's `tokensBefore`/`tokensAfter` the only post-compaction one —
+ * COMPACTION_RECEIPT's `tokensBefore`/`tokensAfter` the only post-compaction one,
  * both consumed here, never invented.
  */
 
@@ -51,7 +51,7 @@ export interface CompactionReceipt {
   readonly strategy: string;
   /**
    * The strategy that was ASKED for (`behavior.compactionStrategy`), when it
-   * differs from `strategy` — i.e. a fallback happened (e.g. `distiller`
+   * differs from `strategy`, i.e. a fallback happened (e.g. `distiller`
    * requested, `structured` ran because the distillation was unavailable or
    * scored below the quality floor). The daemon only stamps this field on the
    * wire when a fallback actually occurred (conversation-compaction.ts:
@@ -76,7 +76,7 @@ export interface CompactionReceipt {
   readonly validationPassed: boolean;
   readonly outcome: CompactionOutcome;
   readonly detail?: string;
-  /** Client-stamped arrival time (the wire event carries no timestamp field) — used
+  /** Client-stamped arrival time (the wire event carries no timestamp field), used
    *  only for ordering receipts within a session, never rendered as an SDK-provided
    *  time. */
   readonly receivedAt: number;
@@ -153,7 +153,7 @@ export function parseCompactionCheck(payload: unknown, receivedAt: number = Date
   };
 }
 
-/** Badge tone for a receipt's outcome — mirrors this codebase's .badge ok/warning/bad
+/** Badge tone for a receipt's outcome, mirrors this codebase's .badge ok/warning/bad
  *  vocabulary (see FleetView's stateTone for the same pattern). */
 export function outcomeTone(receipt: Pick<CompactionReceipt, 'outcome' | 'lowQuality'>): 'ok' | 'warning' | 'bad' {
   if (receipt.outcome === 'failed') return 'bad';
@@ -168,7 +168,7 @@ export function outcomeLabel(outcome: CompactionOutcome): string {
 }
 
 /** Whole-percent usage against threshold, honest only when the daemon supplied
- *  both numbers (threshold > 0) — never a guessed denominator. */
+ *  both numbers (threshold > 0), never a guessed denominator. */
 export function checkUsagePct(check: Pick<CompactionCheck, 'tokenCount' | 'threshold'>): number | null {
   if (check.threshold <= 0) return null;
   return Math.round((check.tokenCount / check.threshold) * 100);

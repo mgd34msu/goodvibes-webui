@@ -38,7 +38,7 @@ interface UseChatSendOptions {
    * The caller's authoritative turn state, read fresh on every send. When a send
    * starts while the live stream is 'reconnecting' or 'stream paused', the mutation
    * says so honestly ('sending while reconnecting') instead of silently claiming the
-   * ordinary 'sending'/'submitted' path — the REST send still goes through (it does
+   * ordinary 'sending'/'submitted' path, the REST send still goes through (it does
    * not depend on the SSE stream's health), but the reply may not visibly arrive
    * until the stream resumes or the 1s message poll fallback catches it.
    */
@@ -50,10 +50,6 @@ interface UseChatSendOptions {
    */
   onAuthExpired: () => void;
 }
-
-// ---------------------------------------------------------------------------
-// Return type
-// ---------------------------------------------------------------------------
 
 type SendMutation = ReturnType<typeof useMutation<undefined, Error, { body: string; files: File[]; steer?: boolean }>>;
 
@@ -69,16 +65,16 @@ export interface UseChatSendReturn {
   /** The underlying mutation object for callers that need the full shape. */
   sendMutation: SendMutation;
   /**
-   * Edit a user message and branch the conversation from it — the honest-lineage
+   * Edit a user message and branch the conversation from it, the honest-lineage
    * edit verb (companion.chat.messages.edit). The original message and everything
    * after it are SUPERSEDED on the server (retained as viewable history, never
    * deleted) and a fresh turn answers the edited message. Falls back to a plain
    * resend only when the target has no server id yet (an un-persisted optimistic
-   * message cannot be branched — a new send is the honest action there).
+   * message cannot be branched, a new send is the honest action there).
    */
   editAndResend: (messageId: string, newText: string) => void;
   /**
-   * Regenerate an assistant response — the honest-lineage regenerate verb
+   * Regenerate an assistant response, the honest-lineage regenerate verb
    * (companion.chat.messages.retry). The prior response (and any turns after it)
    * is SUPERSEDED on the server (retained as viewable history, never deleted) and
    * a fresh turn re-runs from the preceding user message.
@@ -126,22 +122,22 @@ export function useChatSend({
   onAuthExpired,
 }: UseChatSendOptions): UseChatSendReturn {
   // -------------------------------------------------------------------------
-  // Core send mutation (unchanged API — still used by Composer)
+  // Core send mutation (unchanged API, still used by Composer)
   // -------------------------------------------------------------------------
   const sendMutation = useMutation<undefined, Error, { body: string; files: File[] }>({
     mutationFn: async ({ body, files, steer }: { body: string; files: File[]; steer?: boolean }) => {
       if (!body && !files.length) return;
-      // Read the live stream's health at the moment the send starts (not stale —
+      // Read the live stream's health at the moment the send starts (not stale,
       // react-query always calls the mutationFn captured on the latest render). A
       // send during 'reconnecting'/'stream paused' still goes over REST and does not
       // depend on the SSE connection, but the reply streams back over that SAME
-      // connection — say so honestly rather than silently claiming ordinary
+      // connection, say so honestly rather than silently claiming ordinary
       // 'sending'/'submitted' while the live channel is actually down.
       const sendingWhileReconnecting = turnState === 'reconnecting' || turnState === 'stream paused';
       setTurnState(sendingWhileReconnecting ? 'sending while reconnecting' : 'sending');
       setTurnError(
         sendingWhileReconnecting
-          ? 'Sending — the live stream is reconnecting, so the reply may not appear until it resumes.'
+          ? 'Sending: the live stream is reconnecting, so the reply may not appear until it resumes.'
           : '',
       );
 
@@ -225,7 +221,7 @@ export function useChatSend({
         if (steer) {
           // STEER: interrupt the in-flight turn and run this message now
           // (companion.chat.messages.steer). On a pre-1.4 daemon the verb
-          // doesn't exist — fall back to an ordinary send and SAY so, never
+          // doesn't exist, fall back to an ordinary send and SAY so, never
           // silently pretend the interruption happened.
           try {
             result = await sdk.chat.messages.steer(sessionId, payload);
@@ -233,7 +229,7 @@ export function useChatSend({
             if (!isMethodUnavailableError(steerError)) throw steerError;
             result = await sdk.chat.messages.create(sessionId, payload);
             setTurnError(
-              'Sent as a normal message — this daemon does not support steering '
+              'Sent as a normal message: this daemon does not support steering '
               + '(needs SDK 1.4+), so the current reply was not interrupted.',
             );
           }
@@ -267,14 +263,14 @@ export function useChatSend({
         return;
       }
       // A 401 mid-send means the token died between opening the composer and
-      // hitting send — hand off to the sign-in front door instead of a dead-end
+      // hitting send, hand off to the sign-in front door instead of a dead-end
       // generic "send failed" that gives no path forward. The message that failed
       // is already marked deliveryState:'failed' above (inside the try/catch around
       // the actual POST), so this only needs to set the honest turn-level state.
       if (isAuthExpiredError(error)) {
         onAuthExpired();
         setTurnState('session expired');
-        setTurnError('Your session expired — sign in again to continue.');
+        setTurnError('Your session expired: sign in again to continue.');
         return;
       }
       setTurnState('send failed');
@@ -285,7 +281,7 @@ export function useChatSend({
   // -------------------------------------------------------------------------
   // Shared honest handling for the two lineage-forking verbs (regenerate/edit):
   // set the turn in flight, hand server truth the wheel (drop this session's local
-  // optimistic echoes so the refetched list — carrying the supersededAt flags — is
+  // optimistic echoes so the refetched list, carrying the supersededAt flags, is
   // the single source), and map failures to honest states.
   // -------------------------------------------------------------------------
   const beginLineageTurn = useCallback(() => {
@@ -309,12 +305,12 @@ export function useChatSend({
     if (isAuthExpiredError(error)) {
       onAuthExpired();
       setTurnState('session expired');
-      setTurnError('Your session expired — sign in again to continue.');
+      setTurnError('Your session expired: sign in again to continue.');
       return;
     }
     if (isSessionClosedError(error)) {
       setTurnState('idle');
-      setTurnError('This chat is closed — reopen or start a new chat to keep going.');
+      setTurnError('This chat is closed; reopen or start a new chat to keep going.');
       return;
     }
     setTurnState('error');
@@ -357,7 +353,7 @@ export function useChatSend({
         editMutation.mutate({ sessionId: activeSessionId, messageId, content });
         return;
       }
-      // No server id yet (an un-persisted optimistic message) — a branch has nothing
+      // No server id yet (an un-persisted optimistic message), a branch has nothing
       // to fork from, so send the edited text as a fresh message instead of faking a
       // branch. Honest: it is a new turn, not a rewrite of history that never persisted.
       sendMutation.mutate({ body: content, files: [] });
@@ -372,7 +368,7 @@ export function useChatSend({
     (messageId: string, _messages: ChatMessage[]) => {
       if (!activeSessionId) return;
       // Target a specific assistant message only when it has a server id; otherwise
-      // omit it and let the daemon regenerate the latest assistant response — the
+      // omit it and let the daemon regenerate the latest assistant response, the
       // honest default when the clicked message is still a streamed optimistic echo.
       regenerateMutation.mutate({
         sessionId: activeSessionId,
@@ -383,7 +379,7 @@ export function useChatSend({
   );
 
   return {
-    // Flattened mutation surface — preserves existing call sites in ChatView
+    // Flattened mutation surface, preserves existing call sites in ChatView
     mutate: sendMutation.mutate,
     isPending: sendMutation.isPending,
     error: sendMutation.error,

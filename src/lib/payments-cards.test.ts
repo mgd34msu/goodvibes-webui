@@ -1,5 +1,5 @@
 /**
- * payments-cards.test.ts — the rules card entry rests on, asserted rather than
+ * payments-cards.test.ts, the rules card entry rests on, asserted rather than
  * trusted.
  *
  * Two of these are structural pins rather than ordinary unit tests, and they
@@ -13,7 +13,7 @@
  *
  *  - the create route stays POST. invokeOperator sends a GET method's input as
  *    a query string, so a route flipped to GET would put a card number in the
- *    URL — browser history, referrer headers, every access log — with no change
+ *    URL, browser history, referrer headers, every access log, with no change
  *    to any file that mentions cards. The pin against the generated contracts
  *    facade is what makes that a red test rather than a silent leak.
  */
@@ -69,14 +69,14 @@ describe('the entry gate is the SDK allowlist, never a local list', () => {
     expect(mayOfferCardEntryHere()).toBe(true);
   });
 
-  test('a surface the SDK refuses is refused here — the gate is not "am I the webui?"', () => {
+  test('a surface the SDK refuses is refused here; the gate is not "am I the webui?"', () => {
     for (const remote of ['telegram', 'discord', 'slack', 'whatsapp', 'signal', 'ntfy', 'webhook', 'email', 'sms']) {
       expect(mayEnterCardDetailsHere(remote)).toBe(false);
       expect(mayOfferCardEntryHere(remote)).toBe(false);
     }
   });
 
-  test('an unknown surface is refused — the allowlist is closed, not a denylist', () => {
+  test('an unknown surface is refused. The allowlist is closed, not a denylist', () => {
     expect(mayEnterCardDetailsHere('some-channel-invented-later')).toBe(false);
     expect(mayOfferCardEntryHere('')).toBe(false);
   });
@@ -92,7 +92,7 @@ describe('the create route keeps card values out of the URL', () => {
     expect(route!.path).toBe(CARD_CREATE_PATH);
   });
 
-  test('POST specifically — invokeOperator would put a GET method\'s input in the query string', () => {
+  test('POST specifically: invokeOperator would put a GET method\'s input in the query string', () => {
     expect(CARD_CREATE_HTTP_METHOD).toBe('POST');
   });
 
@@ -115,7 +115,7 @@ describe('the six conditions the ruling carried', () => {
     // The local SDK overlay DOES carry the export, so when it is present this
     // asserts equality automatically instead of by eye. It skips against a
     // published pin rather than failing, because the mirror is legitimate
-    // until that pin catches up — and the moment it does, this stops skipping
+    // until that pin catches up, and the moment it does, this stops skipping
     // and the mirror can be deleted.
     const sdk = await import('@pellux/goodvibes-sdk/platform/payments')
       .catch(() => null) as { WEBUI_CARD_ENTRY_CONDITIONS?: readonly string[] } | null;
@@ -145,7 +145,7 @@ describe('a blank draft really is blank', () => {
     expect(blank.issuerCap).toBe('');
   });
 
-  test('kind defaults to virtual — the option that bounds what a leak can cost', () => {
+  test('kind defaults to virtual: the option that bounds what a leak can cost', () => {
     expect(emptyCardDraft().kind).toBe('virtual');
   });
 });
@@ -204,7 +204,7 @@ describe('buildCardCreateInput', () => {
     expect(buildCardCreateInput(draft({ issuerCap: '2000' }), 'JPY').issuerCapMinorUnits).toBe(2000);
   });
 
-  test('an empty issuer cap means none declared, not zero — zero would read as "cannot spend"', () => {
+  test('an empty issuer cap means none declared, not zero; zero would read as "cannot spend"', () => {
     expect(buildCardCreateInput(draft({ issuerCap: '   ' })).issuerCapMinorUnits).toBeNull();
   });
 
@@ -242,7 +242,7 @@ describe('buildCardCreateInput', () => {
     }
   });
 
-  test('a refusal message never contains the value it refused — a rejected card number is still a card number', () => {
+  test('a refusal message never contains the value it refused. A rejected card number is still a card number', () => {
     const bad = draft({ number: '4242424' });
     try {
       buildCardCreateInput(bad);

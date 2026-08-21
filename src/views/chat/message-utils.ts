@@ -84,16 +84,62 @@ export function companionEventType(eventName: string, payload: unknown): string 
 }
 
 /**
+ * Every value the turn lifecycle can be in, across useChatSend.ts (send/lineage
+ * mutations) and useChatStream.ts (SSE event handlers), the single source of
+ * truth ChatView's TurnState is derived from. A literal passed to setTurnState
+ * that is not in this tuple is now a compile error instead of a silent typo
+ * (see the sibling goodvibes-app repo's message-utils.ts, same pattern).
+ */
+export const TURN_STATES = [
+  'idle',
+  'sending',
+  'sending while reconnecting',
+  'submitted',
+  'running',
+  'streaming',
+  'tooling',
+  'syncing',
+  'stopping',
+  'stopped locally',
+  'stopped',
+  'reconnecting',
+  'completed',
+  'error',
+  'send failed',
+  'session expired',
+  'stream paused',
+  'stream error',
+] as const;
+
+export type TurnState = (typeof TURN_STATES)[number];
+
+/**
+ * The turn lifecycle's state AND its explanatory message as one value (see
+ * ChatView.tsx's `turn` useState and IDLE_TURN_PHASE), so the two can never be
+ * independently stale: every mutation, including the reset on session switch,
+ * sets both fields in a single setState call. Before this, turnState and
+ * turnError were separate useState strings and the session-switch reset only
+ * cleared turnError, letting a terminal turnState (e.g. 'send failed') from an
+ * old session bleed into a new one's header.
+ */
+export interface TurnPhase {
+  readonly state: TurnState;
+  readonly error: string;
+}
+
+export const IDLE_TURN_PHASE: TurnPhase = { state: 'idle', error: '' };
+
+/**
  * States for which a turn is genuinely in flight (drives the streaming indicator, the
  * Stop control, and the 1s message-poll fallback). 'reconnecting' and 'sending while
  * reconnecting' are included deliberately: an SSE drop mid-turn (or a send that starts
- * while the stream is backing off) does not mean the turn stopped — it means the live
+ * while the stream is backing off) does not mean the turn stopped, it means the live
  * channel is temporarily down while the daemon keeps working. 'stream paused' and
- * 'session expired' are deliberately EXCLUDED — those mean the automatic reconnect gave
+ * 'session expired' are deliberately EXCLUDED, those mean the automatic reconnect gave
  * up (or the token died), so nothing is actively streaming any more; isStreaming must
  * go false rather than keep asserting a live turn that no longer has a path to resume.
  */
-export const ACTIVE_TURN_STATES = [
+export const ACTIVE_TURN_STATES: readonly string[] = [
   'sending',
   'submitted',
   'running',
@@ -107,7 +153,7 @@ export const ACTIVE_TURN_STATES = [
 ];
 
 /**
- * Derive a concise, human chat title from the first user message — the client-side
+ * Derive a concise, human chat title from the first user message, the client-side
  * auto-title (there is deliberately no server auto-title verb; the daemon exposes only
  * companion.chat.sessions.update, which this feeds). Takes the first non-empty line,
  * collapses whitespace, caps the length on a word boundary, and strips trailing
@@ -127,7 +173,7 @@ export function deriveChatTitle(text: string, maxLength = 52): string {
 
 export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | 'cancelled' | 'queued' | '' {
   const state = firstString(message, ['deliveryState', 'status', 'state']).toLowerCase();
-  // Exact daemon markers first — 'cancelled' (an assistant partial whose turn
+  // Exact daemon markers first, 'cancelled' (an assistant partial whose turn
   // was stopped) and 'queued' (a user message whose turn has not started)
   // must never fall through to the 'sent' default and masquerade as normal.
   if (state === 'cancelled') return 'cancelled';
@@ -141,12 +187,12 @@ export function deliveryState(message: unknown): 'sent' | 'failed' | 'local' | '
 export { bestId };
 
 /**
- * A completed tool call folded into an assistant message once its turn ends —
+ * A completed tool call folded into an assistant message once its turn ends,
  * built client-side from the live `turn.tool_call` / `turn.tool_result` stream
  * events (see useChatStream's toolActivityByMessageId). This is NOT part of
  * the daemon's persisted message shape (CompanionChatMessage carries no tool
  * fields), so it is only ever present for a turn this browser tab actually
- * watched run live — never fabricated for history fetched from the server.
+ * watched run live, never fabricated for history fetched from the server.
  */
 export interface CompletedToolCall {
   readonly toolCallId: string;
@@ -170,7 +216,7 @@ const TOOL_FRIENDLY_LABELS: Readonly<Record<string, string>> = {
   task: 'agent',
 };
 
-/** A short, human label for a tool name — falls back to the raw name when unrecognized. */
+/** A short, human label for a tool name, falls back to the raw name when unrecognized. */
 export function toolFriendlyLabel(toolName: string): string {
   const normalized = toolName.trim().toLowerCase();
   return TOOL_FRIENDLY_LABELS[normalized] ?? (toolName.trim() || 'tool');
@@ -178,7 +224,7 @@ export function toolFriendlyLabel(toolName: string): string {
 
 /**
  * Compact "N tools · read×2, exec" style summary of a completed turn's tool
- * calls, grouped by friendly label with real counts — never an invented total.
+ * calls, grouped by friendly label with real counts, never an invented total.
  */
 export function summarizeToolActivity(calls: readonly Pick<CompletedToolCall, 'toolName'>[]): string {
   const counts = new Map<string, number>();
@@ -204,7 +250,7 @@ export function toolKeyArg(toolInput: unknown): string {
   return '';
 }
 
-/** A tool result rendered as honest text — strings pass through, anything else is compact JSON. */
+/** A tool result rendered as honest text, strings pass through, anything else is compact JSON. */
 export function toolResultText(result: unknown): string {
   if (result === undefined || result === null) return '';
   if (typeof result === 'string') return result;

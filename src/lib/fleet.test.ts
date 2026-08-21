@@ -46,7 +46,7 @@ describe('isKnownProcessKind / isKnownProcessState', () => {
     expect(isKnownProcessState('stalled')).toBe(true);
   });
 
-  test('an unknown future kind/state is NOT known — rendered verbatim, not dropped', () => {
+  test('an unknown future kind/state is NOT known; rendered verbatim, not dropped', () => {
     expect(isKnownProcessKind('quantum-process')).toBe(false);
     expect(isKnownProcessState('quantum-state')).toBe(false);
   });
@@ -102,7 +102,7 @@ describe('costLabel', () => {
     expect(costLabel(node({ id: 'n1', costState: 'estimated', costUsd: null }))).toBe('estimating…');
   });
 
-  test('costUsd entirely absent (undefined, per the SDK contract — not just null) never throws', () => {
+  test('costUsd entirely absent (undefined, per the SDK contract, not just null) never throws', () => {
     const { costUsd: _omit, ...rest } = node({ id: 'n1', costState: 'priced', costUsd: 5 });
     expect(costLabel(rest as FleetProcessNode)).toBe('price unknown');
   });
@@ -222,7 +222,7 @@ describe('buildFleetRows', () => {
       node({ id: 'child-b', parentId: 'root-b', startedAt: 80, needsAttention: { reason: 'approval' } }),
     ];
     const rows = buildFleetRows(nodes);
-    // The blocked child stays nested under root-b (depth 1) — it does not jump to
+    // The blocked child stays nested under root-b (depth 1), it does not jump to
     // the top of the whole tree, only ahead of its own siblings (it has none here).
     expect(rows.map((r) => r.node.id)).toEqual(['root-a', 'root-b', 'child-b']);
     expect(rows.map((r) => r.depth)).toEqual([0, 0, 1]);
@@ -246,7 +246,7 @@ describe('attention (needs-a-human) helpers', () => {
   });
 
   // 'pick' and 'conflict' (SDK 1.8.0) are the SAME waiting-on-human class as
-  // approval/input — attentionCount already treats every reason identically (it only
+  // approval/input, attentionCount already treats every reason identically (it only
   // checks `needsAttention` truthiness), so both are counted with no code change.
   test('attentionCount counts pick and conflict nodes exactly like approval/input', () => {
     const nodes = [
@@ -279,7 +279,7 @@ describe('attention (needs-a-human) helpers', () => {
 });
 
 describe('acp-agent node kind (SDK 1.8.0)', () => {
-  test('is a known kind — renders with the honest generic KindBadge, not the unknown-kind warning', () => {
+  test('is a known kind; renders with the honest generic KindBadge, not the unknown-kind warning', () => {
     expect(isKnownProcessKind('acp-agent')).toBe(true);
     expect(kindLabel('acp-agent')).toBe('acp-agent');
   });
@@ -322,7 +322,7 @@ describe('wireBackedActions (WEBUI-FLEET-DEPTH)', () => {
     expect(actions.has('detach')).toBe(false);
   });
 
-  test('a non-watcher killable node (e.g. wrfc-chain) never gets stop — no wire verb for it', () => {
+  test('a non-watcher killable node (e.g. wrfc-chain) never gets stop, no wire verb for it', () => {
     const n = node({
       id: 'c1', kind: 'wrfc-chain',
       capabilities: { interruptible: true, killable: true, pausable: false, resumable: false, steerable: false },
@@ -355,7 +355,7 @@ describe('unbackedCapabilityNote (WEBUI-FLEET-DEPTH)', () => {
     expect(unbackedCapabilityNote(n)).toContain("no control verb for 'trigger' processes yet");
   });
 
-  test('a phase (every capability false) gets no note — nothing to be honest about', () => {
+  test('a phase (every capability false) gets no note, nothing to be honest about', () => {
     const n = node({
       id: 'p1', kind: 'phase',
       capabilities: { interruptible: false, killable: false, pausable: false, resumable: false, steerable: false },
@@ -364,7 +364,7 @@ describe('unbackedCapabilityNote (WEBUI-FLEET-DEPTH)', () => {
   });
 });
 
-describe('approvalsForNode (WEBUI-FLEET-DEPTH — "approve from the tree")', () => {
+describe('approvalsForNode (WEBUI-FLEET-DEPTH: "approve from the tree")', () => {
   function approval(overrides: Partial<ApprovalRecord> & { id: string }): ApprovalRecord {
     return {
       callId: `call-${overrides.id}`,
@@ -416,7 +416,7 @@ describe('attemptGroupRef / attemptGroupIds (best-of-N sibling markers, read def
     expect(attemptGroupRef(n)).toEqual({ groupId: 'g-1', index: 1, total: 3, held: true });
   });
 
-  test('returns null when there is no marker (an older daemon omits it) — nothing collapses', () => {
+  test('returns null when there is no marker (an older daemon omits it), nothing collapses', () => {
     expect(attemptGroupRef(node({ id: 'a1' }))).toBeNull();
     const partial = { ...node({ id: 'a2' }), attemptGroup: { index: 0 } } as FleetProcessNode;
     expect(attemptGroupRef(partial)).toBeNull(); // no groupId → not a usable marker
@@ -445,7 +445,7 @@ describe('readHeadline / readStallTell / stallTellLabel (read-model tells)', () 
     expect(stallTellLabel({ since: 1_700_000_000_000, quietForMs: 360_000 })).toBe('stalled · quiet 6m 0s');
   });
 
-  test('absent fields read as null — a pre-tells daemon fabricates nothing', () => {
+  test('absent fields read as null, a pre-tells daemon fabricates nothing', () => {
     expect(readHeadline(node({ id: 'n1' }))).toBeNull();
     expect(readStallTell(node({ id: 'n1' }))).toBeNull();
   });

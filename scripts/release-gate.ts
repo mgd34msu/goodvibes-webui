@@ -10,11 +10,11 @@
  * there. This file only resolves the installed toolchain package's CLI
  * binary and execs it against this repo's cwd, no gate logic lives here.
  *
- * TOOLCHAIN-PIN: the toolchain package is currently dev-linked from a local
- * tarball (see the `@pellux/goodvibes-toolchain` entry in package.json's
- * devDependencies/overrides/overridesRationale) because it is not yet
- * published to npm. Once the SDK repo publishes it, re-pin those entries to
- * the registry release; this file needs no change either way.
+ * TOOLCHAIN-PIN: `@pellux/goodvibes-toolchain` is an explicit devDependency
+ * in package.json, pinned exact to the same version as `@pellux/goodvibes-sdk`
+ * (see bun.lock), so its resolved location matches what the sdk's own
+ * transitive dependency would resolve to. This file needs no change when
+ * that version bumps.
  *
  * Run standalone: `bun run scripts/release-gate.ts`
  * Wired into: `bun run release:gate`, `bun run gate`, and `prepublishOnly`,

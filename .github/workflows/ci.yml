@@ -21,6 +21,10 @@ env:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test, Typecheck, Build
@@ -28,10 +32,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           # Pinned via the BUN_VERSION env var above (single source across
           # all three jobs). The DOM test harness (happy-dom
@@ -50,10 +54,14 @@ jobs:
         run: bun run test
 
       - name: Coverage
+        # shell: bash makes GitHub Actions run this with `bash --noprofile
+        # --norc -eo pipefail {0}` (its documented default for a bash step),
+        # so the pipeline's exit status is the coverage script's, not tee's.
+        shell: bash
         run: bun run coverage 2>&1 | tee coverage-summary.txt
 
       - name: Upload coverage summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: coverage-summary
@@ -83,10 +91,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           # See the "test" job above for why the version comes from the
           # shared BUN_VERSION env var.
@@ -117,10 +125,10 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           # See the "test" job above for why the version comes from the
           # shared BUN_VERSION env var.
@@ -136,7 +144,7 @@ jobs:
 
       - name: Cache Playwright browser binaries
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
@@ -154,7 +162,7 @@ jobs:
 
       - name: Upload traces/report/screenshots on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: |
@@ -186,7 +194,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Read version from package.json
         id: version
@@ -221,7 +229,7 @@ jobs:
       # this job produces the same archive and the same digest.
       - name: Set up Bun
         if: steps.check-tag.outputs.exists != 'true'
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
           cache: true

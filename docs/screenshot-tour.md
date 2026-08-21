@@ -23,7 +23,7 @@ this general surface.
 
 ## Sessions
 
-Sessions is the cross-surface session union: search, read, steer, or follow up
+Sessions is the cross-surface session union: find, read, steer, or follow up
 on any session started from the terminal, agent, or browser.
 
 ![Sessions view](assets/screenshots/sessions.png)
@@ -68,3 +68,9 @@ The collapsed sidebar keeps primary navigation available while giving Chat most
 of the horizontal space.
 
 ![Collapsed sidebar](assets/screenshots/collapsed-sidebar.png)
+
+## Surfaces without screenshots yet
+
+The newer surfaces (Hosted sessions, Mail, Dates, CI, Check-in, Principals,
+Phone, and the Approvals/Workstream pair) do not have captures here yet. Their
+behavior is documented in [operator-guide.md](operator-guide.md).

@@ -1,11 +1,11 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 1.12.1](https://img.shields.io/badge/WebUI-1.12.1-00d7ff)
-![SDK 1.21.0](https://img.shields.io/badge/SDK-1.21.0-8b5cf6)
+![WebUI 1.13.14](https://img.shields.io/badge/WebUI-1.13.14-00d7ff)
+![SDK 2.0.19](https://img.shields.io/badge/SDK-2.0.19-8b5cf6)
 ![Bun 1.3.14](https://img.shields.io/badge/Bun-1.3.14-f7a8ff)
 
-GoodVibes WebUI is the browser surface for a GoodVibes daemon: a full chat
+GoodVibes WebUI is the browser surface for a GoodVibes daemon, a full chat
 application and operator console with feature parity across most of the
 terminal UI's surface. One app serves desktop and phone. The phone gets a
 drawer-based layout of the same views, never a different mental model, and it
@@ -13,23 +13,27 @@ installs from the browser as a standalone app (add to home screen, offline
 shell, push notifications).
 
 It does not need to run on the same machine as the daemon. Point it at a
-daemon reachable over Tailscale, an HTTPS hostname on your tailnet, the path
+daemon behind a Tailscale HTTPS hostname on your tailnet, which is the path
 the installable app, offline shell, and Web Push are built around, or at a
 daemon on the same local network with firewall policy allowing the connection.
-Both are covered in [docs/deployment.md](docs/deployment.md). In production the
+When neither reaches the daemon directly, a stored relay pairing tunnels
+requests end to end encrypted through a rendezvous relay. All three are
+covered in [docs/deployment.md](docs/deployment.md). In production the
 daemon can also serve the built WebUI bundle itself, same-origin, so the
 browser and the API share one address and there is no cross-origin setup at all.
 
 The application is intentionally thin over the published GoodVibes SDK. Browser
 code uses the public scoped SDK seams from npm (typed contracts, no hand-typed
-wire shapes) and talks to the daemon through the configured WebUI origin and
-Vite proxy during development, or same-origin when the daemon serves the built
-bundle itself.
+wire shapes), plus the generated route table from the published
+`@pellux/goodvibes-contracts` package, and talks to the daemon through the
+configured WebUI origin and Vite proxy during development, or same-origin when
+the daemon serves the built bundle itself.
 
 Stack: Bun, Vite, React, TypeScript, TanStack Query, `@pellux/goodvibes-sdk`,
 `react-markdown`/`remark-gfm`/`remark-breaks`/`highlight.js` for chat and
-Knowledge Markdown rendering, and Playwright for the phone + desktop end-to-end
-suites against a hermetic mock daemon.
+Knowledge Markdown rendering, `jsqr` as the pairing scanner's fallback QR
+decoder, `onnxruntime-web` for in-tab wake-word inference, and Playwright for
+the phone + desktop end-to-end suites against a hermetic mock daemon.
 
 ---
 
@@ -97,17 +101,25 @@ current authority.
 
 | Surface | What you get | Docs |
 | --- | --- | --- |
-| Chat | Daemon-owned companion chat: streaming markdown, searchable history, attachments, regenerate and edit-with-branching, automatic titles, stop-generation, an artifacts slide-over | [operator-guide.md](docs/operator-guide.md) |
-| Sessions | The cross-surface session union: find, read, steer, or follow up on any session started from the terminal, agent, or browser | [operator-guide.md](docs/operator-guide.md) |
+| Chat | Daemon-owned companion chat: streaming markdown, searchable history, attachments, regenerate and edit-with-branching (superseded turns stay viewable), automatic titles, stop-generation with a server-side cancel, mid-turn steering, an artifacts slide-over | [operator-guide.md](docs/operator-guide.md) |
+| Sessions | The cross-surface session union: find, read, steer, or follow up on any session started from the terminal, agent, or browser, with per-session permission mode, context usage, cost, rewind, and per-hunk change review | [operator-guide.md](docs/operator-guide.md) |
+| Hosted sessions | Daemon-hosted sessions whose loop runs inside the daemon, so they survive the tab: list, create, attach, steer, leave, or end them | [operator-guide.md](docs/operator-guide.md) |
 | Fleet | The live process tree with per-agent state, steer/detach/stop where the wire supports them, and inline approvals (per-hunk on wide screens) | [operator-guide.md](docs/operator-guide.md) |
 | Checkpoints | Browse, create, restore, and diff checkpoint-to-checkpoint | [operator-guide.md](docs/operator-guide.md) |
 | Knowledge/Wiki | The regular Knowledge surface: ask, search, sources/nodes/issues/maps, projections and ingest where the SDK exposes them. Home Assistant Home Graph is deliberately not part of this page | [operator-guide.md](docs/operator-guide.md) |
 | Memory | Browse and search the shared cross-surface memory store, recall-honesty details rendered verbatim, review-state edits, and true (verified) deletion | [operator-guide.md](docs/operator-guide.md) |
 | Calendar | Agenda from the daemon's calendar module with ICS import/export; an unconfigured daemon shows a bring-your-own-CalDAV note, never a fake-empty calendar | [operator-guide.md](docs/operator-guide.md), [known-limitations.md](docs/known-limitations.md) |
-| Voice | Batched spoken replies and microphone dictation over the daemon's speech-to-text, with review-before-send; one voice configuration shared across terminal, desktop, and agent | [operator-guide.md](docs/operator-guide.md) |
+| Voice | Batched spoken replies, microphone dictation over the daemon's speech-to-text with review-before-send, and opt-in wake-word listening that runs its detector inside the tab; one voice configuration shared across terminal, desktop, and agent | [operator-guide.md](docs/operator-guide.md) |
+| Mail | Inbox, message reader, and composer over the daemon's `email.*` verbs; a daemon without a mail handler gets an honest not-available state, never a fake-empty inbox | [operator-guide.md](docs/operator-guide.md) |
+| Dates | Occasions and plans over the daemon's `occasions.*` verbs: upcoming dates, pending questions, and gift history, with every rule computed server-side | [operator-guide.md](docs/operator-guide.md) |
+| CI | Standing CI watches plus ad hoc repo/ref/PR status checks, with every job's own conclusion listed, never a bare rollup badge | [operator-guide.md](docs/operator-guide.md) |
+| Check-in | The proactive check-in configuration, a run-now trigger, and per-run receipts that state each outcome plainly | [operator-guide.md](docs/operator-guide.md) |
+| Principals | The named-identity registry and per-channel profile bindings that decide who a channel message resolves to | [operator-guide.md](docs/operator-guide.md) |
+| Phone | This browser acting as a paired device node: camera, screen, location, clipboard, and device commands served to the agent, every capture confirmed with the person first | [operator-guide.md](docs/operator-guide.md) |
 | Providers / Models | Provider status pills driven by the daemon's own route freshness, and a provider-first model workspace | [operator-guide.md](docs/operator-guide.md) |
 | Approvals / Tasks / Workstream | Decision queues and orchestration state, plus push-notification action buttons that hand off to an authenticated in-app decision | [operator-guide.md](docs/operator-guide.md), [push-approval-actions.md](docs/push-approval-actions.md) |
-| Admin | Auth, daemon diagnostics, config with secret redaction, display preferences, notifications-and-install (Web Push subscribe lives here) | [operator-guide.md](docs/operator-guide.md) |
+| Admin | Auth, daemon diagnostics, the schema-driven settings surface with secret redaction, display preferences, notifications-and-install (Web Push subscribe lives here), pairing tokens, passkey step-up, and power/memory posture | [operator-guide.md](docs/operator-guide.md) |
+| Sign-in and pairing | Scan the QR from `goodvibes pair` (or open its link) to sign in without copy/paste; hand-off bundles can also offer push, relay, and passkey setup in one step | [operator-guide.md](docs/operator-guide.md), [security.md](docs/security.md) |
 | Console UX | ⌘K command palette with global hotkeys, a persistent daemon pulse strip, URL deep-linking, honest degraded states, dark-first theming with density modes, and full keyboard/`aria-live`/focus-trap accessibility | [architecture.md](docs/architecture.md) |
 | Install and push | Add-to-home-screen install, a cached app shell with honest offline (no API response is ever cached), and Web Push for approvals/completions | [deployment.md](docs/deployment.md) |
 | Architecture | Runtime topology, the SDK boundary, state ownership, and route ownership | [architecture.md](docs/architecture.md) |
@@ -132,7 +144,7 @@ never as a durable source of truth. What you can set:
 | `VITE_GOODVIBES_BACKEND_URL` | One-off dev override | Development proxy target |
 | `VITE_GOODVIBES_BASE_URL` | One-off dev override | Bypass same-origin proxying entirely |
 | Theme, density | Admin → display preferences, browser `localStorage` | Dark-first token system, compact/default/comfortable density |
-| Operator token | Pasted in Admin, `localStorage` key `goodvibes.webui.token` | Browser-held auth token, validated against the daemon |
+| Operator token | Scanned or pasted at the sign-in screen (or in Admin), `localStorage` key `goodvibes.webui.token` | Browser-held auth token, validated against the daemon |
 
 The full binding precedence order and remaining one-off variables are in
 [docs/development.md](docs/development.md). Auth, token custody, and the files
@@ -152,7 +164,7 @@ bun run dev
 | Command | Does |
 | --- | --- |
 | `bun run dev` | Run the WebUI against a configured/resolved daemon |
-| `bun run test` | Bun's isolated test runner (1,916 tests across 140 files, verified passing while writing this) |
+| `bun run test` | Bun's isolated test runner (2,703 tests across 189 files, verified passing while writing this) |
 | `bun run typecheck` | `tsc --noEmit` (verified clean while writing this) |
 | `bun run build` | Presentation-token, config-schema, and internal-identifier checks, typecheck, then `vite build` |
 | `bun run lint` | ESLint over the whole tree |
@@ -165,15 +177,19 @@ three blocking: `test` (typecheck, test, build, coverage, the release gate),
 `lint`, and `e2e` (Playwright, phone + desktop, hermetic mock daemon). No job
 runs with `continue-on-error`. A red job reds the run
 (ruling: [docs/decisions/2026-07-07-e2e-ci-in-ci.md](docs/decisions/2026-07-07-e2e-ci-in-ci.md)).
-A green push-CI run on `main` is the only release gate: the workflow tags the
-commit and opens a GitHub Release with notes cut from `CHANGELOG.md`. This
-repo ships no build artifacts. The tag and the release notes are the entire
-release.
+A green push-CI run on `main` is the only release gate. The workflow tags the
+commit and opens a GitHub Release with notes cut from `CHANGELOG.md`. The
+release carries two assets, the built bundle tarball
+(`goodvibes-webui-bundle-<version>.tar.gz`) and its `SHA256SUMS.txt` manifest,
+which the suite installer fetches and verifies so a daemon can serve the
+bundle same-origin without building it locally.
 
 Coding rules worth knowing before you read the source:
 
-- Import browser code from the published `@pellux/goodvibes-sdk` npm package
-  only, never a local SDK checkout, never deep SDK internals.
+- Import browser code from the published `@pellux/*` npm packages only, never
+  a local SDK checkout, never deep reaches into `dist/`. A test resolves every
+  imported subpath against the installed packages, and the build refuses to
+  ship while the local SDK overlay (`bun run sdk:link`) is active.
 - Keep canonical state in the daemon. Browser storage is cache/preferences
   only, and it must never read `~/.goodvibes/**` files.
 - Presentation tokens (`src/styles/tokens.css`) are generated from the SDK's
@@ -205,16 +221,16 @@ For routine SDK version bumps, follow
 ## Stability
 
 This repo is not published to npm by design. It is versioned with semantic
-`vMAJOR.MINOR.PATCH` git tags and distributed as source: a green CI run on
-`main` tags the commit and opens a GitHub Release whose notes are cut from
-`CHANGELOG.md`, with no built binary attached. Run it from `bun install` +
-`bun run build`, or let a daemon serve the built bundle same-origin. Every
-shipped change updates `package.json`, `CHANGELOG.md`, the version badges
-above, and `index.html`'s cache-bust query string. Documentation always
-describes the **current** behavior, not historical behavior. See
-[CHANGELOG.md](CHANGELOG.md) for history.
+`vMAJOR.MINOR.PATCH` git tags. A green CI run on `main` tags the commit and
+opens a GitHub Release whose notes are cut from `CHANGELOG.md`, with the built
+bundle tarball and its checksum manifest attached for the suite installer.
+Run it from `bun install` + `bun run build`, or let a daemon serve the built
+bundle same-origin. Every shipped change updates `package.json`,
+`CHANGELOG.md`, the version badges above, and `index.html`'s cache-bust query
+string. Documentation always describes the **current** behavior, not
+historical behavior. See [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## License
 
-No `LICENSE` file is present in this repository, and `package.json` declares
-no `license` field. Licensing terms are unresolved until one is added.
+MIT. See [LICENSE](LICENSE); `package.json` declares the matching `license`
+field.

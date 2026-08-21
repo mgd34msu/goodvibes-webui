@@ -14,19 +14,37 @@ mistaken for hidden contracts.
 
 ## Voice
 
-- Browser voice depends entirely on the daemon's configured speech providers.
-  With no speech-to-text provider configured, the dictation control explains
-  what to add rather than recording; there is no in-browser/offline fallback.
+- Dictation and spoken replies depend on the daemon's configured speech
+  providers. With no speech-to-text provider configured, the dictation
+  control explains what to add rather than recording; there is no in-browser
+  transcription fallback. The daemon's managed local engines
+  (`voice.local.install`) count as a configured provider once installed.
+- Wake-word detection runs inside the tab, but it still needs the daemon: the
+  models are provisioned on and served by the daemon, and the confirmed
+  utterance is transcribed over the daemon's speech-to-text.
+- A browser tab cannot retain wake audio clips (no filesystem) or play a
+  custom activation-sound file from a local path; both downgrade with a
+  stated limitation rather than failing silently.
 - Spoken replies are batched synthesis over the wire, not a realtime duplex
   voice conversation.
 
-## Calendar
+## Calendar, Mail, and Dates
 
-- The calendar reads the daemon calendar module: ICS file import and read-only
-  feed subscriptions. Connecting an account (CalDAV/OAuth) is bring-your-own
-  credentials via the advanced connect card; the bundled provider app
-  registrations are placeholders that refuse honestly and point at
-  bring-your-own until real registrations are configured.
+- Calendar is bring-your-own CalDAV. An unconfigured daemon renders a pointer
+  to the config keys below, and a daemon build with no calendar handler at
+  all says the capability is missing. There is no bundled OAuth provider
+  flow. The keys the daemon needs before events flow:
+
+  | Config key | Holds |
+  | --- | --- |
+  | `surfaces.calendar.caldavUrl` | The CalDAV endpoint URL |
+  | `surfaces.calendar.caldavUser` | The CalDAV account username |
+  | `surfaces.calendar.caldavPassword` | The CalDAV account password (secret, write-only in settings) |
+
+- Mail and Dates render what the daemon's `email.*` and `occasions.*` verbs
+  return. Daemon builds that have not wired those handlers get a stated
+  not-available reading; the browser holds no mail credential and computes no
+  occasion rules of its own.
 
 ## Install and push
 
@@ -64,11 +82,27 @@ mistaken for hidden contracts.
   internet exposure needs an explicit deployment design with TLS, auth, and
   host policy.
 
+## Sessions and realtime
+
+- The session union list is daemon-capped at the 50 most recent sessions, and
+  the view states the cap. `sessions.search` reaches full history for
+  companion-chat session titles (Chat's history search) but cannot see inside
+  message bodies.
+- Several verb families emit no wire event yet (fleet workstream rows,
+  checkpoints, CI watches, check-in, principals, memory, local-voice status).
+  Their freshness comes from mutation-driven invalidation, polling, and
+  manual refresh, not realtime push.
+- Permission mode and context usage answer only for the session that is the
+  daemon's own live local runtime; other sessions show an honest unavailable
+  state.
+
 ## Route shims
 
-- Retired. Operator methods without a convenience helper ride the generic typed
-  invoke path with contract-derived types (`src/lib/contract-bridge-types.ts`).
-  A test pins that the old per-route shim table does not come back.
+- Hand-written per-route shims stay retired. The method-to-route table is
+  generated from the published `@pellux/goodvibes-contracts` facade artifact,
+  and a drift test pins the derived table against it so a hand-written row
+  can never shadow a generated one. Method types remain contract-derived
+  (`src/lib/contract-bridge-types.ts`).
 
 ## Screenshots
 

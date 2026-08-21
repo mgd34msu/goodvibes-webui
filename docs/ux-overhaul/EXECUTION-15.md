@@ -1,5 +1,7 @@
 # Execution Strategy v2 — Parallelism-Maximized (target ~15 concurrent agents)
 
+> Historical record from the July 2026 UX overhaul, kept for provenance. It describes a completed effort's internal planning and does not document current behavior; the living docs are the operator guide and architecture pages.
+
 Supersedes the linear phase pipeline in PLAN.md for all remaining work. The agent
 concurrency cap is 15 (runtime `agents.max_concurrent`). The goal is to keep
 12-15 useful, NON-CONFLICTING agents in flight at all times until work is exhausted.

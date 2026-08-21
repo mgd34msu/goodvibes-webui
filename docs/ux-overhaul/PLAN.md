@@ -1,5 +1,7 @@
 # GoodVibes WebUI — Best-in-Class UX Overhaul
 
+> Historical record from the July 2026 UX overhaul, kept for provenance. It describes a completed effort's internal planning and does not document current behavior; the living docs are the operator guide and architecture pages.
+
 Master execution plan. Goal: transform the operator surface into a keyboard-driven,
 dark-first operator console. 8 pillars, executed in dependency-ordered phases with
 maximal parallelism inside each phase.

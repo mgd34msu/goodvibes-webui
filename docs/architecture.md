@@ -9,8 +9,9 @@ GoodVibes WebUI is a full chat application and operator console over the
 GoodVibes daemon. It should:
 
 - make chat the primary surface, at parity with a modern chat application
-- expose the operator surfaces (sessions union, fleet, checkpoints, memory,
-  calendar, approvals/tasks/workstream, providers/models, admin) over the same
+- expose the operator surfaces (sessions union, hosted sessions, fleet,
+  checkpoints, memory, calendar, mail, dates, approvals/tasks/workstream,
+  CI watches, check-in, principals, providers/models, admin) over the same
   typed wire the terminal UI uses
 - expose regular Knowledge/Wiki without leaking extension-specific Home Graph UI
 - serve desktop and phone from one app: the phone gets a drawer layout of the
@@ -37,38 +38,44 @@ origins are only for explicit development overrides.
 
 ## SDK boundary
 
-Application code imports the scoped browser Knowledge SDK:
+Application code imports only published `@pellux/*` packages. The main seams:
 
-```ts
-import { createBrowserKnowledgeSdk, forSession } from '@pellux/goodvibes-sdk/browser/knowledge';
-import { createBrowserTokenStore } from '@pellux/goodvibes-sdk/auth';
-```
+- `@pellux/goodvibes-sdk/browser/knowledge` for the scoped browser SDK client
+- `@pellux/goodvibes-sdk/auth` for `createBrowserTokenStore`
+- `@pellux/goodvibes-sdk/contracts` for operator method input/output types
+- `@pellux/goodvibes-contracts/generated/webui-facade` for the generated
+  method-to-route table the transport layer is built from
+- `@pellux/goodvibes-sdk/platform/voice/capture` and
+  `.../platform/voice/wake/runtime` for browser audio capture and wake-word
+  settings resolution
+- `@pellux/goodvibes-sdk/platform/payments` and `.../platform/config` for
+  payment-entry policy and config-key helpers
+- `@pellux/goodvibes-transport-realtime` for the relay client
 
-The WebUI does not deep-import SDK internals and does not point to a local SDK
-checkout. The npm package in `node_modules` is the dependency under test.
+The WebUI does not deep-import package internals (`dist/` reaches are pinned
+out by a test that resolves every imported subpath against the installed
+packages) and does not point to a local SDK checkout for validation. The npm
+packages in `node_modules` are the dependency under test, and the build
+refuses to ship while the local SDK overlay (`bun run sdk:link`) is active.
 
-`src/lib/goodvibes.ts` is the local client facade. It wraps:
+`src/lib/goodvibes.ts` is the local client facade. It wraps auth, chat,
+artifacts, realtime, and knowledge, plus one ergonomic `sdk.operator.*`
+family per operator verb domain. The full verb-family inventory, with each
+family's owner view and canonical state, lives in
+[sdk-surface-matrix.md](sdk-surface-matrix.md); this document does not
+duplicate it.
 
-- `sdk.auth`
-- `sdk.operator.control`
-- `sdk.operator.accounts`
-- `sdk.operator.providers`
-- `sdk.operator.models`
-- `sdk.operator.tasks`
-- `sdk.operator.approvals`
-- `sdk.chat`
-- `sdk.artifacts`
-- `sdk.realtime`
-- `sdk.knowledge`
-
-Operator method families without a convenience helper (`fleet.*`,
-`checkpoints.*`, `sessions.search`, ...) ride the generic typed invoke path.
-Their input/output types derive from the SDK's generated
+The transport under those helpers is generated, not hand-maintained. Which
+operator methods have a plain REST binding, and at what path, comes from the
+contract-emitted `WEBUI_METHOD_ROUTES` table in
+`@pellux/goodvibes-contracts/generated/webui-facade`. The facade derives its
+route table from that artifact minus the methods the browser SDK already
+routes natively, so no route path or HTTP method is written by hand, and a
+drift test pins the derived table against the generated artifact. Method
+input/output types derive from the SDK's generated
 `OperatorMethodInputMap`/`OperatorMethodOutputMap` via
-`src/lib/contract-bridge-types.ts`, no hand-typed wire shapes. A test pins the
-bridge types against the installed SDK's `operator-contract.json`, and another
-pins the retirement of the old `EXTRA_METHOD_ROUTES` shim so per-route
-definitions do not creep back.
+`src/lib/contract-bridge-types.ts`, no hand-typed wire shapes, pinned against
+the installed SDK's `operator-contract.json`.
 
 Presentation tokens are generated, not hand-maintained:
 `scripts/generate-presentation-tokens.ts` renders the SDK's shared presentation
@@ -82,7 +89,13 @@ Auth belongs to the daemon.
 
 - Session login posts through the daemon login route.
 - Explicit tokens are accepted from the user and validated with the daemon.
+- A `#pair=<token>` link (the QR from `goodvibes pair`) hands the token off
+  automatically. The fragment is captured and stripped before the router can
+  normalize the URL, the token is validated via `auth.current`, and a token
+  the daemon rejects self-clears.
 - Tokens live in the browser SDK token store under `goodvibes.webui.token`.
+- When signed out, the shell is replaced by the signed-out gate rather than
+  rendering behind failing calls.
 - Browser code must not read `~/.goodvibes` files.
 - GoodVibes secret refs are daemon-side downstream credential resolution, not
   WebUI auth.
@@ -97,9 +110,15 @@ Primary APIs:
 - `sdk.chat.sessions.list`
 - `sdk.chat.sessions.create`
 - `sdk.chat.sessions.update`
-- `sdk.chat.sessions.delete`
+- `sdk.chat.sessions.close` (archive, distinct from delete)
+- `sdk.chat.sessions.delete` (the honest hard delete)
 - `sdk.chat.messages.list`
 - `sdk.chat.messages.create`
+- `sdk.chat.messages.retry` (regenerate; the prior reply is superseded and
+  retained, never erased)
+- `sdk.chat.messages.edit` (edit-and-branch; the old branch stays viewable)
+- companion `chat.messages.steer` (send immediately, interrupting the
+  in-flight turn; plain sends queue behind an active turn)
 - `sdk.chat.events.stream`
 
 Do not use `sessions.followUp` for plain companion chat. That path is for shared
@@ -117,6 +136,17 @@ The cache exists so refreshes preserve a usable sidebar while the daemon list is
 loading. Once `sdk.chat.sessions.list` succeeds, the daemon list is authoritative,
 except for sessions created in the current browser run while the daemon list is
 catching up.
+
+One reducer (`src/lib/companion-sessions-state.ts`) is the single client-side
+record of the sessions this browser knows about. Each entry is exactly one of
+three states: created here and not yet confirmed by a daemon list, a cached
+copy of a session the daemon already knows, or a tombstone hiding a session
+pending a delete outcome or reported gone by the daemon. A tombstone carries
+no session object by construction, so a hidden session can never leak back
+into the rendered list, and a failed delete brings the row back rather than
+leaving it falsely hidden. Once a daemon list has answered, its records win
+outright; the only local copies still contributed are created-here sessions
+the daemon has not returned yet.
 
 The send path adds optimistic local user messages immediately and marks them
 `local`, `sent`, or `failed` as daemon calls resolve. Assistant output streams
@@ -146,48 +176,62 @@ Line numbers are UI-only and must not be copied with code content.
 
 ## Session union and steering
 
-The Sessions view is the cross-surface session union: sessions started from the
-terminal, agent, or browser, listed and searched over `sessions.list` /
-`sessions.search` (closed sessions included by explicit `includeClosed` choice,
-surfaced in the UI). A live session can be steered. A closed session offers a
-follow-up, a new linked session, and is labeled as such, never disguised as
-steering. Steer sends stamp this browser as the originating surface. This is
-the operator-session continuation surface. It is distinct from companion chat
-and does not share its send path.
+The Sessions view is the cross-surface session union, sessions started from the
+terminal, agent, or browser, listed over `sessions.list`. The daemon caps that
+list at the 50 most recent and the view states the cap instead of implying
+completeness. Closed sessions are included by an explicit `includeClosed`
+toggle, surfaced in the UI. A live session can be steered. A closed session
+offers a follow-up, a new linked session, and is labeled as such, never
+disguised as steering. This is the operator-session continuation surface. It
+is distinct from companion chat and does not share its send path.
 
-### Permission mode and compaction
+`sessions.search` is consumed by Chat's history search, scoped to
+companion-chat sessions. It matches session id/title/project across full
+history, while message-body search stays client-side over the sessions already
+fetched. Its `includeClosed` defaults off there, deliberately the opposite of
+the Sessions view's toggle, since a search surface hides dead sessions by
+default while a full list shows them.
 
-The Sessions view also surfaces the SDK's permission-mode and auto-compaction
-state, built directly against the daemon wire (there is no TUI precedent for
-this over the wire. The TUI embeds the SDK runtime in-process and reads it
-locally, e.g. `configManager.get('permissions.mode')`, rather than through the
-daemon's operator API).
+### Permission mode, context usage, cost, and compaction
 
-- Permission mode (`src/lib/permission-mode.ts`) is daemon-wide, not
-  per-session. The SDK's `PERMISSION_MODE_CHANGED` runtime event carries no
-  `sessionId`. There is no dedicated `sessions.permissionMode` wire method.
-  The mode lives at the `permissions.mode` config key, read via
-  `config.get()` (which returns the daemon's full config tree, unredacted,
-  see `config-redaction.ts`) and written one key at a time via
-  `config.set('permissions.mode', mode)`. The control renders once, in the
-  Sessions toolbar, clearly labeled as daemon-wide rather than implied
-  per-session. Live sync rides the existing `permissions` domain
-  invalidation in `useRealtimeInvalidation.ts` (extended to also invalidate
-  the config query) rather than opening a new connection.
-- Context usage / compaction receipts (`src/lib/compaction.ts`,
-  `src/hooks/useCompactionReceipts.ts`) are fed only by the SDK's real
-  `compaction` runtime-event-bus domain (`COMPACTION_CHECK` for the live
-  token/threshold pair, `COMPACTION_RECEIPT` for the mandatory post-compaction
-  summary). No numeric context-window/token-budget value exists anywhere else
-  on the wire for an arbitrary session (checked: `sessions.get`/`list`,
-  `fleet.snapshot`, `config.get`), so the context-usage chip shows an honest
-  "not observed yet" state until the daemon actually reports one, never a
-  computed-from-nowhere percentage. Receipts render as distinct cards
-  appended to the session transcript as they arrive live. There is no
-  history endpoint for past receipts. This hook opens its own raw stream,
-  scoped to the open session detail only (closed on unmount) to stay under
-  the per-origin connection budget documented in
-  `useRealtimeInvalidation.ts`.
+The Sessions view surfaces per-session runtime state built directly against
+the daemon wire:
+
+- Permission mode (`src/lib/permission-mode.ts`) is session-scoped:
+  `sessions.permissionMode.get`/`.set` answer only for the session that is the
+  daemon's own live local runtime, and any other session id gets an honest
+  `SESSION_NOT_LOCAL` unavailable state rather than a silent daemon-wide
+  fallback (no daemon-wide value exists on the wire anymore). Live sync rides
+  the `permissions` domain invalidation in `useRealtimeInvalidation.ts`,
+  which revalidates the session-prefixed queries because the
+  `PERMISSION_MODE_CHANGED` event carries no `sessionId`. The wire's mode
+  vocabulary, mirrored from the contract's own enums:
+
+  | Mode | Label | Settable |
+  | --- | --- | --- |
+  | `plan` | Plan | yes |
+  | `normal` | Normal | yes |
+  | `accept-edits` | Accept edits | yes |
+  | `auto` | Auto | yes |
+  | `custom` | Custom | no; it means the session runs a bespoke rule set, and the set verb's input enum deliberately excludes it |
+
+- Context usage comes from `sessions.contextUsage.get`. The percentage is the
+  token estimator's figure, always flagged `estimated` on the wire, and the
+  chip's `~` prefix says so at a glance. A live `COMPACTION_CHECK` frame for
+  the session is used only as a refresh trigger for that query, never
+  rendered directly.
+- Per-session cost comes from `cost.attribution.get`, windowed to the last 24
+  hours with the session dimension. A session with no recorded usage in the
+  window shows "no cost recorded", never a fabricated zero, and a row the
+  daemon could not price is reported as unpriced.
+- Compaction receipts (`src/lib/compaction.ts`,
+  `src/hooks/useCompactionReceipts.ts`) are fed by the SDK's `compaction`
+  runtime-event-bus domain (`COMPACTION_RECEIPT`, the mandatory
+  post-compaction summary). Receipts render as distinct cards appended to the
+  session transcript as they arrive live. There is no history endpoint for
+  past receipts. This hook opens its own raw stream, scoped to the open
+  session detail only (closed on unmount) to stay under the per-origin
+  connection budget documented in `useRealtimeInvalidation.ts`.
 
 ## Memory model
 
@@ -195,16 +239,33 @@ The Memory view reads and mutates the shared cross-surface memory store over
 the daemon memory wire. Recall-honesty metadata from the daemon (search mode,
 vector-index availability or its `platformLimitReason`, exclusion counts,
 recall floor) renders verbatim. A literal-match fallback is labeled as one.
-Deletion is verified: after a delete the view proves the record is gone rather
+Deletion is verified. After a delete the view proves the record is gone rather
 than just dropping it from a local list.
 
 ## Voice model
 
 Voice rides the daemon's voice routes (`voice.tts.stream`, `voice.stt`,
-provider/voice listing) so browser, terminal, and agent get identical provider
-behavior. Spoken replies batch and cap concurrent synthesis with quiet retry;
-dictation always shows the transcript for review before send. Voice
-configuration lives in the shared config tier, one config for all surfaces.
+provider/voice listing, `voice.status`) so browser, terminal, and agent get
+identical provider behavior. Spoken replies batch and cap concurrent synthesis
+with quiet retry; dictation always shows the transcript for review before
+send. Voice configuration lives in the shared config tier, one config for all
+surfaces. `voice.local.status`/`voice.local.install` provision the daemon's
+managed local speech engines from the browser, with live install progress.
+
+Wake-word detection is the exception to "everything runs on the daemon", and
+the detector runs inside the tab. `voice.wake.provision` fetches the pinned model
+artifacts onto the daemon, `voice.wake.model.get` serves them to the tab
+(verified against a stated hash), and `onnxruntime-web` runs inference
+locally, loaded in its own lazy chunk so a tab with the feature off never
+fetches the runtime.
+
+The `voice.wake.*` config rows are client-resolved per surface
+(`voice.wake.surfaces.webui` is this tab's off-by-default opt-in), and
+settings a tab cannot honor surface as verbatim resolver limitations or
+blockers rather than being silently dropped. The host mounts at the app shell
+(`useWakeHost` in `App.tsx`) because its microphone lifetime cannot be a
+view's lifetime; while the surface opt-in is off it loads no model and never
+calls `getUserMedia`.
 
 ## Installable app (PWA)
 
@@ -271,14 +332,53 @@ only source of truth. It loads snapshots/lists first, then refreshes affected
 queries on relevant events.
 
 App-wide invalidation rides ONE multiplexed SSE stream (connected only after
-sign-in, reconnected on every auth change) rather than per-view connections.
-Per-view streams starved the browser's per-origin connection pool. Domain
-scoping is negotiated with the daemon. The default remains deliver-all so an
-older daemon stays correct. Chat streams are session-scoped through companion
-chat SSE helpers. Terminal events matter. Intermediate stream iteration events
-should not be treated as complete turns. Stream drops surface as honest
-degraded states (reconnecting / paused / expired) with real retry, per-effect
-stream epochs preventing stale handlers from acting.
+sign-in) rather than per-view connections, because per-view streams starved
+the browser's per-origin connection pool. The daemon multiplexes every
+requested domain onto that stream (`/api/control-plane/events?domains=...`)
+and each frame's event name is its domain; the hook invalidates that domain's
+query keys and never renders straight from a frame. A second raw stream
+carries session updates. The subscribed domains and what a frame on each
+revalidates:
+
+| Domain | Revalidates |
+| --- | --- |
+| `tasks` | The task queue |
+| `permissions` | Approvals, the session-prefixed queries (permission mode and context usage ride the sessions prefix), and permission rules |
+| `providers` | Provider inventory and status |
+| `knowledge` | Knowledge status, sources, and refinement |
+| `control-plane` | Control status/snapshot |
+| `fleet` | The live fleet snapshot and the archive, so the tree and the attention badge update on the event instead of the next poll |
+| `ops` | The power (keep-awake) state and the memory-pressure tier chip | The narrow exceptions that open their own scoped streams are
+the open session detail's compaction-receipt stream (closed on unmount) and
+the Approvals view's `approval-update` subscription, which is a fixed-name
+wire event rather than a domain frame; both stay within the connection
+budget.
+
+Chat streams are session-scoped through companion chat SSE helpers.
+Intermediate stream iteration events should not be treated as complete turns.
+Stream drops surface as honest degraded states (reconnecting / paused /
+expired) with real retry, per-effect stream epochs preventing stale handlers
+from acting, and views that lose their stream fall back to honest polling.
+
+## Transport routes and the relay
+
+Two transports can answer a request (`src/lib/relay-connection.ts`):
+
+- direct, an ordinary `fetch` against the WebUI origin (or a configured
+  backend origin), the unchanged LAN/co-located path
+- relay, `createRelayClient` from `@pellux/goodvibes-transport-realtime`,
+  which tunnels calls end to end encrypted through a rendezvous relay when
+  this device cannot reach the daemon directly. It requires a stored relay
+  pairing (`src/lib/relay-pairing.ts`, delivered by QR or a `#relay=`
+  hand-off fragment) and is opt-in and probe-driven, never the default.
+
+The relay tunnel also carries live event streams; a dropped-chunk overflow
+surfaces as a visible relay-overflow notice, never a silent gap. The daemon
+gates state-changing relay calls behind a WebAuthn step-up assertion. A
+mutating call without a fresh assertion gets a 401, the registered prompter
+runs the passkey ceremony, and the call retries once with the assertion
+attached. If the operator cancels or no passkey exists, the 401 surfaces
+honestly.
 
 ## Non-goals and boundaries
 

@@ -27,7 +27,7 @@ Enable the web-UI-serving capability on the daemon (it is off by default; the
 daemon stays loopback-only until you turn it on):
 
 ```
-controlPlane.webui.serve = true   # daemon config — opt-in, never automatic
+controlPlane.webui.serve = true   # daemon config, opt-in, never automatic
 ```
 
 With this on, the browser loads the app and calls the API from the same
@@ -35,10 +35,16 @@ address, so the browser's same-origin rules are a non-issue. Nothing about
 cross-origin requests applies. This is the path the PWA, the offline shell, and
 Web Push are designed around.
 
+The bundle itself does not have to be built locally. Every GitHub Release of
+this repo carries `goodvibes-webui-bundle-<version>.tar.gz` and a
+`SHA256SUMS.txt` manifest; the suite installer fetches the tarball, verifies
+it against the manifest, and points the daemon's `controlPlane.webui.bundleDir`
+at the unpacked assets.
+
 ### 2. Separate origin (dev, or a reverse proxy)
 
 If the app is served from a different origin than the daemon, for example the
-Vite dev server on `localhost:5173` talking to a daemon on another port, or a
+Vite dev server on `127.0.0.1:3423` talking to a daemon on another port, or a
 reverse proxy in front of a separately-hosted bundle, the daemon must be told
 which origins may call it (an explicit allowlist; it is empty by default). This
 is the secondary path; prefer same-origin serving for anything but development.
@@ -68,6 +74,32 @@ HTTPS here is not optional polish: service workers, the installable app, the
 offline shell, and Web Push all require a secure context. Over plain HTTP to
 a LAN IP the browser refuses them, and the app says so plainly (it points you at
 opening the app over HTTPS) rather than showing a broken control.
+
+## Off the tailnet: the rendezvous relay
+
+When a device cannot reach the daemon directly (not on the tailnet, no LAN
+route), a stored relay pairing lets the app tunnel its calls end to end
+encrypted through a rendezvous relay server. The pairing is a transport
+bootstrap only (relay URL, rendezvous id, daemon public key); it signs nobody
+in, and the ordinary token pairing still handles authentication on top.
+
+Get the pairing onto the device by scanning it from the pairing QR, opening a
+`#relay=` hand-off link, or pasting the `gvrelay1.` code on the sign-in
+screen. Relay use is opt-in and probe-driven, so while the daemon is reachable
+directly, requests stay direct. State-changing calls over the relay require a
+passkey step-up (a WebAuthn assertion) before the daemon accepts them, so
+register a passkey from Admin before relying on the relay away from home.
+
+## Signing in from a phone
+
+Run `goodvibes pair` on the machine with the daemon. The QR it prints encodes
+a link to the app with a one-time operator token in the URL fragment. Open it
+on the phone (or scan it with the sign-in screen's in-page scanner) and the
+app signs in without any copy/paste, stripping the secret from the URL
+immediately. A pairing link can also carry a hand-off bundle of setup offers,
+each independently declinable, so one scan can finish the whole device setup;
+the offer kinds and what accepting each one does are tabled in
+[operator-guide.md](operator-guide.md) under "Signing in and pairing".
 
 ## Installing the app (add to Home Screen)
 
@@ -108,14 +140,18 @@ even when it isn't open.
   and it holds the subscription. Nothing is stored with a third party beyond the
   browser's own push service, and your device's push address is never handed back
   out over the wire.
-- Tapping an approval notification deep-links straight to the Approvals view.
+- Tapping an approval notification deep-links straight to the Approvals view,
+  and its Allow/Deny buttons hand the decision to the signed-in app (see
+  [push-approval-actions.md](push-approval-actions.md)). A needs-input
+  notification, a fleet node blocked on you, deep-links to the Fleet view
+  focused on that node.
 
 ### The one-machine Tailscale-node note
 
 Web Push needs a secure context, which on a home setup means the HTTPS hostname
 `tailscale serve` provides. For push to work end to end, reach the app through
 that same Tailscale HTTPS origin you subscribed on. The subscription is tied
-to the origin it was created on. In practice: serve the daemon over Tailscale on
+to the origin it was created on. In practice, serve the daemon over Tailscale on
 the machine that runs it, open the app at that HTTPS hostname, and subscribe
 there. Opening the app at a different address later (a raw LAN IP, a different
 hostname) is a different origin and will not carry the subscription.

@@ -4,7 +4,9 @@
 
 - Bun `1.3.14`
 - GoodVibes daemon running locally or on an explicitly configured backend URL
-- Installed `goodvibes` CLI for standalone WebUI development
+- For standalone WebUI development, an installed `goodvibes-daemon` binary
+  that answers `webui status --json` (the binding authority), or the older
+  `goodvibes` terminal CLI as the fallback binding source
 
 Install dependencies:
 
@@ -26,16 +28,20 @@ bun run ci
 
 ## Dev server binding
 
-The WebUI should bind to the TUI-resolved web listener. The default port is
-`3423`.
+The WebUI binds to the daemon-resolved web listener. The default port is
+`3423`, with `strictPort` on so a conflict fails loudly instead of silently
+moving ports.
 
 Precedence:
 
 1. `GOODVIBES_WEB_HOST`, `GOODVIBES_WEB_PORT`, `GOODVIBES_DAEMON_BASE_URL`
 2. `VITE_GOODVIBES_WEBUI_HOST`, `VITE_GOODVIBES_WEBUI_PORT`,
    `VITE_GOODVIBES_BACKEND_URL`
-3. `goodvibes web --json`
-4. TUI settings fallback for local development bootstrap
+3. `goodvibes-daemon webui status --json` (checked against the binary's own
+   `--help` first, so a daemon that does not know the subcommand is never
+   accidentally started by the dev server)
+4. `goodvibes web --json`, the deprecated terminal-owned fallback
+5. `~/.goodvibes/tui/settings.json` for local development bootstrap
 
 The development proxy target should connect to the daemon/control-plane API,
 normally `127.0.0.1:3421`. If the daemon binds to `0.0.0.0`, use
@@ -95,28 +101,36 @@ bun run ci
 
 ## Local code organization
 
-- `src/lib/goodvibes.ts`: SDK facade, auth, extra route shims, and typed invoke
-  helpers.
-- `src/lib/companion-chat.ts`: chat session/message normalization and local
-  cache helpers.
+- `src/lib/goodvibes.ts`: the SDK facade, auth, the generated route table,
+  and typed invoke helpers.
+- `src/lib/companion-chat.ts` and `src/lib/companion-sessions-state.ts`: chat
+  session/message normalization, the local cache, and the one client-side
+  session-list reducer.
 - `src/lib/provider-models.ts`: provider/model extraction and catalog/runtime
   mapping.
+- `src/lib/relay-connection.ts`, `src/lib/relay-pairing.ts`: the direct/relay
+  transport route and the stored relay pairing.
+- `src/lib/pairing*.ts`: the `#pair=` hand-off, the QR payload parser, and the
+  camera scanner plumbing.
+- `src/lib/voice/`: capture, dictation, synthesis, and the wake-word host.
+- `src/lib/push/`, `src/lib/pwa/`: Web Push client and service-worker
+  registration.
 - `src/lib/ui-preferences.ts`: browser UI preferences.
-- `src/views/ChatView.tsx`: companion chat surface.
-- `src/views/KnowledgeView.tsx`: regular Knowledge/Wiki surface.
-- `src/views/ProvidersView.tsx`: provider/model surface.
-- `src/views/AdminView.tsx`: auth/admin/diagnostic surface.
+- `src/views/`: one directory (or file) per operator surface; `src/views/chat/`
+  holds the composer, stream, search, and lineage modules behind
+  `ChatView.tsx`.
 - `src/components/MarkdownMessage.tsx`: Markdown, code block copy, highlighting,
   and decorative line numbers.
 
 ## Coding rules
 
-- Use the published npm SDK package.
-- Do not deep-import SDK internals.
+- Use the published npm `@pellux/*` packages.
+- Do not deep-import package internals (`dist/` reaches fail a pinned test).
 - Keep canonical state in the daemon.
 - Treat browser local storage as cache/preferences only.
 - Prefer daemon snapshots/lists as source of truth and realtime as invalidation.
-- Keep route shims narrow and remove them when SDK public helpers exist.
+- Never hand-write a method route: the route table derives from the generated
+  `webui-facade` artifact, and a drift test pins the derivation.
 - Do not add Home Graph filtering to regular Knowledge.
 
 ## Versioning
@@ -129,5 +143,6 @@ For any shipped change:
 2. Update `CHANGELOG.md`.
 3. Update `index.html` cache-bust values when the app version changes.
 4. Run `bun run ci`.
-5. Commit, tag, and push.
-6. Confirm GitHub CI passes.
+5. Commit and push. Do not tag by hand: the auto-release job tags a green
+   `main` run and attaches the built bundle to the GitHub Release.
+6. Confirm GitHub CI passes and the release appears.

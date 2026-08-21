@@ -15,13 +15,17 @@ stores in browser code.
 
 ## Auth
 
-- Username/password login goes through the daemon login route.
-- Operator tokens are accepted only when pasted by the user and validated
-  against the daemon.
+- Username/password login goes through the daemon login route, a direct
+  request without Authorization headers or cookies; only the returned browser
+  session is stored.
+- Operator tokens are accepted when pasted or scanned by the user, or handed
+  off by a `#pair=` link, and always validated against the daemon; a rejected
+  token self-clears.
+- A pairing link's one-time token is captured and stripped from the URL
+  immediately, so it never lingers in the address bar or a history entry, and
+  the QR scanner never renders or logs the secret it carried.
 - Browser token storage uses the SDK token store key
   `goodvibes.webui.token`.
-- Prefer daemon/session auth with an HttpOnly cookie when that deployment mode
-  is available.
 
 Browser code must not read or scrape:
 
@@ -33,9 +37,20 @@ Browser code must not read or scrape:
 GoodVibes secret refs such as `goodvibes://secrets/...` are daemon-side
 credential resolution for downstream services. They are not WebUI auth tokens.
 
+## Relay and step-up
+
+A stored relay pairing lets the app tunnel calls through a rendezvous relay
+when the daemon is unreachable directly. The tunnel is end to end encrypted
+against the daemon's public key from the pairing, and the pairing itself
+carries no identity, so storing it signs nobody in. The daemon gates
+state-changing relay calls behind a WebAuthn step-up assertion; a mutating
+call without a fresh assertion is refused, the passkey ceremony runs, and the
+call retries once. A cancelled or unavailable ceremony surfaces the refusal
+instead of skipping verification.
+
 ## Web Push
 
-Push key custody is daemon-side: the VAPID private key never leaves the daemon,
+Push key custody is daemon-side. The VAPID private key never leaves the daemon,
 and the browser fetches only the public key (`push.vapid.get`) to subscribe.
 Push subscriptions are stored by the daemon (`push.subscriptions.*`). Push and
 install require a secure (HTTPS) context; the app states this on plain HTTP

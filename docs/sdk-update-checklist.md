@@ -7,7 +7,10 @@ Use this checklist for routine `@pellux/goodvibes-sdk` updates.
 - The SDK version is published on npm.
 - If the update depends on daemon/TUI runtime behavior, wait for a TUI/daemon
   handoff confirming the installed daemon reports the expected SDK version.
-- Do not use a local SDK checkout.
+- Do not use a local SDK checkout. If the local overlay was linked for
+  development, restore it first (`bun run sdk:status`, then
+  `bun run sdk:restore`); the build refuses to ship while the overlay is
+  active.
 - Do not edit package versions by hand and assume the install happened.
 
 ## Commands
@@ -61,7 +64,7 @@ Bump WebUI patch version in `package.json`.
 Add a `CHANGELOG.md` entry:
 
 ```md
-## [0.1.X] - YYYY-MM-DD
+## [<webui-version>] - YYYY-MM-DD
 
 ### Changed
 
@@ -84,14 +87,18 @@ The second and third checks are not always errors, but they force an explicit
 review. Do not add WRFC/workmap surfaces unless there is a WebUI-facing product
 request and SDK handoff. Do not add Home Graph behavior to regular Knowledge.
 
-## Commit, tag, push
+## Commit and push (CI cuts the tag)
 
 ```bash
 git add CHANGELOG.md bun.lock index.html package.json
 git commit -m "Update GoodVibes SDK to <version>"
-git tag v<webui-version>
-git push origin main --tags
+git push origin main
 ```
+
+Do not tag by hand. The auto-release job tags the commit after a green CI run
+and attaches the built bundle to the GitHub Release; a manually pushed tag
+makes that job skip the release, which ships no bundle asset for the
+installer.
 
 If code changes are required by the SDK handoff, include those files in the
 commit and use a message that names the behavior, not only the dependency bump.

@@ -66,6 +66,36 @@ If token auth works but username/password fails, inspect local auth status from
 Admin after authenticating with a valid token. Check that the daemon reports the
 expected user store and username list.
 
+## The QR scanner will not open
+
+Every way the scanner can fail renders its own titled explanation with a next
+step, never a dead control. The named failures:
+
+| Failure | What it means |
+| --- | --- |
+| Scanning needs a secure (HTTPS) connection | The page is on plain HTTP, so the browser withholds the camera; serve over HTTPS (for example `tailscale serve`) or paste the token instead |
+| This browser does not offer camera access | No camera API is exposed to web pages; use another browser or paste the token |
+| This page does not have permission to use the camera | Camera permission is blocked for this site; allow it in site settings and retry |
+| No camera was found on this device | The browser reported no usable camera |
+| The camera is already in use | Another app or tab holds the camera |
+| The camera could not be started | The camera exists but failed to open |
+| This browser has no QR decoder available | Neither the built-in barcode detector nor the fallback decoder could load |
+
+A scan that decodes but is rejected by the daemon (an expired or malformed
+pairing QR) surfaces as a banner on the sign-in screen, never a silent
+bounce.
+
+## Wake word never reaches "listening"
+
+Wake detection starts only when all of these hold: the models are provisioned
+on the daemon (the setup button in the wake settings shows the download size),
+`voice.wake.enabled` is on, and this surface's own opt-in
+(`voice.wake.surfaces.webui`) is on. The settings surface renders the
+resolver's blockers verbatim, so read the stated reason there first; a missing
+speech gate artifact or a refused microphone permission each name themselves.
+While the surface opt-in is off, the tab deliberately never asks for the
+microphone.
+
 ## Chat does not show new messages immediately
 
 The expected send behavior is:
@@ -174,10 +204,10 @@ rm -rf node_modules/.vite
 setsid node ./node_modules/.bin/vite --force > /tmp/goodvibes-webui-vite.log 2>&1 < /dev/null &
 ```
 
-Verify the served app version:
+Verify the served app version (match the version in `package.json`):
 
 ```bash
-curl -sS --max-time 3 http://127.0.0.1:3423/ | rg '0.1.'
+curl -sS --max-time 3 http://127.0.0.1:3423/ | rg "$(node -p "require('./package.json').version")"
 ```
 
 Verify installed SDK:

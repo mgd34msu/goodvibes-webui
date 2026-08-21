@@ -36,7 +36,7 @@ worker cannot make that call today:
 - We will not fake it (e.g. fire an unauthenticated request that silently
   fails, or cache a long-lived token in the worker).
 
-Because of that, the hand-off above is the honest ceiling: the authenticated
+Because of that, the hand-off above is the honest ceiling. The authenticated
 app always makes the real call.
 
 ## Daemon API needed to close the gap

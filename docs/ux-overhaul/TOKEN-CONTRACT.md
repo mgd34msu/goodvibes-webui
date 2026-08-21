@@ -1,5 +1,7 @@
 # Token & Naming Contract (SHARED — read before writing any module)
 
+> Historical record from the July 2026 UX overhaul, kept for provenance. It describes a completed effort's internal planning and does not document current behavior; the living docs are the operator guide and architecture pages.
+
 All workstreams MUST use these exact names. Foundation defines them in
 `src/styles/tokens.css`; every other module references them. Do not invent
 parallel names. Do not hardcode hex/px where a token exists.

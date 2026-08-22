@@ -4,6 +4,16 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.15] - 2026-08-21
+
+- **Cache-bust values match the version and can never drift again.** The
+  service-worker and asset cache keys derive from the package version, and a
+  `cache-bust:check` gate in the build chain fails the build if they drift,
+  so a deploy can no longer serve stale assets under a new version.
+- Platform runtime 2.0.20: the pin rides the payments boot-recovery sdk
+  cycle; the config schema is regenerated against it. No webui behavior
+  change was needed for it.
+
 ## [1.13.14] - 2026-08-21
 
 - Platform runtime 2.0.19: the pin rides the checkout-seam and wake-verb-fix

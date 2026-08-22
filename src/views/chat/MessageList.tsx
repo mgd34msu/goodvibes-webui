@@ -108,7 +108,7 @@ export function MessageList({
                     )}
                   </div>
                 )}
-                {/* Running tool calls — cancel ONE call without ending the turn. The
+                {/* Running tool calls. Cancel ONE call without ending the turn. The
                     cancelled result renders honestly (a "Cancelled" label replaces the
                     button) until the daemon's own turn.tool_result actually clears it. */}
                 {activeToolCalls.length > 0 && (

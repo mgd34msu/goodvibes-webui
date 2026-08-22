@@ -22,7 +22,7 @@
  * prove the runtime, the bundle, the chunked read and the device path.
  *
  * The protobuf is written by hand because the alternative is adding an ONNX authoring
- * dependency to a test harness in order to emit ~200 bytes.
+ * dependency to a test harness to emit ~200 bytes.
  */
 import { createHash } from 'node:crypto';
 

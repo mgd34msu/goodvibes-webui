@@ -231,7 +231,7 @@ export function ApprovalCard({
         </button>
       )}
       {/* The honest spawn failure: the acceptance did NOT produce an attachable
-          session, so say so plainly — never a dead open button. */}
+          session, so say so plainly. Never a dead open button. */}
       {fixSessionError && (
         <p className="approval-card__fix-session-error" role="note">
           The fix session could not start; {fixSessionError}

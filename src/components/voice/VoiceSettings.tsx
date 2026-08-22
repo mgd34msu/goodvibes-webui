@@ -189,11 +189,11 @@ export function VoiceSettings() {
             <p className="voice-settings-unavailable">{TTS_UNAVAILABLE_MESSAGE}</p>
           )}
 
-          {/* Local voice setup — independent of the provider dropdown above, since a
+          {/* Local voice setup. Independent of the provider dropdown above, since a
               fully-unprovisioned 'local' provider has no capabilities yet and so is
               invisible there (see this component's header comment). Skipped entirely
               (not even a "not available" line) only for a daemon build old enough that
-              voice.local.status itself 404s/501s — genuinely nothing to offer there,
+              voice.local.status itself 404s/501s, genuinely nothing to offer there,
               same honest-omission call ConsolidationReceipts documents for a verb the
               connected build has never heard of. */}
           {!localUnavailable && (
@@ -219,7 +219,7 @@ export function VoiceSettings() {
 
                 return (
                   <>
-                    {/* The resting line — a successful install's status refetch flips this
+                    {/* The resting line. A successful install's status refetch flips this
                         to "Installed" live while the receipt below stays visible. */}
                     {!needsSetup && (
                       <p className="voice-settings-hint">
@@ -230,7 +230,7 @@ export function VoiceSettings() {
                     )}
 
                     {/* The one-act setup action. Hidden while a retriable failure's own
-                        Retry (below) is the offered action — one button, not two twins. */}
+                        Retry (below) is the offered action, one button, not two twins. */}
                     {needsSetup && !retriable && (
                       <button
                         type="button"
@@ -246,8 +246,8 @@ export function VoiceSettings() {
 
                     {/* Live per-component progress of the ACTIVE install run, from
                         voice.local.status's installInProgress section (polled while
-                        the mutation is in flight). Absent — an older daemon, or the
-                        first poll not landed yet — the 'Installing…' busy label above
+                        the mutation is in flight). Absent when it is an older daemon, or the
+                        first poll has not landed yet, the 'Installing…' busy label above
                         stays the whole story. Bytes render only where the wire
                         genuinely carries them (completion boundaries; downloads
                         verify whole-file), never a fabricated live percentage. */}
@@ -276,7 +276,7 @@ export function VoiceSettings() {
                       <p className="voice-settings-hint" role="alert">{formatError(localInstall.error)}</p>
                     )}
 
-                    {/* The install receipt — rendered OUTSIDE the needs-setup gate so a
+                    {/* The install receipt. Rendered OUTSIDE the needs-setup gate so a
                         successful attempt's receipt survives the resting-state flip to
                         Installed (the whole point of a receipt). */}
                     {result !== null && (
@@ -317,7 +317,7 @@ export function VoiceSettings() {
             </div>
           )}
 
-          {/* Wake word — provisioning, the per-origin opt-in, and the resolver's own
+          {/* Wake word. Provisioning, the per-origin opt-in, and the resolver's own
               written reasons for any row this tab cannot honour. Its own section
               rather than a row in the schema-driven Settings group, because getting
               it running in a browser needs an act (download) and an opt-in

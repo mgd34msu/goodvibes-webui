@@ -208,7 +208,7 @@ export function sweepStaleProjectTempDirs(
     try {
       entries = readdirSync(root);
     } catch {
-      continue; // root doesn't exist yet (e.g. .test-tmp before first run) — nothing to sweep
+      continue; // the root doesn't exist yet (e.g. .test-tmp before first run), so there is nothing to sweep
     }
 
     for (const entry of entries) {
@@ -219,7 +219,7 @@ export function sweepStaleProjectTempDirs(
       try {
         mtimeMs = statSync(fullPath).mtimeMs;
       } catch {
-        continue; // removed by something else between readdir and stat — nothing to do
+        continue; // removed by something else between readdir and stat, so there is nothing to do
       }
 
       if (now - mtimeMs < STALE_AGE_MS) continue; // too recent: may still be in use

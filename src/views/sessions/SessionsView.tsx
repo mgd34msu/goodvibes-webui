@@ -618,7 +618,7 @@ function SessionDetail({
           </div>
         )}
         {/* Channel-origin attribution (principals.*, SDK 1.6.1): only rendered when the
-            wire actually stamped this session's metadata with attribution — a plain,
+            wire actually stamped this session's metadata with attribution, a plain,
             unattributed session (most sessions) shows no line. An unmapped sender
             identity renders "unknown principal" plainly, never silently dropped. */}
         {attributionLabel(record) && (
@@ -714,7 +714,7 @@ function SessionDetail({
           </div>
         ))}
         {/* Post-compaction receipts observed live while this detail is open (there is
-            no history endpoint for them — see useCompactionReceipts's header) — a
+            no history endpoint for them, see useCompactionReceipts's header), a
             distinct block per receipt, appended in arrival order after the loaded
             transcript. */}
         {compaction.receipts.map((receipt, index) => (

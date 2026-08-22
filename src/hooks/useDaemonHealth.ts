@@ -213,7 +213,7 @@ export function useDaemonHealth(): DaemonHealth {
         if (cancelled) return;
         setLatencyMs(null);
       } else {
-        return; // still pending — nothing to evaluate yet
+        return; // still pending, nothing to evaluate yet
       }
 
       failureCountRef.current += 1;

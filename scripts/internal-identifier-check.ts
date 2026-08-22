@@ -41,7 +41,7 @@ export const OWNER_DOCTRINE =
   'plain language only; provenance via decision-record paths or versions';
 
 export const INTERNAL_IDENTIFIER_PATTERNS: readonly RegExp[] = [
-  /\bWS-?[0-9]{1,2}\b/g, // workstream id: "WS" (optionally hyphenated) plus 1-2 digits — the shape this repo leaked
+  /\bWS-?[0-9]{1,2}\b/g, // workstream id: "WS" (optionally hyphenated) plus 1-2 digits, the shape this repo leaked
   /\bW[0-9]{1,2}\.[0-9]{1,2}\b/g, // wave.item id: a capital W, 1-2 digits, a dot, 1-2 digits
   /\bwo[0-9]{3,4}\b/gi, // numeric work-order id: "wo" followed by 3-4 digits
   /\bWO-[A-Z]\b/g, // lettered work-order id: "WO-" followed by one capital letter
@@ -50,7 +50,7 @@ export const INTERNAL_IDENTIFIER_PATTERNS: readonly RegExp[] = [
   /\bUX-[A-Z]\b/g, // UX-workstream id: "UX-" followed by one capital letter
   /\bWave[- ][0-9]+\b/g, // wave word-form: "Wave" plus a hyphen or space plus digits
   /\bW[0-9]+-R[0-9]+\b/g, // wave-round id: a capital W, digits, a hyphen, capital R, digits
-  /\([A-E][0-9]{1,2}\)/g, // a lettered finding id (A-E, 1-2 digits) alone inside parentheses — F excluded (function keys)
+  /\([A-E][0-9]{1,2}\)/g, // a lettered finding id (A-E, 1-2 digits) alone inside parentheses. F excluded (function keys)
   /\b(?:describe|test|it)\(\s*['"][A-E][0-9]{1,2}\s*(?::|—)/g, // a test/describe/it title starting with a lettered finding id plus a colon or em-dash
   /\b[A-E][0-9]{1,2}(?:\/[A-E][0-9]{1,2}){1,}\b/g, // two or more lettered finding ids chained by forward slashes
 ];

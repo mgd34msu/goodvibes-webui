@@ -117,20 +117,20 @@ function cssStringLiteral(value: string): string {
 }
 
 const GENERATED_BANNER = [
-  'GENERATED FILE — DO NOT EDIT BY HAND.',
+  'GENERATED FILE. DO NOT EDIT BY HAND.',
   'Produced by scripts/generate-presentation-tokens.ts from',
-  '@pellux/goodvibes-sdk/platform/presentation (the presentation contract',
-  'the TUI and agent already render through — see that package\'s own',
-  'docstring for the parity-audit provenance).',
+  '@pellux/goodvibes-sdk/platform/presentation, the presentation contract',
+  'the TUI and agent already render through. See that package\'s own',
+  'docstring for the parity-audit provenance.',
   '',
   'This is a layer SEPARATE from src/styles/tokens.css: tokens.css owns the',
   'web UI\'s own brand palette / layout / motion tokens (an explicitly',
   'webui-only, NOT-contract layer, documented at its own top); this file',
-  'owns only the values the SDK contract actually defines — status glyphs',
+  'owns only the values the SDK contract actually defines: status glyphs',
   'and the state tone-color table.',
   '',
   'Regenerate: `bun run presentation:generate`.',
-  'Verify (no write): `bun run presentation:check` — wired into `bun run',
+  'Verify (no write): `bun run presentation:check`, wired into `bun run',
   'build`, so a contract change that was not regenerated fails the build.',
 ].join('\n * ');
 
@@ -144,31 +144,31 @@ export function renderCss(snapshot: PresentationContractSnapshot): string {
   lines.push(`/*\n * ${GENERATED_BANNER}\n */`);
   lines.push('');
   lines.push(':root {');
-  lines.push('  /* Status glyphs — GLYPHS.status, quoted for `content:` use. All 16 keys are');
+  lines.push('  /* Status glyphs: GLYPHS.status, quoted for `content:` use. All 16 keys are');
   lines.push('   * emitted for parity with the TS mirror (one snapshot, not a hand-picked');
-  lines.push('   * subset) even though only 4 (success/warn/failure/info — the good/warn/bad/');
+  lines.push('   * subset) even though only 4 (success/warn/failure/info, the good/warn/bad/');
   lines.push('   * info bucket STATE_GLYPHS aliases) have a real `var()` consumer today: see');
   lines.push('   * `.badge[data-contract-state]::before` in src/styles.css (FleetView.tsx /');
   lines.push('   * WorkstreamView.tsx StateBadge). The other 12 (pending/active/idle/blocked/');
   lines.push('   * skipped/review/retry/handoff/reference/partial/dualPane/star) have no');
-  lines.push('   * consumer YET — kept checked-in so a future component reaching for a more');
+  lines.push('   * consumer YET. Kept checked-in so a future component reaching for a more');
   lines.push('   * specific glyph than the 4-bucket alias affords never has to regenerate first. */');
   for (const [key, value] of Object.entries(snapshot.glyphs.status)) {
     lines.push(`  --contract-glyph-${cssIdent(key)}: ${cssStringLiteral(value)};`);
   }
   lines.push('');
-  lines.push('  /* State tone colors — TONE_TOKENS.state (dark / default). Consumed by the same');
-  lines.push('   * `.badge[data-contract-state]::before` rule (src/styles.css) — deliberately only');
+  lines.push('  /* State tone colors: TONE_TOKENS.state (dark / default). Consumed by the same');
+  lines.push('   * `.badge[data-contract-state]::before` rule (src/styles.css), deliberately only');
   lines.push('   * for the glyph\'s own tint, never the badge\'s overall background/text color: this');
   lines.push('   * web UI\'s own palette (tokens.css) is NOT repainted onto the contract\'s colors');
-  lines.push('   * (see presentation-bridge.ts\'s header for why — glyphs, not colors, are the');
+  lines.push('   * (see presentation-bridge.ts\'s header for why: glyphs, not colors, are the');
   lines.push('   * cross-surface parity mechanism). */');
   for (const [key, value] of Object.entries(snapshot.toneDark.state)) {
     lines.push(`  --contract-state-${cssIdent(key)}: ${value};`);
   }
   lines.push('}');
   lines.push('');
-  lines.push('/* State tone colors — light-mode override (resolveTones(\'light\')). */');
+  lines.push('/* State tone colors: light-mode override (resolveTones(\'light\')). */');
   lines.push(':root[data-theme="light"] {');
   for (const [key, value] of Object.entries(snapshot.toneLight.state)) {
     lines.push(`  --contract-state-${cssIdent(key)}: ${value};`);

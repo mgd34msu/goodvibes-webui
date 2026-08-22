@@ -228,8 +228,8 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
               title="No sessions match"
               description={
                 includeClosed
-                  ? `No sessions match “${query}”, including closed ones.`
-                  : `No sessions match “${query}”. Closed sessions are hidden, include them?`
+                  ? `No sessions match "${query}", including closed ones.`
+                  : `No sessions match "${query}". Closed sessions are hidden, include them?`
               }
               action={includeClosed ? undefined : { label: 'Include closed sessions', onClick: () => setIncludeClosed(true) }}
               className="chat-search__empty"
@@ -295,7 +295,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
       {showEmpty && (
         <EmptyState
           title="No text matches"
-          description={`No messages match “${query}” in the loaded sessions.`}
+          description={`No messages match "${query}" in the loaded sessions.`}
           className="chat-search__empty"
         />
       )}

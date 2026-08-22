@@ -86,7 +86,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
           Pick the winner to merge it and clean the losing worktrees.
         </p>
 
-        {/* Judge proposal — CLEARLY labelled as model judgment, never an auto-pick. */}
+        {/* Judge proposal. CLEARLY labelled as model judgment, never an auto-pick. */}
         <div className="attempt-cmp__judge">
           <div className="attempt-cmp__judge-head">
             <Gavel size={14} aria-hidden="true" />

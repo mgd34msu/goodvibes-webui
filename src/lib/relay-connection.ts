@@ -189,7 +189,7 @@ async function relayFetchWithStepUp(relayClient: RelayClient, input: RequestInfo
   if (!mutating || !(await isStepUpRequired(first))) return first;
 
   const assertion = await resolveStepUp({ method: requestMethod(input, init), path: requestPath(input) });
-  if (!assertion) return first; // no prompter / cancelled / unsupported — surface the 401 honestly
+  if (!assertion) return first; // no prompter / cancelled / unsupported, surface the 401 honestly
   return withAssertion(relayClient, input, init, retryRequest, assertion);
 }
 

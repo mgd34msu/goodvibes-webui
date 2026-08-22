@@ -346,7 +346,7 @@ export function CiWatchesView({ onOpenSession }: CiWatchesViewProps) {
                   {runResult.notified ? 'A notification was sent.' : 'No notification was sent (no state change, or quiet).'}
                   {/* fixSessionId / fixSessionError are mutually exclusive on the
                       wire (SDK bb4b9c30): a triggered spawn either produced a REAL
-                      attachable session, or an honest failure — never a dead id. */}
+                      attachable session, or an honest failure. Never a dead id. */}
                   {runResult.fixSessionTriggered && runResult.fixSessionId && ' A fix-session was started.'}
                   {runResult.fixSessionTriggered && runResult.fixSessionError
                     && ` The fix-session could not start; ${runResult.fixSessionError}`}

@@ -150,7 +150,7 @@ export function WorkstreamView() {
                 >
                   <span className="workstream-row__text">
                     <span className="workstream-row__title">{node.label || node.id}</span>
-                    {/* Derived headline — replaced in place, never a feed. */}
+                    {/* Derived headline. Replaced in place, never a feed. */}
                     <NodeHeadline node={node} />
                   </span>
                   <span className="workstream-row__badges">

@@ -330,7 +330,7 @@ export function KnowledgeView() {
           </button>
         </form>
 
-        {/* Async status region — screen readers announced on change */}
+        {/* Async status region. Screen readers announced on change */}
         <div
           aria-live="polite"
           aria-atomic="false"

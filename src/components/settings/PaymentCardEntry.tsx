@@ -198,7 +198,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
       )}
 
       {/*
-        No <form> element, deliberately — see condition 5 in the header. The
+        No <form> element, deliberately. See condition 5 in the header. The
         button below is an ordinary button with a click handler, not a submit.
       */}
       <div className="form-grid settings-card-form">

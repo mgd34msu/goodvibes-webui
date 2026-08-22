@@ -45,15 +45,15 @@ describe('active route store', () => {
   test('subscribeActiveRoute notifies listeners only on an actual change', () => {
     let calls = 0;
     const unsubscribe = subscribeActiveRoute(() => { calls += 1; });
-    setActiveRoute('direct'); // already direct — no-op, no notify
+    setActiveRoute('direct'); // already direct, no-op, no notify
     expect(calls).toBe(0);
     setActiveRoute('relay');
     expect(calls).toBe(1);
-    setActiveRoute('relay'); // unchanged — no notify
+    setActiveRoute('relay'); // unchanged, no notify
     expect(calls).toBe(1);
     unsubscribe();
     setActiveRoute('direct');
-    expect(calls).toBe(1); // unsubscribed — no further notifications
+    expect(calls).toBe(1); // unsubscribed, no further notifications
   });
 });
 

@@ -219,7 +219,7 @@ export function MessageItem({
             <Copy size={13} />
           </button>
 
-          {/* Edit (user messages only) — only shown when onEditMessage handler is provided */}
+          {/* Edit (user messages only). Only shown when onEditMessage handler is provided */}
           {tone === 'user' && canRetry && !isEditing && onEditMessage !== undefined && (
             <button
               type="button"
@@ -245,12 +245,12 @@ export function MessageItem({
             </button>
           )}
 
-          {/* Read aloud — spoken output for assistant replies (honest states inside) */}
+          {/* Read aloud. Spoken output for assistant replies (honest states inside) */}
           {tone === 'assistant' && text && (
             <SpeakButton messageId={id} text={text} />
           )}
 
-          {/* View artifacts — shown on assistant messages that contain code blocks or attachments */}
+          {/* View artifacts. Shown on assistant messages that contain code blocks or attachments */}
           {tone === 'assistant' && (text || attachments.length > 0) && (
             <button
               type="button"
@@ -268,7 +268,7 @@ export function MessageItem({
         </div>
       </div>
 
-      {/* Memory provenance — owner-ruled, default OFF (see ui-preferences.ts). Renders
+      {/* Memory provenance. Owner-ruled, default OFF (see ui-preferences.ts). Renders
           nothing when the preference is off or this turn used no memories. */}
       {tone === 'assistant' && memoryProvenanceChipEnabled && memoryProvenanceIds.length > 0 && (
         <MemoryProvenanceChip recordIds={memoryProvenanceIds} />

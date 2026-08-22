@@ -48,7 +48,7 @@ export function TimezonePicker({ value, disabled, onCommit }: TimezonePickerProp
         <option value={UNSET_TIMEZONE_VALUE}>{UNSET_TIMEZONE_LABEL}</option>
         {/* The selected value must always resolve to a real <option>, or the
             <select> silently falls back to its first entry and reports a
-            DIFFERENT effective zone than what is actually configured — pin it
+            DIFFERENT effective zone than what is actually configured. Pin it
             in even when the current search query filters it out of the list. */}
         {!selectedIsUnset && !selectedIsListed && (
           <option value={value}>{value}</option>

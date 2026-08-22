@@ -1,14 +1,14 @@
 /**
- * GENERATED FILE — DO NOT EDIT BY HAND.
+ * GENERATED FILE. DO NOT EDIT BY HAND.
  * Produced by scripts/generate-config-schema.ts from the installed
  * @pellux/goodvibes-sdk: CONFIG_SCHEMA (platform/config) plus the per-feature
  * settings metadata (FEATURE_SETTINGS, platform/runtime/feature-flags).
  *
  * This is a build-time snapshot so the browser bundle never imports the SDK
- * config barrel (which drags SecretsManager / OAuth / google-auth — node-only).
+ * config barrel (which drags SecretsManager / OAuth / google-auth, node-only).
  *
  * Regenerate: `bun run config-schema:generate`.
- * Verify (no write): `bun run config-schema:check` — wired into `bun run build`,
+ * Verify (no write): `bun run config-schema:check`, wired into `bun run build`,
  * so an SDK schema change that was not regenerated fails the build.
  */
 

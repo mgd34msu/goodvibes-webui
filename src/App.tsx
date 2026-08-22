@@ -457,7 +457,7 @@ export default function App() {
     <div className="app-shell-root">
     <StepUpHost />
     {/* A hand-off bundle (#pair=<token>&offers=…) surfaces its offer set once the
-        token has validated — usePairingHandoff clears it back to [] via
+        token has validated. usePairingHandoff clears it back to [] via
         dismissOffers once the operator has decided (submitted or explicitly
         skipped everything), so this never reopens on its own. The daemon's one
         honest plain-http-on-LAN notice line (postureNotice) rides the SAME
@@ -469,14 +469,14 @@ export default function App() {
         postureNotice={pairing.postureNotice}
       />
     )}
-    {/* A plain #pair=<token> hand-off (no offer set) has no modal of its own — the
+    {/* A plain #pair=<token> hand-off (no offer set) has no modal of its own. The
         posture notice, if any, gets this standalone one-shot banner instead. Never
         re-appears once dismissed (postureNotice only fires once per hand-off). */}
     {pairing.offers.length === 0 && pairing.postureNotice && (
       <PairingPostureNotice notice={pairing.postureNotice} onDismiss={pairing.dismissPostureNotice} />
     )}
     <RelayOverflowBanner />
-    {/* voice.wake.indicator: 'banner' — the prominent persistent listening marker.
+    {/* voice.wake.indicator: 'banner' is the prominent persistent listening marker.
         Renders nothing for 'statusline' (the StatusStrip chip owns that) or 'off'. */}
     <WakeBanner />
     {/* Undelivered daemon receipts, consumed once on connect (see DaemonReceipts). */}

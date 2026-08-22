@@ -277,7 +277,7 @@ function ModelPicker({
             const isExpanded = provider.id === selectedProviderId;
             return (
               <div key={provider.id} className="composer-model-popover-section">
-                {/* Provider header — group label; the button is keyboard-reachable (Tab) */}
+                {/* Provider header. Group label; the button is keyboard-reachable (Tab) */}
                 <div
                   role="group"
                   aria-label={provider.label}

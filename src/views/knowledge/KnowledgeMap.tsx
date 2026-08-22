@@ -156,7 +156,7 @@ export function KnowledgeMap({
             />
           </div>
           {/* F7b: on a narrow screen the map is scaled to fit and the canvas pans
-              horizontally — say so (this note is CSS-hidden on wide viewports). */}
+              horizontally. Say so (this note is CSS-hidden on wide viewports). */}
           <p className="knowledge-map-render__scale-note">
             Scaled to fit: scroll sideways to pan the full map on a narrow screen.
           </p>

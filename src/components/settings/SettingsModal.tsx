@@ -229,7 +229,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     deliberately absent from CONFIG_SCHEMA (it lives in the
                     daemon secret store), so it has no key for buildSettingsModel
                     to render. The panel gates itself on the SDK's entry-surface
-                    allowlist — see PaymentCardEntry's header for the six
+                    allowlist. See PaymentCardEntry's header for the six
                     conditions the owner's ruling carried and where each is
                     implemented.
                   */}

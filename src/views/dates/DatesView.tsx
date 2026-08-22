@@ -378,7 +378,7 @@ export function DatesView() {
   return (
     <ErrorBoundary fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Dates view failed" />}>
       <div className="stack">
-        {/* Upcoming occasions (occasions.list) — the one read verb that returns real
+        {/* Upcoming occasions (occasions.list). The one read verb that returns real
             dates, per docs/occasions.md §4.3 (see file header). */}
         <section className="panel">
           <div className="panel-title">
@@ -534,7 +534,7 @@ export function DatesView() {
           </form>
         </section>
 
-        {/* Plans — dated ranges with attributes, ambient rather than prompting
+        {/* Plans. Dated ranges with attributes, ambient rather than prompting
             (docs/occasions.md §1). */}
         <section className="panel">
           <div className="panel-title">
@@ -643,7 +643,7 @@ export function DatesView() {
           </form>
         </section>
 
-        {/* Open items (occasions.pending) — "nothing unresolved is ever dropped"
+        {/* Open items (occasions.pending). "Nothing unresolved is ever dropped"
             (docs/occasions.md §2): the outstanding nudge, conflicts, and in-progress
             interviews, all delivered to nobody until this panel reads them. */}
         <section className="panel">
@@ -770,7 +770,7 @@ export function DatesView() {
           )}
         </section>
 
-        {/* State (occasions.state) — the machine-owned store's own disclosure: counts
+        {/* State (occasions.state). The machine-owned store's own disclosure: counts
             and reasons only, never the underlying acknowledgement/gift content
             (docs/occasions.md §3.2). */}
         <section className="panel">

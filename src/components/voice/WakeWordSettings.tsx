@@ -71,7 +71,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
 
   return (
     <div className="voice-settings-wake" data-testid="voice-settings-wake">
-      <p className="voice-settings-title">Wake word (“hey goodvibes”)</p>
+      <p className="voice-settings-title">Wake word ("hey goodvibes")</p>
 
       {status.isPending && <p className="voice-settings-hint">Checking the wake-word models…</p>}
 
@@ -224,7 +224,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
 
       {hostState.lastTranscript && (
         <p className="voice-settings-hint" data-testid="wake-last-transcript">
-          Last heard: “{hostState.lastTranscript}”
+          Last heard: "{hostState.lastTranscript}"
         </p>
       )}
     </div>

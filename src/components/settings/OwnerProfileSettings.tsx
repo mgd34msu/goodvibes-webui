@@ -515,7 +515,7 @@ export function OwnerProfileSettings() {
           <span className={`badge ${profileStateBadgeClass(status.data.state)}`}>
             {profileStateLabel(status.data.state)}
           </span>
-          {/* Inert text, never a link and never fetched — the same stance MemoryRecordDetail
+          {/* Inert text, never a link and never fetched. The same stance MemoryRecordDetail
               takes with a path-shaped provenance ref. */}
           <span className="owner-profile__path">{status.data.path}</span>
           {status.data.lineCount !== undefined && (

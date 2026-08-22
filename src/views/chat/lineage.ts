@@ -5,7 +5,7 @@
  * message is edited and the conversation branches, the affected messages are marked
  * SUPERSEDED (a `supersededAt` timestamp + a `supersededReason`) and RETAINED in the
  * message list, `companion.chat.messages.list` returns them alongside the active chain.
- * A replacement user message additionally carries `revisionOf` back to the original it
+ * A replacement user message also carries `revisionOf` back to the original it
  * was edited from.
  *
  * This module turns that flat, server-authoritative list into a render model that keeps

@@ -452,7 +452,7 @@ export function ProvidersView() {
             )}
           </section>
 
-          {/* Auth routes panel — per-route freshness, honestly, never rolled up away */}
+          {/* Auth routes panel. Per-route freshness, honestly, never rolled up away */}
           <section className="panel" aria-label="Authentication routes for selected provider">
             <div className="panel-title">
               <h2>Auth Routes</h2>
@@ -493,7 +493,7 @@ export function ProvidersView() {
           </section>
 
           {/* Cross-surface credential status (src/lib/provider-status.ts's
-              deriveCredentialAvailability) — the reference display-site
+              deriveCredentialAvailability), the reference display-site
               adoption. Separate from the auth-routes panel above: this reads
               the shared admin-scoped credential store (credentials.get),
               not per-provider route freshness. */}

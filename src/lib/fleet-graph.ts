@@ -63,7 +63,7 @@ export function graphNodeStateTone(state: string): BadgeTone {
     case 'blocked-budget': return 'warning';
     case 'blocked-dependency': return 'warning';
     case 'held-merge': return 'warning';
-    default: return 'warning'; // unknown-to-this-client state — honesty warning, same as lib/fleet.ts
+    default: return 'warning'; // unknown-to-this-client state, honesty warning, same as lib/fleet.ts
   }
 }
 

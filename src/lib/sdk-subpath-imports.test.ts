@@ -83,7 +83,7 @@ describe('@pellux subpath imports resolve against the installed packages', () =>
     for (const [specifier, users] of specifiers) {
       try {
         // Resolution only, the exports map plus file existence, which is exactly the
-        // failure mode. Importing would additionally execute the module, which this
+        // failure mode. Importing would also execute the module, which this
         // check does not need and which would drag node-only deps into the test.
         Bun.resolveSync(specifier, SRC_ROOT);
       } catch {

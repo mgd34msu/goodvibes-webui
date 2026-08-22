@@ -21,8 +21,8 @@ import type { ChatViewProps } from './chat/types';
 // sdk mock: chat.events.stream is controllable per call, so the test can fire a
 // live turn.error event for one session, then prove it does not survive a switch
 // to another. Every other route ChatView (or a child it mounts, e.g. the composer's
-// mic/voice controls) touches is stubbed to a benign, immediately-resolved value —
-// none of it is what this test is about.
+// mic/voice controls) touches is stubbed to a benign, immediately-resolved value.
+// None of it is what this test is about.
 // ---------------------------------------------------------------------------
 
 interface StreamCall {
@@ -180,7 +180,7 @@ describe('ChatView: turn lifecycle resets atomically on session switch', () => {
 
     // Session switch: a PROP change on the same mounted instance, exactly how
     // App.tsx drives ChatView (no key={activeSessionId}, so component state is
-    // NOT reset by a remount — the reset has to come from the fix itself).
+    // NOT reset by a remount. The reset has to come from the fix itself).
     renderChatView(baseProps(SESSION_B.id));
     await waitFor(() => streamCalls.some((call) => call.sessionId === SESSION_B.id));
     // The reset effect's setTurn(IDLE_TURN_PHASE) is a second-order update fired

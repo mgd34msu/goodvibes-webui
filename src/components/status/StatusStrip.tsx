@@ -33,11 +33,11 @@ export function StatusStrip() {
 
   return (
     <footer className="status-strip">
-      {/* Live region — announces the honest axes to screen readers. Never collapses
+      {/* Live region. Announces the honest axes to screen readers. Never collapses
           reachable into "Connected": a reachable-but-401 daemon is reported as
           reachable AND signed-out AND no-access, signals that can disagree. Route is
           only announced when it means something (i.e. the daemon is reachable at
-          all) — "Direct" or "Via relay" while offline would be a false claim. */}
+          all). "Direct" or "Via relay" while offline would be a false claim. */}
       <span
         className="status-strip__live-region"
         aria-live="polite"
@@ -47,12 +47,12 @@ export function StatusStrip() {
       </span>
 
       {/* REACHABLE axis. The `data-contract-glyph` attribute is painted via a
-          `.status-strip__label::before` CSS rule (status.css) — sourced from
+          `.status-strip__label::before` CSS rule (status.css), sourced from
           the SDK presentation contract (src/lib/presentation-bridge.ts), the
           same good/warn/bad glyph vocabulary the TUI/agent render through for
           a genuinely corresponding severity. It is an attribute, not a child
           text node, so `.textContent` still reports exactly the label text
-          ("Reachable", never "Connected" — that wording stays webui's own). */}
+          ("Reachable", never "Connected". That wording stays webui's own). */}
       <div className="status-strip__segment status-strip__segment--connection">
         <ConnectionDot state={connection} />
         <span
@@ -63,7 +63,7 @@ export function StatusStrip() {
         </span>
       </div>
 
-      {/* ROUTE axis — only rendered once there is a verdict (the daemon is reachable by
+      {/* ROUTE axis. Only rendered once there is a verdict (the daemon is reachable by
           SOME path). 'relay' gets a distinct visual treatment (--route-relay) so a
           relay-tunneled session is never mistaken for an ordinary direct one. */}
       {route !== null && (
@@ -126,17 +126,17 @@ export function StatusStrip() {
         <span className="status-strip__label">{sseLabel(sse)}</span>
       </div>
 
-      {/* Sleep-disabled chip — absent unless the owner's keep-awake toggle actually
+      {/* Sleep-disabled chip. Absent unless the owner's keep-awake toggle actually
           holds (see PowerChip's own header comment for the danger-idiom rationale). */}
       <PowerChip />
 
-      {/* Wake-word listening chip — absent unless voice.wake.indicator is
+      {/* Wake-word listening chip. Absent unless voice.wake.indicator is
           'statusline' AND wake detection is actually enabled in this browser. An
           always-on microphone must never be invisible, so while one is open this
           segment is present for the whole time it is (see WakeChip). */}
       <WakeChip />
 
-      {/* Client-build compatibility floor — present ONLY when this build is below
+      {/* Client-build compatibility floor. Present ONLY when this build is below
           what the daemon currently requires (see lib/client-compatibility.ts). Silent
           for 'ok'/'unknown'/null: this is a warning affordance, not a routine axis, and
           there is nothing actionable to show until the daemon actually asks for a

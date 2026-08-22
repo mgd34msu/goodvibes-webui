@@ -71,8 +71,8 @@ function FailureBody({ failure }: { failure: ScannerFailure }) {
           plain http. Serve the daemon over HTTPS and scanning works: on the machine
           running the daemon, <code>tailscale serve --bg 3421</code> gives you an https
           address on your tailnet, then open the app there. See
-          {' '}<code>docs/deployment.md</code> under &ldquo;Moving the host: reaching the
-          daemon over Tailscale&rdquo;. Until then, paste the operator token instead.
+          {' '}<code>docs/deployment.md</code> under "Moving the host: reaching the
+          daemon over Tailscale". Until then, paste the operator token instead.
         </p>
       );
     case 'no-camera-api':
@@ -86,7 +86,7 @@ function FailureBody({ failure }: { failure: ScannerFailure }) {
       return (
         <p>
           Allow camera access for this site and try again. On a phone the permission is
-          usually behind the padlock or the &ldquo;site settings&rdquo; item in the address
+          usually behind the padlock or the "site settings" item in the address
           bar. You can also paste the operator token instead.
         </p>
       );

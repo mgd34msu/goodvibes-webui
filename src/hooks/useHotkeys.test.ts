@@ -341,7 +341,7 @@ describe('dispatch-level: end-to-end combo audit (all 7 advertised shortcuts)', 
       label: 'g c (first key)',
       combo: 'g c',
       event: mkKeyEvent('g'),
-      expectMatch: false, // first key of sequence — not a direct match
+      expectMatch: false, // first key of sequence, not a direct match
     },
     {
       label: 'g k (first key)',

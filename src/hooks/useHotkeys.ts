@@ -196,5 +196,5 @@ export function useHotkeys(bindings: HotkeyBinding[]): void {
     return () => {
       document.removeEventListener('keydown', handler);
     };
-  }, []); // stable — reads from ref
+  }, []); // stable, reads from ref
 }

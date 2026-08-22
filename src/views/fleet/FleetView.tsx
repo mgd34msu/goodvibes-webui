@@ -461,7 +461,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
                 >
                   <span className="fleet-row__text">
                     <span className="fleet-row__title">{node.label || node.id}</span>
-                    {/* The read-model's derived headline — ONE line replaced in
+                    {/* The read-model's derived headline. ONE line replaced in
                         place on task/phase transitions, never an appended feed. */}
                     <NodeHeadline node={node} />
                   </span>
@@ -473,7 +473,7 @@ export function FleetView({ subscriptionActive = true, onOpenSession }: {
                     <KindBadge kind={node.kind} />
                     <StateBadge state={node.state} />
                     <ObservedBadge node={node} />
-                    {/* Observed foreign agents never report usage/cost — an honest absence,
+                    {/* Observed foreign agents never report usage/cost, an honest absence,
                         never a fabricated $0.00. */}
                     {!isObservedKind(node.kind) && <span className="badge neutral">{costLabel(node)}</span>}
                   </span>
@@ -581,11 +581,11 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
           <KindBadge kind={node.kind} />
           <StateBadge state={node.state} />
           <ObservedBadge node={node} />
-          {/* Observed foreign agents never report usage/cost — honest absence, no $0.00. */}
+          {/* Observed foreign agents never report usage/cost: honest absence, no $0.00. */}
           {!isObservedKind(node.kind) && (
             <span className="badge neutral">
               {costLabel(node)}
-              {/* Price provenance + the one-action path into manual pricing —
+              {/* Price provenance + the one-action path into manual pricing,
                   only where a model identity exists to price. */}
             </span>
           )}
@@ -662,7 +662,7 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
         </div>
       )}
 
-      {/* Phone-only honest note (view-only tier) — matches the Checkpoints/Tasks
+      {/* Phone-only honest note (view-only tier). Matches the Checkpoints/Tasks
           pattern verbatim: "X happens on a wider screen. [reassurance] here.", role="note".
           Names all three actions the condition above actually covers (steer, detach,
           stop), not just two of them. */}
@@ -676,7 +676,7 @@ function FleetDetail({ node, archived, onMutated, onBack, onOpenSession }: {
         <p className="fleet-detail__unbacked-note" role="note">{unbackedNote}</p>
       )}
 
-      {/* The latest review's verdict + acceptance checklist — only on a reviewed
+      {/* The latest review's verdict + acceptance checklist. Only on a reviewed
           wrfc-chain / wrfc-subtask node; renders nothing before a review lands. */}
       <NodeReviewSummary node={node} />
 

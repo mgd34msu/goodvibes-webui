@@ -101,7 +101,7 @@ export function PowerSettings() {
         </div>
       )}
 
-      {/* The honest lid-split line, verbatim, whenever the daemon serves one — never
+      {/* The honest lid-split line, verbatim, whenever the daemon serves one. Never
           papered over with different wording. */}
       {keepAwake.note && (
         <p className="power-panel__note" role="note">{keepAwake.note}</p>

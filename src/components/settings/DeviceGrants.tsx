@@ -117,7 +117,7 @@ export function DeviceGrants() {
       </div>
 
       <p className="device-panel__description">
-        Every capability asks before it runs. Choosing &ldquo;always allow&rdquo; on that prompt
+        Every capability asks before it runs. Choosing "always allow" on that prompt
         writes one durable grant for that one capability on that one phone, listed here, and
         revocable here. Revoking deletes the grant, so the next request asks again.
         {nodes.data ? ` Captures are kept for ${String(nodes.data.captureRetentionHours)} hours.` : ''}
@@ -142,7 +142,7 @@ export function DeviceGrants() {
       {rows.length === 0 ? (
         <EmptyState
           title="No durable grants"
-          description="Nothing has been granted &ldquo;always allow&rdquo; yet. Every phone capability is asking each time."
+          description='Nothing has been granted "always allow" yet. Every phone capability is asking each time.'
         />
       ) : (
         <ul className="device-list">

@@ -4,6 +4,13 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.16] - 2026-08-21
+
+- Platform runtime 2.0.21: a rejected OpenAI subscription token recovers
+  through one shared refresh-and-retry before any error is surfaced, and a
+  session that truly ended is reported as a subscription sign-in problem,
+  never an API-key one. No webui code change; the pin is the fix.
+
 ## [1.13.15] - 2026-08-21
 
 - **Cache-bust values match the version and can never drift again.** The

@@ -4,6 +4,14 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.17] - 2026-08-22
+
+- Platform runtime 2.0.22: a dead subscription login is stamped and shown as
+  ended everywhere instead of green; a near-expiry token refreshes silently
+  before the send; this surface adopts the running daemon again (the version
+  gate had refused it since sdk 2.0.0 and silently ran local-only). No webui
+  code change; the pin is the fix.
+
 ## [1.13.16] - 2026-08-21
 
 - Platform runtime 2.0.21: a rejected OpenAI subscription token recovers

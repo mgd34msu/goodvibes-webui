@@ -5,6 +5,14 @@
  */
 
 .status-strip {
+  /* Pinned to the viewport, not left in document flow: in flow the strip sat
+   * wherever the page content happened to end and rode along with body scroll,
+   * crossing the fixed sidebar mid-viewport. The shell reserves its lane via
+   * .app-shell-root's padding-bottom. */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   gap: 0;
@@ -19,7 +27,7 @@
   color: var(--text-secondary);
   overflow: hidden;
   flex-shrink: 0;
-  z-index: var(--z-nav, 10);
+  z-index: var(--z-statusstrip, 30);
   user-select: none;
 }
 

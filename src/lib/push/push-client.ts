@@ -16,6 +16,7 @@
 import { sdk } from '../goodvibes';
 import type { PublicPushSubscription, PushReconcileDrift } from '../goodvibes';
 import { formatError } from '../errors';
+import { randomUuid } from '../uuid';
 import { detectPushSupport, urlBase64ToUint8Array } from './push-support';
 
 export type PushSubscribeFailure =
@@ -106,14 +107,14 @@ export function ensureDeviceId(): string {
   try {
     const existing = window.localStorage.getItem(DEVICE_ID_KEY);
     if (existing) return existing;
-    const minted = crypto.randomUUID();
+    const minted = randomUuid();
     window.localStorage.setItem(DEVICE_ID_KEY, minted);
     return minted;
   } catch {
     // Storage unavailable (private mode): fall back to a per-call id. Reconcile
     // still functions this session; it just cannot recognize itself across a
     // reload, so a later reload registers as a distinct device.
-    return crypto.randomUUID();
+    return randomUuid();
   }
 }
 

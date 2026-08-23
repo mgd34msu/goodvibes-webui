@@ -91,7 +91,16 @@ function extractConfigured(record: unknown): { configured: boolean; configuredVi
   const nestedConfigured =
     readPath(record, ['runtime', 'auth', 'configured']) === true ||
     readPath(record, ['auth', 'configured']) === true;
-  const configured = top.configured === true || nestedConfigured || configuredVia.length > 0;
+  // The daemon's aggregate flag has been observed FALSE while one of its own
+  // routes reports configured+usable (subscription-oauth on a provider whose
+  // env API key is absent). A usable route IS a configured provider, so the
+  // routes are consulted, not just the rollup, and the header can never
+  // contradict a healthy pill derived from those same routes.
+  const routeConfigured = extractRoutes(record).some((route) => {
+    const r = asRecord(route);
+    return r.configured === true || r.usable === true;
+  });
+  const configured = top.configured === true || nestedConfigured || routeConfigured || configuredVia.length > 0;
   return { configured, configuredVia };
 }
 

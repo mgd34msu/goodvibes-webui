@@ -1950,7 +1950,14 @@ export const sdk = {
       list: () => invokeOperator('models.list'),
       current: {
         get: () => invokeOperator('models.current.get'),
-        set: (registryKey: string) => invokeOperator('models.current.set', { registryKey }),
+        // `effort` rides the same verb (sdk adds it alongside registryKey; the
+        // generated input type here lags one pin behind, hence the unchecked
+        // call for the effort-carrying variant). null CLEARS the persisted
+        // level back to the provider default; omission leaves it untouched.
+        set: (registryKey: string, effort?: string | null) =>
+          effort === undefined
+            ? invokeOperator('models.current.set', { registryKey })
+            : invokeOperatorUncheckedInput('models.current.set', { registryKey, effort }),
       },
     },
     tasks: {

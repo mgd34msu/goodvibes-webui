@@ -62,7 +62,7 @@ describe('isConflictError (409 stale-hunk / not-ready-group)', () => {
 });
 
 describe('error formatting', () => {
-  test('includes transport status and hint when present', () => {
+  test('includes transport status and hint when present, preferring the body text', () => {
     const error = Object.assign(new Error('Login failed'), {
       category: 'authentication',
       hint: 'Check your authentication token or credentials.',
@@ -72,9 +72,26 @@ describe('error formatting', () => {
       },
     });
 
-    expect(formatError(error)).toContain('Login failed');
+    expect(formatError(error)).toContain('invalid credentials');
     expect(formatError(error)).toContain('HTTP 401');
     expect(formatError(error)).toContain('authentication');
+  });
+
+  test('the daemon body message beats the synthetic transport line', () => {
+    const actionable = 'Google reports this refresh token as expired or revoked.';
+    const error = Object.assign(new Error('GET /api/calendar/events failed: 400 Bad Request'), {
+      status: 400,
+      category: 'service',
+      body: { error: actionable, code: 'CALENDAR_REQUEST_FAILED', status: 400 },
+    });
+
+    const formatted = formatError(error);
+    expect(formatted).toContain(actionable);
+    expect(formatted).not.toContain('400 Bad Request');
+  });
+
+  test('a plain client-side Error still formats its own message', () => {
+    expect(formatError(new Error('local parse failure'))).toContain('local parse failure');
   });
 
   test('detects daemon session-not-found errors', () => {

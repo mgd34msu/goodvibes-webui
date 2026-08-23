@@ -144,7 +144,14 @@ button:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  min-height: 100vh;
+  /* The shell is the ONE viewport-height box and the page never scrolls.
+     Each column owns its own overflow: the sidebar scrolls its nav, the
+     workspace scrolls its view, and in chat only the transcript scrolls.
+     The bottom padding is the fixed StatusStrip's reserved lane. */
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: var(--statusstrip-height, 32px);
+  overflow: hidden;
   transition: grid-template-columns var(--motion-base) var(--ease-standard);
 }
 
@@ -153,13 +160,14 @@ button:disabled {
 }
 
 .sidebar {
-  position: sticky;
-  top: 0;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  height: 100vh;
-  padding: 18px 14px;
+  height: 100%;
+  overflow-y: auto;
+  /* Extra end-of-scroll room so the last nav item sits clear of the screen
+     edge (and the StatusStrip lane) when scrolled all the way down. */
+  padding: 18px 14px 34px;
   color: #f4f7ff;
   background:
     linear-gradient(180deg, rgb(255 0 255 / 14%) 0, transparent 32%),
@@ -205,10 +213,11 @@ button:disabled {
 .brand-copy strong {
   color: #ffffff;
   font-family: "Press Start 2P", cursive;
-  font-size: clamp(0.68rem, 0.8vw, 0.86rem);
+  /* Full size, always. The 280px sidebar guarantees the brand column fits
+     the complete wordmark at this size; it never shrinks and never
+     ellipsizes. */
+  font-size: 0.86rem;
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-shadow: 2px 2px var(--gv-pink), -2px -2px var(--gv-cyan);
   white-space: nowrap;
 }
@@ -465,6 +474,8 @@ button:disabled {
 
 .workspace {
   min-width: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .topbar {
@@ -1376,7 +1387,7 @@ button:disabled {
 }
 
 .workspace-chat {
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   background: #1d1e1b;
 }
@@ -1388,7 +1399,7 @@ button:disabled {
 .workspace-chat .view-frame {
   width: 100%;
   max-width: none;
-  height: 100vh;
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -1397,7 +1408,7 @@ button:disabled {
   position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  height: 100vh;
+  height: 100%;
   min-width: 0;
   color: #f3f0e8;
   background: #1d1e1b;
@@ -2648,7 +2659,7 @@ code {
  */
 
 .workspace:not(.workspace-chat) {
-  min-height: 100vh;
+  min-height: 100%;
   color: var(--text-primary);
   background:
     linear-gradient(180deg, rgb(255 255 255 / 2%), transparent 220px),
@@ -3200,8 +3211,9 @@ code {
     top: 0;
     left: 0;
     z-index: var(--z-nav);
-    height: 100dvh;
-    height: 100vh;
+    /* Ends above the fixed StatusStrip so the last nav item stays reachable. */
+    height: calc(100vh - var(--statusstrip-height, 32px));
+    height: calc(100dvh - var(--statusstrip-height, 32px));
     overflow-y: auto;
     transition:
       width var(--motion-base) var(--ease-standard),

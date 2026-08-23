@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  reasoningOptionsForModel,
+  sortProvidersConfiguredFirst,
   modelOptionsForProvider,
   modelOptionsFromProvider,
   providerModelSourceIds,
@@ -104,5 +106,71 @@ describe('provider model extraction', () => {
     expect(providerModelSourceIds(runtimeProvider)).toContain('openai');
     expect(modelOptionsForProvider(runtimeProvider, catalogProviders).map((model) => model.registryKey))
       .toEqual(['openai:gpt-5.5', 'openai:gpt-5.4']);
+  });
+});
+
+describe('sortProvidersConfiguredFirst', () => {
+  const provider = (id: string, configured: boolean) => ({
+    id,
+    label: id,
+    value: { id, runtime: { auth: { configured, routes: [{ route: 'api-key', configured, usable: configured, freshness: configured ? 'healthy' : 'unconfigured' }] } } },
+  });
+
+  test('configured providers lead, alphabetical within each group', () => {
+    const sorted = sortProvidersConfiguredFirst([
+      provider('abacusai', false),
+      provider('openai', true),
+      provider('anthropic', false),
+      provider('groq', true),
+    ]);
+    expect(sorted.map((p) => p.id)).toEqual(['groq', 'openai', 'abacusai', 'anthropic']);
+  });
+
+  test('a provider configured only via a usable route sorts as configured', () => {
+    const routeOnly = {
+      id: 'openai',
+      label: 'openai',
+      value: {
+        id: 'openai',
+        runtime: {
+          auth: {
+            configured: false,
+            routes: [{ route: 'subscription-oauth', configured: true, usable: true, freshness: 'healthy' }],
+          },
+        },
+      },
+    };
+    const sorted = sortProvidersConfiguredFirst([provider('abacusai', false), routeOnly]);
+    expect(sorted[0]?.id).toBe('openai');
+  });
+});
+
+describe('reasoningOptionsForModel', () => {
+  const providers = [
+    {
+      id: 'openai',
+      models: [
+        { registryKey: 'openai:gpt-5.6', id: 'gpt-5.6', reasoningOptions: { levels: ['low', 'medium', 'high', 'xhigh'], source: 'catalog' } },
+        { registryKey: 'openai:gpt-5.4-mini', id: 'gpt-5.4-mini' },
+      ],
+    },
+  ];
+
+  test('returns the declared ladder for the matching model', () => {
+    expect(reasoningOptionsForModel(providers, 'openai:gpt-5.6')).toEqual({
+      levels: ['low', 'medium', 'high', 'xhigh'],
+      source: 'catalog',
+    });
+  });
+
+  test('null for a model without the field (older daemon), never a fabricated ladder', () => {
+    expect(reasoningOptionsForModel(providers, 'openai:gpt-5.4-mini')).toBeNull();
+    expect(reasoningOptionsForModel(providers, 'openai:absent')).toBeNull();
+    expect(reasoningOptionsForModel(providers, '')).toBeNull();
+  });
+
+  test('non-string and empty levels are dropped; an all-junk ladder reads as none', () => {
+    const junk = [{ id: 'p', models: [{ registryKey: 'p:m', reasoningOptions: { levels: [1, '', null], source: 'catalog' } }] }];
+    expect(reasoningOptionsForModel(junk, 'p:m')).toBeNull();
   });
 });

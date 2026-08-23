@@ -185,13 +185,14 @@
 
   /* ── Z-index ──────────────────────────── */
   --z-nav:     10;
+  --z-statusstrip: 30;
   --z-peek:    40;
   --z-overlay: 50;
   --z-palette: 60;
   --z-toast:   70;
 
   /* ── Layout ───────────────────────────── */
-  --sidebar-width:           264px;
+  --sidebar-width:           280px;
   --sidebar-width-collapsed: 60px;
   --statusstrip-height:      32px;
   --row-h:                   36px;

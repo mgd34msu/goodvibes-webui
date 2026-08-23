@@ -9,7 +9,7 @@ import { CredentialStatusPanel } from '../components/CredentialStatusPanel';
 import { AccountsPanel } from '../components/AccountsPanel';
 import { ModelWorkspaceModal } from '../components/model-workspace/ModelWorkspaceModal';
 import { asRecord, bestId, bestTitle, firstString, readPath } from '../lib/object';
-import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { modelOptionsForProvider, providerOptionsFromResponse, sortProvidersConfiguredFirst } from '../lib/provider-models';
 import { deriveProviderStatus, providerHeaderLabel } from '../lib/provider-status';
 import { formatError } from '../lib/errors';
 import { EmptyState } from '../components/feedback/EmptyState';
@@ -106,7 +106,7 @@ export function ProvidersView() {
           : provider,
       );
     }
-    return [...byId.values()];
+    return sortProvidersConfiguredFirst([...byId.values()]);
   }, [catalogProviderOptions, providers.data]);
 
   const modelProviders = useMemo(

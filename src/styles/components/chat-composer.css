@@ -515,3 +515,26 @@
     --icon-btn-size: 44px;
   }
 }
+
+.composer-effort-select {
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  transition: color var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+
+.composer-effort-select:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.composer-effort-select:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

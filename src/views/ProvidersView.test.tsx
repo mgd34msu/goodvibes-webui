@@ -259,10 +259,23 @@ describe('ProvidersView: real per-provider pills (never decorative "unknown")', 
 });
 
 describe('ProvidersView: header sourced from the real configured signal', () => {
-  test('the default-selected (first) provider header reads "configured via env"', async () => {
+  test('the env-configured provider header reads "configured via env" when selected', async () => {
     const { el, unmount } = render();
+    await waitFor(() => rows(el).length > 0);
+    click(rowFor(el, 'openai'));
     await waitFor(() => (el.textContent ?? '').includes('configured via'));
     expect(el.textContent).toContain('configured via env');
+    unmount();
+  });
+
+  test('configured providers are listed before unconfigured ones', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => rows(el).length > 0);
+    const order = rows(el).map((row) => row.textContent ?? '');
+    const anthropicIndex = order.findIndex((text) => text.includes('anthropic'));
+    // anthropic is the only unconfigured fixture provider; every configured one
+    // must precede it.
+    expect(anthropicIndex).toBe(order.length - 1);
     unmount();
   });
 

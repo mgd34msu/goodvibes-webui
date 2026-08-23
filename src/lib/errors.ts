@@ -31,9 +31,14 @@ export function formatError(error: unknown): string {
   const serialized = serializeError(error);
   const transport = asRecord(serialized.transport);
   const body = serialized.body ?? transport.body;
-  const message = readString(serialized, 'message')
-    || readString(asRecord(body), 'message')
+  // The daemon's own words about what failed (body.message / body.error) beat
+  // the transport wrapper's synthetic "GET /path failed: 400 Bad Request",
+  // which is ALWAYS present on an HTTP error and used to shadow an actionable
+  // body ("refresh token expired... start a fresh consent") behind a bare
+  // status line.
+  const message = readString(asRecord(body), 'message')
     || readString(asRecord(body), 'error')
+    || readString(serialized, 'message')
     || (typeof error === 'string' ? error : 'Request failed');
   const status = readNumber(serialized, 'status') ?? readNumber(transport, 'status');
   const category = readString(serialized, 'category');

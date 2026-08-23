@@ -4,6 +4,46 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.19] - 2026-08-23
+
+### Changes
+
+- **The pin moves to sdk 2.0.23**, which carries the honest calendar-auth
+  mapping, the fixed error hints, the routes-folded provider aggregates, and
+  the reasoning-effort surface this release's composer control reads.
+
+- **The page never scrolls; every pane owns its scroll.** The app shell is
+  locked to the viewport: the sidebar scrolls its own nav, each view scrolls
+  inside the workspace, and in chat only the transcript scrolls, with the
+  composer pinned below it. Before this, sidebar overflow stretched the whole
+  document, the status bar landed mid-page and rode along with scroll, and
+  the composer sat wherever the document happened to put it.
+- **The status bar is pinned to the viewport bottom**, above the sidebar in
+  stacking order, with a reserved lane so no pane's last item hides under it.
+- **Hosted sessions open on plain-HTTP origins.** Ids minted with
+  crypto.randomUUID crashed with "crypto.randomUUID is not a function" on
+  insecure origins, where the browser does not expose it; minting now falls
+  back to crypto.getRandomValues, which insecure origins do have.
+- **Error banners speak the daemon's words.** A failed request showed the
+  bare status line ("400 Bad Request") while the response body carried the
+  actionable reason (for the calendar: an expired Google credential and the
+  offer to start a fresh consent). The body text now wins.
+- **A provider with any usable auth route reads as configured**, even when
+  the daemon's aggregate flag disagrees with its own routes (observed with a
+  healthy subscription sign-in beside an unset API-key env var).
+- **Reasoning effort is selectable in the composer.** A compact control next
+  to the model picker lists the effort levels the current model actually
+  accepts (served per model by the daemon from sdk 2.0.23) and persists the
+  choice through the same verb that switches models. No control renders for
+  models with no ladder or against daemons predating the field.
+- **The sidebar wordmark stops abbreviating.** The sidebar is wide enough for
+  the complete "GOODVIBES" at its established size; the ellipsis truncation is
+  gone and the size is unchanged.
+- **Configured providers lead every provider list.** The composer's model
+  picker and the Providers sidebar group configured providers first,
+  alphabetical within each group, instead of burying them in a long
+  alphabetical list of unconfigured ones.
+
 ## [1.13.18] - 2026-08-23
 
 ### Changes

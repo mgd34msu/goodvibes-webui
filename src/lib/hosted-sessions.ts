@@ -13,6 +13,7 @@
  * identical to "no hosted sessions exist".
  */
 import { asRecord } from './object';
+import { randomUuid } from './uuid';
 import type {
   HostedSessionRecord,
   HostedSessionHistoryMessage,
@@ -32,13 +33,13 @@ export function ensureHostedClientId(): string {
   try {
     const existing = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
     if (existing) return existing;
-    const minted = crypto.randomUUID();
+    const minted = randomUuid();
     window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, minted);
     return minted;
   } catch {
     // Storage unavailable (private mode): a per-call id still lets attach/detach
     // work this session; it just cannot recognize itself across a reload.
-    return crypto.randomUUID();
+    return randomUuid();
   }
 }
 

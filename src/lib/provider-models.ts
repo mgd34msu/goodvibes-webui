@@ -1,9 +1,25 @@
 import { asRecord, bestId, bestTitle, firstArrayAtPath, firstString, readPath } from './object';
+import { deriveProviderStatus } from './provider-status';
 
 export interface ProviderOption {
   id: string;
   label: string;
   value: unknown;
+}
+
+/**
+ * Configured providers first, then unconfigured, alphabetical within each
+ * group. Every provider list the operator picks from (composer picker,
+ * Providers sidebar) orders this way: the provider someone can actually use
+ * must not sit below a scroll of forty they cannot.
+ */
+export function sortProvidersConfiguredFirst(options: readonly ProviderOption[]): ProviderOption[] {
+  return [...options].sort((a, b) => {
+    const aConfigured = deriveProviderStatus(a.value).configured;
+    const bConfigured = deriveProviderStatus(b.value).configured;
+    if (aConfigured !== bConfigured) return aConfigured ? -1 : 1;
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  });
 }
 
 export interface ModelOption {
@@ -29,6 +45,35 @@ export function providerOptionsFromResponse(value: unknown): ProviderOption[] {
       return id ? { id, label: bestTitle(provider, id), value: provider } : null;
     })
     .filter((provider): provider is ProviderOption => provider !== null);
+}
+
+/**
+ * Tolerant read of a model entry's reasoning-effort options (models.list
+ * serves `reasoningOptions: { levels, source }` per model from sdk 2.0.23).
+ * Null when the daemon predates the field or the model reports none, the
+ * caller renders no effort control rather than a fabricated ladder.
+ */
+export function reasoningOptionsForModel(
+  providers: readonly unknown[],
+  registryKey: string,
+): { levels: readonly string[]; source: string } | null {
+  if (!registryKey) return null;
+  for (const provider of providers) {
+    const models = asRecord(provider).models;
+    if (!Array.isArray(models)) continue;
+    for (const model of models) {
+      const record = asRecord(model);
+      const key = firstString(record, ['registryKey', 'key']);
+      if (key !== registryKey) continue;
+      const options = asRecord(record.reasoningOptions);
+      const levels = Array.isArray(options.levels)
+        ? options.levels.filter((level): level is string => typeof level === 'string' && level.length > 0)
+        : [];
+      if (levels.length === 0) return null;
+      return { levels, source: firstString(options, ['source']) || 'unknown' };
+    }
+  }
+  return null;
 }
 
 function providerQualifiedKey(providerId: string, modelId: string, registryKey: string): string {

@@ -348,3 +348,35 @@ describe('SlashMenu keyboard behaviour', () => {
     unmount();
   });
 });
+
+describe('effort selector', () => {
+  test('renders only when the model reports 2+ levels, and reports the change', () => {
+    const changes: string[] = [];
+    const { container, unmount } = mountComposer(makeProps({
+      effortLevels: ['low', 'medium', 'high'],
+      currentEffort: 'medium',
+      onEffortChange: (effort) => changes.push(effort),
+    }));
+    const select = container.querySelector('.composer-effort-select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.value).toBe('medium');
+    flushSync(() => {
+      select.value = 'high';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(changes).toEqual(['high']);
+    unmount();
+  });
+
+  test('absent levels (older daemon) render no control at all', () => {
+    const { container, unmount } = mountComposer(makeProps({}));
+    expect(container.querySelector('.composer-effort-select')).toBeNull();
+    unmount();
+  });
+
+  test('a single-level ladder renders no control: there is nothing to choose', () => {
+    const { container, unmount } = mountComposer(makeProps({ effortLevels: ['medium'], onEffortChange: noop }));
+    expect(container.querySelector('.composer-effort-select')).toBeNull();
+    unmount();
+  });
+});

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../lib/goodvibes';
 import { asRecord, bestId, bestTitle, firstString } from '../lib/object';
 import { queryKeys } from '../lib/queries';
-import { modelOptionsForProvider, providerOptionsFromResponse } from '../lib/provider-models';
+import { modelOptionsForProvider, providerOptionsFromResponse, reasoningOptionsForModel, sortProvidersConfiguredFirst } from '../lib/provider-models';
 import { shouldSteerComposerKey, shouldSubmitComposerKey } from '../lib/composer-keys';
 import { isSessionNotFoundError, formatError } from '../lib/errors';
 import {
@@ -111,7 +111,7 @@ export function ChatView({
       const existing = byId.get(provider.id);
       byId.set(provider.id, existing ? { ...existing, value: { ...asRecord(existing.value), ...asRecord(provider.value) } } : provider);
     }
-    return [...byId.values()];
+    return sortProvidersConfiguredFirst([...byId.values()]);
   }, [catalogProviderOptions, providers.data]);
   const currentModelRecord = asRecord(asRecord(currentModel.data).model);
   const currentModelData = Object.keys(currentModelRecord).length ? currentModelRecord : asRecord(currentModel.data);
@@ -127,6 +127,15 @@ export function ChatView({
     [catalogProviderOptions, selectedProvider],
   );
   const selectedModelRegistryKey = providerModelOptions.some((model) => model.registryKey === currentRegistryKey) ? currentRegistryKey : '';
+  // The effort ladder for the CURRENT model, from its own models.list entry.
+  // Null on daemons predating the field, no control renders.
+  const effortOptions = useMemo(
+    () => reasoningOptionsForModel(catalogProviderOptions.map((provider) => provider.value), currentRegistryKey),
+    [catalogProviderOptions, currentRegistryKey],
+  );
+  const currentEffort = firstString(currentModelData, ['effort'])
+    || firstString(asRecord(currentModel.data), ['effort'])
+    || '';
 
   const activeSession = useMemo(
     () => sessionItems.find((session) => bestId(session) === activeSessionId),
@@ -162,6 +171,16 @@ export function ChatView({
         queryClient.invalidateQueries({ queryKey: ['models', 'current'] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.providers }),
       ]);
+    },
+  });
+
+  const selectEffort = useMutation({
+    // '' is the "default" option: an explicit null clears the persisted level
+    // (omission would silently preserve it).
+    mutationFn: (effort: string) =>
+      sdk.operator.models.current.set(currentRegistryKey, effort === '' ? null : effort),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['models', 'current'] });
     },
   });
 
@@ -608,6 +627,10 @@ export function ChatView({
         onRemoveAttachedFile={removeAttachedFile}
         onProviderChange={setSelectedProviderId}
         onModelChange={(registryKey) => selectModel.mutate(registryKey)}
+        effortLevels={effortOptions?.levels ?? []}
+        currentEffort={currentEffort}
+        effortPending={selectEffort.isPending}
+        onEffortChange={(effort) => selectEffort.mutate(effort)}
       />
     </section>
   );

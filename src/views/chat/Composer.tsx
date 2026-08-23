@@ -58,6 +58,15 @@ export interface ComposerProps {
   onProviderChange: (providerId: string) => void;
   onModelChange: (registryKey: string) => void;
   /**
+   * Reasoning-effort levels the CURRENT model actually accepts (from its
+   * models.list entry). Empty = the daemon reports none, no control renders.
+   */
+  effortLevels?: readonly string[];
+  /** The persisted effort selection, '' when unset (provider default). */
+  currentEffort?: string;
+  effortPending?: boolean;
+  onEffortChange?: (effort: string) => void;
+  /**
    * Optional list of slash-command hints shown when the user types "/" at the
    * start of the composer. Defaults to empty, no menu.
    */
@@ -402,6 +411,10 @@ export function Composer({
   onRemoveAttachedFile,
   onProviderChange,
   onModelChange,
+  effortLevels = [],
+  currentEffort = '',
+  effortPending = false,
+  onEffortChange,
   slashCommands = [],
   onFilesAdded,
 }: ComposerProps) {
@@ -661,6 +674,21 @@ export function Composer({
             onProviderChange={onProviderChange}
             onModelChange={onModelChange}
           />
+          {effortLevels.length > 1 && onEffortChange && (
+            <select
+              className="composer-effort-select"
+              aria-label="Reasoning effort"
+              title="Reasoning effort for the current model"
+              value={currentEffort}
+              disabled={effortPending || isSendPending}
+              onChange={(event) => onEffortChange(event.target.value)}
+            >
+              <option value="">effort: default</option>
+              {effortLevels.map((level) => (
+                <option key={level} value={level}>{`effort: ${level}`}</option>
+              ))}
+            </select>
+          )}
 
           <div className="composer-actions">
             <button

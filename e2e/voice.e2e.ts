@@ -109,7 +109,14 @@ test('mic points at the missing speech-to-text provider honestly', async ({ page
 
   const mic = page.locator('button[aria-label*="no speech-to-text provider"]');
   await expect(mic).toBeVisible();
-  await expect(mic).toBeDisabled();
+  // A permanent unavailability keeps the composer clear: no bubble until the
+  // crossed mic is tapped, then the honest reason shows, and a second tap
+  // hides it again.
+  await expect(page.locator('.voice-mic-note')).toHaveCount(0);
+  await mic.click();
+  await expect(page.locator('.voice-mic-note')).toContainText('speech-to-text');
+  await mic.click();
+  await expect(page.locator('.voice-mic-note')).toHaveCount(0);
 });
 
 test('a blocked microphone shows an honest try-again pointer, not a dead button', async ({ page }) => {

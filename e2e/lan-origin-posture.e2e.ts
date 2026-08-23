@@ -64,7 +64,12 @@ test('MicButton: dictation is labeled with the daemon\'s exact reason, not a gen
 
   const mic = page.locator('.voice-mic-btn');
   await expect(mic).toBeVisible();
-  await expect(mic).toBeDisabled();
+  // The daemon's exact reason rides the hover title always, and the bubble is
+  // toggled by tapping the crossed mic (a permanent condition must not park a
+  // bubble over the composer).
+  await expect(mic).toHaveAttribute('title', new RegExp(NEEDS_HTTPS_REASON));
+  await expect(page.locator('.voice-mic-note')).toHaveCount(0);
+  await mic.click();
   await expect(page.locator('.voice-mic-note')).toContainText(NEEDS_HTTPS_REASON);
 });
 

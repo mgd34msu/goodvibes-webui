@@ -4,6 +4,17 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.18] - 2026-08-23
+
+### Changes
+
+- **The mic's "needs https" notice no longer camps over the composer.** On a
+  plain-HTTP origin the reason bubble was rendered permanently, visually
+  covering the message box for the whole session. Permanent conditions now
+  hide the bubble by default; tapping the crossed mic toggles the reason
+  open and closed, and the hover title still carries it. Transient feedback
+  (recording, transcribing, errors) keeps its bubble.
+
 ## [1.13.17] - 2026-08-22
 
 - Platform runtime 2.0.22: a dead subscription login is stamped and shown as

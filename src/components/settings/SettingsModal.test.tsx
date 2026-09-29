@@ -15,11 +15,13 @@ const configSetCalls: [string, unknown][] = [];
 type SetOutcome = 'ok' | 'reject';
 let setOutcome: SetOutcome = 'ok';
 
-// Enough of a live config to exercise: a typed string field (display.theme), a
-// typed number field (display.collapseThreshold), a secret owned by a feature
+// Enough of a live config to exercise: a typed string field
+// (provider.systemPromptFile), an enum field (display.theme, the bundled theme
+// names), a typed number field (display.collapseThreshold), a secret owned by a feature
 // unit (surfaces.slack.botToken → slack-surface), and a flag override read.
 const CONFIG_FIXTURE = {
-  display: { theme: 'vaporwave', collapseThreshold: 30 },
+  display: { theme: 'nord', collapseThreshold: 30 },
+  provider: { systemPromptFile: 'prompts/system.md' },
   surfaces: {
     slack: { botToken: 'xoxb-super-secret-value-1234' },
     // secret-store-only-config-keys.ts: the daemon's mail connector never reads
@@ -126,6 +128,15 @@ function clickCategory(el: HTMLElement, label: string): void {
   });
 }
 
+/** A plain client-owned string key (display.theme is an enum now: the bundled theme names). */
+const STRING_KEY = 'provider.systemPromptFile';
+
+async function openStringField(el: HTMLElement): Promise<void> {
+  await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Provider')));
+  clickCategory(el, 'Provider');
+  await waitFor(() => Boolean(el.querySelector(`[data-config-key="${STRING_KEY}"] input`)));
+}
+
 function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
   flushSync(() => {
@@ -160,20 +171,31 @@ describe('SettingsModal: schema-driven structure', () => {
 
   test('a schema string key renders as a typed input carrying its live value', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
-    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
-    expect(input.value).toBe('vaporwave');
+    await openStringField(el);
+    const input = el.querySelector(`[data-config-key="${STRING_KEY}"] input`) as HTMLInputElement;
+    expect(input.value).toBe('prompts/system.md');
     unmount();
   });
 
   test('editing a schema key commits the typed value through config.set', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
-    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
-    setInputValue(input, 'cyberpunk');
+    await openStringField(el);
+    const input = el.querySelector(`[data-config-key="${STRING_KEY}"] input`) as HTMLInputElement;
+    setInputValue(input, 'prompts/other.md');
     commitByBlur(input);
     await waitFor(() => configSetCalls.length > 0);
-    expect(configSetCalls).toEqual([['display.theme', 'cyberpunk']]);
+    expect(configSetCalls).toEqual([[STRING_KEY, 'prompts/other.md']]);
+    unmount();
+  });
+
+  test('display.theme renders as a select of the bundled theme names, carrying its live value', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] select')));
+    const select = el.querySelector('[data-config-key="display.theme"] select') as HTMLSelectElement;
+    expect(select.value).toBe('nord');
+    const options = [...select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+    expect(options).toContain('goodvibes');
+    expect(options).toContain('system');
     unmount();
   });
 
@@ -418,12 +440,12 @@ describe('SettingsModal: daemon-owned labeling', () => {
 
   test('after a successful save, the row shows what the daemon reported in persistedTo', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
-    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
-    setInputValue(input, 'cyberpunk');
+    await openStringField(el);
+    const input = el.querySelector(`[data-config-key="${STRING_KEY}"] input`) as HTMLInputElement;
+    setInputValue(input, 'prompts/other.md');
     commitByBlur(input);
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] .settings-field-persisted')));
-    const note = el.querySelector('[data-config-key="display.theme"] .settings-field-persisted');
+    await waitFor(() => Boolean(el.querySelector(`[data-config-key="${STRING_KEY}"] .settings-field-persisted`)));
+    const note = el.querySelector(`[data-config-key="${STRING_KEY}"] .settings-field-persisted`);
     expect(note?.textContent).toContain('/home/user/.goodvibes/webui/settings.json');
     unmount();
   });
@@ -433,19 +455,19 @@ describe('SettingsModal: a failed config.set is surfaced, never rendered as save
   test('a rejected config.set keeps the row showing the OLD value and shows an inline error', async () => {
     setOutcome = 'reject';
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] input')));
-    const input = el.querySelector('[data-config-key="display.theme"] input') as HTMLInputElement;
-    setInputValue(input, 'cyberpunk');
+    await openStringField(el);
+    const input = el.querySelector(`[data-config-key="${STRING_KEY}"] input`) as HTMLInputElement;
+    setInputValue(input, 'prompts/other.md');
     commitByBlur(input);
     await waitFor(() => configSetCalls.length > 0);
     // The write was attempted...
-    expect(configSetCalls).toEqual([['display.theme', 'cyberpunk']]);
+    expect(configSetCalls).toEqual([[STRING_KEY, 'prompts/other.md']]);
     // ...but rejected, so the row surfaces the failure inline rather than pretending success.
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] .settings-field-error')));
-    const errorBanner = el.querySelector('[data-config-key="display.theme"] .settings-field-error');
+    await waitFor(() => Boolean(el.querySelector(`[data-config-key="${STRING_KEY}"] .settings-field-error`)));
+    const errorBanner = el.querySelector(`[data-config-key="${STRING_KEY}"] .settings-field-error`);
     expect(errorBanner?.textContent?.length ?? 0).toBeGreaterThan(0);
     // No persisted-to note ever appears for a failed write.
-    expect(el.querySelector('[data-config-key="display.theme"] .settings-field-persisted')).toBeNull();
+    expect(el.querySelector(`[data-config-key="${STRING_KEY}"] .settings-field-persisted`)).toBeNull();
     unmount();
   });
 

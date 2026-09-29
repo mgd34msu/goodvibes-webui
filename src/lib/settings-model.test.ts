@@ -170,7 +170,10 @@ describe("buildSettingsModel: honesty for unschema'd live keys", () => {
     const themeField = display?.plainRows.find((f) => f.key === 'display.theme');
     expect(themeField?.present).toBe(true);
     expect(themeField?.liveValue).toBe('cyberpunk');
-    expect(themeField?.type).toBe('string');
+    // display.theme is an enum of the bundled theme names (plus 'system').
+    expect(themeField?.type).toBe('enum');
+    expect(themeField?.enumValues).toContain('goodvibes');
+    expect(themeField?.enumValues).toContain('system');
   });
 });
 

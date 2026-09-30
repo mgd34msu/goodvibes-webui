@@ -7,18 +7,17 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
+import { openSettings } from './support/app';
 
 test('the sleep-disabled chip is absent when keep-awake is off (honest baseline)', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'devices');
   await expect(page.locator('.status-strip__segment--power')).toHaveCount(0);
 });
 
-test('toggling keep-awake on in the admin Power panel shows the danger-idiom chip in the status strip', async ({ page }) => {
+test('toggling keep-awake on in the settings Power panel shows the danger-idiom chip in the status strip', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'devices');
 
   const powerPanel = page.locator('.power-panel');
   await expect(powerPanel).toBeVisible();
@@ -47,19 +46,17 @@ test('the automatic work inhibitor states "held because X" verbatim when the dae
   await installMockDaemon(page, {
     power: { work: { held: true, reasons: ['active turn in session s-agent-live'], grantedClasses: ['idle'] } },
   });
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'devices');
   const powerPanel = page.locator('.power-panel');
   await expect(powerPanel).toContainText('Held because: active turn in session s-agent-live');
 });
 
-test('the honest lid-split note renders verbatim in both the chip tooltip and the admin panel', async ({ page }) => {
+test('the honest lid-split note renders verbatim in both the chip tooltip and the settings panel', async ({ page }) => {
   const note = 'idle sleep blocked; lid-close suspend is controlled by your OS here';
   await installMockDaemon(page, {
     power: { keepAwake: { enabled: true, held: true, grantedClasses: ['idle'], deniedClasses: ['handle-lid-switch'], note } },
   });
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'devices');
   await expect(page.locator('.power-panel')).toContainText(note);
   await expect(page.locator('.status-strip__segment--power')).toHaveAttribute('title', note);
 });

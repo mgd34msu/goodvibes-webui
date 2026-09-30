@@ -11,6 +11,8 @@
  * either place is the same write.
  */
 import { useState } from 'react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Field';
 import {
   draftFromEntry,
   EMPTY_MODEL_PRICE_DRAFT,
@@ -90,7 +92,7 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
           {label}
           {required ? '' : ' (optional)'}
         </span>
-        <input
+        <Input
           type="number"
           inputMode="decimal"
           min={0}
@@ -117,24 +119,23 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
                 <span className="model-prices-summary">{modelPriceSummary(entry)}</span>
               </div>
               <div className="model-prices-row-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
+                <Button
+                  size="sm"
                   disabled={saving}
                   aria-label={`Edit price for ${modelKey}`}
                   onClick={() => beginEdit(modelKey)}
                 >
                   Edit
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   disabled={saving}
                   aria-label={`Remove price for ${modelKey}`}
                   onClick={() => void commitTable({ ...removeModelPrice(table, modelKey) })}
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             </li>
           ))}
@@ -151,7 +152,7 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
         >
           <label className="model-prices-form-field model-prices-form-field--key">
             <span>Model (provider:model)</span>
-            <input
+            <Input
               type="text"
               aria-label="Model key (provider:model)"
               placeholder="openrouter:deepseek/deepseek-chat"
@@ -167,12 +168,11 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
             {priceInput('Cache write', 'cacheWrite', false)}
           </div>
           <div className="model-prices-form-actions">
-            <button type="submit" className="primary-button" disabled={saving}>
+            <Button type="submit" variant="primary" size="sm" disabled={saving}>
               {editingKey !== null ? 'Save price' : 'Add price'}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
+            </Button>
+            <Button
+              size="sm"
               disabled={saving}
               onClick={() => {
                 setDraft(EMPTY_MODEL_PRICE_DRAFT);
@@ -182,13 +182,13 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
               }}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
-        <button type="button" className="secondary-button model-prices-add" disabled={saving} onClick={() => setFormOpen(true)}>
+        <Button size="sm" className="model-prices-add" disabled={saving} onClick={() => setFormOpen(true)}>
           Add price
-        </button>
+        </Button>
       )}
 
       {error && (

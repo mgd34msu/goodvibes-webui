@@ -136,6 +136,18 @@ describe('CommandProvider: command registration', () => {
     unmount();
   });
 
+  test('the old Providers and Admin commands open the settings dialog instead of a page', () => {
+    const onNavigate = mock(() => undefined);
+    const onOpenSettings = mock((_section?: string) => undefined);
+    const { unmount } = renderProvider({ onNavigate, onOpenSettings });
+    getCommands().find((c) => c.id === 'nav.providers')!.run();
+    expect(onOpenSettings).toHaveBeenLastCalledWith('models');
+    getCommands().find((c) => c.id === 'nav.admin')!.run();
+    expect(onOpenSettings).toHaveBeenCalledTimes(2);
+    expect(onNavigate).not.toHaveBeenCalled();
+    unmount();
+  });
+
   test('onNavigate is called with newChat option for chat.new command', () => {
     const onNavigate = mock(() => undefined);
     const { unmount } = renderProvider({ onNavigate });

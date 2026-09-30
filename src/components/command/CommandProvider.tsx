@@ -14,8 +14,10 @@
  * Or, if you just want to mount the command system at root without wrapping:
  *   <CommandProvider onNavigate={setActiveView} />
  *
- * onNavigate receives a view id: 'chat' | 'knowledge' | 'providers' | 'admin'
- * and a optional newChat boolean for "New chat" command.
+ * onNavigate receives a view id: 'chat' | 'knowledge', and an optional
+ * newChat boolean for the "New chat" command. onOpenSettings opens the
+ * settings dialog, on a section when one is named ('models' for the old
+ * "Go to Providers", 'account' for the old "Go to Admin").
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -25,7 +27,7 @@ import { useHotkeys } from '../../hooks/useHotkeys';
 import { CommandPalette } from './CommandPalette';
 import { ShortcutCheatsheet } from './ShortcutCheatsheet';
 
-export type ViewId = 'chat' | 'knowledge' | 'providers' | 'admin';
+export type ViewId = 'chat' | 'knowledge';
 
 interface CommandProviderProps {
   /**
@@ -33,10 +35,12 @@ interface CommandProviderProps {
    * Integration phase wires this to App's setActiveView.
    */
   onNavigate?: (view: ViewId, options?: { newChat?: boolean }) => void;
+  /** Open the settings dialog, on a section when one is named. */
+  onOpenSettings?: (section?: string) => void;
   children?: React.ReactNode;
 }
 
-export default function CommandProvider({ onNavigate, children }: CommandProviderProps) {
+export default function CommandProvider({ onNavigate, onOpenSettings, children }: CommandProviderProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
 
@@ -65,19 +69,19 @@ export default function CommandProvider({ onNavigate, children }: CommandProvide
     });
     registerCommand({
       id: 'nav.providers',
-      title: 'Go to Providers',
+      title: 'Models and providers',
       group: 'navigation',
-      keywords: ['providers', 'models', 'llm', 'ai'],
+      keywords: ['providers', 'models', 'llm', 'ai', 'settings'],
       shortcut: 'g p',
-      run: () => onNavigate?.('providers'),
+      run: () => onOpenSettings?.('models'),
     });
     registerCommand({
       id: 'nav.admin',
-      title: 'Go to Admin',
+      title: 'Settings',
       group: 'navigation',
-      keywords: ['admin', 'settings', 'auth', 'secure'],
-      shortcut: 'g a',
-      run: () => onNavigate?.('admin'),
+      keywords: ['admin', 'settings', 'auth', 'account', 'preferences'],
+      shortcut: 'mod+,',
+      run: () => onOpenSettings?.(),
     });
     registerCommand({
       id: 'chat.new',
@@ -113,7 +117,7 @@ export default function CommandProvider({ onNavigate, children }: CommandProvide
       unregisterCommand('system.palette');
       unregisterCommand('system.shortcuts');
     };
-  }, [onNavigate, openPalette, openCheatsheet]);
+  }, [onNavigate, onOpenSettings, openPalette, openCheatsheet]);
 
   // Global hotkeys
   useHotkeys([
@@ -134,8 +138,8 @@ export default function CommandProvider({ onNavigate, children }: CommandProvide
     // Sequence nav shortcuts
     { combo: 'g c', handler: () => { onNavigate?.('chat'); } },
     { combo: 'g k', handler: () => { onNavigate?.('knowledge'); } },
-    { combo: 'g p', handler: () => { onNavigate?.('providers'); } },
-    { combo: 'g a', handler: () => { onNavigate?.('admin'); } },
+    { combo: 'g p', handler: () => { onOpenSettings?.('models'); } },
+    { combo: 'g a', handler: () => { onOpenSettings?.('account'); } },
     {
       combo: 'mod+shift+n',
       handler: () => { onNavigate?.('chat', { newChat: true }); },

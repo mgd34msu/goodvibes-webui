@@ -39,6 +39,7 @@ import {
   type ModelTarget,
 } from '../../lib/model-catalog';
 import '../../styles/components/model-workspace.css';
+import '../../styles/components/providers.css';
 
 export interface ModelWorkspaceModalProps {
   open: boolean;

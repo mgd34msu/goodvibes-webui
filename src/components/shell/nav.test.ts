@@ -5,8 +5,8 @@ import { ACCOUNT_VIEWS, DESTINATIONS, destinationOf, viewTitle } from './nav';
 
 // Every view the router accepts, the same list src/lib/router.ts validates against.
 const ALL_VIEWS: ViewId[] = [
-  'chat', 'sessions', 'knowledge', 'memory', 'providers', 'admin', 'fleet', 'checkpoints',
-  'approvals-tasks', 'workstream', 'calendar', 'mail', 'ci-watches', 'checkin', 'principals',
+  'chat', 'sessions', 'knowledge', 'memory', 'fleet', 'checkpoints',
+  'approvals-tasks', 'workstream', 'calendar', 'mail', 'ci-watches', 'checkin',
   'phone', 'dates', 'hosted-sessions',
 ];
 
@@ -30,13 +30,14 @@ describe('navigation map: nothing becomes unreachable', () => {
     expect(destinationOf('knowledge')).toBe('library');
     expect(destinationOf('mail')).toBe('personal');
     expect(destinationOf('dates')).toBe('personal');
-    expect(destinationOf('admin')).toBe('account');
+    expect(destinationOf('checkin')).toBe('account');
     expect(destinationOf('chat')).toBe('chat');
   });
 
   test('titles name the destination, and account pages by their menu label', () => {
     expect(viewTitle('ci-watches')).toBe('Work');
     expect(viewTitle('calendar')).toBe('Personal');
-    expect(viewTitle('providers')).toBe('Models and usage');
+    expect(viewTitle('checkin')).toBe('Check-ins');
+    expect(viewTitle('phone')).toBe('Phone node');
   });
 });

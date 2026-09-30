@@ -14,6 +14,8 @@ import {
   type AppUrlState,
   type ViewId,
   decodeUrlState,
+  encodeUrlState,
+  isLegacySettingsView,
   pushState,
   replaceState,
 } from '../lib/router';
@@ -56,6 +58,14 @@ export function useUrlState(): UseUrlStateReturn {
   // unconditional extra render when the URL is already normalized.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // An old ?view=admin / providers / principals link: rewrite it in place to
+    // its new home (the chat view with the settings dialog open on a section).
+    // The fragment is kept: a pairing hand-off (#pair=…) may ride the same link.
+    if (isLegacySettingsView(window.location.search)) {
+      const url = `${window.location.pathname}?${encodeUrlState(urlState)}${window.location.hash}`;
+      window.history.replaceState(urlState, '', url);
+      return;
+    }
     if (!params.has('view')) {
       const url = `${window.location.pathname}?view=${urlState.view}`;
       window.history.replaceState(urlState, '', url);

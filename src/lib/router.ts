@@ -2,9 +2,16 @@
  * router.ts, dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|sessions|knowledge|memory|providers|admin|fleet|checkpoints|approvals-tasks|workstream|calendar|mail|ci-watches|checkin|principals|phone|dates|hosted-sessions
+ *   ?view=chat|sessions|knowledge|memory|fleet|checkpoints|approvals-tasks|workstream|calendar|mail|ci-watches|checkin|phone|dates|hosted-sessions
  *   &session=<sessionId>          (chat view only; omitted when empty)
+ *   &settings=<section>           (the settings dialog is open on that section)
  *   &filter[<key>]=<value>        (per-view filters; any number of pairs)
+ *
+ * Admin, Providers and Principals stopped being views: they are sections of
+ * the settings dialog. Their old links still work, `?view=admin` decodes to
+ * the chat view with the dialog open on Account, `?view=providers` on Models
+ * and providers, `?view=principals` on People and channels
+ * (LEGACY_SETTINGS_VIEWS).
  *
  * No react-router. Uses window.history + URLSearchParams directly.
  *
@@ -21,8 +28,6 @@ export type ViewId =
   | 'sessions'
   | 'knowledge'
   | 'memory'
-  | 'providers'
-  | 'admin'
   | 'fleet'
   | 'checkpoints'
   | 'approvals-tasks'
@@ -31,7 +36,6 @@ export type ViewId =
   | 'mail'
   | 'ci-watches'
   | 'checkin'
-  | 'principals'
   | 'phone'
   | 'dates'
   | 'hosted-sessions';
@@ -40,15 +44,22 @@ export interface AppUrlState {
   view: ViewId;
   session: string;
   filters: Record<string, string>;
+  /** The open settings dialog section; absent or '' while the dialog is closed. */
+  settings?: string;
 }
+
+/** Old view ids that now open the settings dialog, and the section each opens on. */
+export const LEGACY_SETTINGS_VIEWS: Readonly<Record<string, string>> = {
+  admin: 'account',
+  providers: 'models',
+  principals: 'people',
+};
 
 const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'chat',
   'sessions',
   'knowledge',
   'memory',
-  'providers',
-  'admin',
   'fleet',
   'checkpoints',
   'approvals-tasks',
@@ -57,7 +68,6 @@ const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'mail',
   'ci-watches',
   'checkin',
-  'principals',
   'phone',
   'dates',
   'hosted-sessions',
@@ -77,6 +87,7 @@ export function decodeUrlState(search: string = window.location.search): AppUrlS
 
   const rawView = params.get('view') ?? '';
   const view: ViewId = VALID_VIEWS.has(rawView) ? (rawView as ViewId) : DEFAULT_STATE.view;
+  const settings = params.get('settings') || LEGACY_SETTINGS_VIEWS[rawView] || '';
 
   const session = params.get('session') ?? '';
 
@@ -90,7 +101,13 @@ export function decodeUrlState(search: string = window.location.search): AppUrlS
     }
   });
 
-  return { view, session, filters };
+  return settings ? { view, session, filters, settings } : { view, session, filters };
+}
+
+/** True when the search string names an old view that now opens the settings dialog. */
+export function isLegacySettingsView(search: string = window.location.search): boolean {
+  const rawView = new URLSearchParams(search).get('view') ?? '';
+  return rawView in LEGACY_SETTINGS_VIEWS;
 }
 
 /** Encode AppUrlState into a URLSearchParams string (no leading '?'). */
@@ -101,6 +118,10 @@ export function encodeUrlState(state: AppUrlState): string {
 
   if (state.session) {
     params.set('session', state.session);
+  }
+
+  if (state.settings) {
+    params.set('settings', state.settings);
   }
 
   const filterKeys = Object.keys(state.filters).sort();

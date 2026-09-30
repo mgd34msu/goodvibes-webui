@@ -7,6 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
+import { openSettings } from './support/app';
 import { STEERABLE_SESSION } from './support/seed';
 
 const DIR = 'e2e/.artifacts/screenshots';
@@ -29,20 +30,19 @@ function shot(testInfo: import('@playwright/test').TestInfo, name: string): stri
   return `${DIR}/${name}.${testInfo.project.name}.png`;
 }
 
-test('provider status pills', async ({ page }, testInfo) => {
+test('provider status in plain words', async ({ page }, testInfo) => {
   await installMockDaemon(page);
-  await page.goto('/?view=providers');
-  await expect(page.locator('.view-frame')).toBeVisible();
-  // F5: the fixture now carries the real runtime.auth.routes[].freshness wire shape, so
-  // deriveProviderStatus lights up the whole ladder rather than defaulting every pill to
-  // 'status unavailable'. Prove each rung actually renders in the provider list.
-  const list = page.locator('.providers-record-list');
-  await expect(list.getByText('healthy', { exact: true }).first()).toBeVisible();
-  await expect(list.getByText('expiring', { exact: true }).first()).toBeVisible();
-  await expect(list.getByText('expired', { exact: true }).first()).toBeVisible();
-  await expect(list.getByText('unconfigured', { exact: true }).first()).toBeVisible();
-  await expect(list.getByText('status unavailable', { exact: true }).first()).toBeVisible();
-  await page.screenshot({ path: shot(testInfo, 'provider-pills'), fullPage: true });
+  const settings = await openSettings(page, 'models');
+  // F5: the fixture carries the real runtime.auth.routes[].freshness wire shape, so
+  // deriveProviderStatus lights up the whole ladder rather than defaulting every row to
+  // 'status unavailable'. Prove each rung renders in the provider rows, in words.
+  const list = settings.getByRole('list', { name: 'Providers' });
+  await expect(list.getByText(/^Signed in/).first()).toBeVisible();
+  await expect(list.getByText(/^Sign-in expiring soon/).first()).toBeVisible();
+  await expect(list.getByText(/^Sign-in expired/).first()).toBeVisible();
+  await expect(list.getByText(/^Not set up/).first()).toBeVisible();
+  await expect(list.getByText(/^Status unavailable/).first()).toBeVisible();
+  await page.screenshot({ path: shot(testInfo, 'provider-pills') });
 });
 
 test('knowledge map', async ({ page }, testInfo) => {

@@ -1,7 +1,8 @@
 /**
- * providers.css — Phase 4 ProvidersView styles.
- * Uses token names from docs/ux-overhaul/TOKEN-CONTRACT.md exclusively.
- * DO NOT edit src/styles.css — imported by ProvidersView.tsx.
+ * providers.css — row styles shared by the credential-status panel, the
+ * accounts panel and the model workspace (the Providers view that first owned
+ * them is now the settings dialog's Models and providers section). Imported by
+ * each of those components.
  */
 
 /* ============================================================

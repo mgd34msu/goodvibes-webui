@@ -17,6 +17,7 @@ import { ErrorState } from './feedback/ErrorState';
 import { SkeletonBlock } from './feedback/SkeletonBlock';
 import { asRecord, firstArrayAtPath, firstString } from '../lib/object';
 import { Landmark } from 'lucide-react';
+import '../styles/components/providers.css';
 
 export interface AccountsPanelProps {
   data: unknown;

@@ -9,7 +9,7 @@ const ENUM_VALUES = ['stored', 'prompt'] as const;
 
 function render(props: { value: string; onCommit: (value: string) => void }): {
   container: HTMLElement;
-  select: HTMLSelectElement;
+  select: HTMLButtonElement;
   unmount: () => void;
 } {
   const container = document.createElement('div');
@@ -18,7 +18,7 @@ function render(props: { value: string; onCommit: (value: string) => void }): {
   flushSync(() => {
     root.render(React.createElement(CvvHandlingField, { ...props, enumValues: ENUM_VALUES }));
   });
-  const select = container.querySelector('select') as HTMLSelectElement;
+  const select = container.querySelector('.gv-select__trigger') as HTMLButtonElement;
   return {
     container,
     select,
@@ -29,15 +29,33 @@ function render(props: { value: string; onCommit: (value: string) => void }): {
   };
 }
 
-function selectValue(select: HTMLSelectElement, value: string): void {
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
-  flushSync(() => {
-    nativeSetter.call(select, value);
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+/** The kit Select's trigger; its listbox is portaled to document.body while open. */
+function openOptions(trigger: HTMLButtonElement): HTMLElement[] {
+  if (trigger.getAttribute('aria-expanded') !== 'true') {
+    flushSync(() => { trigger.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  }
+  return [...document.body.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')];
+}
+
+function optionLabels(trigger: HTMLButtonElement): string[] {
+  return openOptions(trigger).map((o) => o.textContent ?? '');
+}
+
+function selectLabel(trigger: HTMLButtonElement, label: string): void {
+  const option = openOptions(trigger).find((o) => o.textContent === label);
+  if (!option) throw new Error(`no option "${label}"`);
+  flushSync(() => { option.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 }
 
 describe('CvvHandlingField', () => {
+  test('is a kit select, never a native one, offering both modes', () => {
+    const { container, select, unmount } = render({ value: 'stored', onCommit: () => {} });
+    expect(container.querySelector('select')).toBeNull();
+    expect(select.textContent).toContain('stored');
+    expect(optionLabels(select)).toEqual(['stored', 'prompt']);
+    unmount();
+  });
+
   test('starting on "stored" shows no warning', () => {
     const { container, unmount } = render({ value: 'stored', onCommit: () => {} });
     expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).toBeNull();
@@ -53,7 +71,7 @@ describe('CvvHandlingField', () => {
   test('selecting "prompt" surfaces the exact trade-off warning at the moment of selection', () => {
     const commits: string[] = [];
     const { container, select, unmount } = render({ value: 'stored', onCommit: (v) => commits.push(v) });
-    selectValue(select, 'prompt');
+    selectLabel(select, 'prompt');
     expect(commits).toEqual(['prompt']);
     expect(container.textContent).toContain(CVV_PROMPT_TRADEOFF_WARNING);
     unmount();
@@ -62,7 +80,7 @@ describe('CvvHandlingField', () => {
   test('selecting "stored" does not surface a warning, and commits', () => {
     const commits: string[] = [];
     const { container, select, unmount } = render({ value: 'prompt', onCommit: (v) => commits.push(v) });
-    selectValue(select, 'stored');
+    selectLabel(select, 'stored');
     expect(commits).toEqual(['stored']);
     expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).toBeNull();
     unmount();
@@ -71,7 +89,7 @@ describe('CvvHandlingField', () => {
   test('switching from prompt back to stored removes the warning', () => {
     const { container, select, unmount } = render({ value: 'prompt', onCommit: () => {} });
     expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).not.toBeNull();
-    selectValue(select, 'stored');
+    selectLabel(select, 'stored');
     expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).toBeNull();
     unmount();
   });

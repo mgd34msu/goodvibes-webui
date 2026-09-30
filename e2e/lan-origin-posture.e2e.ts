@@ -20,6 +20,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
+import { openSettings } from './support/app';
 import { installChatMockDaemon } from './support/chat-mock';
 
 const NEEDS_HTTPS_REASON = 'needs https, available via tailscale';
@@ -37,14 +38,14 @@ test.beforeEach(async ({ page, baseURL }, testInfo) => {
 test('the app loads at a real private-network http origin: no "needs HTTPS" wall', async ({ page, baseURL }) => {
   expect(new URL(baseURL ?? '').protocol).toBe('http:');
   await installMockDaemon(page);
-  await page.goto('/?view=admin');
+  await openSettings(page, 'account');
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.getByText('This page needs HTTPS')).toHaveCount(0);
 });
 
 test('Notifications & install: both the push and install sections show the daemon\'s exact reason text', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=admin');
+  await openSettings(page, 'notifications');
   await expect(page.locator('.app-shell')).toBeVisible();
 
   const panel = page.locator('.notifications-panel');

@@ -191,15 +191,15 @@ describe('useUrlState: initial state', () => {
 describe('useUrlState: setView', () => {
   test('updates view in returned state', () => {
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setView('admin'); });
-    expect(getHandle().view).toBe('admin');
+    flushSync(() => { getHandle().setView('fleet'); });
+    expect(getHandle().view).toBe('fleet');
     unmount();
   });
 
   test('pushes exactly ONE history entry per call', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
-    flushSync(() => { getHandle().setView('providers'); });
+    flushSync(() => { getHandle().setView('memory'); });
     expect(pushCallCount).toBe(1);
     unmount();
   });
@@ -216,7 +216,7 @@ describe('useUrlState: setView', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
     replaceCallCount = 0;
-    flushSync(() => { getHandle().setView('admin', { replace: true }); });
+    flushSync(() => { getHandle().setView('fleet', { replace: true }); });
     expect(pushCallCount).toBe(0);
     expect(replaceCallCount).toBeGreaterThanOrEqual(1);
     unmount();
@@ -227,7 +227,7 @@ describe('useUrlState: setView', () => {
     window.history.replaceState(null, '', '/?view=chat&session=s1&filter%5Ba%5D=1');
     installSpies();
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setView('admin'); });
+    flushSync(() => { getHandle().setView('fleet'); });
     expect(getHandle().session).toBe('s1');
     expect(getHandle().filters).toEqual({ a: '1' });
     unmount();
@@ -336,8 +336,8 @@ describe('useUrlState: resetFilters', () => {
 describe('useUrlState: setUrlState', () => {
   test('merges partial state', () => {
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setUrlState({ view: 'admin', session: 'x' }); });
-    expect(getHandle().view).toBe('admin');
+    flushSync(() => { getHandle().setUrlState({ view: 'fleet', session: 'x' }); });
+    expect(getHandle().view).toBe('fleet');
     expect(getHandle().session).toBe('x');
     unmount();
   });
@@ -345,8 +345,36 @@ describe('useUrlState: setUrlState', () => {
   test('pushes exactly ONE history entry per call', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
-    flushSync(() => { getHandle().setUrlState({ view: 'admin' }); });
+    flushSync(() => { getHandle().setUrlState({ view: 'fleet' }); });
     expect(pushCallCount).toBe(1);
+    unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// settings dialog param
+// ---------------------------------------------------------------------------
+
+describe('useUrlState: the settings dialog section', () => {
+  test('setUrlState opens and closes the dialog through ?settings=', () => {
+    const { getHandle, unmount } = renderHook();
+    flushSync(() => { getHandle().setUrlState({ settings: 'models' }); });
+    expect(getHandle().settings).toBe('models');
+    expect(window.location.search).toContain('settings=models');
+    flushSync(() => { getHandle().setUrlState({ settings: '' }); });
+    expect(window.location.search).not.toContain('settings=');
+    unmount();
+  });
+
+  test('an old ?view=admin link is rewritten to the chat view with Account open', () => {
+    removeSpies();
+    window.history.replaceState(null, '', '/?view=admin');
+    installSpies();
+    const { getHandle, unmount } = renderHook();
+    expect(getHandle().view).toBe('chat');
+    expect(getHandle().settings).toBe('account');
+    expect(window.location.search).toContain('settings=account');
+    expect(window.location.search).not.toContain('view=admin');
     unmount();
   });
 });
@@ -359,9 +387,9 @@ describe('useUrlState: popstate', () => {
   test('popstate event updates state to new URL', () => {
     withPopstateTrap((hook, triggerPopstate) => {
       const { getHandle, unmount } = hook;
-      window.history.pushState(null, '', '/?view=providers&session=s99');
+      window.history.pushState(null, '', '/?view=memory&session=s99');
       triggerPopstate();
-      expect(getHandle().view).toBe('providers');
+      expect(getHandle().view).toBe('memory');
       expect(getHandle().session).toBe('s99');
       unmount();
     });

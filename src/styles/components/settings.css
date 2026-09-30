@@ -1,6 +1,7 @@
 /*
- * settings.css — SettingsModal styles.
- * Uses contract tokens only (TOKEN-CONTRACT.md).
+ * settings.css — the schema-driven config rows the settings dialog renders
+ * (SettingsField, FeatureUnitCard and their specialized editors). The dialog's
+ * own frame lives in settings-dialog.css.
  */
 
 .settings-skeleton {
@@ -28,110 +29,12 @@
   font-size: var(--text-sm);
 }
 
-.settings-layout {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-}
-
-.settings-categories {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  border-right: 1px solid var(--line);
-  padding-right: var(--space-3);
-}
-
-.settings-category {
-  text-align: left;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-xs);
-  border: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.settings-category:hover {
-  color: var(--text);
-}
-
-.settings-category--active {
-  background: var(--accent-soft);
-  color: var(--text);
-}
-
-.settings-category:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.settings-entries {
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.settings-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.settings-table th,
-.settings-table td {
-  text-align: left;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-
-.settings-table th {
-  color: var(--text-2);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  font-family: var(--font-mono);
-}
-
-.settings-value {
-  color: var(--text);
-  font-family: var(--font-mono);
-  word-break: break-word;
-}
-
-.settings-value--secret {
-  color: var(--text-2);
-  letter-spacing: 0.05em;
-}
-
-.settings-secret-flag {
-  color: var(--text-2);
-  font-style: italic;
-  font-weight: normal;
-}
-
-.settings-search {
-  margin-bottom: var(--space-3);
-}
-
-.settings-search input {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--canvas);
-  color: var(--text);
-  font-size: var(--text-sm);
-}
-
-.settings-search input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
 /* ── Typed field editor ───────────────────────────────────────────────────── */
 .settings-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-6);
+  align-items: center;
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--line);
 }
@@ -140,65 +43,79 @@
   border-bottom: none;
 }
 
+.settings-field--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-field--stacked .settings-field-control {
+  justify-content: flex-start;
+  margin-top: var(--space-2);
+}
+
+.settings-field-text {
+  min-width: 0;
+}
+
+.settings-field-label {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  line-height: 20px;
+}
+
+.settings-field-persisted,
+.settings-field-error {
+  grid-column: 1 / -1;
+}
+
 .settings-field-head {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-top: 2px;
 }
 
 .settings-field-key {
+  padding: 0;
+  background: none;
+  border: 0;
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text);
+  font-size: var(--text-xs);
+  color: var(--text-3);
   word-break: break-word;
 }
 
 .settings-field-default,
 .settings-field-hint {
-  font-size: 0.75rem;
-  color: var(--text-2);
-  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--text-3);
 }
 
 .settings-field-desc {
-  margin: var(--space-1) 0 var(--space-2);
+  margin: var(--space-1) 0 0;
   color: var(--text-2);
-  font-size: var(--text-sm);
-  line-height: 1.4;
+  font-size: var(--text-meta);
+  line-height: 18px;
 }
 
 .settings-field-control {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .settings-field-input,
 .settings-field-select {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  background: var(--canvas);
-  color: var(--text);
-  font-size: var(--text-sm);
-  min-width: 12rem;
+  width: 220px;
   max-width: 100%;
 }
 
-.settings-field-input:focus-visible,
-.settings-field-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.settings-field-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  color: var(--text);
-  font-size: var(--text-sm);
+.settings-field--stacked .settings-field-input,
+.settings-field--stacked .settings-field-select {
+  width: 100%;
 }
 
 .settings-field-secret {
@@ -218,15 +135,14 @@
 .feature-unit-daemon-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--space-1);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
   color: var(--text-2);
-  background: var(--surface, var(--canvas));
+  background: transparent;
 }
 
 .feature-unit-daemon-badge {
@@ -248,20 +164,17 @@
   font-style: italic;
 }
 
-/* ── Feature unit (flag + its config) ─────────────────────────────────────── */
+/* ── Feature unit (a capability + its settings): a flat block, no card ── */
 .feature-unit {
-  padding: var(--space-3);
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--canvas);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .feature-unit-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .feature-unit-title {
@@ -270,10 +183,16 @@
   gap: var(--space-1);
 }
 
+.feature-unit-title {
+  min-width: 0;
+}
+
 .feature-unit-title h3 {
   margin: 0;
-  font-size: var(--text-md, 1rem);
   color: var(--text);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 20px;
 }
 
 .feature-unit-state {
@@ -332,8 +251,8 @@
 
 .feature-unit-fields {
   margin-top: var(--space-2);
-  padding-left: var(--space-3);
-  border-left: 2px solid var(--line);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--line);
 }
 
 .settings-raw-note,
@@ -347,19 +266,24 @@
   margin-top: var(--space-4);
 }
 
-/* Phone: stack the category rail above the table. */
-@media (max-width: 620px) {
-  .settings-layout {
-    grid-template-columns: 1fr;
+/* Phone: a row's control moves under its text. */
+@media (max-width: 899px) {
+  .settings-field {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .settings-categories {
-    flex-direction: row;
+  .settings-field-control {
+    justify-content: flex-start;
+    margin-top: var(--space-2);
+  }
+
+  .settings-field-input,
+  .settings-field-select {
+    width: 100%;
+  }
+
+  .feature-unit-head {
     flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
-    padding-right: 0;
-    padding-bottom: var(--space-3);
   }
 }
 
@@ -517,7 +441,7 @@
   font-size: 0.85rem;
 }
 
-.settings-field-object .primary-button {
+.settings-field-object .gv-button {
   align-self: flex-start;
 }
 
@@ -526,8 +450,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 14rem;
-  max-width: 100%;
+  width: 100%;
+  max-width: 360px;
 }
 
 .timezone-picker-search {

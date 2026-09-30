@@ -33,6 +33,8 @@ import { useState } from 'react';
 import type { FeatureUnitModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { SettingsField } from './SettingsField';
+import { Select } from '../ui/Select';
+import { Toggle } from '../ui/Toggle';
 
 interface FeatureUnitCardProps {
   readonly unit: FeatureUnitModel;
@@ -80,39 +82,34 @@ export function FeatureUnitCard({
   const enablementControl = (() => {
     if (kind === 'boolean') {
       return (
-        <label className="settings-field-toggle feature-unit-toggle">
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={saving}
-            aria-label={`Enable ${feature.name}`}
-            onChange={(e) => void commitEnablement(e.target.checked)}
-          />
-          <span>{enabled ? 'On' : 'Off'}</span>
-        </label>
+        <Toggle
+          className="settings-field-toggle feature-unit-toggle"
+          checked={enabled}
+          disabled={saving}
+          aria-label={`Enable ${feature.name}`}
+          onChange={(next) => void commitEnablement(next)}
+        />
       );
     }
     if (kind === 'enum' && enablementField?.enumValues) {
       const current = enablementField.present ? enablementField.liveValue : enablementField.default;
       const value = typeof current === 'string' ? current : '';
       return (
-        <label className="feature-unit-mode">
-          <span className="feature-unit-mode-label">Mode</span>
-          <select
+        <div className="feature-unit-mode">
+          <span className="feature-unit-mode-label" aria-hidden="true">Mode</span>
+          <Select
             className="settings-field-select"
             aria-label={`${feature.name} mode`}
             value={value}
             disabled={saving}
-            onChange={(e) => void commitEnablement(e.target.value)}
-          >
-            {!enablementField.enumValues.includes(value) && <option value={value}>{value || '(unset)'}</option>}
-            {enablementField.enumValues.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </label>
+            placement="bottom-end"
+            options={[
+              ...(enablementField.enumValues.includes(value) ? [] : [{ value, label: value || '(unset)' }]),
+              ...enablementField.enumValues.map((opt) => ({ value: opt, label: opt })),
+            ]}
+            onChange={(next) => void commitEnablement(next)}
+          />
+        </div>
       );
     }
     // constant, no separate off switch; the fields below govern activation.

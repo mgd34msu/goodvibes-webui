@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { only, PHONE, closeNavigation, expectNoHorizontalScroll, expectTappable, openNavigation } from './support/app';
+import { only, PHONE, closeNavigation, expectNoHorizontalScroll, expectTappable, openNavigation, openSettings } from './support/app';
 
 test.beforeEach(async ({ page }, testInfo) => {
   only(testInfo, PHONE);
@@ -21,12 +21,9 @@ const VIEWS: { view: string; label: string }[] = [
   { view: 'workstream', label: 'Workstream' },
   { view: 'ci-watches', label: 'CI' },
   { view: 'checkin', label: 'Check-in' },
-  { view: 'principals', label: 'Principals' },
   { view: 'knowledge', label: 'Knowledge' },
   { view: 'memory', label: 'Memory' },
-  { view: 'providers', label: 'Providers' },
   { view: 'calendar', label: 'Calendar' },
-  { view: 'admin', label: 'Admin' },
 ];
 
 for (const { view, label } of VIEWS) {
@@ -62,10 +59,16 @@ test('Chat: the composer input and send button are present and tappable', async 
   await expectTappable(page, '.send-button', 'chat send');
 });
 
-test('Providers: per-provider status pills render', async ({ page }) => {
-  await page.goto('/?view=providers');
-  await expect(page.locator('.view-frame')).toBeVisible();
-  await expectNoHorizontalScroll(page);
+test('Settings: every section renders full-screen on a phone with no horizontal overflow', async ({ page }) => {
+  for (const section of ['general', 'account', 'devices', 'people', 'models', 'credentials', 'usage', 'voice', 'notifications', 'memory', 'permissions', 'network', 'all', 'about']) {
+    const dialog = await openSettings(page, section);
+    // General opens on the section list (the phone's first screen); every other
+    // link opens straight on its section.
+    await expect(dialog.locator(section === 'general' ? '.settings-nav' : '.settings-pane')).not.toBeEmpty();
+    await expectNoHorizontalScroll(page);
+    // The head's buttons (back to the list, close) clear the touch floor.
+    await expectTappable(page, '.settings-pane-head .gv-icon-button', `${section} settings head button`);
+  }
 });
 
 test('drawer opened on a phone does not trap; the scrim closes it from any view', async ({ page }) => {

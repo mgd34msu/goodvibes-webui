@@ -33,7 +33,6 @@ import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
 import { WorkstreamView } from './views/workstream/WorkstreamView';
 import { CiWatchesView } from './views/ci/CiWatchesView';
 import { CheckInView } from './views/checkin/CheckInView';
-import { PrincipalsView } from './views/principals/PrincipalsView';
 import { PhoneNodeView } from './views/phone/PhoneNodeView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
@@ -42,8 +41,8 @@ import { MemoryView } from './views/memory/MemoryView';
 import { CalendarView } from './views/calendar/CalendarView';
 import { MailView } from './views/mail/MailView';
 import { DatesView } from './views/dates/DatesView';
-import { ProvidersView } from './views/ProvidersView';
-import { AdminView } from './views/AdminView';
+import { SettingsDialog } from './components/settings/dialog/SettingsDialog';
+import type { SettingsSectionId } from './components/settings/dialog/sections';
 import { attentionCount } from './lib/fleet';
 import { asRecord, bestId, bestTitle, firstString } from './lib/object';
 import {
@@ -63,7 +62,7 @@ import { formatError, isDaemonUnreachableError, isMethodUnavailableError, isSess
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { view, setView, session: activeChatSessionId, setSession, setUrlState } = useUrlState();
+  const { view, setView, session: activeChatSessionId, setSession, setUrlState, settings: settingsSection } = useUrlState();
   const activeView: ViewId = view;
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   // One record of the companion chat sessions this browser knows about (local copies,
@@ -295,6 +294,22 @@ export default function App() {
     [setView, setUrlState],
   );
 
+  // The settings dialog lives in the URL (?settings=<section>): opening pushes a
+  // history entry, so Back closes it; switching sections replaces the entry.
+  const openSettings = useCallback(
+    (section?: string) => setUrlState({ settings: section || 'general' }),
+    [setUrlState],
+  );
+  const closeSettings = useCallback(() => setUrlState({ settings: '' }), [setUrlState]);
+  const changeSettingsSection = useCallback(
+    (section: SettingsSectionId) => setUrlState({ settings: section }, { replace: true }),
+    [setUrlState],
+  );
+  const openViewFromSettings = useCallback(
+    (nextView: ViewId) => setUrlState({ view: nextView, settings: '' }),
+    [setUrlState],
+  );
+
   // Open a specific session in the chat view, one history entry (view + session
   // together), used by the CI "open fix session" affordance.
   const handleOpenSession = useCallback(
@@ -388,7 +403,7 @@ export default function App() {
   // auth flow below takes over (success → shell; failure → gate with pairing.error).
   if (pairing.status === 'pending') {
     return (
-      <AppShell view={view} onNavigate={handleNavigate}>
+      <AppShell view={view} onNavigate={handleNavigate} onOpenSettings={openSettings}>
         <div className="app-splash" role="status" aria-live="polite">
           <img className="app-splash__mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
           <span>Pairing this device…</span>
@@ -399,7 +414,7 @@ export default function App() {
 
   if (signedOut) {
     return (
-      <AppShell view={view} onNavigate={handleNavigate}>
+      <AppShell view={view} onNavigate={handleNavigate} onOpenSettings={openSettings}>
         <SignedOutGate
           pairingError={pairing.status === 'error' ? pairing.error : undefined}
           relayPairingError={relayPairing.status === 'error' ? relayPairing.error : undefined}
@@ -410,7 +425,7 @@ export default function App() {
 
   if (showSplash) {
     return (
-      <AppShell view={view} onNavigate={handleNavigate}>
+      <AppShell view={view} onNavigate={handleNavigate} onOpenSettings={openSettings}>
         <div className="app-splash" role="status" aria-live="polite">
           <img className="app-splash__mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
           <span>Signing in…</span>
@@ -420,7 +435,7 @@ export default function App() {
   }
 
   return (
-    <AppShell view={view} onNavigate={handleNavigate}>
+    <AppShell view={view} onNavigate={handleNavigate} onOpenSettings={openSettings}>
     <div className="app-shell-root">
     <StepUpHost />
     {/* A hand-off bundle (#pair=<token>&offers=…) surfaces its offer set once the
@@ -473,6 +488,7 @@ export default function App() {
       onDeleteChat={handleDeleteChat}
       onSearch={handleSearch}
       onSignOut={handleSignOut}
+      onOpenSettings={openSettings}
       onRefresh={() => void boot.refetch()}
       refreshing={boot.isFetching}
       inert={daemonUnreachable}
@@ -543,16 +559,21 @@ export default function App() {
       {activeView === 'workstream' && <WorkstreamView />}
       {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
       {activeView === 'checkin' && <CheckInView />}
-      {activeView === 'principals' && <PrincipalsView />}
       {activeView === 'phone' && <PhoneNodeView />}
       {activeView === 'knowledge' && <KnowledgeView />}
       {activeView === 'memory' && <MemoryView />}
       {activeView === 'calendar' && <CalendarView />}
       {activeView === 'mail' && <MailView />}
       {activeView === 'dates' && <DatesView />}
-      {activeView === 'providers' && <ProvidersView />}
-      {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
     </ShellLayout>
+    <SettingsDialog
+      open={Boolean(settingsSection)}
+      section={settingsSection ?? ''}
+      onSectionChange={changeSettingsSection}
+      onClose={closeSettings}
+      onOpenView={openViewFromSettings}
+      realtimeError={realtimeError}
+    />
     </div>
     </AppShell>
   );

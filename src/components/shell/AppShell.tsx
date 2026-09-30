@@ -64,6 +64,8 @@ export interface AppShellProps {
    * the chat view.
    */
   onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
+  /** Open the settings dialog (palette commands, g p / g a). */
+  onOpenSettings?: (section?: string) => void;
 }
 
 // ─── Inner shell (rendered inside ThemeProvider so useTheme is available) ──
@@ -71,9 +73,10 @@ export interface AppShellProps {
 interface InnerShellProps {
   children: ReactNode;
   onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
+  onOpenSettings?: (section?: string) => void;
 }
 
-function InnerShell({ children, onNavigate }: InnerShellProps) {
+function InnerShell({ children, onNavigate, onOpenSettings }: InnerShellProps) {
   const { toggleTheme, density, setDensity } = useTheme();
   const { AnnouncerRegion } = useAnnouncer();
 
@@ -108,7 +111,7 @@ function InnerShell({ children, onNavigate }: InnerShellProps) {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <CommandProvider onNavigate={onNavigate}>
+        <CommandProvider onNavigate={onNavigate} onOpenSettings={onOpenSettings}>
           <ShellProvider>
             <PeekProvider>
               {children}
@@ -124,14 +127,14 @@ function InnerShell({ children, onNavigate }: InnerShellProps) {
 
 // ─── AppShell (public export) ───────────────────────────────────────────────
 
-export default function AppShell({ children, view: _view, onNavigate }: AppShellProps) {
+export default function AppShell({ children, view: _view, onNavigate, onOpenSettings }: AppShellProps) {
   // _view is accepted but not used internally, CommandProvider receives
   // onNavigate and fires it; the current view is owned by App via useUrlState.
   // It is in the prop signature so App.tsx has a clear contract and can
   // conditionally pass data-view attributes or similar in a future iteration.
   return (
     <ThemeProvider>
-      <InnerShell onNavigate={onNavigate}>
+      <InnerShell onNavigate={onNavigate} onOpenSettings={onOpenSettings}>
         {children}
       </InnerShell>
     </ThemeProvider>

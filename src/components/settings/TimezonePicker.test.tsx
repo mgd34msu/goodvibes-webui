@@ -7,7 +7,7 @@ import { UNSET_TIMEZONE_LABEL, UNSET_TIMEZONE_VALUE } from '../../lib/timezones'
 
 function render(props: { value: string; onCommit: (value: string) => void }): {
   container: HTMLElement;
-  select: HTMLSelectElement;
+  select: HTMLButtonElement;
   search: HTMLInputElement;
   unmount: () => void;
 } {
@@ -17,7 +17,7 @@ function render(props: { value: string; onCommit: (value: string) => void }): {
   flushSync(() => {
     root.render(React.createElement(TimezonePicker, props));
   });
-  const select = container.querySelector('select') as HTMLSelectElement;
+  const select = container.querySelector('.gv-select__trigger') as HTMLButtonElement;
   const search = container.querySelector('input[type="search"]') as HTMLInputElement;
   return {
     container,
@@ -30,41 +30,51 @@ function render(props: { value: string; onCommit: (value: string) => void }): {
   };
 }
 
-function selectValue(select: HTMLSelectElement, value: string): void {
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
-  flushSync(() => {
-    nativeSetter.call(select, value);
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+/** The kit Select's trigger; its listbox is portaled to document.body while open. */
+function openOptions(trigger: HTMLButtonElement): HTMLElement[] {
+  if (trigger.getAttribute('aria-expanded') !== 'true') {
+    flushSync(() => { trigger.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  }
+  return [...document.body.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')];
+}
+
+function optionLabels(trigger: HTMLButtonElement): string[] {
+  return openOptions(trigger).map((o) => o.textContent ?? '');
+}
+
+function selectLabel(trigger: HTMLButtonElement, label: string): void {
+  const option = openOptions(trigger).find((o) => o.textContent === label);
+  if (!option) throw new Error(`no option "${label}"`);
+  flushSync(() => { option.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 }
 
 describe('TimezonePicker', () => {
   test('renders a select with the explicit "UTC (unset)" option always present', () => {
-    const { select, unmount } = render({ value: '', onCommit: () => {} });
-    const optionLabels = [...select.options].map((o) => o.textContent);
-    const optionValues = [...select.options].map((o) => o.value);
-    expect(optionLabels).toContain(UNSET_TIMEZONE_LABEL);
-    expect(optionValues).toContain(UNSET_TIMEZONE_VALUE);
+    const { container, select, unmount } = render({ value: '', onCommit: () => {} });
+    expect(container.querySelector('select')).toBeNull();
+    // The unset value ('') reads as its explicit label on the trigger.
+    expect(UNSET_TIMEZONE_VALUE).toBe('');
+    expect(select.textContent).toContain(UNSET_TIMEZONE_LABEL);
+    expect(optionLabels(select)).toContain(UNSET_TIMEZONE_LABEL);
     unmount();
   });
 
   test('renders real IANA zone names as options', () => {
     const { select, unmount } = render({ value: '', onCommit: () => {} });
-    const optionValues = [...select.options].map((o) => o.value);
-    expect(optionValues).toContain('America/New_York');
+    expect(optionLabels(select)).toContain('America/New_York');
     unmount();
   });
 
   test('the current value is selected when it is a real zone', () => {
     const { select, unmount } = render({ value: 'Europe/London', onCommit: () => {} });
-    expect(select.value).toBe('Europe/London');
+    expect(select.textContent).toContain('Europe/London');
     unmount();
   });
 
   test('selecting a real zone commits that exact IANA name', () => {
     const commits: string[] = [];
     const { select, unmount } = render({ value: '', onCommit: (v) => commits.push(v) });
-    selectValue(select, 'Asia/Tokyo');
+    selectLabel(select, 'Asia/Tokyo');
     expect(commits).toEqual(['Asia/Tokyo']);
     unmount();
   });
@@ -72,7 +82,7 @@ describe('TimezonePicker', () => {
   test('selecting the unset option commits the empty string', () => {
     const commits: string[] = [];
     const { select, unmount } = render({ value: 'Asia/Tokyo', onCommit: (v) => commits.push(v) });
-    selectValue(select, UNSET_TIMEZONE_VALUE);
+    selectLabel(select, UNSET_TIMEZONE_LABEL);
     expect(commits).toEqual(['']);
     unmount();
   });
@@ -84,10 +94,10 @@ describe('TimezonePicker', () => {
       nativeSetter.call(search, 'New_York');
       search.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const optionValues = [...select.options].map((o) => o.value);
-    expect(optionValues).toContain('America/New_York');
+    const labels = optionLabels(select);
+    expect(labels).toContain('America/New_York');
     // Zones that clearly do not match the query are filtered out.
-    expect(optionValues).not.toContain('Europe/London');
+    expect(labels).not.toContain('Europe/London');
     unmount();
   });
 
@@ -98,9 +108,8 @@ describe('TimezonePicker', () => {
       nativeSetter.call(search, 'tokyo');
       search.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const optionValues = [...select.options].map((o) => o.value);
-    expect(optionValues).toContain('Europe/London');
-    expect(select.value).toBe('Europe/London');
+    expect(optionLabels(select)).toContain('Europe/London');
+    expect(select.textContent).toContain('Europe/London');
     unmount();
   });
 });

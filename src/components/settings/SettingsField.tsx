@@ -1,8 +1,11 @@
 /**
- * SettingsField, one typed config editor row, driven by the SDK schema.
+ * SettingsField, one typed config editor row, driven by the SDK schema. Laid
+ * out as a settings-dialog row: a readable label, the key in mono and the
+ * description on the left, the kit control on the right (stacked beneath on a
+ * phone, and for wide editors). No native widgets.
  *
- *   boolean → toggle (commits immediately)
- *   enum    → <select> of the schema's enumValues (commits immediately)
+ *   boolean → kit Toggle (commits immediately)
+ *   enum    → kit Select of the schema's enumValues (commits immediately)
  *   number  → numeric input, committed on blur/Enter, client-parsed to a finite
  *             number; the schema validationHint is shown as the accepted range
  *   string  → text input, committed on blur/Enter
@@ -39,6 +42,11 @@
  */
 import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
+import { settingLabelForKey } from '../../lib/setting-label';
+import { Button } from '../ui/Button';
+import { Input, Textarea } from '../ui/Field';
+import { Select } from '../ui/Select';
+import { Toggle } from '../ui/Toggle';
 import { isMoneyField } from '../../lib/money';
 import type { ConfigFieldModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
@@ -182,22 +190,22 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
         return (
           <div className="settings-field-secret">
             <span className="settings-value settings-value--secret">{masked}</span>
-            <button
-              type="button"
-              className="secondary-button settings-field-replace"
+            <Button
+              size="sm"
+              className="settings-field-replace"
               onClick={() => {
                 setDraft('');
                 setRevealing(true);
               }}
             >
               Replace
-            </button>
+            </Button>
           </div>
         );
       }
       return (
         <div className="settings-field-secret">
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             aria-label={`New value for ${field.key}`}
@@ -209,12 +217,12 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
               if (e.key === 'Enter') void commit(draft);
             }}
           />
-          <button type="button" className="primary-button settings-field-save" disabled={saving} onClick={() => void commit(draft)}>
-            Save
-          </button>
-          <button type="button" className="secondary-button" disabled={saving} onClick={() => setRevealing(false)}>
+          <Button size="sm" disabled={saving} onClick={() => setRevealing(false)}>
             Cancel
-          </button>
+          </Button>
+          <Button size="sm" variant="primary" className="settings-field-save" disabled={saving} onClick={() => void commit(draft)}>
+            Save
+          </Button>
         </div>
       );
     }
@@ -222,15 +230,13 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
     if (field.type === 'boolean') {
       const checked = Boolean(effectiveValue(field));
       return (
-        <label className="settings-field-toggle">
-          <input
-            type="checkbox"
-            checked={checked}
-            disabled={saving}
-            onChange={(e) => void commit(e.target.checked)}
-          />
-          <span>{checked ? 'On' : 'Off'}</span>
-        </label>
+        <Toggle
+          className="settings-field-toggle"
+          checked={checked}
+          disabled={saving}
+          aria-label={field.key}
+          onChange={(next) => void commit(next)}
+        />
       );
     }
 
@@ -238,26 +244,24 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       const current = effectiveValue(field);
       const value = typeof current === 'string' ? current : scalarToText(current);
       return (
-        <select
+        <Select
           className="settings-field-select"
           aria-label={field.key}
           value={value}
           disabled={saving}
-          onChange={(e) => void commit(e.target.value)}
-        >
-          {!field.enumValues.includes(value) && <option value={value}>{value || '(unset)'}</option>}
-          {field.enumValues.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          placement="bottom-end"
+          options={[
+            ...(field.enumValues.includes(value) ? [] : [{ value, label: value || '(unset)' }]),
+            ...field.enumValues.map((opt) => ({ value: opt, label: opt })),
+          ]}
+          onChange={(next) => void commit(next)}
+        />
       );
     }
 
     if (field.type === 'number') {
       return (
-        <input
+        <Input
           className="settings-field-input"
           type="number"
           inputMode="decimal"
@@ -283,7 +287,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
 
     // string (non-secret)
     return (
-      <input
+      <Input
         className="settings-field-input"
         type="text"
         aria-label={field.key}
@@ -301,8 +305,20 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
     );
   })();
 
+  // Wide editors (structured objects, a revealed secret, the timezone picker,
+  // a store-only secret note) sit under the text instead of beside it.
+  const stacked = field.type === 'object'
+    || field.key === 'daemon.timezone'
+    || (field.isSecret && field.type === 'string' && (field.secretStoreOnly || revealing));
+
   return (
-    <div className="settings-field" data-config-key={field.key} data-daemon-owned={field.daemonOwned}>
+    <div
+      className={stacked ? 'settings-field settings-field--stacked' : 'settings-field'}
+      data-config-key={field.key}
+      data-daemon-owned={field.daemonOwned}
+    >
+      <div className="settings-field-text">
+      <div className="settings-field-label">{settingLabelForKey(field.key)}</div>
       <div className="settings-field-head">
         <code className="settings-field-key">{field.key}</code>
         {field.daemonOwned && (
@@ -319,6 +335,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
         )}
       </div>
       {field.description && <p className="settings-field-desc">{field.description}</p>}
+      </div>
       <div className="settings-field-control">{control}</div>
       {persisted?.persistedTo && (
         <p className="settings-field-persisted" role="status">
@@ -354,16 +371,16 @@ function ObjectJsonField({
   const [parseError, setParseError] = useState<string | null>(null);
   return (
     <div className="settings-field-object">
-      <textarea
+      <Textarea
         aria-label={field.key}
         value={draft}
         disabled={saving}
         rows={Math.min(10, draft.split('\n').length + 1)}
         onChange={(e) => setDraft(e.target.value)}
       />
-      <button
-        type="button"
-        className="primary-button"
+      <Button
+        variant="primary"
+        size="sm"
         disabled={saving}
         onClick={() => {
           try {
@@ -380,7 +397,7 @@ function ObjectJsonField({
         }}
       >
         Save
-      </button>
+      </Button>
       {parseError && (
         <div className="banner warning" role="alert">
           {parseError}

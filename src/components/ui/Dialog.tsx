@@ -17,6 +17,14 @@ export interface DialogProps {
   initialFocusRef?: RefObject<HTMLElement | null>;
   /** Hide the close button (confirm dialogs that already have Cancel). */
   hideClose?: boolean;
+  /**
+   * Bare layout: no header, body padding or footer. The title stays the
+   * accessible name (visually hidden) and the children draw the whole panel,
+   * close button included. The settings dialog uses it for its two columns.
+   */
+  bare?: boolean;
+  /** Extra class on the panel. */
+  className?: string;
   children?: ReactNode;
 }
 
@@ -34,6 +42,8 @@ export function Dialog({
   footer,
   initialFocusRef,
   hideClose = false,
+  bare = false,
+  className,
   children,
 }: DialogProps) {
   const titleId = useId();
@@ -45,6 +55,12 @@ export function Dialog({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
+      // A dialog nested inside this one (a confirm sheet, a modal a section
+      // opens) owns its own Escape; React bubbles portal and inline events
+      // through here, so leave those alone.
+      const target = event.target instanceof Element ? event.target : null;
+      const layer = target?.closest('[role="dialog"], [role="alertdialog"]');
+      if (layer && layer !== panelRef.current) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
@@ -62,9 +78,17 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className={['glass', 'gv-dialog', sizeClass].filter(Boolean).join(' ')}
+        className={['glass', 'gv-dialog', sizeClass, bare ? 'gv-dialog--bare' : '', className ?? ''].filter(Boolean).join(' ')}
         onKeyDown={onKeyDown}
       >
+        {bare ? (
+          <>
+            <h2 id={titleId} className="gv-sr-only">{title}</h2>
+            {description && <p id={descriptionId} className="gv-sr-only">{description}</p>}
+            {children}
+          </>
+        ) : (
+        <>
         <div className="gv-dialog__header">
           <div className="gv-dialog__titles">
             <h2 id={titleId} className="gv-dialog__title">{title}</h2>
@@ -74,6 +98,8 @@ export function Dialog({
         </div>
         {children && <div className="gv-dialog__body">{children}</div>}
         {footer && <div className="gv-dialog__footer">{footer}</div>}
+        </>
+        )}
       </div>
     </div>,
     document.body,

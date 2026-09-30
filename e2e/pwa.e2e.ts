@@ -16,7 +16,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { expectNoHorizontalScroll } from './support/app';
+import { expectNoHorizontalScroll, openSettings } from './support/app';
 import { mockPushApis } from './support/push-mocks';
 
 // ── Manifest + installability ─────────────────────────────────────────────
@@ -40,7 +40,7 @@ test('the web app manifest is served and declares an installable standalone app'
 test('index.html links the manifest and a theme-color', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#08080f');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#15161b');
 });
 
 // ── Service worker registers (offline behavior: pwa-offline.e2e.ts) ─────────
@@ -60,7 +60,7 @@ test('the service worker registers in the browser', async ({ page }) => {
 // mockPushApis lives in ./support/push-mocks (shared with pairing-handoff.e2e.ts).
 
 async function openNotificationSettings(page: Page): Promise<void> {
-  await page.goto('/?view=admin');
+  await openSettings(page, 'notifications');
   await expect(page.getByRole('heading', { name: 'Notifications & install' })).toBeVisible();
 }
 

@@ -12,7 +12,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, createMockPairingStore } from './support/mock-daemon';
-import { only, PHONE, expectTappable } from './support/app';
+import { only, PHONE, expectTappable, openSettings } from './support/app';
 
 // eslint-disable-next-line no-empty-pattern -- Playwright requires the object-destructuring form even with no fixtures used
 test.beforeEach(({}, testInfo) => {
@@ -20,7 +20,7 @@ test.beforeEach(({}, testInfo) => {
 });
 
 async function openPairingSettings(page: import('@playwright/test').Page): Promise<void> {
-  await page.goto('/?view=admin');
+  await openSettings(page, 'devices');
   await expect(page.getByRole('heading', { name: 'Devices & pairing' })).toBeVisible();
 }
 
@@ -102,10 +102,12 @@ test('revoking one device 401s it while the current session (a different token) 
   });
   expect(status).toBe(401);
 
-  // The operator's OWN session (a different token entirely) is unaffected.
+  // The operator's OWN session (a different token entirely) is unaffected: a
+  // reload lands back in the signed-in shell with the settings dialog reopened
+  // from its link, its data still loading.
   await page.reload();
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Daemon-Owned Auth' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Devices & pairing' })).toBeVisible();
 
   await phoneContext.close();
 });

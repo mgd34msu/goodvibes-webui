@@ -4,16 +4,16 @@
  * button); a usable tailscale environment offers "Serve over tailscale" behind
  * the shared ConfirmSheet idiom; the resulting receipt (success or failure)
  * renders honestly; the action clears the 44px touch-target floor on a phone
- * viewport. Runs on both phone and desktop (default project set).
+ * viewport. The panel lives in the settings dialog's Network section. Runs on
+ * both phone and desktop (default project set).
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { expectTappable, only, PHONE } from './support/app';
+import { expectTappable, only, PHONE, openSettings } from './support/app';
 
 test('tailscale absent: the panel renders nothing, no nag, no dead button', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'network');
   await expect(page.locator('[data-testid="tailscale-settings"]')).toHaveCount(0);
   await expect(page.getByText('Serve over tailscale')).toHaveCount(0);
 });
@@ -22,8 +22,7 @@ test('tailscale installed but not logged in: still quiet, no action offered', as
   await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: false, detail: 'tailscale is installed but not connected (state: Stopped)' },
   });
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'network');
   await expect(page.locator('[data-testid="tailscale-settings"]')).toHaveCount(0);
 });
 
@@ -31,7 +30,7 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
   await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'tailscale is connected as my-host.tailnet.ts.net' },
   });
-  await page.goto('/?view=admin');
+  await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await expect(panel).toBeVisible();
   await expect(panel).toContainText('my-host.tailnet.ts.net');
@@ -54,7 +53,7 @@ test('cancelling the confirm sheet never runs serve', async ({ page }) => {
   await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'connected' },
   });
-  await page.goto('/?view=admin');
+  await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await panel.getByRole('button', { name: 'Serve over tailscale' }).click();
   await expect(page.locator('.confirm-sheet')).toBeVisible();
@@ -70,7 +69,7 @@ test('no MagicDNS name resolved: still quiet, the same honest gating as full abs
     // affordance-gating contract.
     tailscale: { available: true, loggedIn: true, detail: 'tailscale is connected but reports no MagicDNS name' },
   });
-  await page.goto('/?view=admin');
+  await openSettings(page, 'network');
   await expect(page.locator('[data-testid="tailscale-settings"]')).toHaveCount(0);
 });
 
@@ -81,7 +80,7 @@ test('a failed serve (e.g. a permission error) renders the daemon\'s own receipt
       detail: 'connected', serveFailsWith: 'tailscale serve failed: permission denied',
     },
   });
-  await page.goto('/?view=admin');
+  await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await panel.getByRole('button', { name: 'Serve over tailscale' }).click();
   await page.locator('.confirm-sheet__confirm').click();
@@ -95,7 +94,7 @@ test('phone: the Serve over tailscale button clears the 44px touch-target floor'
   await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'connected' },
   });
-  await page.goto('/?view=admin');
+  await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await expect(panel).toBeVisible();
   await expectTappable(page, '[data-testid="tailscale-settings"] >> text=Serve over tailscale', 'Serve over tailscale button');

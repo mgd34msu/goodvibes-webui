@@ -230,3 +230,37 @@ export function deriveCredentialAvailability(outcome: { ok: true; value: unknown
   }
   return { available: true, credentials };
 }
+
+// ---------------------------------------------------------------------------
+// Plain-language state for the settings dialog's provider rows
+// ---------------------------------------------------------------------------
+
+/** The status-dot tone for a freshness (settings dialog rows). */
+export function freshnessTone(freshness: ProviderFreshness): 'ok' | 'warn' | 'bad' | 'info' | 'idle' {
+  switch (freshness) {
+    case 'healthy': return 'ok';
+    case 'expiring': return 'warn';
+    case 'expired': return 'bad';
+    case 'pending': return 'info';
+    case 'status unavailable': return 'warn';
+    case 'unconfigured': return 'idle';
+  }
+}
+
+/** The words beside the dot: what the freshness means to a person, never the wire value. */
+export function freshnessPhrase(freshness: ProviderFreshness): string {
+  switch (freshness) {
+    case 'healthy': return 'Signed in';
+    case 'expiring': return 'Sign-in expiring soon';
+    case 'expired': return 'Sign-in expired';
+    case 'pending': return 'Sign-in pending';
+    case 'status unavailable': return 'Status unavailable';
+    case 'unconfigured': return 'Not set up';
+  }
+}
+
+/** One line for a provider row: its state, plus where it was set up when the daemon says. */
+export function providerStatePhrase(status: ProviderStatus): string {
+  const phrase = freshnessPhrase(status.freshness);
+  return status.configured && status.configuredVia ? `${phrase} · set up via ${status.configuredVia}` : phrase;
+}

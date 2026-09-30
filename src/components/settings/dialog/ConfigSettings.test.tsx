@@ -3,8 +3,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from '../../lib/toast';
-import { FEATURE_SETTINGS } from '../../lib/generated/config-schema';
+import { ToastProvider } from '../../../lib/toast';
+import { FEATURE_SETTINGS } from '../../../lib/generated/config-schema';
 
 type ConfigOutcome = 'ok' | 'admin-required' | 'network-error';
 let outcome: ConfigOutcome = 'ok';
@@ -38,7 +38,7 @@ const CONFIG_FIXTURE = {
 // panel under Payments calls list() on mount, which is why it is stubbed here.
 const cardsListCalls: string[] = [];
 
-mock.module('../../lib/goodvibes', () => ({
+mock.module('../../../lib/goodvibes', () => ({
   sdk: {
     operator: {
       payments: {
@@ -87,7 +87,38 @@ mock.module('../../lib/goodvibes', () => ({
   },
 }));
 
-const { SettingsModal } = await import('./SettingsModal');
+const { ConfigSettingsProvider, ConfigGroupList, RawConfigEditor, useConfigSettings } = await import('./ConfigSettings');
+const { groupsForSection, sectionForNamespace } = await import('./sections');
+
+/**
+ * Test harness: the real provider and group renderer, with a small category
+ * nav standing in for the dialog's section nav. Picking a category renders the
+ * settings-dialog SECTION that owns that namespace (sections.ts), exactly the
+ * groups the dialog would show there, so the namespace-to-section mapping is
+ * exercised too.
+ */
+function Harness() {
+  const { groups } = useConfigSettings();
+  const [picked, setPicked] = React.useState('');
+  const current = groups.find((g) => g.label === picked) ?? groups[0];
+  const shown = current ? groupsForSection(sectionForNamespace(current.id), groups) : [];
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      'nav',
+      null,
+      groups.map((g) => React.createElement('button', {
+        key: g.id,
+        type: 'button',
+        className: 'settings-category',
+        onClick: () => setPicked(g.label),
+      }, g.label)),
+    ),
+    React.createElement(ConfigGroupList, { groups: shown }),
+    React.createElement(RawConfigEditor),
+  );
+}
 
 function render() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -99,7 +130,11 @@ function render() {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(ToastProvider, null, React.createElement(SettingsModal, { open: true, onClose: () => {} })),
+        React.createElement(
+          ToastProvider,
+          null,
+          React.createElement(ConfigSettingsProvider, null, React.createElement(Harness)),
+        ),
       ),
     );
   });
@@ -145,6 +180,17 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   });
 }
 
+/** Open a kit Select and return its option labels (the listbox is portaled to body). */
+function openSelect(trigger: HTMLButtonElement): string[] {
+  flushSync(() => { trigger.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+  return [...document.body.querySelectorAll('[role="listbox"] [role="option"]')].map((o) => o.textContent ?? '');
+}
+
+function pickOption(label: string): void {
+  const option = [...document.body.querySelectorAll('[role="listbox"] [role="option"]')].find((o) => o.textContent === label);
+  flushSync(() => { option?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+}
+
 // React 19 delegates onBlur to the bubbling `focusout` event at the root.
 function commitByBlur(input: HTMLInputElement): void {
   flushSync(() => input.dispatchEvent(new window.Event('focusout', { bubbles: true })));
@@ -156,7 +202,7 @@ afterEach(() => {
   configSetCalls.length = 0;
 });
 
-describe('SettingsModal: schema-driven structure', () => {
+describe('settings config groups: schema-driven structure', () => {
   test('renders domain groups only; the enablement bucket is gone', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Display')));
@@ -188,12 +234,13 @@ describe('SettingsModal: schema-driven structure', () => {
     unmount();
   });
 
-  test('display.theme renders as a select of the bundled theme names, carrying its live value', async () => {
+  test('display.theme renders as a kit select of the bundled theme names, carrying its live value', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] select')));
-    const select = el.querySelector('[data-config-key="display.theme"] select') as HTMLSelectElement;
-    expect(select.value).toBe('nord');
-    const options = [...select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+    await waitFor(() => Boolean(el.querySelector('[data-config-key="display.theme"] .gv-select__trigger')));
+    const trigger = el.querySelector('[data-config-key="display.theme"] .gv-select__trigger') as HTMLButtonElement;
+    expect(trigger.textContent).toContain('nord');
+    expect(el.querySelector('[data-config-key="display.theme"] select')).toBeNull();
+    const options = openSelect(trigger);
     expect(options).toContain('goodvibes');
     expect(options).toContain('system');
     unmount();
@@ -211,7 +258,7 @@ describe('SettingsModal: schema-driven structure', () => {
   });
 });
 
-describe('SettingsModal: feature units', () => {
+describe('settings config groups: feature units', () => {
   test('a secret key owned by a feature unit is masked, never raw, and offers write-only replace', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
@@ -233,7 +280,7 @@ describe('SettingsModal: feature units', () => {
     const unit = el.querySelector('[data-feature-id="slack-surface"]') as HTMLElement;
     expect(unit.querySelector('.feature-unit-toggle')).toBeNull();
     // The domain key renders as an ordinary typed toggle field inside the unit.
-    expect(unit.querySelector('[data-config-key="surfaces.slack.enabled"] input[type="checkbox"]')).toBeTruthy();
+    expect(unit.querySelector('[data-config-key="surfaces.slack.enabled"] [role="switch"]')).toBeTruthy();
     unmount();
   });
 
@@ -241,10 +288,9 @@ describe('SettingsModal: feature units', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
     clickCategory(el, 'Permissions');
-    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
-    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input') as HTMLInputElement;
-    expect(toggle.checked).toBe(true); // ruled default: on
-    // React fires a checkbox's onChange from the native click; click also flips checked.
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle')));
+    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-checked')).toBe('true'); // ruled default: on
     flushSync(() => {
       toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
@@ -257,11 +303,11 @@ describe('SettingsModal: feature units', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
     clickCategory(el, 'Permissions');
-    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle')));
     const unit = el.querySelector('[data-feature-id="permissions-simulation"]') as HTMLElement;
     // permissions-simulation is restart-gated; no marker before any change.
     expect(unit.querySelector('[data-pending-restart]')).toBeNull();
-    const toggle = unit.querySelector('.feature-unit-toggle input') as HTMLInputElement;
+    const toggle = unit.querySelector('.feature-unit-toggle') as HTMLButtonElement;
     flushSync(() => {
       toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
@@ -274,16 +320,12 @@ describe('SettingsModal: feature units', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
     clickCategory(el, 'Behavior');
-    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] select')));
-    const select = el.querySelector('[data-feature-id="hitl-ux-modes"] select') as HTMLSelectElement;
-    expect(select.value).toBe('balanced'); // live fixture value
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] .gv-select__trigger')));
+    const trigger = el.querySelector('[data-feature-id="hitl-ux-modes"] .gv-select__trigger') as HTMLButtonElement;
+    expect(trigger.textContent).toContain('balanced'); // live fixture value
     // The full schema mode set is offered, inactive "off" included.
-    expect([...select.options].map((o) => o.value)).toEqual(['off', 'quiet', 'balanced', 'operator']);
-    flushSync(() => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
-      setter?.call(select, 'quiet');
-      select.dispatchEvent(new window.Event('change', { bubbles: true }));
-    });
+    expect(openSelect(trigger)).toEqual(['off', 'quiet', 'balanced', 'operator']);
+    pickOption('quiet');
     await waitFor(() => configSetCalls.length > 0);
     expect(configSetCalls).toEqual([['behavior.hitlMode', 'quiet']]);
     unmount();
@@ -293,13 +335,10 @@ describe('SettingsModal: feature units', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Behavior')));
     clickCategory(el, 'Behavior');
-    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] select')));
-    const select = el.querySelector('[data-feature-id="hitl-ux-modes"] select') as HTMLSelectElement;
-    flushSync(() => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
-      setter?.call(select, 'operator');
-      select.dispatchEvent(new window.Event('change', { bubbles: true }));
-    });
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="hitl-ux-modes"] .gv-select__trigger')));
+    const trigger = el.querySelector('[data-feature-id="hitl-ux-modes"] .gv-select__trigger') as HTMLButtonElement;
+    openSelect(trigger);
+    pickOption('operator');
     await waitFor(() => configSetCalls.length > 0);
     expect(el.querySelector('[data-pending-restart]')).toBeNull();
     unmount();
@@ -317,7 +356,7 @@ describe('SettingsModal: feature units', () => {
   });
 });
 
-describe('SettingsModal: honest degraded states', () => {
+describe('settings config groups: honest degraded states', () => {
   test('admin-scope refusal (403) renders distinctly from a generic fetch failure', async () => {
     outcome = 'admin-required';
     const { el, unmount } = render();
@@ -335,7 +374,7 @@ describe('SettingsModal: honest degraded states', () => {
   });
 });
 
-describe('SettingsModal: secret-store-only credentials refuse a config.set write', () => {
+describe('settings config groups: secret-store-only credentials refuse a config.set write', () => {
   test('surfaces.email.password is masked but offers no Replace flow, it names the real command instead', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
@@ -377,7 +416,7 @@ describe('SettingsModal: secret-store-only credentials refuse a config.set write
   });
 });
 
-describe('SettingsModal: Advanced unschema\'d escape hatch', () => {
+describe('settings config groups: Advanced unschema\'d escape hatch', () => {
   test('saving a key/value calls config.set with the parsed value', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('.settings-advanced input')));
@@ -401,7 +440,7 @@ describe('SettingsModal: Advanced unschema\'d escape hatch', () => {
   });
 });
 
-describe('SettingsModal: object-typed pricing editor', () => {
+describe('settings config groups: object-typed pricing editor', () => {
   test('pricing.modelPrices renders the structured per-model editor, not a JSON textarea', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Pricing')));
@@ -416,7 +455,7 @@ describe('SettingsModal: object-typed pricing editor', () => {
   });
 });
 
-describe('SettingsModal: daemon-owned labeling', () => {
+describe('settings config groups: daemon-owned labeling', () => {
   test('a daemon-owned key (surfaces.slack.botToken) is labeled daemon-owned; a client-owned key is not', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Surfaces')));
@@ -451,7 +490,7 @@ describe('SettingsModal: daemon-owned labeling', () => {
   });
 });
 
-describe('SettingsModal: a failed config.set is surfaced, never rendered as saved', () => {
+describe('settings config groups: a failed config.set is surfaced, never rendered as saved', () => {
   test('a rejected config.set keeps the row showing the OLD value and shows an inline error', async () => {
     setOutcome = 'reject';
     const { el, unmount } = render();
@@ -476,9 +515,9 @@ describe('SettingsModal: a failed config.set is surfaced, never rendered as save
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Permissions')));
     clickCategory(el, 'Permissions');
-    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input')));
-    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle input') as HTMLInputElement;
-    expect(toggle.checked).toBe(true); // ruled default: on
+    await waitFor(() => Boolean(el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle')));
+    const toggle = el.querySelector('[data-feature-id="permissions-simulation"] .feature-unit-toggle') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-checked')).toBe('true'); // ruled default: on
     flushSync(() => {
       toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
@@ -489,7 +528,7 @@ describe('SettingsModal: a failed config.set is surfaced, never rendered as save
     expect(el.querySelector('[data-pending-restart="permissions-simulation"]')).toBeNull();
     // config.get was never invalidated on failure, so the toggle still reflects the
     // daemon's actual (unchanged) value, not an optimistically-applied one.
-    expect(toggle.checked).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
     unmount();
   });
 });
@@ -498,9 +537,10 @@ describe('SettingsModal: a failed config.set is surfaced, never rendered as save
  * Card entry is actually reachable in the real settings surface.
  *
  * Without this, PaymentCardEntry could be a correct component nobody can get
- * to, every one of its own tests would still pass. These drive the real modal:
- * open it, click the Payments category, and check the panel is there, that it
- * is scoped to that category, and that no card value is displayed.
+ * to, every one of its own tests would still pass. These drive the real group
+ * renderer: pick the Payments category (its settings section), and check the
+ * panel is there, that it is scoped to that section, and that no card value is
+ * displayed.
  */
 describe('the Payments category offers card entry', () => {
   test('the card panel renders under Payments', async () => {
@@ -522,7 +562,7 @@ describe('the Payments category offers card entry', () => {
     unmount();
   });
 
-  test('the panel belongs to Payments only. It does not follow you to another category', async () => {
+  test('the panel belongs to Payments only. It does not follow you to another section', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
     clickCategory(el, 'Payments');
@@ -546,7 +586,7 @@ describe('the Payments category offers card entry', () => {
     unmount();
   });
 
-  test('no card-material config key renders as a row anywhere in the modal', async () => {
+  test('no card-material config key renders as a row anywhere in the section', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean([...el.querySelectorAll('.settings-category')].some((b) => b.textContent === 'Payments')));
     clickCategory(el, 'Payments');

@@ -14,6 +14,7 @@
  */
 import { useState } from 'react';
 import { InvalidMoneyInputError, formatMoneyAmountValue, parseMoneyAmountInput } from '../../lib/money';
+import { Input } from '../ui/Field';
 
 export interface MoneyFieldProps {
   /** The live stored amount, in ordinary units of `currency` (e.g. 19.99 means $19.99). */
@@ -47,7 +48,7 @@ export function MoneyField({ value, currency, disabled, onCommit }: MoneyFieldPr
         <span className="money-field-currency" aria-hidden="true">
           {label}
         </span>
-        <input
+        <Input
           type="text"
           inputMode="decimal"
           className="settings-field-input money-field-amount"

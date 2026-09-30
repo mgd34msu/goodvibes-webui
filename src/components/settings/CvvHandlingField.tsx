@@ -12,6 +12,7 @@
  */
 import { useState } from 'react';
 import { CVV_PROMPT_TRADEOFF_WARNING } from '@pellux/goodvibes-sdk/platform/payments';
+import { Select } from '../ui/Select';
 
 export interface CvvHandlingFieldProps {
   readonly value: string;
@@ -30,20 +31,18 @@ export function CvvHandlingField({ value, enumValues, disabled, onCommit }: CvvH
 
   return (
     <div className="cvv-handling-field" data-testid="cvv-handling-field">
-      <select
+      <Select
         className="settings-field-select"
         aria-label="payments.cvvHandling"
         value={value}
         disabled={disabled}
-        onChange={(e) => handleChange(e.target.value)}
-      >
-        {!enumValues.includes(value) && <option value={value}>{value || '(unset)'}</option>}
-        {enumValues.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+        placement="bottom-end"
+        options={[
+          ...(enumValues.includes(value) ? [] : [{ value, label: value || '(unset)' }]),
+          ...enumValues.map((opt) => ({ value: opt, label: opt })),
+        ]}
+        onChange={handleChange}
+      />
       {showPromptWarning && (
         <div className="banner warning cvv-prompt-warning" role="alert" data-testid="cvv-prompt-warning">
           {CVV_PROMPT_TRADEOFF_WARNING}

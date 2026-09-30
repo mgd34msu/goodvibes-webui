@@ -1,20 +1,17 @@
 /**
- * ProvidersView, real provider status pills.
- *
- * Proves the pill is derived from the actual per-route freshness the wire
- * returns (ProviderAuthRouteDescriptor.freshness), never a decorative
- * default, and that the header's "configured" text is sourced correctly
- * even when the merged list record lacks a flat `configured` field (the
- * bug this brief fixes, see src/lib/provider-status.ts).
+ * Models and providers (the settings dialog section that replaced the
+ * Providers view): provider rows carry their real per-route state in plain
+ * words (never a decorative default), configured providers list first, the
+ * "configured" signal is sourced correctly even when the merged list record
+ * lacks a flat `configured` field, and a provider's detail shows its models
+ * with context, and its per-route detail and repair hints.
  */
-
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from '../lib/toast';
-import { PeekProvider } from '../components/peek/PeekPanel';
+import { ToastProvider } from '../../../../lib/toast';
 
 const getCalls: string[] = [];
 
@@ -131,7 +128,7 @@ const MODELS_LIST_FIXTURE = {
   secretsResolutionSkipped: false,
 };
 
-mock.module('../lib/goodvibes', () => ({
+mock.module('../../../../lib/goodvibes', () => ({
   getCurrentAuth: () => Promise.resolve({}),
   invokeMethod: () => Promise.resolve({}),
   sdk: {
@@ -160,6 +157,10 @@ mock.module('../lib/goodvibes', () => ({
       accounts: {
         snapshot: () => Promise.resolve({}),
       },
+      config: {
+        get: () => Promise.resolve({}),
+        set: () => Promise.resolve({ success: true }),
+      },
       credentials: {
         // Mirrors the real 200 shape ({ available: true, credentials: [...] })
         //, deriveCredentialAvailability reads value.credentials, so this
@@ -178,7 +179,8 @@ mock.module('../lib/goodvibes', () => ({
   },
 }));
 
-const { ProvidersView } = await import('./ProvidersView');
+const { ModelsSection, contextLabel, priceLabel } = await import('./ModelsSection');
+const { ConfigSettingsProvider } = await import('../ConfigSettings');
 
 function render(): { el: HTMLElement; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -190,7 +192,11 @@ function render(): { el: HTMLElement; unmount: () => void } {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(ToastProvider, null, React.createElement(PeekProvider, null, React.createElement(ProvidersView))),
+        React.createElement(
+          ToastProvider,
+          null,
+          React.createElement(ConfigSettingsProvider, null, React.createElement(ModelsSection)),
+        ),
       ),
     );
   });
@@ -198,7 +204,7 @@ function render(): { el: HTMLElement; unmount: () => void } {
     el: container,
     unmount: () => {
       flushSync(() => root.unmount());
-      if (container.parentNode) container.parentNode.removeChild(container);
+      container.remove();
     },
   };
 }
@@ -219,99 +225,111 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 }
 
 function rows(el: HTMLElement): Element[] {
-  return [...el.querySelectorAll('.record-row')];
+  return [...el.querySelectorAll('.settings-provider-row')];
 }
 
 function rowFor(el: HTMLElement, text: string): Element | undefined {
-  return rows(el).find((r) => r.textContent?.includes(text));
+  return rows(el).find((r) => r.querySelector('.gv-row__title')?.textContent === text);
+}
+
+async function openProvider(el: HTMLElement, title: string): Promise<void> {
+  await waitFor(() => Boolean(rowFor(el, title)));
+  click(rowFor(el, title)?.querySelector('.gv-row__main'));
+  await waitFor(() => (el.textContent ?? '').includes('All providers'));
 }
 
 afterEach(() => {
   getCalls.length = 0;
 });
 
-describe('ProvidersView: real per-provider pills (never decorative "unknown")', () => {
-  test('a provider with a healthy route shows a "healthy" pill', async () => {
+describe('Models and providers: provider rows say their real state in words', () => {
+  test('a provider with a healthy route reads "Signed in", with where it was set up', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    const row = rowFor(el, 'openai');
-    expect(row?.textContent).toContain('healthy');
-    expect(row?.textContent).not.toContain('unknown');
+    await waitFor(() => Boolean(rowFor(el, 'OpenAI')));
+    expect(rowFor(el, 'OpenAI')?.textContent).toContain('Signed in · set up via env');
+    expect(rowFor(el, 'OpenAI')?.querySelector('.gv-dot--ok')).not.toBeNull();
     unmount();
   });
 
-  test('a multi-route provider rolls up to the worst freshness: expired beats healthy', async () => {
+  test('a multi-route provider rolls up to the worst state: expired beats healthy', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    const row = rowFor(el, 'azure');
-    expect(row?.textContent).toContain('expired');
+    await waitFor(() => Boolean(rowFor(el, 'Azure')));
+    expect(rowFor(el, 'Azure')?.textContent).toContain('Sign-in expired');
+    expect(rowFor(el, 'Azure')?.querySelector('.gv-dot--bad')).not.toBeNull();
     unmount();
   });
 
-  test('a provider whose only route is unconfigured shows "unconfigured", distinct from "status unavailable"', async () => {
+  test('a provider whose only route is unconfigured reads "Not set up", distinct from "Status unavailable"', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    const row = rowFor(el, 'anthropic');
-    expect(row?.textContent).toContain('unconfigured');
-    expect(row?.textContent).not.toContain('status unavailable');
-    unmount();
-  });
-});
-
-describe('ProvidersView: header sourced from the real configured signal', () => {
-  test('the env-configured provider header reads "configured via env" when selected', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    click(rowFor(el, 'openai'));
-    await waitFor(() => (el.textContent ?? '').includes('configured via'));
-    expect(el.textContent).toContain('configured via env');
+    await waitFor(() => Boolean(rowFor(el, 'Anthropic')));
+    expect(rowFor(el, 'Anthropic')?.textContent).toContain('Not set up');
+    expect(rowFor(el, 'Anthropic')?.textContent).not.toContain('Status unavailable');
     unmount();
   });
 
   test('configured providers are listed before unconfigured ones', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    const order = rows(el).map((row) => row.textContent ?? '');
-    const anthropicIndex = order.findIndex((text) => text.includes('anthropic'));
-    // anthropic is the only unconfigured fixture provider; every configured one
-    // must precede it.
-    expect(anthropicIndex).toBe(order.length - 1);
+    await waitFor(() => rows(el).length >= 4);
+    const titles = rows(el).map((row) => row.querySelector('.gv-row__title')?.textContent ?? '');
+    expect(titles.indexOf('Anthropic')).toBe(titles.length - 1);
     unmount();
   });
 
-  test('a provider present only in providers.list (no catalog match, no flat `configured`) still reads configured, not "not configured"', async () => {
+  test('the current model shows its registry key', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    click(rowFor(el, 'mistral'));
-    await waitFor(() => getCalls.includes('mistral'));
-    // mistral's runtime.auth.configured is true but it has no catalog
-    // configuredVia, the honest header text is bare "configured".
-    await waitFor(() => (el.textContent ?? '').includes('mistral'));
-    expect(el.textContent).toContain('configured');
-    expect(el.textContent).not.toContain('not configured');
-    unmount();
-  });
-
-  test('selecting the unconfigured provider reads "not configured" in the header', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    click(rowFor(el, 'anthropic'));
-    await waitFor(() => getCalls.includes('anthropic'));
-    await waitFor(() => (el.textContent ?? '').includes('not configured'));
-    expect(el.textContent).toContain('not configured');
+    await waitFor(() => (el.textContent ?? '').includes('openai:gpt-5'));
+    expect(el.querySelector('[data-testid="current-model"]')?.textContent).toContain('openai:gpt-5');
     unmount();
   });
 });
 
-describe('ProvidersView: per-route detail on selection', () => {
-  test('selecting a provider with an expired route shows its detail and repair hints', async () => {
+describe('Models and providers: a provider opens in place', () => {
+  test('a provider present only in providers.list (no catalog match, no flat `configured`) still reads configured', async () => {
     const { el, unmount } = render();
-    await waitFor(() => rows(el).length > 0);
-    click(rowFor(el, 'azure'));
-    await waitFor(() => getCalls.includes('azure'));
+    await openProvider(el, 'mistral');
+    await waitFor(() => getCalls.includes('mistral'));
+    expect(el.querySelector('.settings-provider-head')?.textContent).toContain('Signed in');
+    expect(el.textContent).not.toContain('Not configured');
+    unmount();
+  });
+
+  test('the unconfigured provider reads "Not configured" in its header', async () => {
+    const { el, unmount } = render();
+    await openProvider(el, 'Anthropic');
+    expect(el.querySelector('.settings-provider-head')?.textContent).toContain('Not configured');
+    unmount();
+  });
+
+  test('an expired route shows its detail and repair hints', async () => {
+    const { el, unmount } = render();
+    await openProvider(el, 'Azure');
     await waitFor(() => (el.textContent ?? '').includes('refresh token expired 2h ago'));
     expect(el.textContent).toContain('refresh token expired 2h ago');
     expect(el.textContent).toContain('re-authenticate in the daemon settings');
     unmount();
+  });
+
+  test('model rows read name left and context right, with one action; back returns to the list', async () => {
+    const { el, unmount } = render();
+    await openProvider(el, 'Azure');
+    await waitFor(() => (el.textContent ?? '').includes('GPT-5 (Azure)'));
+    const row = [...el.querySelectorAll('.settings-model-row')].find((r) => r.textContent?.includes('GPT-5 (Azure)'));
+    expect(row?.querySelector('.gv-row__meta')?.textContent).toBe('azure:gpt-5-azure');
+    expect(row?.querySelector('button[aria-label="Use GPT-5 (Azure)"]')).not.toBeNull();
+    const back = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('All providers'));
+    click(back);
+    await waitFor(() => rows(el).length > 0);
+    unmount();
+  });
+});
+
+describe('model facts', () => {
+  test('context and price read in plain units', () => {
+    expect(contextLabel({ contextWindow: 200000 })).toBe('200k context');
+    expect(contextLabel({ contextWindow: 1_000_000 })).toBe('1M context');
+    expect(contextLabel({})).toBe('');
+    expect(priceLabel({ pricing: { inputPerMillionTokens: 3, outputPerMillionTokens: 15 } })).toBe('$3 in · $15 out per 1M');
+    expect(priceLabel({ pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 } })).toBe('Free');
+    expect(priceLabel({})).toBe('');
   });
 });

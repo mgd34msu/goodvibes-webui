@@ -28,6 +28,7 @@ import { deriveCredentialAvailability, type CredentialStatusEntry } from '../lib
 import { errorCode, serializeError } from '../lib/errors';
 import { EmptyState } from './feedback/EmptyState';
 import { SkeletonBlock } from './feedback/SkeletonBlock';
+import '../styles/components/providers.css';
 
 /**
  * True for the daemon's 403 admin-scope refusal on the admin-only

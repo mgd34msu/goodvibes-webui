@@ -1,17 +1,17 @@
 /**
  * Memory diagnostics, the daemon's memory-governance observability surface
- * (ops.memory.get, SDK 1.9.0-dev). Proves the admin Memory panel's tier chip,
+ * (ops.memory.get, SDK 1.9.0-dev). Proves the settings Memory section's tier chip,
  * budget-vs-RSS bar, per-cache footprint table, paused-jobs list, and tripwire
  * line against the mock daemon, plus the honest "does not serve" state on an
  * older daemon build. Runs on both phone and desktop (default project set).
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
+import { openSettings } from './support/app';
 
 test('the elevated-tier snapshot renders the chip, bar, caches, paused job, and tripwire line', async ({ page }) => {
   await installMockDaemon(page); // default seed: the representative 'elevated' snapshot
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'memory');
 
   const panel = page.locator('.memory-diagnostics');
   await expect(panel).toBeVisible();
@@ -47,8 +47,7 @@ test('a critical-tier snapshot shows the danger chip, the refusing-work note, an
       tripwire: { armed: true, sustainedSec: 45, rateMbPerSec: 3.2 },
     },
   });
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'memory');
 
   const panel = page.locator('.memory-diagnostics');
   const chip = panel.locator('.badge');
@@ -60,13 +59,12 @@ test('a critical-tier snapshot shows the danger chip, the refusing-work note, an
 
 test('an older daemon build (verb absent, 404) renders the honest "does not serve" state; and never sinks the sibling panels', async ({ page }) => {
   await installMockDaemon(page, { opsMemory: 'unavailable' });
-  await page.goto('/?view=admin');
-  await expect(page.locator('.stack')).toBeVisible();
+  await openSettings(page, 'memory');
 
   const panel = page.locator('.memory-diagnostics');
   await expect(panel).toContainText('This daemon does not serve memory diagnostics');
   // No placeholder numbers anywhere in the unavailable state.
   await expect(panel.locator('[role="progressbar"]')).toHaveCount(0);
-  // The sibling Power panel is untouched, the unavailable state is contained.
-  await expect(page.locator('.power-panel')).toBeVisible();
+  // The sibling settings in the Memory section are untouched, the unavailable state is contained.
+  await expect(page.getByRole('switch', { name: 'Memory provenance chips' })).toBeVisible();
 });

@@ -1,7 +1,7 @@
 /**
  * Shared e2e helpers.
  */
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 export const PHONE = 'phone';
 export const DESKTOP = 'desktop';
@@ -79,6 +79,19 @@ export async function expectTappable(page: Page, selector: string, label = selec
   if (!box) return;
   expect(box.width, `${label} width ${box.width} < 44`).toBeGreaterThanOrEqual(43.5);
   expect(box.height, `${label} height ${box.height} < 44`).toBeGreaterThanOrEqual(43.5);
+}
+
+/**
+ * Open the settings dialog on a section by deep link (`?settings=<section>`,
+ * sections.ts ids: general, account, devices, people, models, credentials,
+ * usage, voice, notifications, memory, permissions, network, all, about) and
+ * return the dialog. Admin and Providers are sections of this dialog now.
+ */
+export async function openSettings(page: Page, section = 'general'): Promise<Locator> {
+  await page.goto(`/?view=chat&settings=${section}`);
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog).toBeVisible();
+  return dialog;
 }
 
 /** Navigate to a view and wait for the shell to be present. */

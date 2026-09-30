@@ -1,10 +1,12 @@
 /**
  * The account button and its menu (design doc "Glass and elevation" specimen and
  * the deep dive's "Account menu"). Replaces the bottom status strip: who you
- * are, settings and the other configuration pages, theme, the connection to
- * your daemon in plain words with its latency, and sign out.
+ * are, the settings dialog (and its devices and people sections), check-ins,
+ * theme, the connection to your daemon in plain words with its latency, and
+ * sign out. Admin and Providers are no longer pages: they are the Account and
+ * Models and providers sections of the settings dialog.
  */
-import { BellRing, ChevronDown, Gauge, LogOut, Settings, Smartphone, Sparkles, SunMoon, Users } from 'lucide-react';
+import { BellRing, ChevronDown, LogOut, Settings, Smartphone, Sparkles, SunMoon, Users } from 'lucide-react';
 import type { DaemonHealth } from '../../lib/daemon-health';
 import type { ViewId } from '../../lib/router';
 import { useTheme } from '../../hooks/useTheme';
@@ -65,10 +67,12 @@ export interface AccountMenuProps {
   /** Rail form: only the avatar shows; the name moves to a tooltip. */
   compact?: boolean;
   onNavigate: (view: ViewId) => void;
+  /** Open the settings dialog, on a section when one is named. */
+  onOpenSettings: (section?: string) => void;
   onSignOut: () => void;
 }
 
-export function AccountMenu({ name, health, compact = false, onNavigate, onSignOut }: AccountMenuProps) {
+export function AccountMenu({ name, health, compact = false, onNavigate, onOpenSettings, onSignOut }: AccountMenuProps) {
   const { theme, setTheme } = useTheme();
   const tone = connectionTone(health);
   const phrase = connectionPhrase(health);
@@ -99,10 +103,9 @@ export function AccountMenu({ name, health, compact = false, onNavigate, onSignO
       }}
     >
       <MenuMeta>{name} · signed in on this browser</MenuMeta>
-      <MenuItem icon={<Settings />} hint="Ctrl ," onSelect={() => onNavigate('admin')}>Settings</MenuItem>
-      <MenuItem icon={<Gauge />} onSelect={() => onNavigate('providers')}>Models and usage</MenuItem>
-      <MenuItem icon={<Smartphone />} onSelect={() => onNavigate('phone')}>Devices and pairing</MenuItem>
-      <MenuItem icon={<Users />} onSelect={() => onNavigate('principals')}>People and channels</MenuItem>
+      <MenuItem icon={<Settings />} hint="Ctrl ," onSelect={() => onOpenSettings()}>Settings</MenuItem>
+      <MenuItem icon={<Smartphone />} onSelect={() => onOpenSettings('devices')}>Devices and pairing</MenuItem>
+      <MenuItem icon={<Users />} onSelect={() => onOpenSettings('people')}>People and channels</MenuItem>
       <MenuItem icon={<BellRing />} onSelect={() => onNavigate('checkin')}>Check-ins</MenuItem>
       <MenuSeparator />
       <MenuRadioGroup
@@ -124,7 +127,7 @@ export function AccountMenu({ name, health, compact = false, onNavigate, onSignO
         icon={<StatusDot tone={tone} />}
         hint={latency || undefined}
         wrap
-        onSelect={() => onNavigate('admin')}
+        onSelect={() => onOpenSettings('about')}
       >
         {phrase}
       </MenuItem>

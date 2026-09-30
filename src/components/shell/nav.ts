@@ -4,9 +4,10 @@
  * Thirteen-plus top-level views become four sidebar destinations. Until the
  * later phases build the real Work, Library and Personal views, each
  * destination groups the existing views and shows a temporary segmented switch
- * at its top (DestinationTabs) so every view stays one click away. Views that
- * become Settings sections later (Admin, Providers, principals, check-in,
- * devices) are reached from the account menu for now.
+ * at its top (DestinationTabs) so every view stays one click away. Admin,
+ * Providers and Principals are sections of the settings dialog now (the
+ * router redirects their old links); the phone-node page and Check-ins are
+ * still pages, reached from the settings dialog and the account menu.
  */
 import type { ViewId } from '../../lib/router';
 
@@ -63,12 +64,9 @@ export const PERSONAL: Destination = {
 
 export const DESTINATIONS: readonly Destination[] = [WORK, LIBRARY, PERSONAL];
 
-/** Views reached from the account menu until the settings dialog lands. */
+/** Pages outside the destinations: the phone node (from Settings, Devices and pairing) and Check-ins (account menu). */
 export const ACCOUNT_VIEWS: readonly { view: ViewId; label: string }[] = [
-  { view: 'admin', label: 'Settings' },
-  { view: 'providers', label: 'Models and usage' },
-  { view: 'phone', label: 'Devices and pairing' },
-  { view: 'principals', label: 'People and channels' },
+  { view: 'phone', label: 'Phone node' },
   { view: 'checkin', label: 'Check-ins' },
 ];
 

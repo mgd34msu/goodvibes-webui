@@ -8,10 +8,13 @@
  * string (the schema's default, meaning UTC).
  *
  * Commits immediately on selection, same as the other schema-driven enum/
- * select controls in SettingsField.
+ * select controls in SettingsField. Kit controls: a search field that narrows
+ * the kit Select's option list.
  */
 import { useMemo, useState } from 'react';
 import { filterTimezoneNames, UNSET_TIMEZONE_LABEL, UNSET_TIMEZONE_VALUE } from '../../lib/timezones';
+import { Input } from '../ui/Field';
+import { Select } from '../ui/Select';
 
 export interface TimezonePickerProps {
   /** Current effective value ('' for unset/UTC, else an IANA zone name). */
@@ -29,7 +32,7 @@ export function TimezonePicker({ value, disabled, onCommit }: TimezonePickerProp
 
   return (
     <div className="timezone-picker" data-testid="timezone-picker">
-      <input
+      <Input
         type="search"
         className="settings-field-input timezone-picker-search"
         aria-label="Search timezones"
@@ -38,27 +41,22 @@ export function TimezonePicker({ value, disabled, onCommit }: TimezonePickerProp
         disabled={disabled}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <select
+      {/* The selected value must always resolve to a real option, or the
+          control would read as a DIFFERENT effective zone than what is
+          actually configured. Pin it in even when the current search query
+          filters it out of the list. */}
+      <Select
         className="settings-field-select timezone-picker-select"
         aria-label="daemon.timezone"
         value={value}
         disabled={disabled}
-        onChange={(e) => onCommit(e.target.value)}
-      >
-        <option value={UNSET_TIMEZONE_VALUE}>{UNSET_TIMEZONE_LABEL}</option>
-        {/* The selected value must always resolve to a real <option>, or the
-            <select> silently falls back to its first entry and reports a
-            DIFFERENT effective zone than what is actually configured. Pin it
-            in even when the current search query filters it out of the list. */}
-        {!selectedIsUnset && !selectedIsListed && (
-          <option value={value}>{value}</option>
-        )}
-        {zones.map((zone) => (
-          <option key={zone} value={zone}>
-            {zone}
-          </option>
-        ))}
-      </select>
+        options={[
+          { value: UNSET_TIMEZONE_VALUE, label: UNSET_TIMEZONE_LABEL },
+          ...(!selectedIsUnset && !selectedIsListed ? [{ value, label: value }] : []),
+          ...zones.map((zone) => ({ value: zone, label: zone })),
+        ]}
+        onChange={onCommit}
+      />
     </div>
   );
 }

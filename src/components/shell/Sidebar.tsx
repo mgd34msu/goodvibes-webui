@@ -59,6 +59,8 @@ export interface SidebarProps {
   onDeleteChat: (id: string, title: string) => void;
   onSearch: () => void;
   onSignOut: () => void;
+  /** Open the settings dialog, on a section when one is named. */
+  onOpenSettings: (section?: string) => void;
 }
 
 const DESTINATION_ICONS: Record<Exclude<DestinationId, 'chat' | 'account'>, ReactNode> = {
@@ -112,6 +114,7 @@ export function SidebarContent({
   onDeleteChat,
   onSearch,
   onSignOut,
+  onOpenSettings,
 }: SidebarProps & { variant: 'expanded' | 'rail' | 'drawer' }) {
   const shell = useShell();
   const compact = variant === 'rail';
@@ -247,6 +250,7 @@ export function SidebarContent({
           health={health}
           compact={compact}
           onNavigate={onNavigate}
+          onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
       </div>

@@ -89,6 +89,11 @@ test('the brand wordmark renders complete, never abbreviated', async ({ page }) 
   expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth);
 });
 
+/** A right-side detail: a memory record's peek drawer (the Providers view that used to serve here is a settings section now). */
+async function openMemoryDetail(page: import('@playwright/test').Page): Promise<void> {
+  await page.locator('.memory-record-row__main').first().click();
+}
+
 test.describe('sidebar auto-collapse (desktop)', () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     only(testInfo, DESKTOP);
@@ -96,11 +101,11 @@ test.describe('sidebar auto-collapse (desktop)', () => {
 
   test('a right-side detail folds the sidebar to the 56 rail; closing it restores the sidebar', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=providers');
+    await page.goto('/?view=memory');
     const sidebar = page.locator('.shell-sidebar');
     await expect(sidebar).toHaveAttribute('data-form', 'expanded');
 
-    await page.locator('button[aria-label^="Open details for"]').click();
+    await openMemoryDetail(page);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
     // The rail is 56 wide once the 200 ms width change has settled.
     await expect.poll(() => sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(56);
@@ -117,12 +122,12 @@ test.describe('sidebar auto-collapse (desktop)', () => {
 
   test('a sidebar the person collapsed stays collapsed after the detail closes', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=providers');
+    await page.goto('/?view=memory');
     const sidebar = page.locator('.shell-sidebar');
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
 
-    await page.locator('button[aria-label^="Open details for"]').click();
+    await openMemoryDetail(page);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
     await page.keyboard.press('Escape');
     await expect(page.locator('.peek-panel--open')).toHaveCount(0);
@@ -131,19 +136,19 @@ test.describe('sidebar auto-collapse (desktop)', () => {
 
   test('a pinned sidebar does not auto-collapse at 1280 wide', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=providers');
+    await page.goto('/?view=memory');
     const sidebar = page.locator('.shell-sidebar');
     await sidebar.getByRole('button', { name: 'Pin sidebar open' }).click();
-    await page.locator('button[aria-label^="Open details for"]').click();
+    await openMemoryDetail(page);
     await expect(page.locator('.peek-panel--open')).toBeVisible();
     await expect(sidebar).toHaveAttribute('data-form', 'expanded');
   });
 
   test('Ctrl B shows the full sidebar over the content while a detail holds the rail', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=providers');
+    await page.goto('/?view=memory');
     const sidebar = page.locator('.shell-sidebar');
-    await page.locator('button[aria-label^="Open details for"]').click();
+    await openMemoryDetail(page);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
     const slotBefore = await page.locator('.shell-sidebar-slot').evaluate((el) => el.getBoundingClientRect().width);
 

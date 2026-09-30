@@ -94,7 +94,7 @@ describe('encodeUrlState', () => {
   });
 
   test('all four valid views encode correctly', () => {
-    for (const view of ['chat', 'knowledge', 'providers', 'admin'] as const) {
+    for (const view of ['chat', 'knowledge', 'memory', 'fleet'] as const) {
       const result = encodeUrlState(makeState({ view }));
       const decoded = new URLSearchParams(result);
       expect(decoded.get('view')).toBe(view);
@@ -109,8 +109,8 @@ describe('encodeUrlState', () => {
 describe('decodeUrlState', () => {
   test('decodes all valid view values', () => {
     expect(decodeUrlState('?view=knowledge').view).toBe('knowledge');
-    expect(decodeUrlState('?view=providers').view).toBe('providers');
-    expect(decodeUrlState('?view=admin').view).toBe('admin');
+    expect(decodeUrlState('?view=memory').view).toBe('memory');
+    expect(decodeUrlState('?view=fleet').view).toBe('fleet');
     expect(decodeUrlState('?view=chat').view).toBe('chat');
   });
 
@@ -135,9 +135,13 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=checkin').view).toBe('checkin');
   });
 
-  // principals (SDK 1.6.1's initiative family, principals/channel-profiles admin view).
-  test('decodes the principals view id', () => {
-    expect(decodeUrlState('?view=principals').view).toBe('principals');
+  // Admin, Providers and Principals are settings dialog sections now: their old
+  // links decode to the chat view with the dialog open on the matching section.
+  test('old admin / providers / principals links open the settings dialog', () => {
+    expect(decodeUrlState('?view=admin')).toEqual({ view: 'chat', session: '', filters: {}, settings: 'account' });
+    expect(decodeUrlState('?view=providers').settings).toBe('models');
+    expect(decodeUrlState('?view=principals').settings).toBe('people');
+    expect(decodeUrlState('?view=principals').view).toBe('chat');
   });
 
   // dates (docs/occasions.md, occasions/plans dates panel).
@@ -219,7 +223,7 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
 
   test('round-trips state with special chars in filter values', () => {
     const original = makeState({
-      view: 'admin',
+      view: 'fleet',
       session: '',
       filters: { q: 'hello world', tag: 'a=b&c=d' },
     });
@@ -229,7 +233,7 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   });
 
   test('round-trips all four views', () => {
-    for (const view of ['chat', 'knowledge', 'providers', 'admin'] as const) {
+    for (const view of ['chat', 'knowledge', 'memory', 'fleet'] as const) {
       const encoded = encodeUrlState(makeState({ view }));
       expect(decodeUrlState(`?${encoded}`).view).toBe(view);
     }
@@ -252,9 +256,11 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
     expect(decodeUrlState(`?${encoded}`).view).toBe('checkin');
   });
 
-  test('round-trips the principals view id', () => {
-    const encoded = encodeUrlState(makeState({ view: 'principals' }));
-    expect(decodeUrlState(`?${encoded}`).view).toBe('principals');
+  test('round-trips the settings dialog section', () => {
+    const encoded = encodeUrlState(makeState({ view: 'fleet', settings: 'models' }));
+    expect(encoded).toContain('settings=models');
+    expect(decodeUrlState(`?${encoded}`)).toEqual({ view: 'fleet', session: '', filters: {}, settings: 'models' });
+    expect(encodeUrlState(makeState({ settings: '' }))).not.toContain('settings');
   });
 
   test('round-trips the dates view id', () => {
@@ -297,15 +303,15 @@ describe('pushState', () => {
   });
 
   test('calls history.pushState once with encoded URL', () => {
-    const state = makeState({ view: 'providers', session: 's1' });
+    const state = makeState({ view: 'memory', session: 's1' });
     pushState(state);
     expect(pushCalls).toHaveLength(1);
-    expect(pushCalls[0].url).toContain('view=providers');
+    expect(pushCalls[0].url).toContain('view=memory');
     expect(pushCalls[0].url).toContain('session=s1');
   });
 
   test('passes the state object to history.pushState', () => {
-    const state = makeState({ view: 'admin' });
+    const state = makeState({ view: 'fleet' });
     pushState(state);
     expect(pushCalls[0].state).toEqual(state);
   });
@@ -347,7 +353,7 @@ describe('replaceState', () => {
   });
 
   test('passes the state object to history.replaceState', () => {
-    const state = makeState({ view: 'providers' });
+    const state = makeState({ view: 'memory' });
     replaceState(state);
     expect(replaceCalls[0].state).toEqual(state);
   });
@@ -371,9 +377,9 @@ describe('getCurrentUrlState', () => {
   });
 
   test('reflects URL changes pushed by pushState', () => {
-    window.history.pushState(null, '', '/?view=admin&session=x');
+    window.history.pushState(null, '', '/?view=fleet&session=x');
     const state = getCurrentUrlState();
-    expect(state.view).toBe('admin');
+    expect(state.view).toBe('fleet');
     expect(state.session).toBe('x');
   });
 });

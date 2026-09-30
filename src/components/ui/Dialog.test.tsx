@@ -90,3 +90,41 @@ describe('Dialog: modal, labelled, focus-trapped', () => {
     expect(document.activeElement).toBe(opener);
   });
 });
+
+describe('Dialog: bare layout and nested dialogs', () => {
+  function renderBare(nested: boolean): void {
+    flushSync(() => {
+      root.render(
+        <Dialog open bare size="large" title="Settings" className="settings-dialog" onClose={() => { closes += 1; }}>
+          <div className="two-columns"><button type="button">Close</button></div>
+          {nested && (
+            <div role="alertdialog" aria-label="Confirm">
+              <button type="button">Confirm</button>
+            </div>
+          )}
+        </Dialog>,
+      );
+    });
+  }
+
+  test('bare: no kit header or body, the title stays the accessible name', () => {
+    renderBare(false);
+    const dialog = document.querySelector('[role="dialog"]')!;
+    expect(dialog.classList.contains('settings-dialog')).toBe(true);
+    expect(dialog.querySelector('.gv-dialog__header')).toBeNull();
+    expect(dialog.querySelector('.gv-dialog__body')).toBeNull();
+    expect(dialog.querySelector('.two-columns')).not.toBeNull();
+    expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Settings');
+  });
+
+  test('Escape inside a nested dialog is left to that dialog, the parent stays open', () => {
+    renderBare(true);
+    const confirm = document.querySelector('[role="alertdialog"] button') as HTMLButtonElement;
+    const event = key(confirm, 'Escape');
+    expect(closes).toBe(0);
+    expect(event.defaultPrevented).toBe(false);
+    // Escape anywhere else in the dialog still closes it.
+    key(document.querySelector('.two-columns button')!, 'Escape');
+    expect(closes).toBe(1);
+  });
+});

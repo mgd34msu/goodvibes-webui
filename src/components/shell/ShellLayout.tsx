@@ -97,7 +97,7 @@ export function ShellLayout({
       combo: 'mod+,',
       handler: (event) => {
         event.preventDefault();
-        sidebar.onNavigate('admin');
+        sidebar.onOpenSettings();
       },
       allowInInput: true,
     },
@@ -158,6 +158,7 @@ export function ShellLayout({
             onNewChat={closeDrawerThen(sidebar.onNewChat)}
             onOpenChat={closeDrawerThen(sidebar.onOpenChat)}
             onSearch={closeDrawerThen(sidebar.onSearch)}
+            onOpenSettings={closeDrawerThen(sidebar.onOpenSettings)}
           />
         </Drawer>
       )}

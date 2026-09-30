@@ -263,8 +263,11 @@ describe('CheckpointsView restore: destructive confirm gate', () => {
     // The confirm sheet is open (destructive restore always confirms).
     await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
     click([...el.querySelectorAll('.confirm-sheet__cancel')][0]);
-    await new Promise((r) => setTimeout(r, 20));
-    flushSync(() => {});
+    // The sheet closes as ask() resolves false. The handler resumes after that
+    // await on a microtask, and a restore mutation would reach the SDK on further
+    // microtasks, so one real event-loop turn after the close lets all of it run.
+    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
     expect(restoreCalls).toHaveLength(0);
     unmount();
   });

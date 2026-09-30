@@ -32,8 +32,11 @@ function render(enabled: boolean): void {
   });
 }
 
-async function tick() {
-  await new Promise((r) => setTimeout(r, 10));
+/** The service worker's subscription-changed message, delivered synchronously. */
+function subscriptionChanged(): void {
+  fakeServiceWorker.dispatchEvent(
+    Object.assign(new Event('message'), { data: { type: 'goodvibes-push-subscription-changed', endpoint: 'x', keys: {} } }),
+  );
 }
 
 /** A minimal EventTarget stand-in for navigator.serviceWorker in this test. */
@@ -56,42 +59,41 @@ afterEach(() => {
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: undefined });
 });
 
+// Nothing here waits: render() commits inside flushSync, which also runs the
+// hook's effect (and so its reconcile call and listener registration), and
+// dispatchEvent calls a registered listener before it returns. Every count below
+// is final when it is read.
 describe('usePushSubscriptionReconcile', () => {
-  test('does nothing while disabled', async () => {
+  test('does nothing while disabled, not even on a subscription-changed message', () => {
     render(false);
-    await tick();
+    expect(reconcileCalls).toBe(0);
+    subscriptionChanged();
     expect(reconcileCalls).toBe(0);
   });
 
-  test('reconciles once on the rising edge into enabled', async () => {
+  test('reconciles once on the rising edge into enabled', () => {
     render(false);
-    await tick();
     render(true);
-    await tick();
     expect(reconcileCalls).toBe(1);
     // Re-rendering with the SAME enabled value is not a new edge.
     render(true);
-    await tick();
     expect(reconcileCalls).toBe(1);
   });
 
-  test('reconciles again on a service-worker subscription-changed message while enabled', async () => {
+  test('reconciles again on a service-worker subscription-changed message while enabled', () => {
     render(true);
-    await tick();
     expect(reconcileCalls).toBe(1);
-    fakeServiceWorker.dispatchEvent(
-      Object.assign(new Event('message'), { data: { type: 'goodvibes-push-subscription-changed', endpoint: 'x', keys: {} } }),
-    );
-    await tick();
+    subscriptionChanged();
     expect(reconcileCalls).toBe(2);
   });
 
-  test('an unrelated service-worker message is ignored', async () => {
+  test('an unrelated service-worker message is ignored', () => {
     render(true);
-    await tick();
     expect(reconcileCalls).toBe(1);
     fakeServiceWorker.dispatchEvent(Object.assign(new Event('message'), { data: { type: 'some-other-message' } }));
-    await tick();
     expect(reconcileCalls).toBe(1);
+    // The listener was live for that message: the right one still reconciles.
+    subscriptionChanged();
+    expect(reconcileCalls).toBe(2);
   });
 });

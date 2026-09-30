@@ -390,7 +390,14 @@ describe('a surface the gate refuses is never even offered the fields', () => {
 
   test('the refused panel makes no daemon call; it does not even list cards', async () => {
     const { unmount } = render('telegram');
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    // render() committed inside flushSync, effects included, and an enabled query
+    // starts fetching during that commit. The card list exists only as a disabled
+    // query that has never fetched, nothing is in flight, and no request went out.
+    expect(queryClient.isFetching()).toBe(0);
+    for (const query of queryClient.getQueryCache().getAll()) {
+      expect(query.state.fetchStatus).toBe('idle');
+      expect(query.state.dataUpdateCount + query.state.errorUpdateCount).toBe(0);
+    }
     expect(calls).toHaveLength(0);
     unmount();
   });

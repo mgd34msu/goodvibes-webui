@@ -34,9 +34,14 @@ function click(el: Element | null | undefined) {
   flushSync(() => el?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 }
 
-async function tick() {
-  await new Promise((r) => setTimeout(r, 10));
-  flushSync(() => {});
+/** Open a sheet through ask(), committing the render, and hand back its answer. */
+function ask(request: ConfirmRequest): Promise<boolean> {
+  let answer: Promise<boolean> | undefined;
+  flushSync(() => {
+    answer = askRef!(request);
+  });
+  if (!answer) throw new Error('ask() did not return a promise');
+  return answer;
 }
 
 afterEach(() => {
@@ -52,17 +57,14 @@ describe('useConfirmSheet', () => {
 
   test('ask() shows the sheet with the title and target, resolves true on Confirm', async () => {
     const { el, unmount } = render();
-    const results: boolean[] = [];
-    flushSync(() => {
-      void askRef!({ title: 'Restore this checkpoint', target: 'nightly-42', confirmLabel: 'Restore', tone: 'danger' }).then((v) => results.push(v));
-    });
+    const answer = ask({ title: 'Restore this checkpoint', target: 'nightly-42', confirmLabel: 'Restore', tone: 'danger' });
     const sheet = el.querySelector('.confirm-sheet');
     expect(sheet).not.toBeNull();
     expect(sheet!.textContent).toContain('Restore this checkpoint');
     expect(sheet!.textContent).toContain('nightly-42');
     click(el.querySelector('.confirm-sheet__confirm'));
-    await tick();
-    expect(results).toEqual([true]);
+    expect(await answer).toBe(true);
+    flushSync(() => {});
     // The sheet closes after resolving.
     expect(el.querySelector('.confirm-sheet')).toBeNull();
     unmount();
@@ -70,27 +72,18 @@ describe('useConfirmSheet', () => {
 
   test('ask() resolves false on Cancel', async () => {
     const { el, unmount } = render();
-    const results: boolean[] = [];
-    flushSync(() => {
-      void askRef!({ title: 'Cancel task', target: 't1' }).then((v) => results.push(v));
-    });
+    const answer = ask({ title: 'Cancel task', target: 't1' });
     click(el.querySelector('.confirm-sheet__cancel'));
-    await tick();
-    expect(results).toEqual([false]);
+    expect(await answer).toBe(false);
     unmount();
   });
 
   test('a second ask() while one is open resolves the first as false', async () => {
     const { el, unmount } = render();
-    const first: boolean[] = [];
-    flushSync(() => {
-      void askRef!({ title: 'First' }).then((v) => first.push(v));
-    });
-    flushSync(() => {
-      void askRef!({ title: 'Second' }).then(() => {});
-    });
-    await tick();
-    expect(first).toEqual([false]);
+    const first = ask({ title: 'First' });
+    void ask({ title: 'Second' });
+    expect(await first).toBe(false);
+    flushSync(() => {});
     expect(el.querySelector('.confirm-sheet')!.textContent).toContain('Second');
     unmount();
   });

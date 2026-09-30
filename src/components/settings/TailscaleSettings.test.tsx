@@ -50,7 +50,7 @@ mock.module('../../lib/goodvibes', () => ({
 
 const { TailscaleSettings } = await import('./TailscaleSettings');
 
-function render(): { el: HTMLElement; unmount: () => void } {
+function render(): { el: HTMLElement; client: QueryClient; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -71,6 +71,7 @@ function render(): { el: HTMLElement; unmount: () => void } {
   });
   return {
     el: container,
+    client,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();
@@ -93,6 +94,11 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
   }
 }
 
+/** The tailscale status query has answered and nothing is still in flight. */
+function statusAnswered(client: QueryClient): boolean {
+  return client.getQueryCache().getAll().some((query) => query.state.status === 'success') && client.isFetching() === 0;
+}
+
 afterEach(() => {
   serveRunCalls.length = 0;
   getData = { available: false, loggedIn: false, detail: 'tailscale binary not found' };
@@ -112,8 +118,8 @@ describe('TailscaleSettings: quiet when absent', () => {
 
   test('tailscale not found: renders nothing, no nag, no dead button', async () => {
     getData = { available: false, loggedIn: false, detail: 'tailscale binary not found' };
-    const { el, unmount } = render();
-    await new Promise((r) => setTimeout(r, 30));
+    const { el, client, unmount } = render();
+    await waitFor(() => statusAnswered(client));
     flushSync(() => {});
     expect(el.querySelector('[data-testid="tailscale-settings"]')).toBeNull();
     expect(el.textContent).not.toContain('tailscale');
@@ -122,8 +128,8 @@ describe('TailscaleSettings: quiet when absent', () => {
 
   test('installed but not logged in: still renders nothing', async () => {
     getData = { available: true, loggedIn: false, detail: 'tailscale is installed but not connected (state: Stopped)' };
-    const { el, unmount } = render();
-    await new Promise((r) => setTimeout(r, 30));
+    const { el, client, unmount } = render();
+    await waitFor(() => statusAnswered(client));
     flushSync(() => {});
     expect(el.querySelector('[data-testid="tailscale-settings"]')).toBeNull();
     unmount();
@@ -155,12 +161,17 @@ describe('TailscaleSettings: usable environment', () => {
 
   test('cancelling the confirm sheet never calls serveRun', async () => {
     getData = { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'connected' };
-    const { el, unmount } = render();
+    const { el, client, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="tailscale-settings"]')));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Serve over tailscale')));
     await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
     click(el.querySelector('.confirm-sheet__cancel'));
-    await new Promise((r) => setTimeout(r, 20));
+    // The sheet closes as ask() resolves false. The handler resumes after that
+    // await on a microtask, and a serve mutation would reach the SDK on further
+    // microtasks, so one real event-loop turn after the close lets all of it run.
+    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(client.getMutationCache().getAll()).toHaveLength(0);
     expect(serveRunCalls).toHaveLength(0);
     unmount();
   });

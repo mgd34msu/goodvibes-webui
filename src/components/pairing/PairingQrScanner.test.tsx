@@ -12,7 +12,7 @@
  * can fail says something actionable, a good scan reaches the join flow with a
  * parsed payload, and the camera is never left running.
  */
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -93,10 +93,22 @@ function harness(overrides: {
 
 const mounted: (() => void)[] = [];
 
+// The scan loop runs on its own 180 ms timer; fake timers step it exactly.
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
 afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.();
   document.body.innerHTML = '';
+  jest.useRealTimers();
 });
+
+/** The scanner's SCAN_INTERVAL_MS. */
+const SCAN_INTERVAL_MS = 180;
+
+// The real setImmediate, captured before any test installs fake timers.
+const realSetImmediate = globalThis.setImmediate;
 
 interface Rendered {
   readonly el: HTMLElement;
@@ -106,18 +118,22 @@ interface Rendered {
 }
 
 /**
- * Let pending promises resolve, then flush whatever state they set. The scanner
- * opens the camera and picks a decoder asynchronously, so nothing is on screen
- * until this has run at least once.
+ * Let the scanner's promise chain (camera, decoder, preview, a decode) run to
+ * where it waits on the clock, and commit what it set. No fake time passes: only
+ * zero-delay timers run, between real event-loop turns.
  */
-async function settle(ms = 20): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-  flushSync(() => {});
+async function settle(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    jest.advanceTimersByTime(0);
+    await new Promise<void>((resolve) => realSetImmediate(resolve));
+    flushSync(() => {});
+  }
 }
 
-/** Long enough for the scan loop's own timer to fire at least once. */
+/** Exactly one scan interval: the loop's next tick fires, and what it does settles. */
 async function advance(): Promise<void> {
-  await settle(250);
+  jest.advanceTimersByTime(SCAN_INTERVAL_MS);
+  await settle();
 }
 
 async function render(bindings: PairingScannerBindings): Promise<Rendered> {

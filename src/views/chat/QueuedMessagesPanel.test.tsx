@@ -3,7 +3,7 @@
  * Covers: honest absence (renders nothing when empty), listing, inline edit,
  * delete-with-confirm, and error surfacing.
  */
-import { afterEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, describe, expect, jest, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -45,7 +45,7 @@ mock.module('../../lib/goodvibes', () => ({
 
 const { QueuedMessagesPanel } = await import('./QueuedMessagesPanel');
 
-function render(sessionId = 's-1', active = true): { el: HTMLElement; unmount: () => void } {
+function render(sessionId = 's-1', active = true): { el: HTMLElement; client: QueryClient; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -55,6 +55,7 @@ function render(sessionId = 's-1', active = true): { el: HTMLElement; unmount: (
   });
   return {
     el: container,
+    client,
     unmount: () => {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -75,10 +76,26 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
   }
 }
 
+// The real setImmediate, captured before any test installs fake timers.
+const realSetImmediate = globalThis.setImmediate;
+
+/**
+ * Under fake timers: run the zero-delay timers react-query schedules its
+ * notifications on, let the resolved list promise settle, and commit.
+ */
+async function pump(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    jest.advanceTimersByTime(0);
+    await new Promise<void>((resolve) => realSetImmediate(resolve));
+    flushSync(() => {});
+  }
+}
+
 let cleanup: (() => void) | null = null;
 let confirmSpy: ((message?: string) => boolean) | null = null;
 
 afterEach(() => {
+  jest.useRealTimers();
   cleanup?.();
   cleanup = null;
   listImpl = (sessionId) => Promise.resolve({ sessionId, messages: [] });
@@ -94,11 +111,10 @@ afterEach(() => {
 
 describe('QueuedMessagesPanel', () => {
   test('renders nothing when there are no queued messages (honest absence)', async () => {
-    const { el, unmount } = render();
+    const { el, client, unmount } = render();
     cleanup = unmount;
-    await waitFor(() => true, 50).catch(() => {});
-    // Give the query a tick to settle, then confirm nothing rendered.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The list query has answered (an empty list) and the panel has rendered it.
+    await waitFor(() => client.getQueryCache().getAll().some((query) => query.state.status === 'success'));
     flushSync(() => {});
     expect(el.textContent).toBe('');
   });
@@ -177,13 +193,20 @@ describe('QueuedMessagesPanel', () => {
       messages: [{ id: 'q-1', queuedAt: 1000, text: 'Keep me' }],
     });
     confirmSpy = window.confirm;
-    window.confirm = () => false;
-    const { el, unmount } = render();
+    const asked: string[] = [];
+    window.confirm = (message?: string) => {
+      asked.push(message ?? '');
+      return false;
+    };
+    const { el, client, unmount } = render();
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('.queued-message__delete')));
     click(el.querySelector('.queued-message__delete'));
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    // The click asked, the answer was no, and no delete was ever started.
+    expect(asked).toHaveLength(1);
+    expect(client.getMutationCache().getAll()).toHaveLength(0);
     expect(calls.delete).toEqual([]);
+    expect(el.querySelector('.queued-message')?.textContent).toContain('Keep me');
   });
 
   test('an edit failure surfaces an honest error banner', async () => {
@@ -203,14 +226,39 @@ describe('QueuedMessagesPanel', () => {
     expect(el.querySelector('.banner.warning')?.textContent).toContain('the turn already finished');
   });
 
+  // The pair below runs on fake timers, so a whole minute of the 2 s poll interval
+  // passes instantly and exactly. The active case proves the clock really drives
+  // the poll, so the inactive case's zero cannot be a clock that never moved.
+  test('polls the list every 2 s while a turn is active', async () => {
+    jest.useFakeTimers();
+    let listCalls = 0;
+    listImpl = (sessionId) => { listCalls += 1; return Promise.resolve({ sessionId, messages: [{ id: 'q-1', queuedAt: 1, text: 'x' }] }); };
+    const { el, unmount } = render('s-1', true);
+    cleanup = unmount;
+    await pump();
+    expect(el.querySelector('.queued-message')).not.toBeNull();
+    expect(listCalls).toBe(1);
+    jest.advanceTimersByTime(2000);
+    await pump();
+    expect(listCalls).toBe(2);
+    jest.advanceTimersByTime(2000);
+    await pump();
+    expect(listCalls).toBe(3);
+  });
+
   test('does not poll (refetchInterval off) when active is false', async () => {
-    let calls2 = 0;
-    listImpl = (sessionId) => { calls2 += 1; return Promise.resolve({ sessionId, messages: [{ id: 'q-1', queuedAt: 1, text: 'x' }] }); };
+    jest.useFakeTimers();
+    let listCalls = 0;
+    listImpl = (sessionId) => { listCalls += 1; return Promise.resolve({ sessionId, messages: [{ id: 'q-1', queuedAt: 1, text: 'x' }] }); };
     const { el, unmount } = render('s-1', false);
     cleanup = unmount;
-    await waitFor(() => Boolean(el.querySelector('.queued-message')));
-    const afterFirst = calls2;
-    await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(calls2).toBe(afterFirst);
+    await pump();
+    expect(el.querySelector('.queued-message')).not.toBeNull();
+    expect(listCalls).toBe(1);
+    for (let step = 0; step < 30; step += 1) {
+      jest.advanceTimersByTime(2000);
+      await pump();
+    }
+    expect(listCalls).toBe(1);
   });
 });

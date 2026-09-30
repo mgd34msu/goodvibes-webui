@@ -496,11 +496,34 @@ describe('FleetView node actions (WEBUI-FLEET-DEPTH)', () => {
   });
 
   test('a node with no correlated approval renders no approval card', async () => {
-    const { el, unmount } = render();
+    // A pending approval exists, but for another session: it must not attach here.
+    approvalsImpl = () => Promise.resolve({
+      approvals: [{
+        id: 'appr-other',
+        callId: 'call-other',
+        sessionId: 's-some-other-session',
+        status: 'pending',
+        request: {
+          callId: 'call-other',
+          tool: 'bash',
+          args: {},
+          category: 'shell',
+          analysis: { classification: 'x', riskLevel: 'medium', summary: 'Someone else\'s command', reasons: ['reason'] },
+        },
+        createdAt: 1,
+        updatedAt: 1,
+        metadata: {},
+      }],
+    });
+    const { el, unmount, client } = render();
     selectRow(el, 'Root agent');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The approvals list has answered (empty) and nothing is still in flight, so
+    // the detail pane has rendered everything it will render for this node.
+    await waitFor(() => client.getQueryState(queryKeys.approvals)?.status === 'success' && client.isFetching() === 0);
     flushSync(() => {});
+    expect(el.querySelector('.fleet-detail')).not.toBeNull();
     expect(el.textContent).not.toContain('Pending approval');
+    expect(el.textContent).not.toContain('Someone else\'s command');
     unmount();
   });
 });
@@ -548,8 +571,7 @@ describe('FleetView: read-model headline + stall tell (rounds 4-6)', () => {
     const { el, unmount, client } = renderTells();
     // Let the mount-time refetch resolve FIRST, otherwise it lands after the
     // replacement below and restores the original snapshot.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    flushSync(() => {});
+    await waitFor(() => client.getQueryState(queryKeys.fleet)?.fetchStatus === 'idle' && client.isFetching() === 0);
     const replaced = {
       ...TELLS_SNAPSHOT,
       nodes: [
@@ -561,9 +583,8 @@ describe('FleetView: read-model headline + stall tell (rounds 4-6)', () => {
     // poll would clobber the cache write with the stale fixture.
     snapshotImpl = () => Promise.resolve(replaced);
     client.setQueryData(queryKeys.fleet, replaced);
-    // react-query notifies subscribers on a microtask, settle before asserting.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    flushSync(() => {});
+    // react-query notifies subscribers asynchronously: wait for the row to change.
+    await waitFor(() => (el.querySelector('[data-testid="fleet-headline"]')?.textContent ?? '') !== 'Migrating the session spine to the new store');
     const headlines = [...el.querySelectorAll('[data-testid="fleet-headline"]')];
     expect(headlines.length).toBe(1);
     expect(headlines[0].textContent).toBe('Verifying the migrated store');

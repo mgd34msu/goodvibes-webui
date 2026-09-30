@@ -184,7 +184,11 @@ describe('PairingTokensSettings revoke: confirm gate', () => {
     click(row?.querySelector('.pairing-token-row__revoke'));
     await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
     click(el.querySelector('.confirm-sheet__cancel'));
-    await new Promise((r) => setTimeout(r, 20));
+    // The sheet closes as ask() resolves false. The handler resumes after that
+    // await on a microtask, and a revoke mutation would reach the SDK on further
+    // microtasks, so one real event-loop turn after the close lets all of it run.
+    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
     expect(deleteCalls).toHaveLength(0);
     unmount();
   });

@@ -99,8 +99,15 @@ function render(): { el: HTMLElement; unmount: () => void } {
   };
 }
 
-async function tick() {
-  await new Promise((r) => setTimeout(r, 10));
+/** Poll (committing between checks) until `predicate` holds, or fail after `timeoutMs`. */
+async function until(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now();
+  flushSync(() => {});
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error('until: condition never held');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    flushSync(() => {});
+  }
 }
 
 afterEach(() => {
@@ -158,7 +165,7 @@ describe('SignedOutGate camera scan flow', () => {
     const { el, unmount } = render();
     flushSync(() => { buttonLabelled(el, 'Scan with this device').click(); });
     flushSync(() => { buttonLabelled(document.body, 'stub scan token').click(); });
-    await tick();
+    await until(() => tokenCalls.length > 0);
 
     expect(tokenCalls).toContain('scanned-token');
     unmount();
@@ -168,8 +175,7 @@ describe('SignedOutGate camera scan flow', () => {
     const { el, unmount } = render();
     flushSync(() => { buttonLabelled(el, 'Scan with this device').click(); });
     flushSync(() => { buttonLabelled(document.body, 'stub scan token').click(); });
-    await tick();
-    flushSync(() => {});
+    await until(() => (el.textContent ?? '').includes('Scanned an operator token'));
 
     expect(document.body.textContent).not.toContain('stub scan token');
     expect(document.body.textContent).not.toContain('scanned-token');
@@ -181,7 +187,7 @@ describe('SignedOutGate camera scan flow', () => {
     const { el, unmount } = render();
     flushSync(() => { buttonLabelled(el, 'Scan with this device').click(); });
     flushSync(() => { buttonLabelled(document.body, 'stub scan password').click(); });
-    await tick();
+    await until(() => loginCalls.length > 0);
 
     expect(loginCalls).toEqual([{ username: 'ada', password: 'lovelace' }]);
     expect(el.textContent).not.toContain('lovelace');
@@ -192,8 +198,7 @@ describe('SignedOutGate camera scan flow', () => {
     const { el, unmount } = render();
     flushSync(() => { buttonLabelled(el, 'Scan with this device').click(); });
     flushSync(() => { buttonLabelled(document.body, 'stub scan other daemon').click(); });
-    await tick();
-    flushSync(() => {});
+    await until(() => (el.textContent ?? '').includes('192.168.1.9:3421'));
 
     // Not a block: the same daemon is routinely reachable at more than one
     // address, so the token is still tried.
@@ -206,8 +211,9 @@ describe('SignedOutGate camera scan flow', () => {
     const { el, unmount } = render();
     flushSync(() => { buttonLabelled(el, 'Scan with this device').click(); });
     flushSync(() => { buttonLabelled(document.body, 'stub scan token').click(); });
-    await tick();
-    flushSync(() => {});
+    // The scan's outcome has rendered (the same render that would carry a
+    // mismatch note), so the note's absence is a real answer.
+    await until(() => tokenCalls.length > 0 && (el.textContent ?? '').includes('Scanned an operator token'));
 
     expect(el.textContent).not.toContain('but this page is served from');
     unmount();
@@ -235,7 +241,7 @@ describe('SignedOutGate token flow', () => {
 
     const form = el.querySelector('form') as HTMLFormElement;
     flushSync(() => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
-    await tick();
+    await until(() => tokenCalls.length > 0);
 
     expect(tokenCalls).toContain('paste-me');
     unmount();
@@ -252,7 +258,7 @@ describe('SignedOutGate token flow', () => {
 
     const form = el.querySelector('form') as HTMLFormElement;
     flushSync(() => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
-    await tick();
+    await until(() => el.querySelector('[role="alert"]') !== null);
 
     const alert = el.querySelector('[role="alert"]');
     expect(alert).not.toBeNull();

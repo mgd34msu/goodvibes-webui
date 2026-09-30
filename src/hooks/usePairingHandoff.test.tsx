@@ -12,6 +12,8 @@ let tokenShouldReject = false;
 let postureResult: unknown = { posture: { origin: 'http://localhost', scheme: 'http', privateNetwork: true, secureContext: true, capabilities: [] } };
 let postureRejects = false;
 const postureCalls: (string | undefined)[] = [];
+/** Posture reads that have answered (resolved or rejected). */
+let postureAnswered = 0;
 
 mock.module('../lib/goodvibes', () => ({
   setExplicitAuthToken: (raw: string) => {
@@ -26,7 +28,8 @@ mock.module('../lib/goodvibes', () => ({
         posture: {
           get: (origin?: string) => {
             postureCalls.push(origin);
-            return postureRejects ? Promise.reject(new Error('posture read failed')) : Promise.resolve(postureResult);
+            const answer = postureRejects ? Promise.reject(new Error('posture read failed')) : Promise.resolve(postureResult);
+            return answer.finally(() => { postureAnswered += 1; });
           },
         },
       },
@@ -68,14 +71,32 @@ function render(): () => void {
   };
 }
 
-async function tick() {
-  await new Promise((r) => setTimeout(r, 10));
+/** Poll (committing between checks) until `predicate` holds, or fail after `timeoutMs`. */
+async function until(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now();
+  flushSync(() => {});
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error('until: condition never held');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    flushSync(() => {});
+  }
+}
+
+/**
+ * The hand-off's last step, the posture read, has answered, and one more turn has
+ * let the hook act on the answer and commit it.
+ */
+async function postureDone(): Promise<void> {
+  await until(() => postureAnswered > 0);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  flushSync(() => {});
 }
 
 beforeEach(() => {
   tokenCalls.length = 0;
   tokenShouldReject = false;
   postureCalls.length = 0;
+  postureAnswered = 0;
   postureRejects = false;
   postureResult = { posture: { origin: 'http://localhost', scheme: 'http', privateNetwork: true, secureContext: true, capabilities: [] } };
   lastStatus = '';
@@ -98,8 +119,10 @@ describe('usePairingHandoff', () => {
     window.history.replaceState(null, '', '/?view=chat');
     const unmount = render();
     expect(lastStatus).toBe('idle');
-    await tick();
+    // With a token the effect calls setExplicitAuthToken synchronously, before its
+    // first await, and render() has already flushed the effect: none was called.
     expect(tokenCalls).toHaveLength(0);
+    expect(postureCalls).toHaveLength(0);
     unmount();
   });
 
@@ -111,7 +134,7 @@ describe('usePairingHandoff', () => {
     // The secret is stripped from the URL synchronously, before validation resolves.
     expect(window.location.hash).toBe('');
     expect(window.location.search).toBe('?view=chat');
-    await tick();
+    await until(() => lastStatus !== 'pending');
     expect(tokenCalls).toEqual(['tok_live']);
     expect(lastStatus).toBe('idle');
     unmount();
@@ -122,7 +145,7 @@ describe('usePairingHandoff', () => {
     window.history.replaceState(null, '', '/#pair=bad');
     const unmount = render();
     expect(window.location.hash).toBe('');
-    await tick();
+    await until(() => lastStatus !== 'pending');
     expect(tokenCalls).toEqual(['bad']);
     expect(lastStatus).toBe('error');
     expect(lastError).toBeInstanceOf(Error);
@@ -132,7 +155,8 @@ describe('usePairingHandoff', () => {
   test('a plain token link (no offers key) never populates offers', async () => {
     window.history.replaceState(null, '', '/#pair=tok_live');
     const unmount = render();
-    await tick();
+    // Status and offers are set together; the posture read after them is the end.
+    await postureDone();
     expect(lastStatus).toBe('idle');
     expect(lastOffers).toEqual([]);
     unmount();
@@ -144,7 +168,7 @@ describe('usePairingHandoff', () => {
     expect(lastStatus).toBe('pending');
     // The offers key is stripped alongside pair, synchronously.
     expect(window.location.hash).toBe('');
-    await tick();
+    await until(() => lastStatus !== 'pending');
     expect(lastStatus).toBe('idle');
     expect(lastOffers).toEqual(['notifications', 'passkey']);
     unmount();
@@ -153,10 +177,9 @@ describe('usePairingHandoff', () => {
   test('dismissOffers clears the offer set once the decision UI is done', async () => {
     window.history.replaceState(null, '', '/#pair=tok_live&offers=relay');
     const unmount = render();
-    await tick();
+    await until(() => lastOffers.length > 0);
     expect(lastOffers).toEqual(['relay']);
-    dismiss?.();
-    await tick();
+    flushSync(() => dismiss?.());
     expect(lastOffers).toEqual([]);
     unmount();
   });
@@ -165,7 +188,8 @@ describe('usePairingHandoff', () => {
     tokenShouldReject = true;
     window.history.replaceState(null, '', '/#pair=bad&offers=relay');
     const unmount = render();
-    await tick();
+    // The error path ends the hand-off: nothing runs after it.
+    await until(() => lastStatus !== 'pending');
     expect(lastStatus).toBe('error');
     expect(lastOffers).toEqual([]);
     unmount();
@@ -181,7 +205,7 @@ describe('usePairingHandoff', () => {
     };
     window.history.replaceState(null, '', '/#pair=tok_live');
     const unmount = render();
-    await tick();
+    await postureDone();
     expect(postureCalls).toHaveLength(1);
     expect(lastPostureNotice).toBe(
       'Connection is unencrypted on your LAN. Everything works except browser-gated features; Tailscale gives encrypted access with the full app.',
@@ -192,7 +216,7 @@ describe('usePairingHandoff', () => {
   test('a secure-context posture (nothing to say) never publishes a notice', async () => {
     window.history.replaceState(null, '', '/#pair=tok_live');
     const unmount = render();
-    await tick();
+    await postureDone();
     expect(postureCalls).toHaveLength(1);
     expect(lastPostureNotice).toBeNull();
     unmount();
@@ -207,10 +231,9 @@ describe('usePairingHandoff', () => {
     };
     window.history.replaceState(null, '', '/#pair=tok_live');
     const unmount = render();
-    await tick();
+    await until(() => lastPostureNotice !== null);
     expect(lastPostureNotice).toBe('lan notice');
-    dismissPosture?.();
-    await tick();
+    flushSync(() => dismissPosture?.());
     expect(lastPostureNotice).toBeNull();
     unmount();
   });
@@ -219,7 +242,7 @@ describe('usePairingHandoff', () => {
     postureRejects = true;
     window.history.replaceState(null, '', '/#pair=tok_live');
     const unmount = render();
-    await tick();
+    await postureDone();
     expect(lastStatus).toBe('idle');
     expect(lastPostureNotice).toBeNull();
     unmount();
@@ -229,7 +252,9 @@ describe('usePairingHandoff', () => {
     tokenShouldReject = true;
     window.history.replaceState(null, '', '/#pair=bad');
     const unmount = render();
-    await tick();
+    // A success would issue the posture read in the same turn it sets 'idle', so
+    // once the status settles the read has either happened or never will.
+    await until(() => lastStatus !== 'pending');
     expect(lastStatus).toBe('error');
     expect(postureCalls).toHaveLength(0);
     unmount();

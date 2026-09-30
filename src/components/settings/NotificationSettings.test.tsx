@@ -57,7 +57,7 @@ mock.module('../../lib/pwa/install-prompt', () => ({
 
 const { NotificationSettings } = await import('./NotificationSettings');
 
-function render(): { el: HTMLElement; unmount: () => void } {
+function render(): { el: HTMLElement; client: QueryClient; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -69,7 +69,7 @@ function render(): { el: HTMLElement; unmount: () => void } {
       React.createElement(ToastProvider, null, React.createElement(NotificationSettings)),
     ));
   });
-  return { el: container, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
+  return { el: container, client, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
@@ -97,11 +97,12 @@ describe('push capability label', () => {
 
   test('falls back to the honest generic HTTPS pointer while posture is loading or on failure', async () => {
     postureRejects = true;
-    const { el, unmount } = render();
+    const { el, client, unmount } = render();
     // Never blank: the fallback copy is present immediately, and stays present
     // once the rejected fetch settles (never a crash, never an empty banner).
     expect(el.textContent).toContain('secure (HTTPS) connection');
-    await new Promise((r) => setTimeout(r, 20));
+    // The posture read has failed and nothing is still in flight.
+    await waitFor(() => client.getQueryCache().getAll().some((query) => query.state.status === 'error') && client.isFetching() === 0);
     flushSync(() => {});
     expect(el.textContent).toContain('secure (HTTPS) connection');
     expect(el.textContent).not.toContain('needs https, available via tailscale');

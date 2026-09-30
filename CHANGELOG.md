@@ -4,6 +4,19 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [1.13.20] - 2026-09-30
+
+### Changes
+
+- **The pin moves to sdk 2.1.0.** The settings schema lists the bundled
+  themes for display.theme (goodvibes, goodvibes-neon, catppuccin,
+  tokyonight, dracula, nord, gruvbox, one-dark, rosepine, solarized, github
+  and system) and carries display.treeGlyphs and the
+  behavior.notificationsMetadataOnly notification setting.
+- **Every open dependency advisory is closed.** undici, nanoid, postcss,
+  browserslist, baseline-browser-mapping and both brace-expansion lines move
+  to patched versions; bun audit reports no vulnerabilities.
+
 ## [1.13.19] - 2026-08-23
 
 ### Changes

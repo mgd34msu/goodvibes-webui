@@ -1,7 +1,7 @@
 {
   "name": "goodvibes-webui",
   "private": true,
-  "version": "1.13.19",
+  "version": "1.13.20",
   "license": "MIT",
   "type": "module",
   "packageManager": "bun@1.3.14",
@@ -46,7 +46,7 @@
     "prepublishOnly": "bun run release:gate"
   },
   "dependencies": {
-    "@pellux/goodvibes-sdk": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/sdk/pellux-goodvibes-sdk-2.0.23.tgz",
+    "@pellux/goodvibes-sdk": "2.1.0",
     "@tanstack/react-query": "^5.100.11",
     "highlight.js": "^11.11.1",
     "jsqr": "^1.4.0",
@@ -61,7 +61,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@happy-dom/global-registrator": "20.10.6",
-    "@pellux/goodvibes-toolchain": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/toolchain/pellux-goodvibes-toolchain-2.0.23.tgz",
+    "@pellux/goodvibes-toolchain": "2.1.0",
     "@playwright/test": "^1.61.0",
     "@types/bun": "^1.3.14",
     "@types/react": "^19.2.15",
@@ -78,16 +78,10 @@
     "vite": "^8.0.13"
   },
   "overrides": {
-    "@pellux/goodvibes-contracts": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/contracts/pellux-goodvibes-contracts-2.0.23.tgz",
-    "@pellux/goodvibes-daemon-sdk": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/daemon-sdk/pellux-goodvibes-daemon-sdk-2.0.23.tgz",
-    "@pellux/goodvibes-errors": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/errors/pellux-goodvibes-errors-2.0.23.tgz",
-    "@pellux/goodvibes-operator-sdk": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/operator-sdk/pellux-goodvibes-operator-sdk-2.0.23.tgz",
-    "@pellux/goodvibes-peer-sdk": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/peer-sdk/pellux-goodvibes-peer-sdk-2.0.23.tgz",
-    "@pellux/goodvibes-sdk": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/sdk/pellux-goodvibes-sdk-2.0.23.tgz",
-    "@pellux/goodvibes-terminal-shell": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/terminal-shell/pellux-goodvibes-terminal-shell-2.0.23.tgz",
-    "@pellux/goodvibes-toolchain": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/toolchain/pellux-goodvibes-toolchain-2.0.23.tgz",
-    "@pellux/goodvibes-transport-core": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/transport-core/pellux-goodvibes-transport-core-2.0.23.tgz",
-    "@pellux/goodvibes-transport-http": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/transport-http/pellux-goodvibes-transport-http-2.0.23.tgz",
-    "@pellux/goodvibes-transport-realtime": "file:/home/buzzkill/Projects/goodvibes-sdk-wt-theme/packages/transport-realtime/pellux-goodvibes-transport-realtime-2.0.23.tgz"
+    "undici": "^7.29.1",
+    "nanoid": "^3.3.18",
+    "postcss": "^8.5.23",
+    "baseline-browser-mapping": "^2.11.0",
+    "browserslist": "^4.29.3"
   }
 }

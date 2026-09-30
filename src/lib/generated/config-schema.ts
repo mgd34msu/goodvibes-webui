@@ -97,6 +97,17 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
     ]
   },
   {
+    "key": "display.treeGlyphs",
+    "type": "enum",
+    "default": "rounded",
+    "description": "Glyphs for the conversation work tree: rounded (╭ ╰ ◉), square (└ ●), or ascii (| + ` - * o x >). A terminal without unicode support uses ascii automatically.",
+    "enumValues": [
+      "rounded",
+      "square",
+      "ascii"
+    ]
+  },
+  {
     "key": "display.showThinking",
     "type": "boolean",
     "default": false,
@@ -3921,6 +3932,12 @@ export const CONFIG_SCHEMA_ENTRIES: readonly ConfigSchemaEntry[] = [
       "ast",
       "flat"
     ]
+  },
+  {
+    "key": "behavior.notificationsMetadataOnly",
+    "type": "boolean",
+    "default": false,
+    "description": "Send metadata only in every notification (desktop, in-terminal, webhook): the outcome, elapsed time and counts, without the turn's name, failure reasons, commands or file paths. Off by default, so notifications name the work they are about; turn on when notifications leave this machine and should not carry what you typed."
   },
   {
     "key": "behavior.toolResultReconciliation",

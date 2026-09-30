@@ -13,7 +13,7 @@
 .task-graph-panel__pool {
   margin: 0;
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .task-graph-nodes {
@@ -30,8 +30,8 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .task-graph-node__head {
@@ -52,12 +52,12 @@
 .task-graph-node__blocked-reason {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .task-graph-node__files {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
   word-break: break-word;
 }

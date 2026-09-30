@@ -31,7 +31,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 @keyframes fleet-refresh-spin {
@@ -49,25 +49,25 @@
 
 .fleet-cap-note {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: var(--space-2, 8px);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
 }
 
 .fleet-detail-empty {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: var(--space-2, 8px);
 }
 
 /* ── Best-of-N attempt groups ──────────────────────────────────────────── */
 
 .fleet-attempts {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
-  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--surface);
   padding: var(--space-2, 8px);
   margin-bottom: var(--space-2, 8px);
 }
@@ -80,7 +80,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: 0 var(--space-1, 4px) var(--space-1, 4px);
 }
 
@@ -88,8 +88,8 @@
   min-width: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--text-accent);
-  color: var(--accent-contrast, #fff);
+  background: var(--accent);
+  color: var(--on-accent, var(--text));
   text-align: center;
   font-size: var(--text-xs, 11px);
 }
@@ -111,25 +111,25 @@
   min-height: 44px;
   text-align: left;
   padding: var(--space-2, 8px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 8px);
-  background: var(--surface-base);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 8px);
+  background: var(--canvas);
   cursor: pointer;
 }
 
 .fleet-attempts__group.ready {
-  border-color: var(--status-warning, #c98a00);
+  border-color: var(--warn, var(--warn));
 }
 
 .fleet-attempts__group:hover,
 .fleet-attempts__group:focus-visible {
-  border-color: var(--text-accent);
+  border-color: var(--accent);
 }
 
 .fleet-attempts__group-title {
   font-size: var(--text-sm, 13px);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
@@ -157,16 +157,16 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
+  color: var(--text);
   cursor: pointer;
 }
 
 .fleet-row.active {
-  border-color: var(--border-focus);
-  background: var(--accent-muted);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .fleet-row__title {
@@ -200,7 +200,7 @@
 }
 
 .fleet-detail__task {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
 }
 
@@ -211,7 +211,7 @@
 }
 
 .fleet-detail__meta small {
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 /* Observed foreign-agent drill-in — phone-width legible by construction (no
@@ -222,13 +222,13 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .fleet-detail__observed-note {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
 }
 
@@ -247,7 +247,7 @@
 
 .fleet-detail__observed-facts dt {
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .fleet-detail__observed-facts dd {
@@ -283,7 +283,7 @@
 
 .fleet-detail__observed-no-channel {
   margin: 0;
-  color: var(--text-tertiary);
+  color: var(--text-3);
   font-size: var(--text-sm, 13px);
   font-style: italic;
 }
@@ -295,8 +295,8 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-sm, 13px);
 }
 
@@ -305,7 +305,7 @@
   flex-wrap: wrap;
   gap: var(--space-2, 8px);
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .fleet-detail__review {
@@ -313,8 +313,8 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-sm, 13px);
 }
 
@@ -327,7 +327,7 @@
 
 .fleet-detail__review-empty {
   margin: 0;
-  color: var(--text-danger, #d14343);
+  color: var(--bad, var(--bad));
   font-size: var(--text-sm, 13px);
 }
 
@@ -353,11 +353,11 @@
 }
 
 .fleet-detail__review-checklist > li.verified .fleet-detail__review-mark {
-  color: var(--text-success, #2f855a);
+  color: var(--ok, var(--ok));
 }
 
 .fleet-detail__review-checklist > li.unverified .fleet-detail__review-mark {
-  color: var(--text-danger, #d14343);
+  color: var(--bad, var(--bad));
 }
 
 .fleet-detail__review-body {
@@ -373,26 +373,26 @@
 
 .fleet-detail__review-state {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .fleet-detail__review-evidence,
 .fleet-detail__review-exercised {
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .fleet-detail__raw summary {
   cursor: pointer;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .fleet-detail__raw pre {
   font-size: var(--text-xs, 11px);
   overflow-x: auto;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   padding: var(--space-2, 8px);
 }
 
@@ -404,7 +404,7 @@
   align-self: flex-start;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
   cursor: pointer;
   padding: 0;
@@ -429,8 +429,8 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .fleet-steer-box__form {
@@ -448,10 +448,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
   white-space: nowrap;
@@ -464,9 +464,9 @@
   align-self: flex-start;
   font-size: var(--text-xs, 12px);
   background: none;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -476,10 +476,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-  border: 1px solid var(--status-danger);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -493,16 +493,16 @@
 
 .fleet-detail__unbacked-note {
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
   padding: var(--space-2, 8px);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .fleet-detail__phone-actions-note {
   display: none;
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 @media (max-width: 980px) {
@@ -550,7 +550,7 @@
 
 .node-headline {
   font-size: 0.8rem;
-  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  color: var(--text-2, var(--text-2));
   overflow-wrap: anywhere;
 }
 
@@ -566,5 +566,5 @@
 .node-stall-note {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--tone-warning-text, #b45309);
+  color: var(--warn, var(--warn));
 }

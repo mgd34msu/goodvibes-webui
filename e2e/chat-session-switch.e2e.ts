@@ -5,45 +5,41 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
+import { closeNavigation, openNavigation } from './support/app';
 
 const COMPOSER = 'textarea[aria-label="Message GoodVibes"]';
 
-/** The chat list lives in the sidebar, a drawer on a phone: open it when it is hidden. */
+/** The chat list ("Recent") lives in the sidebar, a drawer on a phone: open it when it is hidden. */
 async function showChatList(page: Page): Promise<void> {
-  const list = page.locator('.sidebar-sessions');
-  if (!(await list.isVisible())) await page.locator('.brand-mark-button').click();
-  await expect(list).toBeVisible();
+  await openNavigation(page);
+  await expect(page.locator('.shell-recent').first()).toBeVisible();
 }
 
-/** On a phone the open drawer covers the composer: close it the way a user would. */
+/** On a phone, picking from the drawer closes it; make sure it is gone before typing. */
 async function hideDrawerIfCovering(page: Page): Promise<void> {
-  const scrim = page.locator('.sidebar-scrim');
-  if (await scrim.isVisible()) {
-    // Tap outside the drawer (its right edge ends short of 340px on a 390px phone).
-    await scrim.click({ position: { x: 340, y: 422 } });
-    await expect(page.locator('.sidebar.collapsed')).toBeAttached();
-  }
+  await closeNavigation(page);
 }
 
-/**
- * Activate a sidebar control from the keyboard. At 1280x800 the bottom of the chat
- * list sits under the fixed status strip, which takes pointer clicks there, so the
- * rows are reached the way a keyboard user reaches them.
- */
+/** Activate a sidebar control from the keyboard, the way a keyboard user reaches it. */
 async function activate(page: Page, control: ReturnType<Page['locator']>): Promise<void> {
   await control.focus();
   await page.keyboard.press('Enter');
 }
 
+/** The visible navigation: the phone drawer when open, else the desktop sidebar. */
+function nav(page: Page): ReturnType<Page['locator']> {
+  return page.locator('.shell-drawer, .shell-sidebar').first();
+}
+
 async function openChat(page: Page, titleFragment: string): Promise<void> {
   await showChatList(page);
-  await activate(page, page.locator('.sidebar-session', { hasText: titleFragment }));
+  await activate(page, nav(page).locator('.shell-recent__open', { hasText: titleFragment }));
   await hideDrawerIfCovering(page);
 }
 
 async function newChat(page: Page): Promise<void> {
   await showChatList(page);
-  await activate(page, page.getByTitle('New chat'));
+  await activate(page, nav(page).getByRole('button', { name: 'New chat' }));
   await hideDrawerIfCovering(page);
 }
 

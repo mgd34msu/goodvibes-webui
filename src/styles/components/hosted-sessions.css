@@ -40,7 +40,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -64,17 +64,17 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .hosted-sessions-create-form input,
 .hosted-sessions-create-form select {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 8px;
   font-size: var(--text-xs, 12px);
 }
@@ -85,10 +85,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -100,10 +100,10 @@
 
 .hosted-sessions-stream-note {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 10px;
   margin: 0;
 }
@@ -118,13 +118,13 @@
 }
 
 .hosted-session-row {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 8px);
   overflow: hidden;
 }
 
 .hosted-session-row.selected {
-  border-color: var(--border-focus);
+  border-color: var(--accent);
 }
 
 .hosted-session-row__button {
@@ -134,15 +134,15 @@
   gap: 4px;
   width: 100%;
   text-align: left;
-  background: var(--surface-sunken);
+  background: var(--surface);
   border: none;
   padding: 10px 12px;
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .hosted-session-row__button:hover {
-  background: var(--surface-hover, var(--surface-sunken));
+  background: var(--surface-2, var(--surface));
 }
 
 .hosted-session-row__top {
@@ -162,7 +162,7 @@
 
 .hosted-session-row__workspace {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -173,12 +173,12 @@
   flex-wrap: wrap;
   gap: 10px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .hosted-session-row__termination {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .hosted-session-detail {
@@ -187,8 +187,8 @@
   gap: var(--space-3, 12px);
   min-height: 0;
   overflow-y: auto;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 8px);
   padding: var(--space-3, 12px);
 }
 
@@ -209,12 +209,12 @@
  * (which merely detaches), so it gets the same danger treatment as the
  * PowerChip/status-strip compatibility warning idioms (status.css). */
 .hosted-session-detail__actions .secondary-button.danger {
-  border-color: var(--status-danger);
-  color: var(--status-danger);
+  border-color: var(--bad);
+  color: var(--bad);
 }
 
 .hosted-session-detail__actions .secondary-button.danger:hover {
-  background: var(--status-danger-soft);
+  background: var(--bad-soft);
 }
 
 .hosted-session-detail__header h3 {
@@ -225,20 +225,20 @@
 .hosted-session-detail__workspace {
   margin: 2px 0 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .hosted-session-detail__policy-note {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
 .hosted-session-detail__terminated {
   font-size: var(--text-sm, 13px);
-  color: var(--text-primary);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  color: var(--text);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 10px;
   margin: 0;
 }
@@ -255,13 +255,13 @@
 }
 
 .hosted-session-message {
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-xs, 6px);
   padding: 8px 10px;
-  background: var(--surface-sunken);
+  background: var(--surface);
 }
 
 .hosted-session-message--user {
-  background: var(--accent-muted);
+  background: var(--accent-soft);
 }
 
 .hosted-session-message--streaming {
@@ -271,7 +271,7 @@
 .hosted-session-message__role {
   display: block;
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   margin-bottom: 2px;
@@ -295,9 +295,9 @@
 
 .hosted-session-tool-activity__item {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  color: var(--text-2);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   padding: 3px 8px;
 }
 

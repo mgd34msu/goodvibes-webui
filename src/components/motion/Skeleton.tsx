@@ -6,7 +6,7 @@ interface SkeletonProps {
   width?: string;
   /** Height, any CSS value. Default "1em". */
   height?: string;
-  /** Border radius. Default var(--radius-sm). */
+  /** Border radius. Default var(--radius-xs). */
   radius?: string;
   /** Additional class names. */
   className?: string;
@@ -28,7 +28,7 @@ export function Skeleton({ width = '100%', height = '1em', radius, className, st
       style={{
         width,
         height,
-        borderRadius: radius ?? 'var(--radius-sm)',
+        borderRadius: radius ?? 'var(--radius-xs)',
         ...style,
       }}
       aria-hidden="true"

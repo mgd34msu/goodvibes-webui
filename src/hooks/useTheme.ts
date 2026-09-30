@@ -8,6 +8,7 @@ import {
   THEME_PREFERENCES_EVENT,
   applyThemeToRoot,
   readThemePreferences,
+  resolveColorScheme,
   resolveInitialTheme,
   writeThemePreferences,
 } from '../lib/theme';
@@ -78,8 +79,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     writeThemePreferences(next);
   }, [prefs]);
 
+  // Toggle flips the scheme on screen: Auto resolves against the OS first, and
+  // GoodVibes Neon counts as dark (so it toggles to light).
   const toggleTheme = useCallback(() => {
-    setTheme(prefs.theme === 'dark' ? 'light' : 'dark');
+    setTheme(resolveColorScheme(prefs.theme) === 'dark' ? 'light' : 'dark');
   }, [prefs.theme, setTheme]);
 
   const value: UseThemeResult = {

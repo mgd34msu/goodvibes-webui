@@ -22,7 +22,7 @@
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(0 0 0 / 0.5);
+  background: var(--scrim-solid);
 }
 
 .modal-panel {
@@ -31,10 +31,10 @@
   flex-direction: column;
   max-height: min(720px, calc(100vh - var(--space-8)));
   width: 100%;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--elevation-3);
+  background: var(--glass-solid);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
   outline: none;
 }
 
@@ -52,17 +52,17 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
   min-width: 0;
 }
 
 .modal-title {
   margin: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--text);
   line-height: var(--leading-tight);
   flex-shrink: 0;
 }
@@ -85,22 +85,22 @@
   justify-content: center;
   width: var(--row-h);
   height: var(--row-h);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
 
 .modal-close:hover {
-  background: var(--accent-muted);
-  color: var(--text-primary);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .modal-close:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -108,8 +108,8 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
+  color: var(--text);
+  font-family: var(--font-ui);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
 }
@@ -132,5 +132,21 @@
 @media (prefers-reduced-motion: reduce) {
   .modal-panel {
     transition: none;
+  }
+}
+
+/* Glass and scrim (design doc "Glass and elevation"): the translucent recipe
+   where backdrop-filter works; the opaque values above are the fallback. */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .modal-backdrop {
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .modal-panel {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    backdrop-filter: blur(22px) saturate(1.4);
   }
 }

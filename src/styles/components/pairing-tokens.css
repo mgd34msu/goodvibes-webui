@@ -25,9 +25,9 @@
   justify-content: space-between;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .pairing-token-row__main {
@@ -45,7 +45,7 @@
 
 .pairing-token-row__meta {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .pairing-token-row__actions {
@@ -64,10 +64,10 @@
 }
 
 .pairing-token-row__rename-form input {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 8px;
   font-size: var(--text-xs, 12px);
   font-family: inherit;
@@ -78,7 +78,7 @@
 .pairing-tokens-legacy {
   margin-top: var(--space-3, 12px);
   padding-top: var(--space-3, 12px);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   gap: var(--space-2, 8px);

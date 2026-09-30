@@ -14,17 +14,17 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .settings-degraded strong {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .settings-degraded span {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
 }
 
@@ -39,32 +39,32 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--line);
   padding-right: var(--space-3);
 }
 
 .settings-category {
   text-align: left;
   padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
   cursor: pointer;
 }
 
 .settings-category:hover {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .settings-category--active {
-  background: var(--accent-muted);
-  color: var(--text-primary);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .settings-category:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -83,30 +83,30 @@
 .settings-table td {
   text-align: left;
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
 
 .settings-table th {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-weight: var(--weight-medium);
   white-space: nowrap;
   font-family: var(--font-mono);
 }
 
 .settings-value {
-  color: var(--text-primary);
+  color: var(--text);
   font-family: var(--font-mono);
   word-break: break-word;
 }
 
 .settings-value--secret {
-  color: var(--text-secondary);
+  color: var(--text-2);
   letter-spacing: 0.05em;
 }
 
 .settings-secret-flag {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-style: italic;
   font-weight: normal;
 }
@@ -118,22 +118,22 @@
 .settings-search input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-base);
-  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--text);
   font-size: var(--text-sm);
 }
 
 .settings-search input:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 /* ── Typed field editor ───────────────────────────────────────────────────── */
 .settings-field {
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--line);
 }
 
 .settings-field:last-child {
@@ -150,20 +150,20 @@
 .settings-field-key {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: var(--text-primary);
+  color: var(--text);
   word-break: break-word;
 }
 
 .settings-field-default,
 .settings-field-hint {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-style: italic;
 }
 
 .settings-field-desc {
   margin: var(--space-1) 0 var(--space-2);
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
   line-height: 1.4;
 }
@@ -177,10 +177,10 @@
 .settings-field-input,
 .settings-field-select {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--surface-base);
-  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--canvas);
+  color: var(--text);
   font-size: var(--text-sm);
   min-width: 12rem;
   max-width: 100%;
@@ -188,7 +188,7 @@
 
 .settings-field-input:focus-visible,
 .settings-field-select:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
@@ -197,7 +197,7 @@
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--text);
   font-size: var(--text-sm);
 }
 
@@ -219,14 +219,14 @@
   display: inline-flex;
   align-items: center;
   padding: 0 var(--space-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  background: var(--surface-raised, var(--surface-base));
+  color: var(--text-2);
+  background: var(--surface, var(--canvas));
 }
 
 .feature-unit-daemon-badge {
@@ -239,12 +239,12 @@
 .feature-unit-persisted {
   margin: var(--space-1) 0 0;
   font-size: 0.75rem;
-  color: var(--contract-state-good, var(--text-secondary));
+  color: var(--contract-state-good, var(--text-2));
 }
 
 .settings-daemon-flag {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-style: italic;
 }
 
@@ -252,9 +252,9 @@
 .feature-unit {
   padding: var(--space-3);
   margin-bottom: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-base);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
 }
 
 .feature-unit-head {
@@ -273,34 +273,34 @@
 .feature-unit-title h3 {
   margin: 0;
   font-size: var(--text-md, 1rem);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .feature-unit-state {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .feature-unit-state--enabled {
-  color: var(--contract-state-good, var(--text-primary));
+  color: var(--contract-state-good, var(--text));
 }
 
 .feature-unit-locked {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-style: italic;
 }
 
 .feature-unit-desc {
   margin: var(--space-2) 0;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
   line-height: 1.4;
 }
 
 .feature-unit-note {
   margin: var(--space-1) 0;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: 0.75rem;
 }
 
@@ -308,7 +308,7 @@
 .feature-unit-pending {
   margin: var(--space-1) 0;
   font-size: 0.75rem;
-  color: var(--contract-state-warn, var(--text-primary));
+  color: var(--contract-state-warn, var(--text));
 }
 
 /* Enum enablement: the feature's mode select in the unit header. */
@@ -321,24 +321,24 @@
 
 .feature-unit-mode-label {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .feature-unit-mode-desc {
   margin: var(--space-1) 0;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: 0.75rem;
 }
 
 .feature-unit-fields {
   margin-top: var(--space-2);
   padding-left: var(--space-3);
-  border-left: 2px solid var(--border-subtle);
+  border-left: 2px solid var(--line);
 }
 
 .settings-raw-note,
 .settings-advanced-note {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
   margin: var(--space-3) 0 var(--space-2);
 }
@@ -357,7 +357,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--line);
     padding-right: 0;
     padding-bottom: var(--space-3);
   }
@@ -369,7 +369,7 @@
 }
 
 .stepup-note {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: 0.9rem;
   line-height: 1.5;
   margin: var(--space-2) 0;
@@ -406,8 +406,8 @@
 .stepup-target code {
   display: inline-block;
   padding: var(--space-1) var(--space-2);
-  background: var(--surface-sunken, rgba(127, 127, 127, 0.12));
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface-2));
+  border-radius: var(--radius-xs, 6px);
   font-size: 0.85rem;
   word-break: break-all;
 }
@@ -421,7 +421,7 @@
 }
 
 .model-prices-empty {
-  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  color: var(--text-2, var(--text-2));
   font-size: 0.9rem;
   margin: 0;
 }
@@ -442,8 +442,8 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--surface-sunken, rgba(127, 127, 127, 0.08));
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface-2));
+  border-radius: var(--radius-xs, 6px);
 }
 
 .model-prices-row-main {
@@ -460,7 +460,7 @@
 
 .model-prices-summary {
   font-size: 0.85rem;
-  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  color: var(--text-2, var(--text-2));
 }
 
 .model-prices-row-actions {
@@ -554,7 +554,7 @@
 .money-field-currency {
   font-weight: 600;
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: var(--text-2);
   min-width: 3ch;
 }
 
@@ -585,7 +585,7 @@
 .settings-card-note {
   margin: 0;
   max-width: 46rem;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
 }
 

@@ -12,7 +12,7 @@
 .peek-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 0.45);
+  background: var(--scrim);
   opacity: 0;
   pointer-events: none;
   z-index: calc(var(--z-peek) - 1);
@@ -33,10 +33,11 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(480px, 100vw);
-  background: var(--surface-raised);
-  border-left: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-3);
+  width: min(440px, 100vw);
+  /* Glass (design doc "Menus and modals": peeks are a right-side glass drawer, 440). */
+  background: var(--glass-solid);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
   z-index: var(--z-peek);
   flex-direction: column;
   transform: translateX(100%);
@@ -100,17 +101,17 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-raised);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
   flex-shrink: 0;
 }
 
 .peek-title {
   margin: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
+  color: var(--text);
   line-height: var(--leading-tight);
   white-space: nowrap;
   overflow: hidden;
@@ -123,10 +124,10 @@
   justify-content: center;
   width: var(--row-h);
   height: var(--row-h);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--motion-fast) var(--ease-standard),
@@ -134,12 +135,12 @@
 }
 
 .peek-close:hover {
-  background: var(--accent-muted);
-  color: var(--text-primary);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .peek-close:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -151,8 +152,16 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--space-6);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
+  color: var(--text);
+  font-family: var(--font-ui);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .peek-panel {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    backdrop-filter: blur(22px) saturate(1.4);
+  }
 }

@@ -4,134 +4,107 @@
  * Do NOT hardcode hex or px where a token exists.
  */
 
-.status-strip {
-  /* Pinned to the viewport, not left in document flow: in flow the strip sat
-   * wherever the page content happened to end and rode along with body scroll,
-   * crossing the fixed sidebar mid-viewport. The shell reserves its lane via
-   * .app-shell-root's padding-bottom. */
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  height: var(--statusstrip-height, 32px);
-  min-height: var(--statusstrip-height, 32px);
-  max-height: var(--statusstrip-height, 32px);
-  padding: 0 var(--space-3, 12px);
-  background: var(--surface-raised);
-  border-top: 1px solid var(--border-subtle);
-  font-family: var(--font-sans);
-  font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
-  overflow: hidden;
-  flex-shrink: 0;
-  z-index: var(--z-statusstrip, 30);
-  user-select: none;
-}
-
-/* Visually-hidden live region — positions off-screen */
-.status-strip__live-region {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/*
+ * Status chips and the connection dot.
+ *
+ * The bottom status strip is gone (design doc "App shell": connection state
+ * lives in the avatar dot and the account menu). What remains here are the
+ * chips that must never be invisible while their condition holds, the
+ * sleep-disabled chip (PowerChip), the wake-word listening chip (WakeChip) and
+ * the reload-to-update chip, rendered in the shell header's indicator slot, plus
+ * the connection dot used on the avatar and in the account menu.
+ *
+ * Chips are neutral (--surface-2, full radius, 24 tall); only the icon carries
+ * the status hue, and a word always sits beside it.
+ */
 
 .status-strip__segment {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-1, 4px);
-  padding: 0 var(--space-2, 8px);
-  height: 100%;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.status-strip__segment--right {
-  margin-left: auto;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-meta);
 }
 
 .status-strip__segment--active .status-strip__label {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .status-strip__segment--active .status-strip__icon {
   color: var(--accent);
 }
 
-/* Connection dot — 6px is intentionally below the --space-1 token (4px gap);
- * sub-token size keeps the dot visually unobtrusive in the dense status bar. */
+/* Connection dot: the design doc's 7px status dot. */
 .status-strip__dot {
   display: inline-block;
-  width: 6px; /* intentional sub-token: 6px < --space-2; fits dense status bar */
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-full, 999px);
   flex-shrink: 0;
   transition: background-color var(--motion-base, 180ms) var(--ease-standard, ease);
 }
 
 .status-strip__dot--connected {
-  background-color: var(--status-success);
+  background-color: var(--ok);
 }
 
 .status-strip__dot--reconnecting {
-  background-color: var(--status-warning);
+  background-color: var(--warn);
   animation: status-strip-pulse var(--motion-slow, 260ms) ease-in-out infinite alternate;
 }
 
 .status-strip__dot--down {
-  background-color: var(--status-danger);
+  background-color: var(--bad);
 }
 
 /* SSE state coloring */
 .status-strip__segment--sse-active .status-strip__icon {
-  color: var(--status-success);
+  color: var(--ok);
 }
 
 .status-strip__segment--sse-connecting .status-strip__icon {
-  color: var(--status-warning);
+  color: var(--warn);
 }
 
 .status-strip__segment--sse-error .status-strip__icon {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 .status-strip__segment--sse-disabled .status-strip__icon {
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 /* Event streaming genuinely cannot work over relay (not a fault to fix, not a
  * reconnect-and-it-'ll-be-fine state) — an informational tone, not the danger
  * color 'error' uses. */
 .status-strip__segment--sse-relay-unsupported .status-strip__icon {
-  color: var(--status-info, var(--text-tertiary));
+  color: var(--info, var(--text-3));
 }
 
 /* ROUTE axis. 'relay' gets a distinct (info, not success) color so a tunneled
  * session is never visually indistinguishable from an ordinary direct one. */
 .status-strip__segment--route-direct .status-strip__icon {
-  color: var(--status-success);
+  color: var(--ok);
 }
 
 .status-strip__segment--route-relay .status-strip__icon {
-  color: var(--status-info, var(--status-warning));
+  color: var(--info, var(--warn));
 }
 
 .status-strip__icon {
-  color: var(--text-tertiary);
+  color: var(--text-3);
   flex-shrink: 0;
 }
 
 .status-strip__label {
-  font-size: var(--text-xs, 12px);
-  line-height: var(--leading-tight, 1.2);
+  font-size: var(--text-meta);
+  line-height: 18px;
   color: inherit;
 }
 
@@ -150,7 +123,7 @@
   font-family: var(--font-mono);
   font-size: 11px; /* intentional sub-token: 11px < --text-xs (12px); model name
                    * needs slightly tighter scale to stay unobtrusive */
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 /* Segment model — slightly dimmed, ellipsis on overflow */
@@ -169,30 +142,29 @@
  * destructive-restore chip): an active override the owner should notice, not
  * ambient status. */
 .status-strip__segment--power {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
+  color: var(--text);
 }
 
 .status-strip__segment--power .status-strip__icon {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 .status-strip__segment--power .status-strip__label {
-  color: var(--status-danger);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 /* Client-build compatibility floor warning — same danger idiom as PowerChip
  * above: an active condition the owner should notice, not ambient status. */
 .status-strip__segment--compatibility-warning {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
+  color: var(--text);
 }
 
-.status-strip__segment--compatibility-warning .status-strip__icon,
+.status-strip__segment--compatibility-warning .status-strip__icon {
+  color: var(--bad);
+}
+
 .status-strip__segment--compatibility-warning .status-strip__label {
-  color: var(--status-danger);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 /* Pulse animation for reconnecting dot */
@@ -220,7 +192,7 @@
   margin-left: auto;
   padding: var(--space-1) var(--space-3);
   border: 1px solid currentColor;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-xs, 6px);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -229,7 +201,7 @@
 }
 
 .relay-overflow-resync:hover {
-  background: rgba(127, 127, 127, 0.15);
+  background: var(--surface-2);
 }
 
 /* ── Daemon receipts (consumed once per connect) ──────────────────────────── */
@@ -259,14 +231,14 @@
   justify-content: center;
   padding: var(--space-1);
   border: 1px solid currentColor;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-xs, 6px);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
 .daemon-receipt__dismiss:hover {
-  background: rgba(127, 127, 127, 0.15);
+  background: var(--surface-2);
 }
 
 /* Wake-word listening chip (voice.wake.indicator: "statusline").
@@ -276,14 +248,15 @@
      --wake-attention restarting or stopped, i.e. something to look at (danger)
      --wake-idle      loading models, i.e. on its way up (muted) */
 .status-strip__segment--wake-live {
-  background: var(--blue-soft);
-  color: var(--blue);
+  color: var(--text);
 }
 
-.status-strip__segment--wake-live .status-strip__icon,
+.status-strip__segment--wake-live .status-strip__icon {
+  color: var(--accent);
+}
+
 .status-strip__segment--wake-live .status-strip__label {
-  color: var(--blue);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .status-strip__segment--wake-live .status-strip__icon {
@@ -291,14 +264,15 @@
 }
 
 .status-strip__segment--wake-attention {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
+  color: var(--text);
 }
 
-.status-strip__segment--wake-attention .status-strip__icon,
+.status-strip__segment--wake-attention .status-strip__icon {
+  color: var(--bad);
+}
+
 .status-strip__segment--wake-attention .status-strip__label {
-  color: var(--status-danger);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 @media (prefers-reduced-motion: reduce) {

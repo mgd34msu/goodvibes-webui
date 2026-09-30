@@ -12,14 +12,14 @@
 
 .device-panel__description {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
 .device-panel__notice {
   font-size: var(--text-sm, 13px);
-  color: var(--status-warning, var(--text-secondary));
-  border-left: 3px solid var(--status-warning, var(--border-subtle));
+  color: var(--warn, var(--text-2));
+  border-left: 3px solid var(--warn, var(--line));
   padding-left: 0.6rem;
   margin: 0;
 }
@@ -34,7 +34,7 @@
   font-size: var(--text-sm, 13px);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0.5rem 0 0;
 }
 
@@ -54,13 +54,13 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.5rem 0.6rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .device-list__detail {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 /*

@@ -93,3 +93,27 @@ export async function nextFrames(page: Page): Promise<void> {
     () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
   );
 }
+
+/**
+ * Make the primary navigation visible. On a phone (under 900) the sidebar is a
+ * drawer behind the header's menu button; on desktop it is already on screen.
+ */
+export async function openNavigation(page: Page): Promise<void> {
+  // The shell must be up first: before it renders, the menu button is simply absent,
+  // and an instant visibility check would wrongly read that as "desktop, no drawer".
+  await expect(page.locator('.app-shell')).toBeVisible();
+  const menu = page.getByRole('button', { name: /^Open navigation/ });
+  if (await menu.isVisible()) {
+    await menu.click();
+    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeVisible();
+  }
+}
+
+/** Close the phone navigation drawer the way a person would: tap the scrim beside it. */
+export async function closeNavigation(page: Page): Promise<void> {
+  const drawer = page.getByRole('dialog', { name: 'Navigation' });
+  if (!(await drawer.isVisible())) return;
+  // The drawer is 85% of a 390 phone (331 wide); x=370 is always the exposed scrim.
+  await page.locator('.gv-overlay > .scrim').click({ position: { x: 370, y: 422 } });
+  await expect(drawer).toBeHidden();
+}

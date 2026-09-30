@@ -14,20 +14,20 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.6rem;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-sm, 13px);
   align-self: flex-start;
 }
 
 .power-panel__state--danger {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-  border: 1px solid var(--status-danger);
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid var(--bad);
 }
 
 .power-panel__note {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
@@ -36,11 +36,11 @@
   flex-direction: column;
   gap: 0.3rem;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
 }
 
 .power-panel__held-because {
   margin: 0;
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }

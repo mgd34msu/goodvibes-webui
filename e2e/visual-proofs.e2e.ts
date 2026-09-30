@@ -55,7 +55,7 @@ test('knowledge map', async ({ page }, testInfo) => {
 test('chat degraded states (mocked stream drop)', async ({ page }, testInfo) => {
   await installMockDaemon(page, { dropStreams: true });
   await page.goto('/?view=chat');
-  await expect(page.locator('.workspace-chat')).toBeVisible();
+  await expect(page.locator('.shell-main[data-view="chat"]')).toBeVisible();
   // The dropped stream surfaces its paused banner.
   await expect(page.locator('.banner.warning', { hasText: 'Live updates paused' })).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'chat-degraded'), fullPage: true });
@@ -83,9 +83,9 @@ for (const theme of ['dark', 'light'] as const) {
     await seedTheme(page, theme);
     await installMockDaemon(page);
     await page.goto('/?view=sessions');
-    await expect(page.locator('.topbar')).toBeVisible();
-    // Prove the topbar surface is token-driven (no white band in dark theme).
-    const topbarBg = await page.locator('.topbar').evaluate((el) => getComputedStyle(el).backgroundColor);
+    await expect(page.locator('.shell-header')).toBeVisible();
+    // Prove the header surface is token-driven (no white band in dark theme).
+    const topbarBg = await page.locator('.shell-main').evaluate((el) => getComputedStyle(el.closest('.app-shell')!).backgroundColor);
     if (theme === 'dark') {
       // A near-white band would be rgb(255,255,255)-ish; the dark token must NOT be that.
       expect(topbarBg).not.toBe('rgb(255, 255, 255)');

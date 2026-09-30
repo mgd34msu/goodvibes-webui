@@ -3,7 +3,9 @@ import {
   DEFAULT_THEME_PREFERENCES,
   THEME_PREFERENCES_KEY,
   applyThemeToRoot,
+  isTheme,
   readThemePreferences,
+  resolveColorScheme,
   resolveInitialTheme,
   writeThemePreferences,
 } from './theme';
@@ -263,5 +265,43 @@ describe('applyThemeToRoot', () => {
   test('no-ops when document is undefined', () => {
     (globalThis as Record<string, unknown>).document = undefined;
     expect(() => applyThemeToRoot({ theme: 'dark', density: 'default' })).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The four stored themes: slate dark/light, auto, and the opt-in GoodVibes Neon
+// ---------------------------------------------------------------------------
+
+describe('stored theme choice always wins, including auto and neon', () => {
+  afterEach(removeWindowMock);
+
+  test('a stored neon or auto choice is returned as-is, never migrated', () => {
+    installWindowMock(true); // even with the OS asking for light
+    mockStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'neon' }));
+    expect(resolveInitialTheme()).toBe('neon');
+    expect(readThemePreferences().theme).toBe('neon');
+    mockStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'auto' }));
+    expect(resolveInitialTheme()).toBe('auto');
+  });
+
+  test('a stored dark choice stays dark even when the OS prefers light', () => {
+    installWindowMock(true);
+    mockStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'dark' }));
+    expect(resolveInitialTheme()).toBe('dark');
+  });
+
+  test('isTheme accepts exactly the four themes', () => {
+    expect(['dark', 'light', 'auto', 'neon'].every(isTheme)).toBe(true);
+    expect(isTheme('solarized')).toBe(false);
+    expect(isTheme(undefined)).toBe(false);
+  });
+
+  test('resolveColorScheme: auto follows the OS, neon paints dark', () => {
+    installWindowMock(true);
+    expect(resolveColorScheme('auto')).toBe('light');
+    expect(resolveColorScheme('neon')).toBe('dark');
+    expect(resolveColorScheme('light')).toBe('light');
+    installWindowMock(false);
+    expect(resolveColorScheme('auto')).toBe('dark');
   });
 });

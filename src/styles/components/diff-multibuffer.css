@@ -13,8 +13,8 @@
 }
 
 .diff-mb__file {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
   overflow: hidden;
 }
 
@@ -23,14 +23,14 @@
   align-items: center;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .diff-mb__file-path {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs, 11px);
-  color: var(--text-primary);
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
@@ -38,7 +38,7 @@
   margin: 0;
   padding: var(--space-2, 8px) var(--space-3, 12px);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .diff-mb__hunk {
@@ -47,8 +47,8 @@
   text-align: left;
   padding: var(--space-2, 8px) var(--space-3, 12px);
   border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--surface-raised, var(--surface-base));
+  border-top: 1px solid var(--line);
+  background: var(--surface, var(--canvas));
 }
 
 /* Interactive hunks (a <button>) are tap targets; static ones (read-only comparison) are not. */
@@ -58,19 +58,19 @@ button.diff-mb__hunk {
 }
 
 button.diff-mb__hunk:hover,
-button.diff-mb__hunk:focus-visible { background: var(--surface-sunken); }
+button.diff-mb__hunk:focus-visible { background: var(--surface); }
 
 .diff-mb__hunk:first-of-type { border-top: 0; }
 
-.diff-mb__hunk--reviewed { background: color-mix(in srgb, var(--status-success, #2c8a5b) 8%, transparent); }
+.diff-mb__hunk--reviewed { background: color-mix(in srgb, var(--ok, var(--ok)) 8%, transparent); }
 .diff-mb__hunk--reverted { opacity: 0.65; }
-.diff-mb__hunk--conflict { background: color-mix(in srgb, var(--status-warning, #c98a00) 10%, transparent); }
+.diff-mb__hunk--conflict { background: color-mix(in srgb, var(--warn, var(--warn)) 10%, transparent); }
 
 .diff-mb__hunk-header {
   display: block;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
   margin-bottom: var(--space-1, 4px);
 }
 
@@ -84,18 +84,18 @@ button.diff-mb__hunk:focus-visible { background: var(--surface-sunken); }
 }
 
 .diff-mb__line { display: block; }
-.diff-mb__line--add { color: var(--status-success, #2c8a5b); }
-.diff-mb__line--del { color: var(--status-danger, #b4233a); }
-.diff-mb__line--context { color: var(--text-secondary); }
+.diff-mb__line--add { color: var(--ok, var(--ok)); }
+.diff-mb__line--del { color: var(--bad, var(--bad)); }
+.diff-mb__line--context { color: var(--text-2); }
 .diff-mb__line--meta,
-.diff-mb__line--more { color: var(--text-tertiary, var(--text-secondary)); font-style: italic; }
+.diff-mb__line--more { color: var(--text-3, var(--text-2)); font-style: italic; }
 
 .diff-mb__hunk-cta {
   display: inline-block;
   margin-top: var(--space-1, 4px);
   font-size: var(--text-xs, 11px);
   font-weight: 600;
-  color: var(--text-accent);
+  color: var(--accent);
 }
 
 .diff-mb__hunk-status {
@@ -105,6 +105,6 @@ button.diff-mb__hunk:focus-visible { background: var(--surface-sunken); }
   font-weight: 600;
 }
 
-.diff-mb__hunk-status--reviewed { color: var(--status-success, #2c8a5b); }
-.diff-mb__hunk-status--reverted { color: var(--text-tertiary, var(--text-secondary)); }
-.diff-mb__hunk-status--conflict { color: var(--status-warning, #c98a00); }
+.diff-mb__hunk-status--reviewed { color: var(--ok, var(--ok)); }
+.diff-mb__hunk-status--reverted { color: var(--text-3, var(--text-2)); }
+.diff-mb__hunk-status--conflict { color: var(--warn, var(--warn)); }

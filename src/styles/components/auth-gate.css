@@ -17,17 +17,17 @@
   flex-direction: column;
   gap: var(--space-3, 12px);
   padding: var(--space-5, 24px);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
 }
 
 .signed-out-mark {
-  color: var(--text-accent);
+  color: var(--accent);
 }
 
 .signed-out-lede {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
 }
 
@@ -37,9 +37,9 @@
   gap: var(--space-3, 12px);
   align-items: flex-start;
   padding: var(--space-3, 12px);
-  background: var(--surface-sunken, var(--surface-base));
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
+  background: var(--surface, var(--canvas));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
 }
 
 .signed-out-pair__mark {
@@ -48,22 +48,22 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-sm, 8px);
-  color: var(--text-accent);
-  background: color-mix(in srgb, var(--text-accent) 12%, transparent);
+  border-radius: var(--radius-xs, 8px);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .signed-out-pair__copy h2 {
   margin: 0 0 2px;
   font-size: var(--text-sm, 13px);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .signed-out-pair__copy p {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 /* "or paste a token" divider between the primary QR path and the fallback field. */
@@ -71,7 +71,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2, 8px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
   font-size: var(--text-xs, 12px);
 }
 
@@ -80,12 +80,12 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border-subtle);
+  background: var(--line);
 }
 
 .signed-out-help {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .signed-out-help ul {
@@ -97,7 +97,7 @@
 }
 
 .signed-out-secondary {
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
   padding-top: var(--space-3, 12px);
   display: flex;
   flex-direction: column;
@@ -107,7 +107,7 @@
 .link-button {
   background: none;
   border: none;
-  color: var(--text-accent);
+  color: var(--accent);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -123,7 +123,7 @@
   justify-content: center;
   gap: var(--space-3, 12px);
   min-height: 100%;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .app-splash__mark {
@@ -153,7 +153,7 @@
   inset: 0;
   z-index: var(--z-overlay);
   overflow-y: auto;
-  background: var(--surface-overlay);
+  background: var(--glass);
 }
 
 @keyframes auth-gate-spin {

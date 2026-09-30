@@ -7,7 +7,7 @@
 
 .session-changes {
   margin-top: var(--space-3, 12px);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
   padding-top: var(--space-3, 12px);
 }
 
@@ -18,10 +18,10 @@
   width: 100%;
   min-height: 44px;
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  color: var(--text);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
   cursor: pointer;
@@ -32,7 +32,7 @@
   margin-left: auto;
   font-weight: 400;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
 }
 
 .session-changes__body {
@@ -54,7 +54,7 @@
   align-items: center;
   gap: var(--space-2, 8px);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   flex: 1;
   min-width: 0;
 }
@@ -71,9 +71,9 @@
   min-height: 32px;
   padding: 0 var(--space-2, 8px);
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 8px);
-  color: var(--text-secondary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 8px);
+  color: var(--text-2);
   font-size: var(--text-xs, 11px);
   font-weight: 600;
   cursor: pointer;
@@ -81,8 +81,8 @@
 
 .session-changes__mode-toggle:hover,
 .session-changes__mode-toggle:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--text-accent);
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .session-changes__inline-link {
@@ -90,7 +90,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--text-accent);
+  color: var(--accent);
   font-size: inherit;
   font-weight: 600;
   text-decoration: underline;
@@ -107,24 +107,24 @@
   overflow-wrap: anywhere;
 }
 
-.session-changes__captured { color: var(--text-tertiary, var(--text-secondary)); }
-.session-changes__stale { color: var(--status-warning, #c98a00); }
-.session-changes__sent { color: var(--status-success, #2c8a5b); }
-.session-changes__send-error { color: var(--status-danger, #b4233a); }
+.session-changes__captured { color: var(--text-3, var(--text-2)); }
+.session-changes__stale { color: var(--warn, var(--warn)); }
+.session-changes__sent { color: var(--ok, var(--ok)); }
+.session-changes__send-error { color: var(--bad, var(--bad)); }
 
 .session-changes__empty,
 .session-changes__binary {
   margin: 0;
   padding: var(--space-2, 8px) var(--space-3, 12px);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md, 10px);
+  color: var(--text-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm, 10px);
 }
 
 .session-changes__file {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
   overflow: hidden;
 }
 
@@ -133,14 +133,14 @@
   align-items: center;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .session-changes__file-path {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs, 11px);
-  color: var(--text-primary);
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
@@ -150,20 +150,20 @@
   text-align: left;
   padding: var(--space-2, 8px) var(--space-3, 12px);
   border: 0;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--surface-raised, var(--surface-base));
+  border-top: 1px solid var(--line);
+  background: var(--surface, var(--canvas));
   cursor: pointer;
 }
 
 .session-changes__hunk:first-of-type { border-top: 0; }
 .session-changes__hunk:hover,
-.session-changes__hunk:focus-visible { background: var(--surface-sunken); }
+.session-changes__hunk:focus-visible { background: var(--surface); }
 
 .session-changes__hunk-header {
   display: block;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
   margin-bottom: var(--space-1, 4px);
 }
 
@@ -177,18 +177,18 @@
 }
 
 .session-changes__line { display: block; }
-.session-changes__line--add { color: var(--status-success, #2c8a5b); }
-.session-changes__line--del { color: var(--status-danger, #b4233a); }
-.session-changes__line--context { color: var(--text-secondary); }
+.session-changes__line--add { color: var(--ok, var(--ok)); }
+.session-changes__line--del { color: var(--bad, var(--bad)); }
+.session-changes__line--context { color: var(--text-2); }
 .session-changes__line--meta,
-.session-changes__line--more { color: var(--text-tertiary, var(--text-secondary)); font-style: italic; }
+.session-changes__line--more { color: var(--text-3, var(--text-2)); font-style: italic; }
 
 .session-changes__hunk-cta {
   display: inline-block;
   margin-top: var(--space-1, 4px);
   font-size: var(--text-xs, 11px);
   font-weight: 600;
-  color: var(--text-accent);
+  color: var(--accent);
 }
 
 /* ── HunkCommentSheet ─────────────────────────────────────────────── */
@@ -206,7 +206,7 @@
 .hunk-sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(0 0 0 / 0.5);
+  background: var(--scrim-solid);
 }
 
 .hunk-sheet {
@@ -218,10 +218,10 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-4, 16px);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg, 14px);
-  box-shadow: var(--elevation-3);
+  background: var(--glass-solid);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md, 14px);
+  box-shadow: var(--shadow);
   outline: none;
 }
 
@@ -229,7 +229,7 @@
   margin: 0;
   font-size: var(--text-md, 15px);
   font-weight: 650;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .hunk-sheet__context {
@@ -243,19 +243,19 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
 .hunk-sheet__lines {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
 }
 
 .hunk-sheet__captured {
   margin: 0;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
   line-height: 1.45;
 }
 
@@ -264,9 +264,9 @@
   padding: var(--space-2, 8px);
   max-height: 30vh;
   overflow: auto;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs, 11px);
   line-height: 1.5;
@@ -284,10 +284,10 @@
   min-height: 66px;
   padding: var(--space-2, 8px);
   resize: vertical;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
-  background: var(--surface-base);
-  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--canvas);
+  color: var(--text);
   font: inherit;
   font-size: var(--text-sm, 13px);
 }
@@ -295,13 +295,13 @@
 .hunk-sheet__mode {
   margin: 0;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
 }
 
 .hunk-sheet__error {
   margin: 0;
   font-size: var(--text-xs, 11px);
-  color: var(--status-danger, #b4233a);
+  color: var(--bad, var(--bad));
 }
 
 .hunk-sheet__actions {
@@ -315,7 +315,7 @@
   flex: 1;
   min-height: 44px;
   padding: 0 var(--space-4, 16px);
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-sm, 10px);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
   cursor: pointer;
@@ -326,15 +326,15 @@
 }
 
 .hunk-sheet__cancel {
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .hunk-sheet__send {
   border: 1px solid transparent;
-  background: var(--accent-solid, var(--text-accent));
-  color: var(--accent-contrast, #fff);
+  background: var(--accent, var(--accent));
+  color: var(--on-accent, var(--text));
 }
 
 .hunk-sheet__send:disabled,
@@ -344,14 +344,14 @@
 }
 
 .hunk-sheet__send--danger {
-  background: var(--status-danger, #b4233a);
+  background: var(--bad, var(--bad));
 }
 
 .hunk-sheet__conflict {
   margin: 0;
   font-size: var(--text-xs, 11px);
   line-height: 1.45;
-  color: var(--status-warning, #c98a00);
+  color: var(--warn, var(--warn));
 }
 
 /* ── HunkActionSheet (the tap-to-open action chooser) ─────────────────── */
@@ -372,28 +372,28 @@
   width: 100%;
   min-height: 44px;
   padding: 0 var(--space-4, 16px);
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-sm, 10px);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
   cursor: pointer;
 }
 
 .hunk-actions__btn {
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .hunk-actions__btn:hover,
-.hunk-actions__btn:focus-visible { border-color: var(--text-accent); }
+.hunk-actions__btn:focus-visible { border-color: var(--accent); }
 
-.hunk-actions__btn--approve { color: var(--status-success, #2c8a5b); }
-.hunk-actions__btn--reject { color: var(--status-danger, #b4233a); }
+.hunk-actions__btn--approve { color: var(--ok, var(--ok)); }
+.hunk-actions__btn--reject { color: var(--bad, var(--bad)); }
 
 .hunk-actions__cancel {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 /* ── Session review cockpit progress indicator ───────────────────────── */
@@ -403,7 +403,7 @@
   align-items: center;
   gap: var(--space-2, 8px);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-weight: 600;
 }
 
@@ -412,13 +412,13 @@
   height: 4px;
   min-width: 40px;
   border-radius: 999px;
-  background: var(--surface-sunken);
+  background: var(--surface);
   overflow: hidden;
 }
 
 .session-changes__progress-fill {
   height: 100%;
-  background: var(--status-success, #2c8a5b);
+  background: var(--ok, var(--ok));
   transition: width 120ms ease-out;
 }
 
@@ -443,5 +443,21 @@
   .hunk-sheet__excerpt {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+}
+
+/* Glass and scrim (design doc "Glass and elevation"): the translucent recipe
+   where backdrop-filter works; the opaque values above are the fallback. */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hunk-sheet-backdrop {
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .hunk-sheet {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    backdrop-filter: blur(22px) saturate(1.4);
   }
 }

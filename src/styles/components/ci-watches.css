@@ -32,16 +32,16 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .ci-watches-create-form input {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 8px;
   font-size: var(--text-xs, 12px);
 }
@@ -51,7 +51,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .ci-watches-create-form button {
@@ -60,10 +60,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -80,11 +80,11 @@
 .ci-watches-empty,
 .ci-watches-detail-empty {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: var(--space-2, 8px);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
 }
 
 .ci-watches-rows {
@@ -112,16 +112,16 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
+  color: var(--text);
   cursor: pointer;
 }
 
 .ci-watches-row.active {
-  border-color: var(--border-focus);
-  background: var(--accent-muted);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .ci-watches-row__title {
@@ -138,7 +138,7 @@
 
 .ci-watches-row__meta {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .ci-watches-row__delete {
@@ -167,14 +167,14 @@
   align-self: flex-start;
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
   cursor: pointer;
   padding: 0;
 }
 
 .ci-watches-detail__back:hover {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .ci-watch-detail__meta {
@@ -184,7 +184,7 @@
 }
 
 .ci-watch-detail__meta small {
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .ci-watch-detail__run {
@@ -193,10 +193,10 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -222,14 +222,14 @@
 
 .ci-report__meta {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .ci-report__violations {
   margin: 0;
   padding-left: 1.2em;
   font-size: var(--text-xs, 12px);
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 .ci-report__jobs {
@@ -247,9 +247,9 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-xs, 12px);
 }
 
@@ -260,18 +260,18 @@
 }
 
 .ci-report__job-link {
-  color: var(--accent-primary, var(--text-secondary));
+  color: var(--accent, var(--text-2));
   font-size: var(--text-xs, 11px);
 }
 
 .ci-report__empty {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .ci-report__notify {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .ci-watch-detail__open-session {
@@ -280,10 +280,10 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -293,7 +293,7 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding-top: var(--space-2, 8px);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
 }
 
 .ci-adhoc-lookup h3 {

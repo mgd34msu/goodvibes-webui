@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import { STEERABLE_SESSION, FOLLOWUP_SESSION } from './support/seed';
-import { only, PHONE, expectNoHorizontalScroll } from './support/app';
+import { only, PHONE, closeNavigation, expectNoHorizontalScroll, openNavigation } from './support/app';
 
 let daemon: MockDaemon;
 
@@ -17,28 +17,21 @@ test.beforeEach(async ({ page }, testInfo) => {
   daemon = await installMockDaemon(page);
 });
 
-test('the workspace loads signed-in with the drawer collapsed; open + scrim close it', async ({ page }) => {
+test('the workspace loads signed-in with the drawer closed; open + scrim close it', async ({ page }) => {
   await page.goto('/?view=sessions');
 
   // Signed in: the shell, not the sign-in gate.
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('.signed-out-gate, .auth-gate')).toHaveCount(0);
 
-  // Drawer COLLAPSED on load, the workspace is visible first, not covered.
-  await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
-  await expect(page.locator('.sidebar.collapsed')).toBeVisible();
+  // Drawer CLOSED on load and no permanent rail: the workspace is visible first, full width.
+  await expect(page.getByRole('dialog', { name: 'Navigation' })).toHaveCount(0);
+  await expect(page.locator('.shell-sidebar')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 
-  // Open the drawer via the brand mark (the collapsed-rail expand affordance).
-  await page.locator('.brand-mark-button').click();
-  await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
-
-  // Tap the scrim → collapses again (tap-away). Tap the dimmed strip RIGHT of
-  // the open 264px drawer: the scrim spans the viewport, so a default
-  // center-click (x=195) lands on the drawer itself and only "passes" when it
-  // races the open animation. x=340 is always exposed on a 390px phone.
-  await page.locator('.sidebar-scrim').click({ position: { x: 340, y: 422 } });
-  await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
+  // Open the drawer from the header's menu button, then tap the scrim beside it.
+  await openNavigation(page);
+  await closeNavigation(page);
 });
 
 test('find → read → STEER via plain Enter → the steer lands over the wire', async ({ page }) => {

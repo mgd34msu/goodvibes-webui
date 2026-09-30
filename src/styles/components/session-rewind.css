@@ -6,7 +6,7 @@
 
 .session-rewind {
   margin-top: var(--space-3, 12px);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
   padding-top: var(--space-3, 12px);
 }
 
@@ -17,10 +17,10 @@
   width: 100%;
   min-height: 44px;
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  color: var(--text);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
   cursor: pointer;
@@ -31,7 +31,7 @@
   margin-left: auto;
   font-weight: 400;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
 }
 
 .session-rewind__body {
@@ -54,7 +54,7 @@
   flex: 1;
   min-width: 0;
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-weight: 600;
 }
 
@@ -72,24 +72,24 @@
   gap: var(--space-2, 8px);
   min-height: 44px;
   padding: 0 var(--space-4, 16px);
-  border-radius: var(--radius-md, 10px);
+  border-radius: var(--radius-sm, 10px);
   font-size: var(--text-sm, 13px);
   font-weight: 600;
   cursor: pointer;
 }
 
 .session-rewind__preview-btn {
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .session-rewind__apply-btn {
   width: 100%;
   margin-top: var(--space-2, 8px);
-  background: var(--status-danger, #b4233a);
+  background: var(--bad, var(--bad));
   border: 1px solid transparent;
-  color: var(--accent-contrast, #fff);
+  color: var(--on-accent, var(--text));
 }
 
 .session-rewind__preview-btn:disabled,
@@ -102,9 +102,9 @@
 .session-rewind__plan,
 .session-rewind__receipt {
   padding: var(--space-3, 12px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px);
-  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  background: var(--surface);
 }
 
 .session-rewind__plan-title,
@@ -112,7 +112,7 @@
   margin: 0 0 var(--space-2, 8px);
   font-size: var(--text-sm, 13px);
   font-weight: 650;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .session-rewind__plan-list {
@@ -122,7 +122,7 @@
   flex-direction: column;
   gap: var(--space-1, 4px);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   line-height: 1.5;
 }
 
@@ -130,41 +130,41 @@
   margin: var(--space-2, 8px) 0 0;
   padding-left: var(--space-4, 16px);
   font-size: var(--text-xs, 11px);
-  color: var(--status-warning, #c98a00);
+  color: var(--warn, var(--warn));
   line-height: 1.45;
 }
 
 .session-rewind__undo {
   margin-top: var(--space-3, 12px);
   padding-top: var(--space-2, 8px);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
   font-size: var(--text-xs, 11px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .session-rewind__undo-btn {
   min-height: 36px;
   margin-left: var(--space-2, 8px);
-  background: var(--surface-base);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .session-rewind__note {
   margin: var(--space-1, 4px) 0 0;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-3, var(--text-2));
   line-height: 1.45;
 }
 
 .session-rewind__error {
   margin: 0;
   font-size: var(--text-xs, 11px);
-  color: var(--status-danger, #b4233a);
+  color: var(--bad, var(--bad));
 }
 
 .session-rewind__ok {
   margin: var(--space-1, 4px) 0 0;
   font-size: var(--text-xs, 11px);
-  color: var(--status-success, #2c8a5b);
+  color: var(--ok, var(--ok));
 }

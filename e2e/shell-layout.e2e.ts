@@ -1,71 +1,60 @@
 /**
  * Viewport-locked shell invariants, proven in a real browser: the PAGE never
- * scrolls, each pane owns its own overflow, the StatusStrip is glued to the
- * viewport bottom above the sidebar, and the brand wordmark renders complete.
- *
- * These pin the layout model the operator relies on: the sidebar's overflow
- * once stretched the whole document, which put the status bar mid-page (riding
- * along with scroll), the composer wherever the document ended, and the last
- * nav item underneath the bar.
+ * scrolls and each pane owns its own overflow; there is no bottom status strip
+ * (the connection lives on the account avatar and in the account menu); the
+ * brand wordmark renders complete; and on desktop the sidebar folds to its
+ * 56-wide rail while a right-side detail is open, then restores.
  */
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
-import { nextFrames } from './support/app';
+import { installMockDaemon } from './support/mock-daemon';
+import { DESKTOP, nextFrames, only, openNavigation } from './support/app';
 
 test('the page never scrolls: every pane owns its own overflow', async ({ page }) => {
-  await installChatMockDaemon(page);
-  await page.goto('/?view=chat');
+  await installMockDaemon(page);
+  await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('.view-frame')).not.toBeEmpty();
 
   const m = await page.evaluate(() => ({
     docScrollHeight: document.documentElement.scrollHeight,
     innerHeight: window.innerHeight,
-    sidebar: (() => {
-      const el = document.querySelector('.sidebar')!;
-      return { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
-    })(),
+    frameOverflow: getComputedStyle(document.querySelector('.shell-main > .view-frame')!).overflowY,
+    mainOverflow: getComputedStyle(document.querySelector('.shell-main')!).overflowY,
   }));
   // The document is exactly one viewport tall; body scroll is impossible.
   expect(m.docScrollHeight).toBe(m.innerHeight);
-  // The sidebar carries its own overflow instead of stretching the document.
-  expect(m.sidebar.scrollHeight).toBeGreaterThan(m.sidebar.clientHeight);
+  // The content frame scrolls itself; the main column never grows past the viewport.
+  expect(m.frameOverflow).toBe('auto');
+  expect(m.mainOverflow).toBe('hidden');
 
-  // Scrolling the sidebar to its end must not move the strip or the document.
-  await page.locator('.sidebar').evaluate((el) => { el.scrollTop = el.scrollHeight; });
-  const after = await page.evaluate(() => ({
-    docScrollTop: document.documentElement.scrollTop,
-    stripBottom: document.querySelector('.status-strip')!.getBoundingClientRect().bottom,
-    innerHeight: window.innerHeight,
-  }));
-  expect(after.docScrollTop).toBe(0);
-  expect(Math.round(after.stripBottom)).toBe(after.innerHeight);
+  await page.mouse.wheel(0, 2000);
+  await nextFrames(page);
+  expect(await page.evaluate(() => document.documentElement.scrollTop)).toBe(0);
 });
 
-test('the StatusStrip is pinned to the viewport bottom, above the sidebar', async ({ page }) => {
-  await installChatMockDaemon(page);
-  await page.goto('/?view=chat');
-  await expect(page.locator('.status-strip')).toBeVisible();
+test('there is no status strip: the connection is on the avatar and in the account menu', async ({ page }) => {
+  await installMockDaemon(page);
+  await page.goto('/?view=sessions');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await expect(page.locator('.status-strip')).toHaveCount(0);
 
-  const m = await page.evaluate(() => {
-    const strip = document.querySelector('.status-strip')!;
-    const rect = strip.getBoundingClientRect();
-    const sidebarZ = Number(getComputedStyle(document.querySelector('.sidebar')!).zIndex) || 0;
-    const stripZ = Number(getComputedStyle(strip).zIndex) || 0;
-    return {
-      position: getComputedStyle(strip).position,
-      bottom: Math.round(rect.bottom),
-      innerHeight: window.innerHeight,
-      stripAboveSidebar: stripZ > sidebarZ,
-      // Nothing in the sidebar's scrolled-to-end content may sit under the strip:
-      // the sidebar box itself must end at or above the strip's top edge.
-      sidebarBottom: Math.round(document.querySelector('.sidebar')!.getBoundingClientRect().bottom),
-      stripTop: Math.round(rect.top),
-    };
-  });
-  expect(m.position).toBe('fixed');
-  expect(m.bottom).toBe(m.innerHeight);
-  expect(m.stripAboveSidebar).toBe(true);
-  expect(m.sidebarBottom).toBeLessThanOrEqual(m.stripTop);
+  await openNavigation(page);
+  const account = page.getByRole('button', { name: /^Account: / });
+  await expect(account).toBeVisible();
+  // The avatar's dot carries the connection state (green once the probe answers).
+  await expect(page.locator('.shell-avatar').first()).toHaveAttribute('data-tone', 'ok');
+  await account.click();
+  const menu = page.getByRole('menu', { name: 'Account' });
+  await expect(menu).toBeVisible();
+  // Plain words, not transport jargon.
+  await expect(menu.getByRole('menuitem', { name: /Connected to your daemon/ })).toBeVisible();
+  await expect(menu.getByRole('menuitemradio', { name: 'Dark' })).toBeVisible();
+  await expect(menu.getByRole('menuitemcheckbox', { name: /GoodVibes Neon/ })).toBeVisible();
+  // Escape closes the menu and returns focus to the account button.
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(account).toBeFocused();
 });
 
 test('in chat only the transcript scrolls and the composer stays pinned', async ({ page }) => {
@@ -91,14 +80,76 @@ test('in chat only the transcript scrolls and the composer stays pinned', async 
 test('the brand wordmark renders complete, never abbreviated', async ({ page }) => {
   await installChatMockDaemon(page);
   await page.goto('/?view=chat');
-  const brand = page.locator('.brand-copy strong');
-  await expect(brand).toHaveText('GOODVIBES');
-  const m = await brand.evaluate((el) => ({
-    scrollWidth: el.scrollWidth,
-    clientWidth: el.clientWidth,
-    textOverflow: getComputedStyle(el).textOverflow,
-  }));
+  await expect(page.locator('.app-shell')).toBeVisible();
+  await openNavigation(page);
+  const brand = page.locator('.shell-brand__word').first();
+  await expect(brand).toHaveText('GoodVibes');
+  const m = await brand.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   // No overflow means no visual truncation is even possible.
   expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth);
-  expect(m.textOverflow).not.toBe('ellipsis');
+});
+
+test.describe('sidebar auto-collapse (desktop)', () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    only(testInfo, DESKTOP);
+  });
+
+  test('a right-side detail folds the sidebar to the 56 rail; closing it restores the sidebar', async ({ page }) => {
+    await installMockDaemon(page);
+    await page.goto('/?view=providers');
+    const sidebar = page.locator('.shell-sidebar');
+    await expect(sidebar).toHaveAttribute('data-form', 'expanded');
+
+    await page.locator('button[aria-label^="Open details for"]').click();
+    await expect(sidebar).toHaveAttribute('data-form', 'rail');
+    // The rail is 56 wide once the 200 ms width change has settled.
+    await expect.poll(() => sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(56);
+    // The rail keeps every destination one click away, each named for a screen reader.
+    // (Work's name carries its needs-you count, "Work, 3 need you", hence the prefix match.)
+    for (const name of ['New chat', 'Search', 'Work', 'Library', 'Personal']) {
+      await expect(sidebar.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+    }
+
+    await page.keyboard.press('Escape');
+    await expect(sidebar).toHaveAttribute('data-form', 'expanded');
+    await expect.poll(() => sidebar.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(260);
+  });
+
+  test('a sidebar the person collapsed stays collapsed after the detail closes', async ({ page }) => {
+    await installMockDaemon(page);
+    await page.goto('/?view=providers');
+    const sidebar = page.locator('.shell-sidebar');
+    await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-form', 'rail');
+
+    await page.locator('button[aria-label^="Open details for"]').click();
+    await expect(sidebar).toHaveAttribute('data-form', 'rail');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.peek-panel--open')).toHaveCount(0);
+    await expect(sidebar).toHaveAttribute('data-form', 'rail');
+  });
+
+  test('a pinned sidebar does not auto-collapse at 1280 wide', async ({ page }) => {
+    await installMockDaemon(page);
+    await page.goto('/?view=providers');
+    const sidebar = page.locator('.shell-sidebar');
+    await sidebar.getByRole('button', { name: 'Pin sidebar open' }).click();
+    await page.locator('button[aria-label^="Open details for"]').click();
+    await expect(page.locator('.peek-panel--open')).toBeVisible();
+    await expect(sidebar).toHaveAttribute('data-form', 'expanded');
+  });
+
+  test('Ctrl B shows the full sidebar over the content while a detail holds the rail', async ({ page }) => {
+    await installMockDaemon(page);
+    await page.goto('/?view=providers');
+    const sidebar = page.locator('.shell-sidebar');
+    await page.locator('button[aria-label^="Open details for"]').click();
+    await expect(sidebar).toHaveAttribute('data-form', 'rail');
+    const slotBefore = await page.locator('.shell-sidebar-slot').evaluate((el) => el.getBoundingClientRect().width);
+
+    await page.keyboard.press('Control+b');
+    await expect(sidebar).toHaveAttribute('data-form', 'peek');
+    // Peek overlays: the layout column keeps the rail's width, nothing is pushed.
+    expect(await page.locator('.shell-sidebar-slot').evaluate((el) => el.getBoundingClientRect().width)).toBe(slotBefore);
+  });
 });

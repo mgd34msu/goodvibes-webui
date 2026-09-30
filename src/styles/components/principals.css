@@ -36,11 +36,11 @@
 
 .principals-empty {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: var(--space-2, 8px);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
 }
 
 .principals-form {
@@ -48,9 +48,9 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .principals-form label {
@@ -58,16 +58,16 @@
   flex-direction: column;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .principals-form input,
 .principals-form select,
 .principals-form textarea {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 6px 8px;
   font-size: var(--text-xs, 12px);
   font-family: inherit;
@@ -83,17 +83,17 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
 
 .principals-form__actions button.secondary {
   background: transparent;
-  border-color: var(--border-subtle);
+  border-color: var(--line);
 }
 
 .principals-form__actions button:disabled {
@@ -117,9 +117,9 @@
   justify-content: space-between;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .principals-row__main {
@@ -144,7 +144,7 @@
 
 .principals-row__meta {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .principals-row__actions {

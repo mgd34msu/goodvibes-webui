@@ -26,13 +26,13 @@
 .owner-profile__path {
   font-family: var(--font-mono, monospace);
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   word-break: break-all;
 }
 
 .owner-profile__invalid-list {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .owner-profile__invalid-list ul {
@@ -51,7 +51,7 @@
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
 }
 
 .owner-profile__section h3 {
@@ -64,10 +64,10 @@
 .owner-profile__containment {
   margin: 0;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--status-warning);
-  background: var(--surface-sunken);
+  border-left: 3px solid var(--warn);
+  background: var(--surface);
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .owner-profile__fields {
@@ -86,7 +86,7 @@
 .owner-profile__field-label {
   font-weight: 600;
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .owner-profile__field-body {
@@ -103,13 +103,13 @@
 /* The compact provenance suffix a learned line carries (§4.2). */
 .owner-profile__provenance {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .owner-profile__invalid {
   margin: 0;
   font-size: var(--text-sm, 13px);
-  color: var(--status-warning);
+  color: var(--warn);
 }
 
 .owner-profile__lines {
@@ -138,7 +138,7 @@
 }
 
 .owner-profile__danger {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 .owner-profile__edit-form {
@@ -161,8 +161,8 @@
 .owner-profile__provenance-detail {
   margin: 0.25rem 0 0;
   padding: 0.4rem 0.6rem;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-sm, 13px);
 }
 

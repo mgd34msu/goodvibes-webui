@@ -1,31 +1,11 @@
-import {
-  Activity,
-  BellRing,
-  Boxes,
-  Brain,
-  CalendarDays,
-  ClipboardCheck,
-  Database,
-  Gauge,
-  Gift,
-  GitBranch,
-  History,
-  Inbox,
-  KeyRound,
-  MessageSquare,
-  Network,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plug,
-  ServerCog,
-  Settings,
-  Smartphone,
-  Trash2,
-  Users,
-  Workflow,
-} from 'lucide-react';
+import { Plug, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import AppShell from './components/shell/AppShell';
+import { ShellLayout } from './components/shell/ShellLayout';
+import { viewTitle } from './components/shell/nav';
+import { PowerChip } from './components/status/PowerChip';
+import { WakeChip } from './components/voice/WakeChip';
+import { getCommands } from './lib/commands';
 import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +22,7 @@ import { RelayOverflowBanner } from './components/status/RelayOverflowBanner';
 import { WakeBanner } from './components/voice/WakeBanner';
 import { useWakeHost } from './lib/voice/useWake';
 import { DaemonReceipts } from './components/status/DaemonReceipts';
-import { getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
+import { clearStoredAuthToken, getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
 import { SessionsView } from './views/sessions/SessionsView';
@@ -65,7 +45,7 @@ import { DatesView } from './views/dates/DatesView';
 import { ProvidersView } from './views/ProvidersView';
 import { AdminView } from './views/AdminView';
 import { attentionCount } from './lib/fleet';
-import { bestId, bestTitle, firstString } from './lib/object';
+import { asRecord, bestId, bestTitle, firstString } from './lib/object';
 import {
   companionSessionsFromListResponse,
   readStoredActiveCompanionSessionId,
@@ -81,51 +61,6 @@ import {
 } from './lib/companion-sessions-state';
 import { formatError, isDaemonUnreachableError, isMethodUnavailableError, isSessionNotFoundError } from './lib/errors';
 
-const views: {
-  id: ViewId;
-  label: string;
-  short: string;
-  icon: typeof MessageSquare;
-}[] = [
-  { id: 'chat', label: 'Chat', short: 'Live', icon: MessageSquare },
-  { id: 'sessions', label: 'Sessions', short: 'Union', icon: Network },
-  // sessions.hosted.* (daemon-hosted sessions), a conversation whose loop runs inside
-  // the daemon, so it does not end when the tab that started it goes away.
-  { id: 'hosted-sessions', label: 'Hosted', short: 'Daemon-run', icon: Boxes },
-  { id: 'fleet', label: 'Fleet', short: 'Processes', icon: Boxes },
-  { id: 'checkpoints', label: 'Checkpoints', short: 'Snapshots', icon: History },
-  { id: 'knowledge', label: 'Knowledge', short: 'Wiki', icon: Brain },
-  { id: 'memory', label: 'Memory', short: 'Recall', icon: Database },
-  { id: 'calendar', label: 'Calendar', short: 'Events', icon: CalendarDays },
-  // email.*, the inbox, reader and composer over the daemon's mail verbs. Sits next
-  // to Calendar because they are the same kind of thing: a personal account the
-  // daemon holds, which every surface reads through the daemon rather than its own.
-  { id: 'mail', label: 'Mail', short: 'Inbox', icon: Inbox },
-  // occasions.*, birthdays, anniversaries, and plans the daemon holds and
-  // proactively nudges about on its own (docs/occasions.md). This panel is
-  // pull-only: nudges themselves push to Telegram and the agent, never here
-  // (docs/occasions.md §4.2, the TUI/webui "get work done" interfaces stay out of
-  // proactive personal nudging by owner ruling).
-  { id: 'dates', label: 'Dates', short: 'Occasions', icon: Gift },
-  { id: 'providers', label: 'Providers', short: 'Models', icon: Gauge },
-  { id: 'admin', label: 'Admin', short: 'Secure', icon: ServerCog },
-  // Nav entries for approvals/tasks and workstream, riding the pre-scaffolded
-  // ViewIds/query keys/realtime domains, no edits needed to router.ts,
-  // queries.ts, or useRealtimeInvalidation.ts.
-  { id: 'approvals-tasks', label: 'Approvals', short: 'Decisions', icon: ClipboardCheck },
-  { id: 'workstream', label: 'Workstream', short: 'Orchestration', icon: Workflow },
-  // ci.watches.* (SDK 1.6.1's initiative family), standing CI watches + per-job status.
-  { id: 'ci-watches', label: 'CI', short: 'Watches', icon: GitBranch },
-  // checkin.* (SDK 1.6.1's initiative family), proactive check-in config + receipts.
-  { id: 'checkin', label: 'Check-in', short: 'Proactive', icon: BellRing },
-  // principals.* / channels.profiles.* (SDK 1.6.1's initiative family), identity
-  // registry + per-channel model/permission defaults admin.
-  { id: 'principals', label: 'Principals', short: 'Identities', icon: Users },
-  // devices.*, this browser as a paired device node, plus the grants surface
-  // for the durable "always allow" approvals a phone capability can hold.
-  { id: 'phone', label: 'Phone', short: 'Device', icon: Smartphone },
-];
-
 export default function App() {
   const queryClient = useQueryClient();
   const { view, setView, session: activeChatSessionId, setSession, setUrlState } = useUrlState();
@@ -140,22 +75,6 @@ export default function App() {
     undefined,
     () => companionSessionsStateFromStored(readStoredCompanionSessions()),
   );
-  // Drawer default is VIEWPORT-AWARE. On a phone (≤980px) the sidebar overlays
-  // the whole workspace, so defaulting it OPEN would cover the content on every single
-  // load, you'd tap it away before you could do anything. Initialize it COLLAPSED at
-  // phone width (a narrow icon rail; the workspace is visible first) and OPEN on the
-  // desktop it was designed for. The scrim + tap-away and the toggle stay as they were,
-  // so opening the drawer is always one explicit tap. matchMedia is read once at mount
-  // via a lazy initializer (no re-cover on resize/re-render); in the test env the
-  // matchMedia stub reports matches:false, so the desktop-open default is preserved.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-    try {
-      return window.matchMedia('(max-width: 980px)').matches;
-    } catch {
-      return false;
-    }
-  });
   // Pairing hand-off: a `#pair=<token>` fragment (from the terminal's `goodvibes pair`
   // QR) is consumed once at mount, the token is stripped from the URL, stored, and
   // validated. `pending` shows the pairing splash instead of the gate; `error` surfaces
@@ -234,7 +153,9 @@ export default function App() {
   const chatSessions = useQuery({
     queryKey: ['companion-chat', 'sessions'],
     queryFn: () => sdk.chat.sessions.list({ limit: 100 }),
-    enabled: view === 'chat',
+    // The sidebar's "Recent" list shows in every view, so the list loads whenever
+    // signed in (it used to load only on the chat view).
+    enabled: auth.isSuccess,
   });
 
   const fetchedChatSessions = useMemo(() => {
@@ -308,19 +229,23 @@ export default function App() {
     },
   });
 
+  // Both auto-select effects act only on the chat view: the list now loads in every
+  // view (for "Recent"), and choosing a session elsewhere would rewrite that view's URL.
   useEffect(() => {
+    if (view !== 'chat') return;
     if (!activeChatSessionId && !draftChatRequested && chatSessionItems.length) {
       setSession(bestId(chatSessionItems[0]), { replace: true });
     }
-  }, [activeChatSessionId, chatSessionItems, draftChatRequested, setSession]);
+  }, [view, activeChatSessionId, chatSessionItems, draftChatRequested, setSession]);
 
   useEffect(() => {
+    if (view !== 'chat') return;
     if (!chatSessions.isSuccess || !activeChatSessionId) return;
     if (chatSessionItems.some((s) => bestId(s) === activeChatSessionId)) return;
     const nextSessionId = bestId(chatSessionItems[0]);
     setSession(nextSessionId, { replace: true });
     setDraftChatRequested(!nextSessionId);
-  }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, setSession]);
+  }, [view, activeChatSessionId, chatSessionItems, chatSessions.isSuccess, setSession]);
 
   useEffect(() => {
     writeStoredActiveCompanionSessionId(activeChatSessionId);
@@ -358,13 +283,16 @@ export default function App() {
 
   const handleNavigate = useCallback(
     (nextView: ViewId, options?: { newChat?: boolean }) => {
-      setView(nextView);
       if (options?.newChat) {
-        setSession('', { replace: true });
+        // One URL update for view and session together: setView then setSession would
+        // build the second entry from the pre-navigation state and put the old view back.
+        setUrlState({ view: nextView, session: '' });
         setDraftChatRequested(true);
+        return;
       }
+      setView(nextView);
     },
-    [setView, setSession],
+    [setView, setUrlState],
   );
 
   // Open a specific session in the chat view, one history entry (view + session
@@ -374,9 +302,46 @@ export default function App() {
     [setUrlState],
   );
 
-  const title = useMemo(() => views.find((v) => v.id === activeView)?.label ?? 'GoodVibes', [activeView]);
-  const subtitle = useMemo(() => views.find((v) => v.id === activeView)?.short ?? 'Surface', [activeView]);
-  const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
+  const recentChats = useMemo(
+    () => chatSessionItems.map((session, index) => {
+      const id = bestId(session) || String(index);
+      return { id, title: bestTitle(session, id) };
+    }),
+    [chatSessionItems],
+  );
+  const activeChatTitle = useMemo(
+    () => recentChats.find((chat) => chat.id === activeChatSessionId)?.title ?? '',
+    [recentChats, activeChatSessionId],
+  );
+  // The header names the chat you are in, or the destination for every other view.
+  const title = activeView === 'chat'
+    ? (draftChatRequested || !activeChatTitle ? 'New chat' : activeChatTitle)
+    : viewTitle(activeView);
+  const accountName = useMemo(() => {
+    const record = asRecord(auth.data);
+    const identity = asRecord(record.identity);
+    return firstString(record, ['username', 'name', 'principal']) || firstString(identity, ['name', 'subject']) || 'Operator';
+  }, [auth.data]);
+
+  const handleNewChat = useCallback(() => handleNavigate('chat', { newChat: true }), [handleNavigate]);
+  const handleOpenChat = useCallback((sessionId: string) => {
+    setDraftChatRequested(false);
+    setUrlState({ view: 'chat', session: sessionId });
+  }, [setUrlState]);
+  const handleDeleteChat = useCallback((sessionId: string, chatTitle: string) => {
+    // Truthful confirm text: this is a hard delete, not the close-in-disguise it
+    // used to be, see the deleteChat mutation above.
+    if (!window.confirm(
+      `Delete "${chatTitle}" permanently?\n\nThis removes the chat record: it cannot be reopened.`,
+    )) return;
+    deleteChat.mutate(sessionId);
+  }, [deleteChat]);
+  const handleSearch = useCallback(() => {
+    getCommands().find((command) => command.id === 'system.palette')?.run();
+  }, []);
+  const handleSignOut = useCallback(() => {
+    void clearStoredAuthToken().then(() => queryClient.invalidateQueries());
+  }, [queryClient]);
 
   // Honest login gate. Signed-out (auth.current 401 → query error) shows the front door
   // instead of the shell. On first load with a stored token, show a neutral splash while
@@ -477,7 +442,7 @@ export default function App() {
     )}
     <RelayOverflowBanner />
     {/* voice.wake.indicator: 'banner' is the prominent persistent listening marker.
-        Renders nothing for 'statusline' (the StatusStrip chip owns that) or 'off'. */}
+        Renders nothing for 'statusline' (the header's WakeChip owns that) or 'off'. */}
     <WakeBanner />
     {/* Undelivered daemon receipts, consumed once on connect (see DaemonReceipts). */}
     <DaemonReceipts connected={health.connection === 'connected'} signedIn={auth.isSuccess} />
@@ -490,231 +455,101 @@ export default function App() {
         />
       </div>
     )}
-    <div
-      className={sidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}
-      inert={daemonUnreachable || undefined}
-      aria-hidden={daemonUnreachable || undefined}
-    >
-      <aside
-        className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
-        onClick={(event) => {
-          if (!sidebarCollapsed) return;
-          const target = event.target as HTMLElement;
-          if (target.closest('.nav-item')) return;
-          setSidebarCollapsed(false);
-        }}
-      >
-        <div className="brand">
-          <button
-            className="brand-mark-button"
-            type="button"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'GoodVibes'}
-            onClick={() => sidebarCollapsed && setSidebarCollapsed(false)}
-          >
-            <img className="brand-mark" src="/goodvibes-icon.png" alt="" aria-hidden="true" />
-          </button>
-          <div className="brand-copy">
-            <strong>GOODVIBES</strong>
-            <span>Operator Shell</span>
-          </div>
-          <button
-            className="sidebar-toggle"
-            type="button"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            onClick={() => setSidebarCollapsed((current) => !current)}
-          >
-            <SidebarToggleIcon size={17} />
-          </button>
-        </div>
-
-        <nav className="nav-list" aria-label="Primary">
-          {views.map((navItem) => {
-            const Icon = navItem.icon;
-            // Fleet attention indicator: the number of processes blocked on a human
-            // right now, derived from the shared fleet snapshot. Shown on the icon (so
-            // it survives the phone icon-only rail) and named in the accessible label so
-            // a screen reader hears "Fleet, 2 need attention".
-            const attention = navItem.id === 'fleet' ? fleetAttentionCount : 0;
-            const ariaLabel = attention > 0
-              ? `${navItem.label}, ${attention} need${attention === 1 ? 's' : ''} attention`
-              : navItem.label;
-            return (
-              <button
-                key={navItem.id}
-                className={navItem.id === activeView ? 'nav-item active' : 'nav-item'}
-                type="button"
-                // Accessible name is REQUIRED here: at phone width the drawer collapses
-                // to an icon-only rail (.nav-copy is display:none), so the visible label
-                // text leaves the accessibility tree. aria-label keeps every nav target
-                // named for a screen reader, and reachable by name for a tap/test.
-                aria-label={ariaLabel}
-                aria-current={navItem.id === activeView ? 'page' : undefined}
-                onClick={() => setView(navItem.id)}
-              >
-                <span className="nav-icon">
-                  <Icon size={18} />
-                  {attention > 0 && (
-                    <span className="nav-attention-badge" aria-hidden="true">{attention > 99 ? '99+' : attention}</span>
-                  )}
-                </span>
-                <span className="nav-copy">
-                  <strong>{navItem.label}</strong>
-                  <small>{navItem.short}</small>
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {activeView === 'chat' && (
-          <section className="sidebar-sessions">
-            <div className="sidebar-section-title">
-              <span>Chats</span>
-              <button
-                type="button"
-                title="New chat"
-                onClick={() => {
-                  setSession('', { replace: true });
-                  setDraftChatRequested(true);
-                }}
-              >
-                +
-              </button>
+    <ShellLayout
+      view={activeView}
+      title={title}
+      activeChatId={activeChatSessionId}
+      draftChat={draftChatRequested || !activeChatSessionId}
+      recentChats={recentChats}
+      deletingChatId={deleteChat.isPending ? (deleteChat.variables ?? null) : null}
+      workAttention={fleetAttentionCount}
+      accountName={accountName}
+      health={health}
+      onNavigate={setView}
+      onNewChat={handleNewChat}
+      onOpenChat={handleOpenChat}
+      onDeleteChat={handleDeleteChat}
+      onSearch={handleSearch}
+      onSignOut={handleSignOut}
+      onRefresh={() => void boot.refetch()}
+      refreshing={boot.isFetching}
+      inert={daemonUnreachable}
+      indicators={(
+        <>
+          {/* These chips replace the status strip's must-stay-visible segments:
+              each renders nothing unless its condition holds. */}
+          <PowerChip />
+          <WakeChip />
+          {health.compatibility?.status === 'restart-required' && (
+            <div
+              className="status-strip__segment status-strip__segment--compatibility-warning"
+              role="status"
+              aria-label={health.compatibility.message}
+              title={health.compatibility.message}
+            >
+              <TriangleAlert className="status-strip__icon" aria-hidden="true" size={12} />
+              <span className="status-strip__label">Reload to update</span>
             </div>
-            <div className="sidebar-session-list">
-              {chatSessionItems.map((session, index) => {
-                const id = bestId(session) || String(index);
-                return (
-                  <div
-                    key={`${id}-${index}`}
-                    className={activeChatSessionId === id ? 'sidebar-session-row active' : 'sidebar-session-row'}
-                  >
-                    <button
-                      type="button"
-                      className="sidebar-session"
-                      onClick={() => {
-                        setSession(id, { replace: true });
-                        setDraftChatRequested(false);
-                      }}
-                    >
-                      <span>{bestTitle(session, id)}</span>
-                      <small>{firstString(session, ['status', 'state']) || 'active'}</small>
-                    </button>
-                    <button
-                      className="sidebar-session-delete"
-                      type="button"
-                      title={
-                        deleteChat.isPending && deleteChat.variables === id
-                          ? 'Deleting…'
-                          : `Delete ${bestTitle(session, id)} permanently: this removes the record, it cannot be reopened`
-                      }
-                      disabled={deleteChat.isPending}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        // Truthful confirm text: this is a hard delete, not the close-
-                        // in-disguise it used to be, see the deleteChat mutation above.
-                        if (!window.confirm(
-                          `Delete "${bestTitle(session, id)}" permanently?\n\nThis removes the chat record: it cannot be reopened.`,
-                        )) return;
-                        deleteChat.mutate(id);
-                      }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                );
-              })}
-              {!chatSessionItems.length && <span className="sidebar-empty">No chat sessions</span>}
-            </div>
-          </section>
-        )}
-
-      </aside>
-
-      {/* Overlay scrim for mobile: tap-outside-to-close the sidebar.
-          CSS (.app-shell:not(.sidebar-collapsed) .sidebar-scrim) makes it
-          visible only at ≤980px when the sidebar is open. */}
-      <div
-        className="sidebar-scrim"
-        aria-hidden="true"
-        onClick={() => setSidebarCollapsed(true)}
-      />
-
-      <main className={activeView === 'chat' ? 'workspace workspace-chat' : 'workspace'}>
-        <header className="topbar">
-          <div className="topbar-title">
-            <span className="eyebrow">{subtitle}</span>
-            <h1>{title}</h1>
-          </div>
-          <div className="topbar-actions">
-            <button className="icon-button" type="button" title="Refresh" onClick={() => void boot.refetch()}>
-              <Activity size={18} />
-            </button>
-            <button className="icon-button" type="button" title="Auth and settings" onClick={() => setView('admin')}>
-              <KeyRound size={18} />
-            </button>
-            <button className="icon-button" type="button" title="Admin" onClick={() => setView('admin')}>
-              <Settings size={18} />
-            </button>
-          </div>
-        </header>
-
-        {/* Two SSE feeds back this app (the domained invalidation stream and the raw
-            session-update stream). A daemon drop trips BOTH, which used to stack two
-            near-identical "live updates paused" warnings. Collapse to ONE banner: a
-            unified line when both are down, otherwise the specific message. (F7e) */}
-        {(realtimeError ?? sessionRealtime.error) && (
-          <div className="banner warning">
-            <Plug size={16} />
-            {' '}
-            {realtimeError && sessionRealtime.error
-              ? 'Live updates paused: reconnecting. Views fall back to periodic refresh until the stream returns.'
-              : (realtimeError ?? sessionRealtime.error)}
-          </div>
-        )}
-        {deleteChat.error && !isSessionNotFoundError(deleteChat.error) && (
-          <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>
-        )}
-
-        <section className="view-frame">
-          {activeView === 'chat' && (
-            <ChatView
-              activeSessionId={activeChatSessionId}
-              sessionItems={chatSessionItems}
-              onActiveSessionChange={(sessionId) => {
-                setSession(sessionId, { replace: true });
-                setDraftChatRequested(false);
-              }}
-              onDraftSessionRequestedChange={setDraftChatRequested}
-              onLocalSessionCreated={(session) => dispatchChatSessions({ type: 'local-session-created', session })}
-              onLocalSessionUpdated={(sessionId, session) => dispatchChatSessions({
-                type: 'local-session-updated',
-                sessionId,
-                session,
-              })}
-              onSessionMissing={handleMissingChatSession}
-            />
           )}
-          {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
-          {activeView === 'hosted-sessions' && <HostedSessionsView />}
-          {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} onOpenSession={handleOpenSession} />}
-          {activeView === 'checkpoints' && <CheckpointsView />}
-          {activeView === 'approvals-tasks' && <ApprovalsTasksView onOpenSession={handleOpenSession} />}
-          {activeView === 'workstream' && <WorkstreamView />}
-          {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
-          {activeView === 'checkin' && <CheckInView />}
-          {activeView === 'principals' && <PrincipalsView />}
-          {activeView === 'phone' && <PhoneNodeView />}
-          {activeView === 'knowledge' && <KnowledgeView />}
-          {activeView === 'memory' && <MemoryView />}
-          {activeView === 'calendar' && <CalendarView />}
-          {activeView === 'mail' && <MailView />}
-          {activeView === 'dates' && <DatesView />}
-          {activeView === 'providers' && <ProvidersView />}
-          {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
-        </section>
-      </main>
-    </div>
+        </>
+      )}
+      banners={(
+        <>
+          {/* Two SSE feeds back this app (the domained invalidation stream and the raw
+              session-update stream). A daemon drop trips BOTH, which used to stack two
+              near-identical "live updates paused" warnings. Collapse to ONE banner: a
+              unified line when both are down, otherwise the specific message. (F7e) */}
+          {(realtimeError ?? sessionRealtime.error) && (
+            <div className="banner warning">
+              <Plug size={16} />
+              {' '}
+              {realtimeError && sessionRealtime.error
+                ? 'Live updates paused: reconnecting. Views fall back to periodic refresh until the stream returns.'
+                : (realtimeError ?? sessionRealtime.error)}
+            </div>
+          )}
+          {deleteChat.error && !isSessionNotFoundError(deleteChat.error) && (
+            <div className="banner warning"><Plug size={16} /> {formatError(deleteChat.error)}</div>
+          )}
+        </>
+      )}
+    >
+      {activeView === 'chat' && (
+        <ChatView
+          activeSessionId={activeChatSessionId}
+          sessionItems={chatSessionItems}
+          onActiveSessionChange={(sessionId) => {
+            setSession(sessionId, { replace: true });
+            setDraftChatRequested(false);
+          }}
+          onDraftSessionRequestedChange={setDraftChatRequested}
+          onLocalSessionCreated={(session) => dispatchChatSessions({ type: 'local-session-created', session })}
+          onLocalSessionUpdated={(sessionId, session) => dispatchChatSessions({
+            type: 'local-session-updated',
+            sessionId,
+            session,
+          })}
+          onSessionMissing={handleMissingChatSession}
+        />
+      )}
+      {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
+      {activeView === 'hosted-sessions' && <HostedSessionsView />}
+      {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} onOpenSession={handleOpenSession} />}
+      {activeView === 'checkpoints' && <CheckpointsView />}
+      {activeView === 'approvals-tasks' && <ApprovalsTasksView onOpenSession={handleOpenSession} />}
+      {activeView === 'workstream' && <WorkstreamView />}
+      {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
+      {activeView === 'checkin' && <CheckInView />}
+      {activeView === 'principals' && <PrincipalsView />}
+      {activeView === 'phone' && <PhoneNodeView />}
+      {activeView === 'knowledge' && <KnowledgeView />}
+      {activeView === 'memory' && <MemoryView />}
+      {activeView === 'calendar' && <CalendarView />}
+      {activeView === 'mail' && <MailView />}
+      {activeView === 'dates' && <DatesView />}
+      {activeView === 'providers' && <ProvidersView />}
+      {activeView === 'admin' && <AdminView realtimeError={realtimeError} />}
+    </ShellLayout>
     </div>
     </AppShell>
   );

@@ -4,7 +4,36 @@
  * read/write via localStorage, dispatch custom event for cross-tab sync.
  */
 
-export type Theme = 'dark' | 'light';
+/**
+ * Stored webui theme. 'dark' and 'light' are the slate themes, 'auto' follows the
+ * OS color scheme live, 'neon' is the opt-in GoodVibes Neon theme (the previous
+ * palette, kept whole). A stored value is always respected and never migrated.
+ */
+export type Theme = 'dark' | 'light' | 'auto' | 'neon';
+export type ColorScheme = 'dark' | 'light';
+
+export const THEMES: readonly Theme[] = ['dark', 'light', 'auto', 'neon'];
+
+export function isTheme(value: unknown): value is Theme {
+  return value === 'dark' || value === 'light' || value === 'auto' || value === 'neon';
+}
+
+function osPrefersLight(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- matchMedia can be absent at runtime (tests, legacy engines)
+    return Boolean(window.matchMedia?.('(prefers-color-scheme: light)').matches);
+  } catch {
+    return false;
+  }
+}
+
+/** The scheme a theme paints right now ('auto' resolves against the OS; Neon is dark). */
+export function resolveColorScheme(theme: Theme): ColorScheme {
+  if (theme === 'light') return 'light';
+  if (theme === 'auto') return osPrefersLight() ? 'light' : 'dark';
+  return 'dark';
+}
 export type Density = 'default' | 'compact';
 
 export interface ThemePreferences {
@@ -25,7 +54,8 @@ function storageAvailable(): boolean {
 }
 
 /**
- * Determine the initial theme: stored preference > prefers-color-scheme > dark.
+ * Determine the initial theme: stored preference (any of the four, never
+ * rewritten) > prefers-color-scheme at load > dark.
  */
 export function resolveInitialTheme(): Theme {
   if (storageAvailable()) {
@@ -33,7 +63,7 @@ export function resolveInitialTheme(): Theme {
       const stored = window.localStorage.getItem(THEME_PREFERENCES_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<ThemePreferences>;
-        if (parsed.theme === 'light' || parsed.theme === 'dark') {
+        if (isTheme(parsed.theme)) {
           return parsed.theme;
         }
       }
@@ -56,7 +86,7 @@ export function readThemePreferences(): ThemePreferences {
     if (!stored) return DEFAULT_THEME_PREFERENCES;
     const parsed = JSON.parse(stored) as Partial<ThemePreferences>;
     return {
-      theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : DEFAULT_THEME_PREFERENCES.theme,
+      theme: isTheme(parsed.theme) ? parsed.theme : DEFAULT_THEME_PREFERENCES.theme,
       density: parsed.density === 'compact' ? 'compact' : DEFAULT_THEME_PREFERENCES.density,
     };
   } catch {

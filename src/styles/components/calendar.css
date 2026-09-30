@@ -21,7 +21,7 @@
   flex-direction: column;
   gap: var(--space-1);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .calendar-status-region {
@@ -51,9 +51,9 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--text);
   text-align: left;
   cursor: pointer;
 }
@@ -63,14 +63,14 @@
 }
 
 .calendar-event-row:focus-visible {
-  outline: 2px solid var(--border-focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .calendar-event-row__time {
   flex: 0 0 auto;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -90,7 +90,7 @@
 .calendar-event-row__location {
   flex: 0 0 auto;
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 /* ============================================================
@@ -111,7 +111,7 @@
 .calendar-export-success,
 .calendar-create-success {
   font-size: var(--text-sm);
-  color: var(--status-success);
+  color: var(--ok);
   margin: 0;
 }
 
@@ -125,7 +125,7 @@
   margin: 0;
   padding-left: var(--space-4);
   font-size: var(--text-xs);
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 /* ============================================================
@@ -139,7 +139,7 @@
 }
 
 .calendar-peek-body__range {
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm);
 }
 
@@ -149,7 +149,7 @@
 
 .calendar-peek-body__uid {
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .calendar-peek-loading {

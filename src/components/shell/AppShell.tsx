@@ -14,10 +14,16 @@
  * ```
  *
  * Provider nesting (outermost → innermost):
- *   ThemeProvider → ErrorBoundary → ToastProvider → CommandProvider → PeekProvider
+ *   ThemeProvider → ErrorBoundary → ToastProvider → CommandProvider → ShellProvider → PeekProvider
+ *
+ * ShellProvider owns the sidebar state and the auto-collapse API
+ * (useRightPanel); it sits outside PeekProvider so a peek drawer can announce
+ * itself as a right-side panel.
  *
  * Always-on chrome rendered inside PeekProvider:
- *   <ToastViewport />, <StatusStrip />, <AnnouncerRegion />
+ *   <ToastViewport />, <AnnouncerRegion />
+ * (The bottom status strip is gone: connection state lives on the account
+ * avatar and in the account menu; see ShellLayout.)
  *
  * AppShell registers two commands not covered by CommandProvider:
  *   - system.toggleTheme  (group: 'system')
@@ -34,7 +40,7 @@ import { ToastProvider } from '../../lib/toast';
 import { ToastViewport } from '../toast/ToastViewport';
 import CommandProvider from '../command/CommandProvider';
 import { PeekProvider } from '../peek/PeekPanel';
-import { StatusStrip } from '../status/StatusStrip';
+import { ShellProvider } from './ShellContext';
 import { useAnnouncer } from '../../hooks/useAnnouncer';
 import { registerCommand, unregisterCommand } from '../../lib/commands';
 import type { ViewId } from '../../lib/router';
@@ -103,12 +109,13 @@ function InnerShell({ children, onNavigate }: InnerShellProps) {
     <ErrorBoundary>
       <ToastProvider>
         <CommandProvider onNavigate={onNavigate}>
-          <PeekProvider>
-            {children}
-            <ToastViewport />
-            <StatusStrip />
-            <AnnouncerRegion />
-          </PeekProvider>
+          <ShellProvider>
+            <PeekProvider>
+              {children}
+              <ToastViewport />
+              <AnnouncerRegion />
+            </PeekProvider>
+          </ShellProvider>
         </CommandProvider>
       </ToastProvider>
     </ErrorBoundary>

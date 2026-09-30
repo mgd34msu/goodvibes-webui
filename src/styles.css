@@ -1,79 +1,24 @@
-@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap");
+/* Self-hosted Geist and Geist Mono (400, 500, 600), bundled by Vite: no font CDN. */
+@import './styles/fonts.css';
 @import './styles/tokens.css';
 /* Generated from the SDK presentation contract — see
    src/styles/generated/presentation-tokens.css's own header for what this
    layer is (and is not) and scripts/generate-presentation-tokens.ts for how
    it's produced. */
 @import './styles/generated/presentation-tokens.css';
+/* Glass and scrim: the one floating material and the one modal backdrop. */
+@import './styles/materials.css';
 
-/* === Global rendering (theme-invariant) === */
+/* === Global rendering === */
 :root {
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-
-  /* Legacy alias vars — map to semantic tokens so old selectors keep working */
-  --radius: var(--radius-md);
-  --shadow-sm: var(--elevation-1);
-  --shadow-md: var(--elevation-3);
-
-  /* Brand neon aliases (used throughout) */
-  --gv-cyan:   var(--brand-cyan);
-  --gv-pink:   var(--brand-pink);
-  --gv-yellow: var(--brand-yellow);
-  --gv-purple: var(--brand-purple);
-  --gv-black: #08080f;
-
-  /* Contextual aliases — dark (default) values; overridden below in light */
-  color-scheme: dark;
-  color: var(--text-primary);
-  background: var(--surface-base);
-  --ink: var(--text-primary);
-  --muted: var(--text-secondary);
-  --quiet: var(--text-tertiary);
-  --panel: var(--surface-raised);
-  --panel-soft: var(--surface-sunken);
-  --line: var(--border-subtle);
-  --line-strong: var(--border-strong);
-  --nav: #101713;
-  --nav-soft: #17221d;
-  --accent-strong: var(--text-accent);
-  --accent-soft: var(--accent-muted);
-  --blue: var(--status-info);
-  --blue-soft: var(--status-info-soft);
-  --amber: var(--status-warning);
-  --amber-soft: var(--status-warning-soft);
-  --red: var(--status-danger);
-  --red-soft: var(--status-danger-soft);
-  --violet: var(--brand-pink);
-}
-
-/* Light theme alias overrides */
-:root[data-theme="light"] {
-  color-scheme: light;
-  color: var(--text-primary);
-  background: var(--surface-base);
-  --ink: var(--text-primary);
-  --muted: var(--text-secondary);
-  --quiet: var(--text-tertiary);
-  --panel: var(--surface-raised);
-  --panel-soft: var(--surface-sunken);
-  --line: var(--border-subtle);
-  --line-strong: var(--border-strong);
-  --accent-strong: var(--accent-hover);
-  --accent-soft: var(--accent-muted);
-  --blue: var(--status-info);
-  --blue-soft: var(--status-info-soft);
-  --amber: var(--status-warning);
-  --amber-soft: var(--status-warning-soft);
-  --red: var(--status-danger);
-  --red-soft: var(--status-danger-soft);
-  --violet: #6840b8;
-  --gv-cyan:   var(--brand-cyan);
-  --gv-pink:   var(--brand-pink);
-  --gv-yellow: var(--brand-yellow);
-  --gv-purple: var(--brand-purple);
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text);
+  background: var(--canvas);
 }
 
 * {
@@ -89,33 +34,28 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  /* Dark background (default) — overridden by light-theme rule below */
-  background:
-    radial-gradient(circle at 26% 14%, rgb(255 0 255 / 16%), transparent 24rem),
-    radial-gradient(circle at 78% 18%, rgb(0 255 255 / 10%), transparent 24rem),
-    linear-gradient(90deg, rgb(0 255 255 / 4%) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(255 0 255 / 4%) 1px, transparent 1px),
-    linear-gradient(180deg, #12071f 0%, #0c0820 42%, #08080f 100%);
-  background-size: auto, auto, 40px 40px, 40px 40px, auto;
+  font-size: var(--text-base);
+  line-height: 20px;
+  color: var(--text);
+  /* Flat canvas. --page-art is `none` in every slate theme; only the opt-in
+     GoodVibes Neon theme paints its glow and grid there. */
+  background: var(--page-art), var(--canvas);
+  background-color: var(--canvas);
 }
 
-:root[data-theme="light"] body {
-  background:
-    linear-gradient(90deg, rgb(16 23 19 / 4%) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(16 23 19 / 4%) 1px, transparent 1px),
-    linear-gradient(180deg, #f8fbfa 0, var(--surface-base) 46%, #e9eff1 100%);
-  background-size: 40px 40px, 40px 40px, auto;
-}
-
-.brand-copy strong,
-.brand-copy span,
 .markdown-message code,
 .markdown-code-label,
 .markdown-code-block code,
 .data-block pre,
 .diagnostic-block pre,
-code {
-  font-family: "Space Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--accent-soft);
 }
 
 button,
@@ -123,174 +63,24 @@ input,
 textarea,
 select {
   font: inherit;
+  color: inherit;
 }
 
 button {
   cursor: pointer;
 }
 
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 3px solid var(--border-focus);
+/* Focus is always visible: a 2px accent outline with a 3px soft halo, never removed. */
+:focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 button:disabled {
   cursor: not-allowed;
 }
 
-.app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  /* The shell is the ONE viewport-height box and the page never scrolls.
-     Each column owns its own overflow: the sidebar scrolls its nav, the
-     workspace scrolls its view, and in chat only the transcript scrolls.
-     The bottom padding is the fixed StatusStrip's reserved lane. */
-  height: 100vh;
-  height: 100dvh;
-  padding-bottom: var(--statusstrip-height, 32px);
-  overflow: hidden;
-  transition: grid-template-columns var(--motion-base) var(--ease-standard);
-}
-
-.app-shell.sidebar-collapsed {
-  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  height: 100%;
-  overflow-y: auto;
-  /* Extra end-of-scroll room so the last nav item sits clear of the screen
-     edge (and the StatusStrip lane) when scrolled all the way down. */
-  padding: 18px 14px 34px;
-  color: #f4f7ff;
-  background:
-    linear-gradient(180deg, rgb(255 0 255 / 14%) 0, transparent 32%),
-    #0b0920;
-  border-right: 1px solid rgb(0 255 255 / 22%);
-  box-shadow: 18px 0 46px rgb(0 0 0 / 26%);
-}
-
-.sidebar.collapsed {
-  align-items: center;
-  gap: 14px;
-  padding: 16px 10px;
-}
-
-.brand {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 36px;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 8px 14px;
-  border-bottom: 1px solid rgb(0 255 255 / 16%);
-}
-
-.sidebar.collapsed .brand {
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  padding: 4px 0 14px;
-  display: grid;
-  grid-template-columns: 1fr;
-  justify-items: center;
-}
-
-.brand-copy strong,
-.brand-copy span {
-  display: block;
-}
-
-.brand-copy {
-  min-width: 0;
-}
-
-.brand-copy strong {
-  color: #ffffff;
-  font-family: "Press Start 2P", cursive;
-  /* Full size, always. The 280px sidebar guarantees the brand column fits
-     the complete wordmark at this size; it never shrinks and never
-     ellipsizes. */
-  font-size: 0.86rem;
-  line-height: 1.35;
-  text-shadow: 2px 2px var(--gv-pink), -2px -2px var(--gv-cyan);
-  white-space: nowrap;
-}
-
-.brand-copy span {
-  margin-top: 2px;
-  color: #8ffcff;
-  font-size: 0.82rem;
-}
-
-.brand-mark-button {
-  display: inline-grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  padding: 0;
-  background: transparent;
-  border: 0;
-}
-
-.brand-mark {
-  display: block;
-  width: 42px;
-  height: 42px;
-  object-fit: cover;
-  background: #08080f;
-  border-radius: var(--radius);
-  border: 1px solid rgb(0 255 255 / 32%);
-  box-shadow: 0 0 20px rgb(0 255 255 / 34%), 0 12px 28px rgb(0 0 0 / 24%);
-}
-
-.sidebar-toggle {
-  display: inline-grid;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  justify-self: end;
-  place-items: center;
-  color: #090717;
-  background: var(--gv-cyan);
-  border: 1px solid rgb(0 255 255 / 64%);
-  border-radius: 7px;
-  box-shadow: 0 0 18px rgb(0 255 255 / 42%);
-}
-
-.sidebar-toggle:hover {
-  color: #090717;
-  background: var(--gv-pink);
-  border-color: rgb(255 0 255 / 68%);
-  box-shadow: 0 0 22px rgb(255 0 255 / 48%);
-}
-
-.sidebar.collapsed .brand-copy,
-.sidebar.collapsed .nav-copy,
-.sidebar.collapsed .sidebar-sessions {
-  display: none;
-}
-
-.sidebar.collapsed .sidebar-toggle {
-  display: none;
-}
-
-.sidebar.collapsed .brand-mark-button {
-  cursor: pointer;
-}
-
-.nav-list {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-}
-
-.nav-item,
 .icon-button,
 .primary-button,
 .secondary-button,
@@ -299,227 +89,30 @@ button:disabled {
   border: 0;
 }
 
-.nav-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 54px;
-  padding: 8px 10px;
-  color: #d9e8ff;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  text-align: left;
-}
-
-.nav-item::before {
-  position: absolute;
-  inset: 9px auto 9px 0;
-  width: 3px;
-  content: "";
-  background: transparent;
-  border-radius: 999px;
-}
-
-.nav-item:hover,
-.nav-item.active {
-  color: #ffffff;
-  background: rgb(0 255 255 / 8%);
-  border-color: rgb(0 255 255 / 18%);
-  box-shadow: inset 0 0 18px rgb(0 255 255 / 5%);
-}
-
-.nav-item.active::before {
-  background: var(--gv-pink);
-  box-shadow: 0 0 12px var(--gv-pink);
-}
-
-.nav-icon {
-  position: relative;
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  place-items: center;
-  background: rgb(0 255 255 / 7%);
-  border: 1px solid rgb(0 255 255 / 13%);
-  border-radius: 7px;
-}
-
 /* Attention count on a nav entry (Fleet: processes blocked on a human). Anchored
    to the icon so it stays visible on the collapsed icon-only phone rail, where the
    text label is hidden. */
-.nav-attention-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #ffb020;
-  color: #241600;
-  font-size: 0.62rem;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: 0 0 0 2px var(--surface-2, #0b1417);
-}
-
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  min-height: 46px;
-  padding: 7px;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.sidebar.collapsed .nav-item::before {
-  inset: auto 11px 0;
-  width: auto;
-  height: 3px;
-}
-
-.sidebar.collapsed .nav-item:hover {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.sidebar.collapsed .nav-icon {
-  background: transparent;
-  border-color: rgb(0 255 255 / 18%);
-}
-
-.sidebar.collapsed .nav-item.active .nav-icon {
-  background: transparent;
-  border-color: transparent;
-}
-
-.nav-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.nav-copy strong {
-  overflow: hidden;
-  font-size: 0.94rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-copy small {
-  color: #a5e8ee;
-  font-size: 0.76rem;
-}
-
-.surface-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 7px 10px;
-  margin-top: 4px;
-  padding: 12px;
-  color: #dce9e3;
-  background: rgb(255 255 255 / 7%);
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: var(--radius);
-}
-
-.surface-card div {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.surface-card span {
-  align-self: center;
-  color: #a8b9b1;
-  font-size: 0.78rem;
-}
-
-.sidebar-footer {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: auto;
-  padding: 11px 10px;
-  color: #b9cac3;
-  background: rgb(0 0 0 / 16%);
-  border: 1px solid rgb(255 255 255 / 7%);
-  border-radius: var(--radius);
-  font-size: 0.86rem;
-}
 
 .status-dot {
   width: 9px;
   height: 9px;
   flex: 0 0 auto;
   border-radius: 999px;
-  box-shadow: 0 0 0 4px rgb(255 255 255 / 7%);
+  box-shadow: none;
 }
 
 .status-dot.ok {
-  background: #55d995;
+  background: var(--ok);
 }
 
 .status-dot.warning {
-  background: #f2a93b;
-}
-
-.workspace {
-  min-width: 0;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) auto;
-  align-items: center;
-  gap: 16px;
-  min-height: 78px;
-  padding: 14px 28px;
-  color: var(--text-primary);
-  /* Token-driven, not a light/dark literal pair fighting over cascade order:
-     --surface-raised itself resolves per theme (tokens.css), so this single
-     declaration is correct in both themes regardless of source order — see
-     the topbar/dark-surface white-band fix. */
-  background: var(--surface-raised);
-  border-bottom: 1px solid var(--line);
-  box-shadow: var(--elevation-2);
-  backdrop-filter: blur(18px);
-}
-
-.topbar-title {
-  display: grid;
-  gap: 2px;
+  background: var(--warn);
 }
 
 .eyebrow {
-  color: var(--accent-strong);
+  color: var(--accent);
   font-size: 0.78rem;
   font-weight: 800;
-}
-
-.topbar h1 {
-  margin: 0;
-  font-size: 1.38rem;
-  line-height: 1.1;
-}
-
-.topbar-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 .icon-button,
@@ -529,18 +122,18 @@ button:disabled {
   height: 36px;
   place-items: center;
   padding: 0;
-  color: #314149;
-  background: #ffffff;
+  color: var(--text);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 7px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .icon-button:hover,
 .row-actions button:hover {
-  color: var(--accent-strong);
+  color: var(--accent);
   background: var(--accent-soft);
-  border-color: #a9d7cb;
+  border-color: var(--ok);
 }
 
 .row-actions button:disabled {
@@ -566,27 +159,27 @@ button:disabled {
   max-width: calc(1760px - 56px);
   margin: 14px auto 0;
   padding: 10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
 }
 
 .banner.warning {
-  color: #653b07;
-  background: var(--amber-soft);
-  border: 1px solid #f0d39b;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
 }
 
 /* Informational, not a warning — the plain-http-on-LAN posture notice
    (pairing.posture.get's one honest notice line): everything works, this is a
    deliberate supported deployment, not a problem to fix. */
 .banner.info {
-  color: var(--blue);
-  background: var(--blue-soft);
-  border: 1px solid var(--blue-soft);
+  color: var(--info);
+  background: var(--info-soft);
+  border: 1px solid var(--info-soft);
 }
 
 :root[data-theme="light"] .banner.info {
-  color: #1d3a99;
+  color: var(--info);
 }
 
 .action-banner {
@@ -601,17 +194,17 @@ button:disabled {
 .secondary-button {
   min-height: 34px;
   padding: 0 12px;
-  color: #263940;
-  background: #ffffff;
-  border: 1px solid #d2dedf;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
   font-weight: 800;
 }
 
 .action-banner button:hover,
 .secondary-button:hover {
-  color: var(--accent-strong);
-  border-color: #9bd5c8;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .panel,
@@ -630,10 +223,10 @@ button:disabled {
      caught by the live Playwright proof for this fix, not by source reading
      alone. Declaring the token here once removes the duplicate literal
      entirely (see the reconciled dark block further down). */
-  color: var(--text-primary);
+  color: var(--text);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 }
 
 /* Light-theme surface background, scoped so it can never win in dark theme by
@@ -650,7 +243,7 @@ button:disabled {
 :root[data-theme="light"] .chat-surface,
 :root[data-theme="light"] .detail-header,
 :root[data-theme="light"] .knowledge-search {
-  background: rgb(255 255 255 / 94%);
+  background: var(--surface);
 }
 
 .panel:hover,
@@ -658,7 +251,7 @@ button:disabled {
 .side-panel:hover,
 .chat-surface:hover {
   border-color: var(--line-strong);
-  box-shadow: 0 10px 28px rgb(20 25 31 / 7%);
+  box-shadow: none;
 }
 
 .panel-title,
@@ -671,7 +264,7 @@ button:disabled {
 }
 
 .panel-title svg {
-  color: var(--accent-strong);
+  color: var(--accent);
 }
 
 .record-row span,
@@ -680,7 +273,7 @@ button:disabled {
 .detail-header span,
 .chat-header span,
 .message-meta span {
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.82rem;
 }
 
@@ -700,13 +293,13 @@ button:disabled {
 
 .current-model strong {
   overflow: hidden;
-  color: var(--ink);
+  color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .current-model span {
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.86rem;
   overflow-wrap: anywhere;
 }
@@ -795,8 +388,8 @@ button:disabled {
   min-width: 0;
   padding: 11px;
   color: inherit;
-  background: var(--panel-soft);
-  border: 1px solid #e1e9e8;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
   text-align: left;
 }
@@ -807,8 +400,8 @@ button:disabled {
 
 .record-row.selected,
 .record-row:hover {
-  background: #edf8f4;
-  border-color: #9bd5c8;
+  background: var(--surface-2);
+  border-color: var(--accent);
 }
 
 .record-row:hover {
@@ -821,7 +414,7 @@ button:disabled {
 .action-row strong {
   min-width: 0;
   overflow: hidden;
-  color: var(--ink);
+  color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -837,8 +430,8 @@ button:disabled {
 }
 
 .model-row.selected {
-  background: #edf8f4;
-  border-color: #9bd5c8;
+  background: var(--surface-2);
+  border-color: var(--accent);
 }
 
 .model-copy {
@@ -879,36 +472,36 @@ button:disabled {
 }
 
 :root[data-theme="light"] .badge.ok {
-  color: #09583f;
-  background: #dff7ed;
+  color: var(--ok);
+  background: var(--ok-soft);
 }
 
 :root[data-theme="light"] .badge.warning {
-  color: #724407;
-  background: var(--amber-soft);
+  color: var(--warn);
+  background: var(--warn-soft);
 }
 
 :root[data-theme="light"] .badge.bad {
-  color: #8f1f32;
-  background: var(--red-soft);
+  color: var(--bad);
+  background: var(--bad-soft);
 }
 
 :root[data-theme="light"] .badge.neutral {
-  color: #41525b;
-  background: #edf2f3;
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 
 /* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
    distinct from a deliberate close, which stays .badge.neutral. */
 :root[data-theme="light"] .badge.info {
-  color: #1d3a99;
-  background: var(--blue-soft);
+  color: var(--info);
+  background: var(--info-soft);
 }
 
 :root[data-theme="light"] .badge.attention {
-  color: #7a3d00;
-  background: #ffe8bf;
-  box-shadow: inset 0 0 0 1px rgb(214 120 0 / 40%);
+  color: var(--warn);
+  background: var(--warn-soft);
+  box-shadow: inset 0 0 0 1px var(--warn);
 }
 
 .data-block {
@@ -925,7 +518,7 @@ button:disabled {
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: #2c3a42;
+  color: var(--text);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -933,7 +526,7 @@ button:disabled {
 .data-block-markdown {
   max-height: 420px;
   overflow: auto;
-  color: #2c3a42;
+  color: var(--text);
 }
 
 .data-block-pre-wrap {
@@ -950,8 +543,8 @@ button:disabled {
   padding: 2px 8px;
   border: none;
   border-radius: 4px;
-  background: var(--surface-raised, #f5f5f5);
-  color: var(--text-secondary, #666);
+  background: var(--surface, var(--surface-2));
+  color: var(--text-2, var(--text-2));
   font-size: 0.72rem;
   cursor: pointer;
   opacity: 0;
@@ -965,18 +558,18 @@ button:disabled {
 }
 
 .data-block-copy:hover {
-  background: var(--accent-muted, #e8eef0);
-  color: var(--text-primary, #222);
+  background: var(--accent-soft, var(--surface-2));
+  color: var(--text, var(--text));
 }
 
 .data-block-copy:focus-visible {
-  outline: 2px solid var(--border-focus, #3b82f6);
+  outline: 2px solid var(--accent, var(--info));
   outline-offset: 2px;
 }
 
 .empty-state {
   margin: 12px 0;
-  color: var(--quiet);
+  color: var(--text-3);
 }
 
 .chat-surface {
@@ -988,7 +581,7 @@ button:disabled {
      unconditional light literal (#fbfdfc) with no dark counterpart anywhere
      in the file, so the chat pane stayed near-white in dark theme unconditionally
      — not just on a cascade reorder. --surface-raised resolves per theme. */
-  background: var(--surface-raised);
+  background: var(--surface);
 }
 
 .chat-header {
@@ -996,7 +589,7 @@ button:disabled {
   /* Same fix as .chat-surface immediately above: was an unconditional #ffffff
      literal with no dark override, so the chat header band stayed white in
      dark theme. */
-  background: var(--surface-raised);
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
 
@@ -1013,7 +606,7 @@ button:disabled {
   min-height: 0;
   padding: 22px;
   overflow: auto;
-  background: #fbfdfc;
+  background: var(--surface);
 }
 
 .message {
@@ -1021,9 +614,9 @@ button:disabled {
   max-width: min(740px, 86%);
   padding: 11px 13px;
   border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid #e0e8e7;
-  box-shadow: var(--shadow-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
 .message:hover .message-actions,
@@ -1033,24 +626,24 @@ button:disabled {
 
 .message.user {
   align-self: flex-end;
-  color: #102018;
-  background: #dff4ed;
-  border-color: #b9e1d4;
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: var(--ok);
 }
 
 .message.assistant,
 .message.streaming {
   align-self: flex-start;
-  background: #ffffff;
-  border-color: #dde7e5;
+  background: var(--surface);
+  border-color: var(--line);
 }
 
 .message.system,
 .message.neutral {
   align-self: center;
   max-width: min(820px, 92%);
-  background: #f0f4f4;
-  border-color: #dce6e5;
+  background: var(--surface-2);
+  border-color: var(--line);
 }
 
 .message-meta {
@@ -1091,27 +684,27 @@ button:disabled {
   width: 22px;
   height: 22px;
   place-items: center;
-  color: #5f7078;
+  color: var(--text-2);
   background: transparent;
   border: 0;
   border-radius: 6px;
 }
 
 .message-actions button:hover:not(:disabled) {
-  color: var(--accent-strong);
-  background: rgb(10 143 115 / 8%);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .delivery-indicator.sent {
-  color: #0a7d5f;
+  color: var(--ok);
 }
 
 .delivery-indicator.failed {
-  color: var(--red);
+  color: var(--bad);
 }
 
 .delivery-indicator.local {
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 /* Stopped/queued carry a word, not just a glyph — the honesty markers must
@@ -1128,17 +721,17 @@ button:disabled {
 }
 
 .delivery-indicator.cancelled {
-  color: var(--amber, #b8860b);
-  background: rgb(184 134 11 / 10%);
+  color: var(--warn, var(--warn));
+  background: var(--warn-soft);
 }
 
 .delivery-indicator.queued {
-  color: var(--muted);
-  background: rgb(95 112 120 / 12%);
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 
 .message-action-label {
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.72rem;
 }
 
@@ -1146,7 +739,7 @@ button:disabled {
   display: grid;
   gap: 8px;
   padding: 12px 18px 16px;
-  background: #ffffff;
+  background: var(--surface);
   border-top: 1px solid var(--line);
 }
 
@@ -1172,9 +765,9 @@ button:disabled {
 .composer textarea {
   width: 100%;
   min-width: 0;
-  color: var(--ink);
-  background: #ffffff;
-  border: 1px solid #cbd8d8;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
 }
 
@@ -1210,10 +803,10 @@ button:disabled {
 .composer-row {
   align-items: flex-end;
   padding: 4px;
-  background: #ffffff;
-  border: 1px solid #cbd8d8;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .send-button {
@@ -1222,14 +815,14 @@ button:disabled {
   height: 40px;
   flex: 0 0 auto;
   place-items: center;
-  color: #ffffff;
+  color: var(--text);
   background: var(--accent);
   border: 0;
   border-radius: 999px;
 }
 
 .send-button:hover:not(:disabled) {
-  background: var(--accent-strong);
+  background: var(--accent);
 }
 
 .send-button:disabled {
@@ -1238,170 +831,11 @@ button:disabled {
 
 .composer-error {
   padding: 8px 10px;
-  color: #653b07;
-  background: var(--amber-soft);
-  border: 1px solid #f0d39b;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
   border-radius: 7px;
   font-size: 0.86rem;
-}
-
-.sidebar-sessions {
-  display: grid;
-  flex: 1;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 9px;
-  min-height: 0;
-  padding-top: 14px;
-  border-top: 1px solid rgb(0 255 255 / 16%);
-}
-
-.sidebar-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 4px 0 8px;
-  color: #8ffcff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.sidebar-section-title button {
-  display: inline-grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  color: #f4f7ff;
-  background: rgb(255 0 255 / 10%);
-  border: 1px solid rgb(255 0 255 / 22%);
-  border-radius: 7px;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.sidebar-section-title button:hover {
-  color: #090717;
-  background: var(--gv-pink);
-  box-shadow: 0 0 18px rgb(255 0 255 / 45%);
-}
-
-.sidebar-session-list {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  min-height: 0;
-  padding-right: 2px;
-  overflow: auto;
-}
-
-.sidebar-session-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  color: #d9e8ff;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 7px;
-}
-
-.sidebar-session {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 9px 10px;
-  color: inherit;
-  background: transparent;
-  border: 0;
-  text-align: left;
-}
-
-.sidebar-session-row:hover,
-.sidebar-session-row.active {
-  background: rgb(0 255 255 / 8%);
-  border-color: rgb(0 255 255 / 18%);
-}
-
-.sidebar-session-row.active {
-  color: #ffffff;
-}
-
-.sidebar-session span,
-.sidebar-session small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-session span {
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.sidebar-session small {
-  color: #a5e8ee;
-  font-size: 0.75rem;
-}
-
-.sidebar-session-delete {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  place-items: center;
-  margin-right: 5px;
-  color: #9b8fb5;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  opacity: 0;
-  transition: opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease;
-}
-
-.sidebar-session-row:hover .sidebar-session-delete,
-.sidebar-session-row:focus-within .sidebar-session-delete,
-.sidebar-session-row.active .sidebar-session-delete {
-  opacity: 1;
-}
-
-.sidebar-session-delete:hover:not(:disabled) {
-  color: #090717;
-  background: var(--gv-pink);
-  border-color: rgb(255 0 255 / 54%);
-  box-shadow: 0 0 14px rgb(255 0 255 / 34%);
-}
-
-.sidebar-session-delete:disabled {
-  opacity: 0.4;
-}
-
-.sidebar-empty {
-  padding: 10px;
-  color: #9b8fb5;
-  font-size: 0.88rem;
-}
-
-.workspace-chat {
-  height: 100%;
-  overflow: hidden;
-  background: #1d1e1b;
-}
-
-.workspace-chat .topbar {
-  display: none;
-}
-
-.workspace-chat .view-frame {
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  margin: 0;
-  padding: 0;
 }
 
 .chat-main {
@@ -1410,8 +844,8 @@ button:disabled {
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-width: 0;
-  color: #f3f0e8;
-  background: #1d1e1b;
+  color: var(--text);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -1423,9 +857,8 @@ button:disabled {
   gap: 12px;
   min-height: 52px;
   padding: 8px 18px;
-  background: rgb(29 30 27 / 88%);
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
-  backdrop-filter: blur(16px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .chat-session-select {
@@ -1433,9 +866,9 @@ button:disabled {
   min-width: 0;
   height: 34px;
   padding: 0 34px 0 10px;
-  color: #eeeae1;
-  background: #242521;
-  border: 1px solid rgb(255 255 255 / 11%);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
 }
 
@@ -1456,9 +889,9 @@ button:disabled {
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  color: var(--text-accent, #8ffcff);
-  background: rgb(0 255 255 / 8%);
-  border: 1px solid rgb(0 255 255 / 26%);
+  color: var(--accent, var(--accent));
+  background: var(--accent-soft);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
   font-size: var(--text-xs, 12px);
   font-weight: 600;
@@ -1466,13 +899,13 @@ button:disabled {
 }
 
 .chat-status__retry:hover {
-  color: #090717;
-  background: var(--accent-hover, #00ffff);
-  border-color: rgb(0 255 255 / 54%);
+  color: var(--text);
+  background: var(--accent, var(--accent));
+  border-color: var(--line-strong);
 }
 
 .chat-status__retry:focus-visible {
-  outline: 2px solid var(--border-focus, rgb(0 255 255 / 64%));
+  outline: 2px solid var(--accent, var(--accent));
   outline-offset: 2px;
 }
 
@@ -1489,15 +922,14 @@ button:disabled {
   gap: 34px;
   padding: 54px clamp(24px, 12vw, 320px) 164px;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 2%), transparent 180px),
-    #1d1e1b;
+    var(--surface);
   scroll-behavior: smooth;
 }
 
 .chat-main .message {
   max-width: min(820px, 96%);
   padding: 0;
-  color: #f3f0e8;
+  color: var(--text);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -1507,9 +939,9 @@ button:disabled {
 .chat-main .message.user {
   max-width: min(640px, 82%);
   padding: 13px 15px;
-  color: #f8f7f2;
-  background: #10110f;
-  border: 1px solid rgb(255 255 255 / 7%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line);
   border-radius: 11px;
 }
 
@@ -1521,15 +953,15 @@ button:disabled {
 
 .chat-main .message.system,
 .chat-main .message.neutral {
-  color: #d4d0c5;
-  background: rgb(255 255 255 / 5%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
 }
 
 .chat-main .message-meta {
   justify-content: flex-start;
   margin: 0 0 7px;
-  color: #918d84;
+  color: var(--text-2);
   opacity: 0.84;
 }
 
@@ -1557,35 +989,35 @@ button:disabled {
 .chat-main .delivery-indicator {
   width: 24px;
   height: 24px;
-  color: #969288;
+  color: var(--text-2);
   border-radius: 6px;
 }
 
 .chat-main .message-actions button:hover:not(:disabled) {
-  color: #d7f7ea;
-  background: rgb(126 224 187 / 10%);
+  color: var(--ok);
+  background: var(--ok-soft);
 }
 
 .chat-main .delivery-indicator.sent {
-  color: #7ee0bb;
+  color: var(--ok);
 }
 
 .chat-main .delivery-indicator.failed {
-  color: #ff9aa8;
+  color: var(--bad);
 }
 
 .chat-main .delivery-indicator.local {
-  color: #aaa59a;
+  color: var(--text-2);
 }
 
 .chat-main .message-action-label {
-  color: #aaa59a;
+  color: var(--text-2);
 }
 
 .chat-main .empty-state {
   align-self: center;
   margin: 18vh auto 0;
-  color: #918d84;
+  color: var(--text-2);
 }
 
 .jump-to-bottom {
@@ -1597,32 +1029,32 @@ button:disabled {
   width: 36px;
   height: 36px;
   place-items: center;
-  color: #f5f2eb;
-  background: rgb(54 55 50 / 92%);
-  border: 1px solid rgb(255 255 255 / 12%);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  box-shadow: 0 12px 28px rgb(0 0 0 / 26%);
+  box-shadow: none;
   transform: translateX(50%);
 }
 
 .jump-to-bottom:hover {
-  background: #3f413b;
+  background: var(--surface-2);
 }
 
 .chat-main .composer {
   z-index: 4;
   gap: 10px;
   padding: 18px clamp(24px, 12vw, 320px) 28px;
-  background: linear-gradient(180deg, rgb(29 30 27 / 0%), #1d1e1b 26%);
+  background: var(--surface);
   border: 0;
 }
 
 .chat-main .composer-error {
   width: min(860px, 100%);
   margin: 0 auto;
-  color: #f1cf94;
-  background: rgb(82 49 8 / 54%);
-  border-color: rgb(240 189 101 / 35%);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: var(--warn);
 }
 
 .composer-attachments {
@@ -1639,10 +1071,10 @@ button:disabled {
   align-items: center;
   gap: 7px;
   padding: 7px 8px;
-  color: #dffcff;
+  color: var(--text);
   font-size: 12px;
-  background: rgb(0 255 255 / 8%);
-  border: 1px solid rgb(0 255 255 / 22%);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 
@@ -1651,15 +1083,15 @@ button:disabled {
   width: 18px;
   height: 18px;
   place-items: center;
-  color: #9beef2;
+  color: var(--accent);
   background: transparent;
   border: 0;
   border-radius: 6px;
 }
 
 .composer-attachment button:hover {
-  color: #090717;
-  background: var(--gv-cyan);
+  color: var(--text);
+  background: var(--accent);
 }
 
 .composer-box {
@@ -1668,10 +1100,10 @@ button:disabled {
   width: min(860px, 100%);
   margin: 0 auto;
   padding: 10px;
-  background: #2b2c28;
-  border: 1px solid rgb(255 255 255 / 10%);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 18px;
-  box-shadow: 0 24px 60px rgb(0 0 0 / 26%);
+  box-shadow: none;
 }
 
 .composer-box textarea {
@@ -1679,7 +1111,7 @@ button:disabled {
   min-height: 44px;
   max-height: 140px;
   padding: 8px 10px;
-  color: #f4f1ea;
+  color: var(--text);
   line-height: 1.45;
   resize: none;
   background: transparent;
@@ -1688,7 +1120,7 @@ button:disabled {
 }
 
 .composer-box textarea::placeholder {
-  color: #aaa59a;
+  color: var(--text-2);
 }
 
 .composer-toolbar,
@@ -1709,15 +1141,15 @@ button:disabled {
   width: 32px;
   height: 32px;
   place-items: center;
-  color: #aaa59a;
+  color: var(--text-2);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;
 }
 
 .composer-tool:hover:not(:disabled) {
-  color: #f4f1ea;
-  background: rgb(255 255 255 / 7%);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .composer-tool:disabled {
@@ -1733,32 +1165,39 @@ button:disabled {
   min-width: 130px;
   height: 32px;
   padding: 0 30px 0 10px;
-  color: #d8d4ca;
-  background: #252621;
-  border: 1px solid rgb(255 255 255 / 10%);
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 
 .chat-main .send-button {
   width: 38px;
   height: 38px;
-  color: #07130f;
-  background: #8bd8c4;
+  color: var(--text);
+  background: var(--ok);
   box-shadow: none;
 }
 
 .chat-main .send-button:hover:not(:disabled) {
-  background: #a7ead8;
+  background: var(--ok-soft);
 }
 
 .chat-main {
-  color: #f8fbff;
+  color: var(--text);
+  background:
+    var(--canvas);
+}
+
+:root[data-theme="neon"] .chat-main {
   background:
     radial-gradient(circle at 50% 26%, rgb(255 0 255 / 22%), transparent 18rem),
     linear-gradient(to bottom, #0f0c29 0%, #1a0b2e 46%, #08080f 100%);
 }
 
-.chat-main::before {
+/* GoodVibes Neon only: the synthwave perspective grid under the chat. The slate
+   themes have a flat canvas (design doc "Color": never tinted, no grid). */
+:root[data-theme="neon"] .chat-main::before {
   position: absolute;
   inset: 38% -25% -38%;
   pointer-events: none;
@@ -1775,9 +1214,9 @@ button:disabled {
 
 .chat-main-header {
   min-height: 58px;
-  background: rgb(8 8 15 / 88%);
-  border-bottom: 1px solid rgb(0 255 255 / 18%);
-  box-shadow: 0 8px 30px rgb(0 0 0 / 24%);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
 }
 
 .chat-title-button,
@@ -1792,7 +1231,7 @@ button:disabled {
   gap: 9px;
   min-height: 36px;
   padding: 0;
-  color: #ffffff;
+  color: var(--text);
   background: transparent;
   border: 0;
   text-align: left;
@@ -1806,8 +1245,8 @@ button:disabled {
 }
 
 .chat-title-button:hover:not(:disabled) {
-  color: var(--gv-cyan);
-  text-shadow: 0 0 10px rgb(0 255 255 / 54%);
+  color: var(--accent);
+  text-shadow: none;
 }
 
 .chat-title-button:disabled {
@@ -1817,11 +1256,11 @@ button:disabled {
 .chat-title-input {
   height: 38px;
   padding: 0 10px;
-  color: #ffffff;
-  background: rgb(0 0 0 / 34%);
-  border: 1px solid rgb(0 255 255 / 32%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
-  box-shadow: 0 0 18px rgb(0 255 255 / 12%);
+  box-shadow: none;
 }
 
 .chat-main .chat-conversation {
@@ -1862,30 +1301,30 @@ button:disabled {
 .chat-main .message.user .message-bubble {
   max-width: min(650px, 82%);
   padding: 13px 15px;
-  color: #f8fbff;
-  background: rgb(8 8 15 / 88%);
-  border: 1px solid rgb(0 255 255 / 28%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  box-shadow: 0 0 18px rgb(0 255 255 / 10%);
+  box-shadow: none;
 }
 
 .chat-main .message.assistant .message-bubble,
 .chat-main .message.streaming .message-bubble {
-  color: #f8fbff;
-  text-shadow: 0 0 12px rgb(255 255 255 / 8%);
+  color: var(--text);
+  text-shadow: none;
 }
 
 .chat-main .message.system .message-bubble,
 .chat-main .message.neutral .message-bubble {
   padding: 12px 14px;
-  color: #e9e5ff;
-  background: rgb(0 0 0 / 34%);
-  border: 1px solid rgb(255 0 255 / 18%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
 }
 
 .chat-main .message-meta {
-  color: #a5faff;
+  color: var(--accent);
 }
 
 .chat-main .message p {
@@ -1930,26 +1369,26 @@ button:disabled {
 .markdown-message blockquote {
   margin: 0.92em 0;
   padding: 0.2em 0 0.2em 0.9em;
-  color: #526670;
-  border-left: 2px solid #b8c9c7;
+  color: var(--text-2);
+  border-left: 2px solid var(--line);
 }
 
 .markdown-message code {
   padding: 0.12em 0.34em;
-  color: #183a33;
+  color: var(--accent);
   font-size: 0.92em;
-  background: #e8f3ef;
-  border: 1px solid #d4e5df;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: 5px;
 }
 
 .markdown-code-block {
   margin: 1em 0;
   overflow: hidden;
-  background: var(--panel-soft);
-  border: 1px solid #dce6e5;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 72%);
+  box-shadow: inset 0 1px 0 var(--line-strong);
 }
 
 .markdown-code-header {
@@ -1958,9 +1397,9 @@ button:disabled {
   justify-content: space-between;
   gap: 10px;
   padding: 6px 7px 6px 11px;
-  color: #526670;
-  background: #edf4f2;
-  border-bottom: 1px solid #dce6e5;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
 }
 
 .markdown-code-label {
@@ -1979,17 +1418,17 @@ button:disabled {
   gap: 5px;
   min-height: 26px;
   padding: 0 8px;
-  color: #526670;
-  background: rgb(255 255 255 / 72%);
-  border: 1px solid #d7e4e2;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 6px;
   font-size: 11px;
   font-weight: 800;
 }
 
 .markdown-code-copy:hover {
-  color: var(--accent-strong);
-  border-color: #9bd5c8;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .markdown-code-block pre,
@@ -2003,7 +1442,7 @@ button:disabled {
   display: block;
   min-width: max-content;
   padding: 0;
-  color: #243238;
+  color: var(--text);
   line-height: 1.6;
   white-space: pre;
   background: transparent;
@@ -2016,7 +1455,7 @@ button:disabled {
 .markdown-code-block .hljs-built_in,
 .markdown-code-block .hljs-name,
 .markdown-code-block .hljs-tag {
-  color: #7f5cff;
+  color: var(--info);
 }
 
 .markdown-code-block .hljs-string,
@@ -2028,13 +1467,13 @@ button:disabled {
 .markdown-code-block .hljs-template-variable,
 .markdown-code-block .hljs-type,
 .markdown-code-block .hljs-addition {
-  color: #007a5b;
+  color: var(--ok);
 }
 
 .markdown-code-block .hljs-comment,
 .markdown-code-block .hljs-quote,
 .markdown-code-block .hljs-meta {
-  color: #6f7f87;
+  color: var(--text-2);
   font-style: italic;
 }
 
@@ -2043,12 +1482,12 @@ button:disabled {
 .markdown-code-block .hljs-bullet,
 .markdown-code-block .hljs-link,
 .markdown-code-block .hljs-variable {
-  color: #a45f00;
+  color: var(--warn);
 }
 
 .markdown-code-block .hljs-deletion,
 .markdown-code-block .hljs-regexp {
-  color: #b4233a;
+  color: var(--bad);
 }
 
 .markdown-code-block .hljs-emphasis {
@@ -2072,7 +1511,7 @@ button:disabled {
 
 .markdown-code-line-number {
   padding-right: 10px;
-  color: #7c8d94;
+  color: var(--text-2);
   text-align: right;
   -webkit-user-select: none;
   user-select: none;
@@ -2094,16 +1533,16 @@ button:disabled {
 .markdown-message td {
   padding: 8px 10px;
   text-align: left;
-  border: 1px solid rgb(0 255 255 / 18%);
+  border: 1px solid var(--line);
 }
 
 .markdown-message th {
-  color: #203239;
-  background: #edf4f2;
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .markdown-message a {
-  color: var(--accent-strong);
+  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -2111,48 +1550,48 @@ button:disabled {
 .markdown-message hr {
   height: 1px;
   margin: 1.1em 0;
-  background: #dce6e5;
+  background: var(--surface-2);
   border: 0;
 }
 
 .chat-main .markdown-message blockquote {
-  color: #c9fdff;
-  border-left-color: rgb(0 255 255 / 46%);
+  color: var(--accent);
+  border-left-color: var(--line-strong);
 }
 
 .chat-main .markdown-message code {
-  color: #f8fbff;
-  background: rgb(0 255 255 / 12%);
-  border-color: rgb(0 255 255 / 18%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--line);
 }
 
 .chat-main .markdown-code-block {
-  background: rgb(0 0 0 / 44%);
-  border-color: rgb(0 255 255 / 22%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  background: var(--canvas);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 var(--line);
 }
 
 .chat-main .markdown-code-header {
-  color: #9beef2;
-  background: rgb(0 255 255 / 8%);
-  border-bottom-color: rgb(0 255 255 / 18%);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-bottom-color: var(--line);
 }
 
 .chat-main .markdown-code-copy {
-  color: #9beef2;
-  background: rgb(0 255 255 / 8%);
-  border-color: rgb(0 255 255 / 22%);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--line);
 }
 
 .chat-main .markdown-code-copy:hover {
-  color: #090717;
-  background: var(--gv-cyan);
-  border-color: rgb(0 255 255 / 54%);
-  box-shadow: 0 0 16px rgb(0 255 255 / 32%);
+  color: var(--text);
+  background: var(--accent);
+  border-color: var(--line-strong);
+  box-shadow: none;
 }
 
 .chat-main .markdown-code-block code {
-  color: #f8fbff;
+  color: var(--text);
 }
 
 .chat-main .markdown-code-block .hljs-keyword,
@@ -2160,7 +1599,7 @@ button:disabled {
 .chat-main .markdown-code-block .hljs-built_in,
 .chat-main .markdown-code-block .hljs-name,
 .chat-main .markdown-code-block .hljs-tag {
-  color: #ff6cf5;
+  color: var(--text-2);
 }
 
 .chat-main .markdown-code-block .hljs-string,
@@ -2172,13 +1611,13 @@ button:disabled {
 .chat-main .markdown-code-block .hljs-template-variable,
 .chat-main .markdown-code-block .hljs-type,
 .chat-main .markdown-code-block .hljs-addition {
-  color: #6cffc9;
+  color: var(--ok);
 }
 
 .chat-main .markdown-code-block .hljs-comment,
 .chat-main .markdown-code-block .hljs-quote,
 .chat-main .markdown-code-block .hljs-meta {
-  color: #8798c7;
+  color: var(--info);
 }
 
 .chat-main .markdown-code-block .hljs-number,
@@ -2186,29 +1625,29 @@ button:disabled {
 .chat-main .markdown-code-block .hljs-bullet,
 .chat-main .markdown-code-block .hljs-link,
 .chat-main .markdown-code-block .hljs-variable {
-  color: #ffcc66;
+  color: var(--warn);
 }
 
 .chat-main .markdown-code-block .hljs-deletion,
 .chat-main .markdown-code-block .hljs-regexp {
-  color: #ff7ab8;
+  color: var(--bad);
 }
 
 .chat-main .markdown-code-line-number {
-  color: #6f8fa8;
+  color: var(--text-2);
 }
 
 .chat-main .markdown-message th {
-  color: #dffcff;
-  background: rgb(0 255 255 / 9%);
+  color: var(--text);
+  background: var(--accent-soft);
 }
 
 .chat-main .markdown-message a {
-  color: var(--gv-cyan);
+  color: var(--accent);
 }
 
 .chat-main .markdown-message hr {
-  background: rgb(0 255 255 / 20%);
+  background: var(--accent-soft);
 }
 
 .message-attachments {
@@ -2224,9 +1663,9 @@ button:disabled {
   align-items: center;
   max-width: 320px;
   padding: 8px 10px;
-  color: #dffcff;
-  background: rgb(0 255 255 / 7%);
-  border: 1px solid rgb(0 255 255 / 22%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 
@@ -2244,7 +1683,7 @@ button:disabled {
 
 .message-attachment span {
   margin-top: 2px;
-  color: #9beef2;
+  color: var(--accent);
   font-size: 11px;
 }
 
@@ -2267,35 +1706,34 @@ button:disabled {
 
 .chat-main .message-actions button,
 .chat-main .delivery-indicator {
-  color: #9beef2;
+  color: var(--accent);
 }
 
 .chat-main .message-actions button:hover:not(:disabled) {
-  color: #090717;
-  background: var(--gv-cyan);
-  box-shadow: 0 0 16px rgb(0 255 255 / 42%);
+  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .chat-main .delivery-indicator.sent {
-  color: #38ff8b;
+  color: var(--ok);
 }
 
 .chat-main .delivery-indicator.failed {
-  color: #ff6ac8;
+  color: var(--text-2);
 }
 
 .chat-main .composer {
   position: relative;
   z-index: 2;
-  background: linear-gradient(180deg, rgb(8 8 15 / 0%), rgb(8 8 15 / 92%) 30%, #08080f);
+  background: var(--canvas);
 }
 
 .composer-box {
-  background: rgb(8 8 15 / 90%);
-  border: 2px solid rgb(0 255 255 / 50%);
+  background: var(--canvas);
+  border: 2px solid var(--line-strong);
   border-radius: 8px;
-  box-shadow: 0 0 24px rgb(0 255 255 / 14%), 0 0 44px rgb(255 0 255 / 9%);
-  backdrop-filter: blur(8px);
+  box-shadow: none;
 }
 
 .composer-toolbar {
@@ -2315,35 +1753,35 @@ button:disabled {
 
 .composer-route select {
   width: min(220px, 25vw);
-  color: #dffcff;
-  background: rgb(0 255 255 / 7%);
-  border: 1px solid rgb(0 255 255 / 25%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--line-strong);
 }
 
 .composer-route select:hover:not(:disabled),
 .composer-route select:focus {
-  border-color: rgb(255 0 255 / 42%);
+  border-color: var(--line-strong);
 }
 
 .chat-main .send-button {
-  color: #090717;
-  background: var(--gv-cyan);
-  box-shadow: 0 0 18px rgb(0 255 255 / 40%);
+  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .chat-main .send-button:hover:not(:disabled) {
-  background: var(--gv-pink);
-  box-shadow: 0 0 22px rgb(255 0 255 / 48%);
+  background: var(--accent-2);
+  box-shadow: none;
 }
 
 .jump-to-bottom {
-  color: #090717;
-  background: var(--gv-cyan);
-  border-color: rgb(0 255 255 / 52%);
+  color: var(--text);
+  background: var(--accent);
+  border-color: var(--line-strong);
 }
 
 .jump-to-bottom:hover {
-  background: var(--gv-pink);
+  background: var(--accent-2);
 }
 
 .turn-inspector {
@@ -2351,7 +1789,7 @@ button:disabled {
   flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.78rem;
 }
 
@@ -2364,14 +1802,14 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: #f3f8f7;
-  border: 1px solid #d8e7e4;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: 999px;
 }
 
 .turn-inspector details {
   width: 100%;
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 .turn-inspector summary {
@@ -2384,14 +1822,14 @@ button:disabled {
   margin: 6px 0 0;
   padding: 9px;
   overflow: auto;
-  background: #f7faf9;
-  border: 1px solid #dfe9e7;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
 }
 
 .routing-note {
   margin: -2px 0 0;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.84rem;
 }
 
@@ -2402,15 +1840,15 @@ button:disabled {
   gap: 8px;
   min-height: 40px;
   padding: 0 15px;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent), #1b758a);
+  color: var(--text);
+  background: var(--accent);
   border-radius: 7px;
-  box-shadow: 0 10px 24px rgb(10 143 115 / 18%);
+  box-shadow: none;
   font-weight: 800;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--accent-strong), #155f72);
+  background: var(--accent);
 }
 
 .primary-button:disabled,
@@ -2420,7 +1858,7 @@ button:disabled {
 
 .secondary-button {
   width: fit-content;
-  background: #f8fbfa;
+  background: var(--surface);
 }
 
 .knowledge-search {
@@ -2433,8 +1871,8 @@ button:disabled {
   flex: 0 0 auto;
   gap: 4px;
   padding: 4px;
-  background: #e9efef;
-  border-radius: var(--radius);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
 }
 
 .segmented button {
@@ -2443,15 +1881,15 @@ button:disabled {
   gap: 6px;
   min-height: 32px;
   padding: 0 11px;
-  color: #41525b;
+  color: var(--text-2);
   background: transparent;
   border-radius: 6px;
 }
 
 .segmented button.active {
-  color: var(--ink);
-  background: #ffffff;
-  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .answer-text {
@@ -2479,7 +1917,7 @@ button:disabled {
 .form-grid label {
   display: grid;
   gap: 6px;
-  color: #50636f;
+  color: var(--text-2);
   font-size: 0.86rem;
   font-weight: 700;
 }
@@ -2516,9 +1954,9 @@ button:disabled {
   min-width: 0;
   height: 40px;
   padding: 0 11px;
-  color: var(--ink);
-  background: #ffffff;
-  border: 1px solid #cbd8d8;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
 }
 
@@ -2539,14 +1977,14 @@ button:disabled {
 
 .form-note {
   margin: 12px 0 0;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.86rem;
   line-height: 1.45;
 }
 
 .diagnostic-block {
   margin-top: 12px;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.84rem;
 }
 
@@ -2560,9 +1998,9 @@ button:disabled {
   margin: 10px 0 0;
   padding: 10px;
   overflow: auto;
-  color: #2c3a42;
-  background: var(--panel-soft);
-  border: 1px solid #e1e9e8;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -2584,8 +2022,8 @@ button:disabled {
   align-items: center;
   min-width: 0;
   padding: 12px;
-  background: var(--panel-soft);
-  border: 1px solid #e1e9e8;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 7px;
 }
 
@@ -2603,15 +2041,15 @@ button:disabled {
 }
 
 .runtime-grid span:not(.status-dot) {
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 0.82rem;
 }
 
 code {
   padding: 1px 5px;
-  color: #183a33;
-  background: #e8f3ef;
-  border: 1px solid #d4e5df;
+  color: var(--accent);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: 5px;
   font-size: 0.9em;
 }
@@ -2622,11 +2060,10 @@ code {
   gap: 14px;
   padding: 16px;
   background:
-    linear-gradient(90deg, rgb(10 143 115 / 12%), transparent 60%),
-    #ffffff;
+    var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 }
 
 .auth-guidance > div:first-child {
@@ -2634,9 +2071,9 @@ code {
   width: 44px;
   height: 44px;
   place-items: center;
-  color: var(--accent-strong);
+  color: var(--accent);
   background: var(--accent-soft);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
 
 .auth-guidance h2 {
@@ -2647,7 +2084,7 @@ code {
 .auth-guidance p {
   max-width: 920px;
   margin: 0;
-  color: var(--muted);
+  color: var(--text-2);
   line-height: 1.48;
 }
 
@@ -2658,44 +2095,19 @@ code {
  * Light theme tokens live in :root[data-theme="light"] inside tokens.css.
  */
 
-.workspace:not(.workspace-chat) {
-  min-height: 100%;
-  color: var(--text-primary);
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 2%), transparent 220px),
-    linear-gradient(180deg, #12071f 0%, #0b0820 48%, #08080f 100%);
-}
-
-.workspace:not(.workspace-chat)::before {
-  position: fixed;
-  inset: 78px 0 0 var(--sidebar-width);
-  pointer-events: none;
-  content: "";
-  background-image:
-    linear-gradient(rgb(0 255 255 / 5%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 0 255 / 5%) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.62;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 86%);
-}
-
-.app-shell.sidebar-collapsed .workspace:not(.workspace-chat)::before {
-  left: var(--sidebar-width-collapsed);
-}
-
 /* .topbar's color/background/border-bottom/box-shadow are now declared once,
    token-driven, at its base rule (see :442) — the duplicate unscoped override
    that used to live here (and only won by source order) is gone; there is
    nothing left to reorder. */
 
 .eyebrow {
-  color: #8ffcff;
+  color: var(--accent);
 }
 
 /* .topbar h1 and the headings inside the panel-group surfaces (.panel h2,
    .data-block h3, .answer-panel h2, .side-panel h2, .detail-header h2) are
    split out from the literal-color list below: those surfaces' own text
-   color is now token-driven (var(--text-primary), declared once at each
+   color is now token-driven (var(--text), declared once at each
    surface's base rule) — an unscoped literal here would win by specificity
    over the inherited token color in EVERY theme (this selector is more
    specific than a plain `.panel`), reintroducing the exact white-on-white
@@ -2708,34 +2120,34 @@ code {
 .model-copy strong,
 .model-row strong,
 .action-row strong {
-  color: #f8fbff;
+  color: var(--text);
 }
 
 .icon-button,
 .row-actions button,
 .action-banner button,
 .secondary-button {
-  color: #dffcff;
-  background: rgb(0 255 255 / 6%);
-  border: 1px solid rgb(0 255 255 / 20%);
-  box-shadow: 0 0 18px rgb(0 255 255 / 7%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
 .icon-button:hover,
 .row-actions button:hover,
 .action-banner button:hover,
 .secondary-button:hover {
-  color: #090717;
-  background: var(--gv-cyan);
-  border-color: rgb(0 255 255 / 54%);
-  box-shadow: 0 0 20px rgb(0 255 255 / 34%);
+  color: var(--text);
+  background: var(--accent);
+  border-color: var(--line-strong);
+  box-shadow: none;
 }
 
 .banner.warning,
 .composer-error {
-  color: #ffe2a8;
-  background: rgb(82 49 8 / 50%);
-  border: 1px solid rgb(255 204 102 / 30%);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
 }
 
 /* `color` removed from this list for .panel/.data-block/.answer-panel/
@@ -2753,11 +2165,9 @@ code {
 .knowledge-search,
 .auth-guidance {
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 56%),
-    rgb(8 8 15 / 82%);
-  border: 1px solid rgb(0 255 255 / 18%);
-  box-shadow: 0 0 0 1px rgb(255 0 255 / 5%), 0 20px 52px rgb(0 0 0 / 24%);
-  backdrop-filter: blur(10px);
+    var(--canvas);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
 /* Preserves .auth-guidance's exact prior color — split out of the list
@@ -2765,20 +2175,20 @@ code {
    .knowledge-search could move to a token; .auth-guidance itself is
    untouched by this work order. */
 .auth-guidance {
-  color: #f8fbff;
+  color: var(--text);
 }
 
 .panel:hover,
 .answer-panel:hover,
 .side-panel:hover,
 .chat-surface:hover {
-  border-color: rgb(0 255 255 / 38%);
-  box-shadow: 0 0 0 1px rgb(0 255 255 / 12%), 0 24px 68px rgb(0 0 0 / 32%);
+  border-color: var(--line-strong);
+  box-shadow: none;
 }
 
 .panel-title svg {
-  color: var(--gv-cyan);
-  filter: drop-shadow(0 0 8px rgb(0 255 255 / 32%));
+  color: var(--accent);
+  filter: none;
 }
 
 .record-row span,
@@ -2794,65 +2204,65 @@ code {
 .turn-inspector,
 .routing-note,
 .auth-guidance p {
-  color: #a7b7d8;
+  color: var(--info);
 }
 
 .empty-state {
-  color: #91a1c7;
+  color: var(--info);
 }
 
 .record-row,
 .action-row,
 .model-row,
 .runtime-grid > div {
-  color: #f8fbff;
-  background: rgb(0 255 255 / 5%);
-  border: 1px solid rgb(0 255 255 / 14%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
 }
 
 .record-row.selected,
 .record-row:hover,
 .model-row.selected {
-  color: #ffffff;
-  background: rgb(0 255 255 / 10%);
-  border-color: rgb(0 255 255 / 34%);
-  box-shadow: 0 0 24px rgb(0 255 255 / 10%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--line-strong);
+  box-shadow: none;
 }
 
 .badge.ok {
-  color: #a7ffd2;
-  background: rgb(56 255 139 / 12%);
+  color: var(--ok);
+  background: var(--ok-soft);
 }
 
 .badge.warning {
-  color: #ffe2a8;
-  background: rgb(255 204 102 / 12%);
+  color: var(--warn);
+  background: var(--warn-soft);
 }
 
 .badge.bad {
-  color: #ff9ad9;
-  background: rgb(255 106 200 / 12%);
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 
 .badge.neutral {
-  color: #dffcff;
-  background: rgb(0 255 255 / 10%);
+  color: var(--text);
+  background: var(--accent-soft);
 }
 
 /* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
    distinct from a deliberate close, which stays .badge.neutral. */
 .badge.info {
-  color: var(--blue);
-  background: var(--blue-soft);
+  color: var(--info);
+  background: var(--info-soft);
 }
 
 /* Attention: a node the daemon flagged as blocked on a human (needsAttention).
    Deliberately louder than .warning — a bordered accent so "someone is waiting
    on you" reads at a glance in the row's badge cluster. */
 .badge.attention {
-  color: #ffe6b0;
-  background: rgb(255 176 32 / 18%);
-  box-shadow: inset 0 0 0 1px rgb(255 176 32 / 45%);
+  color: var(--warn);
+  background: var(--warn-soft);
+  box-shadow: inset 0 0 0 1px var(--warn);
 }
 
 /*
@@ -2894,30 +2304,30 @@ code {
 }
 
 .primary-button {
-  color: #090717;
-  background: var(--gv-cyan);
-  box-shadow: 0 0 18px rgb(0 255 255 / 28%);
+  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .primary-button:hover:not(:disabled) {
-  color: #090717;
-  background: var(--gv-pink);
-  box-shadow: 0 0 22px rgb(255 0 255 / 42%);
+  color: var(--text);
+  background: var(--accent-2);
+  box-shadow: none;
 }
 
 .segmented {
-  background: rgb(0 0 0 / 28%);
-  border: 1px solid rgb(0 255 255 / 14%);
+  background: var(--canvas);
+  border: 1px solid var(--line);
 }
 
 .segmented button {
-  color: #a7b7d8;
+  color: var(--info);
 }
 
 .segmented button.active {
-  color: #090717;
-  background: var(--gv-cyan);
-  box-shadow: 0 0 16px rgb(0 255 255 / 28%);
+  color: var(--text);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .routing-row select,
@@ -2928,9 +2338,9 @@ code {
 .form-grid select,
 .form-grid textarea,
 .composer textarea {
-  color: #f8fbff;
-  background: rgb(0 0 0 / 34%);
-  border: 1px solid rgb(0 255 255 / 18%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line);
 }
 
 .routing-row select:focus,
@@ -2941,8 +2351,8 @@ code {
 .form-grid select:focus,
 .form-grid textarea:focus,
 .composer textarea:focus {
-  border-color: rgb(0 255 255 / 44%);
-  box-shadow: 0 0 0 3px rgb(0 255 255 / 10%);
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .routing-row select::placeholder,
@@ -2952,60 +2362,60 @@ code {
 .form-grid input::placeholder,
 .form-grid textarea::placeholder,
 .composer textarea::placeholder {
-  color: #697897;
+  color: var(--text-2);
 }
 
 .data-block pre,
 .diagnostic-block pre,
 .turn-inspector pre {
-  color: #dffcff;
-  background: rgb(0 0 0 / 34%);
-  border: 1px solid rgb(0 255 255 / 16%);
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line);
 }
 
 .data-block-markdown {
-  color: #eaf6ff;
+  color: var(--text);
 }
 
 .markdown-message blockquote {
-  color: #c9fdff;
-  border-left-color: rgb(0 255 255 / 46%);
+  color: var(--accent);
+  border-left-color: var(--line-strong);
 }
 
 .markdown-message code,
 code {
-  color: #f8fbff;
-  background: rgb(0 255 255 / 12%);
-  border-color: rgb(0 255 255 / 18%);
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--line);
 }
 
 .markdown-code-block {
-  background: rgb(0 0 0 / 38%);
-  border-color: rgb(0 255 255 / 20%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  background: var(--canvas);
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 var(--line);
 }
 
 .markdown-code-header {
-  color: #9beef2;
-  background: rgb(0 255 255 / 8%);
-  border-bottom-color: rgb(0 255 255 / 18%);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-bottom-color: var(--line);
 }
 
 .markdown-code-copy {
-  color: #9beef2;
-  background: rgb(0 255 255 / 7%);
-  border-color: rgb(0 255 255 / 22%);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--line);
 }
 
 .markdown-code-copy:hover {
-  color: #090717;
-  background: var(--gv-cyan);
-  border-color: rgb(0 255 255 / 54%);
-  box-shadow: 0 0 16px rgb(0 255 255 / 32%);
+  color: var(--text);
+  background: var(--accent);
+  border-color: var(--line-strong);
+  box-shadow: none;
 }
 
 .markdown-code-block code {
-  color: #f8fbff;
+  color: var(--text);
 }
 
 .markdown-code-block .hljs-keyword,
@@ -3013,7 +2423,7 @@ code {
 .markdown-code-block .hljs-built_in,
 .markdown-code-block .hljs-name,
 .markdown-code-block .hljs-tag {
-  color: #ff6cf5;
+  color: var(--text-2);
 }
 
 .markdown-code-block .hljs-string,
@@ -3025,13 +2435,13 @@ code {
 .markdown-code-block .hljs-template-variable,
 .markdown-code-block .hljs-type,
 .markdown-code-block .hljs-addition {
-  color: #6cffc9;
+  color: var(--ok);
 }
 
 .markdown-code-block .hljs-comment,
 .markdown-code-block .hljs-quote,
 .markdown-code-block .hljs-meta {
-  color: #8798c7;
+  color: var(--info);
 }
 
 .markdown-code-block .hljs-number,
@@ -3039,40 +2449,39 @@ code {
 .markdown-code-block .hljs-bullet,
 .markdown-code-block .hljs-link,
 .markdown-code-block .hljs-variable {
-  color: #ffcc66;
+  color: var(--warn);
 }
 
 .markdown-code-block .hljs-deletion,
 .markdown-code-block .hljs-regexp {
-  color: #ff7ab8;
+  color: var(--bad);
 }
 
 .markdown-code-line-number {
-  color: #6f8fa8;
+  color: var(--text-2);
 }
 
 .markdown-message th {
-  color: #dffcff;
-  background: rgb(0 255 255 / 9%);
+  color: var(--text);
+  background: var(--accent-soft);
 }
 
 .markdown-message a {
-  color: var(--gv-cyan);
+  color: var(--accent);
 }
 
 .markdown-message hr {
-  background: rgb(0 255 255 / 20%);
+  background: var(--accent-soft);
 }
 
 .auth-guidance {
   background:
-    linear-gradient(90deg, rgb(0 255 255 / 10%), transparent 60%),
-    rgb(8 8 15 / 82%);
+    var(--canvas);
 }
 
 .auth-guidance > div:first-child {
-  color: var(--gv-cyan);
-  background: rgb(0 255 255 / 10%);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* ─────────────────────────────────────────
@@ -3082,29 +2491,10 @@ code {
 ───────────────────────────────────────── */
 
 /* App shell: tighten sidebar gaps */
-:root[data-density="compact"] .sidebar {
-  gap: 12px;
-  padding: 12px 10px;
-}
 
 /* Nav items use the row-height token */
-.nav-item {
-  min-height: var(--row-h);
-}
-
-:root[data-density="compact"] .nav-item {
-  padding: 6px 8px;
-}
 
 /* Topbar: use space tokens for padding */
-.topbar {
-  padding: var(--space-4) var(--space-8);
-}
-
-:root[data-density="compact"] .topbar {
-  min-height: 58px;
-  padding: var(--space-3) var(--space-6);
-}
 
 /* view-frame: vertical padding tightens in compact */
 :root[data-density="compact"] .view-frame {
@@ -3146,9 +2536,6 @@ code {
 }
 
 /* Sidebar sessions list: compact row heights */
-:root[data-density="compact"] .sidebar-session {
-  padding: 6px 8px;
-}
 
 /* Form inputs: compact height — use --row-h (overridden to 28px in compact by tokens.css) */
 :root[data-density="compact"] .routing-row select,
@@ -3167,9 +2554,6 @@ code {
    Phase 3b / integration workstream in App.tsx.
    CSS is ready; DOM element is deferred.
 ───────────────────────────────────────── */
-.sidebar-scrim {
-  display: none;
-}
 
 /* ─────────────────────────────────────────
    BREAKPOINT: ≤1280px
@@ -3187,119 +2571,60 @@ code {
      Open sidebar = full-width fixed overlay on top of workspace. ── */
 
   /* Collapsed: narrow icon-rail stays fixed on the left. */
-  .app-shell.sidebar-collapsed {
-    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
-  }
+  
 
   /* The sidebar is position:fixed here (out of grid flow), so the workspace — the only
      in-flow child — would auto-place into the FIRST (60px rail) track and end up
      underneath the fixed rail. Pin it to the second track so it sits to the RIGHT of
      the rail, its content fully visible and clickable (the phone default is the
      collapsed rail, so this path is now the common case, not a rare one). */
-  .app-shell.sidebar-collapsed .workspace {
-    grid-column: 2;
-  }
+  
 
   /* Open: sidebar overlays — workspace fills full width. */
-  .app-shell:not(.sidebar-collapsed) {
-    grid-template-columns: 1fr;
-  }
+  
 
   /* Sidebar: always fixed. When open it overlays workspace. */
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: var(--z-nav);
-    /* Ends above the fixed StatusStrip so the last nav item stays reachable. */
-    height: calc(100vh - var(--statusstrip-height, 32px));
-    height: calc(100dvh - var(--statusstrip-height, 32px));
-    overflow-y: auto;
-    transition:
-      width var(--motion-base) var(--ease-standard),
-      box-shadow var(--motion-base) var(--ease-standard);
-  }
+  
 
   /* Open: full sidebar overlays content */
-  .sidebar:not(.collapsed) {
-    width: var(--sidebar-width);
-    box-shadow: 4px 0 32px rgb(0 0 0 / 48%);
-  }
+  
 
   /* Collapsed: narrow icon-rail */
-  .sidebar.collapsed {
-    width: var(--sidebar-width-collapsed);
-    box-shadow: none;
-  }
+  
 
   /* When sidebar is open, show a scrim behind it.
      (The .sidebar-scrim element is rendered by App.tsx — tapping it closes
      the sidebar, same as the toggle button.) */
-  .app-shell:not(.sidebar-collapsed) .sidebar-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--z-nav) - 1);
-    background: rgb(0 0 0 / 48%);
-    cursor: pointer;
-  }
+  
 
   /* Collapsed = a clean icon rail: the phone default. Keep the copy HIDDEN so
      the 60px rail shows only icons — the workspace is visible first, and the brand
      mark (or tapping the rail) opens the full drawer. Centering the items keeps the
      icons on the rail's axis. */
-  .sidebar.collapsed .brand {
-    flex-direction: row;
-    justify-content: center;
-  }
+  
 
-  .sidebar.collapsed .brand-copy,
-  .sidebar.collapsed .nav-copy,
-  .sidebar.collapsed .sidebar-sessions {
-    display: none;
-  }
+  
 
-  .sidebar.collapsed .nav-item {
-    justify-content: center;
-  }
+  
 
   /* Grid dot pattern: starts from sidebar-collapsed edge */
-  .sidebar.collapsed ~ .workspace:not(.workspace-chat)::before,
-  .app-shell.sidebar-collapsed .workspace:not(.workspace-chat)::before {
-    left: 0;
-  }
+  
 
   /* Single-column nav at ≤980: the old 3-column grid packed nav items into
      ~80px cells, which forced every label ("Checkpoints", "Workstream"…) to
      ellipsis-truncate mid-word. One column per row lets the full label render — both
      in the open 264px overlay and stacked as icons in the collapsed rail. */
-  .nav-list {
-    grid-template-columns: 1fr;
-  }
+  
 
   /* Labels wrap legibly instead of truncating (belt-and-suspenders with the single
      column above — a full-word wrap, never a mid-word ellipsis clip). */
-  .sidebar:not(.collapsed) .nav-copy strong {
-    overflow: visible;
-    white-space: normal;
-    text-overflow: clip;
-  }
+  
 
-  .surface-card {
-    grid-template-columns: repeat(4, auto);
-    align-items: center;
-  }
+  
 
-  .topbar {
-    position: sticky;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--space-3);
-  }
+  
 
-  .topbar-actions {
-    justify-content: flex-end;
-  }
+  
 
   /* ── Non-chat view layouts: stack on tablet ── */
   .split-layout,
@@ -3322,8 +2647,6 @@ code {
     overflow: visible;
   }
 
-  .workspace-chat,
-  .workspace-chat .view-frame,
   .chat-main {
     height: auto;
     min-height: 720px;
@@ -3342,46 +2665,27 @@ code {
 
 @media (max-width: 680px) {
   /* Sidebar stays as fixed overlay (from 980 block); tighten padding */
-  .sidebar {
-    padding: 14px;
-  }
+  
 
-  .brand {
-    padding-left: 0;
-    padding-right: 0;
-  }
+  
 
   /* Single column stays single — inherited from the ≤980 block; restated for
      clarity now that the drawer is a full-width overlay at phone widths. */
-  .nav-list {
-    grid-template-columns: 1fr;
-  }
+  
 
   /* nav-item min-height: use token (--row-h = 36px default, 28px compact) */
-  .nav-item {
-    min-height: max(44px, var(--row-h));
-  }
+  
 
-  .surface-card {
-    grid-template-columns: auto 1fr;
-  }
+  
 
-  .topbar,
   .view-frame {
     padding-left: 14px;
     padding-right: 14px;
   }
 
-  .topbar {
-    /* Full-width single column on phone */
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
+  
 
-  .topbar-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
+  
 
   .view-frame {
     padding-top: 16px;
@@ -3456,20 +2760,12 @@ code {
 ──────────────────────────────────────── */
 @media (max-width: 480px) {
   /* Nav items: enforce 44px touch target minimum */
-  .nav-item {
-    min-height: max(44px, var(--row-h));
-  }
+  
 
   /* Topbar: single column, start-aligned actions */
-  .topbar {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
+  
 
-  .topbar-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
+  
 
   /* Banner text: allow wrap on very narrow screens */
   .banner {
@@ -3493,26 +2789,18 @@ code {
 ──────────────────────────────────────── */
 @media (max-width: 680px) {
   .icon-button,
-  .row-actions button,
-  .sidebar-toggle {
+.row-actions button {
     width: 44px;
     height: 44px;
   }
 
-  .brand-mark-button {
-    min-width: 44px;
-    min-height: 44px;
-  }
+  
 
   /* Collapsed icon rail: trim its padding so the full-width nav buttons inside the
      60px rail still clear a 44px tap target (14px padding would leave only ~32px). */
-  .sidebar.collapsed {
-    padding: 8px;
-  }
+  
 
-  .sidebar.collapsed .nav-item {
-    min-height: 46px;
-  }
+  
 
   .primary-button,
   .secondary-button {
@@ -3521,11 +2809,7 @@ code {
 
   /* The sidebar's chat-delete: was 28px and revealed only on hover — unreachable on
      a touch screen. At phone width it is a persistent 44px target. */
-  .sidebar-session-delete {
-    width: 44px;
-    height: 44px;
-    opacity: 1;
-  }
+  
 
   /* The steer send button is the hero's final tap — make it unmistakably tappable. */
   .steer-composer__send {
@@ -3545,8 +2829,4 @@ code {
 /* A coarse pointer (touch) with no hover has NO way to reveal a hover-only control,
    at ANY viewport width (a tablet is >680px but still touch). Reveal the sidebar
    chat-delete for every coarse pointer, not just narrow ones. */
-@media (pointer: coarse) {
-  .sidebar-session-delete {
-    opacity: 1;
-  }
-}
+

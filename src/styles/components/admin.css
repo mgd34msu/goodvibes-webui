@@ -2,13 +2,13 @@
 
 /* JSON validity inline feedback */
 .admin-config-textarea--invalid {
-  border-color: var(--status-danger) !important;
-  outline-color: var(--status-danger);
+  border-color: var(--bad) !important;
+  outline-color: var(--bad);
 }
 
 .admin-config-json-error {
   font-size: var(--text-xs);
-  color: var(--status-danger);
+  color: var(--bad);
   margin-top: var(--space-1);
   font-family: var(--font-mono);
   line-height: var(--leading-normal);

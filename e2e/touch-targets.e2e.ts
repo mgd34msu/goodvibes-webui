@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 import { STEERABLE_SESSION } from './support/seed';
-import { only, PHONE, expectTappable } from './support/app';
+import { only, PHONE, expectTappable, openNavigation } from './support/app';
 
 test.beforeEach(async ({ page }, testInfo) => {
   only(testInfo, PHONE);
@@ -17,14 +17,15 @@ test('every control on the steer-from-phone journey is >=44px', async ({ page })
   await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  // Topbar actions (were 36px).
-  await expectTappable(page, '.topbar-actions .icon-button', 'topbar action');
+  // Header controls: the navigation menu button (it opens the drawer) and new chat.
+  await expectTappable(page, '.shell-header .gv-icon-button', 'header menu button');
+  await expectTappable(page, '.shell-header .gv-icon-button >> nth=-1', 'header new chat');
 
-  // Collapsed-rail nav item, the tap that opens a view (were packed into ~80px cells).
-  await expectTappable(page, '.nav-item', 'rail nav item');
-
-  // Brand mark, the drawer-open affordance on the rail.
-  await expectTappable(page, '.brand-mark-button', 'brand mark');
+  // Drawer nav items, the tap that opens a view.
+  await openNavigation(page);
+  await expectTappable(page, '.shell-drawer .shell-nav-item', 'drawer nav item');
+  await page.getByRole('dialog', { name: 'Navigation' }).getByRole('button', { name: /^Work/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeHidden();
 
   // Sessions refresh (was 36px).
   await expectTappable(page, '.sessions-toolbar .icon-button', 'sessions refresh');
@@ -38,14 +39,13 @@ test('every control on the steer-from-phone journey is >=44px', async ({ page })
   await expectTappable(page, '.steer-composer__send', 'steer send');
 });
 
-test('the session delete is touch-reachable (not hover-only) in the chat rail', async ({ page }) => {
+test('the chat delete is touch-reachable (not hover-only) in the Recent list', async ({ page }) => {
   await page.goto('/?view=chat');
-  await expect(page.locator('.workspace-chat')).toBeVisible();
-  // Open the drawer so the chat session list (with its per-row delete) is visible.
-  await page.locator('.brand-mark-button').click();
-  await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
+  await expect(page.locator('.shell-main[data-view="chat"]')).toBeVisible();
+  // Open the drawer so the Recent chat list (with its per-row delete) is visible.
+  await openNavigation(page);
 
-  const del = page.locator('.sidebar-session-delete').first();
+  const del = page.locator('.shell-drawer .shell-recent__delete').first();
   const count = await del.count();
   if (count === 0) {
     test.skip(true, 'no companion chat sessions seeded to carry a delete control');
@@ -54,16 +54,15 @@ test('the session delete is touch-reachable (not hover-only) in the chat rail', 
   // Reachable means: rendered, non-zero opacity (not the hover-only opacity:0), 44px.
   const opacity = await del.evaluate((el) => getComputedStyle(el).opacity);
   expect(Number(opacity)).toBeGreaterThan(0.5);
-  await expectTappable(page, '.sidebar-session-delete', 'session delete');
+  await expectTappable(page, '.shell-drawer .shell-recent__delete', 'chat delete');
 });
 
 test('nav labels are legible in the open drawer, no mid-word truncation', async ({ page }) => {
   await page.goto('/?view=sessions');
-  await page.locator('.brand-mark-button').click();
-  await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
+  await openNavigation(page);
 
   // Every nav label renders its full text without an ellipsis clip (scrollWidth fits).
-  const clipped = await page.locator('.nav-copy strong').evaluateAll((els) =>
+  const clipped = await page.locator('.shell-drawer .shell-nav .shell-nav-item__label').evaluateAll((els) =>
     els
       .filter((el) => el.scrollWidth > el.clientWidth + 1)
       .map((el) => el.textContent),

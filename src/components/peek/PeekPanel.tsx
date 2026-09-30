@@ -24,6 +24,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useRightPanel } from '../shell/ShellContext';
 import '../../styles/components/peek.css';
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,9 @@ interface PeekPanelProps {
 function PeekPanelInner({ payload, isOpen, onClose }: PeekPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<Element | null>(null);
+  // A peek (mail message, calendar event, memory record, chat artifacts) is a
+  // right-side panel 440 wide: the sidebar folds to its rail while it is open.
+  useRightPanel(isOpen, { width: 440 });
 
   // Capture trigger element when opening
   useEffect(() => {
@@ -241,7 +245,14 @@ export function PeekProvider({ children }: PeekProviderProps) {
   const [payload, setPayload] = useState<PeekContent | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
+  // The pending "unmount the payload after the exit animation" timer. An open()
+  // that lands inside that window cancels it; otherwise the timer would null the
+  // NEW payload and leave an open, empty panel.
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const open = useCallback((next: PeekContent): void => {
+    if (exitTimer.current) clearTimeout(exitTimer.current);
+    exitTimer.current = null;
     setPayload(next);
     setIsOpen(true);
   }, []);
@@ -249,7 +260,15 @@ export function PeekProvider({ children }: PeekProviderProps) {
   const close = useCallback((): void => {
     setIsOpen(false);
     // Keep payload mounted until exit animation ends.
-    setTimeout(() => setPayload(null), PEEK_EXIT_DELAY_MS);
+    if (exitTimer.current) clearTimeout(exitTimer.current);
+    exitTimer.current = setTimeout(() => {
+      exitTimer.current = null;
+      setPayload(null);
+    }, PEEK_EXIT_DELAY_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (exitTimer.current) clearTimeout(exitTimer.current);
   }, []);
 
   const value: PeekContextValue = { open, close, isOpen };

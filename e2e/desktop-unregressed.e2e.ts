@@ -1,7 +1,8 @@
 /**
  * Desktop unregressed: the responsive changes are phone-scoped. At 1280px the
- * drawer defaults OPEN, the Sessions list and detail sit side-by-side (no master-detail
- * collapse, no phone back button), and the steer still sends.
+ * sidebar is expanded (no drawer, no scrim), the Sessions list and detail sit
+ * side-by-side (no master-detail collapse, no phone back button), and the steer
+ * still sends.
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
@@ -15,11 +16,11 @@ test.beforeEach(async ({ page }, testInfo) => {
   daemon = await installMockDaemon(page);
 });
 
-test('the drawer defaults OPEN on desktop', async ({ page }) => {
+test('the sidebar is expanded on desktop, with no phone drawer', async ({ page }) => {
   await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
-  await expect(page.locator('.app-shell.sidebar-collapsed')).toHaveCount(0);
+  await expect(page.locator('.shell-sidebar[data-form="expanded"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Open navigation/ })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
 
@@ -45,8 +46,11 @@ test('steer still sends on desktop', async ({ page }) => {
   await expect(page.locator('.steer-dispatch').first()).toContainText(/steer · delivered/i);
 });
 
-test('nav labels render full text in the open desktop drawer', async ({ page }) => {
+test('every Work view stays one click away from the Work section switch', async ({ page }) => {
   await page.goto('/?view=sessions');
-  await expect(page.getByRole('button', { name: 'Checkpoints' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Workstream' })).toBeVisible();
+  const sections = page.getByRole('radiogroup', { name: 'Work sections' });
+  await expect(sections.getByRole('radio', { name: 'Checkpoints' })).toBeVisible();
+  await sections.getByRole('radio', { name: 'Workstream' }).click();
+  await expect(page).toHaveURL(/view=workstream/);
+  await expect(sections.getByRole('radio', { name: 'Workstream' })).toHaveAttribute('aria-checked', 'true');
 });

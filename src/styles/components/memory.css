@@ -35,9 +35,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 /* Direct-child combinator (not a [type] selector split): the only input NOT meant to
@@ -50,10 +50,10 @@
 .memory-search > select {
   flex: 1 1 160px;
   min-width: 120px;
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
 }
@@ -64,7 +64,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -92,7 +92,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: var(--text-sm);
 }
 
@@ -100,23 +100,23 @@
    hard fact the operator must not miss, so this uses the warning tone, not a neutral
    note. */
 .memory-honesty-note__banner--degraded {
-  color: var(--status-warning);
-  background: var(--status-warning-soft);
-  border: 1px solid var(--status-warning);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
 }
 
 /* Soft caveat (hashed-only embedding fallback): still a real search, just a weaker
    ranking signal than a modeled provider — the info tone, not a warning. */
 .memory-honesty-note__banner--caveat {
-  color: var(--status-info);
-  background: var(--status-info-soft);
-  border: 1px solid var(--status-info);
+  color: var(--info);
+  background: var(--info-soft);
+  border: 1px solid var(--info);
 }
 
 .memory-honesty-note__recall-stats {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 /* ============================================================
@@ -152,7 +152,7 @@
   text-align: left;
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -181,16 +181,16 @@
   width: 32px;
   height: 32px;
   margin-right: var(--space-2);
-  color: var(--status-danger);
+  color: var(--bad);
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
 .memory-record-row__delete:hover:not(:disabled) {
-  background: var(--status-danger-soft);
-  border-color: var(--status-danger);
+  background: var(--bad-soft);
+  border-color: var(--bad);
 }
 
 .memory-record-row__delete:disabled {
@@ -211,8 +211,8 @@
   display: inline-block;
   padding: 1px 8px;
   font-size: var(--text-xs);
-  color: var(--text-accent);
-  background: var(--accent-muted);
+  color: var(--accent);
+  background: var(--accent-soft);
   border-radius: var(--radius-full);
 }
 
@@ -235,9 +235,9 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 
 .memory-review-row__meta {
@@ -259,15 +259,15 @@
   flex-direction: column;
   gap: 2px;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .memory-review-row__form select,
 .memory-review-row__form input {
-  background: var(--surface-base);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   padding: 4px 6px;
   font-size: var(--text-sm);
 }
@@ -285,14 +285,14 @@
    honest highlight so the operator can find the referenced row(s) among the rest
    of the queue. */
 .memory-review-row--highlighted {
-  border-color: var(--status-info);
-  box-shadow: 0 0 0 1px var(--status-info);
+  border-color: var(--info);
+  box-shadow: 0 0 0 1px var(--info);
 }
 
 .memory-review-row__highlight-note {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--status-info);
+  color: var(--info);
 }
 
 /* ============================================================
@@ -313,9 +313,9 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 
 .consolidation-proposal-row__main {
@@ -345,9 +345,9 @@
 
 .consolidation-run-row {
   padding: var(--space-2);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 
 @media (max-width: 680px) {
@@ -380,7 +380,7 @@
 
 .memory-record-detail__facts dt {
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -392,9 +392,9 @@
 
 .memory-record-detail__stale-reason {
   padding: var(--space-2);
-  background: var(--status-warning-soft);
-  border: 1px solid var(--status-warning);
-  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-xs);
 }
 
 .memory-record-detail__detail {

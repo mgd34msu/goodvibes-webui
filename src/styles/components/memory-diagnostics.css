@@ -26,26 +26,26 @@
   display: flex;
   justify-content: space-between;
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .memory-diagnostics__bar-track {
   height: 8px;
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
   overflow: hidden;
 }
 
 .memory-diagnostics__bar-fill {
   height: 100%;
-  border-radius: var(--radius-sm, 6px);
-  background: var(--status-success);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--ok);
   transition: width 0.2s ease;
 }
 
-.memory-diagnostics__bar-fill--elevated { background: var(--blue); }
-.memory-diagnostics__bar-fill--high { background: var(--status-warning); }
-.memory-diagnostics__bar-fill--critical { background: var(--status-danger); }
+.memory-diagnostics__bar-fill--elevated { background: var(--info); }
+.memory-diagnostics__bar-fill--high { background: var(--warn); }
+.memory-diagnostics__bar-fill--critical { background: var(--bad); }
 
 .memory-diagnostics__caches {
   width: 100%;
@@ -57,7 +57,7 @@
 .memory-diagnostics__caches td {
   text-align: left;
   padding: 0.25rem 0.5rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--line);
 }
 
 .memory-diagnostics__caches td:not(:first-child),
@@ -69,16 +69,16 @@
   margin: 0;
   padding-left: 1.2rem;
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .memory-diagnostics__tripwire {
   font-size: var(--text-sm, 13px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
 .memory-diagnostics__tripwire--armed {
-  color: var(--status-danger);
+  color: var(--bad);
   font-weight: 600;
 }

@@ -11,17 +11,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
+  color: var(--text-3);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   cursor: pointer;
   padding: 4px;
 }
 
 .voice-speak-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface-raised);
+  color: var(--text);
+  background: var(--surface);
 }
 
 .voice-speak-btn.is-playing {
@@ -30,7 +30,7 @@
 
 .voice-speak-btn.voice-unavailable,
 .voice-speak-btn:disabled {
-  color: var(--text-tertiary);
+  color: var(--text-3);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -43,7 +43,7 @@
 }
 
 .voice-mic-btn.is-recording {
-  color: var(--status-danger);
+  color: var(--bad);
   animation: voice-pulse 1.4s ease-in-out infinite;
 }
 
@@ -75,11 +75,11 @@
   padding: 8px 10px;
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
-  color: var(--text-primary);
-  background: var(--surface-overlay);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
   white-space: normal;
 }
 
@@ -100,11 +100,11 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  color: var(--text-primary);
-  background: var(--surface-overlay);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+  color: var(--text);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 }
 
 .voice-settings-header {
@@ -120,16 +120,16 @@
   margin-left: auto;
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-2);
   cursor: pointer;
 }
 
 .voice-settings-close:hover {
-  background: var(--accent-muted);
-  color: var(--text-primary);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .voice-settings-title {
@@ -137,21 +137,21 @@
 }
 
 .voice-settings-tone.tone-ok {
-  color: var(--status-success);
+  color: var(--ok);
 }
 .voice-settings-tone.tone-warning {
-  color: var(--status-warning);
+  color: var(--warn);
 }
 .voice-settings-tone.tone-bad {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 .voice-settings-tone.tone-neutral {
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .voice-settings-shared {
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
@@ -160,28 +160,28 @@
   flex-direction: column;
   gap: 4px;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .voice-settings-field select {
   width: 100%;
   padding: 6px 8px;
   font-size: var(--text-sm);
-  color: var(--text-primary);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 
 .voice-settings-hint {
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: var(--text-3);
   margin: 0;
 }
 
 .voice-settings-unavailable {
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin: 0;
 }
 
@@ -192,7 +192,7 @@
   flex-direction: column;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--line);
 }
 
 .voice-settings-local-receipt {
@@ -200,7 +200,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .voice-settings-local-receipt p {
@@ -216,7 +216,7 @@
   margin: 0;
   padding: 0;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .voice-settings-local-progress li {
@@ -230,12 +230,12 @@
 }
 
 .voice-settings-local-progress li[data-phase='done'] .voice-settings-local-progress__phase {
-  color: var(--status-success);
+  color: var(--ok);
 }
 
 .voice-settings-local-progress li[data-phase='error'] .voice-settings-local-progress__phase,
 .voice-settings-local-progress__error {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 /* Shared spinner for loading/transcribing states. */
@@ -329,7 +329,7 @@
   gap: 6px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .voice-settings-field--check {

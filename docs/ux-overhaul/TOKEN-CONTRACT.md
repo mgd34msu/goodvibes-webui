@@ -1,6 +1,8 @@
 # Token & Naming Contract (SHARED — read before writing any module)
 
 > Historical record from the July 2026 UX overhaul, kept for provenance. It describes a completed effort's internal planning and does not document current behavior; the living docs are the operator guide and architecture pages.
+>
+> Superseded (2026-09 WebUI redesign): the token names below were replaced by the slate system in `src/styles/tokens.css` (`--canvas`, `--surface`, `--line`, `--text`, `--accent`, `--ok`, …); the previous palette lives on as the opt-in GoodVibes Neon theme.
 
 All workstreams MUST use these exact names. Foundation defines them in
 `src/styles/tokens.css`; every other module references them. Do not invent

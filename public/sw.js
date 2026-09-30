@@ -112,7 +112,7 @@ async function staleWhileRevalidateShell(request) {
 function offlineDocument() {
   return new Response(
     '<!doctype html><meta charset="utf-8"><title>GoodVibes: offline</title>' +
-      '<body style="font-family:system-ui,sans-serif;background:#08080f;color:#e8e8f0;' +
+      '<body style="font-family:system-ui,sans-serif;background:#15161b;color:#ececf1;' +
       'display:grid;place-items:center;height:100vh;margin:0;text-align:center">' +
       '<div><h1 style="font-size:1.1rem">Offline</h1>' +
       '<p style="opacity:.7;max-width:32ch">The app shell has not been cached yet. ' +

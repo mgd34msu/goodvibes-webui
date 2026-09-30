@@ -525,3 +525,22 @@ describe('usePeek: context validation', () => {
     expect(handle.isOpen()).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Reopen inside the exit window
+// ---------------------------------------------------------------------------
+
+describe('PeekPanel: reopening during the exit animation keeps the new content', () => {
+  test('an open() within 320 ms of a close() is not wiped by the pending exit timer', async () => {
+    handle.open('First', <span data-testid="first">First</span>);
+    handle.close();
+    handle.open('Second', <span data-testid="second">Second</span>);
+    // Outlast the 320 ms exit delay the close scheduled.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    flushSync(() => {});
+    const panel = container.querySelector('[role="dialog"]')!;
+    expect(panel.classList.contains('peek-panel--open')).toBe(true);
+    expect(container.querySelector('[data-testid="second"]')).not.toBeNull();
+    expect(panel.getAttribute('aria-label')).toBe('Second');
+  });
+});

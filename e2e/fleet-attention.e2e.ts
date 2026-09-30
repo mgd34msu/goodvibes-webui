@@ -24,18 +24,24 @@ import {
   FLEET_PICK_NODE,
   FLEET_WATCHER_NODE,
 } from './support/seed';
+import { openNavigation } from './support/app';
 
-test('the Fleet nav entry shows an attention count badge for every blocked node, any reason', async ({ page }) => {
+test('the Work nav entry shows a needs-you count for every blocked node, any reason', async ({ page }) => {
   await installMockDaemon(page);
   // Start on another view, the badge is derived app-wide, not only on the Fleet view.
   await page.goto('/?view=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
   // Three seeded nodes need attention (FLEET_BLOCKED_NODE 'input', FLEET_PICK_NODE
-  // 'pick', FLEET_CONFLICT_NODE 'conflict') → count of 3, named in the nav entry's
-  // accessible label and shown as a small badge on the icon. The count is reason-
+  // 'pick', FLEET_CONFLICT_NODE 'conflict') → count of 3, named in the Work entry's
+  // accessible label and shown as a count chip beside it. The count is reason-
   // agnostic, it never special-cases which of the four reasons a node carries.
-  await expect(page.getByRole('button', { name: /Fleet, 3 need attention/ })).toBeVisible();
-  await expect(page.locator('.nav-item .nav-attention-badge')).toHaveText('3');
+  // On a phone the count also rides the header's menu button, so it is visible
+  // before the drawer opens.
+  const menu = page.getByRole('button', { name: /^Open navigation/ });
+  if (await menu.isVisible()) await expect(menu).toHaveAccessibleName('Open navigation, 3 need you');
+  await openNavigation(page);
+  await expect(page.getByRole('button', { name: /Work, 3 need you/ })).toBeVisible();
+  await expect(page.locator('.shell-nav-item__count').first()).toHaveText('3');
 });
 
 test('the blocked node shows a distinct attention badge and floats to the top of the tree', async ({ page }) => {

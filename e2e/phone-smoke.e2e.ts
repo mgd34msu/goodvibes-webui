@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { only, PHONE, expectNoHorizontalScroll, expectTappable } from './support/app';
+import { only, PHONE, closeNavigation, expectNoHorizontalScroll, expectTappable, openNavigation } from './support/app';
 
 test.beforeEach(async ({ page }, testInfo) => {
   only(testInfo, PHONE);
@@ -39,12 +39,9 @@ for (const { view, label } of VIEWS) {
     await expect(frame).not.toBeEmpty();
     // No sideways scroll, the cardinal phone sin.
     await expectNoHorizontalScroll(page);
-    // The topbar's primary control clears the touch floor, except Chat, which hides
-    // the app topbar (`.workspace-chat .topbar { display: none }`) in favor of its own
-    // chat-toolbar. Chat's key affordances are audited in the dedicated test below.
-    if (view !== 'chat') {
-      await expectTappable(page, '.topbar-actions .icon-button', `${label} topbar action`);
-    }
+    // The header's controls (the navigation menu button and new chat) clear the touch
+    // floor on every view, chat included: the phone header is always there.
+    await expectTappable(page, '.shell-header .gv-icon-button', `${label} header control`);
   });
 }
 
@@ -58,7 +55,7 @@ test('Sessions: the list is usable; refresh is tappable, rows readable', async (
 
 test('Chat: the composer input and send button are present and tappable', async ({ page }) => {
   await page.goto('/?view=chat');
-  await expect(page.locator('.workspace-chat')).toBeVisible();
+  await expect(page.locator('.shell-main[data-view="chat"]')).toBeVisible();
   await expectNoHorizontalScroll(page);
   // The chat composer textarea is reachable; the send button clears the touch floor.
   await expect(page.locator('.composer textarea, textarea').first()).toBeVisible();
@@ -73,13 +70,24 @@ test('Providers: per-provider status pills render', async ({ page }) => {
 
 test('drawer opened on a phone does not trap; the scrim closes it from any view', async ({ page }) => {
   await page.goto('/?view=fleet');
-  await page.locator('.brand-mark-button').click();
-  await expect(page.locator('.sidebar:not(.collapsed)')).toBeVisible();
-  // Tap the dimmed strip RIGHT of the open drawer. The scrim spans the whole
-  // viewport but the 264px drawer sits above its center, so a default
-  // center-click lands on the drawer (and only "passes" if it races the
-  // open animation). x=340 is always in the exposed strip on a 390px phone.
-  await page.locator('.sidebar-scrim').click({ position: { x: 340, y: 422 } });
-  await expect(page.locator('.app-shell.sidebar-collapsed')).toBeVisible();
+  await expect(page.locator('.app-shell')).toBeVisible();
+  // No permanent rail on a phone: the workspace has the full width.
+  await expect(page.locator('.shell-sidebar')).toHaveCount(0);
+  await openNavigation(page);
+  const drawer = page.getByRole('dialog', { name: 'Navigation' });
+  await expect(drawer.getByRole('button', { name: /^Work/ })).toBeVisible();
+  // Tap the dimmed strip RIGHT of the open drawer (85% of the width).
+  await closeNavigation(page);
+  await expectNoHorizontalScroll(page);
+});
+
+test('a destination picked in the drawer navigates and closes the drawer', async ({ page }) => {
+  await page.goto('/?view=sessions');
+  await openNavigation(page);
+  await page.getByRole('dialog', { name: 'Navigation' }).getByRole('button', { name: 'Library' }).click();
+  await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeHidden();
+  await expect(page).toHaveURL(/view=knowledge/);
+  // The temporary section switch keeps every Library view one tap away.
+  await expect(page.getByRole('radiogroup', { name: 'Library sections' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

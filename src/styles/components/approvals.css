@@ -35,17 +35,17 @@
   gap: 6px;
   font-size: var(--text-sm, 13px);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .approvals-toolbar__mode {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
 .approvals-toolbar__mode.ok {
-  color: var(--status-ok, var(--text-secondary));
+  color: var(--ok, var(--text-2));
 }
 
 .approvals-rows,
@@ -64,9 +64,9 @@
   flex-direction: column;
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .approval-card__header {
@@ -79,7 +79,7 @@
 .approval-card__tool {
   font-weight: 600;
   font-size: var(--text-sm, 13px);
-  color: var(--text-primary);
+  color: var(--text);
   font-family: var(--font-mono, monospace);
 }
 
@@ -92,13 +92,13 @@
 .approval-card__summary {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .approval-card__note {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
   font-style: italic;
 }
 
@@ -106,7 +106,7 @@
 .approval-card__fix-session-error {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-danger, #e5484d);
+  color: var(--bad, var(--bad));
 }
 
 /* Open the fix session an accepted CI offer spawned (record.fixSessionId). */
@@ -116,10 +116,10 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -129,7 +129,7 @@
 .approval-card__attribution {
   margin: 0;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .approval-card__hunks {
@@ -154,7 +154,7 @@
   align-items: flex-start;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-primary);
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -176,10 +176,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -190,10 +190,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-  border: 1px solid var(--status-danger);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -205,10 +205,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--surface-raised, var(--surface-sunken));
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -219,9 +219,9 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
 }
 
 .approval-class-matrix__row {
@@ -234,7 +234,7 @@
 .approval-class-matrix__category {
   flex: 1;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .approval-class-matrix__risks {
@@ -251,7 +251,7 @@
 
 .approval-card__reasons {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .approval-card__reasons summary {
@@ -261,7 +261,7 @@
 /* Decision trail: the resolved approval card's audit provenance. */
 .approval-card__audit {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .approval-card__audit summary {
@@ -291,10 +291,10 @@
 .tasks-create__input {
   flex: 1;
   min-width: 120px;
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 8px;
   font-size: var(--text-xs, 12px);
 }
@@ -304,10 +304,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -322,9 +322,9 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
 }
 
 .task-row__main {
@@ -337,7 +337,7 @@
 .task-row__title {
   font-weight: 600;
   font-size: var(--text-sm, 13px);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .task-row__badges {
@@ -350,11 +350,11 @@
   display: flex;
   gap: 4px;
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .task-row__error {
-  color: var(--status-danger);
+  color: var(--bad);
 }
 
 @media (max-width: 980px) {
@@ -396,7 +396,7 @@
 
 .approval-card__remember-detail {
   flex-basis: 100%;
-  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  color: var(--text-2, var(--text-2));
   word-break: break-word;
 }
 
@@ -420,8 +420,8 @@
 .approval-card__exec-command code {
   display: inline-block;
   padding: var(--space-1) var(--space-2);
-  background: var(--surface-sunken, rgba(127, 127, 127, 0.12));
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface-2));
+  border-radius: var(--radius-xs, 6px);
   font-size: 0.85rem;
   word-break: break-all;
 }
@@ -436,8 +436,8 @@
   max-height: 10rem;
   overflow: auto;
   padding: var(--space-2);
-  background: var(--surface-sunken, rgba(127, 127, 127, 0.08));
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface-2));
+  border-radius: var(--radius-xs, 6px);
   font-size: 0.8rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -480,8 +480,8 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--surface-sunken, rgba(127, 127, 127, 0.06));
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, var(--surface-2));
+  border-radius: var(--radius-xs, 6px);
 }
 
 .permission-rule-row__main {
@@ -499,5 +499,5 @@
 
 .permission-rule-row__desc,
 .permission-rule-row__age {
-  color: var(--text-muted, rgba(127, 127, 127, 0.9));
+  color: var(--text-2, var(--text-2));
 }

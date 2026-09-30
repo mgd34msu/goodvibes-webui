@@ -285,6 +285,30 @@ describe('toggleTheme', () => {
     r.unmount();
   });
 
+  test('toggling from GoodVibes Neon (a dark theme) goes to light', () => {
+    window.localStorage.setItem(THEME_PREFERENCES_KEY, JSON.stringify({ theme: 'neon', density: 'default' }));
+    let handle!: UseThemeHandle;
+    const r = renderThemeProvider((h) => { handle = h; });
+    expect(handle.theme).toBe('neon');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('neon');
+
+    flushSync(() => { handle.toggleTheme(); });
+
+    expect(handle.theme).toBe('light');
+    r.unmount();
+  });
+
+  test('setTheme("auto") stores auto and marks the root for the OS media query', () => {
+    let handle!: UseThemeHandle;
+    const r = renderThemeProvider((h) => { handle = h; });
+
+    flushSync(() => { handle.setTheme('auto'); });
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('auto');
+    expect(readThemePreferences().theme).toBe('auto');
+    r.unmount();
+  });
+
   test('double toggle returns to original theme', () => {
     let handle!: UseThemeHandle;
     const r = renderThemeProvider((h) => { handle = h; });

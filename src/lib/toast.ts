@@ -118,7 +118,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       ...options,
       id,
       tone: options.tone ?? 'info',
-      durationMs: options.durationMs ?? DEFAULT_DURATION_MS,
+      // Errors stay until dismissed (design doc "Toast"); everything else leaves after 5 s.
+      durationMs: options.durationMs ?? (options.tone === 'danger' ? 0 : DEFAULT_DURATION_MS),
     };
     dispatch({ type: 'ADD', toast: entry });
     return id;

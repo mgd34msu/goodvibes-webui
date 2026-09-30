@@ -6,33 +6,33 @@ This guide describes the WebUI from an operator point of view.
 
 The sidebar is the primary navigation surface. In order:
 
-- Chat, the main workspace
-- Sessions, the cross-surface session union
-- Hosted, daemon-hosted sessions that outlive the tab
-- Fleet, the live process tree
-- Checkpoints, workspace snapshots
-- Knowledge, the regular Knowledge/Wiki surface
-- Memory, the shared cross-surface memory store
-- Calendar, the daemon calendar module
-- Mail, the daemon mail surface
-- Dates, occasions and plans
-- Providers, provider and model state
-- Admin, auth, diagnostics, and settings
-- Approvals, decision queues and the task queue
-- Workstream, orchestration runs
-- CI, standing CI watches
-- Check-in, the proactive check-in configuration
-- Principals, named identities and channel bindings
-- Phone, this browser as a paired device node
+- New chat, a fresh conversation
+- Search (Ctrl K), the command palette
+- Work, what is running for you: Sessions, Hosted, Processes (the fleet),
+  Needs you (approvals and tasks), Workstream, CI and Checkpoints. Its count
+  chip is the number of processes blocked on you.
+- Library, what GoodVibes knows: Knowledge and Memory
+- Personal, the life-admin surfaces: Calendar, Mail and Occasions
+- Recent, your chats, newest first, each with a permanent delete
 
-Chat is the main workspace. The other pages are operator surfaces over daemon
-state, reached over the same typed wire the terminal uses.
+Work, Library and Personal open with a section switch across the top, so every
+view inside them is one click away. Settings, Models and usage, Devices and
+pairing, People and channels (principals) and Check-ins are in the account
+menu at the foot of the sidebar, together with the theme (Light, Dark, Auto and
+the opt-in GoodVibes Neon), the connection to your daemon in plain words with
+its latency, and Sign out. The dot on your avatar is the connection at a
+glance; when the connection drops, a toast and a thin banner say so.
 
-The sidebar can collapse. In the collapsed state, primary nav icons remain
-available and keep the sidebar collapsed when clicked. At phone width the
-sidebar is a drawer. The collapsed icon rail is the default, the brand mark
-opens the full drawer, and tapping the dimmed area beside it (or navigating)
-closes it. The drawer never traps.
+The sidebar collapses to a 56-wide icon rail with its panel button or Ctrl B,
+and folds to that rail on its own while something large is open on the right
+(a peek or a detail), returning when it closes. A sidebar you collapsed
+yourself stays collapsed. Pin it to keep it open (under 1280 wide a detail
+still folds it). Hover the rail, or press Ctrl B while a detail holds it, to
+see the full sidebar over the page. Drag its edge to resize it (220 to 360).
+
+At phone width there is no rail: the sidebar is a drawer behind the header's
+menu button (or a swipe from the left edge). Tapping the dimmed area beside it,
+or picking anything in it, closes it. The drawer never traps.
 
 ## Signing in and pairing
 
@@ -144,7 +144,7 @@ permission is granted per origin. While the opt-in is off, the tab loads no
 model and never asks for the microphone.
 
 While listening, an indicator is always visible, either a persistent banner or
-a status-strip chip depending on the configured indicator style. Settings a
+a chip in the header depending on the configured indicator style. Settings a
 tab cannot honor (retaining audio clips, playing a local activation-sound
 file) are reported verbatim as limitations rather than silently ignored.
 

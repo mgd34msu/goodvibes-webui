@@ -87,10 +87,10 @@ resetChatDeleteFixtures();
 // (queries.ts, useSessionRealtime, useRealtimeInvalidation, SessionsView,
 // SteerComposer, and the statically-imported-but-not-rendered other views) resolves
 // through this one module, so every name any of them import must be present.
-// StatusStrip (always-on chrome inside AppShell) calls useDaemonHealth(), which does
-// a raw `fetch()` outside the sdk facade and polls sdk.operator.models.current.get() (not
-// stubbed above). Neither matters to this test, so mock the whole hook the same way
-// StatusStrip.test.tsx does, avoids real-network noise and an unstubbed method call.
+// App calls useDaemonHealth() (the shell's avatar dot and account menu read it), which
+// does a raw `fetch()` outside the sdk facade and polls sdk.operator.models.current.get()
+// (not stubbed above). Neither matters to this test, so mock the whole hook: it avoids
+// real-network noise and an unstubbed method call.
 mock.module('./hooks/useDaemonHealth', () => ({
   useDaemonHealth: () => {
     React.useSyncExternalStore(
@@ -433,9 +433,9 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
   });
 
   function deleteButtonFor(container: HTMLElement, title: string): HTMLButtonElement {
-    const row = [...container.querySelectorAll('.sidebar-session-row')]
+    const row = [...container.querySelectorAll('.shell-recent__row')]
       .find((r) => r.textContent?.includes(title));
-    const button = row?.querySelector('.sidebar-session-delete') as HTMLButtonElement | null;
+    const button = row?.querySelector('.shell-recent__delete') as HTMLButtonElement | null;
     expect(button).toBeTruthy();
     return button!;
   }

@@ -42,23 +42,23 @@
   align-self: flex-start;
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-2);
   font-size: var(--text-sm, 13px);
   cursor: pointer;
   padding: 0;
 }
 
 .checkpoints-detail__back:hover {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .checkpoints-label-input {
   flex: 1;
   min-width: 120px;
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 8px;
   font-size: var(--text-xs, 12px);
 }
@@ -68,10 +68,10 @@
   align-items: center;
   gap: 4px;
   font-size: var(--text-xs, 12px);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -88,11 +88,11 @@
 .checkpoints-empty,
 .checkpoints-detail-empty {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   padding: var(--space-2, 8px);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-sunken);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-xs, 6px);
+  background: var(--surface);
 }
 
 .checkpoints-rows {
@@ -113,16 +113,16 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-2, 8px);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm, 6px);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs, 6px);
+  color: var(--text);
   cursor: pointer;
 }
 
 .checkpoints-row.active {
-  border-color: var(--border-focus);
-  background: var(--accent-muted);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .checkpoints-row__title {
@@ -139,7 +139,7 @@
 
 .checkpoints-row__meta {
   font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 /* Detail pane */
@@ -168,7 +168,7 @@
 }
 
 .checkpoint-detail__meta small {
-  color: var(--text-tertiary);
+  color: var(--text-3);
 }
 
 .checkpoint-detail__restore {
@@ -177,10 +177,10 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-  border: 1px solid var(--status-danger);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: var(--radius-xs, 6px);
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -209,7 +209,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
 }
 
 .checkpoint-detail__compare select {
@@ -218,7 +218,7 @@
 
 .checkpoint-detail__diff-files {
   font-size: var(--text-xs, 12px);
-  color: var(--text-secondary);
+  color: var(--text-2);
   /* A comma-joined list of changed file paths has no natural break points; without
      this, a long real-world file list forces the grid column (and the whole page)
      wider than the viewport instead of wrapping — the min-content overflow class. */
@@ -229,8 +229,8 @@
   font-size: var(--text-xs, 11px);
   overflow-x: auto;
   white-space: pre;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border-radius: var(--radius-xs, 6px);
   padding: var(--space-2, 8px);
   max-height: 480px;
   overflow-y: auto;

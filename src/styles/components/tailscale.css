@@ -14,19 +14,19 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.6rem;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-xs, 6px);
   font-size: var(--text-sm, 13px);
   align-self: flex-start;
 }
 
 .tailscale-panel__receipt--ok {
-  background: var(--status-success-soft);
-  color: var(--status-success);
-  border: 1px solid var(--status-success);
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid var(--ok);
 }
 
 .tailscale-panel__receipt--danger {
-  background: var(--status-danger-soft);
-  color: var(--status-danger);
-  border: 1px solid var(--status-danger);
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid var(--bad);
 }

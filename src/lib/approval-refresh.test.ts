@@ -45,7 +45,7 @@ describe('refetchAfterDecision', () => {
       await until(() => fetches === 2);
       releases[1]?.();
       await refreshed;
-      expect(client.getQueryData(KEY)).toBe('denied');
+      expect(client.getQueryData<string>(KEY)).toBe('denied');
     } finally {
       unsubscribe();
       client.clear();
@@ -59,10 +59,10 @@ describe('refetchAfterDecision', () => {
     const unsubscribe = observer.subscribe(() => {});
     try {
       await client.fetchQuery({ queryKey: KEY, queryFn: () => Promise.resolve(status) });
-      expect(client.getQueryData(KEY)).toBe('pending');
+      expect(client.getQueryData<string>(KEY)).toBe('pending');
       status = 'approved';
       await refetchAfterDecision(client, KEY);
-      expect(client.getQueryData(KEY)).toBe('approved');
+      expect(client.getQueryData<string>(KEY)).toBe('approved');
     } finally {
       unsubscribe();
       client.clear();

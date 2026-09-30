@@ -3,7 +3,7 @@
  *
  * The PWA is installable only if the manifest is well-formed and declares the
  * right icons + display mode. And its theme/background color must be the SAME
- * color the app actually paints its chrome (tokens.css --surface-base, dark
+ * color the app actually paints its chrome (tokens.css --canvas, dark
  * default), a manifest color that drifted from the real UI would flash a
  * different color on the install splash and status bar than the app shows,
  * which is a small dishonesty. This test fails if either drifts.
@@ -24,10 +24,10 @@ const manifest = JSON.parse(readFileSync(join(REPO_ROOT, 'public', 'manifest.web
   icons: { src: string; sizes: string; type: string; purpose?: string }[];
 };
 
-function firstSurfaceBase(): string {
+function firstCanvas(): string {
   const css = readFileSync(join(REPO_ROOT, 'src', 'styles', 'tokens.css'), 'utf8');
-  const match = css.match(/--surface-base:\s*(#[0-9a-fA-F]{3,8})/);
-  if (!match) throw new Error('could not find --surface-base in tokens.css');
+  const match = css.match(/--canvas:\s*(#[0-9a-fA-F]{3,8})/);
+  if (!match) throw new Error('could not find --canvas in tokens.css');
   return match[1].toLowerCase();
 }
 
@@ -51,10 +51,10 @@ describe('web app manifest', () => {
     }
   });
 
-  test('theme/background color match the app chrome (tokens.css --surface-base)', () => {
-    const surfaceBase = firstSurfaceBase();
-    expect(manifest.theme_color.toLowerCase()).toBe(surfaceBase);
-    expect(manifest.background_color.toLowerCase()).toBe(surfaceBase);
+  test('theme/background color match the app chrome (tokens.css --canvas)', () => {
+    const canvas = firstCanvas();
+    expect(manifest.theme_color.toLowerCase()).toBe(canvas);
+    expect(manifest.background_color.toLowerCase()).toBe(canvas);
   });
 });
 

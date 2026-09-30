@@ -5,8 +5,15 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright harness, the phone-viewport (390x844) proof standard this repo's
  * visual proofs defer to, plus a desktop project to catch regressions.
  *
- * HERMETIC BY CONSTRUCTION: the webServer boots THIS repo's vite dev server on a
- * dedicated port (4318, deliberately NOT 3421 or 4444) and points its /api proxy at a
+ * WHAT IS SERVED: a production build of THIS repo (`vite build`, then `vite preview`),
+ * the same bundle the release ships, not the vite dev server. The dev server hands
+ * each page ~340 separately transformed modules; on a 4-vCPU CI runner with four
+ * browsers loading them at once, the app took ~11 s to boot, past the 10 s expect
+ * timeout (CI run 36775763838, tailscale-serve.e2e.ts:100). A build is a handful of
+ * chunks, boots in well under a second, and is what users actually run.
+ *
+ * HERMETIC BY CONSTRUCTION: the preview serves on a dedicated port (4318,
+ * deliberately NOT 3421 or 4444) and points its /api proxy at a
  * local STUB (scripts/e2e-daemon-stub.ts, port 59991) that answers every request with
  * a deliberate 503 { code: 'E2E_STUB' }, never a real daemon. In practice the stub is
  * almost never reached: every test installs an in-page mock (installMockDaemon /
@@ -15,7 +22,7 @@ import { defineConfig, devices } from '@playwright/test';
  * while a REAL service worker controls the page (the PWA specs), which Playwright
  * page routing cannot see, so nothing ever dies as a refused connection and a clean
  * run's webServer log is silent. No real daemon, no real network beyond the local
- * dev server, no port coordination.
+ * preview server, no port coordination.
  */
 
 const WEB_PORT = Number(process.env.GOODVIBES_E2E_PORT ?? 4318);
@@ -50,14 +57,17 @@ function firstPrivateNetworkAddress(): string | undefined {
 }
 
 /**
- * A production build served by `vite preview`, for the offline PWA spec
- * (pwa-offline.e2e.ts). The service worker caches only built, hashed assets
- * (never the dev server's /src modules), so "the app opens offline" is only
- * provable against a build. Building takes a few seconds; the preview proxies
- * /api to the same deliberate-503 stub as the dev server.
+ * Where the one build lands. The service worker caches only built, hashed assets,
+ * which is also what lets pwa-offline.e2e.ts prove the app opens offline.
  */
-const PREVIEW_PORT = Number(process.env.GOODVIBES_E2E_PREVIEW_PORT ?? 4320);
-const PREVIEW_DIST = 'e2e/.artifacts/preview-dist';
+const E2E_DIST = 'e2e/.artifacts/e2e-dist';
+
+/** Env for the build and every preview: the daemon is the deliberate-503 stub. */
+const PREVIEW_ENV = {
+  GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
+  // Force the config's settings/CLI probes to no-op deterministically.
+  GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
+};
 
 const LAN_ORIGIN_PORT = Number(process.env.GOODVIBES_E2E_LAN_PORT ?? 4319);
 const LAN_ORIGIN_HOST = firstPrivateNetworkAddress();
@@ -122,63 +132,36 @@ export default defineConfig({
   webServer: [
     {
       // The deliberate answer for requests the in-page mocks cannot intercept
-      // (see the header comment). Must start before vite so the proxy target
-      // is never a dead port.
+      // (see the header comment). Must start before the preview so the proxy
+      // target is never a dead port.
       command: 'bun scripts/e2e-daemon-stub.ts',
       url: 'http://127.0.0.1:59991/__stub-alive',
       timeout: 30_000,
       reuseExistingServer: true,
     },
     {
-      command: 'bunx vite',
+      // Build once (a few seconds), then serve it. Its /api proxy (vite's preview
+      // reuses server.proxy) points at the stub, explicitly NOT the real control
+      // plane (3421) or web (4444/3423) ports.
+      command: `bunx vite build --outDir ${E2E_DIST} --emptyOutDir && bunx vite preview --outDir ${E2E_DIST} --host 127.0.0.1 --port ${String(WEB_PORT)} --strictPort`,
       url: BASE_URL,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
-      env: {
-        GOODVIBES_WEB_HOST: '127.0.0.1',
-        GOODVIBES_WEB_PORT: String(WEB_PORT),
-        // The e2e stub (first webServer entry). Explicitly NOT the real control
-        // plane (3421) or web (4444/3423) ports.
-        GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
-        // Force the config's settings/CLI probes to no-op deterministically.
-        GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
-        // Register the service worker against the dev server so the PWA shell +
-        // registration are exercisable headlessly (it is PROD-gated otherwise, to
-        // keep normal dev sessions HMR-friendly). 127.0.0.1 is a secure context.
-        VITE_ENABLE_SW: '1',
-      },
+      env: PREVIEW_ENV,
     },
-    {
-      command: `bunx vite build --outDir ${PREVIEW_DIST} --emptyOutDir && bunx vite preview --outDir ${PREVIEW_DIST} --host 127.0.0.1 --port ${String(PREVIEW_PORT)} --strictPort`,
-      url: `http://127.0.0.1:${String(PREVIEW_PORT)}`,
-      timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
-      env: {
-        GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
-        GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
-      },
-    },
-    // A second vite instance, bound to the host's own real private-network address
-    // (never started at all when none exists, LAN_ORIGIN_HOST is undefined and this
-    // entry harmlessly points at the SAME dead loopback URL the "phone"/"desktop"
-    // instance already serves, which playwright's reuseExistingServer treats as already
-    // up). Feeds ONLY the "lan-origin" project.
+    // A second preview of the same build, bound to the host's own real
+    // private-network address, for the "lan-origin" project only. Never started
+    // when the host has none (LAN_ORIGIN_HOST undefined; that project's baseURL
+    // then falls back to BASE_URL and its spec skips itself). No secure context
+    // there, so register-sw.ts leaves the service worker unregistered, which is
+    // the labeled-degradation story that spec proves.
     ...(LAN_ORIGIN_HOST
       ? [{
-        command: 'bunx vite',
-        url: `http://${LAN_ORIGIN_HOST}:${LAN_ORIGIN_PORT}`,
+        command: `bunx vite preview --outDir ${E2E_DIST} --host ${LAN_ORIGIN_HOST} --port ${String(LAN_ORIGIN_PORT)} --strictPort`,
+        url: `http://${LAN_ORIGIN_HOST}:${String(LAN_ORIGIN_PORT)}`,
         timeout: 120_000,
         reuseExistingServer: !process.env.CI,
-        env: {
-          GOODVIBES_WEB_HOST: LAN_ORIGIN_HOST,
-          GOODVIBES_WEB_PORT: String(LAN_ORIGIN_PORT),
-          GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
-          GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
-          // No VITE_ENABLE_SW here, the whole point of this origin is to prove the
-          // labeled-degradation story for the capabilities that need HTTPS, service
-          // worker registration among them (register-sw.ts already skips it here for
-          // exactly that reason: no secure context).
-        },
+        env: PREVIEW_ENV,
       }]
       : []),
   ],

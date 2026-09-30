@@ -5,7 +5,7 @@
 | When | What | Command |
 |------|------|---------|
 | While you work | the unit test files your change affects, the files and specs you touched, a typecheck at the end | `bun run test:changed`, `bun test <file>`, `bunx playwright test <spec> --project phone`, `bun run typecheck` |
-| Every push to `main` and every PR (`ci.yml`) | typecheck and the workflow structure check, lint, one unit run, the build and the SDK pin agreement, Playwright's phone project | CI |
+| Every push to `main` and every PR (`ci.yml`) | typecheck and the workflow structure check, lint, one unit run, the build and the SDK pin agreement, Playwright's phone project (two shard jobs) | CI |
 | Before a push that releases, nightly, on demand (`release-gates.yml`) | Playwright's desktop and lan-origin projects (before a release); every project (nightly, on demand) | CI |
 | Version bump | the SDK-derived modules, `index.html` cache-bust values, README badges, workflow pins, the CHANGELOG section | `bun run release:prepare` |
 
@@ -57,11 +57,12 @@ Playwright projects (`playwright.config.ts`):
 | `desktop` | 1280x800 | before a release, nightly |
 | `lan-origin` | 1280x800, served from the host's own private-network address | before a release, nightly (skips itself on a host without one) |
 
-Three web servers back them: the vite dev server on 4318 (phone, desktop), a
-production build served by `vite preview` on 4320 (only `pwa-offline.e2e.ts`
-uses it, since the service worker caches only built assets), and, when the
-host has a private-network address, a second dev server on it for
-`lan-origin`.
+Every project runs against a production build (`vite build`, served by
+`vite preview` on 4318), the same bundle a release ships. The vite dev server
+is not used: it hands each page about 340 separately transformed modules, and
+on a 4-vCPU CI runner with four browsers loading them the app took about 11 s
+to boot, past the 10 s expect timeout. When the host has a private-network
+address, a second preview of the same build binds to it for `lan-origin`.
 
 A test earns its place by failing when behavior breaks. Tests that read
 source, docs or workflow files as text, pin wording, constants or the size of
@@ -79,7 +80,7 @@ behavior it covers and watch it fail.
 | `lint` | `bun run lint` | ESLint |
 | `test` | `bun run test` | The unit suite, once |
 | `build` | `bun run build`, `bun run release:gate` | `vite build`; the SDK pin, lockfile and installed version agree and imports resolve through the SDK exports map |
-| `e2e` | `bun run e2e:phone` | Playwright, phone project |
+| `e2e` (2 shard jobs) | `bun run e2e:phone --shard=N/2` | Playwright, phone project, split across two parallel jobs of 4 workers |
 | `release-intent` | `git ls-remote` | Pushes to `main` only: does this version still need a tag? |
 | `release-gates` | `release-gates.yml` | Only when the push releases: the desktop and lan-origin projects |
 | `auto-release` | tag, bundle, GitHub release | Only when the push releases, after every job above |

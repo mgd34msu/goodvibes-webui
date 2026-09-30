@@ -1,10 +1,9 @@
 /**
  * The installed app opens offline.
  *
- * Runs against a PRODUCTION build served by `vite preview` (the third webServer in
- * playwright.config.ts): the service worker caches only built, hashed assets, never
- * the dev server's /src modules, so only a build can show what an installed app does
- * with no network.
+ * Runs against the production build every spec is served from (playwright.config.ts):
+ * the service worker caches only built, hashed assets, so what an installed app does
+ * with no network is exactly what this build does.
  *
  * The journey: open the app once online (the worker installs and caches the shell),
  * reload so the worker controls the page and caches the built chunks, then drop the
@@ -15,9 +14,6 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-
-const PREVIEW_URL = `http://127.0.0.1:${process.env.GOODVIBES_E2E_PREVIEW_PORT ?? '4320'}`;
-test.use({ baseURL: PREVIEW_URL });
 
 test('after one online visit, going offline still opens the app and shows the daemon as unreachable', async ({ page, context }) => {
   await installMockDaemon(page);

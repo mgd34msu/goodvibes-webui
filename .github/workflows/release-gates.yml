@@ -36,7 +36,7 @@ jobs:
   e2e:
     name: E2E (Playwright, release set)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -61,13 +61,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright Chromium + OS deps (cache miss)
+      # Headless Chromium only, no apt step (see ci.yml's e2e job for why).
+      - name: Install Playwright headless Chromium (cache miss)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-
-      - name: Install Playwright OS deps only (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
+        run: bunx playwright install --only-shell chromium
 
       - name: Playwright
         env:

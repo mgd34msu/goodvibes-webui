@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
 import type { ApprovalApproveInput, FleetProcessNode } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
+import { refetchAfterDecision } from '../../lib/approval-refresh';
 import { approvalsForNode } from '../../lib/fleet';
 import { isDurableRememberTier, readApprovalEditHunks, recordedAnswerDelivered, recordedRememberTier } from '../../lib/approvals';
 import { ApprovalCard, type ApprovalCardApproveInput } from '../approvals/ApprovalCard';
@@ -47,7 +48,7 @@ export function FleetApprovalInline({ node, onOpenSession }: {
     [node, approvals.data],
   );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+  const invalidate = () => refetchAfterDecision(queryClient, queryKeys.approvals);
 
   const approve = useMutation({
     mutationFn: ({ id, selectedHunks, rememberTier, answer }: { id: string } & ApprovalCardApproveInput & { totalHunks?: number }) => {

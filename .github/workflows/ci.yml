@@ -9,7 +9,8 @@ name: CI
 #   lint        ESLint over the tree
 #   test        one run of the unit suite (bun test --isolate)
 #   build       vite build, then the SDK pin / lockfile / install agreement
-#   e2e         Playwright, the phone project, 4 workers, hermetic mock daemon
+#   e2e         Playwright, the phone project against a production build, 4
+#               workers, split across 2 parallel shard jobs, hermetic mock daemon
 #
 # The desktop and lan-origin Playwright projects run in release-gates.yml: from
 # here before a push that releases, nightly, and on demand. Generated files and
@@ -130,10 +131,16 @@ jobs:
   e2e:
     # Blocking (docs/decisions/2026-07-07-e2e-ci-in-ci.md): a failing job fails
     # the run. Every test owns its browser context and in-page mock daemon, so
-    # the suite runs fully parallel on 4 workers.
-    name: E2E (Playwright, phone)
+    # the suite runs fully parallel: 4 workers, one per vCPU of a public-repo
+    # ubuntu-latest runner, and the phone project split across 2 shard jobs that
+    # run side by side (Playwright --shard), so the per-push wall is one half.
+    name: E2E (Playwright, phone, shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -158,22 +165,22 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright Chromium + OS deps (cache miss)
+      # Headless Chromium only, and no apt step: the ubuntu-24.04 image already
+      # carries every library the headless shell loads. `install-deps` added only
+      # fonts, xvfb and library upgrades, and spent 6 minutes on a slow apt mirror
+      # (CI run 36775763838: "Fetched 34.9 MB in 5min 57s").
+      - name: Install Playwright headless Chromium (cache miss)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --only-shell chromium
 
-      - name: Install Playwright OS deps only (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
-
-      - name: Playwright, phone project
-        run: bun run e2e:phone
+      - name: Playwright, phone project, shard ${{ matrix.shard }} of 2
+        run: bun run e2e:phone --shard=${{ matrix.shard }}/2
 
       - name: Upload traces/report/screenshots on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report-phone
+          name: playwright-report-phone-shard-${{ matrix.shard }}
           path: |
             e2e/.artifacts/report
             e2e/.artifacts/test-output

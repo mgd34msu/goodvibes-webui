@@ -49,6 +49,7 @@ import {
 import { sdk } from '../../lib/goodvibes';
 import type { ApprovalApproveInput, RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
+import { refetchAfterDecision } from '../../lib/approval-refresh';
 import { isDurableRememberTier, readApprovalEditHunks, recordedAnswerDelivered, recordedReasonStored, recordedRememberTier, riskTone, sortApprovalsNewestFirst } from '../../lib/approvals';
 import { parseApprovalActionFromHash, stripApprovalActionFragment } from '../../lib/push/approval-action-link';
 import { ApprovalCard, type ApprovalCardApproveInput } from './ApprovalCard';
@@ -139,7 +140,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
         const { [variables.id]: _removed, ...rest } = current;
         return rest;
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      await refetchAfterDecision(queryClient, queryKeys.approvals);
       // A subset was sent only when selectedHunks is non-empty AND shorter than
       // the full hunk count on the request, selecting every hunk (or omitting
       // selectedHunks entirely, "Approve all") is a full approval, not a subset.
@@ -183,7 +184,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       sdk.operator.approvals.deny(id, reason ? { note: reason, reason } : undefined),
     onSuccess: async (result, variables) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      await refetchAfterDecision(queryClient, queryKeys.approvals);
       // Report from the `recorded` block: only claim the reason was fed back
       // when the daemon actually stored it.
       toast(variables.reason && recordedReasonStored(result)
@@ -202,7 +203,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   const claim = useMutation({
     mutationFn: (id: string) => sdk.operator.approvals.claim(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      await refetchAfterDecision(queryClient, queryKeys.approvals);
       toast({ title: 'Claimed', tone: 'info' });
     },
     onError: (error: unknown) => {
@@ -213,7 +214,7 @@ function ApprovalsSection({ onOpenSession }: ApprovalsTasksViewProps) {
   const cancel = useMutation({
     mutationFn: (id: string) => sdk.operator.approvals.cancel(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
+      await refetchAfterDecision(queryClient, queryKeys.approvals);
       toast({ title: 'Cancelled', tone: 'info' });
     },
     onError: (error: unknown) => {

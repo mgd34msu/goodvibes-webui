@@ -31,14 +31,11 @@
  * OAuth / google-auth into the bundle, same reasoning generate-config-schema.ts
  * already relies on for CONFIG_SCHEMA and FEATURE_SETTINGS.
  *
- * `--check` fails (exit 1) the moment the artifact drifts from a fresh
- * regeneration, same generate-or-check convention as presentation:check and
- * config-schema:check, wired into `bun run build` so an SDK ownership change
- * that was not regenerated fails the build, not just CI.
+ * Regenerated at the version bump by `bun run release:prepare`
+ * (scripts/release-prepare.ts), never checked per push.
  *
  * Usage:
  *   bun run scripts/generate-config-ownership.ts          # write/update
- *   bun run scripts/generate-config-ownership.ts --check  # exit 1 on drift
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -51,7 +48,6 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const CHECK_ONLY = process.argv.includes('--check');
 
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-ownership.ts');
 
@@ -88,8 +84,7 @@ const GENERATED_BANNER = [
   'config barrel (which drags SecretsManager / OAuth / google-auth, node-only).',
   '',
   'Regenerate: `bun run config-ownership:generate`.',
-  'Verify (no write): `bun run config-ownership:check`, wired into `bun run build`,',
-  'so an SDK ownership change that was not regenerated fails the build.',
+  '`bun run release:prepare` runs it at every version bump.',
 ].join('\n * ');
 
 export function renderTs(snapshot: ConfigOwnershipSnapshot): string {
@@ -108,10 +103,10 @@ export function renderTs(snapshot: ConfigOwnershipSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI, generate-or-check against the checked-in artifact.
+// CLI, regenerate the checked-in artifact.
 // ---------------------------------------------------------------------------
 
-export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
+export function writeIfChanged(path: string, content: string): boolean {
   let current: string | null;
   try {
     current = readFileSync(path, 'utf8');
@@ -119,10 +114,6 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
     current = null;
   }
   if (current === content) return false;
-  if (checkOnly) {
-    console.error(`[config-ownership:check] drift: ${path}`);
-    return true;
-  }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
   console.log(`[config-ownership:generate] wrote: ${path}`);
@@ -131,16 +122,6 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
 
 if (import.meta.main) {
   const snapshot = loadOwnershipSnapshot();
-  const drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY);
-  if (CHECK_ONLY && drifted) {
-    console.error('[config-ownership:check] drift detected: run `bun run config-ownership:generate`');
-    process.exit(1);
-  }
-  console.log(
-    drifted
-      ? '[config-ownership:generate] done'
-      : CHECK_ONLY
-        ? '[config-ownership:check] up-to-date'
-        : '[config-ownership:generate] up-to-date',
-  );
+  const written = writeIfChanged(TS_OUT_PATH, renderTs(snapshot));
+  console.log(written ? '[config-ownership:generate] done' : '[config-ownership:generate] up-to-date');
 }

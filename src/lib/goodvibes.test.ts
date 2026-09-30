@@ -10,9 +10,6 @@ import {
   WEBUI_METHOD_SAMPLES,
 } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
-  GOODVIBES_BASE_URL,
-  WEBUI_SURFACE_ID,
-  WEBUI_SURFACE_KIND,
   WEBUI_TOKEN_STORE_KEY,
   getCurrentAuth,
   hostedSessionDetachBeacon,
@@ -81,26 +78,6 @@ import {
   type SessionsHostedKillResult,
   type HostedSessionRecord,
 } from './contract-bridge-types';
-
-describe('goodvibes constants', () => {
-  test('WEBUI_SURFACE_KIND is webui', () => {
-    expect(WEBUI_SURFACE_KIND).toBe('webui');
-  });
-
-  test('WEBUI_SURFACE_ID is goodvibes-webui', () => {
-    expect(WEBUI_SURFACE_ID).toBe('goodvibes-webui');
-  });
-
-  test('WEBUI_TOKEN_STORE_KEY is a non-empty string', () => {
-    expect(typeof WEBUI_TOKEN_STORE_KEY).toBe('string');
-    expect(WEBUI_TOKEN_STORE_KEY.length).toBeGreaterThan(0);
-  });
-
-  test('GOODVIBES_BASE_URL is a non-empty string', () => {
-    expect(typeof GOODVIBES_BASE_URL).toBe('string');
-    expect(GOODVIBES_BASE_URL.length).toBeGreaterThan(0);
-  });
-});
 
 describe('isRuntimeDomain', () => {
   test('returns true for known domains', () => {

@@ -56,8 +56,8 @@ test('chat degraded states (mocked stream drop)', async ({ page }, testInfo) => 
   await installMockDaemon(page, { dropStreams: true });
   await page.goto('/?view=chat');
   await expect(page.locator('.workspace-chat')).toBeVisible();
-  // Give the dropped stream a beat to surface its reconnect/paused honesty.
-  await page.waitForTimeout(1500);
+  // The dropped stream surfaces its paused banner.
+  await expect(page.locator('.banner.warning', { hasText: 'Live updates paused' })).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'chat-degraded'), fullPage: true });
 });
 
@@ -66,7 +66,7 @@ test('steer composer reflects a paused stream', async ({ page }, testInfo) => {
   await page.goto('/?view=sessions');
   await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
   await expect(page.locator('.session-detail__transcript')).toBeVisible();
-  await page.waitForTimeout(1500);
+  await expect(page.locator('.steer-composer__stream-note')).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'steer-composer-paused'), fullPage: true });
 });
 

@@ -26,7 +26,7 @@
  * under test, because bun:test module mocking is synchronous and import-
  * scoped. All SDK interactions are stubbed via mock.module.
  */
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -131,8 +131,26 @@ const { useChatSearch } = await import('./useChatSearch');
 // Helpers
 // ---------------------------------------------------------------------------
 
-const wait = (ms: number): Promise<void> =>
-  new Promise<void>((r) => setTimeout(r, ms));
+// The real setImmediate, captured before any test installs fake timers: React
+// commits async state updates on a macrotask, which elapse() lets run between
+// clock steps.
+const realSetImmediate = globalThis.setImmediate;
+
+/**
+ * Move the fake clock forward by `ms` in 10 ms steps. After each step the
+ * microtask queue and one real macrotask turn run, so the stubbed RPCs resolve
+ * and React commits what they set before the next step. The hook's 300 ms
+ * debounce and the stub's load-more delay fire exactly when the clock says.
+ */
+async function elapse(ms: number): Promise<void> {
+  let remaining = ms;
+  do {
+    const step = Math.min(10, remaining);
+    jest.advanceTimersByTime(step);
+    remaining -= step;
+    await new Promise<void>((r) => realSetImmediate(r));
+  } while (remaining > 0);
+}
 
 type SearchState = ReturnType<typeof useChatSearch>;
 
@@ -226,6 +244,7 @@ function resetSessionSearchStub() {
 }
 
 beforeEach(() => {
+  jest.useFakeTimers();
   stub.responses = new Map();
   stub.callCounts = new Map();
   stub.shouldFail = false;
@@ -237,6 +256,7 @@ afterEach(() => {
   stub.callCounts = new Map();
   stub.shouldFail = false;
   resetSessionSearchStub();
+  jest.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -252,12 +272,12 @@ describe('useChatSearch: debounce timing (300 ms)', () => {
 
     // Start a query, should not fire yet within 200ms
     handle.setQuery('hello');
-    await wait(200);
+    await elapse(200);
     // No results yet (debounce 300ms has not elapsed)
     expect(handle.state.results).toHaveLength(0);
 
     // Wait past debounce
-    await wait(200); // total ~400ms
+    await elapse(200); // total ~400ms
     expect(handle.state.results.length).toBeGreaterThan(0);
     expect(handle.state.results[0]?.snippet).toContain('hello');
 
@@ -269,7 +289,7 @@ describe('useChatSearch: debounce timing (300 ms)', () => {
     seedMessages('s2', [{ id: 'm2', messageId: 'm2', content: 'debounce test', createdAt: 2_000 }]);
 
     const handle = mountHook('debounce', [session]);
-    await wait(450);
+    await elapse(450);
 
     expect(handle.state.results.length).toBeGreaterThan(0);
     expect(handle.state.results[0]?.snippet).toContain('debounce');
@@ -290,13 +310,13 @@ describe('useChatSearch: abort on rapid retype (no stale results)', () => {
 
     // Rapidly change query several times without waiting for debounce
     handle.setQuery('alpha');
-    await wait(50);
+    await elapse(50);
     handle.setQuery('beta');
-    await wait(50);
+    await elapse(50);
     handle.setQuery('beta'); // final query
 
     // Wait for debounce + fetch
-    await wait(450);
+    await elapse(450);
 
     // Only the last query ("beta") should have results
     const snippets = handle.state.results.map((r) => r.snippet);
@@ -313,13 +333,13 @@ describe('useChatSearch: abort on rapid retype (no stale results)', () => {
     seedMessages('s4', [{ id: 'm4', messageId: 'm4', content: 'clear me', createdAt: 1_000 }]);
 
     const handle = mountHook('clear', [session]);
-    await wait(450);
+    await elapse(450);
     expect(handle.state.results.length).toBeGreaterThan(0);
 
     // Clear the query
     handle.setQuery('');
     // Results should be cleared synchronously (no debounce for empty)
-    await wait(10);
+    await elapse(10);
     expect(handle.state.results).toHaveLength(0);
     expect(handle.state.isSearching).toBe(false);
 
@@ -333,14 +353,14 @@ describe('useChatSearch: cache hit and cache invalidation', () => {
     seedMessages('s5', [{ id: 'm5', messageId: 'm5', content: 'cached content', createdAt: 1_000 }]);
 
     const handle = mountHook('cached', [session]);
-    await wait(450);
+    await elapse(450);
 
     expect(stub.callCounts.get('s5')).toBe(1);
     expect(handle.state.results.length).toBeGreaterThan(0);
 
     // Second query with same sessions, should use cache, not re-fetch
     handle.setQuery('content');
-    await wait(450);
+    await elapse(450);
     expect(stub.callCounts.get('s5')).toBe(1); // still 1, not 2
     expect(handle.state.results.length).toBeGreaterThan(0);
 
@@ -352,7 +372,7 @@ describe('useChatSearch: cache hit and cache invalidation', () => {
     seedMessages('s6', [{ id: 'm6', messageId: 'm6', content: 'stale content', createdAt: 1_000 }]);
 
     const handle = mountHook('stale', [session1]);
-    await wait(450);
+    await elapse(450);
 
     expect(stub.callCounts.get('s6')).toBe(1);
 
@@ -361,12 +381,12 @@ describe('useChatSearch: cache hit and cache invalidation', () => {
     seedMessages('s6-v2', [{ id: 'm6b', messageId: 'm6b', content: 'fresh content stale', createdAt: 2_000 }]);
 
     handle.setSessions([session2]);
-    await wait(10); // cache reset happens synchronously during render
+    await elapse(10); // cache reset happens synchronously during render
 
     // Re-run query with new sessions
     handle.setQuery('stale ');
     handle.setQuery('stale'); // trigger re-render with same effective query to restart effect
-    await wait(450);
+    await elapse(450);
 
     // s6-v2 should have been fetched (new session in cache)
     expect(stub.callCounts.get('s6-v2')).toBeGreaterThanOrEqual(1);
@@ -381,7 +401,7 @@ describe('useChatSearch: cache hit and cache invalidation', () => {
     seedMessages('s7b', [{ id: 'm7b', messageId: 'm7b', content: 'shared term there', createdAt: 2_000 }]);
 
     const handle = mountHook('shared', [session1, session2]);
-    await wait(450);
+    await elapse(450);
 
     expect(stub.callCounts.get('s7a')).toBe(1);
     expect(stub.callCounts.get('s7b')).toBe(1);
@@ -390,7 +410,7 @@ describe('useChatSearch: cache hit and cache invalidation', () => {
 
     // Second query, both served from cache
     handle.setQuery('term');
-    await wait(450);
+    await elapse(450);
     expect(stub.callCounts.get('s7a')).toBe(1);
     expect(stub.callCounts.get('s7b')).toBe(1);
 
@@ -408,7 +428,7 @@ describe('useChatSearch: recency ranking', () => {
     ]);
 
     const handle = mountHook('order', [session]);
-    await wait(450);
+    await elapse(450);
 
     const results = handle.state.results;
     expect(results).toHaveLength(3);
@@ -428,7 +448,7 @@ describe('useChatSearch: recency ranking', () => {
     ]);
 
     const handle = mountHook('rank', [session]);
-    await wait(450);
+    await elapse(450);
 
     const results = handle.state.results;
     expect(results).toHaveLength(2);
@@ -446,7 +466,7 @@ describe('useChatSearch: recency ranking', () => {
     seedMessages('s10b', [{ id: 'm10b', messageId: 'm10b', content: 'cross rank test new', createdAt: 9_000 }]);
 
     const handle = mountHook('cross', [sessionA, sessionB]);
-    await wait(450);
+    await elapse(450);
 
     const results = handle.state.results;
     expect(results.length).toBe(2);
@@ -467,7 +487,7 @@ describe('useChatSearch: session search (sessions.search) includeClosed default'
     const handle = mountHook('', []);
 
     handle.setQuery('deploy');
-    await wait(450);
+    await elapse(450);
 
     expect(sessionSearchStub.calls.length).toBeGreaterThan(0);
     expect(sessionSearchStub.calls[sessionSearchStub.calls.length - 1]?.includeClosed).toBe(false);
@@ -479,7 +499,7 @@ describe('useChatSearch: session search (sessions.search) includeClosed default'
   test('scopes the search to kind: companion-chat (this hook\'s domain)', async () => {
     const handle = mountHook('', []);
     handle.setQuery('deploy');
-    await wait(450);
+    await elapse(450);
 
     expect(sessionSearchStub.calls[sessionSearchStub.calls.length - 1]?.kind).toBe('companion-chat');
 
@@ -497,7 +517,7 @@ describe('useChatSearch: session search (sessions.search) includeClosed default'
 
     const handle = mountHook('', []);
     handle.setQuery('closed');
-    await wait(450);
+    await elapse(450);
 
     // Default (includeClosed:false), the stub still returns the fixture (a
     // stub does not enforce filtering), but the hook's own default is what
@@ -505,7 +525,7 @@ describe('useChatSearch: session search (sessions.search) includeClosed default'
     expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(false);
 
     handle.setIncludeClosed(true);
-    await wait(450);
+    await elapse(450);
 
     expect(sessionSearchStub.calls.at(-1)?.includeClosed).toBe(true);
     expect(handle.state.includeClosed).toBe(true);
@@ -523,7 +543,7 @@ describe('useChatSearch: session search honest degraded states', () => {
     const handle = mountHook('', []);
 
     handle.setQuery('deploy');
-    await wait(450);
+    await elapse(450);
 
     expect(handle.state.sessionSearchState).toBe('unavailable');
     expect(handle.state.sessionResults).toHaveLength(0);
@@ -536,7 +556,7 @@ describe('useChatSearch: session search honest degraded states', () => {
     const handle = mountHook('', []);
 
     handle.setQuery('deploy');
-    await wait(450);
+    await elapse(450);
 
     expect(handle.state.sessionSearchState).toBe('error');
 
@@ -548,7 +568,7 @@ describe('useChatSearch: session search honest degraded states', () => {
     const handle = mountHook('', []);
 
     handle.setQuery('nomatch');
-    await wait(450);
+    await elapse(450);
 
     expect(handle.state.sessionSearchState).toBe('ready');
     expect(handle.state.sessionResults).toHaveLength(0);
@@ -564,11 +584,11 @@ describe('useChatSearch: session search honest degraded states', () => {
     };
     const handle = mountHook('', []);
     handle.setQuery('deploy');
-    await wait(450);
+    await elapse(450);
     expect(handle.state.sessionResults.length).toBeGreaterThan(0);
 
     handle.setQuery('');
-    await wait(10);
+    await elapse(10);
     expect(handle.state.sessionResults).toHaveLength(0);
     expect(handle.state.sessionSearchState).toBe('idle');
 
@@ -586,7 +606,7 @@ describe('useChatSearch: session search pagination', () => {
 
     const handle = mountHook('', []);
     handle.setQuery('page');
-    await wait(450);
+    await elapse(450);
 
     expect(handle.state.hasMoreSessions).toBe(true);
     expect(handle.state.sessionResults).toHaveLength(1);
@@ -597,7 +617,7 @@ describe('useChatSearch: session search pagination', () => {
       hasMore: false,
     };
     handle.loadMoreSessions();
-    await wait(50);
+    await elapse(50);
 
     expect(handle.state.sessionResults).toHaveLength(2);
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['p1', 'p2']);
@@ -612,11 +632,11 @@ describe('useChatSearch: session search pagination', () => {
     sessionSearchStub.response = { sessions: [], nextCursor: undefined, hasMore: false };
     const handle = mountHook('', []);
     handle.setQuery('nomore');
-    await wait(450);
+    await elapse(450);
 
     const callsBefore = sessionSearchStub.calls.length;
     handle.loadMoreSessions();
-    await wait(50);
+    await elapse(50);
 
     expect(sessionSearchStub.calls.length).toBe(callsBefore);
 
@@ -640,7 +660,7 @@ describe('useChatSearch: session search pagination', () => {
     sessionSearchStub.response = summary('p1', 'c1', true).response;
     const handle = mountHook('', []);
     handle.setQuery('paginate');
-    await wait(450);
+    await elapse(450);
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['p1']);
     expect(handle.state.hasMoreSessions).toBe(true);
 
@@ -649,7 +669,7 @@ describe('useChatSearch: session search pagination', () => {
     sessionSearchStub.loadMoreDelayMs = 500;
     sessionSearchStub.response = summary('stale-page-2').response;
     handle.loadMoreSessions();
-    await wait(20); // let the load-more call fire and snapshot the stale response
+    await elapse(20); // let the load-more call fire and snapshot the stale response
 
     // While it hangs, the user retypes to the SAME query (via a detour), a FRESH search,
     // generation 2, replacing the list with a new first page (different backend cursor).
@@ -657,12 +677,12 @@ describe('useChatSearch: session search pagination', () => {
     sessionSearchStub.response = summary('fresh-p1').response;
     handle.setQuery('paginat');
     handle.setQuery('paginate');
-    await wait(450); // fresh search debounces + completes → gen bumps, results replaced
+    await elapse(450); // fresh search debounces + completes → gen bumps, results replaced
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
 
     // The delayed stale load-more resolves; its generation (1) is stale, so it must
     // be discarded, never appended onto the fresh (gen 2) results.
-    await wait(200);
+    await elapse(200);
     expect(handle.state.sessionResults.map((r) => r.sessionId)).toEqual(['fresh-p1']);
     expect(handle.state.sessionResults.some((r) => r.sessionId === 'stale-page-2')).toBe(false);
 

@@ -8,8 +8,7 @@
  * config barrel (which drags SecretsManager / OAuth / google-auth, node-only).
  *
  * Regenerate: `bun run config-ownership:generate`.
- * Verify (no write): `bun run config-ownership:check`, wired into `bun run build`,
- * so an SDK ownership change that was not regenerated fails the build.
+ * `bun run release:prepare` runs it at every version bump.
  */
 
 export const DAEMON_OWNED_CONFIG_PREFIXES: readonly string[] = [

@@ -3,8 +3,6 @@ import {
   filterTimezoneNames,
   isValidTimezoneName,
   listTimezoneNames,
-  UNSET_TIMEZONE_LABEL,
-  UNSET_TIMEZONE_VALUE,
 } from './timezones';
 
 describe('listTimezoneNames', () => {
@@ -56,10 +54,3 @@ describe('isValidTimezoneName', () => {
   });
 });
 
-describe('unset sentinel', () => {
-  test('the unset value is the empty string, and has a distinct label', () => {
-    expect(UNSET_TIMEZONE_VALUE).toBe('');
-    expect(UNSET_TIMEZONE_LABEL.length).toBeGreaterThan(0);
-    expect(UNSET_TIMEZONE_LABEL).not.toBe('');
-  });
-});

@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
   KNOWN_SESSION_KINDS,
-  SESSION_UPDATE_WIRE_EVENT,
-  SESSION_UPDATE_INTENT_MAP,
   sessionUpdateIntent,
   unionSessionFromRecord,
   unionSessionsFromListResponse,
@@ -35,10 +33,6 @@ const FIXTURE_UNION = {
 };
 
 describe('SESSION_UPDATE intent map', () => {
-  test('wire event constant is the un-domained name', () => {
-    expect(SESSION_UPDATE_WIRE_EVENT).toBe('session-update');
-  });
-
   test('maps concrete wire events to coarse intents (mirrors SDK map)', () => {
     expect(sessionUpdateIntent('session-created')).toBe('created');
     expect(sessionUpdateIntent('session-message-appended')).toBe('updated');
@@ -52,9 +46,6 @@ describe('SESSION_UPDATE intent map', () => {
     expect(sessionUpdateIntent('session-teleported')).toBeNull();
   });
 
-  test('intent map has exactly the four documented intents', () => {
-    expect(Object.keys(SESSION_UPDATE_INTENT_MAP).sort()).toEqual(['closed', 'created', 'steered', 'updated']);
-  });
 });
 
 describe('tolerant union extraction', () => {

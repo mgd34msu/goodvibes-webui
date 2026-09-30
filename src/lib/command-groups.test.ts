@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { GROUP_LABELS, buildGroups } from './command-groups';
+import { buildGroups } from './command-groups';
 import type { CommandDef } from './commands';
 
 // Minimal stubs, only the shape that buildGroups reads (group field)
@@ -7,14 +7,6 @@ function cmd(id: string, group: string): CommandDef {
   return { id, group, label: id, handler: () => {} } as unknown as CommandDef;
 }
 
-describe('GROUP_LABELS', () => {
-  test('contains expected keys', () => {
-    expect(GROUP_LABELS.navigation).toBe('Navigation');
-    expect(GROUP_LABELS.chat).toBe('Chat');
-    expect(GROUP_LABELS.admin).toBe('Admin');
-    expect(GROUP_LABELS.system).toBe('System');
-  });
-});
 
 describe('buildGroups', () => {
   test('returns empty array for empty input', () => {

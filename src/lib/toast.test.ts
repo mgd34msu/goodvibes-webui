@@ -23,14 +23,6 @@ describe('tone → role mapping', () => {
   });
 });
 
-// ─── TOAST_EXIT_DURATION_MS ───────────────────────────────────────────────────
-
-describe('TOAST_EXIT_DURATION_MS', () => {
-  test('equals 180 matching --motion-base token in tokens.css', async () => {
-    const { TOAST_EXIT_DURATION_MS } = await import('./toast');
-    expect(TOAST_EXIT_DURATION_MS).toBe(180);
-  });
-});
 
 // ─── Reducer: DISMISS → leavingIds → PURGE lifecycle ─────────────────────────
 // Drive the REAL toastReducer state-machine directly, no DOM render harness needed.

@@ -10,6 +10,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
+import { nextFrames } from './support/app';
 
 test('the page never scrolls: every pane owns its own overflow', async ({ page }) => {
   await installChatMockDaemon(page);
@@ -78,7 +79,7 @@ test('in chat only the transcript scrolls and the composer stays pinned', async 
   // Whatever the transcript holds, scrolling the document must be a no-op and
   // the composer must not move.
   await page.mouse.wheel(0, 2000);
-  await page.waitForTimeout(150);
+  await nextFrames(page);
   const after = await page.evaluate(() => ({
     docScrollTop: document.documentElement.scrollTop,
     composerTop: document.querySelector('textarea[aria-label="Message GoodVibes"]')!.getBoundingClientRect().top,

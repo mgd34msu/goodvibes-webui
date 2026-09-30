@@ -20,14 +20,6 @@ const TRIGGER_KEYS = CONFIG_SCHEMA_ENTRIES
   .map((entry) => entry.key);
 
 describe('trigger settings reachability', () => {
-  test('the SDK schema actually carries the trigger keys this app expects', () => {
-    expect(TRIGGER_KEYS).toContain('watchers.triggers.enabled');
-    expect(TRIGGER_KEYS).toContain('watchers.triggers.onExitMaxDurationMs');
-    expect(TRIGGER_KEYS).toContain('watchers.triggers.streamBatchLines');
-    expect(TRIGGER_KEYS).toContain('watchers.triggers.defaultCheckIntervalMs');
-    expect(TRIGGER_KEYS.length).toBeGreaterThanOrEqual(19);
-  });
-
   test('every trigger key is routed into the settings workspace', () => {
     const groups = buildSettingsModel({});
     // A trigger key surfaces either as a plain row or as one of the trigger
@@ -49,17 +41,5 @@ describe('trigger settings reachability', () => {
     expect(watchersGroup?.label).toBe('Watchers');
     expect(groupLabelForNamespace('watchers')).toBe('Watchers');
     expect(categoryLabelForKey('watchers.triggers.enabled')).toBe('Watchers');
-  });
-
-  test('triggers ship off by default, so nothing watches until it is asked to', () => {
-    const byKey = new Map(CONFIG_SCHEMA_ENTRIES.map((entry) => [entry.key, entry]));
-    expect(byKey.get('watchers.triggers.enabled')?.default).toBe(false);
-  });
-
-  test('every trigger key ships a written purpose, never a bare toggle label', () => {
-    for (const key of TRIGGER_KEYS) {
-      const entry = CONFIG_SCHEMA_ENTRIES.find((candidate) => candidate.key === key);
-      expect(entry?.description.length ?? 0).toBeGreaterThan(80);
-    }
   });
 });

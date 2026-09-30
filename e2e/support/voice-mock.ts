@@ -85,6 +85,8 @@ export interface VoiceMock {
   wakeProvisionRequests: number;
   /** Every voice.wake.model.get read, in order: the chunk loop, observable. */
   wakeModelReads: { component: string; offset: number }[];
+  /** config.get answers served: the wake rows the tab decides from. */
+  configReads: number;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -145,6 +147,38 @@ export async function installFakeAudio(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Record every AudioContext the page constructs (before any app code runs), so a
+ * test can wait for the capture graph to actually carry audio instead of sleeping.
+ */
+export async function trackAudioContexts(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const Native = window.AudioContext;
+    if (!Native) return;
+    const created: AudioContext[] = [];
+    (window as unknown as { __audioContexts: AudioContext[] }).__audioContexts = created;
+    class TrackedAudioContext extends Native {
+      constructor(options?: AudioContextOptions) {
+        super(options);
+        created.push(this);
+      }
+    }
+    window.AudioContext = TrackedAudioContext;
+  });
+}
+
+/**
+ * Resolves once the newest AudioContext is running and has processed `seconds`
+ * of audio: the microphone graph is really producing samples.
+ */
+export async function waitForAudioFlow(page: Page, seconds = 0.3): Promise<void> {
+  await page.waitForFunction((minimum) => {
+    const list = (window as unknown as { __audioContexts?: AudioContext[] }).__audioContexts ?? [];
+    const newest = list[list.length - 1];
+    return newest !== undefined && newest.state === 'running' && newest.currentTime >= minimum;
+  }, seconds);
+}
+
 export async function installVoiceRoutes(page: Page, options: VoiceMockOptions = {}): Promise<VoiceMock> {
   const providers = options.providers ?? DEFAULT_PROVIDERS;
   const transcript = options.transcript ?? 'hello from voice input';
@@ -157,6 +191,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
     localInstallRequests: 0,
     wakeProvisionRequests: 0,
     wakeModelReads: [],
+    configReads: 0,
   };
   // The wake rows config.get reports. A config.set write MUTATES this, so the
   // round-trip a user actually experiences (tick the box -> the daemon persists it ->
@@ -221,6 +256,7 @@ export async function installVoiceRoutes(page: Page, options: VoiceMockOptions =
       }
       return json(route, { success: true, key: body.key, value: body.value });
     }
+    mock.configReads += 1;
     return json(route, {
       ui: { voiceEnabled: true },
       tts: { provider: ttsProvider, voice: ttsVoice, speed: 1 },

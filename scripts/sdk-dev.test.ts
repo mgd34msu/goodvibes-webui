@@ -13,18 +13,16 @@
  *
  * This file covers what's left in webui's copy: the alias's own guard
  * clauses (missing checkout, checkout present but stale/missing the tool
- * script) and that a present checkout is actually forwarded to. The
- * forwarding assertions are skipped when no local SDK checkout exists at the
- * resolved default path (no CI machine has one, the same precedent this
- * suite already used pre-consolidation for its "real overlay active" case).
+ * script) and that a present checkout is actually forwarded to, proven
+ * against a stand-in checkout whose tool echoes what it received, so the
+ * test runs the same on a machine with no SDK checkout.
  *
  * The full link -> build -> overlay(9 pkgs incl. contracts) -> status ->
  * restore cycle is proven once against a real checkout in the SDK's own
  * suite / its manual consolidation proof, not duplicated here.
  */
 import { describe, test, expect, afterAll } from 'bun:test';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { makeProjectTempDir, installTestCleanup } from './helpers/project-temp';
 
@@ -37,12 +35,6 @@ installTestCleanup(afterAll);
 
 const SCRIPT_PATH = resolve(import.meta.dir, 'sdk-dev.ts');
 const REPO_ROOT = resolve(import.meta.dir, '..');
-const DEFAULT_SDK_ROOT = resolve(process.env.GOODVIBES_SDK_PATH ?? resolve(homedir(), 'Projects/goodvibes-sdk'));
-// Forwarding only succeeds once the checkout HAS the canonical tool (this
-// brief's own deliverable), a checkout dir existing without it (e.g. an SDK
-// main that predates the consolidated tool) must gate the same as "no checkout".
-const SDK_TOOL_AVAILABLE = existsSync(join(DEFAULT_SDK_ROOT, 'scripts/sdk-dev.ts'));
-
 function run(args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}): { exitCode: number; output: string } {
   const result = Bun.spawnSync(['bun', SCRIPT_PATH, ...args], {
     cwd: opts.cwd ?? REPO_ROOT,
@@ -79,18 +71,23 @@ describe('sdk-dev alias', () => {
     }
   });
 
-  // Skipped (not failed) rather than asserting a hard requirement: no local
-  // SDK checkout is a legitimate CI/sandbox state, not a regression.
-  test.skipIf(!SDK_TOOL_AVAILABLE)('forwards to the canonical SDK tool and reports this repo\'s clean/overlay state', () => {
-    const { exitCode, output } = run(['status']);
-    expect([0, 2]).toContain(exitCode);
-    expect(output).toMatch(/sdk-dev: (clean|OVERLAY ACTIVE)/);
-  });
-
-  test('usage message is printed and exit is non-zero for an unknown command', () => {
-    if (!SDK_TOOL_AVAILABLE) return;
-    const { exitCode, output } = run(['bogus']);
-    expect(exitCode).toBe(1);
-    expect(output).toContain('usage: bun scripts/sdk-dev.ts');
+  test('forwards argv, this repo as cwd, and the exit code to the checkout\'s tool', () => {
+    const dir = makeProjectTempDir('webui-sdk-dev-');
+    try {
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(dir, 'scripts', 'sdk-dev.ts'),
+        "console.log('forwarded:' + JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }));\nprocess.exit(3);\n",
+      );
+      const { exitCode, output } = run(['status', '--verbose'], { env: { GOODVIBES_SDK_PATH: dir } });
+      expect(exitCode).toBe(3);
+      const line = output.split('\n').find((l) => l.startsWith('forwarded:'));
+      expect(line).toBeDefined();
+      const payload = JSON.parse((line ?? '').slice('forwarded:'.length)) as { argv: string[]; cwd: string };
+      expect(payload.argv).toEqual(['status', '--verbose']);
+      expect(payload.cwd).toBe(REPO_ROOT);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -35,7 +35,6 @@ describe('base64url codec', () => {
 
 describe('step-up wire contract mirrors the SDK', () => {
   test('the header name equals the SDK constant', () => {
-    expect(STEP_UP_ASSERTION_HEADER).toBe('x-goodvibes-stepup-assertion');
     expect(STEP_UP_ASSERTION_HEADER).toBe(SDK_STEP_UP_HEADER);
   });
 

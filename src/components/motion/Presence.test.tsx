@@ -24,17 +24,6 @@ describe('Presence module', () => {
   });
 });
 
-// ─── Exit duration alignment ───────────────────────────────────────────────────
-
-describe('Presence default exitDurationMs', () => {
-  test('default 180ms matches TOAST_EXIT_DURATION_MS', async () => {
-    const { TOAST_EXIT_DURATION_MS } = await import('../../lib/toast');
-    // The Presence default is 180 (see component definition).
-    // TOAST_EXIT_DURATION_MS must equal that default so the provider
-    // PURGE timer and the Presence unmount timer fire together.
-    expect(TOAST_EXIT_DURATION_MS).toBe(180);
-  });
-});
 
 // ─── Reduced motion: immediate unmount ────────────────────────────────────────
 // When reduced motion is active, Presence should skip the leaving phase

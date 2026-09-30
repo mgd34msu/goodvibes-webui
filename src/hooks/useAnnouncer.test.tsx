@@ -1,8 +1,9 @@
 /**
  * Tests for useAnnouncer hook.
- * Uses react-dom/client + flushSync + happy-dom (bunfig.toml preload).
+ * Uses react-dom/client + flushSync + happy-dom (bunfig.toml preload), with
+ * fake timers driving the hook's 0 ms clear and 50 ms set.
  */
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -42,15 +43,17 @@ function HookOwner({ onHandle }: { onHandle: (h: AnnouncerHandle) => void }): nu
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-beforeEach(() => { _resetAnnouncerStore(); });
-afterEach(() => { _resetAnnouncerStore(); });
+// The announcer's clear-then-set cycle runs on timers; fake timers step it
+// exactly instead of sleeping past it.
+beforeEach(() => { jest.useFakeTimers(); _resetAnnouncerStore(); });
+afterEach(() => { _resetAnnouncerStore(); jest.useRealTimers(); });
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('useAnnouncer', () => {
-  test('polite message appears in the polite live region', async () => {
+  test('polite message appears in the polite live region', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const { AnnouncerRegion } = handle;
@@ -58,7 +61,7 @@ describe('useAnnouncer', () => {
 
     handle.announce('File saved');
     // Wait for the clear (0ms) + set (50ms) timers
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
     // Flush any pending React state updates from the store
     flushSync(() => {});
 
@@ -69,13 +72,13 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('assertive message appears in the assertive live region', async () => {
+  test('assertive message appears in the assertive live region', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);
 
     handle.announce('Critical error', 'assertive');
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
     flushSync(() => {});
 
     const assertiveEl = region.el.querySelector('[aria-live="assertive"]');
@@ -85,13 +88,13 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('assertive message does NOT appear in polite region', async () => {
+  test('assertive message does NOT appear in polite region', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);
 
     handle.announce('Alert!', 'assertive');
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
     flushSync(() => {});
 
     const politeEl = region.el.querySelector('[aria-live="polite"]');
@@ -101,24 +104,24 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('same message announced twice cycles through empty for re-read', async () => {
+  test('same message announced twice cycles through empty for re-read', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);
 
     handle.announce('Saved');
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
     flushSync(() => {});
     expect(region.el.querySelector('[aria-live="polite"]')?.textContent).toBe('Saved');
 
     // Second announce, must clear first, then re-set
     handle.announce('Saved');
-    await new Promise((r) => setTimeout(r, 10));
+    jest.advanceTimersByTime(10);
     flushSync(() => {});
     // Region cleared
     expect(region.el.querySelector('[aria-live="polite"]')?.textContent).toBe('');
 
-    await new Promise((r) => setTimeout(r, 60));
+    jest.advanceTimersByTime(60);
     flushSync(() => {});
     expect(region.el.querySelector('[aria-live="polite"]')?.textContent).toBe('Saved');
 
@@ -126,7 +129,7 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('rapid announce() calls cancel previous timer, only last message shows', async () => {
+  test('rapid announce() calls cancel previous timer, only last message shows', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     const region = renderInto(<handle.AnnouncerRegion />);
@@ -134,7 +137,7 @@ describe('useAnnouncer', () => {
     handle.announce('First');
     handle.announce('Second');
     handle.announce('Third');
-    await new Promise((r) => setTimeout(r, 100));
+    jest.advanceTimersByTime(100);
     flushSync(() => {});
 
     expect(region.el.querySelector('[aria-live="polite"]')?.textContent).toBe('Third');
@@ -143,7 +146,7 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('AnnouncerRegion re-renders even when not co-located with hook owner', async () => {
+  test('AnnouncerRegion re-renders even when not co-located with hook owner', () => {
     let handle!: AnnouncerHandle;
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
     // Region in a separate container entirely
@@ -152,7 +155,7 @@ describe('useAnnouncer', () => {
     const region = renderInto(<handle.AnnouncerRegion />, regionEl);
 
     handle.announce('Remote message');
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
     flushSync(() => {});
 
     expect(regionEl.querySelector('[aria-live="polite"]')?.textContent).toBe('Remote message');
@@ -175,7 +178,7 @@ describe('useAnnouncer', () => {
     region.unmount();
   });
 
-  test('module-level store snapshot reflects state changes', async () => {
+  test('module-level store snapshot reflects state changes', () => {
     const snap1 = _announcerSnapshot();
     expect(snap1.polite).toBe('');
     expect(snap1.assertive).toBe('');
@@ -184,7 +187,7 @@ describe('useAnnouncer', () => {
     const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
 
     handle.announce('Store test', 'assertive');
-    await new Promise((r) => setTimeout(r, 80));
+    jest.advanceTimersByTime(80);
 
     const snap2 = _announcerSnapshot();
     expect(snap2.assertive).toBe('Store test');

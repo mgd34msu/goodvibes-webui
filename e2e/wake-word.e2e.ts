@@ -21,8 +21,8 @@
  */
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
-import { installFakeAudio, installVoiceRoutes } from './support/voice-mock';
-import { expectNoHorizontalScroll } from './support/app';
+import { installFakeAudio, installVoiceRoutes, trackAudioContexts, waitForAudioFlow } from './support/voice-mock';
+import { expectNoHorizontalScroll, nextFrames } from './support/app';
 
 test.use({
   permissions: ['microphone'],
@@ -67,8 +67,9 @@ test('wake detection off (the shipped default): no microphone is ever requested'
 
   await page.goto('/?view=chat');
   await expect(page.locator('.app-shell')).toBeVisible();
-  // Give the config read and any would-be startup a generous window to misbehave in.
-  await page.waitForTimeout(1500);
+  // The tab has read the wake rows it decides from, and committed that decision.
+  await expect.poll(() => voice.configReads).toBeGreaterThan(0);
+  await nextFrames(page);
 
   expect(await gumCalls(page)).toBe(0);
   await expect(page.locator('[data-testid="wake-chip"]')).toHaveCount(0);
@@ -87,7 +88,8 @@ test('voice.wake.enabled on but this surface off: still no microphone, still no 
 
   await page.goto('/?view=chat');
   await expect(page.locator('.app-shell')).toBeVisible();
-  await page.waitForTimeout(1500);
+  await expect.poll(() => voice.configReads).toBeGreaterThan(0);
+  await nextFrames(page);
 
   expect(await gumCalls(page)).toBe(0);
   await expect(page.locator('[data-testid="wake-chip"]')).toHaveCount(0);
@@ -177,6 +179,8 @@ test('the banner indicator is a persistent element, and the chip is absent for i
     wake: { provisioned: true },
     wakeConfig: { ...WAKE_ON, indicator: 'banner' },
   });
+  // The page clock runs naturally until the jump below.
+  await page.clock.install();
 
   await page.goto('/?view=chat');
   const banner = page.locator('[data-testid="wake-banner"]');
@@ -184,8 +188,10 @@ test('the banner indicator is a persistent element, and the chip is absent for i
   await expect(banner).toContainText('Listening for wake word');
   await expect(page.locator('[data-testid="wake-chip"]')).toHaveCount(0);
 
-  // Persistent: it is still there well past any toast lifetime.
-  await page.waitForTimeout(6000);
+  // Persistent: jump the page clock a minute ahead, which fires every pending timer
+  // (any toast lifetime included) once, then let time run again.
+  await page.clock.fastForward('01:00');
+  await page.clock.resume();
   await expect(banner).toBeVisible();
   await expectNoHorizontalScroll(page);
 });
@@ -335,6 +341,7 @@ test('dictation still works while wake detection holds the microphone', async ({
     wakeConfig: WAKE_ON,
     transcript: 'dictated over the wake listener',
   });
+  await trackAudioContexts(page);
 
   await page.goto('/?view=chat');
   const chip = page.locator('[data-testid="wake-chip"]');
@@ -349,7 +356,7 @@ test('dictation still works while wake detection holds the microphone', async ({
   await expect(stopMic).toBeVisible({ timeout: 15_000 });
   expect(await gumCalls(page)).toBe(2);
 
-  await page.waitForTimeout(600);
+  await waitForAudioFlow(page);
   await stopMic.click();
 
   const composer = page.locator('textarea[aria-label="Message GoodVibes"]');

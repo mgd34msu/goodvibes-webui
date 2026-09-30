@@ -1,5 +1,23 @@
 name: CI
 
+# Per-push CI: the checks that catch a regression in behavior, on every push
+# and every PR to main. Each suite runs once per run.
+#
+#   typecheck   tsc over src/, scripts/ and e2e/ (and the check that every
+#               TypeScript file is in one of those projects), plus the
+#               workflow structure check
+#   lint        ESLint over the tree
+#   test        one run of the unit suite (bun test --isolate)
+#   build       vite build, then the SDK pin / lockfile / install agreement
+#   e2e         Playwright, the phone project, 4 workers, hermetic mock daemon
+#
+# The desktop and lan-origin Playwright projects run in release-gates.yml: from
+# here before a push that releases, nightly, and on demand. Generated files and
+# version stamps (index.html cache-bust values, the SDK-derived modules under
+# src/lib/generated and src/styles/generated, README badges, workflow pins, the
+# CHANGELOG section) are rewritten by `bun run release:prepare` at the version
+# bump, never checked per push. See docs/testing-and-validation.md.
+
 on:
   push:
     branches:
@@ -9,13 +27,7 @@ on:
       - main
 
 env:
-  # Single source of truth for the Bun version across all three jobs below
-  # (test, lint, e2e) — one place to bump instead of three drifting copies.
-  # TRAIN NOTE: this repo can't `uses:` the SDK's composite
-  # `.github/actions/setup` action until goodvibes-sdk pushes it (cross-repo
-  # `uses:` needs a pushed ref to resolve); once it does, adopt that action
-  # here instead of this inlined block. See
-  # goodvibes-sdk/docs/release-and-publishing.md ("Shared Toolchain").
+  # One Bun version for every job below.
   BUN_VERSION: "1.3.14"
 
 permissions:
@@ -23,13 +35,16 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded runs on PRs only. A push to main always runs to
+  # completion, so its per-job verdict (and its release) is never lost to an
+  # auto-cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  test:
-    name: Test, Typecheck, Build
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -37,53 +52,17 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          # Pinned via the BUN_VERSION env var above (single source across
-          # all three jobs). The DOM test harness (happy-dom
-          # global-registrator + `bun test --isolate`) is version-sensitive;
-          # 1.3.10 produced `window is not defined`.
           bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Typecheck
+      - name: Typecheck (src, scripts, e2e, and every file is in a project)
         run: bun run typecheck
 
-      - name: Run tests
-        run: bun run test
-
-      - name: Coverage
-        # shell: bash makes GitHub Actions run this with `bash --noprofile
-        # --norc -eo pipefail {0}` (its documented default for a bash step),
-        # so the pipeline's exit status is the coverage script's, not tee's.
-        shell: bash
-        run: bun run coverage 2>&1 | tee coverage-summary.txt
-
-      - name: Upload coverage summary
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: always()
-        with:
-          name: coverage-summary
-          path: coverage-summary.txt
-          retention-days: 14
-          if-no-files-found: ignore
-
-      - name: Annotate job summary with coverage
-        if: always()
-        run: |
-          {
-            echo "## Coverage Report"
-            echo '```'
-            cat coverage-summary.txt 2>/dev/null || echo "(coverage unavailable)"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Build
-        run: bun run build
-
-      - name: Release gates (SDK pin/lock/install agreement + import sweep)
-        run: bun run release:gate
+      - name: Workflow structure
+        run: bun run workflows:check
 
   lint:
     name: Lint
@@ -96,8 +75,6 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          # See the "test" job above for why the version comes from the
-          # shared BUN_VERSION env var.
           bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
@@ -107,22 +84,10 @@ jobs:
       - name: Lint
         run: bun run lint
 
-  e2e:
-    # Blocking since 2026-07-07 (docs/decisions/2026-07-07-e2e-ci-in-ci.md):
-    # the suite's only red was a deterministic spec defect (a scrim click that
-    # raced the drawer animation), not flake — so the "stabilization window"
-    # ended immediately. A failing job must fail the run; a run that reports
-    # success over a red job is a lie. webui-only: do not add e2e jobs to the
-    # SDK or agent repos' release flows.
-    name: E2E (Playwright)
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
-    # Headroom above the suite's real runtime: the phone + desktop + lan-origin
-    # projects run sequentially (workers:1, fullyParallel:false) and the suite has
-    # grown past two earlier caps as coverage expanded (memory diagnostics,
-    # one-act local voice setup at 15; the dates panel and wake-word specs at 25 —
-    # cancelled green at 423/448 on 2026-07-30). 35 leaves margin for runner
-    # variance without being effectively unbounded.
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -130,8 +95,52 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          # See the "test" job above for why the version comes from the
-          # shared BUN_VERSION env var.
+          bun-version: ${{ env.BUN_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Unit tests
+        run: bun run test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: SDK pin, lockfile and install agreement, import sweep
+        run: bun run release:gate
+
+  e2e:
+    # Blocking (docs/decisions/2026-07-07-e2e-ci-in-ci.md): a failing job fails
+    # the run. Every test owns its browser context and in-page mock daemon, so
+    # the suite runs fully parallel on 4 workers.
+    name: E2E (Playwright, phone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
           bun-version: ${{ env.BUN_VERSION }}
           cache: true
 
@@ -153,29 +162,72 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
 
-      - name: Install Playwright OS deps only (cache hit, binaries already cached)
+      - name: Install Playwright OS deps only (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
 
-      - name: Run e2e suite (phone + desktop, mock daemon, hermetic)
-        run: bun run e2e
+      - name: Playwright, phone project
+        run: bun run e2e:phone
 
       - name: Upload traces/report/screenshots on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report
+          name: playwright-report-phone
           path: |
             e2e/.artifacts/report
             e2e/.artifacts/test-output
           retention-days: 14
           if-no-files-found: ignore
 
+  # Does this push release? True for a push to main whose package.json version
+  # has no tag yet: exactly the pushes auto-release tags. The release gates and
+  # auto-release run only then, so an ordinary push pays for neither.
+  release-intent:
+    name: Release intent
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      releasing: ${{ steps.intent.outputs.releasing }}
+      version: ${{ steps.intent.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Is this version untagged?
+        id: intent
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version package.json)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "refs/tags/v${VERSION}"; then
+            echo "v${VERSION} is already tagged; this push does not release."
+            echo "releasing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v${VERSION} has no tag; this push releases it once every job is green."
+            echo "releasing=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The Playwright projects the per-push e2e job does not run (desktop and
+  # lan-origin), for this commit, only when it would release. Together with the
+  # phone job above that is the full matrix, each project run once.
+  release-gates:
+    name: Release gates
+    needs: [release-intent]
+    if: needs.release-intent.outputs.releasing == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release-gates.yml
+    with:
+      playwright-projects: "--project=desktop --project=lan-origin"
+
   auto-release:
     # Zero-touch release: a green push-CI run on main is the only thing that
     # gates a release. The git tag and the GitHub release page are cut here from
     # CHANGELOG.md; no separate workflow, no manual dispatch, no human step
-    # after the other three jobs go green.
+    # after every other job in this run, the release gates included, is green.
+    # It runs only when release-intent says this push's version has no tag.
     #
     # This repo DOES ship an artifact now: the built bundle, as
     # goodvibes-webui-bundle-<version>.tar.gz plus a SHA256SUMS.txt. That is
@@ -186,8 +238,8 @@ jobs:
     # release the installer will note and skip, so the packing step is fatal
     # rather than best-effort.
     name: Auto Release
-    needs: [test, lint, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [typecheck, lint, test, build, e2e, release-intent, release-gates]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.release-intent.outputs.releasing == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

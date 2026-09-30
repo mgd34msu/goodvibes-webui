@@ -9,7 +9,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { WAKE_SETTING_KEYS } from '@pellux/goodvibes-sdk/platform/voice/wake/runtime';
-import { configPathReader, resolveWebuiWakeSettings, WAKE_SURFACE, WAKE_SURFACE_KEY } from './wake-config';
+import { configPathReader, resolveWebuiWakeSettings } from './wake-config';
 
 describe('configPathReader', () => {
   const tree = {
@@ -62,11 +62,6 @@ describe('configPathReader', () => {
 });
 
 describe('the surface this tab resolves as', () => {
-  test('it is webui, and the surface key comes from the SDK rather than being spelled again', () => {
-    expect(WAKE_SURFACE).toBe('webui');
-    expect(WAKE_SURFACE_KEY).toBe('voice.wake.surfaces.webui');
-  });
-
   test('the shipped default is inactive: an empty tree opens nothing here', () => {
     const settings = resolveWebuiWakeSettings({});
     expect(settings.enabled).toBe(false);

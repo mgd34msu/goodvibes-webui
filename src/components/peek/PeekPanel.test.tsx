@@ -20,7 +20,7 @@
  * DOM click events on happy-dom elements work correctly: PeekPanel uses React
  * onClick which delegates via React's container (a happy-dom element).
  */
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -79,6 +79,16 @@ function removeCapture(): void {
 }
 
 /** Invoke ALL captured window keydown handlers (PeekPanel registers 2). */
+/**
+ * Advance the fake clock inside flushSync, so a state update a timer callback
+ * makes is committed before this returns.
+ */
+function elapse(ms: number): void {
+  flushSync(() => {
+    jest.advanceTimersByTime(ms);
+  });
+}
+
 function fireKeydown(key: string, shiftKey = false): void {
   const handlers = _capturedWindow.get('keydown') ?? [];
   const evt = { key, shiftKey, preventDefault: () => {} };
@@ -412,29 +422,30 @@ describe('PeekPanel: focus restoration on close', () => {
 
 // ---------------------------------------------------------------------------
 // Deferred payload cleanup after close (PEEK_EXIT_DELAY_MS = 320 ms)
-// PeekPanel.tsx:250-254: close() calls setTimeout(() => setPayload(null), 320)
+// close() calls setTimeout(() => setPayload(null), 320); fake timers step it.
 // ---------------------------------------------------------------------------
 
 describe('PeekPanel: deferred payload cleanup', () => {
-  test('payload content is cleared after PEEK_EXIT_DELAY_MS following close()', async () => {
-    handle.open('Cleanup Test', <span data-testid="cleanup-content">Content</span>);
-    expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
+  test('payload content stays through the 320 ms exit window and is cleared at its end', () => {
+    jest.useFakeTimers();
+    try {
+      handle.open('Cleanup Test', <span data-testid="cleanup-content">Content</span>);
+      expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
 
-    handle.close();
-    // isOpen is false immediately
-    expect(handle.isOpen()).toBe(false);
+      handle.close();
+      // isOpen is false immediately
+      expect(handle.isOpen()).toBe(false);
 
-    // Content is still mounted (exit animation window)
-    expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
+      // Content stays mounted for the whole exit animation window...
+      elapse(319);
+      expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
 
-    // The provider clears the payload on a real 320 ms setTimeout, so poll
-    // with a generous deadline rather than racing it with one fixed sleep.
-    const deadline = Date.now() + 5000;
-    while (container.querySelector('[data-testid="cleanup-content"]') !== null && Date.now() < deadline) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 25));
-      flushSync(() => {});
+      // ...and is gone once it ends.
+      elapse(1);
+      expect(container.querySelector('[data-testid="cleanup-content"]')).toBeNull();
+    } finally {
+      jest.useRealTimers();
     }
-    expect(container.querySelector('[data-testid="cleanup-content"]')).toBeNull();
   });
 });
 

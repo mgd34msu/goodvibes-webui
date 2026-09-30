@@ -59,6 +59,8 @@ export interface ChatMockDaemon {
   toolCallCancelCalls: { sessionId: string; callId: string }[];
   /** The current queued-messages store for a session (sessions.queuedMessages.*). */
   queuedMessagesOf: (sessionId: string) => { id: string; queuedAt: number; text: string }[];
+  /** Every session the app has created, oldest first. */
+  sessionIds: () => string[];
 }
 
 export interface ChatMockOptions {
@@ -455,5 +457,6 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
     steerCalls,
     toolCallCancelCalls,
     queuedMessagesOf: (sessionId: string) => queuedMessagesBySession.get(sessionId) ?? [],
+    sessionIds: () => [...sessions.keys()],
   };
 }

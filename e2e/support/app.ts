@@ -86,3 +86,10 @@ export async function gotoView(page: Page, view: string): Promise<void> {
   await page.goto(`/?view=${view}`);
   await expect(page.locator('.app-shell')).toBeVisible();
 }
+
+/** Resolves after the page has painted two more frames (React has committed and run its effects). */
+export async function nextFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  );
+}

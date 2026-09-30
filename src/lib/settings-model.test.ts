@@ -8,7 +8,7 @@ import {
   OWNED_CONFIG_KEYS,
   type SettingsGroupModel,
 } from './settings-model';
-import { FEATURE_SETTINGS } from './generated/config-schema';
+import { CONFIG_SCHEMA_ENTRIES, FEATURE_SETTINGS } from './generated/config-schema';
 import { isCardMaterialKey } from './card-material';
 
 function groupById(groups: SettingsGroupModel[], id: string): SettingsGroupModel | undefined {
@@ -95,12 +95,7 @@ describe('buildSettingsModel: domain grouping (dissolved feature model)', () => 
 });
 
 describe('buildSettingsModel: enablement state from domain settings keys', () => {
-  // 42 on: the paired-phone capability family ships enabled, with every
-  // capability asking before it runs (device.capabilities.mode honor-grants),
-  // and unified-runtime-task moved on when its recorded default was corrected,
-  // the flag had always claimed off while the behaviour it gates shipped on.
-  // 16 dark: the two wake-word features landing alongside it ship dark.
-  test('a stock config resolves every feature to its ruled default (42 on / 16 dark)', () => {
+  test('a stock config resolves every feature to its own default, none marked explicit', () => {
     const groups = buildSettingsModel({});
     const units = groups.flatMap((g) => g.featureUnits);
     expect(units.length).toBe(FEATURE_SETTINGS.length);
@@ -108,8 +103,6 @@ describe('buildSettingsModel: enablement state from domain settings keys', () =>
       expect(unit.enabled).toBe(unit.feature.defaultEnabled);
       expect(unit.explicit).toBe(false);
     }
-    expect(units.filter((u) => u.enabled).length).toBe(42);
-    expect(units.filter((u) => !u.enabled).length).toBe(16);
   });
 
   test('a boolean feature reads its live domain key', () => {
@@ -252,46 +245,32 @@ describe('object-typed schema keys (pricing.modelPrices)', () => {
   });
 });
 
-describe('new settings keys from the snapshot schema', () => {
+describe('every schema key is reachable in the model', () => {
   const groups = buildSettingsModel({});
-  const allFieldKeys = groups.flatMap((g) => [
-    ...g.plainRows.map((f) => f.key),
-    ...g.featureUnits.flatMap((u) => [
-      ...(u.enablementField ? [u.enablementField.key] : []),
-      ...u.fields.map((f) => f.key),
-    ]),
+  const rendered = groups.flatMap((g) => [
+    ...g.plainRows,
+    ...g.featureUnits.flatMap((u) => [...(u.enablementField ? [u.enablementField] : []), ...u.fields]),
   ]);
 
-  test.each([
-    'pricing.modelPrices',
-    'notifications.pushApproval',
-    'notifications.pushNeedsInput',
-    'notifications.pushCompletion',
-    'watchers.ciPollIntervalMs',
-    'update.auto',
-    'update.intervalMinutes',
-    'update.releasesUrl',
-    'surfaces.msteams.enabled',
-    'surfaces.bluebubbles.enabled',
-    'surfaces.mattermost.enabled',
-    'surfaces.matrix.enabled',
-    'surfaces.googleChat.enabled',
-    'surfaces.imessage.enabled',
-    'surfaces.signal.enabled',
-    'surfaces.telegram.enabled',
-    'surfaces.telephony.enabled',
-    'surfaces.whatsapp.enabled',
-    // SDK 2.0.0 re-pin: hostedSessions.promoteInboundConversations was absent from the
-    // config schema at 1.21.0 (see contract-bridge-types.ts's SWAP history), this pins
-    // that the row now renders schema-driven, like every other hostedSessions.* setting,
-    // with no code change to this module needed.
-    'hostedSessions.promoteInboundConversations',
-  ])('%s renders somewhere in the model with a description', (key) => {
-    expect(allFieldKeys).toContain(key);
-    const field = groups
-      .flatMap((g) => [...g.plainRows, ...g.featureUnits.flatMap((u) => [...(u.enablementField ? [u.enablementField] : []), ...u.fields])])
-      .find((f) => f.key === key);
-    expect(field?.description.length ?? 0).toBeGreaterThan(0);
+  test('each schema key other than card material renders, with the schema\'s own description', () => {
+    // A key two features both own renders under each of them; that is fine.
+    const renderedKeys = new Set(rendered.map((field) => field.key));
+    const missing: string[] = [];
+    for (const entry of CONFIG_SCHEMA_ENTRIES) {
+      if (isCardMaterialKey(entry.key)) {
+        expect(renderedKeys.has(entry.key), entry.key).toBe(false);
+        continue;
+      }
+      if (!renderedKeys.has(entry.key)) missing.push(entry.key);
+      for (const field of rendered.filter((f) => f.key === entry.key)) {
+        expect(field.description, entry.key).toBe(entry.description);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  test('a stock config renders no raw rows: every leaf it would carry has a schema entry', () => {
+    expect(groups.flatMap((g) => g.rawRows)).toEqual([]);
   });
 
   test('new surface credential keys are secret-masked', () => {
@@ -341,33 +320,10 @@ describe('voice.local.* and fleet.maxSize (SDK 1.8.0): grouping verification', (
     ].includes(key));
   }
 
-  test.each([
-    'voice.local.sttEngine',
-    'voice.local.sttBinary',
-    'voice.local.sttModelPath',
-    'voice.local.ttsEngine',
-    'voice.local.ttsBinary',
-    'voice.local.ttsModelPath',
-  ])('%s renders in the model with a description', (key) => {
-    const group = groupContaining(key);
-    const field = group?.plainRows.find((f) => f.key === key)
-      ?? group?.featureUnits.flatMap((u) => u.fields).find((f) => f.key === key);
-    expect(field, key).toBeDefined();
-    expect(field?.description.length ?? 0).toBeGreaterThan(0);
-  });
-
   test('every voice.local.* key groups under the "voice" domain, never misfiled elsewhere', () => {
     for (const key of ['voice.local.sttEngine', 'voice.local.sttBinary', 'voice.local.sttModelPath', 'voice.local.ttsEngine', 'voice.local.ttsBinary', 'voice.local.ttsModelPath']) {
       expect(groupContaining(key)?.id, key).toBe('voice');
     }
-  });
-
-  test('fleet.maxSize renders in the model with a description', () => {
-    const group = groupContaining('fleet.maxSize');
-    const field = group?.plainRows.find((f) => f.key === 'fleet.maxSize')
-      ?? group?.featureUnits.flatMap((u) => u.fields).find((f) => f.key === 'fleet.maxSize');
-    expect(field).toBeDefined();
-    expect(field?.description.length ?? 0).toBeGreaterThan(0);
   });
 
   test('fleet.maxSize groups under the "fleet" domain, never misfiled under "orchestration" (its pre-rename namespace)', () => {
@@ -443,10 +399,9 @@ describe('payments.* and daemon.timezone (payment capability round)', () => {
     'payments.windows.vetoMinutes',
     'payments.windows.approvalMinutes',
     'payments.notifyChannels',
-  ])('%s renders as a plain row in the payments group, daemon-owned, with a description', (key) => {
+  ])('%s renders as a plain row in the payments group, daemon-owned', (key) => {
     const field = paymentsGroup?.plainRows.find((f) => f.key === key);
     expect(field, key).toBeDefined();
-    expect(field!.description.length, key).toBeGreaterThan(0);
     expect(field!.daemonOwned, key).toBe(true);
   });
 

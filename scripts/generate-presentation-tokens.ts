@@ -22,17 +22,11 @@
  * re-export wouldn't catch a behavior change), so src/lib/presentation-bridge.ts
  * imports it directly from the SDK package instead of going through here.
  *
- * `--check` fails (exit 1) the moment either artifact drifts from a fresh
- * regeneration, mirrors the SDK's own refresh-contract-artifacts.ts /
- * check-contract-artifacts.ts convention (generate-or-check, checked-in
- * output, drift = CI/build failure).
+ * Regenerated at the version bump by `bun run release:prepare`
+ * (scripts/release-prepare.ts), never checked per push.
  *
  * Usage:
  *   bun run scripts/generate-presentation-tokens.ts          # write/update
- *   bun run scripts/generate-presentation-tokens.ts --check  # exit 1 on drift
- *
- * Wired into `bun run build` as `presentation:check` (see package.json) so a
- * contract change that isn't regenerated fails the build, not just CI.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -48,7 +42,6 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const CHECK_ONLY = process.argv.includes('--check');
 
 export const CSS_OUT_PATH = resolve(ROOT, 'src/styles/generated/presentation-tokens.css');
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/presentation-tokens.ts');
@@ -130,8 +123,7 @@ const GENERATED_BANNER = [
   'and the state tone-color table.',
   '',
   'Regenerate: `bun run presentation:generate`.',
-  'Verify (no write): `bun run presentation:check`, wired into `bun run',
-  'build`, so a contract change that was not regenerated fails the build.',
+  '`bun run release:prepare` runs it at every version bump.',
 ].join('\n * ');
 
 /** Strip trailing whitespace introduced by joining banner lines around blanks. */
@@ -203,10 +195,10 @@ export function renderTs(snapshot: PresentationContractSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI, generate-or-check against the two checked-in artifact paths.
+// CLI, regenerate the two checked-in artifact paths.
 // ---------------------------------------------------------------------------
 
-export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
+export function writeIfChanged(path: string, content: string): boolean {
   let current: string | null;
   try {
     current = readFileSync(path, 'utf8');
@@ -214,10 +206,6 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
     current = null;
   }
   if (current === content) return false;
-  if (checkOnly) {
-    console.error(`[presentation:check] drift: ${path}`);
-    return true;
-  }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
   console.log(`[presentation:generate] wrote: ${path}`);
@@ -226,15 +214,8 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
 
 if (import.meta.main) {
   const snapshot = loadContractSnapshot();
-  let drifted = false;
-  drifted = writeIfChanged(CSS_OUT_PATH, renderCss(snapshot), CHECK_ONLY) || drifted;
-  drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY) || drifted;
-
-  if (CHECK_ONLY && drifted) {
-    console.error('[presentation:check] drift detected: run `bun run presentation:generate`');
-    process.exit(1);
-  }
-  if (!drifted) {
-    console.log(CHECK_ONLY ? '[presentation:check] up-to-date' : '[presentation:generate] up-to-date');
-  }
+  let written = false;
+  written = writeIfChanged(CSS_OUT_PATH, renderCss(snapshot)) || written;
+  written = writeIfChanged(TS_OUT_PATH, renderTs(snapshot)) || written;
+  if (!written) console.log('[presentation:generate] up-to-date');
 }

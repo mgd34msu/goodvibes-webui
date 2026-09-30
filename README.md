@@ -1,8 +1,8 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 1.13.14](https://img.shields.io/badge/WebUI-1.13.14-00d7ff)
-![SDK 2.0.19](https://img.shields.io/badge/SDK-2.0.19-8b5cf6)
+![WebUI 1.13.20](https://img.shields.io/badge/WebUI-1.13.20-00d7ff)
+![SDK 2.1.0](https://img.shields.io/badge/SDK-2.1.0-8b5cf6)
 ![Bun 1.3.14](https://img.shields.io/badge/Bun-1.3.14-f7a8ff)
 
 GoodVibes WebUI is the browser surface for a GoodVibes daemon, a full chat
@@ -164,17 +164,19 @@ bun run dev
 | Command | Does |
 | --- | --- |
 | `bun run dev` | Run the WebUI against a configured/resolved daemon |
-| `bun run test` | Bun's isolated test runner (2,703 tests across 189 files, verified passing while writing this) |
-| `bun run typecheck` | `tsc --noEmit` (verified clean while writing this) |
-| `bun run build` | Presentation-token, config-schema, and internal-identifier checks, typecheck, then `vite build` |
+| `bun run test:changed` | The unit test files affected by changes since `origin/main` |
+| `bun run test` | The whole unit suite (Bun, isolated) |
+| `bun run typecheck` | `tsc` over `src/`, `scripts/` and `e2e/` |
+| `bun run build` | `vite build` |
 | `bun run lint` | ESLint over the whole tree |
-| `bun run e2e` | Playwright, phone + desktop projects, against the hermetic mock daemon (`e2e/support/mock-daemon.ts`) |
-| `bun run ci` | `test` + `typecheck` + `build`, the same sequence CI runs |
-| `bun run gate` | `ci` plus the release gate (SDK pin/lock/import agreement) |
+| `bun run e2e:phone` | Playwright's phone project against the hermetic mock daemon (`e2e/support/mock-daemon.ts`) |
+| `bun run e2e` | Every Playwright project (phone, desktop, lan-origin) |
+| `bun run release:prepare` | Version bump plus everything derived from it or from the SDK |
 
-GitHub Actions runs three jobs on every push and pull request to `main`, all
-three blocking: `test` (typecheck, test, build, coverage, the release gate),
-`lint`, and `e2e` (Playwright, phone + desktop, hermetic mock daemon). No job
+GitHub Actions runs typecheck, lint, one unit run, the build with the SDK pin
+agreement, and Playwright's phone project on every push and pull request to
+`main`; the desktop and lan-origin projects run before a release and nightly
+([docs/testing-and-validation.md](docs/testing-and-validation.md)). No job
 runs with `continue-on-error`. A red job reds the run
 (ruling: [docs/decisions/2026-07-07-e2e-ci-in-ci.md](docs/decisions/2026-07-07-e2e-ci-in-ci.md)).
 A green push-CI run on `main` is the only release gate. The workflow tags the
@@ -225,9 +227,9 @@ This repo is not published to npm by design. It is versioned with semantic
 opens a GitHub Release whose notes are cut from `CHANGELOG.md`, with the built
 bundle tarball and its checksum manifest attached for the suite installer.
 Run it from `bun install` + `bun run build`, or let a daemon serve the built
-bundle same-origin. Every shipped change updates `package.json`,
-`CHANGELOG.md`, the version badges above, and `index.html`'s cache-bust query
-string. Documentation always describes the **current** behavior, not
+bundle same-origin. Every shipped change runs `bun run release:prepare`,
+which updates `package.json`, `CHANGELOG.md`, the version badges above, and
+`index.html`'s cache-bust query string. Documentation always describes the **current** behavior, not
 historical behavior. See [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## License

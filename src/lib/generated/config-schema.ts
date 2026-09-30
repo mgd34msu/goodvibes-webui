@@ -8,8 +8,7 @@
  * config barrel (which drags SecretsManager / OAuth / google-auth, node-only).
  *
  * Regenerate: `bun run config-schema:generate`.
- * Verify (no write): `bun run config-schema:check`, wired into `bun run build`,
- * so an SDK schema change that was not regenerated fails the build.
+ * `bun run release:prepare` runs it at every version bump.
  */
 
 export interface ConfigSchemaEntry {

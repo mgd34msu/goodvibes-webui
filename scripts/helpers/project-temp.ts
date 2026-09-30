@@ -11,9 +11,8 @@
  * prefixes. This repo's contribution to that was small, 3 call sites when
  * this was written, but the same failure mode applies here.
  *
- * This module gives the two remaining call sites
- * (scripts/internal-identifier-check.test.ts, scripts/sdk-dev.test.ts) one
- * place to create and clean up scratch directories:
+ * This module gives the scripts' tests (sdk-dev, pack-bundle, check-workflows,
+ * the generators) one place to create and clean up scratch directories:
  *
  *   - `makeProjectTempDir` roots scratch dirs under an in-repo `.test-tmp/`
  *     directory (already gitignored) instead of the shared OS tmpdir, so a
@@ -59,7 +58,10 @@ export const PROJECT_TEMP_ROOT = join(REPO_ROOT, '.test-tmp');
  * sweep and the ESLint rule's allowlist (if ever needed) have a single
  * source of truth instead of three independently-drifting copies.
  *
- * - 'internal-id-check-'   scripts/internal-identifier-check.test.ts
+ * - 'internal-id-check-'   HISTORICAL, its test was removed with the check
+ * - 'webui-gen-ownership-', 'webui-gen-presentation-'
+ *                          scripts/generate-*.test.ts
+ * - 'webui-check-workflows-' scripts/check-workflows.test.ts
  * - 'webui-sdk-dev-'       scripts/sdk-dev.test.ts
  * - 'temp-root-proof-'     scripts/test-temp-root.test.ts, only reaches the real
  *                          tmpdir if the preload redirect it tests has broken
@@ -76,6 +78,9 @@ export const PROJECT_TEMP_ROOT = join(REPO_ROOT, '.test-tmp');
  */
 export const KNOWN_TEMP_PREFIXES = [
   'internal-id-check-',
+  'webui-gen-ownership-',
+  'webui-gen-presentation-',
+  'webui-check-workflows-',
   'webui-sdk-dev-',
   'temp-root-proof-',
   'pack-bundle-',
@@ -156,8 +161,8 @@ function register(dir: string): string {
  *
  * This module does not import `bun:test` itself and call `afterAll`
  * directly: it is a plain helper reachable from non-test entry points
- * (scripts/sweep-stale-temp.ts and scripts/coverage.ts both import
- * `sweepStaleProjectTempDirs` from here and run under `bun run`, not
+ * (scripts/sweep-stale-temp.ts imports `sweepStaleProjectTempDirs` from here
+ * and runs under `bun run`, not
  * `bun test`), where `bun:test` lifecycle hooks do not apply and importing
  * them would be a lie about what this module is.
  */
@@ -170,10 +175,9 @@ export function installTestCleanup(afterAllFn: (fn: () => void) => void): void {
  * and register it for best-effort removal.
  *
  * Use this for scratch dirs that never boot a real daemon or otherwise
- * depend on living outside the checkout, today that's
- * internal-identifier-check.test.ts and sdk-dev.test.ts. Both of those are
- * `.test.ts` files, so BOTH must also call `installTestCleanup(afterAll)`
- * once at module top level (see that function's doc comment), the
+ * depend on living outside the checkout. A `.test.ts` caller should also
+ * call `installTestCleanup(afterAll)` once at module top level (see that
+ * function's doc comment), or remove its directory itself, since the
  * `process.on('exit')` fallback registered here does not fire under
  * `bun test` and exists only for non-test-runner callers.
  */

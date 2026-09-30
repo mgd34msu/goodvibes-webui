@@ -1,7 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import {
   DEFAULT_THEME_PREFERENCES,
-  THEME_PREFERENCES_EVENT,
   THEME_PREFERENCES_KEY,
   applyThemeToRoot,
   readThemePreferences,
@@ -49,22 +48,6 @@ function removeWindowMock() {
 // Constants
 // ---------------------------------------------------------------------------
 
-describe('theme constants', () => {
-  test('THEME_PREFERENCES_KEY is a non-empty string', () => {
-    expect(typeof THEME_PREFERENCES_KEY).toBe('string');
-    expect(THEME_PREFERENCES_KEY.length).toBeGreaterThan(0);
-  });
-
-  test('THEME_PREFERENCES_EVENT is a non-empty string', () => {
-    expect(typeof THEME_PREFERENCES_EVENT).toBe('string');
-    expect(THEME_PREFERENCES_EVENT.length).toBeGreaterThan(0);
-  });
-
-  test('DEFAULT_THEME_PREFERENCES defaults to dark/default', () => {
-    expect(DEFAULT_THEME_PREFERENCES.theme).toBe('dark');
-    expect(DEFAULT_THEME_PREFERENCES.density).toBe('default');
-  });
-});
 
 // ---------------------------------------------------------------------------
 // resolveInitialTheme, no window

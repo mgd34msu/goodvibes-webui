@@ -60,12 +60,6 @@ describe('web app manifest', () => {
 
 describe('index.html links the manifest and PWA metas', () => {
   const html = readFileSync(join(REPO_ROOT, 'index.html'), 'utf8');
-  test('links the manifest, a theme-color, and the apple app-capable metas', () => {
-    expect(html).toContain('rel="manifest"');
-    expect(html).toContain('manifest.webmanifest');
-    expect(html).toContain('name="theme-color"');
-    expect(html).toContain('apple-mobile-web-app-capable');
-  });
   test('the theme-color meta matches the manifest theme_color', () => {
     const meta = html.match(/name="theme-color"\s+content="(#[0-9a-fA-F]{3,8})"/);
     expect(meta).not.toBeNull();

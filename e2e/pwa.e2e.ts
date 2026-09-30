@@ -43,18 +43,7 @@ test('index.html links the manifest and a theme-color', async ({ page }) => {
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#08080f');
 });
 
-// ── Service worker: served, honest never-cache rule, and registers ─────────
-
-test('the service worker is served and keeps daemon data off the cache (the honesty line)', async ({ page }) => {
-  const response = await page.request.get('/sw.js');
-  expect(response.ok()).toBeTruthy();
-  const body = await response.text();
-  // The shipped SW must never cache API responses, proven by the guard's
-  // presence in the served file, not just in source.
-  expect(body).toContain('/api/');
-  expect(body).toContain('NEVER_CACHE_PREFIXES');
-  expect(body).toContain('isNeverCache');
-});
+// ── Service worker registers (offline behavior: pwa-offline.e2e.ts) ─────────
 
 test('the service worker registers in the browser', async ({ page }) => {
   await installMockDaemon(page);

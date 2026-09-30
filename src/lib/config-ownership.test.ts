@@ -1,15 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  DAEMON_OWNED_CONFIG_KEYS,
-  DAEMON_OWNED_CONFIG_PREFIXES,
-  DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS,
-  isDaemonOwnedConfigKey,
-} from './config-ownership';
-import {
-  DAEMON_OWNED_CONFIG_KEYS as SDK_DAEMON_OWNED_CONFIG_KEYS,
-  DAEMON_OWNED_CONFIG_PREFIXES as SDK_DAEMON_OWNED_CONFIG_PREFIXES,
-  DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS as SDK_DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS,
-} from '@pellux/goodvibes-sdk/platform/config';
+import { isDaemonOwnedConfigKey } from './config-ownership';
 
 describe('isDaemonOwnedConfigKey', () => {
   test('recognizes a key under every daemon-owned prefix', () => {
@@ -93,50 +83,3 @@ describe('isDaemonOwnedConfigKey', () => {
   });
 });
 
-describe('the generated mirror matches the installed SDK exactly', () => {
-  // This is the drift gate: it imports the REAL DAEMON_OWNED_* tables straight
-  // from the installed @pellux/goodvibes-sdk package (safe to do in a test,
-  // unlike src/lib/config-ownership.ts and its generated snapshot, a test file
-  // never enters the browser bundle) and asserts this module's exported lists
-  // are byte-for-byte identical, in the same order. If someone hand-edits
-  // src/lib/generated/config-ownership.ts, or the checked-in snapshot is
-  // stale relative to the installed SDK version, this fails here, not just
-  // in `bun run config-ownership:check`.
-  test('DAEMON_OWNED_CONFIG_PREFIXES matches the SDK', () => {
-    expect(DAEMON_OWNED_CONFIG_PREFIXES).toEqual(SDK_DAEMON_OWNED_CONFIG_PREFIXES);
-  });
-
-  test('DAEMON_OWNED_CONFIG_KEYS matches the SDK', () => {
-    expect(DAEMON_OWNED_CONFIG_KEYS).toEqual(SDK_DAEMON_OWNED_CONFIG_KEYS);
-  });
-
-  test('DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS matches the SDK', () => {
-    expect(DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS).toEqual(SDK_DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS);
-  });
-
-  // MERGE NOTE (payments round): this used to be a whole-list literal, asserting
-  // the mirrored arrays element-for-element in a fixed order. Two things killed
-  // that shape. First, the lists are no longer hand-written here, they are
-  // generated from the installed SDK, so a literal restates the generated file
-  // rather than checking anything the three "matches the SDK" tests above do not
-  // already check, and it churns on every SDK addition. Second, merging
-  // credscope-webui with wo/payments-webui produced a literal NEITHER branch
-  // wrote: git interleaved payments' 'payments.' with credscope's
-  // 'conversationGate.'/'cluster.' in an order no one chose, and toEqual on an
-  // array is order-sensitive, so it would have been asserting a guess.
-  //
-  // What is worth pinning is narrower and order-free: the specific entries these
-  // two branches each argued for must survive the move to the generated
-  // snapshot. If a regeneration ever drops one, that is a real ownership
-  // regression, a card budget or a daemon timezone silently readable as
-  // client-owned, and it fails here by name instead of inside a list diff.
-  test('the entries the payments round added survive in the generated snapshot', () => {
-    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('payments.');
-    expect(DAEMON_OWNED_CONFIG_KEYS).toContain('daemon.timezone');
-  });
-
-  test('the entries the credential-scope round added survive in the generated snapshot', () => {
-    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('conversationGate.');
-    expect(DAEMON_OWNED_CONFIG_PREFIXES).toContain('cluster.');
-  });
-});

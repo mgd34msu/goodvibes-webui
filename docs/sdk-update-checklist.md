@@ -51,17 +51,25 @@ Clear Vite optimized deps:
 rm -rf node_modules/.vite
 ```
 
-Run local CI:
+Regenerate what the SDK and the version feed (below), then check the change
+locally; CI runs the full suites:
 
 ```bash
-bun run ci
+bun run test:changed
+bun run typecheck
 ```
 
 ## Version and changelog
 
-Bump WebUI patch version in `package.json`.
+Bump the version and regenerate everything derived from the SDK and the
+version (the config schema and ownership modules, the presentation tokens, the
+`index.html` cache-bust values, the README badges, the CHANGELOG section):
 
-Add a `CHANGELOG.md` entry:
+```bash
+bun run release:prepare --patch
+```
+
+Write the scaffolded `CHANGELOG.md` entry:
 
 ```md
 ## [<webui-version>] - YYYY-MM-DD
@@ -71,7 +79,6 @@ Add a `CHANGELOG.md` entry:
 - Updated `@pellux/goodvibes-sdk` to `<version>`.
 ```
 
-Update cache-bust values in `index.html` to the new WebUI version.
 
 ## Source checks
 
@@ -90,7 +97,7 @@ request and SDK handoff. Do not add Home Graph behavior to regular Knowledge.
 ## Commit and push (CI cuts the tag)
 
 ```bash
-git add CHANGELOG.md bun.lock index.html package.json
+git add CHANGELOG.md README.md bun.lock index.html package.json src/lib/generated src/styles/generated
 git commit -m "Update GoodVibes SDK to <version>"
 git push origin main
 ```

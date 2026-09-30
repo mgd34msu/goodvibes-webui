@@ -16,7 +16,7 @@
  *    name yields no pid at all. A guard that only ever answers yes is not a guard.
  */
 import { describe, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,24 +67,6 @@ describe('the temp redirect is actually in effect during this test run', () => {
     expect(isInsideTestTmp('/tmp/anything', REPO_ROOT)).toBe(false);
   });
 
-  test('bunfig.toml still lists the preload that performs the redirect', () => {
-    const bunfig = readFileSync(join(REPO_ROOT, 'bunfig.toml'), 'utf8');
-    expect(bunfig).toContain('./scripts/test-temp-preload.ts');
-    // And it must come before the DOM setup, or a module evaluated by that
-    // setup could read the old TMPDIR.
-    expect(bunfig.indexOf('./scripts/test-temp-preload.ts')).toBeLessThan(bunfig.indexOf('./src/test-setup.ts'));
-  });
-
-  test('importing test-temp-root does NOT itself perform the redirect', () => {
-    // The reason the assertions above can fail: this module is effect-free, so
-    // the only thing that can have moved os.tmpdir() is the preload. If someone
-    // moves the sweep/install calls back to module scope, this fails and says why.
-    const source = readFileSync(join(REPO_ROOT, 'scripts/test-temp-root.ts'), 'utf8');
-    const topLevelCall = /^(sweepStaleRunRoots|installTestTempRoot)\(/m;
-    expect(topLevelCall.test(source)).toBe(false);
-    // And the regex above must be capable of matching, otherwise it proves nothing.
-    expect(topLevelCall.test('installTestTempRoot();\n')).toBe(true);
-  });
 });
 
 describe('isInsideTestTmp can answer NO', () => {

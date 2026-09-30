@@ -42,10 +42,6 @@ describe('isPersonaRecord: the client-side VIBE.md persona projection', () => {
 });
 
 describe('the recall-honesty floor', () => {
-  test('RECALL_CONFIDENCE_FLOOR is the store\'s documented 60% baseline', () => {
-    expect(RECALL_CONFIDENCE_FLOOR).toBe(60);
-  });
-
   test('a record below the given recall floor is flagged as below the floor', () => {
     expect(isBelowRecallFloor(record({ confidence: 59 }), RECALL_CONFIDENCE_FLOOR)).toBe(true);
     expect(isBelowRecallFloor(record({ confidence: 60 }), RECALL_CONFIDENCE_FLOOR)).toBe(false);

@@ -49,6 +49,16 @@ function firstPrivateNetworkAddress(): string | undefined {
   return undefined;
 }
 
+/**
+ * A production build served by `vite preview`, for the offline PWA spec
+ * (pwa-offline.e2e.ts). The service worker caches only built, hashed assets
+ * (never the dev server's /src modules), so "the app opens offline" is only
+ * provable against a build. Building takes a few seconds; the preview proxies
+ * /api to the same deliberate-503 stub as the dev server.
+ */
+const PREVIEW_PORT = Number(process.env.GOODVIBES_E2E_PREVIEW_PORT ?? 4320);
+const PREVIEW_DIST = 'e2e/.artifacts/preview-dist';
+
 const LAN_ORIGIN_PORT = Number(process.env.GOODVIBES_E2E_LAN_PORT ?? 4319);
 const LAN_ORIGIN_HOST = firstPrivateNetworkAddress();
 const LAN_ORIGIN_SPEC = '**/lan-origin-posture.e2e.ts';
@@ -59,10 +69,14 @@ export default defineConfig({
   // *.test.ts across the repo, never tries to run these Playwright suites.
   testMatch: '**/*.e2e.ts',
   outputDir: './e2e/.artifacts/test-output',
-  fullyParallel: false,
+  // Every test gets its own browser context and its own in-page mock daemon, so
+  // tests are independent and run in parallel, file by file and within a file.
+  // Per-push CI runs the phone project; the phone + desktop + lan-origin matrix
+  // runs in release-gates.yml (docs/testing-and-validation.md).
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  workers: 1,
+  workers: 4,
   reporter: [['list'], ['html', { outputFolder: 'e2e/.artifacts/report', open: 'never' }]],
   timeout: 60_000,
   expect: { timeout: 10_000 },
@@ -132,6 +146,16 @@ export default defineConfig({
         // registration are exercisable headlessly (it is PROD-gated otherwise, to
         // keep normal dev sessions HMR-friendly). 127.0.0.1 is a secure context.
         VITE_ENABLE_SW: '1',
+      },
+    },
+    {
+      command: `bunx vite build --outDir ${PREVIEW_DIST} --emptyOutDir && bunx vite preview --outDir ${PREVIEW_DIST} --host 127.0.0.1 --port ${String(PREVIEW_PORT)} --strictPort`,
+      url: `http://127.0.0.1:${String(PREVIEW_PORT)}`,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+      env: {
+        GOODVIBES_DAEMON_BASE_URL: 'http://127.0.0.1:59991',
+        GOODVIBES_TUI_SETTINGS_PATH: '/nonexistent/goodvibes-e2e-settings.json',
       },
     },
     // A second vite instance, bound to the host's own real private-network address

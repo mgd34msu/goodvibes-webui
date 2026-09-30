@@ -13,7 +13,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
-import { installFakeAudio, installVoiceRoutes } from './support/voice-mock';
+import { installFakeAudio, installVoiceRoutes, trackAudioContexts, waitForAudioFlow } from './support/voice-mock';
 import { expectNoHorizontalScroll, only, PHONE } from './support/app';
 
 test.use({
@@ -75,6 +75,7 @@ test('offers an honest refusal when no voice provider is configured', async ({ p
 test('dictation transcribes into the composer for review before sending', async ({ page }) => {
   await installChatMockDaemon(page);
   const voice = await installVoiceRoutes(page, { transcript: 'dictated hello world' });
+  await trackAudioContexts(page);
 
   await page.goto('/?view=chat');
   await expect(page.locator('.app-shell')).toBeVisible();
@@ -85,7 +86,7 @@ test('dictation transcribes into the composer for review before sending', async 
 
   const stopMic = page.locator('button[aria-label="Stop and transcribe"]');
   await expect(stopMic).toBeVisible();
-  await page.waitForTimeout(500); // let the fake device produce some audio
+  await waitForAudioFlow(page); // the fake device has produced real samples
   await stopMic.click();
 
   // The transcript fills the draft, it is NOT auto-sent (review before send).

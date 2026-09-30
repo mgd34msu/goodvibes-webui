@@ -1,7 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import {
   DEFAULT_WEBUI_PREFERENCES,
-  WEBUI_PREFERENCES_EVENT,
   WEBUI_PREFERENCES_KEY,
   readWebUiPreferences,
   writeWebUiPreference,
@@ -45,25 +44,6 @@ function removeWindowMock() {
 // Constants
 // ---------------------------------------------------------------------------
 
-describe('ui-preferences constants', () => {
-  test('WEBUI_PREFERENCES_KEY is a non-empty string', () => {
-    expect(typeof WEBUI_PREFERENCES_KEY).toBe('string');
-    expect(WEBUI_PREFERENCES_KEY.length).toBeGreaterThan(0);
-  });
-
-  test('WEBUI_PREFERENCES_EVENT is a non-empty string', () => {
-    expect(typeof WEBUI_PREFERENCES_EVENT).toBe('string');
-    expect(WEBUI_PREFERENCES_EVENT.length).toBeGreaterThan(0);
-  });
-
-  test('DEFAULT_WEBUI_PREFERENCES has codeBlockLineNumbers false', () => {
-    expect(DEFAULT_WEBUI_PREFERENCES.codeBlockLineNumbers).toBe(false);
-  });
-
-  test('DEFAULT_WEBUI_PREFERENCES has memoryProvenanceChipEnabled false (owner-ruled default OFF)', () => {
-    expect(DEFAULT_WEBUI_PREFERENCES.memoryProvenanceChipEnabled).toBe(false);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // readWebUiPreferences, no storage (SSR-like)

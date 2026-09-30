@@ -17,8 +17,8 @@
  * that version bumps.
  *
  * Run standalone: `bun run scripts/release-gate.ts`
- * Wired into: `bun run release:gate`, `bun run gate`, and `prepublishOnly`,
- * plus the "Release gates" step in .github/workflows/ci.yml.
+ * Wired into: `bun run release:gate` and `prepublishOnly`, plus the build
+ * job in .github/workflows/ci.yml.
  */
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';

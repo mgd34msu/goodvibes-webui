@@ -28,16 +28,13 @@
  *     requirement, stock default). There is no separate enablement namespace,
  *     features are configured through their domain settings keys.
  *     Nothing here reaches the browser bundle (this script only runs at build
- *     time, via config-schema:generate/:check).
+ *     time, via config-schema:generate).
  *
- * `--check` fails (exit 1) the moment the artifact drifts from a fresh
- * regeneration, same generate-or-check convention as presentation:check, wired
- * into `bun run build` so an SDK schema change that was not regenerated fails the
- * build, not just CI.
+ * Regenerated at the version bump by `bun run release:prepare`
+ * (scripts/release-prepare.ts), never checked per push.
  *
  * Usage:
  *   bun run scripts/generate-config-schema.ts          # write/update
- *   bun run scripts/generate-config-schema.ts --check  # exit 1 on drift
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -47,7 +44,6 @@ import { FEATURE_SETTINGS } from '@pellux/goodvibes-sdk/platform/runtime/feature
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const CHECK_ONLY = process.argv.includes('--check');
 
 export const TS_OUT_PATH = resolve(ROOT, 'src/lib/generated/config-schema.ts');
 
@@ -137,8 +133,7 @@ const GENERATED_BANNER = [
   "config barrel (which drags SecretsManager / OAuth / google-auth, node-only).",
   '',
   'Regenerate: `bun run config-schema:generate`.',
-  'Verify (no write): `bun run config-schema:check`, wired into `bun run build`,',
-  'so an SDK schema change that was not regenerated fails the build.',
+  '`bun run release:prepare` runs it at every version bump.',
 ].join('\n * ');
 
 export function renderTs(snapshot: ConfigSchemaSnapshot): string {
@@ -182,10 +177,10 @@ export function renderTs(snapshot: ConfigSchemaSnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// CLI, generate-or-check against the checked-in artifact.
+// CLI, regenerate the checked-in artifact.
 // ---------------------------------------------------------------------------
 
-export function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
+export function writeIfChanged(path: string, content: string): boolean {
   let current: string | null;
   try {
     current = readFileSync(path, 'utf8');
@@ -193,10 +188,6 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
     current = null;
   }
   if (current === content) return false;
-  if (checkOnly) {
-    console.error(`[config-schema:check] drift: ${path}`);
-    return true;
-  }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
   console.log(`[config-schema:generate] wrote: ${path}`);
@@ -205,16 +196,6 @@ export function writeIfChanged(path: string, content: string, checkOnly: boolean
 
 if (import.meta.main) {
   const snapshot = await loadSchemaSnapshot();
-  const drifted = writeIfChanged(TS_OUT_PATH, renderTs(snapshot), CHECK_ONLY);
-  if (CHECK_ONLY && drifted) {
-    console.error('[config-schema:check] drift detected: run `bun run config-schema:generate`');
-    process.exit(1);
-  }
-  console.log(
-    drifted
-      ? '[config-schema:generate] done'
-      : CHECK_ONLY
-        ? '[config-schema:check] up-to-date'
-        : '[config-schema:generate] up-to-date',
-  );
+  const written = writeIfChanged(TS_OUT_PATH, renderTs(snapshot));
+  console.log(written ? '[config-schema:generate] done' : '[config-schema:generate] up-to-date');
 }

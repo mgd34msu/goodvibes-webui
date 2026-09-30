@@ -6,7 +6,7 @@
  * without fake-timer / Date.now coordination complexity. This matches the
  * timer approach in src/hooks/useAnnouncer.test.tsx.
  */
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -78,8 +78,10 @@ function renderHook({
   };
 }
 
-/** Wait at least `ms` real milliseconds. */
-const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** Move the fake clock (timers and Date.now) forward by exactly `ms`. */
+const elapse = (ms: number): void => {
+  jest.advanceTimersByTime(ms);
+};
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -88,6 +90,7 @@ const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 let containers: HTMLElement[] = [];
 
 beforeEach(() => {
+  jest.useFakeTimers();
   containers = [];
 });
 
@@ -95,6 +98,7 @@ afterEach(() => {
   containers.forEach((el) => {
     if (el.parentNode) el.parentNode.removeChild(el);
   });
+  jest.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -102,7 +106,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useAutoDismiss (real hook, DOM render)', () => {
-  test('auto-dismisses after durationMs with no interaction', async () => {
+  test('auto-dismisses after durationMs with no interaction', () => {
     const onDismiss = mock((_id: string) => {});
     const { unmount } = renderHook({ durationMs: 60, onDismiss });
 
@@ -110,51 +114,53 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     expect(onDismiss).not.toHaveBeenCalled();
 
     // Wait longer than durationMs
-    await wait(100);
+    elapse(100);
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onDismiss).toHaveBeenCalledWith('toast-1');
 
     unmount();
   });
 
-  test('persistent toast (durationMs=0) never auto-dismisses', async () => {
+  test('persistent toast (durationMs=0) never auto-dismisses', () => {
     const onDismiss = mock((_id: string) => {});
     const { unmount } = renderHook({ durationMs: 0, onDismiss });
 
-    await wait(80);
+    elapse(80);
     expect(onDismiss).not.toHaveBeenCalled();
 
     unmount();
   });
 
-  test('hover pause stops timer; hover leave resumes: fires after remaining time', async () => {
+  test('hover pause stops timer; hover leave resumes: fires after remaining time', () => {
     const onDismiss = mock((_id: string) => {});
     const { handlers, unmount } = renderHook({ durationMs: 200, onDismiss });
 
     // Let 60ms elapse, then pause on hover
-    await wait(60);
+    elapse(60);
     handlers.handleMouseEnter();
 
     // Wait well past original 200ms deadline, timer should stay paused
-    await wait(180);
+    elapse(180);
     expect(onDismiss).not.toHaveBeenCalled();
 
-    // Resume hover, remaining ~140ms should fire
+    // Resume hover: exactly the remaining 140ms is left on the timer
     handlers.handleMouseLeave();
-    await wait(200);
+    elapse(139);
+    expect(onDismiss).not.toHaveBeenCalled();
+    elapse(1);
     expect(onDismiss).toHaveBeenCalledTimes(1);
 
     unmount();
   });
 
-  test('focus pause stops timer; focus-blur resumes: fires after remaining time', async () => {
+  test('focus pause stops timer; focus-blur resumes: fires after remaining time', () => {
     const onDismiss = mock((_id: string) => {});
     const { handlers, unmount } = renderHook({ durationMs: 200, onDismiss });
 
-    await wait(60);
+    elapse(60);
     handlers.handleFocus();
 
-    await wait(180);
+    elapse(180);
     expect(onDismiss).not.toHaveBeenCalled();
 
     // Simulate blur where focus moves outside the toast (relatedTarget = null → outside)
@@ -164,7 +170,7 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     } as unknown as React.FocusEvent;
     handlers.handleBlur(fakeBlur);
 
-    await wait(200);
+    elapse(200);
     expect(onDismiss).toHaveBeenCalledTimes(1);
 
     unmount();
@@ -172,24 +178,24 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
 
   test(
     'focus-enter → hover-enter → hover-leave stays paused → focus-leave resumes (exactly-once decrement)',
-    async () => {
+    () => {
       const onDismiss = mock((_id: string) => {});
       const { handlers, unmount } = renderHook({ durationMs: 300, onDismiss });
 
       // 1. focus-enter: timer paused, remaining decremented from full duration
-      await wait(50);
+      elapse(50);
       handlers.handleFocus();
 
       // 2. hover-enter while focus already active: already paused → no second decrement
-      await wait(30);
+      elapse(30);
       handlers.handleMouseEnter();
 
       // 3. hover-leave: focus still active → timer must NOT resume
-      await wait(20);
+      elapse(20);
       handlers.handleMouseLeave();
 
       // Wait past original 300ms, must stay paused
-      await wait(300);
+      elapse(300);
       expect(onDismiss).not.toHaveBeenCalled();
 
       // 4. focus-leave: both channels clear → timer re-arms for remaining time
@@ -200,18 +206,18 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
       handlers.handleBlur(fakeBlur);
 
       // Now the timer should fire (remaining was ~250ms from the 50ms elapsed before pause)
-      await wait(350);
+      elapse(350);
       expect(onDismiss).toHaveBeenCalledTimes(1);
 
       unmount();
     },
   );
 
-  test('blur that stays inside currentTarget does not resume timer', async () => {
+  test('blur that stays inside currentTarget does not resume timer', () => {
     const onDismiss = mock((_id: string) => {});
     const { handlers, unmount } = renderHook({ durationMs: 200, onDismiss });
 
-    await wait(40);
+    elapse(40);
     handlers.handleFocus();
 
     // Blur where focus stays inside the element, should NOT resume
@@ -222,20 +228,20 @@ describe('useAutoDismiss (real hook, DOM render)', () => {
     } as unknown as React.FocusEvent;
     handlers.handleBlur(fakeBlur);
 
-    await wait(220);
+    elapse(220);
     expect(onDismiss).not.toHaveBeenCalled();
 
     unmount();
   });
 
-  test('unmounting before timeout does not call onDismiss', async () => {
+  test('unmounting before timeout does not call onDismiss', () => {
     const onDismiss = mock((_id: string) => {});
     const { unmount } = renderHook({ durationMs: 100, onDismiss });
 
-    await wait(20);
+    elapse(20);
     unmount();
 
-    await wait(120);
+    elapse(120);
     expect(onDismiss).not.toHaveBeenCalled();
   });
 });

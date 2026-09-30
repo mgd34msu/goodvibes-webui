@@ -35,10 +35,8 @@
  * `src/lib/generated/config-ownership.ts`. This module re-exports that
  * snapshot and layers the same derived predicate the SDK exposes
  * (`isDaemonOwnedConfigKey`) on top of it, so the browser bundle never pulls
- * in SecretsManager / OAuth / google-auth, and the data itself can no longer
- * silently drift: `bun run config-ownership:check` fails the build the moment
- * the checked-in snapshot disagrees with a fresh regeneration from the
- * installed SDK, exactly like `config-schema:check` already does for
+ * in SecretsManager / OAuth / google-auth. `bun run release:prepare` regenerates
+ * the snapshot from the installed SDK at every version bump, as it does
  * CONFIG_SCHEMA.
  */
 import {
@@ -53,8 +51,8 @@ import {
  * lists this module carried at the time. Those lists are exactly what the
  * generator above replaced, so the hand-written copies are not carried
  * forward, the two entries now arrive from the SDK's own tables via
- * src/lib/generated/config-ownership.ts, which is where they belong and where
- * `bun run config-ownership:check` can keep them honest.
+ * src/lib/generated/config-ownership.ts, which is where they belong and which
+ * `bun run release:prepare` regenerates at every bump.
  *
  * Their reasoning, recorded here because a generated file has nowhere to put
  * it: the daemon is the process that holds the card and charges it, with

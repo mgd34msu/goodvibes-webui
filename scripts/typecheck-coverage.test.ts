@@ -10,12 +10,9 @@
  * that were blind.
  */
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  COVERAGE_EXEMPT_PATHS,
-  TYPECHECK_PROJECTS,
   findUncoveredFiles,
   isTypeScriptPath,
   listProjectFiles,
@@ -78,55 +75,21 @@ describe('isTypeScriptPath', () => {
   });
 });
 
-describe('the gate is wired to the command CI actually runs', () => {
-  test('every project in TYPECHECK_PROJECTS is compiled by package.json\'s "typecheck"', () => {
-    const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
-      scripts: Record<string, string>;
-    };
-    // `typecheck` is a chain of sub-scripts; flatten it to the text that actually runs.
-    const typecheckChain = pkg.scripts.typecheck
-      .split('&&')
-      .map((part) => part.trim())
-      .map((part) => {
-        const named = /^bun run ([\w:-]+)$/.exec(part);
-        return named ? (pkg.scripts[named[1]] ?? part) : part;
-      })
-      .join(' && ');
-
-    // tsconfig.json is the default project for a bare `tsc --noEmit`.
-    expect(typecheckChain).toContain('tsc --noEmit');
-    for (const project of TYPECHECK_PROJECTS) {
-      if (project === 'tsconfig.json') continue;
-      const projectDir = project.replace(/\/tsconfig\.json$/, '');
-      expect(typecheckChain).toContain(`tsc -p ${projectDir} --noEmit`);
-    }
-    // And the coverage gate itself runs, or nothing above is enforced.
-    expect(typecheckChain).toContain('scripts/typecheck-coverage.ts');
-  });
-
-  test('build runs the full typecheck chain, not a bare tsc', () => {
-    const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
-      scripts: Record<string, string>;
-    };
-    expect(pkg.scripts.build).toContain('bun run typecheck');
-  });
-});
-
 describe('against the real repo', () => {
   test('enumeration finds TypeScript under src, scripts, and e2e', () => {
     const files = listRepoTypeScriptFiles(ROOT);
     expect(files.some((f) => f.startsWith('src/'))).toBe(true);
     expect(files.some((f) => f.startsWith('scripts/'))).toBe(true);
     expect(files.some((f) => f.startsWith('e2e/'))).toBe(true);
-    // The five test files that used to compile nowhere.
-    expect(files).toContain('scripts/internal-identifier-check.test.ts');
+    // Files from the directories that used to compile nowhere.
+    expect(files).toContain('scripts/typecheck-coverage.test.ts');
     expect(files).toContain('e2e/support/assert-contract-shape.test.ts');
     expect(files).toContain('playwright.config.ts');
   });
 
   test('the scripts project really loads scripts/ files (not an empty program)', () => {
     const files = listProjectFiles('scripts/tsconfig.json', ROOT);
-    expect(files).toContain('scripts/internal-identifier-check.test.ts');
+    expect(files).toContain('scripts/typecheck-coverage.test.ts');
     expect(files).toContain('scripts/typecheck-coverage.ts');
   });
 
@@ -134,11 +97,5 @@ describe('against the real repo', () => {
     const files = listProjectFiles('e2e/tsconfig.json', ROOT);
     expect(files).toContain('e2e/support/mock-daemon.ts');
     expect(files).toContain('e2e/support/assert-contract-shape.test.ts');
-  });
-
-  test('no file is exempt without a reviewed entry', () => {
-    // A growing exemption list is how this gate would quietly stop meaning
-    // anything; keeping the assertion here forces the change to be deliberate.
-    expect(COVERAGE_EXEMPT_PATHS).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
+import { nextFrames } from './support/app';
 
 const COMPOSER = 'textarea[aria-label="Message GoodVibes"]';
 
@@ -73,9 +74,12 @@ test('press-and-hold on the send button steers (the touch counterpart of Ctrl+En
   expect(box).not.toBeNull();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(750); // past the 550ms hold threshold
+  // The hold fires the steer while the button is still pressed.
+  await expect.poll(() => daemon.steerCalls.length).toBe(1);
   await page.mouse.up();
 
-  await expect.poll(() => daemon.steerCalls.length).toBe(1);
   expect(daemon.steerCalls[0]!.body).toBe('hands-free steer');
+  // Releasing after the hold fired does not also submit the draft as a send.
+  await nextFrames(page);
+  expect(daemon.steerCalls).toHaveLength(1);
 });

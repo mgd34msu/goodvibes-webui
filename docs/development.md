@@ -20,10 +20,11 @@ Run the dev server:
 bun run dev
 ```
 
-Run full validation:
+Check your change (what runs where: [testing-and-validation.md](testing-and-validation.md)):
 
 ```bash
-bun run ci
+bun run test:changed
+bun run typecheck
 ```
 
 ## Dev server binding
@@ -93,11 +94,8 @@ Production build:
 bun run build
 ```
 
-Full CI-equivalent:
-
-```bash
-bun run ci
-```
+The full unit suite and the Playwright matrix run in CI; see
+[testing-and-validation.md](testing-and-validation.md).
 
 ## Local code organization
 
@@ -139,10 +137,12 @@ The app uses semantic versioning and `vMAJOR.MINOR.PATCH` git tags.
 
 For any shipped change:
 
-1. Update `package.json`.
-2. Update `CHANGELOG.md`.
-3. Update `index.html` cache-bust values when the app version changes.
-4. Run `bun run ci`.
-5. Commit and push. Do not tag by hand: the auto-release job tags a green
-   `main` run and attaches the built bundle to the GitHub Release.
-6. Confirm GitHub CI passes and the release appears.
+1. Run `bun run release:prepare --patch` (or `--minor`, `--major`). It bumps
+   `package.json`, relocks, regenerates the SDK-derived modules, sets the
+   `index.html` cache-bust values and README badges, and scaffolds the
+   `CHANGELOG.md` section.
+2. Write the release notes into that section and review `git diff`.
+3. Run `bun run test:changed` and `bun run typecheck`.
+4. Commit and push. Do not tag by hand: the auto-release job tags a green `main` run and
+   attaches the built bundle to the GitHub Release.
+5. Confirm every GitHub CI job passes and the release appears.

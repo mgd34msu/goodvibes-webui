@@ -12,8 +12,7 @@
  * and the state tone-color table.
  *
  * Regenerate: `bun run presentation:generate`.
- * Verify (no write): `bun run presentation:check`, wired into `bun run
- * build`, so a contract change that was not regenerated fails the build.
+ * `bun run release:prepare` runs it at every version bump.
  *
  * Import from src/lib/presentation-bridge.ts for the semantic mapping
  * onto web UI components; import from here directly only if you need the

@@ -22,10 +22,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Every tsconfig `bun run typecheck` compiles. Adding a project here without also
- * adding it to the typecheck script would make this gate claim coverage nothing
- * actually checks, so the two lists are asserted equal by
- * typecheck-coverage.test.ts against package.json.
+ * Every tsconfig `bun run typecheck` compiles. Adding a project here means adding
+ * it to package.json's "typecheck" script too, or this gate claims coverage that
+ * nothing actually checks.
  */
 export const TYPECHECK_PROJECTS = ['tsconfig.json', 'scripts/tsconfig.json', 'e2e/tsconfig.json'] as const;
 

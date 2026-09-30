@@ -12,7 +12,8 @@ import {
   useState,
   MouseEvent as ReactMouseEvent,
 } from 'react';
-import { ChevronDown, Check, Paperclip, Send, X } from 'lucide-react';
+import { ArrowUp, ChevronDown, Check, Paperclip, Plus, X } from 'lucide-react';
+import { Menu, MenuItem, MenuMeta, MenuSeparator } from '../../components/ui/Menu';
 import { formatError } from '../../lib/errors';
 import { ModelOption, ProviderOption } from '../../lib/provider-models';
 import { dragHasFiles, filesFromDrop, imageFilesFromPaste, isImageFile, previewUrl } from './composer-attachments';
@@ -30,6 +31,13 @@ export interface SlashCommandHint {
 }
 
 export interface ComposerProps {
+  /**
+   * 'centered' on a new chat (the composer sits under the greeting), 'docked'
+   * in a conversation (pinned to the bottom above the safe area).
+   */
+  layout?: 'centered' | 'docked';
+  /** Visible placeholder; the accessible name stays "Message GoodVibes". */
+  placeholder?: string;
   draft: string;
   attachedFiles: File[];
   isSendPending: boolean;
@@ -131,9 +139,9 @@ function AttachmentChip({ file, index, onRemove }: AttachmentChipProps) {
   );
 }
 
-// ─── Model picker popover ─────────────────────────────────────────────────────
+// ─── Model and effort menu ────────────────────────────────────────────────────
 
-interface ModelPickerProps {
+interface ModelMenuProps {
   providerOptions: ProviderOption[];
   selectedProviderId: string;
   providerModelOptions: ModelOption[];
@@ -141,9 +149,30 @@ interface ModelPickerProps {
   selectModelPending: boolean;
   onProviderChange: (providerId: string) => void;
   onModelChange: (registryKey: string) => void;
+  effortLevels: readonly string[];
+  currentEffort: string;
+  effortPending: boolean;
+  onEffortChange?: (effort: string) => void;
 }
 
-function ModelPicker({
+function effortWord(level: string): string {
+  if (!level) return 'Default';
+  if (/^x+high$/i.test(level)) return `${level.slice(0, level.length - 4).toUpperCase()}-high`;
+  return level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+function Selected({ on }: { on: boolean }) {
+  return on
+    ? <><Check size={16} aria-hidden className="composer-model-check" /><span className="gv-sr-only"> (selected)</span></>
+    : <span className="composer-model-check composer-model-check--off" aria-hidden />;
+}
+
+/**
+ * The model and effort, read as text in the control row ("Claude Opus 4.8 High"),
+ * opening one kit menu: the selected provider's models, the effort ladder the
+ * current model accepts, and the other providers to switch to.
+ */
+function ModelMenu({
   providerOptions,
   selectedProviderId,
   providerModelOptions,
@@ -151,193 +180,84 @@ function ModelPicker({
   selectModelPending,
   onProviderChange,
   onModelChange,
-}: ModelPickerProps) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const popoverId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click / Escape
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: PointerEvent) {
-      const trigger = triggerRef.current;
-      const popover = popoverRef.current;
-      if (trigger?.contains(event.target as Node)) return;
-      if (popover?.contains(event.target as Node)) return;
-      setOpen(false);
-    }
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    }
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  const selectedModel = providerModelOptions.find(
-    (m) => m.registryKey === selectedModelRegistryKey,
-  );
-  const triggerLabel = selectModelPending
+  effortLevels,
+  currentEffort,
+  effortPending,
+  onEffortChange,
+}: ModelMenuProps) {
+  const selectedModel = providerModelOptions.find((m) => m.registryKey === selectedModelRegistryKey);
+  const modelLabel = selectModelPending
     ? 'Switching…'
-    : selectedModel?.label ?? (providerModelOptions.length ? 'Select model' : 'No models');
-
-  // Build a flat list of model items with stable ids for aria-activedescendant.
-  // Provider rows are rendered as non-interactive group headers (not options).
-  const modelItems: { model: ModelOption; optionId: string }[] = [];
-  let modelIndexCounter = 0;
-  for (const provider of providerOptions) {
-    if (provider.id === selectedProviderId) {
-      for (const model of providerModelOptions) {
-        modelItems.push({
-          model,
-          optionId: `${popoverId}-opt-${modelIndexCounter}`,
-        });
-        modelIndexCounter++;
-      }
-    }
-  }
-
-  const activeOptionId =
-    activeIndex >= 0 && modelItems[activeIndex]
-      ? modelItems[activeIndex].optionId
-      : undefined;
-
-  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      if (!open) {
-        setOpen(true);
-        setActiveIndex(0);
-      } else {
-        const dir = event.key === 'ArrowDown' ? 1 : -1;
-        setActiveIndex((i) => Math.max(0, Math.min(modelItems.length - 1, i + dir)));
-      }
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      setOpen((prev) => !prev);
-    }
-  }
-
-  function handlePopoverKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setActiveIndex((i) => Math.min(modelItems.length - 1, i + 1));
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex((i) => Math.max(0, i - 1));
-    }
-    if (event.key === 'Enter' && activeIndex >= 0 && modelItems[activeIndex]) {
-      event.preventDefault();
-      const item = modelItems[activeIndex];
-      onModelChange(item.model.registryKey);
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
-    if (event.key === 'Tab') {
-      setOpen(false);
-    }
-  }
-
-  // Build a model-index lookup for rendering data-active on the correct button.
-  // We iterate providerOptions and track which flat model index each model slot is.
-  let renderModelCounter = 0;
+    : selectedModel?.label ?? (providerModelOptions.length ? 'Choose a model' : 'No models');
+  const showEffort = effortLevels.length > 1 && Boolean(onEffortChange);
+  const effortLabel = showEffort && currentEffort ? effortWord(currentEffort) : '';
+  const selectedProvider = providerOptions.find((provider) => provider.id === selectedProviderId);
 
   return (
-    <div className="composer-route" style={{ position: 'relative' }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="composer-model-btn"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? popoverId : undefined}
-        aria-label={`Model: ${triggerLabel}`}
-        data-pending={selectModelPending ? 'true' : undefined}
-        disabled={!providerOptions.length}
-        onClick={() => setOpen((prev) => !prev)}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <span className="composer-model-label">{triggerLabel}</span>
-        <ChevronDown size={12} aria-hidden />
-      </button>
-
-      {open && (
-        <div
-          ref={popoverRef}
-          id={popoverId}
-          role="listbox"
-          aria-label="Select model"
-          aria-activedescendant={activeOptionId}
-          className="composer-model-popover"
-          tabIndex={-1}
-          onKeyDown={handlePopoverKeyDown}
+    <Menu
+      label="Model and effort"
+      placement="top-end"
+      width={280}
+      className="composer-model-menu"
+      trigger={(props) => (
+        <button
+          {...props}
+          type="button"
+          className="composer-model-btn"
+          aria-label={`Model: ${modelLabel}${effortLabel ? `, effort ${effortLabel}` : ''}`}
+          data-pending={selectModelPending || effortPending ? 'true' : undefined}
+          disabled={!providerOptions.length}
         >
-          {providerOptions.map((provider) => {
-            const isExpanded = provider.id === selectedProviderId;
-            return (
-              <div key={provider.id} className="composer-model-popover-section">
-                {/* Provider header. Group label; the button is keyboard-reachable (Tab) */}
-                <div
-                  role="group"
-                  aria-label={provider.label}
-                  className="composer-model-provider-header"
-                >
-                  <button
-                    type="button"
-                    className="composer-model-option composer-model-provider-btn"
-                    onClick={() => {
-                      onProviderChange(provider.id);
-                      setActiveIndex(-1);
-                    }}
-                  >
-                    <span className="composer-model-section-label" style={{ padding: 0 }}>
-                      {provider.label}
-                    </span>
-                  </button>
-                </div>
-                {isExpanded &&
-                  providerModelOptions.map((model) => {
-                    const myIndex = renderModelCounter++;
-                    const { optionId } = modelItems[myIndex];
-                    const isActive = myIndex === activeIndex;
-                    return (
-                      <button
-                        key={model.registryKey}
-                        id={optionId}
-                        type="button"
-                        role="option"
-                        aria-selected={model.registryKey === selectedModelRegistryKey}
-                        data-active={isActive ? 'true' : undefined}
-                        className="composer-model-option"
-                        onClick={() => {
-                          onModelChange(model.registryKey);
-                          setOpen(false);
-                          triggerRef.current?.focus();
-                        }}
-                      >
-                        <span className="composer-model-option-label">{model.label}</span>
-                        {model.registryKey === selectedModelRegistryKey && (
-                          <Check size={14} className="composer-model-option-check" aria-hidden />
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            );
-          })}
-        </div>
+          <span className="composer-model-label">{modelLabel}</span>
+          {effortLabel && <span className="composer-model-effort">{effortLabel}</span>}
+          <ChevronDown size={14} aria-hidden />
+        </button>
       )}
-    </div>
+    >
+      <MenuMeta>{selectedProvider?.label ?? 'Models'}</MenuMeta>
+      {providerModelOptions.length === 0 && <MenuMeta>No models from this provider.</MenuMeta>}
+      {providerModelOptions.map((model) => (
+        <MenuItem
+          key={model.registryKey}
+          icon={<Selected on={model.registryKey === selectedModelRegistryKey} />}
+          onSelect={() => onModelChange(model.registryKey)}
+        >
+          {model.label}
+        </MenuItem>
+      ))}
+      {showEffort && onEffortChange && (
+        <>
+          <MenuSeparator />
+          <MenuMeta>Effort</MenuMeta>
+          {['', ...effortLevels].map((level) => (
+            <MenuItem
+              key={level || 'default'}
+              icon={<Selected on={level === currentEffort} />}
+              disabled={effortPending}
+              onSelect={() => onEffortChange(level)}
+            >
+              {effortWord(level)}
+            </MenuItem>
+          ))}
+        </>
+      )}
+      {providerOptions.length > 1 && (
+        <>
+          <MenuSeparator />
+          <MenuMeta>Provider</MenuMeta>
+          {providerOptions.map((provider) => (
+            <MenuItem
+              key={provider.id}
+              icon={<Selected on={provider.id === selectedProviderId} />}
+              keepOpen
+              onSelect={() => onProviderChange(provider.id)}
+            >
+              {provider.label}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    </Menu>
   );
 }
 
@@ -389,6 +309,8 @@ function SlashMenu({ commands, activeIndex, onSelect, menuId, optionIdPrefix }: 
 // ─── Composer ─────────────────────────────────────────────────────────────────
 
 export function Composer({
+  layout = 'docked',
+  placeholder = 'Message GoodVibes',
   draft,
   attachedFiles,
   isSendPending,
@@ -597,31 +519,20 @@ export function Composer({
       ? `${slashOptionIdPrefix}-${slashActiveIndex}`
       : undefined;
 
+  const canSend = Boolean(draft.trim()) || attachedFiles.length > 0;
+
   return (
     <form
-      className="composer"
+      className={`composer composer--${layout}`}
       onSubmit={onSubmit}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {Boolean(sendError) && <div className="composer-error">{formatError(sendError)}</div>}
-      {turnError && <div className="composer-error">{turnError}</div>}
-      {Boolean(renameSessionError) && <div className="composer-error">{formatError(renameSessionError)}</div>}
-      {Boolean(selectModelError) && <div className="composer-error">{formatError(selectModelError)}</div>}
-
-      {attachedFiles.length > 0 && (
-        <div className="composer-attachments">
-          {attachedFiles.map((file, index) => (
-            <AttachmentChip
-              key={`${file.name}-${file.lastModified}-${index}`}
-              file={file}
-              index={index}
-              onRemove={onRemoveAttachedFile}
-            />
-          ))}
-        </div>
-      )}
+      {Boolean(sendError) && <div className="composer-error" role="alert">{formatError(sendError)}</div>}
+      {turnError && <div className="composer-error" role="alert">{turnError}</div>}
+      {Boolean(renameSessionError) && <div className="composer-error" role="alert">{formatError(renameSessionError)}</div>}
+      {Boolean(selectModelError) && <div className="composer-error" role="alert">{formatError(selectModelError)}</div>}
 
       <div className="composer-box" data-drag-over={isDragOver ? 'true' : undefined}>
         {showSlashMenu && filteredSlashCommands.length > 0 && (
@@ -634,13 +545,26 @@ export function Composer({
           />
         )}
 
+        {attachedFiles.length > 0 && (
+          <div className="composer-attachments">
+            {attachedFiles.map((file, index) => (
+              <AttachmentChip
+                key={`${file.name}-${file.lastModified}-${index}`}
+                file={file}
+                index={index}
+                onRemove={onRemoveAttachedFile}
+              />
+            ))}
+          </div>
+        )}
+
         <textarea
           ref={composerRef}
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={handleTextareaKeyDown}
           onPaste={handlePaste}
-          placeholder="Message GoodVibes"
+          placeholder={placeholder}
           aria-label="Message GoodVibes"
           aria-autocomplete={showSlashMenu ? 'list' : undefined}
           aria-controls={showSlashMenu && filteredSlashCommands.length > 0 ? slashMenuId : undefined}
@@ -650,47 +574,33 @@ export function Composer({
         <input ref={fileInputRef} type="file" hidden multiple onChange={onFileSelection} />
 
         <div className="composer-toolbar">
-          <div className="composer-tools">
-            <button
-              type="button"
-              className="composer-tool"
-              title="Attach files"
-              aria-label="Attach files"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSendPending}
-            >
-              <Paperclip size={16} aria-hidden />
-            </button>
+          <button
+            type="button"
+            className="composer-tool composer-attach"
+            title="Attach files"
+            aria-label="Attach files"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSendPending}
+          >
+            <Plus size={18} aria-hidden />
+          </button>
+
+          <div className="composer-toolbar__end">
+            <ModelMenu
+              providerOptions={providerOptions}
+              selectedProviderId={selectedProviderId}
+              providerModelOptions={providerModelOptions}
+              selectedModelRegistryKey={selectedModelRegistryKey}
+              selectModelPending={selectModelPending}
+              onProviderChange={onProviderChange}
+              onModelChange={onModelChange}
+              effortLevels={effortLevels}
+              currentEffort={currentEffort}
+              effortPending={effortPending || isSendPending}
+              onEffortChange={onEffortChange}
+            />
             <MicButton onTranscript={handleTranscript} disabled={isSendPending} />
             <VoiceSettings />
-          </div>
-
-          <ModelPicker
-            providerOptions={providerOptions}
-            selectedProviderId={selectedProviderId}
-            providerModelOptions={providerModelOptions}
-            selectedModelRegistryKey={selectedModelRegistryKey}
-            selectModelPending={selectModelPending}
-            onProviderChange={onProviderChange}
-            onModelChange={onModelChange}
-          />
-          {effortLevels.length > 1 && onEffortChange && (
-            <select
-              className="composer-effort-select"
-              aria-label="Reasoning effort"
-              title="Reasoning effort for the current model"
-              value={currentEffort}
-              disabled={effortPending || isSendPending}
-              onChange={(event) => onEffortChange(event.target.value)}
-            >
-              <option value="">effort: default</option>
-              {effortLevels.map((level) => (
-                <option key={level} value={level}>{`effort: ${level}`}</option>
-              ))}
-            </select>
-          )}
-
-          <div className="composer-actions">
             <button
               type="submit"
               className="send-button"
@@ -698,15 +608,16 @@ export function Composer({
                 ? 'Send message (Enter: queues behind an active reply). Steer: Ctrl+Enter or press and hold, sends now, interrupting the current reply.'
                 : 'Send message'}
               aria-label="Send message"
+              data-ready={canSend && !isSendPending ? 'true' : undefined}
               data-pending={isSendPending ? 'true' : undefined}
-              disabled={isSendPending || (!draft.trim() && !attachedFiles.length)}
+              disabled={isSendPending || !canSend}
               onPointerDown={onSteer ? startSteerHold : undefined}
               onPointerUp={onSteer ? cancelSteerHold : undefined}
               onPointerLeave={onSteer ? cancelSteerHold : undefined}
               onPointerCancel={onSteer ? cancelSteerHold : undefined}
               onClick={onSteer ? suppressClickAfterSteerHold : undefined}
             >
-              <Send size={18} aria-hidden />
+              <ArrowUp size={18} aria-hidden />
             </button>
           </div>
         </div>

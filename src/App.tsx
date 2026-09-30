@@ -317,11 +317,13 @@ export default function App() {
   const title = activeView === 'chat'
     ? (draftChatRequested || !activeChatTitle ? 'New chat' : activeChatTitle)
     : viewTitle(activeView);
-  const accountName = useMemo(() => {
+  // The signed-in name as the identity reports it ('' when it reports none).
+  const signedInName = useMemo(() => {
     const record = asRecord(auth.data);
     const identity = asRecord(record.identity);
-    return firstString(record, ['username', 'name', 'principal']) || firstString(identity, ['name', 'subject']) || 'Operator';
+    return firstString(record, ['username', 'name', 'principal']) || firstString(identity, ['name', 'subject']);
   }, [auth.data]);
+  const accountName = signedInName || 'Operator';
 
   const handleNewChat = useCallback(() => handleNavigate('chat', { newChat: true }), [handleNavigate]);
   const handleOpenChat = useCallback((sessionId: string) => {
@@ -530,6 +532,7 @@ export default function App() {
             session,
           })}
           onSessionMissing={handleMissingChatSession}
+          userName={signedInName}
         />
       )}
       {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}

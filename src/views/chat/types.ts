@@ -75,4 +75,9 @@ export interface ChatViewProps {
   onLocalSessionCreated: (session: unknown) => void;
   onLocalSessionUpdated: (sessionId: string, session: unknown) => void;
   onSessionMissing: (sessionId: string) => void;
+  /**
+   * The signed-in person's name for the new-chat greeting ("Good evening,
+   * Mike"). Absent or empty greets without a name.
+   */
+  userName?: string;
 }

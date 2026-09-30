@@ -1,105 +1,96 @@
 /*
- * QueuedMessagesPanel layout. Colors come from the shared token layer
- * (src/styles/tokens.css); this file is layout only, no new palette.
+ * queued-messages.css: messages waiting behind the reply in progress, shown
+ * just above the composer as divided rows with ghost icon actions. Tokens only.
  */
 
 .queued-messages-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px);
-  margin: var(--space-2, 8px) 0;
+  padding: 4px 4px 4px 12px;
   background: var(--surface);
-  border-radius: var(--radius-xs, 6px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
 }
 
 .queued-messages-panel__note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  font-size: var(--text-xs, 12px);
+  padding: 6px 0;
   color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: 18px;
+}
+
+.queued-messages-panel__note svg {
+  flex: none;
 }
 
 .queued-messages-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .queued-message {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border-radius: var(--radius-xs, 6px);
-  border: 1px solid var(--line);
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 2px 0;
+  border-top: 1px solid var(--line);
 }
 
 .queued-message__text {
-  flex: 1;
-  font-size: var(--text-sm, 13px);
-  white-space: pre-wrap;
-  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .queued-message__actions {
   display: flex;
-  gap: 4px;
-  flex-shrink: 0;
+  flex: none;
+  gap: 2px;
 }
 
-.queued-message__edit,
-.queued-message__delete {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px; /* phone-width tap target */
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-.queued-message__delete:hover {
-  border-color: var(--bad);
+.queued-message__delete:hover:not(:disabled) {
   color: var(--bad);
-  background: var(--bad-soft);
 }
 
 .queued-message__edit-form {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  width: 100%;
+  gap: 8px;
+  padding: 8px 8px 8px 0;
 }
 
 .queued-message__edit-form textarea {
   width: 100%;
-  min-height: 44px;
+  min-height: 60px;
+  padding: 8px 12px;
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
   resize: vertical;
 }
 
 .queued-message__edit-actions {
   display: flex;
-  gap: var(--space-2, 8px);
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.queued-message__save,
-.queued-message__cancel-edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px; /* phone-width tap target */
-  padding: 0 var(--space-2, 8px);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
-  color: var(--text-2);
-  cursor: pointer;
+.queued-messages-panel > .banner {
+  margin: 6px 8px 6px 0;
 }

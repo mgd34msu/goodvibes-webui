@@ -440,6 +440,23 @@
   white-space: nowrap;
 }
 
+/* A view's own title (the chat's click-to-rename title) portals in here. */
+.shell-header__title-slot {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+}
+
+.shell-header__title-slot[hidden] {
+  display: none;
+}
+
+/* A view's own header buttons join the shell's buttons in one row. */
+.shell-header__actions-slot {
+  display: contents;
+}
+
 .shell-header__end {
   display: flex;
   flex: none;
@@ -467,6 +484,10 @@
 .shell-header--phone .shell-header__title {
   flex: 1;
   text-align: center;
+}
+
+.shell-header--phone .shell-header__title-slot {
+  justify-content: center;
 }
 
 .shell-header--phone .shell-header__indicators {

@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { Check, Copy } from 'lucide-react';
 import { highlightCode } from '../lib/highlight';
 import { useWebUiPreferences } from '../lib/ui-preferences';
+import { IconButton } from './ui/IconButton';
+import '../styles/components/markdown.css';
 
 
 
@@ -58,10 +60,14 @@ function CodeBlock({ children, lineNumbers }: CodeBlockProps) {
     <div className={lineNumbers ? 'markdown-code-block numbered' : 'markdown-code-block'}>
       <div className="markdown-code-header">
         <div className="markdown-code-label">{displayLanguage || 'code'}</div>
-        <button className="markdown-code-copy" type="button" onClick={() => void copyCode()} title="Copy code">
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
+        <IconButton
+          className="markdown-code-copy"
+          size="sm"
+          label={copied ? 'Copied' : 'Copy code'}
+          icon={copied ? <Check /> : <Copy />}
+          tooltipPlacement="top"
+          onClick={() => void copyCode()}
+        />
       </div>
       {lineNumbers ? (
         <pre className="markdown-code-pre">

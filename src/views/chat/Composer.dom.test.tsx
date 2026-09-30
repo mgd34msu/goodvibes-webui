@@ -1,8 +1,9 @@
 /**
  * DOM tests for Composer.tsx.
  * Covers:
- *   - ModelPicker keyboard navigation: aria-activedescendant advances,
- *     Enter selects the highlighted item.
+ *   - The model and effort menu (kit Menu): the trigger reads the model and
+ *     effort as text; picking a model, an effort or a provider reports it.
+ *   - The send button: grey and disabled until there is something to send.
  *   - SlashMenu: Escape dismisses the menu without wiping the draft.
  *
  * Uses react-dom/client + happy-dom (via bunfig.toml preload).
@@ -155,123 +156,116 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// ModelPicker keyboard navigation
+// Model and effort menu (the kit Menu, portalled to document.body)
 // ---------------------------------------------------------------------------
 
-describe('ModelPicker keyboard navigation', () => {
-  test('ArrowDown moves aria-activedescendant to the first option', () => {
-    const { container, unmount } = mountComposer(makeProps());
+function openModelMenu(container: HTMLElement): HTMLElement {
+  const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn');
+  expect(trigger).not.toBeNull();
+  flushSync(() => trigger!.click());
+  const menu = document.body.querySelector<HTMLElement>('[role="menu"][aria-label="Model and effort"]');
+  expect(menu).not.toBeNull();
+  return menu!;
+}
 
-    // Open the picker via click on the trigger button
-    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn');
-    expect(trigger).not.toBeNull();
-    flushSync(() => trigger!.click());
+function menuItem(menu: HTMLElement, text: string): HTMLButtonElement | undefined {
+  return Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+    .find((item) => item.querySelector('.gv-menu-item__label')?.textContent === text);
+}
 
-    const popover = container.querySelector<HTMLDivElement>('[role="listbox"]');
-    expect(popover).not.toBeNull();
-
-    // Fire ArrowDown on the popover (bubbles so React event delegation picks it up)
-    flushSync(() =>
-      popover!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-      ),
-    );
-
-    // aria-activedescendant must be set and point to an existing element
-    const activeId = popover!.getAttribute('aria-activedescendant');
-    expect(activeId).toBeTruthy();
-    const activeEl = byId(container, activeId!);
-    expect(activeEl).not.toBeNull();
-    expect(activeEl!.getAttribute('data-active')).toBe('true');
-
+describe('model and effort menu', () => {
+  test('the trigger reads the model and the effort as text', () => {
+    const { container, unmount } = mountComposer(makeProps({
+      effortLevels: ['low', 'medium', 'high'],
+      currentEffort: 'medium',
+      onEffortChange: noop,
+    }));
+    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn')!;
+    expect(trigger.querySelector('.composer-model-label')?.textContent).toBe('GPT-A');
+    expect(trigger.querySelector('.composer-model-effort')?.textContent).toBe('Medium');
+    expect(trigger.getAttribute('aria-label')).toBe('Model: GPT-A, effort Medium');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
     unmount();
   });
 
-  test('two ArrowDown events advance to the second option', () => {
-    const { container, unmount } = mountComposer(makeProps());
-
-    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn');
-    flushSync(() => trigger!.click());
-
-    const popover = container.querySelector<HTMLDivElement>('[role="listbox"]');
-    expect(popover).not.toBeNull();
-
-    flushSync(() =>
-      popover!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-      ),
-    );
-    flushSync(() =>
-      popover!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-      ),
-    );
-
-    const activeId = popover!.getAttribute('aria-activedescendant');
-    expect(activeId).toBeTruthy();
-    const activeEl = byId(container, activeId!);
-    // Index 1 = GPT-B (0-based: first ArrowDown goes to 0, second goes to 1)
-    expect(activeEl?.textContent).toContain('GPT-B');
-
+  test('picking a model reports its registryKey and closes the menu', () => {
+    const picked: string[] = [];
+    const { container, unmount } = mountComposer(makeProps({ onModelChange: (key) => picked.push(key) }));
+    const menu = openModelMenu(container);
+    // The current model is marked for assistive tech, not by color alone.
+    expect(menuItem(menu, 'GPT-A')?.textContent).toContain('(selected)');
+    expect(menuItem(menu, 'GPT-B')?.textContent).not.toContain('(selected)');
+    flushSync(() => menuItem(menu, 'GPT-B')!.click());
+    expect(picked).toEqual(['openai:gpt-b']);
+    expect(document.body.querySelector('[role="menu"][aria-label="Model and effort"]')).toBeNull();
     unmount();
   });
 
-  test('Enter on highlighted option calls onModelChange with its registryKey', () => {
-    const onModelChange = mock((_key: string) => {});
-    const { container, unmount } = mountComposer(makeProps({ onModelChange }));
-
-    // Open picker
-    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn');
-    flushSync(() => trigger!.click());
-
-    const popover = container.querySelector<HTMLDivElement>('[role="listbox"]');
-    expect(popover).not.toBeNull();
-
-    // Move to first model option (activeIndex becomes 0)
-    flushSync(() =>
-      popover!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
-      ),
-    );
-    // Press Enter to select
-    flushSync(() =>
-      popover!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
-      ),
-    );
-
-    expect(onModelChange).toHaveBeenCalledTimes(1);
-    const calledWith = (onModelChange.mock.calls[0] as [string])[0];
-    expect(MODELS.map((m) => m.registryKey)).toContain(calledWith);
-
+  test('the menu lists only model rows when there is one provider and no effort ladder', () => {
+    const { container, unmount } = mountComposer(makeProps());
+    const menu = openModelMenu(container);
+    const labels = Array.from(menu.querySelectorAll('[role="menuitem"] .gv-menu-item__label')).map((el) => el.textContent);
+    expect(labels).toEqual(['GPT-A', 'GPT-B', 'GPT-C']);
     unmount();
   });
 
-  test('listbox contains only model options, not provider headers', () => {
-    const { container, unmount } = mountComposer(makeProps());
+  test('with more than one provider, choosing a provider reports it and keeps the menu open', () => {
+    const switched: string[] = [];
+    const { container, unmount } = mountComposer(makeProps({
+      providerOptions: [...PROVIDERS, { id: 'anthropic', label: 'Anthropic', value: {} }],
+      onProviderChange: (id) => switched.push(id),
+    }));
+    const menu = openModelMenu(container);
+    flushSync(() => menuItem(menu, 'Anthropic')!.click());
+    expect(switched).toEqual(['anthropic']);
+    expect(document.body.querySelector('[role="menu"][aria-label="Model and effort"]')).not.toBeNull();
+    unmount();
+  });
 
-    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn');
-    flushSync(() => trigger!.click());
-
-    const popover = container.querySelector<HTMLDivElement>('[role="listbox"]');
-    expect(popover).not.toBeNull();
-
-    // Only model buttons should have role=option
-    const options = popover!.querySelectorAll<HTMLElement>('[role="option"]');
-    // Provider header buttons must NOT have role=option
-    for (const opt of Array.from(options)) {
-      expect(opt.classList.contains('composer-model-provider-btn')).toBe(false);
-    }
-    // One option per model
-    expect(options.length).toBe(MODELS.length);
-
+  test('no providers: the trigger is disabled and says so', () => {
+    const { container, unmount } = mountComposer(makeProps({ providerOptions: [], providerModelOptions: [] }));
+    const trigger = container.querySelector<HTMLButtonElement>('.composer-model-btn')!;
+    expect(trigger.disabled).toBe(true);
+    expect(trigger.textContent).toContain('No models');
     unmount();
   });
 });
 
-// ---------------------------------------------------------------------------
-// SlashMenu keyboard behaviour
-// ---------------------------------------------------------------------------
+describe('send button', () => {
+  test('grey and disabled until there is something to send', () => {
+    const { container, unmount } = mountComposer(makeProps({ draft: '   ' }));
+    const send = container.querySelector<HTMLButtonElement>('.send-button')!;
+    expect(send.disabled).toBe(true);
+    expect(send.getAttribute('data-ready')).toBeNull();
+    unmount();
+  });
+
+  test('ready (light) once the draft has text', () => {
+    const { container, unmount } = mountComposer(makeProps({ draft: 'hello' }));
+    const send = container.querySelector<HTMLButtonElement>('.send-button')!;
+    expect(send.disabled).toBe(false);
+    expect(send.getAttribute('data-ready')).toBe('true');
+    unmount();
+  });
+
+  test('ready with an attachment and no text', () => {
+    const file = new File(['x'], 'notes.txt', { type: 'text/plain' });
+    const { container, unmount } = mountComposer(makeProps({ attachedFiles: [file] }));
+    expect(container.querySelector('.send-button')!.getAttribute('data-ready')).toBe('true');
+    unmount();
+  });
+});
+
+describe('placeholder and accessible name', () => {
+  test('the visible placeholder can change while the accessible name stays "Message GoodVibes"', () => {
+    const { container, unmount } = mountComposer(makeProps({ placeholder: 'Ask GoodVibes anything', layout: 'centered' }));
+    const textarea = container.querySelector('textarea')!;
+    expect(textarea.getAttribute('placeholder')).toBe('Ask GoodVibes anything');
+    expect(textarea.getAttribute('aria-label')).toBe('Message GoodVibes');
+    expect(container.querySelector('form.composer--centered')).not.toBeNull();
+    unmount();
+  });
+});
 
 describe('SlashMenu keyboard behaviour', () => {
   test('Escape dismisses slash menu without calling onDraftChange', () => {
@@ -349,34 +343,48 @@ describe('SlashMenu keyboard behaviour', () => {
   });
 });
 
-describe('effort selector', () => {
-  test('renders only when the model reports 2+ levels, and reports the change', () => {
+describe('effort in the model menu', () => {
+  test('renders the ladder (with Default) when the model reports 2+ levels, and reports the change', () => {
     const changes: string[] = [];
     const { container, unmount } = mountComposer(makeProps({
       effortLevels: ['low', 'medium', 'high'],
       currentEffort: 'medium',
       onEffortChange: (effort) => changes.push(effort),
     }));
-    const select = container.querySelector('.composer-effort-select') as HTMLSelectElement;
-    expect(select).not.toBeNull();
-    expect(select.value).toBe('medium');
-    flushSync(() => {
-      select.value = 'high';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const menu = openModelMenu(container);
+    expect(menu.textContent).toContain('Effort');
+    expect(menuItem(menu, 'Medium')?.textContent).toContain('(selected)');
+    flushSync(() => menuItem(menu, 'High')!.click());
     expect(changes).toEqual(['high']);
     unmount();
   });
 
-  test('absent levels (older daemon) render no control at all', () => {
-    const { container, unmount } = mountComposer(makeProps({}));
-    expect(container.querySelector('.composer-effort-select')).toBeNull();
+  test('Default clears the level (reports an empty string)', () => {
+    const changes: string[] = [];
+    const { container, unmount } = mountComposer(makeProps({
+      effortLevels: ['low', 'high'],
+      currentEffort: 'high',
+      onEffortChange: (effort) => changes.push(effort),
+    }));
+    const menu = openModelMenu(container);
+    flushSync(() => menuItem(menu, 'Default')!.click());
+    expect(changes).toEqual(['']);
     unmount();
   });
 
-  test('a single-level ladder renders no control: there is nothing to choose', () => {
-    const { container, unmount } = mountComposer(makeProps({ effortLevels: ['medium'], onEffortChange: noop }));
-    expect(container.querySelector('.composer-effort-select')).toBeNull();
+  test('absent levels (older daemon) render no effort section or effort text at all', () => {
+    const { container, unmount } = mountComposer(makeProps({}));
+    expect(container.querySelector('.composer-model-effort')).toBeNull();
+    const menu = openModelMenu(container);
+    expect(menuItem(menu, 'Default')).toBeUndefined();
+    unmount();
+  });
+
+  test('a single-level ladder renders no effort choice: there is nothing to choose', () => {
+    const { container, unmount } = mountComposer(makeProps({ effortLevels: ['medium'], currentEffort: 'medium', onEffortChange: noop }));
+    expect(container.querySelector('.composer-model-effort')).toBeNull();
+    const menu = openModelMenu(container);
+    expect(menuItem(menu, 'Medium')).toBeUndefined();
     unmount();
   });
 });

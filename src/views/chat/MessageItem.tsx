@@ -19,9 +19,14 @@ import {
   messageAttachments,
   messageText,
   messageTone,
+  messageTimeMs,
   messageTimestamp,
+  messageTimestampTitle,
   bestId,
 } from './message-utils';
+import { Button } from '../../components/ui/Button';
+import { IconButton } from '../../components/ui/IconButton';
+import { Spark } from '../../components/shell/Spark';
 import '../../styles/components/chat-actions.css';
 
 interface MessageItemProps {
@@ -64,7 +69,11 @@ export function MessageItem({
   const text = messageText(message);
   const { openArtifacts } = useArtifactsPanel();
   const canRetry = Boolean(text) && (tone === 'user' || tone === 'assistant');
+  // Never an epoch or "unknown" time: a missing or zero time shows nothing.
   const timestamp = messageTimestamp(message);
+  const timestampTitle = messageTimestampTitle(message);
+  const timeMs = messageTimeMs(message);
+  const timeIso = timeMs === null ? undefined : new Date(timeMs).toISOString();
   const attachments = messageAttachments(message);
   const isEdited = messageIsEdited(reason, revisionOf);
   const [{ memoryProvenanceChipEnabled }] = useWebUiPreferences();
@@ -111,168 +120,174 @@ export function MessageItem({
     [handleEditSubmit, handleEditCancel],
   );
 
+  const isAssistant = tone === 'assistant';
+  const toolActivity = isAssistant && message.toolActivity && message.toolActivity.length > 0 ? message.toolActivity : null;
+  // Quiet in the hover row; states that need attention (not sent, pending,
+  // stopped, queued) stay visible without hovering.
+  const persistentState = state !== '' && state !== 'sent';
+
+  const content = isEditing && tone === 'user' ? (
+    <div className="message-edit-area">
+      <textarea
+        ref={textareaRef}
+        className="message-edit-textarea"
+        value={editDraft}
+        onChange={(e) => setEditDraft(e.target.value)}
+        onKeyDown={handleEditKeyDown}
+        aria-label="Edit message"
+        rows={3}
+      />
+      <div className="message-edit-actions">
+        <Button variant="ghost" size="sm" className="message-edit-cancel" onClick={handleEditCancel} aria-label="Cancel edit">
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          className="message-edit-submit"
+          onClick={handleEditSubmit}
+          disabled={!editDraft.trim() || isSendPending}
+          aria-label="Send edited message (Ctrl+Enter)"
+        >
+          Send
+        </Button>
+      </div>
+    </div>
+  ) : (
+    <div className="message-bubble">
+      {text && tone === 'user' && isCompactionHandoffMessage(text) ? (
+        // Compactor-authored continuation, not typed input: folded by
+        // default so the re-injected instruction wall doesn't repeat in
+        // the transcript after every automatic compaction.
+        <details className="message-compaction-handoff">
+          <summary>Compaction handoff: context re-injected after auto-compaction ({text.split('\n').length} lines)</summary>
+          <MarkdownMessage content={text} />
+        </details>
+      ) : (
+        text && <MarkdownMessage content={text} />
+      )}
+      {attachments.length > 0 && (
+        <div className="message-attachments">
+          {attachments.map((attachment, attachmentIndex) => (
+            <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
+              <Paperclip size={14} aria-hidden="true" />
+              <div>
+                <strong>{attachmentLabel(attachment)}</strong>
+                {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
+    </div>
+  );
+
+  const footer = (
+    <div className={`message-actions${persistentState ? ' message-actions--state' : ''}`}>
+      <div className="message-actions-inner">
+        {/* Delivery indicator */}
+        {state && (
+          <span
+            className={`delivery-indicator ${state}`}
+            title={
+              state === 'failed' ? 'Not sent'
+                : state === 'local' ? 'Pending'
+                  : state === 'cancelled' ? 'Stopped before completion: this is the partial reply that existed when the turn was stopped'
+                    : state === 'queued' ? 'Queued: will run after the current reply finishes'
+                      : 'Sent'
+            }
+          >
+            {state === 'failed' ? <><X size={12} aria-hidden="true" /> Not sent</>
+              : state === 'cancelled' ? <><X size={12} aria-hidden="true" /> Stopped</>
+                : state === 'queued' ? <><Clock size={12} aria-hidden="true" /> Queued</>
+                  : state === 'local' ? <><Clock size={12} aria-hidden="true" /> Sending</>
+                    : <Check size={12} aria-label="Sent" />}
+          </span>
+        )}
+
+        {(timestamp || isEdited) && (
+          <span className="message-meta">
+            {timestamp && <time dateTime={timeIso} title={timestampTitle}>{timestamp}</time>}
+            {isEdited && <span className="message-meta__edited">{timestamp ? ' · ' : ''}Edited</span>}
+          </span>
+        )}
+
+        <span className="message-actions__buttons">
+          <IconButton
+            size="sm"
+            label="Copy message"
+            icon={copiedMessageId === id ? <Check /> : <Copy />}
+            tooltipPlacement="top"
+            onClick={() => onCopyMessage(message)}
+          />
+
+          {/* Edit and branch (user messages only): the edited text becomes a new
+              branch; the original stays as retained history. */}
+          {tone === 'user' && canRetry && !isEditing && onEditMessage !== undefined && (
+            <IconButton
+              size="sm"
+              label="Edit and resend message"
+              icon={<Pencil />}
+              tooltipPlacement="top"
+              disabled={isSendPending}
+              onClick={handleEditStart}
+            />
+          )}
+
+          {/* Resend / Regenerate */}
+          {canRetry && !isEditing && (
+            <IconButton
+              size="sm"
+              label={isAssistant ? 'Regenerate response' : 'Resend message'}
+              icon={<RotateCcw />}
+              tooltipPlacement="top"
+              disabled={isSendPending}
+              onClick={() => (isAssistant ? onRegenerateFrom(id) : onResendMessage(message))}
+            />
+          )}
+
+          {/* Read aloud. Spoken output for assistant replies (honest states inside) */}
+          {isAssistant && text && <SpeakButton messageId={id} text={text} />}
+
+          {/* Artifacts: opens the side panel with this reply's code blocks and files */}
+          {isAssistant && (text || attachments.length > 0) && (
+            <IconButton
+              size="sm"
+              label="View artifacts from this message"
+              icon={<Layers />}
+              tooltipPlacement="top"
+              className="message-action-artifacts"
+              onClick={() => openArtifacts(message)}
+            />
+          )}
+        </span>
+
+        {/* Copied label, announced */}
+        {copiedMessageId === id && <span className="message-action-label" role="status">Copied</span>}
+      </div>
+    </div>
+  );
+
   return (
     <article
       className={`message ${tone}${isHighlighted ? ' message--search-highlight' : ''}`}
       data-message-id={id}
     >
-      {/* Honest-lineage disclosure: when this message heads a fork, reveal the retained
-          (superseded) history rather than pretending it is gone. */}
-      <MessageLineage priorMessages={priorMessages} reason={reason} revisionOf={revisionOf} />
-
-      <div className="message-bubble">
-        {timestamp !== 'unknown' && (
-          <div className="message-meta">
-            <span>{timestamp}</span>
-            {isEdited && <span className="message-meta__edited"> · edited</span>}
-          </div>
-        )}
-
-        {isEditing && tone === 'user' ? (
-          <div className="message-edit-area">
-            <textarea
-              ref={textareaRef}
-              className="message-edit-textarea"
-              value={editDraft}
-              onChange={(e) => setEditDraft(e.target.value)}
-              onKeyDown={handleEditKeyDown}
-              aria-label="Edit message"
-              rows={3}
-            />
-            <div className="message-edit-actions">
-              <button
-                type="button"
-                className="message-edit-cancel"
-                onClick={handleEditCancel}
-                aria-label="Cancel edit"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="message-edit-submit"
-                onClick={handleEditSubmit}
-                disabled={!editDraft.trim() || isSendPending}
-                aria-label="Send edited message (Ctrl+Enter)"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {text && tone === 'user' && isCompactionHandoffMessage(text) ? (
-              // Compactor-authored continuation, not typed input: folded by
-              // default so the re-injected instruction wall doesn't repeat in
-              // the transcript after every automatic compaction.
-              <details className="message-compaction-handoff">
-                <summary>Compaction handoff: context re-injected after auto-compaction ({text.split('\n').length} lines)</summary>
-                <MarkdownMessage content={text} />
-              </details>
-            ) : (
-              text && <MarkdownMessage content={text} />
-            )}
-            {attachments.length > 0 && (
-              <div className="message-attachments">
-                {attachments.map((attachment, attachmentIndex) => (
-                  <div key={`${id}-attachment-${attachmentIndex}`} className="message-attachment">
-                    <Paperclip size={13} />
-                    <div>
-                      <strong>{attachmentLabel(attachment)}</strong>
-                      {attachmentMeta(attachment) && <span>{attachmentMeta(attachment)}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!text && attachments.length === 0 && <p>{JSON.stringify(asRecord(message))}</p>}
-            {tone === 'assistant' && message.toolActivity && message.toolActivity.length > 0 && (
-              <ToolActivityGroup toolActivity={message.toolActivity} />
-            )}
-          </>
+      {isAssistant && <span className="message-mark" aria-hidden="true"><Spark size={18} /></span>}
+      <div className="message-body">
+        {/* Honest-lineage disclosure: when this message heads a fork, reveal the retained
+            (superseded) history rather than pretending it is gone. */}
+        <MessageLineage priorMessages={priorMessages} reason={reason} revisionOf={revisionOf} />
+        {toolActivity && <ToolActivityGroup toolActivity={toolActivity} />}
+        {content}
+        {footer}
+        {/* Memory provenance. Owner-ruled, default OFF (see ui-preferences.ts). Renders
+            nothing when the preference is off or this turn used no memories. */}
+        {isAssistant && memoryProvenanceChipEnabled && memoryProvenanceIds.length > 0 && (
+          <MemoryProvenanceChip recordIds={memoryProvenanceIds} />
         )}
       </div>
-
-      <div className="message-actions">
-        <div className="message-actions-inner">
-          {/* Delivery indicator */}
-          {state && (
-            <span
-              className={`delivery-indicator ${state}`}
-              title={
-                state === 'failed' ? 'Not sent'
-                  : state === 'local' ? 'Pending'
-                    : state === 'cancelled' ? 'Stopped before completion: this is the partial reply that existed when the turn was stopped'
-                      : state === 'queued' ? 'Queued: will run after the current reply finishes'
-                        : 'Sent'
-              }
-            >
-              {state === 'failed' ? <X size={12} />
-                : state === 'cancelled' ? <><X size={12} /> stopped</>
-                  : state === 'queued' ? <><Clock size={12} /> queued</>
-                    : <Check size={12} />}
-            </span>
-          )}
-
-          {/* Copy */}
-          <button type="button" title="Copy message" aria-label="Copy message" onClick={() => onCopyMessage(message)}>
-            <Copy size={13} />
-          </button>
-
-          {/* Edit (user messages only). Only shown when onEditMessage handler is provided */}
-          {tone === 'user' && canRetry && !isEditing && onEditMessage !== undefined && (
-            <button
-              type="button"
-              title="Edit and resend"
-              aria-label="Edit and resend message"
-              disabled={isSendPending}
-              onClick={handleEditStart}
-            >
-              <Pencil size={13} />
-            </button>
-          )}
-
-          {/* Resend / Regenerate */}
-          {canRetry && !isEditing && (
-            <button
-              type="button"
-              title={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
-              aria-label={tone === 'assistant' ? 'Regenerate response' : 'Resend message'}
-              disabled={isSendPending}
-              onClick={() => (tone === 'assistant' ? onRegenerateFrom(id) : onResendMessage(message))}
-            >
-              <RotateCcw size={13} />
-            </button>
-          )}
-
-          {/* Read aloud. Spoken output for assistant replies (honest states inside) */}
-          {tone === 'assistant' && text && (
-            <SpeakButton messageId={id} text={text} />
-          )}
-
-          {/* View artifacts. Shown on assistant messages that contain code blocks or attachments */}
-          {tone === 'assistant' && (text || attachments.length > 0) && (
-            <button
-              type="button"
-              title="View artifacts"
-              aria-label="View artifacts from this message"
-              className="message-action-artifacts"
-              onClick={() => openArtifacts(message)}
-            >
-              <Layers size={13} />
-            </button>
-          )}
-
-          {/* Copied label */}
-          {copiedMessageId === id && <span className="message-action-label">copied</span>}
-        </div>
-      </div>
-
-      {/* Memory provenance. Owner-ruled, default OFF (see ui-preferences.ts). Renders
-          nothing when the preference is off or this turn used no memories. */}
-      {tone === 'assistant' && memoryProvenanceChipEnabled && memoryProvenanceIds.length > 0 && (
-        <MemoryProvenanceChip recordIds={memoryProvenanceIds} />
-      )}
     </article>
   );
 }

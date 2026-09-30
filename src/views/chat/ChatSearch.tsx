@@ -22,8 +22,11 @@
  * navigation zone from the message combobox above.
  */
 
-import { type ChangeEvent, type KeyboardEvent, useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { EmptyState } from '../../components/feedback/EmptyState';
+import { IconButton } from '../../components/ui/IconButton';
+import { Toggle } from '../../components/ui/Toggle';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import type { ChatSearchResult, ChatSessionSearchResult } from './useChatSearch';
 import { useChatSearch } from './useChatSearch';
@@ -41,6 +44,12 @@ export interface ChatSearchProps {
   onSelect: (payload: ChatSearchSelectPayload) => void;
   /** Optional CSS class on the root element. */
   className?: string;
+  /**
+   * Close the find bar. When given, Escape on an empty field closes (Escape
+   * with text clears it first) and a close button appears; focus moves into
+   * the field on mount.
+   */
+  onClose?: () => void;
 }
 
 /** Relative time label for a result. */
@@ -56,7 +65,7 @@ function relativeTime(ms?: number): string {
   return `${days}d ago`;
 }
 
-export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
+export function ChatSearch({ sessions, onSelect, className, onClose }: ChatSearchProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +94,12 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
     prevResultsLen.current = results.length;
   }
 
+  useEffect(() => {
+    if (onClose) inputRef.current?.focus();
+    // Focus once, when the find bar opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
   }, []);
@@ -106,6 +121,15 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        // Esc only ever closes or clears the find bar; it never reaches
+        // anything that would stop work.
+        e.preventDefault();
+        e.stopPropagation();
+        if (query) setQuery('');
+        else onClose?.();
+        return;
+      }
       if (!results.length) return;
 
       if (e.key === 'ArrowDown') {
@@ -121,11 +145,9 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
         } else if (results.length > 0) {
           handleSelect(results[0]);
         }
-      } else if (e.key === 'Escape') {
-        setQuery('');
       }
     },
-    [results, activeIndex, handleSelect],
+    [results, activeIndex, handleSelect, query, onClose],
   );
 
   // Scroll active item into view, in a layout effect to avoid DOM mutations during render.
@@ -154,15 +176,16 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
       aria-label="Search chat history"
     >
       <div className="chat-search__input-row">
-        <label htmlFor={inputId} className="chat-search__label">
+        <label htmlFor={inputId} className="chat-search__label gv-sr-only">
           Search chat history
         </label>
+        <Search size={16} aria-hidden="true" className="chat-search__icon" />
         <input
           ref={inputRef}
           id={inputId}
           type="search"
           className="chat-search__input"
-          placeholder="Search across all sessions…"
+          placeholder="Find in your chats"
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -179,26 +202,26 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
         {(isSearching || sessionSearchState === 'searching') && (
           <span className="chat-search__spinner" aria-label="Searching…" role="status" />
         )}
+        {onClose && (
+          <IconButton size="sm" label="Close find" shortcut="Esc" icon={<X />} onClick={onClose} className="chat-search__close" />
+        )}
       </div>
 
       {hasQuery && (
         <section className="chat-search__section" aria-label="Sessions matching your search">
           <div className="chat-search__section-header">
             <div className="chat-search__section-heading">
-              <h3 className="chat-search__section-title">Sessions</h3>
-              <p className="chat-search__section-caption">Session titles, across all history.</p>
+              <h3 className="chat-search__section-title">Chats</h3>
+              <p className="chat-search__section-caption">Titles, across all history</p>
             </div>
-            <label
+            <Toggle
               className="chat-search__closed-toggle"
+              checked={includeClosed}
+              onChange={setIncludeClosed}
               title="Also search closed and idle-reaped sessions: hidden by default"
             >
-              <input
-                type="checkbox"
-                checked={includeClosed}
-                onChange={(e) => setIncludeClosed(e.target.checked)}
-              />
-              Include closed sessions
-            </label>
+              Include closed
+            </Toggle>
           </div>
 
           {showSessionSkeleton && (
@@ -257,7 +280,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
                   >
                     <span className="chat-search__session-result-title">{result.sessionTitle}</span>
                     <span className="chat-search__session-result-meta">
-                      {result.status === 'closed' && <span className="badge neutral">closed</span>}
+                      {result.status === 'closed' && <span className="chat-search__closed-chip">Closed</span>}
                       {time && <span className="chat-search__result-time">{time}</span>}
                     </span>
                   </li>
@@ -282,7 +305,7 @@ export function ChatSearch({ sessions, onSelect, className }: ChatSearchProps) {
       {hasQuery && (
         <div className="chat-search__section-heading chat-search__section-heading--messages">
           <h3 className="chat-search__section-title chat-search__section-title--messages">Messages</h3>
-          <p className="chat-search__section-caption">Message text, in your loaded sessions.</p>
+          <p className="chat-search__section-caption">Text, in your loaded chats</p>
         </div>
       )}
 

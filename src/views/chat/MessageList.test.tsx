@@ -61,6 +61,7 @@ const baseProps = {
 
 function renderMessageList(props: Partial<typeof baseProps & {
   isStreaming?: boolean;
+  workingLabel?: string;
   onStop?: () => void;
   activeToolCalls?: readonly ActiveToolCall[];
   onCancelToolCall?: (callId: string) => void;
@@ -147,9 +148,11 @@ function installGlobal(key: string, value: unknown): void {
 // ---------------------------------------------------------------------------
 
 describe('MessageList: streaming caret', () => {
-  test('caret renders while streaming even before the first token; Stop must be reachable during the thinking window', () => {
-    const { container, unmount } = renderMessageList({ isStreaming: true, liveText: '' });
-    expect(container.querySelector('.stream-caret')).not.toBeNull();
+  test('before the first token the working line (not a lone caret) shows, and Stop is reachable', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: true, liveText: '', onStop: () => {} });
+    expect(container.querySelector('.chat-working__label')?.textContent).toBe('Thinking…');
+    expect(container.querySelector('.stream-stop-btn')).not.toBeNull();
+    expect(container.querySelector('.stream-caret')).toBeNull();
     unmount();
   });
 
@@ -168,6 +171,92 @@ describe('MessageList: streaming caret', () => {
   test('caret is present when isStreaming=true AND liveText is non-empty', () => {
     const { container, unmount } = renderMessageList({ isStreaming: true, liveText: 'typing...' });
     expect(container.querySelector('.stream-caret')).not.toBeNull();
+    unmount();
+  });
+});
+
+describe('MessageList: working line', () => {
+  test('names what is happening, from the workingLabel prop', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: true, workingLabel: 'Reading 2 files…' });
+    expect(container.querySelector('.chat-working__label')?.textContent).toBe('Reading 2 files…');
+    unmount();
+  });
+
+  test('is not an assistant message of its own (the transcript count stays honest)', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: true });
+    expect(container.querySelectorAll('.message.assistant:not(.streaming)').length).toBe(0);
+    unmount();
+  });
+
+  test('holds still (no shimmer class) with reduced motion', () => {
+    installGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    const { container, unmount } = renderMessageList({ isStreaming: true });
+    expect(container.querySelector('.chat-working__label--still')).not.toBeNull();
+    unmount();
+  });
+
+  test('is absent when no turn is running', () => {
+    const { container, unmount } = renderMessageList({ isStreaming: false });
+    expect(container.querySelector('.chat-working')).toBeNull();
+    unmount();
+  });
+});
+
+describe('MessageList: message layout and timestamps', () => {
+  test('an assistant reply carries the spark mark; a user message is a bubble without one', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'u1', role: 'user', content: 'question', createdAt: Date.now() } as ChatMessage, priorMessages: [] },
+      { message: { id: 'a1', role: 'assistant', content: 'answer', createdAt: Date.now() } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('.message.assistant .message-mark .gv-spark')).not.toBeNull();
+    expect(container.querySelector('.message.user .message-mark')).toBeNull();
+    expect(container.querySelector('.message.user .message-bubble')?.textContent).toContain('question');
+    unmount();
+  });
+
+  test('a known time renders in a <time> element in the footer', () => {
+    const at = new Date(2026, 8, 30, 15, 42).getTime();
+    const nodes: LineageNode[] = [
+      { message: { id: 'a1', role: 'assistant', content: 'answer', createdAt: at } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    const time = container.querySelector('.message-actions time');
+    expect(time).not.toBeNull();
+    expect(time?.getAttribute('dateTime')).toBe(new Date(at).toISOString());
+    unmount();
+  });
+
+  test('a zero or missing time renders nothing: never an epoch date, never "unknown"', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'a0', role: 'assistant', content: 'zero', createdAt: 0 } as ChatMessage, priorMessages: [] },
+      { message: { id: 'a1', role: 'assistant', content: 'one second after the epoch', createdAt: 1000 } as ChatMessage, priorMessages: [] },
+      { message: { id: 'a2', role: 'assistant', content: 'missing' } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    expect(container.querySelector('.message-actions time')).toBeNull();
+    expect(container.textContent).not.toContain('1969');
+    expect(container.textContent).not.toContain('1970');
+    expect(container.textContent).not.toContain('unknown');
+    unmount();
+  });
+
+  test('the hover actions are ghost icon buttons with names', () => {
+    const nodes: LineageNode[] = [
+      { message: { id: 'a1', role: 'assistant', content: 'answer' } as ChatMessage, priorMessages: [] },
+    ];
+    const { container, unmount } = renderMessageList({ nodes });
+    const names = Array.from(container.querySelectorAll('.message-actions__buttons .gv-icon-button')).map((b) => b.getAttribute('aria-label'));
+    expect(names).toContain('Copy message');
+    expect(names).toContain('Regenerate response');
+    expect(names).toContain('View artifacts from this message');
     unmount();
   });
 });
@@ -402,7 +491,7 @@ describe('MessageList: running tool calls + cancel (SDK 1.8.0 interaction-wins r
 // ---------------------------------------------------------------------------
 
 describe('tool activity folding (rendered through MessageItem)', () => {
-  test('an assistant message with one completed tool call renders one compact entry, not a fold', () => {
+  test('an assistant message with one completed tool call renders one collapsed line', () => {
     const nodes: LineageNode[] = [
       {
         message: {
@@ -413,12 +502,14 @@ describe('tool activity folding (rendered through MessageItem)', () => {
       },
     ];
     const { container, unmount } = renderMessageList({ nodes });
-    expect(container.querySelector('details.message-tool-activity--group')).toBeNull();
+    const details = container.querySelector('details.message-tool-activity') as HTMLDetailsElement | null;
+    expect(details?.open).toBe(false);
+    expect(details?.querySelector('.message-tool-activity__line')?.textContent).toBe('Read 1 file');
     expect(container.querySelector('.message-tool-activity__label')?.textContent).toBe('read');
     unmount();
   });
 
-  test('an assistant message with multiple completed tool calls folds behind a counted summary', () => {
+  test('an assistant message with multiple completed tool calls folds into one counted line', () => {
     const nodes: LineageNode[] = [
       {
         message: {
@@ -432,9 +523,9 @@ describe('tool activity folding (rendered through MessageItem)', () => {
       },
     ];
     const { container, unmount } = renderMessageList({ nodes });
-    const details = container.querySelector('details.message-tool-activity--group');
-    expect(details).not.toBeNull();
-    expect(details?.querySelector('summary')?.textContent).toBe('2 tools · read, exec; expand');
+    const details = container.querySelectorAll('details.message-tool-activity');
+    expect(details.length).toBe(1);
+    expect(details[0]?.querySelector('.message-tool-activity__line')?.textContent).toBe('Read 1 file, ran 1 command');
     unmount();
   });
 

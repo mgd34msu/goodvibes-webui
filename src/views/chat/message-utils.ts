@@ -1,4 +1,4 @@
-import { asRecord, bestId, compactJson, firstArray, firstString, formatRelative } from '../../lib/object';
+import { asRecord, bestId, compactJson, firstArray, firstString } from '../../lib/object';
 
 export function messageText(message: unknown): string {
   const direct = firstString(message, ['body', 'content', 'text', 'message', 'delta']);
@@ -59,9 +59,65 @@ export function messageTone(message: unknown): string {
   return 'neutral';
 }
 
-export function messageTimestamp(message: unknown): string {
+/**
+ * Earliest instant a real chat message can carry. Anything before it (0, a
+ * small counter, an unset field defaulted to the epoch) is a missing time, not
+ * a moment in 1969 or 1970, so it renders as nothing at all.
+ */
+const EARLIEST_PLAUSIBLE_MS = Date.UTC(2000, 0, 1);
+/** Values in this range are epoch SECONDS (a 10-digit Unix time), not milliseconds. */
+const LATEST_PLAUSIBLE_SECONDS = 1e11;
+
+/**
+ * The message's creation time in epoch milliseconds, or null when it is
+ * missing, zero, unparseable or implausibly early. Accepts epoch ms, epoch
+ * seconds, numeric strings and ISO strings.
+ */
+export function messageTimeMs(message: unknown): number | null {
   const record = asRecord(message);
-  return formatRelative(record.createdAt ?? record.timestamp ?? record.time);
+  const raw = record.createdAt ?? record.timestamp ?? record.time;
+  let value: number;
+  if (typeof raw === 'number') {
+    value = raw;
+  } else if (typeof raw === 'string' && raw.trim()) {
+    const numeric = Number(raw);
+    value = Number.isFinite(numeric) ? numeric : Date.parse(raw);
+  } else {
+    return null;
+  }
+  if (!Number.isFinite(value) || value <= 0) return null;
+  if (value < LATEST_PLAUSIBLE_SECONDS && value * 1000 >= EARLIEST_PLAUSIBLE_MS) value *= 1000;
+  if (value < EARLIEST_PLAUSIBLE_MS) return null;
+  return value;
+}
+
+/**
+ * A short, human time for the hover row under a message: "3:42 PM" today,
+ * "Sep 28, 3:42 PM" earlier this year, "Sep 28, 2025, 3:42 PM" before that.
+ * Returns '' when the time is missing (never an epoch date, never "unknown").
+ */
+export function messageTimestamp(message: unknown, now: number = Date.now()): string {
+  const ms = messageTimeMs(message);
+  if (ms === null) return '';
+  const date = new Date(ms);
+  const today = new Date(now);
+  const sameDay = date.getFullYear() === today.getFullYear()
+    && date.getMonth() === today.getMonth()
+    && date.getDate() === today.getDate();
+  if (sameDay) return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/** The full date and time for a timestamp's tooltip, '' when missing. */
+export function messageTimestampTitle(message: unknown): string {
+  const ms = messageTimeMs(message);
+  return ms === null ? '' : new Date(ms).toLocaleString();
 }
 
 export function messageCreatedAt(message: unknown): number {
@@ -200,6 +256,10 @@ export interface CompletedToolCall {
   readonly toolInput?: unknown;
   readonly result?: unknown;
   readonly isError: boolean;
+  /** When this browser saw turn.tool_call (epoch ms, client clock). */
+  readonly startedAt?: number;
+  /** When this browser saw the matching turn.tool_result (epoch ms, client clock). */
+  readonly finishedAt?: number;
 }
 
 /** Common tool names mapped to the short, human label used in the folded summary line. */
@@ -222,21 +282,6 @@ export function toolFriendlyLabel(toolName: string): string {
   return TOOL_FRIENDLY_LABELS[normalized] ?? (toolName.trim() || 'tool');
 }
 
-/**
- * Compact "N tools · read×2, exec" style summary of a completed turn's tool
- * calls, grouped by friendly label with real counts, never an invented total.
- */
-export function summarizeToolActivity(calls: readonly Pick<CompletedToolCall, 'toolName'>[]): string {
-  const counts = new Map<string, number>();
-  for (const call of calls) {
-    const label = toolFriendlyLabel(call.toolName);
-    counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([label, count]) => (count > 1 ? `${label}×${count}` : label))
-    .join(', ');
-}
-
 /** Common argument keys, checked in order, used to surface a tool call's one key argument. */
 const KEY_ARG_FIELDS = ['file_path', 'filePath', 'path', 'command', 'pattern', 'query', 'url', 'prompt'];
 
@@ -255,4 +300,123 @@ export function toolResultText(result: unknown): string {
   if (result === undefined || result === null) return '';
   if (typeof result === 'string') return result;
   return compactJson(result);
+}
+
+/**
+ * Verb phrases for the one-line tool summary ("Read 2 files, searched the web").
+ * Each entry turns a count into a phrase; tools not listed fall back to
+ * "used <name>" with a count.
+ */
+const TOOL_PHRASES: Readonly<Record<string, (count: number) => string>> = {
+  read: (n) => `read ${n} file${n === 1 ? '' : 's'}`,
+  write: (n) => `wrote ${n} file${n === 1 ? '' : 's'}`,
+  edit: (n) => `edited ${n} file${n === 1 ? '' : 's'}`,
+  exec: (n) => `ran ${n} command${n === 1 ? '' : 's'}`,
+  search: (n) => (n === 1 ? 'searched the code' : `searched the code ${n} times`),
+  'web search': (n) => (n === 1 ? 'searched the web' : `searched the web ${n} times`),
+  'web fetch': (n) => `read ${n} web page${n === 1 ? '' : 's'}`,
+  agent: (n) => `ran ${n} agent${n === 1 ? '' : 's'}`,
+};
+
+/** Whole seconds between the first call starting and the last one finishing, or null. */
+export function toolActivityDurationMs(calls: readonly Pick<CompletedToolCall, 'startedAt' | 'finishedAt'>[]): number | null {
+  const starts = calls.map((call) => call.startedAt).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  const ends = calls.map((call) => call.finishedAt).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  if (!starts.length || !ends.length) return null;
+  const duration = Math.max(...ends) - Math.min(...starts);
+  return duration >= 0 ? duration : null;
+}
+
+/** "4 s", "1 min 12 s", "<1 s". */
+export function formatToolDuration(ms: number): string {
+  if (ms < 1000) return '<1 s';
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
+}
+
+/**
+ * The collapsed tool row's one line, e.g. "Read 2 files, searched the web · 4 s".
+ * Real counts only; the duration appears only when this browser timed the calls,
+ * and failures are counted rather than hidden.
+ */
+export function describeToolActivity(calls: readonly CompletedToolCall[]): string {
+  if (calls.length === 0) return '';
+  const counts = new Map<string, number>();
+  for (const call of calls) {
+    const label = toolFriendlyLabel(call.toolName);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const phrases = [...counts.entries()].map(([label, count]) => {
+    const phrase = TOOL_PHRASES[label];
+    if (phrase) return phrase(count);
+    return count > 1 ? `used ${label} ${count} times` : `used ${label}`;
+  });
+  const failed = calls.filter((call) => call.isError).length;
+  if (failed) phrases.push(`${failed} failed`);
+  const sentence = phrases.join(', ');
+  const line = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+  const duration = toolActivityDurationMs(calls);
+  return duration === null ? line : `${line} · ${formatToolDuration(duration)}`;
+}
+
+/**
+ * What the working line under the last message says while a turn runs, named
+ * from the live state (never a generic spinner). Returns '' when nothing is in
+ * flight.
+ */
+export function workingStatusLabel(
+  turnState: string,
+  activeToolNames: readonly string[],
+  hasLiveText: boolean,
+): string {
+  if (turnState === 'stopping') return 'Stopping…';
+  if (turnState === 'reconnecting' || turnState === 'sending while reconnecting') return 'Reconnecting to your daemon…';
+  if (activeToolNames.length > 0) {
+    const counts = new Map<string, number>();
+    for (const name of activeToolNames) {
+      const label = toolFriendlyLabel(name);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    const running = [...counts.entries()].map(([label, count]) => {
+      switch (label) {
+        case 'read': return count > 1 ? `Reading ${count} files` : 'Reading a file';
+        case 'write': return count > 1 ? `Writing ${count} files` : 'Writing a file';
+        case 'edit': return count > 1 ? `Editing ${count} files` : 'Editing a file';
+        case 'exec': return count > 1 ? `Running ${count} commands` : 'Running a command';
+        case 'search': return 'Searching the code';
+        case 'web search': return 'Searching the web';
+        case 'web fetch': return 'Reading a web page';
+        case 'agent': return count > 1 ? `Running ${count} agents` : 'Running an agent';
+        default: return `Using ${label}`;
+      }
+    });
+    const sentence = running.map((phrase, index) => (index === 0 ? phrase : phrase.charAt(0).toLowerCase() + phrase.slice(1)));
+    return `${sentence.join(', ')}…`;
+  }
+  if (turnState === 'sending') return 'Sending…';
+  if (turnState === 'tooling') return 'Working with tools…';
+  if (turnState === 'syncing') return 'Loading the reply…';
+  if (turnState === 'streaming') return hasLiveText ? 'Writing…' : 'Thinking…';
+  if (turnState === 'running' || turnState === 'submitted') return 'Thinking…';
+  return '';
+}
+
+/**
+ * Plain words for a turn that ended somewhere other than a normal reply, shown
+ * as a quiet line above the composer. '' for idle, in-flight and completed turns.
+ */
+export function settledTurnLabel(turnState: string): string {
+  switch (turnState) {
+    case 'stream paused': return 'Live updates are off. Replies still arrive by periodic refresh.';
+    case 'stream error': return 'The live stream failed.';
+    case 'send failed': return 'The message was not sent.';
+    case 'session expired': return 'Your sign-in expired.';
+    case 'stopped': return 'Stopped.';
+    case 'stopped locally': return 'Stopped showing the reply. This daemon cannot stop the turn itself.';
+    case 'error': return 'The reply failed.';
+    default: return '';
+  }
 }

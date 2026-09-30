@@ -72,3 +72,32 @@ test('send, auto-title, regenerate-with-retained-history, and edit-and-branch', 
   // The cardinal phone sin, no sideways scroll at any point.
   await expectNoHorizontalScroll(page);
 });
+
+test('new chat greets with suggestions; the find bar opens from the header and Esc closes it; no epoch dates', async ({ page }, testInfo) => {
+  await installChatMockDaemon(page);
+  await page.goto('/?view=chat');
+  await expect(page.locator('.chat-greeting')).toContainText(/Good (morning|afternoon|evening)/);
+  // A suggestion fills the composer; it does not send.
+  await page.locator('.chat-suggestion', { hasText: 'Check my mail' }).click();
+  const composer = page.locator('textarea[aria-label="Message GoodVibes"]');
+  await expect(composer).toHaveValue(/Check my mail/);
+  await expect(page.locator('.message.user')).toHaveCount(0);
+
+  await page.locator('.send-button').click();
+  await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply', { timeout: 15_000 });
+  // The mock stamps near-epoch times: they must render as nothing, never 1969/1970.
+  await expect(page.locator('.chat-main')).not.toContainText(/1969|1970/);
+
+  // The chat's own search band is gone; the header's find button (Ctrl F on desktop) opens a glass find bar.
+  if (testInfo.project.name === 'desktop') {
+    await composer.click();
+    await page.keyboard.press('Control+f');
+  } else {
+    await page.getByRole('button', { name: 'Find in chats' }).click();
+  }
+  const field = page.locator('.chat-find input[type="search"]');
+  await expect(field).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.chat-find')).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+});

@@ -161,7 +161,7 @@ export function useChatStream({
   // toolCallId -> {toolName, toolInput} captured at turn.tool_call time, so the
   // matching turn.tool_result can build a full CompletedToolCall without the daemon
   // having to repeat the input back on the result event.
-  const pendingToolInputRef = useRef<Map<string, { toolName: string; toolInput: unknown }>>(new Map());
+  const pendingToolInputRef = useRef<Map<string, { toolName: string; toolInput: unknown; startedAt: number }>>(new Map());
 
   // Forward state updates to the caller's authoritative turnState.
   const syncedSetTurnState: Dispatch<SetStateAction<string>> = useCallback(
@@ -326,7 +326,7 @@ export function useChatStream({
             ));
             // Captured so the matching turn.tool_result (which does not repeat the
             // input back) can still build a full CompletedToolCall for the fold.
-            pendingToolInputRef.current.set(toolCallId, { toolName, toolInput: asRecord(payload).toolInput });
+            pendingToolInputRef.current.set(toolCallId, { toolName, toolInput: asRecord(payload).toolInput, startedAt: Date.now() });
           }
           syncedSetTurnState('tooling');
           return;
@@ -350,6 +350,8 @@ export function useChatStream({
                 toolInput: pending?.toolInput,
                 result: resultRecord.result,
                 isError: Boolean(resultRecord.isError),
+                // Timed by this browser: the row's "· 4 s" is what the person waited.
+                ...(pending ? { startedAt: pending.startedAt, finishedAt: Date.now() } : {}),
               },
             ];
           }

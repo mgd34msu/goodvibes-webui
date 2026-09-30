@@ -1140,8 +1140,13 @@ describe('useChatStream: toolActivityByMessageId', () => {
 
     const activity = ctx.result.toolActivityByMessageId.get('a1');
     expect(activity).toEqual([
-      { toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls' }, result: 'file.txt', isError: false },
+      {
+        toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls' }, result: 'file.txt', isError: false,
+        startedAt: expect.any(Number), finishedAt: expect.any(Number),
+      },
     ]);
+    // Timed by this browser, so the collapsed row can say how long the person waited.
+    expect(activity![0].finishedAt!).toBeGreaterThanOrEqual(activity![0].startedAt!);
 
     ctx.unmount();
   });
@@ -1182,7 +1187,10 @@ describe('useChatStream: toolActivityByMessageId', () => {
 
     const activity = ctx.result.toolActivityByMessageId.get('a2');
     expect(activity?.map((c) => c.toolCallId)).toEqual(['call-1', 'call-2']);
-    expect(activity?.[1]).toEqual({ toolCallId: 'call-2', toolName: 'bash', toolInput: { command: 'ls' }, result: '', isError: true });
+    expect(activity?.[1]).toEqual({
+      toolCallId: 'call-2', toolName: 'bash', toolInput: { command: 'ls' }, result: '', isError: true,
+      startedAt: expect.any(Number), finishedAt: expect.any(Number),
+    });
 
     ctx.unmount();
   });

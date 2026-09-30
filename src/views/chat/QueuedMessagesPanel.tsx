@@ -13,7 +13,9 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Trash2, X, Check } from 'lucide-react';
+import { Clock, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { IconButton } from '../../components/ui/IconButton';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
@@ -63,6 +65,7 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
   return (
     <div className="queued-messages-panel" aria-label="Queued messages">
       <p className="queued-messages-panel__note" role="note">
+        <Clock size={14} aria-hidden="true" />
         Queued: will be sent once the current reply finishes. Edit or drop it before then.
       </p>
       <ul className="queued-messages-list">
@@ -84,49 +87,52 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
                   rows={2}
                 />
                 <div className="queued-message__edit-actions">
-                  <button
-                    type="submit"
-                    className="queued-message__save"
-                    disabled={editMutation.isPending || !draftText.trim()}
-                    aria-label="Save queued message"
-                  >
-                    <Check size={13} aria-hidden="true" /> Save
-                  </button>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="queued-message__cancel-edit"
                     onClick={() => { setEditingId(''); setDraftText(''); }}
                     aria-label="Cancel editing queued message"
                   >
-                    <X size={13} aria-hidden="true" /> Cancel
-                  </button>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    className="queued-message__save"
+                    disabled={editMutation.isPending || !draftText.trim()}
+                    aria-label="Save queued message"
+                  >
+                    Save
+                  </Button>
                 </div>
               </form>
             ) : (
               <>
                 <span className="queued-message__text">{message.text}</span>
                 <div className="queued-message__actions">
-                  <button
-                    type="button"
+                  <IconButton
+                    size="sm"
                     className="queued-message__edit"
+                    label="Edit queued message"
+                    icon={<Pencil />}
+                    tooltipPlacement="top"
                     onClick={() => { setEditingId(message.id); setDraftText(message.text); }}
-                    aria-label="Edit queued message"
-                  >
-                    <Pencil size={13} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <IconButton
+                    size="sm"
                     className="queued-message__delete"
+                    label="Delete queued message"
+                    icon={<Trash2 />}
+                    tooltipPlacement="top"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
                       if (window.confirm('Drop this queued message? It will never be sent.')) {
                         deleteMutation.mutate(message.id);
                       }
                     }}
-                    aria-label="Delete queued message"
-                  >
-                    <Trash2 size={13} aria-hidden="true" />
-                  </button>
+                  />
                 </div>
               </>
             )}

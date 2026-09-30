@@ -19,6 +19,8 @@ import { useCallback, useState } from 'react';
 import { Copy, Check, FileText } from 'lucide-react';
 import { highlightCode } from '../../lib/highlight';
 import { usePeek } from '../../components/peek/PeekPanel';
+import { IconButton } from '../../components/ui/IconButton';
+import { useRightPanel } from '../../components/shell/ShellContext';
 import { useToast } from '../../lib/toast';
 import type { ChatMessage } from './types';
 import '../../styles/components/chat-artifacts.css';
@@ -151,16 +153,14 @@ function ArtifactCodeBlock({ artifact, onCopy }: ArtifactCodeBlockProps) {
     <div className="artifact-code-block">
       <div className="artifact-code-header">
         <span className="artifact-code-label">{displayLanguage || 'code'}</span>
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           className="artifact-code-copy"
+          label="Copy code"
+          icon={copied ? <Check /> : <Copy />}
+          tooltipPlacement="left"
           onClick={handleCopy}
-          title="Copy code"
-          aria-label="Copy code"
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
+        />
       </div>
       <pre className="artifact-code-pre">
         <code dangerouslySetInnerHTML={{ __html: highlighted.html }} />
@@ -208,6 +208,11 @@ function ArtifactsPanelContent({
 }: ArtifactsPanelContentProps) {
   const hasCode = codeBlocks.length > 0;
   const hasFiles = fileArtifacts.length > 0;
+  // The artifacts panel is a large right-side panel (440 wide): while it is
+  // open the sidebar folds to its icon rail so the conversation keeps its
+  // width (design doc "Sidebar auto-collapse"). The peek drawer hosting it
+  // announces itself too; both registrations are released on close.
+  useRightPanel(true, { force: true });
 
   if (!hasCode && !hasFiles) {
     return (
@@ -221,7 +226,7 @@ function ArtifactsPanelContent({
     <div className="artifacts-panel-content">
       {hasCode ? (
         <section className="artifacts-section">
-          <h3 className="artifacts-section-title">Code Blocks</h3>
+          <h3 className="artifacts-section-title">Code</h3>
           <div className="artifacts-code-list">
             {codeBlocks.map((block) => (
               <ArtifactCodeBlock
@@ -282,10 +287,7 @@ export function useArtifactsPanel(): {
       const fileArtifacts = extractFileArtifacts(message);
 
       const total = codeBlocks.length + fileArtifacts.length;
-      const title =
-        total === 1
-          ? '1 Artifact'
-          : `${total} Artifacts`;
+      const title = total === 1 ? '1 artifact' : `${total} artifacts`;
 
       function handleCopy(_code: string): void {
         toast({ title: 'Copied to clipboard', tone: 'success', durationMs: 2000 });

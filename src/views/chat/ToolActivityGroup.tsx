@@ -5,14 +5,16 @@
  * data comes from and why it is only ever present for a turn this browser tab
  * watched run live).
  *
- * Single-tool turns render one compact entry directly. Multi-tool turns fold
- * behind a <details>/<summary> disclosure, the same idiom MessageItem already
- * uses for compaction-handoff messages, with a real, counted summary line
- * ("3 tools · read×2, exec, expand"), never an invented total.
+ * Every turn, one call or many, collapses to ONE line ("Read 2 files, searched
+ * the web · 4 s", design doc "Chat": the same rule as the TUI, collapsed output
+ * is one compact line) that expands inline to the per-call detail: the tool,
+ * its key argument, and its result. Counts are real; the duration is shown
+ * only when this browser timed the calls.
  */
+import { ChevronRight } from 'lucide-react';
 import {
+  describeToolActivity,
   toolFriendlyLabel,
-  summarizeToolActivity,
   toolKeyArg,
   toolResultText,
   type CompletedToolCall,
@@ -51,19 +53,14 @@ function ToolActivityEntry({ call }: { call: CompletedToolCall }) {
 
 export function ToolActivityGroup({ toolActivity }: { toolActivity: readonly CompletedToolCall[] }) {
   if (toolActivity.length === 0) return null;
-
-  if (toolActivity.length === 1) {
-    return (
-      <ul className="message-tool-activity message-tool-activity--single" aria-label="Tool call result">
-        <ToolActivityEntry call={toolActivity[0]} />
-      </ul>
-    );
-  }
-
+  const hasError = toolActivity.some((call) => call.isError);
   return (
-    <details className="message-tool-activity message-tool-activity--group">
-      <summary>{toolActivity.length} tools · {summarizeToolActivity(toolActivity)}; expand</summary>
-      <ul className="message-tool-activity__list">
+    <details className={`message-tool-activity${hasError ? ' message-tool-activity--has-error' : ''}`}>
+      <summary className="message-tool-activity__summary">
+        <ChevronRight size={14} aria-hidden="true" className="message-tool-activity__chevron" />
+        <span className="message-tool-activity__line">{describeToolActivity(toolActivity)}</span>
+      </summary>
+      <ul className="message-tool-activity__list" aria-label="Tool calls">
         {toolActivity.map((call) => <ToolActivityEntry key={call.toolCallId} call={call} />)}
       </ul>
     </details>

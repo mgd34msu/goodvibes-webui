@@ -8,7 +8,6 @@
  */
 import { WifiOff } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react';
-import type { ViewId } from '../../lib/router';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import { useOptionalToast } from '../../lib/toast';
 import { usePeek } from '../peek/PeekPanel';
@@ -16,6 +15,7 @@ import { Drawer } from '../ui/Drawer';
 import { connectionPhrase, type HealthSummary } from './AccountMenu';
 import { DestinationTabs } from './DestinationTabs';
 import { ShellHeader } from './ShellHeader';
+import { HeaderSlotsProvider } from './HeaderSlots';
 import { Sidebar, SidebarContent, type SidebarProps } from './Sidebar';
 import { useShell } from './ShellContext';
 import '../../styles/components/shell.css';
@@ -129,8 +129,8 @@ export function ShellLayout({
       className="app-shell"
       data-sidebar={shell.mode}
       data-view={sidebar.view}
-      inert={inert || undefined}
-      aria-hidden={inert || undefined}
+      inert={inert ? true : undefined}
+      aria-hidden={inert ? true : undefined}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={() => { swipe.current = null; }}
@@ -161,6 +161,7 @@ export function ShellLayout({
           />
         </Drawer>
       )}
+      <HeaderSlotsProvider>
       <main className="shell-main" data-view={sidebar.view}>
         <ShellHeader
           title={title}
@@ -172,6 +173,7 @@ export function ShellLayout({
           onRefresh={onRefresh}
           refreshing={refreshing}
           attention={sidebar.workAttention}
+          hideSearch={sidebar.view === 'chat'}
         />
         {connectionLost && (
           <div className="banner warning shell-connection-banner" role="status">
@@ -188,6 +190,7 @@ export function ShellLayout({
           <div className="view-frame__body">{children}</div>
         </section>
       </main>
+      </HeaderSlotsProvider>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Database } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
+import { Chip } from '../../components/ui/Chip';
 import '../../styles/components/memory-provenance.css';
 
 export interface MemoryProvenanceChipProps {
@@ -49,9 +50,9 @@ export function MemoryProvenanceChip({ recordIds }: MemoryProvenanceChipProps) {
         aria-label={`Memory used: ${recordIds.length} record${recordIds.length === 1 ? '' : 's'}, show details`}
         onClick={() => setExpanded((prev) => !prev)}
       >
-        <Database size={13} aria-hidden="true" />
+        <Database size={14} aria-hidden="true" />
         <span>Memory: {recordIds.length}</span>
-        {expanded ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
+        {expanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
       </button>
 
       {expanded && (
@@ -68,8 +69,8 @@ export function MemoryProvenanceChip({ recordIds }: MemoryProvenanceChipProps) {
                     <>
                       <strong>{entry.record.summary}</strong>
                       <span className="memory-provenance-chip__meta">
-                        <span className="badge neutral">{entry.record.cls}</span>
-                        <span className="badge neutral">{entry.record.scope}</span>
+                        <Chip size="sm">{entry.record.cls}</Chip>
+                        <Chip size="sm">{entry.record.scope}</Chip>
                       </span>
                     </>
                   ) : (

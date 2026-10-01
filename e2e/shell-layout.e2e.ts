@@ -12,20 +12,22 @@ import { DESKTOP, nextFrames, only, openNavigation } from './support/app';
 
 test('the page never scrolls: every pane owns its own overflow', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('.view-frame')).not.toBeEmpty();
+  await expect(page.locator('.dv-list')).toBeVisible();
 
   const m = await page.evaluate(() => ({
     docScrollHeight: document.documentElement.scrollHeight,
     innerHeight: window.innerHeight,
-    frameOverflow: getComputedStyle(document.querySelector('.shell-main > .view-frame')!).overflowY,
     mainOverflow: getComputedStyle(document.querySelector('.shell-main')!).overflowY,
+    // A data view: the list pane scrolls (on a phone, the page body under the header does).
+    paneOverflow: getComputedStyle(document.querySelector(window.innerWidth < 900 ? '.dv-body' : '.dv-list')!).overflowY,
   }));
   // The document is exactly one viewport tall; body scroll is impossible.
   expect(m.docScrollHeight).toBe(m.innerHeight);
-  // The content frame scrolls itself; the main column never grows past the viewport.
-  expect(m.frameOverflow).toBe('auto');
+  // The panes scroll themselves; the main column never grows past the viewport.
+  expect(m.paneOverflow).toBe('auto');
   expect(m.mainOverflow).toBe('hidden');
 
   await page.mouse.wheel(0, 2000);
@@ -35,7 +37,7 @@ test('the page never scrolls: every pane owns its own overflow', async ({ page }
 
 test('there is no status strip: the connection is on the avatar and in the account menu', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
   await expect(page.locator('.status-strip')).toHaveCount(0);
 
@@ -89,9 +91,10 @@ test('the brand wordmark renders complete, never abbreviated', async ({ page }) 
   expect(m.scrollWidth).toBeLessThanOrEqual(m.clientWidth);
 });
 
-/** A right-side detail: a memory record's peek drawer (the Providers view that used to serve here is a settings section now). */
+/** A right-side detail: a memory record in Library's list and detail split. */
 async function openMemoryDetail(page: import('@playwright/test').Page): Promise<void> {
-  await page.locator('.memory-record-row__main').first().click();
+  await page.locator('.dv-list .gv-row__main').first().click();
+  await expect(page.locator('.dv-detail')).toBeVisible();
 }
 
 test.describe('sidebar auto-collapse (desktop)', () => {
@@ -101,7 +104,7 @@ test.describe('sidebar auto-collapse (desktop)', () => {
 
   test('a right-side detail folds the sidebar to the 56 rail; closing it restores the sidebar', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=memory');
+    await page.goto('/?view=library&tab=memory');
     const sidebar = page.locator('.shell-sidebar');
     await expect(sidebar).toHaveAttribute('data-form', 'expanded');
 
@@ -122,7 +125,7 @@ test.describe('sidebar auto-collapse (desktop)', () => {
 
   test('a sidebar the person collapsed stays collapsed after the detail closes', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=memory');
+    await page.goto('/?view=library&tab=memory');
     const sidebar = page.locator('.shell-sidebar');
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
@@ -130,23 +133,23 @@ test.describe('sidebar auto-collapse (desktop)', () => {
     await openMemoryDetail(page);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
     await page.keyboard.press('Escape');
-    await expect(page.locator('.peek-panel--open')).toHaveCount(0);
+    await expect(page.locator('.dv-detail')).toHaveCount(0);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
   });
 
   test('a pinned sidebar does not auto-collapse at 1280 wide', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=memory');
+    await page.goto('/?view=library&tab=memory');
     const sidebar = page.locator('.shell-sidebar');
     await sidebar.getByRole('button', { name: 'Pin sidebar open' }).click();
     await openMemoryDetail(page);
-    await expect(page.locator('.peek-panel--open')).toBeVisible();
+    await expect(page.locator('.dv-detail')).toBeVisible();
     await expect(sidebar).toHaveAttribute('data-form', 'expanded');
   });
 
   test('Ctrl B shows the full sidebar over the content while a detail holds the rail', async ({ page }) => {
     await installMockDaemon(page);
-    await page.goto('/?view=memory');
+    await page.goto('/?view=library&tab=memory');
     const sidebar = page.locator('.shell-sidebar');
     await openMemoryDetail(page);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');

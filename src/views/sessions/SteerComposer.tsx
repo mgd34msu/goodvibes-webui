@@ -17,6 +17,10 @@ import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { shouldSubmitComposerKey } from '../../lib/composer-keys';
 import { formatError, isSessionClosedError } from '../../lib/errors';
+import { Button } from '../../components/ui/Button';
+import { Textarea } from '../../components/ui/Field';
+import { StatusDot } from '../../components/ui/StatusDot';
+import '../../styles/components/steer-composer.css';
 
 export type DispatchMode = 'steer' | 'followUp';
 export type DeliveryState = 'queued' | 'delivered' | 'failed';
@@ -111,15 +115,15 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
 
   return (
     <div className="steer-composer">
-      <div className="steer-composer__mode">
+      <p className="steer-composer__mode">
         {closed ? (
-          <span className="badge neutral">Session closed: reopen to send</span>
+          <><StatusDot tone="idle" />Session closed: reopen to send</>
         ) : mode === 'steer' ? (
-          <span className="badge ok">Steer · agent bound</span>
+          <><StatusDot tone="ok" />Steer: an agent is working, this reaches it mid-turn</>
         ) : (
-          <span className="badge warning">Follow-up · no active agent, queues a turn</span>
+          <><StatusDot tone="idle" />Follow-up: no agent is working, this queues a turn</>
         )}
-      </div>
+      </p>
 
       {streamPaused && !closed && (
         <p className="steer-composer__stream-note" role="status">
@@ -129,7 +133,7 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
       )}
 
       <form className="steer-composer__form" onSubmit={submit}>
-        <textarea
+        <Textarea
           className="steer-composer__input"
           value={text}
           onChange={(event) => setText(event.target.value)}
@@ -144,28 +148,32 @@ export function SteerComposer({ sessionId, canSteer, closed, streamPaused = fals
           aria-keyshortcuts="Enter"
           onKeyDown={handleKeyDown}
         />
-        <button
-          className="primary-button steer-composer__send"
-          type="submit"
-          disabled={closed || !text.trim()}
-          aria-label={mode === 'steer' ? 'Send steer' : 'Queue follow-up'}
-        >
-          <SendHorizontal size={16} aria-hidden="true" />
-          {mode === 'steer' ? 'Steer' : 'Queue'}
-        </button>
+        <div className="steer-composer__row">
+          {!closed && (
+            <span className="steer-composer__hint">
+              <kbd className="gv-kbd">Enter</kbd> to send, <kbd className="gv-kbd">Shift</kbd> <kbd className="gv-kbd">Enter</kbd> for a new line
+            </span>
+          )}
+          <Button
+            variant="primary"
+            className="steer-composer__send"
+            type="submit"
+            disabled={closed || !text.trim()}
+            aria-label={mode === 'steer' ? 'Send steer' : 'Queue follow-up'}
+            icon={<SendHorizontal aria-hidden="true" />}
+          >
+            {mode === 'steer' ? 'Steer' : 'Queue'}
+          </Button>
+        </div>
       </form>
-      {!closed && (
-        <p className="steer-composer__hint">
-          <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
-        </p>
-      )}
 
       {dispatches.length > 0 && (
         <ul className="steer-composer__dispatches" aria-label="Recent dispatches">
           {dispatches.map((dispatch) => (
             <li key={dispatch.id} className={`steer-dispatch steer-dispatch--${dispatch.state}`}>
+              <StatusDot tone={dispatch.state === 'failed' ? 'bad' : dispatch.state === 'delivered' ? 'ok' : 'live'} />
               <span className="steer-dispatch__text">{dispatch.text}</span>
-              <span className={`badge ${dispatch.state === 'failed' ? 'bad' : dispatch.state === 'delivered' ? 'ok' : 'warning'}`}>
+              <span className="steer-dispatch__state">
                 {dispatch.mode === 'steer' ? 'steer' : 'follow-up'} · {dispatch.state}
               </span>
               {dispatch.error && <span className="steer-dispatch__error">{dispatch.error}</span>}

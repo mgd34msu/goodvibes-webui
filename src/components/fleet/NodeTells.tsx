@@ -68,9 +68,8 @@ export function NodeReviewSummary({ node }: { readonly node: FleetProcessNode })
     <div className="fleet-detail__review" data-testid="fleet-detail-review">
       <div className="fleet-detail__review-head">
         <strong>Review</strong>
-        <span className={`badge ${verdictTone}`} data-testid="fleet-review-verdict">{verdictLabel}</span>
-        <span className="badge neutral">score {review.score}</span>
-        <span className="badge neutral">{review.cycles} cycle{review.cycles === 1 ? '' : 's'}</span>
+        <span className="fleet-detail__review-verdict" data-tone={verdictTone} data-testid="fleet-review-verdict">{verdictLabel}</span>
+        <span className="fleet-detail__review-meta">score {review.score} · {review.cycles} cycle{review.cycles === 1 ? '' : 's'}</span>
       </div>
       {review.checklist.length === 0 ? (
         <p className="fleet-detail__review-empty" role="note" data-testid="fleet-review-empty">

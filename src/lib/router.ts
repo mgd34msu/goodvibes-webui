@@ -2,43 +2,36 @@
  * router.ts, dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|sessions|knowledge|memory|fleet|checkpoints|approvals-tasks|workstream|calendar|mail|ci-watches|checkin|phone|dates|hosted-sessions
+ *   ?view=chat|work|library|personal|checkin|phone
+ *   &tab=<tab>                    (work, library and personal: the section shown)
  *   &session=<sessionId>          (chat view only; omitted when empty)
  *   &settings=<section>           (the settings dialog is open on that section)
  *   &filter[<key>]=<value>        (per-view filters; any number of pairs)
  *
- * Admin, Providers and Principals stopped being views: they are sections of
- * the settings dialog. Their old links still work, `?view=admin` decodes to
- * the chat view with the dialog open on Account, `?view=providers` on Models
- * and providers, `?view=principals` on People and channels
- * (LEGACY_SETTINGS_VIEWS).
+ * Old view ids keep working. Admin, Providers and Principals are sections of
+ * the settings dialog: `?view=admin` decodes to the chat view with the dialog
+ * open on Account, `?view=providers` on Models and providers, `?view=principals`
+ * on People and channels (LEGACY_SETTINGS_VIEWS). The thirteen data views
+ * became three destinations (design doc "Navigation map"): `?view=fleet` and
+ * the rest decode to their destination and tab (LEGACY_VIEW_REDIRECTS), and
+ * useUrlState rewrites such a link in place, keeping its fragment (a push
+ * notification's `#approval-action=…` or `#fleet-node=…` rides it).
  *
  * No react-router. Uses window.history + URLSearchParams directly.
- *
- * 'fleet' and 'checkpoints' are wired end-to-end (App.tsx nav + render
- * switch, src/views/fleet, src/views/checkpoints). 'approvals-tasks' and
- * 'workstream' are registered here as valid ViewIds (so the URL round-trips
- * and never falls back to 'chat') ahead of the ApprovalsTasksView/
- * WorkstreamView components landing, which add their own App.tsx
- * nav/render-switch entries, see the nav-entries comment in App.tsx.
  */
 
 export type ViewId =
   | 'chat'
-  | 'sessions'
-  | 'knowledge'
-  | 'memory'
-  | 'fleet'
-  | 'checkpoints'
-  | 'approvals-tasks'
-  | 'workstream'
-  | 'calendar'
-  | 'mail'
-  | 'ci-watches'
+  | 'work'
+  | 'library'
+  | 'personal'
   | 'checkin'
-  | 'phone'
-  | 'dates'
-  | 'hosted-sessions';
+  | 'phone';
+
+/** The Work view's kind filter, plus `checkpoints` (a session's Checkpoints tab). */
+export type WorkTab = 'all' | 'sessions' | 'agents' | 'processes' | 'checkpoints';
+export type LibraryTab = 'memory' | 'knowledge' | 'review';
+export type PersonalTab = 'calendar' | 'mail' | 'occasions';
 
 export interface AppUrlState {
   view: ViewId;
@@ -46,6 +39,8 @@ export interface AppUrlState {
   filters: Record<string, string>;
   /** The open settings dialog section; absent or '' while the dialog is closed. */
   settings?: string;
+  /** The destination's tab (work, library, personal); absent or '' for the default. */
+  tab?: string;
 }
 
 /** Old view ids that now open the settings dialog, and the section each opens on. */
@@ -55,23 +50,39 @@ export const LEGACY_SETTINGS_VIEWS: Readonly<Record<string, string>> = {
   principals: 'people',
 };
 
+/** Old data-view ids and the destination and tab each now lives on. */
+export const LEGACY_VIEW_REDIRECTS: Readonly<Record<string, { view: ViewId; tab: string }>> = {
+  sessions: { view: 'work', tab: 'sessions' },
+  'hosted-sessions': { view: 'work', tab: 'sessions' },
+  fleet: { view: 'work', tab: 'all' },
+  'approvals-tasks': { view: 'work', tab: 'all' },
+  workstream: { view: 'work', tab: 'processes' },
+  'ci-watches': { view: 'work', tab: 'processes' },
+  checkpoints: { view: 'work', tab: 'checkpoints' },
+  knowledge: { view: 'library', tab: 'knowledge' },
+  memory: { view: 'library', tab: 'memory' },
+  calendar: { view: 'personal', tab: 'calendar' },
+  mail: { view: 'personal', tab: 'mail' },
+  dates: { view: 'personal', tab: 'occasions' },
+};
+
 const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'chat',
-  'sessions',
-  'knowledge',
-  'memory',
-  'fleet',
-  'checkpoints',
-  'approvals-tasks',
-  'workstream',
-  'calendar',
-  'mail',
-  'ci-watches',
+  'work',
+  'library',
+  'personal',
   'checkin',
   'phone',
-  'dates',
-  'hosted-sessions',
 ]);
+
+/**
+ * Resolve any view id, current or old, to where it lives now. Returns null for
+ * an id the router does not know.
+ */
+export function resolveViewId(raw: string): { view: ViewId; tab: string } | null {
+  if (VALID_VIEWS.has(raw)) return { view: raw as ViewId, tab: '' };
+  return LEGACY_VIEW_REDIRECTS[raw] ?? null;
+}
 
 const DEFAULT_STATE: AppUrlState = {
   view: 'chat',
@@ -86,8 +97,10 @@ export function decodeUrlState(search: string = window.location.search): AppUrlS
   const params = new URLSearchParams(search);
 
   const rawView = params.get('view') ?? '';
-  const view: ViewId = VALID_VIEWS.has(rawView) ? (rawView as ViewId) : DEFAULT_STATE.view;
+  const resolved = resolveViewId(rawView);
+  const view: ViewId = resolved?.view ?? DEFAULT_STATE.view;
   const settings = params.get('settings') || LEGACY_SETTINGS_VIEWS[rawView] || '';
+  const tab = params.get('tab') || resolved?.tab || '';
 
   const session = params.get('session') ?? '';
 
@@ -101,7 +114,10 @@ export function decodeUrlState(search: string = window.location.search): AppUrlS
     }
   });
 
-  return settings ? { view, session, filters, settings } : { view, session, filters };
+  const state: AppUrlState = { view, session, filters };
+  if (settings) state.settings = settings;
+  if (tab) state.tab = tab;
+  return state;
 }
 
 /** True when the search string names an old view that now opens the settings dialog. */
@@ -110,11 +126,21 @@ export function isLegacySettingsView(search: string = window.location.search): b
   return rawView in LEGACY_SETTINGS_VIEWS;
 }
 
+/** True when the search string names an old view id the URL should be rewritten from. */
+export function isLegacyView(search: string = window.location.search): boolean {
+  const rawView = new URLSearchParams(search).get('view') ?? '';
+  return rawView in LEGACY_SETTINGS_VIEWS || rawView in LEGACY_VIEW_REDIRECTS;
+}
+
 /** Encode AppUrlState into a URLSearchParams string (no leading '?'). */
 export function encodeUrlState(state: AppUrlState): string {
   const params = new URLSearchParams();
 
   params.set('view', state.view);
+
+  if (state.tab) {
+    params.set('tab', state.tab);
+  }
 
   if (state.session) {
     params.set('session', state.session);

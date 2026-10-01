@@ -16,24 +16,37 @@
  * action and proven elsewhere (fleet-depth.e2e.ts, touch-targets.e2e.ts); this
  * file only re-checks they stay actionable alongside the tasks changes.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { only, PHONE, DESKTOP, expectNoHorizontalScroll, expectTappable } from './support/app';
+import { only, PHONE, DESKTOP, detailPane, expectNoHorizontalScroll, expectTappable, listRow, openRow } from './support/app';
 
 test.beforeEach(async ({ page }) => {
   await installMockDaemon(page);
 });
 
+/** The old Checkpoints link: a session's Checkpoints tab in Work. */
+async function openCheckpoints(page: Page) {
+  await page.goto('/?view=checkpoints');
+  await expect(detailPane(page).getByRole('radio', { name: 'Checkpoints', checked: true })).toBeVisible();
+  return detailPane(page);
+}
+
+async function showFinished(page: Page) {
+  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('option', { name: 'Active and finished' }).click();
+}
+
 test.describe('Checkpoints: desktop', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('create and restore controls are present; restore confirms via a sheet', async ({ page }) => {
-    await page.goto('/?view=checkpoints');
-    await expect(page.locator('.checkpoints-create-row')).toBeVisible();
-    await page.locator('.checkpoints-row', { hasText: 'Before the mobile pass' }).click();
-    await expect(page.locator('.checkpoint-detail__restore')).toBeVisible();
-    // Restore opens a confirm sheet (destructive → confirms on desktop too).
-    await page.locator('.checkpoint-detail__restore').click();
+    const pane = await openCheckpoints(page);
+    await expect(pane.getByRole('textbox', { name: 'Checkpoint label' })).toBeVisible();
+    await pane.locator('.gv-row__main', { hasText: 'Before the mobile pass' }).click();
+    const restore = pane.getByRole('button', { name: 'Restore this checkpoint' });
+    await expect(restore).toBeVisible();
+    // Restore opens a confirm sheet (destructive: confirms on desktop too).
+    await restore.click();
     await expect(page.locator('.confirm-sheet')).toBeVisible();
     await expect(page.locator('.confirm-sheet')).toContainText('Before the mobile pass');
     await page.locator('.confirm-sheet__cancel').click();
@@ -45,11 +58,10 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
   test('the list is browsable and creating opens a confirm sheet', async ({ page }) => {
-    await page.goto('/?view=checkpoints');
-    await expect(page.locator('.checkpoints-row', { hasText: 'Before the mobile pass' })).toBeVisible();
-    await expect(page.locator('.checkpoints-create-row')).toBeVisible();
-    await expectTappable(page, '.checkpoints-create-button', 'checkpoint create');
-    await page.locator('.checkpoints-create-button').click();
+    const pane = await openCheckpoints(page);
+    await expect(pane.locator('.gv-row', { hasText: 'Before the mobile pass' })).toBeVisible();
+    await expectTappable(page, '.work-checkpoints__create button', 'checkpoint create');
+    await pane.getByRole('button', { name: 'Snapshot' }).click();
     await expect(page.locator('.confirm-sheet')).toBeVisible();
     await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
     await expectTappable(page, '.confirm-sheet__cancel', 'confirm sheet cancel');
@@ -58,46 +70,41 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
   });
 
   test('selecting a checkpoint shows its diff; restore opens a danger confirm sheet', async ({ page }) => {
-    await page.goto('/?view=checkpoints');
-    await page.locator('.checkpoints-row', { hasText: 'Before the mobile pass' }).click();
-    await expect(page.locator('.checkpoints-detail__back')).toBeVisible();
-    await expect(page.locator('.checkpoints-list-pane')).toBeHidden();
-    await expect(page.locator('.checkpoint-detail__restore')).toBeVisible();
-    await expectTappable(page, '.checkpoint-detail__restore', 'checkpoint restore');
-    await page.locator('.checkpoint-detail__restore').click();
+    const pane = await openCheckpoints(page);
+    await pane.locator('.gv-row__main', { hasText: 'Before the mobile pass' }).click();
+    await expect(pane.getByRole('button', { name: 'All checkpoints' })).toBeVisible();
+    await expect(pane.getByText(/Diff against/)).toBeVisible();
+    await expectTappable(page, '.work-checkpoints__head button', 'checkpoint restore');
+    await pane.getByRole('button', { name: 'Restore this checkpoint' }).click();
     await expect(page.locator('.confirm-sheet--danger')).toBeVisible();
     await expectNoHorizontalScroll(page);
 
     await page.locator('.confirm-sheet__cancel').click();
-    await page.locator('.checkpoints-detail__back').click();
-    await expect(page.locator('.checkpoints-list-pane')).toBeVisible();
+    await pane.getByRole('button', { name: 'All checkpoints' }).click();
+    await expect(pane.locator('.gv-row', { hasText: 'Before the mobile pass' })).toBeVisible();
   });
 
   test('confirming create completes against the mock daemon', async ({ page }) => {
-    await page.goto('/?view=checkpoints');
-    await page.locator('.checkpoints-label-input').fill('Phone-created checkpoint');
-    await page.locator('.checkpoints-create-button').click();
+    const pane = await openCheckpoints(page);
+    await pane.getByRole('textbox', { name: 'Checkpoint label' }).fill('Phone-created checkpoint');
+    await pane.getByRole('button', { name: 'Snapshot' }).click();
     await expect(page.locator('.confirm-sheet')).toBeVisible();
-    await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
-    // The mock daemon accepted the create: a success toast lands and the new
-    // checkpoint becomes the selected detail (list pane swaps to detail pane).
+    // The mock accepted the create: a toast lands and the new checkpoint is the one shown.
     await expect(page.getByText('Checkpoint created')).toBeVisible();
-    await expect(page.locator('.checkpoint-detail__header')).toContainText('Phone-created checkpoint');
+    await expect(pane.locator('.work-checkpoints__title')).toContainText('Phone-created checkpoint');
     await expectNoHorizontalScroll(page);
   });
 
   test('confirming restore completes against the mock daemon', async ({ page }) => {
-    await page.goto('/?view=checkpoints');
-    await page.locator('.checkpoints-row', { hasText: 'Before the mobile pass' }).click();
-    await page.locator('.checkpoint-detail__restore').click();
+    const pane = await openCheckpoints(page);
+    await pane.locator('.gv-row__main', { hasText: 'Before the mobile pass' }).click();
+    await pane.getByRole('button', { name: 'Restore this checkpoint' }).click();
     await expect(page.locator('.confirm-sheet--danger')).toBeVisible();
-    await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
-    // The mock daemon's checkpoints.restore executed (confirmToken from the
-    // restorePreview satisfied the confirmation gate), a success toast lands.
+    // The restorePreview token satisfied the daemon's confirmation gate.
     await expect(page.getByText('Workspace restored')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
@@ -106,87 +113,83 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
 test.describe('Tasks: desktop', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
-  test('submit, cancel, and retry controls are present and run bare on desktop', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    await expect(page.locator('.tasks-create')).toBeVisible();
-    await expect(page.locator('.task-row', { hasText: 'Run the release checklist' }).locator('.task-row__cancel')).toBeVisible();
-    await expect(page.locator('.task-row', { hasText: 'Rebuild the search index' }).locator('.task-row__retry')).toBeVisible();
-    // Desktop cancel runs immediately, no confirm sheet.
-    await page.locator('.task-row', { hasText: 'Run the release checklist' }).locator('.task-row__cancel').click();
+  test('cancel runs bare on desktop; a failed task offers retry', async ({ page }) => {
+    await page.goto('/?view=work&tab=processes');
+    const detail = await openRow(page, 'Run the release checklist');
+    await detail.getByRole('button', { name: 'Cancel task' }).click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
+    await expect(page.getByText('Task cancelled')).toBeVisible();
+    await showFinished(page);
+    const failed = await openRow(page, 'Rebuild the search index');
+    await expect(failed.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 });
 
 test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
-  test('the queue is readable and cancel opens a confirm sheet', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    await expect(page.locator('.task-row', { hasText: 'Run the release checklist' })).toBeVisible();
-    await expect(page.locator('.tasks-create')).toBeVisible();
-    await expect(page.locator('.task-row__actions')).toHaveCount(2);
-    const cancel = page.locator('.task-row', { hasText: 'Run the release checklist' }).locator('.task-row__cancel');
-    await expectTappable(page, '.task-row__cancel', 'task cancel');
-    await cancel.click();
+  test('a running task is listed and cancel opens a confirm sheet', async ({ page }) => {
+    await page.goto('/?view=work&tab=processes');
+    await expect(listRow(page, 'Run the release checklist')).toBeVisible();
+    const detail = await openRow(page, 'Run the release checklist');
+    await expectTappable(page, '.dv-detail .dv-pane__actions button', 'task cancel');
+    await detail.getByRole('button', { name: 'Cancel task' }).click();
     await expect(page.locator('.confirm-sheet--danger')).toBeVisible();
     await expect(page.locator('.confirm-sheet')).toContainText('Run the release checklist');
     await page.locator('.confirm-sheet__cancel').click();
     await expectNoHorizontalScroll(page);
   });
 
-  test('approvals in the same view stay fully actionable on phone', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    await expect(page.locator('.approval-card')).toBeVisible();
-    await expect(page.locator('.approval-card__approve-all')).toBeVisible();
-    await expect(page.locator('.approval-card__deny')).toBeVisible();
+  test('approvals stay fully actionable on phone', async ({ page }) => {
+    await page.goto('/?view=work');
+    const detail = await openRow(page, 'Run the full test suite before merging');
+    await expect(detail.getByRole('button', { name: 'Approve', exact: true })).toBeVisible();
+    await expect(detail.getByRole('button', { name: 'Deny', exact: true })).toBeVisible();
+    await expectTappable(page, '.dv-pane__footer .gv-button--primary', 'approve');
     await expectNoHorizontalScroll(page);
   });
 
-  test('confirming cancel completes against the mock daemon', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    const row = page.locator('.task-row', { hasText: 'Run the release checklist' });
-    await row.locator('.task-row__cancel').click();
+  test('confirming cancel completes against the mock daemon and retry follows', async ({ page }) => {
+    await page.goto('/?view=work&tab=processes');
+    const detail = await openRow(page, 'Run the release checklist');
+    await detail.getByRole('button', { name: 'Cancel task' }).click();
     await expect(page.locator('.confirm-sheet--danger')).toBeVisible();
     await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
     await expect(page.getByText('Task cancelled')).toBeVisible();
-    // The mock daemon flipped the task to cancelled (not cancellable), the
-    // cancel control is gone, and a cancelled task is retry-eligible.
-    await expect(row.locator('.task-row__cancel')).toHaveCount(0);
-    await expect(row.locator('.task-row__retry')).toBeVisible();
+    // The mock flipped the task to cancelled: no cancel left, and retry is offered.
+    await expect(detail.getByRole('button', { name: 'Cancel task' })).toHaveCount(0);
+    await expect(detail.getByRole('button', { name: 'Retry' })).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 
   test('retry is reachable, confirms, and completes against the mock daemon', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    const row = page.locator('.task-row', { hasText: 'Rebuild the search index' });
-    await expect(row.locator('.task-row__retry')).toBeVisible();
-    await expectTappable(page, '.task-row__retry', 'task retry');
-    await row.locator('.task-row__retry').click();
+    await page.goto('/?view=work&tab=processes');
+    await showFinished(page);
+    const detail = await openRow(page, 'Rebuild the search index');
+    await expect(detail).toContainText('index build timed out');
+    await detail.getByRole('button', { name: 'Retry' }).click();
     await expect(page.locator('.confirm-sheet')).toBeVisible();
-    await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
     await page.locator('.confirm-sheet__confirm').click();
     await expect(page.locator('.confirm-sheet')).toHaveCount(0);
     await expect(page.getByText('Task retried')).toBeVisible();
-    // The mock daemon requeued the task, retry (failed/cancelled only) is gone.
-    await expect(row.locator('.task-row__retry')).toHaveCount(0);
+    // The mock requeued the task: retry (failed or cancelled only) is gone.
+    await expect(detail.getByRole('button', { name: 'Retry' })).toHaveCount(0);
     await expectNoHorizontalScroll(page);
   });
 
-  test('submitting a task completes against the mock daemon', async ({ page }) => {
-    await page.goto('/?view=approvals-tasks');
-    await expectTappable(page, '.tasks-create__input', 'task input');
-    await page.locator('.tasks-create__input').fill('Ship the phone parity fix');
-    await expectTappable(page, '.tasks-create__button', 'task submit');
-    await page.locator('.tasks-create__button').click();
-    await expect(page.locator('.confirm-sheet')).toBeVisible();
-    await expect(page.locator('.confirm-sheet')).toContainText('Ship the phone parity fix');
-    await expectTappable(page, '.confirm-sheet__confirm', 'confirm sheet primary');
-    await page.locator('.confirm-sheet__confirm').click();
-    await expect(page.locator('.confirm-sheet')).toHaveCount(0);
+  test('submitting a task from New completes against the mock daemon', async ({ page }) => {
+    await page.goto('/?view=work&tab=processes');
+    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Task' }).click();
+    const dialog = page.getByRole('dialog', { name: 'New task' });
+    await dialog.getByLabel('Task').fill('Ship the phone parity fix');
+    await expectTappable(page, '.work-form__actions button', 'task submit');
+    await dialog.getByRole('button', { name: 'Submit' }).click();
+    await expect(dialog).toHaveCount(0);
     await expect(page.getByText('Task submitted')).toBeVisible();
-    await expect(page.locator('.task-row', { hasText: 'Ship the phone parity fix' })).toBeVisible();
+    await expect(listRow(page, 'Ship the phone parity fix')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 });

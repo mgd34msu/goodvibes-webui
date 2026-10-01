@@ -8,7 +8,7 @@
  */
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { DESKTOP, expectNoHorizontalScroll, only, openNavigation, openSettings, PHONE } from './support/app';
+import { DESKTOP, expectNoHorizontalScroll, only, openNavigation, openRow, openSettings, PHONE } from './support/app';
 import { FEATURE_SETTINGS } from '../src/lib/generated/config-schema';
 
 test.beforeEach(async ({ page }) => {
@@ -41,7 +41,7 @@ async function closeDialog(page: Page): Promise<void> {
 
 test.describe('entry points, deep links and dismissal', () => {
   test('the account menu\'s Settings opens the dialog; Escape closes it and focus returns', async ({ page }) => {
-    await page.goto('/?view=sessions');
+    await page.goto('/?view=library');
     await openNavigation(page);
     const account = page.getByRole('button', { name: /^Account: / });
     await account.click();
@@ -57,7 +57,7 @@ test.describe('entry points, deep links and dismissal', () => {
 
   test('Ctrl , opens the dialog on desktop, focus lands in search and returns on close', async ({ page }, testInfo) => {
     only(testInfo, DESKTOP);
-    await page.goto('/?view=sessions');
+    await page.goto('/?view=library');
     await expect(page.locator('.app-shell')).toBeVisible();
     await page.getByRole('button', { name: 'Collapse sidebar' }).focus();
     await page.keyboard.press('Control+Comma');
@@ -70,7 +70,7 @@ test.describe('entry points, deep links and dismissal', () => {
   });
 
   test('the account menu has no Admin or Models-and-usage page entries', async ({ page }) => {
-    await page.goto('/?view=sessions');
+    await page.goto('/?view=library');
     await openNavigation(page);
     await page.getByRole('button', { name: /^Account: / }).click();
     const menu = page.getByRole('menu', { name: 'Account' });
@@ -315,8 +315,8 @@ test.describe('pricing.modelPrices: the structured per-model price editor', () =
 
     // The priced fleet node for that provider:model now states the source:
     // manual wins in the resolver, so the label is "your price".
-    await page.goto('/?view=fleet');
-    await page.locator('.fleet-row', { hasText: 'Refactor the session spine' }).click();
+    await page.goto('/?view=work&tab=agents');
+    await openRow(page, 'Refactor the session spine');
     const note = page.locator('[data-testid="price-source-note"]');
     await expect(note).toContainText('your price');
     await expect(note.getByRole('button', { name: 'Edit price' })).toBeVisible();

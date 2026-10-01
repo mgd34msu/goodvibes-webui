@@ -1,16 +1,15 @@
 /**
- * KnowledgeView, the W8 honesty fix: the Knowledge Map panel used to dump
- * DataBlock's raw <pre>{JSON}</pre> branch regardless of the daemon's
- * "766 jobs ran / 0 nodes" activity signal. This covers that the map now
- * renders through KnowledgeMap (an svg <img>, or an honest named empty
- * state) and never falls back to the raw-JSON-as-primary anti-pattern.
+ * KnowledgeView, the W8 honesty fix: the knowledge map used to dump DataBlock's raw
+ * <pre>{JSON}</pre> branch regardless of the daemon's "766 jobs ran / 0 nodes" activity
+ * signal. This covers that the map renders through KnowledgeMap (an svg <img>, or an
+ * honest named empty state), never falls back to raw JSON as the primary view, and that
+ * the Browse, Map, Packet and Activity sections are each reachable.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PeekProvider } from '../components/peek/PeekPanel';
 
 const SAMPLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4"/></svg>';
 
@@ -52,7 +51,7 @@ function render() {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(PeekProvider, null, React.createElement(KnowledgeView)),
+        React.createElement(KnowledgeView, { query: '' }),
       ),
     );
   });
@@ -74,6 +73,12 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
   }
 }
 
+function chooseSection(el: HTMLElement, label: string): void {
+  const radio = [...el.querySelectorAll('[role="radio"]')].find((r) => r.textContent === label);
+  expect(radio).toBeTruthy();
+  flushSync(() => { radio?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+}
+
 afterEach(() => {
   statusData = { ready: true, storagePath: '/tmp', sourceCount: 0, nodeCount: 0, edgeCount: 0, issueCount: 0, extractionCount: 0, jobRunCount: 0, usageCount: 0, candidateCount: 0, reportCount: 0, scheduleCount: 0 };
   mapData = { ok: true, title: 'Map', generatedAt: 1, width: 100, height: 100, nodeCount: 0, edgeCount: 0, nodes: [], edges: [], svg: '' };
@@ -89,22 +94,30 @@ afterEach(() => {
   };
 });
 
-describe('KnowledgeView: the Knowledge Map panel never dumps raw JSON', () => {
+describe('KnowledgeView: the knowledge map never dumps raw JSON', () => {
   test('a genuinely empty base (0 jobs, 0 nodes) says "No knowledge indexed yet", not a <pre> dump', async () => {
     const { el, unmount } = render();
+    chooseSection(el, 'Map');
     await waitFor(() => (el.textContent ?? '').includes('No knowledge indexed yet'));
-    // The map panel's live region must never fall back to a raw <pre> dump.
     const mapPanel = el.querySelector('[aria-live="polite"][aria-atomic="true"]');
     expect(mapPanel?.querySelector('pre')).toBeFalsy();
     unmount();
   });
 
-  test('the "jobs ran, 0 nodes" gap reads as an honest activity state in BOTH the Map and Nodes panels', async () => {
+  test('an empty Browse offers Add link instead of a blank list', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('No knowledge yet'));
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent === 'Add link')).toBe(true);
+    unmount();
+  });
+
+  test('the "jobs ran, 0 nodes" gap reads as an honest activity state in BOTH Browse and the Map', async () => {
     statusData = { ...(statusData as Record<string, unknown>), jobRunCount: 766, nodeCount: 0 };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').match(/766 indexing jobs ran, 0 nodes/g)?.length === 2);
-    const matches = (el.textContent ?? '').match(/766 indexing jobs ran, 0 nodes/g);
-    expect(matches).toHaveLength(2);
+    await waitFor(() => (el.textContent ?? '').includes('766 indexing jobs ran, 0 nodes'));
+    chooseSection(el, 'Map');
+    await waitFor(() => (el.textContent ?? '').includes('766 indexing jobs ran, 0 nodes'));
+    expect(el.querySelector('.knowledge-map-render')).toBeFalsy();
     unmount();
   });
 
@@ -112,16 +125,16 @@ describe('KnowledgeView: the Knowledge Map panel never dumps raw JSON', () => {
     statusData = { ...(statusData as Record<string, unknown>), jobRunCount: 5, nodeCount: 3 };
     mapData = { ok: true, title: 'Map', generatedAt: 1, width: 100, height: 100, nodeCount: 3, edgeCount: 2, nodes: [], edges: [], svg: SAMPLE_SVG };
     const { el, unmount } = render();
+    chooseSection(el, 'Map');
     await waitFor(() => Boolean(el.querySelector('.knowledge-map-render img')));
     const mapPanel = el.querySelector('.knowledge-map-render');
     expect(mapPanel?.querySelector('img')).toBeTruthy();
-    // The raw JSON is demoted behind "View raw", not present in the map panel by default
-    // (the separate Knowledge Status diagnostic block below is untouched by this brief).
+    // The raw JSON is demoted behind "View raw", not present by default.
     expect(mapPanel?.querySelector('pre')).toBeFalsy();
     unmount();
   });
 
-  test('"View jobs" opens the peek with job-run activity detail', async () => {
+  test('"View jobs" from the Browse notice opens Activity with job-run detail', async () => {
     statusData = { ...(statusData as Record<string, unknown>), jobRunCount: 4, nodeCount: 0 };
     invokeImpl = (method) => {
       if (method === 'knowledge.jobs.list') return Promise.resolve({ jobs: [{ id: 'reindex', kind: 'reindex', title: 'Reindex sources', description: '', defaultMode: 'background', metadata: {} }] });

@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import { STEERABLE_SESSION, FOLLOWUP_SESSION } from './support/seed';
-import { only, PHONE, closeNavigation, expectNoHorizontalScroll, openNavigation } from './support/app';
+import { only, PHONE, closeNavigation, detailPane, expectNoHorizontalScroll, openNavigation } from './support/app';
 
 let daemon: MockDaemon;
 
@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 
 test('the workspace loads signed-in with the drawer closed; open + scrim close it', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
 
   // Signed in: the shell, not the sign-in gate.
   await expect(page.locator('.app-shell')).toBeVisible();
@@ -35,7 +35,7 @@ test('the workspace loads signed-in with the drawer closed; open + scrim close i
 });
 
 test('find → read → STEER via plain Enter → the steer lands over the wire', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
 
   // ── FIND: the union list is usable on a phone, the session is right there. ──
@@ -45,12 +45,12 @@ test('find → read → STEER via plain Enter → the steer lands over the wire'
 
   // ── READ: open the transcript. Master-detail flips list → detail. ──
   await row.click();
-  await expect(page.locator('.session-detail__transcript')).toBeVisible();
-  await expect(page.locator('.session-message__body').first()).toBeVisible();
+  await expect(detailPane(page).getByRole('list', { name: 'Transcript' })).toBeVisible();
+  await expect(page.locator('.work-transcript__body').first()).toBeVisible();
   // The wrapped transcript does not push the page sideways.
   await expectNoHorizontalScroll(page);
   // A back affordance exists (not a dead-end stack).
-  await expect(page.locator('.session-detail__back')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'All work' })).toBeVisible();
 
   // ── STEER: type into the composer and send with PLAIN ENTER (soft-keyboard path). ──
   const steerText = 'Prioritize the failing spine test before anything else';
@@ -76,26 +76,26 @@ test('find → read → STEER via plain Enter → the steer lands over the wire'
 });
 
 test('back affordance returns from a session detail to the list', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
   const row = page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) });
   await row.click();
-  await expect(page.locator('.session-detail__transcript')).toBeVisible();
-  // List pane is swapped out on the phone while a session is open.
-  await expect(page.locator('.sessions-list-pane')).toBeHidden();
+  await expect(detailPane(page).getByRole('list', { name: 'Transcript' })).toBeVisible();
+  // The list is swapped out on the phone while a session is open.
+  await expect(page.locator('.dv-list')).toHaveCount(0);
 
-  await page.locator('.session-detail__back').click();
-  await expect(page.locator('.sessions-list-pane')).toBeVisible();
+  await page.getByRole('button', { name: 'All work' }).click();
+  await expect(page.locator('.dv-list')).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) })).toBeVisible();
 });
 
 test('a non-steerable session offers a follow-up, labeled honestly', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
   const row = page.getByRole('button', { name: new RegExp(FOLLOWUP_SESSION.title) });
   await row.click();
-  await expect(page.locator('.session-detail__transcript')).toBeVisible();
+  await expect(detailPane(page).getByRole('list', { name: 'Transcript' })).toBeVisible();
 
   // No agent bound → the composer is a follow-up, not a steer.
-  await expect(page.locator('.steer-composer__mode .badge')).toContainText(/Follow-up/i);
+  await expect(page.locator('.steer-composer__mode')).toContainText(/Follow-up/i);
 
   const input = page.locator('.steer-composer__input');
   await input.fill('Queue a cleanup pass for later');

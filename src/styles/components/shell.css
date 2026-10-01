@@ -554,12 +554,6 @@
   height: auto;
 }
 
-.shell-destination-tabs {
-  display: flex;
-  max-width: 100%;
-  margin: -4px 0 24px;
-}
-
 /* Phone drawer */
 .shell-drawer.gv-drawer {
   max-width: 360px;

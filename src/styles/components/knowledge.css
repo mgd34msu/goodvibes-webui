@@ -1,133 +1,20 @@
-/**
- * knowledge.css — Phase 4 KnowledgeView styles.
- * Uses token names from docs/ux-overhaul/TOKEN-CONTRACT.md exclusively.
- * DO NOT edit src/styles.css — import this file from KnowledgeView instead.
+/*
+ * Knowledge tab. Rows, panes, notices and forms come from the data-view template, the
+ * kit and library.css; this file holds the map canvas and packet result rules.
  */
 
-/* ============================================================
-   Status region — aria-live wrapper for async load state
-   ============================================================ */
-.knowledge-status-region {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* ============================================================
-   Skeleton group — stacked placeholders while loading
-   ============================================================ */
-.knowledge-skeleton-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) 0;
-}
-
-/* ============================================================
-   Pagination footer — load-more controls
-   ============================================================ */
-.knowledge-load-more {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) 0 var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  border-top: 1px solid var(--line);
-  margin-top: var(--space-2);
-}
-
-.knowledge-load-more__button {
-  padding: var(--space-1) var(--space-3);
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-standard),
-              border-color var(--motion-fast) var(--ease-standard);
-}
-
-.knowledge-load-more__button:hover {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent);
-}
-
-.knowledge-load-more__button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.knowledge-load-more__button:disabled {
-  opacity: 0.45;
-  cursor: default;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .knowledge-load-more__button {
-    transition: none;
-  }
-}
-
-/* ============================================================
-   Peek detail body — content rendered inside PeekPanel
-   ============================================================ */
-.knowledge-peek-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.knowledge-peek-loading {
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* ============================================================
-   Panel record list wrapper (adds overflow for long lists)
-   ============================================================ */
-.knowledge-record-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.knowledge-record-panel__list {
-  overflow-y: auto;
-  /* Fluid max: min 220px, up to 340px on desktop; shrinks on mobile */
-  max-height: clamp(220px, 40vh, 340px);
-}
-
-/* Mobile: let the list expand freely — no artificial cap */
-@media (max-width: 680px) {
-  .knowledge-record-panel__list {
-    max-height: none;
-  }
-}
-
-/* ============================================================
-   Knowledge map render — the pre-rendered SVG replacing the raw
-   JSON dump (W8), plus the demoted "view raw" toggle.
-   ============================================================ */
 .knowledge-map-render {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 12px;
 }
 
 .knowledge-map-render__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  font-size: var(--text-xs);
   color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .knowledge-map-render__total {
@@ -135,14 +22,14 @@
 }
 
 .knowledge-map-render__canvas {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  background: var(--surface);
-  overflow: auto;
-  max-height: 420px;
   display: flex;
   justify-content: center;
-  padding: var(--space-2);
+  max-height: 520px;
+  padding: 12px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
 }
 
 .knowledge-map-render__canvas img {
@@ -150,241 +37,37 @@
   height: auto;
 }
 
-/* Scaled-to-fit note — only meaningful on a narrow screen where the map pans, so it is
-   hidden on wide viewports (F7b). */
+/* Only meaningful where the map pans sideways (a narrow screen). */
 .knowledge-map-render__scale-note {
   display: none;
   margin: 0;
-  font-size: var(--text-xs);
   color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
-/* Phone: keep the map legible at a minimum width and let the canvas pan horizontally
-   instead of squashing the map into an unreadable sliver. */
 @media (max-width: 680px) {
   .knowledge-map-render__canvas {
     justify-content: flex-start;
   }
+
   .knowledge-map-render__canvas img {
     min-width: 480px;
     max-width: none;
   }
+
   .knowledge-map-render__scale-note {
     display: block;
   }
 }
 
-.knowledge-map-render__toggle {
-  align-self: flex-start;
-  padding: var(--space-1) var(--space-3);
-  background: transparent;
-  color: var(--text-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  font-size: var(--text-xs);
-  cursor: pointer;
-}
-
-.knowledge-map-render__toggle:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.knowledge-map-render__toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* ============================================================
-   Knowledge jobs peek — the "View jobs" activity detail (W8).
-   ============================================================ */
-.knowledge-jobs-peek__summary {
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  margin: 0 0 var(--space-3);
-}
-
-.knowledge-jobs-peek__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.knowledge-jobs-peek__row {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  padding: var(--space-2) var(--space-3);
-}
-
-.knowledge-jobs-peek__row-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-/* A job title can be a single long unbreakable token (a file path, a hash); without
-   this, its flex-item min-content forces the row (and the page) wider than the
-   viewport instead of wrapping — the min-content overflow class. */
-.knowledge-jobs-peek__row-head strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.knowledge-jobs-peek__meta {
-  display: block;
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  margin-top: var(--space-1);
-}
-
-.knowledge-jobs-peek__error {
-  font-size: var(--text-xs);
-  color: var(--bad);
-  margin: var(--space-1) 0 0;
-}
-
-/* ============================================================
-   Consolidation candidates (knowledge.candidates.list/.decide)
-   ============================================================ */
-.knowledge-candidates-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  max-height: clamp(220px, 40vh, 340px);
-  overflow-y: auto;
-}
-
-.knowledge-candidate-row {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  padding: var(--space-2) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.knowledge-candidate-row__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-/* Same min-content overflow guard as .knowledge-jobs-peek__row-head above — a
-   candidate title can be a long unbreakable token. */
-.knowledge-candidate-row__head strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.knowledge-candidate-row__summary {
-  font-size: var(--text-sm);
-  color: var(--text-2);
-  margin: 0;
-}
-
-.knowledge-candidate-row__meta {
-  font-size: var(--text-xs);
-  color: var(--text-3);
-  margin: 0;
-}
-
-.knowledge-candidate-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-}
-
-/* ============================================================
-   Prompt packet (knowledge.packet)
-   ============================================================ */
 .knowledge-packet {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 24px;
 }
 
-.knowledge-packet__summary {
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  margin: 0;
-}
-
-/* Mirrors .fleet-cap-note (fleet.css) — the same "showing N of M, K dropped" honest
- * truncation-disclosure pattern, only rendered when the daemon's response actually
- * carries the post-1.2.0 truncation fields (see KnowledgePacket.tsx's truncationInfo). */
-.knowledge-packet__truncation-note {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
-  margin: 0;
-  padding: var(--space-2, 8px);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
-}
-
-.knowledge-packet__items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.knowledge-packet__result {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-height: clamp(200px, 35vh, 320px);
-  overflow-y: auto;
-}
-
-/* A column layout, not a wrapping flex row: a single nowrap span in a flex row
-   can still force its line wider than the container even with min-width:0 and
-   flex-wrap (it wraps ONTO A NEW ROW, not within its own width). Stacking
-   kind+score / title / reason on their own block lines is what actually holds
-   at a 390px phone viewport (see the F-mobile no-scroll gate). */
-.knowledge-packet__items li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  padding: var(--space-2);
-  font-size: var(--text-sm);
-  min-width: 0;
-  max-width: 100%;
-}
-
-.knowledge-packet__items li strong,
-.knowledge-packet__item-reason {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.knowledge-packet__item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.knowledge-packet__item-kind {
-  font-size: var(--text-xs);
-  color: var(--text-3);
-  text-transform: uppercase;
-}
-
-.knowledge-packet__item-reason {
-  color: var(--text-2);
-  font-size: var(--text-xs);
-}
-
-.knowledge-packet__item-score {
-  font-size: var(--text-xs);
-  color: var(--text-3);
+  gap: 12px;
 }

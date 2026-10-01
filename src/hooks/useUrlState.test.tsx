@@ -158,10 +158,11 @@ describe('useUrlState: initial state', () => {
 
   test('decodes view from URL', () => {
     removeSpies();
-    window.history.replaceState(null, '', '/?view=knowledge');
+    window.history.replaceState(null, '', '/?view=library&tab=knowledge');
     installSpies();
     const { getHandle, unmount } = renderHook();
-    expect(getHandle().view).toBe('knowledge');
+    expect(getHandle().view).toBe('library');
+    expect(getHandle().tab).toBe('knowledge');
     unmount();
   });
 
@@ -191,15 +192,15 @@ describe('useUrlState: initial state', () => {
 describe('useUrlState: setView', () => {
   test('updates view in returned state', () => {
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setView('fleet'); });
-    expect(getHandle().view).toBe('fleet');
+    flushSync(() => { getHandle().setView('work'); });
+    expect(getHandle().view).toBe('work');
     unmount();
   });
 
   test('pushes exactly ONE history entry per call', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
-    flushSync(() => { getHandle().setView('memory'); });
+    flushSync(() => { getHandle().setView('library'); });
     expect(pushCallCount).toBe(1);
     unmount();
   });
@@ -207,7 +208,7 @@ describe('useUrlState: setView', () => {
   test('STRICTMODE: setView adds exactly ONE history entry under React.StrictMode', () => {
     const { getHandle, unmount } = renderHook(true);
     pushCallCount = 0;
-    flushSync(() => { getHandle().setView('knowledge'); });
+    flushSync(() => { getHandle().setView('personal'); });
     expect(pushCallCount).toBe(1);
     unmount();
   });
@@ -216,7 +217,7 @@ describe('useUrlState: setView', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
     replaceCallCount = 0;
-    flushSync(() => { getHandle().setView('fleet', { replace: true }); });
+    flushSync(() => { getHandle().setView('work', { replace: true }); });
     expect(pushCallCount).toBe(0);
     expect(replaceCallCount).toBeGreaterThanOrEqual(1);
     unmount();
@@ -227,9 +228,49 @@ describe('useUrlState: setView', () => {
     window.history.replaceState(null, '', '/?view=chat&session=s1&filter%5Ba%5D=1');
     installSpies();
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setView('fleet'); });
+    flushSync(() => { getHandle().setView('work'); });
     expect(getHandle().session).toBe('s1');
     expect(getHandle().filters).toEqual({ a: '1' });
+    unmount();
+  });
+});
+
+describe('useUrlState: destination tabs', () => {
+  test('setTab replaces the history entry and keeps the view', () => {
+    removeSpies();
+    window.history.replaceState(null, '', '/?view=work');
+    installSpies();
+    const { getHandle, unmount } = renderHook();
+    pushCallCount = 0;
+    flushSync(() => { getHandle().setTab('agents'); });
+    expect(getHandle().view).toBe('work');
+    expect(getHandle().tab).toBe('agents');
+    expect(pushCallCount).toBe(0);
+    expect(window.location.search).toContain('tab=agents');
+    unmount();
+  });
+
+  test('moving to another view drops the tab, unless one is given', () => {
+    removeSpies();
+    window.history.replaceState(null, '', '/?view=work&tab=agents');
+    installSpies();
+    const { getHandle, unmount } = renderHook();
+    flushSync(() => { getHandle().setView('library'); });
+    expect(getHandle().tab).toBeUndefined();
+    flushSync(() => { getHandle().setView('personal', { tab: 'mail' }); });
+    expect(getHandle().tab).toBe('mail');
+    unmount();
+  });
+
+  test('an old data-view link is rewritten in place to its destination, keeping the fragment', () => {
+    removeSpies();
+    window.history.replaceState(null, '', '/?view=fleet#fleet-node=n1');
+    installSpies();
+    const { getHandle, unmount } = renderHook();
+    expect(getHandle().view).toBe('work');
+    expect(getHandle().tab).toBe('all');
+    expect(window.location.search).toBe('?view=work&tab=all');
+    expect(window.location.hash).toBe('#fleet-node=n1');
     unmount();
   });
 });
@@ -336,8 +377,8 @@ describe('useUrlState: resetFilters', () => {
 describe('useUrlState: setUrlState', () => {
   test('merges partial state', () => {
     const { getHandle, unmount } = renderHook();
-    flushSync(() => { getHandle().setUrlState({ view: 'fleet', session: 'x' }); });
-    expect(getHandle().view).toBe('fleet');
+    flushSync(() => { getHandle().setUrlState({ view: 'work', session: 'x' }); });
+    expect(getHandle().view).toBe('work');
     expect(getHandle().session).toBe('x');
     unmount();
   });
@@ -345,7 +386,7 @@ describe('useUrlState: setUrlState', () => {
   test('pushes exactly ONE history entry per call', () => {
     const { getHandle, unmount } = renderHook();
     pushCallCount = 0;
-    flushSync(() => { getHandle().setUrlState({ view: 'fleet' }); });
+    flushSync(() => { getHandle().setUrlState({ view: 'work' }); });
     expect(pushCallCount).toBe(1);
     unmount();
   });
@@ -387,9 +428,9 @@ describe('useUrlState: popstate', () => {
   test('popstate event updates state to new URL', () => {
     withPopstateTrap((hook, triggerPopstate) => {
       const { getHandle, unmount } = hook;
-      window.history.pushState(null, '', '/?view=memory&session=s99');
+      window.history.pushState(null, '', '/?view=library&session=s99');
       triggerPopstate();
-      expect(getHandle().view).toBe('memory');
+      expect(getHandle().view).toBe('library');
       expect(getHandle().session).toBe('s99');
       unmount();
     });
@@ -398,7 +439,7 @@ describe('useUrlState: popstate', () => {
   test('no feedback loop: handling popstate does not push a new history entry', () => {
     withPopstateTrap((hook, triggerPopstate) => {
       const { getHandle: _h, unmount } = hook;
-      window.history.pushState(null, '', '/?view=knowledge');
+      window.history.pushState(null, '', '/?view=library');
       pushCallCount = 0;
       triggerPopstate();
       expect(pushCallCount).toBe(0);

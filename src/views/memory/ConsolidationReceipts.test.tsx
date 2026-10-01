@@ -1,9 +1,9 @@
 /**
- * ConsolidationReceipts, memory.consolidation.receipts (SDK 1.8.0). Covers every
- * honest state (pending, unavailable via 404 and 501, genuinely empty, pending
- * proposals present, resolved runs with no pending proposals) in isolation. The
- * one-tap route to the review queue is covered end to end in MemoryView.test.tsx
- * (this component only calls the onReviewIds callback it is handed).
+ * Consolidation proposals and runs, memory.consolidation.receipts (SDK 1.8.0). Covers
+ * every honest state (pending, unavailable via 404 and 501, genuinely empty, pending
+ * proposals present, resolved runs with no pending proposals) in isolation. The jump to
+ * the review queue rows is covered in src/views/library/ReviewTab.test.tsx (the proposals
+ * component only calls the onSelect callback it is handed).
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
@@ -27,9 +27,9 @@ mock.module('../../lib/goodvibes', () => ({
   },
 }));
 
-const { ConsolidationReceipts } = await import('./ConsolidationReceipts');
+const { ConsolidationProposals, ConsolidationRuns } = await import('./ConsolidationReceipts');
 
-let reviewIdsCalls: (readonly string[])[] = [];
+let selectCalls: (readonly string[])[] = [];
 
 function render(): { el: HTMLElement; unmount: () => void } {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -41,7 +41,12 @@ function render(): { el: HTMLElement; unmount: () => void } {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(ConsolidationReceipts, { onReviewIds: (ids: readonly string[]) => { reviewIdsCalls.push(ids); } }),
+        React.createElement(
+          'div',
+          null,
+          React.createElement(ConsolidationProposals, { onSelect: (_key: string, proposal: { ids: readonly string[] }) => { selectCalls.push(proposal.ids); } }),
+          React.createElement(ConsolidationRuns),
+        ),
       ),
     );
   });
@@ -71,7 +76,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
 
 afterEach(() => {
   receiptsImpl = () => Promise.resolve({ receipts: [], pendingProposals: [] });
-  reviewIdsCalls = [];
+  selectCalls = [];
 });
 
 describe('ConsolidationReceipts: honest states', () => {
@@ -106,7 +111,7 @@ describe('ConsolidationReceipts: honest states', () => {
 });
 
 describe('ConsolidationReceipts: pending proposals', () => {
-  test('renders kind, reason, and referenced record ids; Review fires onReviewIds with exactly those ids', async () => {
+  test('renders kind, reason and record count; Resolve selects the proposal with exactly those ids', async () => {
     receiptsImpl = () => Promise.resolve({
       receipts: [],
       pendingProposals: [{
@@ -119,11 +124,11 @@ describe('ConsolidationReceipts: pending proposals', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Cross-scope duplicate'));
     expect(el.textContent).toContain('Same-summary records span multiple scopes');
-    expect(el.textContent).toContain('mem-a, mem-b');
+    expect(el.textContent).toContain('2 records');
     // The internal agent-tool route string is never rendered as a browser link or route.
     expect(el.querySelector('a')).toBeNull();
-    click(el.querySelector('.consolidation-proposal-row button'));
-    expect(reviewIdsCalls).toEqual([['mem-a', 'mem-b']]);
+    click([...el.querySelectorAll('.consolidation-proposal-row button')].find((b) => b.textContent === 'Resolve'));
+    expect(selectCalls).toEqual([['mem-a', 'mem-b']]);
     unmount();
   });
 

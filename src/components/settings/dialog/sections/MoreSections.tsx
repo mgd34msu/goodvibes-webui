@@ -22,6 +22,7 @@ import { Select } from '../../../ui/Select';
 import { StatusDot } from '../../../ui/StatusDot';
 import { Toggle } from '../../../ui/Toggle';
 import { MemoryDiagnostics } from '../../MemoryDiagnostics';
+import { PermissionRules } from '../../PermissionRules';
 import { NotificationSettings } from '../../NotificationSettings';
 import { PairingTokensSettings } from '../../PairingTokensSettings';
 import { PowerSettings } from '../../PowerSettings';
@@ -169,7 +170,12 @@ export function MemorySection() {
 }
 
 export function PermissionsSection() {
-  return <SectionConfig id="permissions" emptyText="No permission settings reported." />;
+  return (
+    <>
+      <PermissionRules />
+      <SectionConfig id="permissions" emptyText="No permission settings reported." />
+    </>
+  );
 }
 
 export function NetworkSection() {

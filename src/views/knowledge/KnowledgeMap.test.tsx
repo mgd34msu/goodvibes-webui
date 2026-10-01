@@ -53,14 +53,14 @@ describe('isRenderableSvg / svgDataUrl', () => {
 describe('KnowledgeMap: loading / error', () => {
   test('shows a skeleton while the map query is pending', () => {
     const html = renderToStaticMarkup(<KnowledgeMap {...baseProps({ isPending: true })} />);
-    expect(html).toContain('knowledge-skeleton-group');
+    expect(html).toContain('dv-skeleton');
   });
 
   test('shows a skeleton while the status query (jobRunCount source) is still pending, even if the map resolved', () => {
     const html = renderToStaticMarkup(
       <KnowledgeMap {...baseProps({ statusPending: true, data: { nodeCount: 3, edgeCount: 2, svg: SAMPLE_SVG } })} />,
     );
-    expect(html).toContain('knowledge-skeleton-group');
+    expect(html).toContain('dv-skeleton');
   });
 
   test('shows an error state when the map query failed', () => {

@@ -9,14 +9,15 @@
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 import { FLEET_GRAPH_WORKSTREAM_NODE } from './support/seed';
-import { expectNoHorizontalScroll } from './support/app';
+import { expectNoHorizontalScroll, openRow } from './support/app';
 
 test('the task graph renders every state tell for the selected workstream', async ({ page }) => {
   await installMockDaemon(page);
+  // The old Workstream link lands on Work, Processes.
   await page.goto('/?view=workstream');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  await page.locator('.workstream-row', { hasText: FLEET_GRAPH_WORKSTREAM_NODE.label }).click();
+  await openRow(page, FLEET_GRAPH_WORKSTREAM_NODE.label);
   const panel = page.locator('.task-graph-panel');
   await expect(panel).toBeVisible();
 
@@ -44,12 +45,12 @@ test('the task graph renders every state tell for the selected workstream', asyn
   await expectNoHorizontalScroll(page);
 });
 
-test('the task graph also renders from the Fleet view detail pane for the same workstream', async ({ page }) => {
+test('the task graph also renders from Work, All, for the same workstream', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  await page.locator('.fleet-row', { hasText: FLEET_GRAPH_WORKSTREAM_NODE.label }).click();
+  await openRow(page, FLEET_GRAPH_WORKSTREAM_NODE.label);
   await expect(page.locator('.task-graph-panel')).toBeVisible();
   await expect(page.locator('[data-testid="task-graph-node"]')).toHaveCount(5);
 });

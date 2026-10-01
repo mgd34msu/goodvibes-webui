@@ -1,134 +1,147 @@
 /**
- * KnowledgeCandidatesPanel, consolidation candidates (knowledge.candidates.list /
- * .candidate.get / .candidate.decide), a never-called-before surface (like the
- * jobs-activity peek in KnowledgeJobsPeek.tsx) this brief adopts. A candidate is a
- * scored suggestion to promote something into durable memory, review it, or refresh
- * its source, accept/reject/supersede is an explicit, per-row decision, never
- * auto-applied.
+ * Knowledge consolidation candidates (knowledge.candidates.list / .candidate.decide).
+ * A candidate is a scored suggestion to promote something into durable memory, review
+ * it, or refresh its source. Accept, reject or supersede is an explicit, per-candidate
+ * decision, never auto-applied. Undecided candidates are rows on the Library's Review
+ * tab; a selected one opens in the detail pane with its three decisions.
  */
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ListChecks, XCircle } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { invokeMethod } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { firstArray, firstString, countFrom } from '../../lib/object';
-import { StatusBadge } from '../../components/StatusBadge';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { firstString, countFrom } from '../../lib/object';
+import { formatError } from '../../lib/errors';
+import { DetailPane, DetailSection, Disclosure, Facts, RowGroup, SkeletonRows } from '../../components/data-view/DataView';
+import { Button } from '../../components/ui/Button';
+import { Row } from '../../components/ui/Row';
 import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import {
+  candidateItems,
+  includesText,
+  isUndecidedCandidate,
+  sentence,
+  useKnowledgeCandidates,
+} from '../library/library-data';
 
 type Decision = 'accept' | 'reject' | 'supersede';
 
-export function KnowledgeCandidatesPanel() {
-  const queryClient = useQueryClient();
-  const [pendingId, setPendingId] = useState('');
+export interface CandidateView {
+  id: string;
+  title: string;
+  status: string;
+  type: string;
+  score: number;
+  summary: string;
+}
 
-  const candidates = useQuery({
-    queryKey: queryKeys.knowledgeCandidates,
-    queryFn: () => invokeMethod('knowledge.candidates.list', { limit: 50 }),
-  });
+export function parseCandidate(candidate: unknown, index: number): CandidateView {
+  const summary = firstString(candidate, ['summary']);
+  return {
+    id: firstString(candidate, ['id']) || String(index),
+    title: firstString(candidate, ['title']) || summary || 'Untitled candidate',
+    status: firstString(candidate, ['status']) || 'unknown',
+    type: firstString(candidate, ['candidateType']) || 'candidate',
+    score: countFrom(candidate, ['score']),
+    summary,
+  };
+}
 
-  const decide = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: Decision }) => {
-      setPendingId(id);
-      return invokeMethod('knowledge.candidate.decide', { id, decision });
-    },
-    onSuccess: async () => {
-      setPendingId('');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.knowledgeCandidates });
-    },
-    onError: () => setPendingId(''),
-  });
-
-  if (candidates.isPending) {
-    return (
-      <div className="knowledge-skeleton-group">
-        <SkeletonBlock width="100%" height={40} />
-        <SkeletonBlock width="100%" height={40} />
-      </div>
-    );
-  }
-
-  if (candidates.error) {
-    return (
-      <ErrorState
-        error={candidates.error}
-        onRetry={() => void candidates.refetch()}
-        title="Candidates failed to load"
-      />
-    );
-  }
-
-  const items = firstArray(candidates.data, ['candidates']);
-
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={<ListChecks size={24} aria-hidden="true" />}
-        title="No consolidation candidates"
-        description="Candidates appear here when the knowledge base scores something worth promoting, reviewing, or refreshing."
-      />
-    );
-  }
-
+function CandidateRow({ candidate, selected, onSelect }: { candidate: CandidateView; selected: boolean; onSelect: (id: string) => void }) {
+  const decided = !isUndecidedCandidate(candidate.status);
   return (
-    <div className="knowledge-candidates-list">
-      {decide.error && (
-        <ErrorState error={decide.error} title="Decision failed" />
-      )}
-      {items.map((candidate, index) => {
-        const id = firstString(candidate, ['id']) || String(index);
-        const title = firstString(candidate, ['title']) || firstString(candidate, ['summary']) || 'Untitled candidate';
-        const status = firstString(candidate, ['status']) || 'unknown';
-        const candidateType = firstString(candidate, ['candidateType']);
-        const score = countFrom(candidate, ['score']);
-        const summary = firstString(candidate, ['summary']);
-        const isPendingRow = decide.isPending && pendingId === id;
-        const decided = status !== 'pending' && status !== 'unknown';
-        return (
-          <article key={id} className="knowledge-candidate-row">
-            <div className="knowledge-candidate-row__head">
-              <strong>{title}</strong>
-              <StatusBadge value={status} />
-            </div>
-            {summary && <p className="knowledge-candidate-row__summary">{summary}</p>}
-            <p className="knowledge-candidate-row__meta">
-              {candidateType || 'candidate'} · score {score.toFixed(2)}
-            </p>
-            {!decided && (
-              <div className="knowledge-candidate-row__actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={isPendingRow}
-                  aria-busy={isPendingRow}
-                  onClick={() => decide.mutate({ id, decision: 'accept' })}
-                >
-                  <CheckCircle2 size={14} aria-hidden="true" /> Accept
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={isPendingRow}
-                  aria-busy={isPendingRow}
-                  onClick={() => decide.mutate({ id, decision: 'reject' })}
-                >
-                  <XCircle size={14} aria-hidden="true" /> Reject
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={isPendingRow}
-                  aria-busy={isPendingRow}
-                  onClick={() => decide.mutate({ id, decision: 'supersede' })}
-                >
-                  Supersede
-                </button>
-              </div>
-            )}
-          </article>
-        );
-      })}
-    </div>
+    <Row
+      className="knowledge-candidate-row"
+      title={candidate.title}
+      meta={`${sentence(candidate.type)} · ${decided ? sentence(candidate.status) : 'waiting for a decision'}`}
+      trailing={<span className="dv-value">{candidate.score.toFixed(2)}</span>}
+      selected={selected}
+      onSelect={() => onSelect(candidate.id)}
+    />
   );
 }
+
+interface KnowledgeCandidateRowsProps {
+  query?: string;
+  selectedId?: string | null;
+  onSelect: (id: string) => void;
+}
+
+/** Undecided candidates as a row group, decided ones behind a quiet disclosure. */
+export function KnowledgeCandidateRows({ query = '', selectedId = null, onSelect }: KnowledgeCandidateRowsProps) {
+  const candidates = useKnowledgeCandidates();
+
+  if (candidates.isPending) return <SkeletonRows count={2} label="Loading candidates" />;
+  if (candidates.error) {
+    return <ErrorState error={candidates.error} onRetry={() => void candidates.refetch()} title="Candidates failed to load" />;
+  }
+
+  const all = candidateItems(candidates.data)
+    .map(parseCandidate)
+    .filter((c) => includesText([c.title, c.summary, c.type], query));
+  const undecided = all.filter((c) => isUndecidedCandidate(c.status));
+  const decided = all.filter((c) => !isUndecidedCandidate(c.status));
+
+  return (
+    <>
+      {undecided.length > 0 && (
+        <RowGroup label="Knowledge candidates" count={undecided.length}>
+          {undecided.map((c) => <CandidateRow key={c.id} candidate={c} selected={c.id === selectedId} onSelect={onSelect} />)}
+        </RowGroup>
+      )}
+      {decided.length > 0 && (
+        <Disclosure summary={`${decided.length} decided`}>
+          <RowGroup label="Decided candidates">
+            {decided.map((c) => <CandidateRow key={c.id} candidate={c} selected={c.id === selectedId} onSelect={onSelect} />)}
+          </RowGroup>
+        </Disclosure>
+      )}
+    </>
+  );
+}
+
+interface KnowledgeCandidatePaneProps {
+  candidate: CandidateView;
+  onClose: () => void;
+}
+
+export function KnowledgeCandidatePane({ candidate, onClose }: KnowledgeCandidatePaneProps) {
+  const queryClient = useQueryClient();
+  const decide = useMutation({
+    mutationFn: (decision: Decision) => invokeMethod('knowledge.candidate.decide', { id: candidate.id, decision }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.knowledgeCandidates });
+    },
+  });
+  const decided = !isUndecidedCandidate(candidate.status);
+  const busy = decide.isPending;
+
+  return (
+    <DetailPane
+      title={candidate.title}
+      meta={sentence(candidate.type)}
+      onClose={onClose}
+      footer={decided ? undefined : (
+        <>
+          <Button variant="secondary" icon={<CheckCircle2 aria-hidden="true" />} disabled={busy} aria-busy={busy} onClick={() => decide.mutate('accept')}>Accept</Button>
+          <Button variant="secondary" icon={<XCircle aria-hidden="true" />} disabled={busy} aria-busy={busy} onClick={() => decide.mutate('reject')}>Reject</Button>
+          <Button variant="ghost" disabled={busy} aria-busy={busy} onClick={() => decide.mutate('supersede')}>Supersede</Button>
+        </>
+      )}
+    >
+      {decide.error && <div className="dv-notice dv-notice--bad" role="alert"><span>Decision failed: {formatError(decide.error)}</span></div>}
+      {candidate.summary && (
+        <DetailSection title="Why it was suggested">
+          <p className="lib-prose">{candidate.summary}</p>
+        </DetailSection>
+      )}
+      <Facts
+        items={[
+          { label: 'Kind', value: sentence(candidate.type) },
+          { label: 'Score', value: candidate.score.toFixed(2) },
+          { label: 'Status', value: sentence(candidate.status) },
+        ]}
+      />
+    </DetailPane>
+  );
+}
+

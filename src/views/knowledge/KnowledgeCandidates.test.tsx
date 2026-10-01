@@ -1,11 +1,10 @@
 /**
- * KnowledgeCandidatesPanel, knowledge.candidates.list / .candidate.decide, a
- * never-called-before verb pair this brief adopts. Proves the empty/error/
- * populated states render honestly and that accept/reject/supersede send the
- * right decision and refresh the list.
+ * Knowledge candidates (knowledge.candidates.list / .candidate.decide): undecided ones
+ * are rows, a selected one opens a pane with accept, reject and supersede. Proves the
+ * error and populated states render honestly and that a decision sends the right call.
  */
 import { afterEach, expect, mock, test } from 'bun:test';
-import React from 'react';
+import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -27,7 +26,21 @@ mock.module('../../lib/goodvibes', () => ({
   sdk: { operator: { calendar: { events: {}, ics: {} } } },
 }));
 
-const { KnowledgeCandidatesPanel } = await import('./KnowledgeCandidates');
+const { KnowledgeCandidateRows, KnowledgeCandidatePane, parseCandidate } = await import('./KnowledgeCandidates');
+const { useKnowledgeCandidates, candidateItems } = await import('../library/library-data');
+
+/** The Review tab's wiring in miniature: rows, and the pane for the selected row. */
+function Harness() {
+  const [selected, setSelected] = useState<string | null>(null);
+  const candidates = useKnowledgeCandidates();
+  const current = candidateItems(candidates.data).map(parseCandidate).find((c) => c.id === selected);
+  return (
+    <div>
+      <KnowledgeCandidateRows selectedId={selected} onSelect={setSelected} />
+      {current && <KnowledgeCandidatePane candidate={current} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
 
 function render() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -35,7 +48,7 @@ function render() {
   document.body.appendChild(container);
   const root = createRoot(container);
   flushSync(() => {
-    root.render(React.createElement(QueryClientProvider, { client }, React.createElement(KnowledgeCandidatesPanel)));
+    root.render(React.createElement(QueryClientProvider, { client }, React.createElement(Harness)));
   });
   return {
     el: container,
@@ -61,9 +74,11 @@ afterEach(() => {
   decideCalls.length = 0;
 });
 
-test('an empty candidate list reads an honest empty state', async () => {
+test('an empty candidate list renders no rows', async () => {
   const { el, unmount } = render();
-  await waitFor(() => (el.textContent ?? '').includes('No consolidation candidates'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  flushSync(() => {});
+  expect(el.querySelector('.knowledge-candidate-row')).toBeNull();
   unmount();
 });
 
@@ -74,7 +89,13 @@ test('a query failure renders ErrorState with retry', async () => {
   unmount();
 });
 
-test('a pending candidate renders its score/summary and offers accept/reject/supersede', async () => {
+function clickRow(el: HTMLElement, text: string) {
+  const row = [...el.querySelectorAll('button.gv-row__main')].find((b) => b.textContent?.includes(text));
+  expect(row).toBeTruthy();
+  flushSync(() => row?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+}
+
+test('a pending candidate is a row with its score; its pane offers accept, reject and supersede', async () => {
   listImpl = () => Promise.resolve({
     candidates: [{
       id: 'cand-1',
@@ -87,22 +108,26 @@ test('a pending candidate renders its score/summary and offers accept/reject/sup
   });
   const { el, unmount } = render();
   await waitFor(() => (el.textContent ?? '').includes('Promote the session-spine decision'));
-  expect(el.textContent).toContain('0.82');
-  expect(el.textContent).toContain('Accept');
-  expect(el.textContent).toContain('Reject');
-  expect(el.textContent).toContain('Supersede');
+  expect(el.querySelector('.knowledge-candidate-row')?.textContent).toContain('0.82');
+  clickRow(el, 'Promote the session-spine decision');
+  expect(el.textContent).toContain('Recorded three times across sessions.');
+  const labels = [...el.querySelectorAll('button')].map((b) => b.textContent);
+  expect(labels).toContain('Accept');
+  expect(labels).toContain('Reject');
+  expect(labels).toContain('Supersede');
   unmount();
 });
 
-test('accepting a candidate sends {id, decision: "accept"} and refreshes the list', async () => {
+test('accepting a candidate sends {id, decision: "accept"}', async () => {
   listImpl = () => Promise.resolve({
     candidates: [{ id: 'cand-1', status: 'pending', title: 'Candidate one', score: 0.5 }],
   });
   decideImpl = () => Promise.resolve({ candidate: { id: 'cand-1', status: 'accepted' } });
   const { el, unmount } = render();
   await waitFor(() => (el.textContent ?? '').includes('Candidate one'));
+  clickRow(el, 'Candidate one');
 
-  const acceptButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Accept'));
+  const acceptButton = [...el.querySelectorAll('button')].find((b) => b.textContent === 'Accept');
   expect(acceptButton).toBeTruthy();
   flushSync(() => acceptButton?.click());
 
@@ -111,12 +136,16 @@ test('accepting a candidate sends {id, decision: "accept"} and refreshes the lis
   unmount();
 });
 
-test('an already-decided candidate (status !== pending) offers no action buttons', async () => {
+test('an already-decided candidate (status !== pending) offers no decision buttons', async () => {
   listImpl = () => Promise.resolve({
     candidates: [{ id: 'cand-2', status: 'accepted', title: 'Already decided', score: 0.9 }],
   });
   const { el, unmount } = render();
-  await waitFor(() => (el.textContent ?? '').includes('Already decided'));
-  expect(el.querySelector('.knowledge-candidate-row__actions')).toBeNull();
+  await waitFor(() => (el.textContent ?? '').includes('1 decided'));
+  // Decided candidates sit behind a disclosure, still selectable.
+  clickRow(el, 'Already decided');
+  const labels = [...el.querySelectorAll('button')].map((b) => b.textContent);
+  expect(labels).not.toContain('Accept');
+  expect(labels).not.toContain('Reject');
   unmount();
 });

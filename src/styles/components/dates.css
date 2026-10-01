@@ -1,269 +1,150 @@
 /*
- * Dates panel — occasions, plans, open items, and state (occasions.*).
- * Uses contract tokens from src/styles/tokens.css and the shared .panel/.stack/
- * .badge/.form-grid/.secondary-button/.primary-button base from src/styles.css.
+ * Occasions tab of Personal: rows, groups, detail pane and dialogs come from the
+ * data-view template and the kit, so this file holds only the notes, the nudge
+ * line, the answer buttons, the interview form, the gift history and the stored
+ * records disclosure.
  */
 
-.dates-occasion-list,
-.dates-plan-list,
-.dates-interview-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-}
-
-.dates-occasion-row,
-.dates-plan-row,
-.dates-interview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.dates-occasion-row__top,
-.dates-plan-row__top,
-.dates-nudge__subject {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.dates-occasion-row__title,
-.dates-plan-row__title {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.dates-occasion-row__person {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
-}
-
-.dates-occasion-row__meta,
-.dates-plan-row__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-3);
-}
-
-.dates-occasion-row__actions,
-.dates-plan-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1, 4px);
-}
-
-.dates-remove-button {
-  color: var(--bad);
-}
-
 .dates-note {
-  font-size: var(--text-xs, 12px);
-  padding: var(--space-2, 8px);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
+  margin-bottom: 16px;
 }
 
-.dates-note h3 {
-  margin: 0 0 4px 0;
-  font-size: var(--text-xs, 12px);
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.dates-note p {
+  margin: 0;
+}
+
+.dates-note__title {
+  color: var(--text);
+  font-weight: var(--weight-medium);
 }
 
 .dates-note ul {
-  margin: 0;
-  padding-left: 1.2em;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
 }
 
-.dates-note--conflict {
-  border-color: var(--bad);
+.dates-note code {
+  font-family: var(--font-mono);
 }
 
-.dates-note--conflict li {
+.dates-note__row {
   display: flex;
+  flex: 1;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2, 8px);
-  list-style: none;
-  margin-left: -1.2em;
+  gap: 8px;
+  min-width: 0;
 }
 
-.dates-note--away {
+.dates-nudge {
+  margin-bottom: 24px;
+}
+
+.dates-nudge__message {
+  margin: 0 0 12px;
+  color: var(--text);
+  line-height: 22px;
+}
+
+[data-testid="dates-conflicts"],
+[data-testid="dates-interview-list"],
+[data-testid="dates-occasion-list"],
+[data-testid="dates-plan-list"] {
+  margin-bottom: 24px;
+}
+
+.dates-answers {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  border-style: solid;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.dates-add-form {
-  margin-top: var(--space-2, 8px);
-  padding-top: var(--space-2, 8px);
-  border-top: 1px solid var(--line);
+.dates-answers .gv-button[aria-pressed="true"] {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--text);
 }
 
-.dates-add-form h3 {
-  margin: 0;
-  font-size: var(--text-sm, 13px);
-}
-
-.dates-add-form__checkbox {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 6px !important;
-}
-
-.dates-proposal {
+.dates-interview {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
+  gap: 16px;
+  max-width: 480px;
+}
+
+.dates-interview__done {
+  margin: 0;
+  color: var(--text-2);
 }
 
 .dates-proposal p {
   margin: 0;
-  font-size: var(--text-xs, 12px);
 }
 
-.dates-proposal__warning {
-  color: var(--bad);
+.dates-proposal p + p {
+  margin-top: 4px;
 }
 
-.dates-open-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-}
-
-.dates-nudge {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.dates-nudge__message {
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-}
-
-.dates-nudge__subjects {
-  list-style: none;
+.dates-gifts {
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  list-style: none;
+  border-top: 1px solid var(--line);
 }
 
-.dates-nudge__subject-actions {
-  display: flex;
-  gap: 4px;
+.dates-gifts__item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.dates-interview__title {
+.dates-gifts__item p {
   margin: 0;
-  font-weight: 600;
-  font-size: var(--text-xs, 12px);
+  overflow-wrap: anywhere;
 }
 
-.dates-interview__step,
-.dates-interview__record {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dates-interview__step input,
-.dates-interview__record input {
-  background: var(--canvas);
+.dates-gifts__landed {
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-  padding: 6px 8px;
-  font-size: var(--text-xs, 12px);
+  font-weight: var(--weight-medium);
 }
 
-.dates-state__counts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px var(--space-2, 8px);
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-}
-
-.dates-state__counts dt {
+.dates-gifts__meta,
+.dates-gifts__notes {
   color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: 18px;
 }
 
-.dates-state__counts dd {
+.dates-gifts__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin: 0;
-  color: var(--text);
+  color: var(--text-3);
+  line-height: 20px;
 }
 
-.dates-state__last-sweep,
-.dates-state__sweep-result {
-  font-size: var(--text-xs, 12px);
+.dates-gifts__empty svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 2px;
+}
+
+.dates-store {
+  margin-top: 8px;
+}
+
+.dates-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dates-state__text {
+  margin: 0;
   color: var(--text-2);
-}
-
-.dates-gift-peek-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-}
-
-.dates-gift-peek-item {
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.dates-gift-peek-item p {
-  margin: 0 0 4px 0;
-  font-size: var(--text-xs, 12px);
-}
-
-.dates-gift-peek-item__occurrence {
-  color: var(--text-3);
-}
-
-.dates-gift-peek-item__landed-on {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.dates-gift-peek-item__recorded-at {
-  color: var(--text-3);
-}
-
-@media (max-width: 980px) {
-  .dates-occasion-row__actions button,
-  .dates-plan-row__actions button,
-  .dates-nudge__subject-actions button {
-    min-height: 44px;
-  }
+  line-height: 20px;
+  overflow-wrap: anywhere;
 }

@@ -11,28 +11,26 @@
 import { test, expect } from '@playwright/test';
 import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import { FLEET_AGENT_NODE, FLEET_WATCHER_NODE } from './support/seed';
-import { only, PHONE, DESKTOP, expectNoHorizontalScroll } from './support/app';
+import { DESKTOP, PHONE, detailPane, expectNoHorizontalScroll, listRow, only, openRow } from './support/app';
 
 let daemon: MockDaemon;
 
 test.beforeEach(async ({ page }) => {
   daemon = await installMockDaemon(page);
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work&tab=all');
   await expect(page.locator('.app-shell')).toBeVisible();
 });
 
-test('the process tree renders both seeded nodes with honest badges', async ({ page }) => {
-  await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
-  await expect(page.locator('.fleet-row', { hasText: FLEET_WATCHER_NODE.label })).toBeVisible();
+test('the Work list renders both seeded processes', async ({ page }) => {
+  await expect(listRow(page, FLEET_AGENT_NODE.label)).toBeVisible();
+  await expect(listRow(page, FLEET_WATCHER_NODE.label)).toBeVisible();
   await expectNoHorizontalScroll(page);
 });
 
-test.describe('desktop actions', () => {
-  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
-
+test.describe('process actions', () => {
   test('steer sends over sessions.steer with this browser stamped as the surface', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    const input = page.locator('.fleet-steer-box__input');
+    const detail = await openRow(page, FLEET_AGENT_NODE.label);
+    const input = detail.getByRole('textbox', { name: 'Steer message' });
     await expect(input).toBeVisible();
     await input.fill('Keep going, prioritize the flaky test');
     await input.press('Enter');
@@ -43,8 +41,8 @@ test.describe('desktop actions', () => {
   });
 
   test('detach calls sessions.detach with this surface id, not the process', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    await page.getByRole('button', { name: /Detach this browser/i }).click();
+    const detail = await openRow(page, FLEET_AGENT_NODE.label);
+    await detail.getByRole('button', { name: /Detach this browser/i }).click();
     await expect.poll(() => daemon.detachRequests.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(daemon.detachRequests[0]).toEqual({
       sessionId: FLEET_AGENT_NODE.sessionRef.sessionId,
@@ -52,54 +50,62 @@ test.describe('desktop actions', () => {
     });
   });
 
-  test('stop on the watcher node calls watchers.stop keyed on the node id', async ({ page }) => {
-    page.on('dialog', (dialog) => void dialog.accept());
-    await page.locator('.fleet-row', { hasText: FLEET_WATCHER_NODE.label }).click();
-    await page.getByRole('button', { name: /^Stop$/ }).click();
+  test('stop on the watcher confirms first, then calls watchers.stop keyed on the node id', async ({ page }) => {
+    const detail = await openRow(page, FLEET_WATCHER_NODE.label);
+    await detail.getByRole('button', { name: /^Stop$/ }).click();
+    const sheet = page.getByRole('alertdialog');
+    await expect(sheet.first()).toBeVisible();
+    expect(daemon.watcherStopRequests.length).toBe(0);
+    await sheet.first().getByRole('button', { name: /^Stop$/ }).click();
     await expect.poll(() => daemon.watcherStopRequests.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(daemon.watcherStopRequests[0]).toBe(FLEET_WATCHER_NODE.id);
   });
 
-  test('a killable/interruptible node with no wire verb (agent kind) shows the honest unbacked note, never a fabricated Stop', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    // The agent node IS killable/interruptible per its capabilities, but this client
-    // has no wire verb to act on that for an 'agent' kind, say so, don't fake it.
-    await expect(page.locator('.fleet-detail__unbacked-note')).toContainText("no control verb for 'agent' processes yet");
-    await expect(page.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
+  test('an agent with no wire verb for stopping gets the honest note, never a fabricated Stop', async ({ page }) => {
+    const detail = await openRow(page, FLEET_AGENT_NODE.label);
+    await expect(detail.getByRole('note').filter({ hasText: "no control verb for 'agent' processes yet" })).toBeVisible();
+    await expect(detail.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
   });
 
-  test('approve from the tree: the correlated pending approval renders inline and Approve reaches approvals.approve', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    await expect(page.locator('.fleet-detail__approvals')).toContainText('Pending approval');
-    await expect(page.locator('.fleet-detail__approvals')).toContainText('Run the full test suite before merging');
-    await page.locator('.fleet-detail__approvals').getByRole('button', { name: /Approve/i }).first().click();
+  test('the correlated pending approval is one row away and Approve reaches approvals.approve', async ({ page }) => {
+    const detail = await openRow(page, FLEET_AGENT_NODE.label);
+    const waiting = detail.getByRole('list', { name: 'Approvals for this process' });
+    await expect(waiting).toContainText('Run the full test suite before merging');
+    await waiting.locator('.gv-row__main').first().click();
+    await expect(detailPane(page)).toContainText('Waiting for approval');
+    await detailPane(page).getByRole('button', { name: /^Approve$/ }).click();
     await expect.poll(() => daemon.approvalActions.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(daemon.approvalActions[0]).toMatchObject({ approvalId: 'appr-e2e-1', action: 'approve' });
   });
 });
 
-test.describe('phone: browsable, mutation actions are desktop-only with an honest pointer', () => {
+test.describe('desktop: the detail folds the sidebar to its rail', () => {
+  test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
+
+  test('opening a detail shows the rail; closing it brings the sidebar back', async ({ page }) => {
+    // The first item that needs you opens by itself.
+    await expect(detailPane(page)).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sidebar', 'rail');
+    await detailPane(page).getByRole('button', { name: 'Close approval' }).click();
+    await expect(detailPane(page)).toBeHidden();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sidebar', 'expanded');
+  });
+});
+
+test.describe('phone: one pane at a time, every action still reachable', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
-  test('selecting a node flips to its detail with a Back affordance, no horizontal scroll', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    await expect(page.locator('.fleet-detail__back')).toBeVisible();
-    await expect(page.locator('.fleet-list-pane')).toBeHidden();
+  test('selecting a process flips to its detail with a Back button, no horizontal scroll', async ({ page }) => {
+    await openRow(page, FLEET_AGENT_NODE.label);
+    await expect(page.locator('.dv-list')).toHaveCount(0);
     await expectNoHorizontalScroll(page);
-    await page.locator('.fleet-detail__back').click();
-    await expect(page.locator('.fleet-list-pane')).toBeVisible();
+    await page.getByRole('button', { name: 'All work' }).click();
+    await expect(page.locator('.dv-list')).toBeVisible();
   });
 
-  test('steer/stop controls are hidden on phone with an honest pointer to a wider screen', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    await expect(page.locator('.fleet-steer-box')).toBeHidden();
-    await expect(page.locator('.fleet-detail__phone-actions-note')).toBeVisible();
-    await expectNoHorizontalScroll(page);
-  });
-
-  test('a correlated pending approval is still readable and decidable on phone', async ({ page }) => {
-    await page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label }).click();
-    await expect(page.locator('.fleet-detail__approvals')).toContainText('Pending approval');
+  test('steering is available on the phone and fits the screen', async ({ page }) => {
+    const detail = await openRow(page, FLEET_AGENT_NODE.label);
+    await expect(detail.getByRole('textbox', { name: 'Steer message' })).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 });

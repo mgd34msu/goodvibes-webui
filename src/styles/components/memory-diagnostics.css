@@ -1,44 +1,44 @@
 /*
- * MemoryDiagnostics layout. Colors come from the shared token layer
- * (src/styles/tokens.css) plus the existing `.badge` tone classes
+ * MemoryDiagnostics layout (Settings, Memory). Colors come from the shared token
+ * layer (src/styles/tokens.css) plus the existing `.badge` tone classes
  * (src/styles.css); this file is layout only, no new palette.
  */
 
 .memory-diagnostics {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
 .memory-diagnostics__tier-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .memory-diagnostics__bar-row {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 6px;
 }
 
 .memory-diagnostics__bar-label {
   display: flex;
   justify-content: space-between;
-  font-size: var(--text-sm, 13px);
+  font-size: var(--text-sm);
   color: var(--text-2);
 }
 
 .memory-diagnostics__bar-track {
   height: 8px;
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
   overflow: hidden;
 }
 
 .memory-diagnostics__bar-fill {
   height: 100%;
-  border-radius: var(--radius-xs, 6px);
+  border-radius: var(--radius-xs);
   background: var(--ok);
   transition: width 0.2s ease;
 }
@@ -50,13 +50,13 @@
 .memory-diagnostics__caches {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-sm, 13px);
+  font-size: var(--text-sm);
 }
 
 .memory-diagnostics__caches th,
 .memory-diagnostics__caches td {
   text-align: left;
-  padding: 0.25rem 0.5rem;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -67,18 +67,18 @@
 
 .memory-diagnostics__paused-jobs {
   margin: 0;
-  padding-left: 1.2rem;
-  font-size: var(--text-sm, 13px);
+  padding-left: 20px;
+  font-size: var(--text-sm);
   color: var(--text-2);
 }
 
 .memory-diagnostics__tripwire {
-  font-size: var(--text-sm, 13px);
+  font-size: var(--text-sm);
   color: var(--text-2);
   margin: 0;
 }
 
 .memory-diagnostics__tripwire--armed {
   color: var(--bad);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }

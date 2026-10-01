@@ -14,8 +14,9 @@
  * Or, if you just want to mount the command system at root without wrapping:
  *   <CommandProvider onNavigate={setActiveView} />
  *
- * onNavigate receives a view id: 'chat' | 'knowledge', and an optional
- * newChat boolean for the "New chat" command. onOpenSettings opens the
+ * onNavigate receives a view id ('chat', 'work', 'library', 'personal'), an
+ * optional tab of that destination, and an optional newChat boolean for the
+ * "New chat" command. onOpenSettings opens the
  * settings dialog, on a section when one is named ('models' for the old
  * "Go to Providers", 'account' for the old "Go to Admin").
  */
@@ -27,14 +28,14 @@ import { useHotkeys } from '../../hooks/useHotkeys';
 import { CommandPalette } from './CommandPalette';
 import { ShortcutCheatsheet } from './ShortcutCheatsheet';
 
-export type ViewId = 'chat' | 'knowledge';
+export type ViewId = 'chat' | 'work' | 'library' | 'personal';
 
 interface CommandProviderProps {
   /**
    * Called when a navigation command fires.
    * Integration phase wires this to App's setActiveView.
    */
-  onNavigate?: (view: ViewId, options?: { newChat?: boolean }) => void;
+  onNavigate?: (view: ViewId, options?: { newChat?: boolean; tab?: string }) => void;
   /** Open the settings dialog, on a section when one is named. */
   onOpenSettings?: (section?: string) => void;
   children?: React.ReactNode;
@@ -65,7 +66,31 @@ export default function CommandProvider({ onNavigate, onOpenSettings, children }
       group: 'navigation',
       keywords: ['knowledge', 'wiki', 'docs'],
       shortcut: 'g k',
-      run: () => onNavigate?.('knowledge'),
+      run: () => onNavigate?.('library', { tab: 'knowledge' }),
+    });
+    registerCommand({
+      id: 'nav.work',
+      title: 'Go to Work',
+      group: 'navigation',
+      keywords: ['work', 'sessions', 'agents', 'processes', 'fleet', 'approvals', 'needs you', 'checkpoints', 'ci'],
+      shortcut: 'g w',
+      run: () => onNavigate?.('work'),
+    });
+    registerCommand({
+      id: 'nav.library',
+      title: 'Go to Library',
+      group: 'navigation',
+      keywords: ['library', 'memory', 'knowledge', 'review'],
+      shortcut: 'g l',
+      run: () => onNavigate?.('library'),
+    });
+    registerCommand({
+      id: 'nav.personal',
+      title: 'Go to Personal',
+      group: 'navigation',
+      keywords: ['personal', 'calendar', 'mail', 'occasions', 'dates'],
+      shortcut: 'g o',
+      run: () => onNavigate?.('personal'),
     });
     registerCommand({
       id: 'nav.providers',
@@ -111,6 +136,9 @@ export default function CommandProvider({ onNavigate, onOpenSettings, children }
     return () => {
       unregisterCommand('nav.chat');
       unregisterCommand('nav.knowledge');
+      unregisterCommand('nav.work');
+      unregisterCommand('nav.library');
+      unregisterCommand('nav.personal');
       unregisterCommand('nav.providers');
       unregisterCommand('nav.admin');
       unregisterCommand('chat.new');
@@ -137,7 +165,10 @@ export default function CommandProvider({ onNavigate, onOpenSettings, children }
     // event chain and does not interfere with other Escape consumers.
     // Sequence nav shortcuts
     { combo: 'g c', handler: () => { onNavigate?.('chat'); } },
-    { combo: 'g k', handler: () => { onNavigate?.('knowledge'); } },
+    { combo: 'g k', handler: () => { onNavigate?.('library', { tab: 'knowledge' }); } },
+    { combo: 'g w', handler: () => { onNavigate?.('work'); } },
+    { combo: 'g l', handler: () => { onNavigate?.('library'); } },
+    { combo: 'g o', handler: () => { onNavigate?.('personal'); } },
     { combo: 'g p', handler: () => { onOpenSettings?.('models'); } },
     { combo: 'g a', handler: () => { onOpenSettings?.('account'); } },
     {

@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 
 test('every control on the steer-from-phone journey is >=44px', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
 
   // Header controls: the navigation menu button (it opens the drawer) and new chat.
@@ -27,14 +27,16 @@ test('every control on the steer-from-phone journey is >=44px', async ({ page })
   await page.getByRole('dialog', { name: 'Navigation' }).getByRole('button', { name: /^Work/ }).click();
   await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeHidden();
 
-  // Sessions refresh (was 36px).
-  await expectTappable(page, '.sessions-toolbar .icon-button', 'sessions refresh');
+  // Work: the kind filter, refresh and the rows themselves.
+  await expectTappable(page, '.dv-filters .gv-segmented__item', 'work kind filter');
+  await expectTappable(page, '.dv-filters .gv-icon-button', 'work refresh');
+  await expectTappable(page, '.dv-list .gv-row', 'work row');
 
   // Open a session → steer controls.
-  await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
-  await expect(page.locator('.session-detail__transcript')).toBeVisible();
+  await page.locator('.dv-list .gv-row__main', { hasText: STEERABLE_SESSION.title }).first().click();
+  await expect(page.getByRole('list', { name: 'Transcript' })).toBeVisible();
 
-  await expectTappable(page, '.session-detail__back', 'back to sessions');
+  await expectTappable(page, '.dv-detail__back .gv-button', 'back to all work');
   await expectTappable(page, '.steer-composer__input', 'steer input');
   await expectTappable(page, '.steer-composer__send', 'steer send');
 });
@@ -58,7 +60,7 @@ test('the chat delete is touch-reachable (not hover-only) in the Recent list', a
 });
 
 test('nav labels are legible in the open drawer, no mid-word truncation', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work');
   await openNavigation(page);
 
   // Every nav label renders its full text without an ellipsis clip (scrollWidth fits).

@@ -63,7 +63,7 @@ export interface AppShellProps {
    * caller should start a fresh chat draft in addition to switching to
    * the chat view.
    */
-  onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
+  onNavigate: (view: ViewId, options?: { newChat?: boolean; tab?: string }) => void;
   /** Open the settings dialog (palette commands, g p / g a). */
   onOpenSettings?: (section?: string) => void;
 }
@@ -72,7 +72,7 @@ export interface AppShellProps {
 
 interface InnerShellProps {
   children: ReactNode;
-  onNavigate: (view: ViewId, options?: { newChat?: boolean }) => void;
+  onNavigate: (view: ViewId, options?: { newChat?: boolean; tab?: string }) => void;
   onOpenSettings?: (section?: string) => void;
 }
 

@@ -9,7 +9,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PeekProvider } from '../../components/peek/PeekPanel';
 
 // ---------------------------------------------------------------------------
 // Module mock, mutable per-test calendar operator implementation
@@ -66,7 +65,7 @@ function render() {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(PeekProvider, null, React.createElement(CalendarView)),
+        React.createElement(CalendarView),
       ),
     );
   });
@@ -86,6 +85,14 @@ function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: 
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')!.set!;
   setter.call(element, value);
   element.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+/** Click the first button (in the page or in an open dialog or menu) whose text or aria-label matches. */
+function clickByName(name: string): void {
+  const all = [...document.body.querySelectorAll<HTMLElement>('button, [role="menuitem"]')];
+  const target = all.find((node) => (node.getAttribute('aria-label') ?? node.textContent ?? '').trim() === name);
+  if (!target) throw new Error(`no button named ${name}`);
+  flushSync(() => target.click());
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
@@ -148,7 +155,7 @@ describe('CalendarView: the three honest refusal states', () => {
     eventsList = () => refusal(500, { error: 'boom' });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Events failed to load'));
-    expect(el.querySelector('.feedback-error-state__retry')).not.toBeNull();
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent === 'Try again')).toBe(true);
     unmount();
   });
 });
@@ -173,9 +180,47 @@ describe('CalendarView: populated / empty', () => {
     expect(rows[0]?.textContent).toContain('First');
     expect(rows[1]?.textContent).toContain('Second');
 
-    (rows[0] as HTMLElement).click();
+    flushSync(() => (rows[0]?.querySelector('button') as HTMLElement).click());
     await waitFor(() => (el.textContent ?? '').includes('UID:'));
     expect(el.textContent).toContain('ev-1@x');
+    unmount();
+  });
+});
+
+/** Open the New event dialog and fill the title and both times, then submit. */
+function fillNewEvent(): void {
+  clickByName('New event');
+  const form = document.body.querySelector('#calendar-new-event') as HTMLFormElement;
+  if (!form) throw new Error('the New event dialog did not open');
+  const [title, start, end] = [...form.querySelectorAll<HTMLInputElement>('input')];
+  flushSync(() => {
+    setNativeValue(title as HTMLInputElement, 'Standup');
+    setNativeValue(start as HTMLInputElement, '2026-01-01 09:00');
+    setNativeValue(end as HTMLInputElement, '2026-01-01 09:30');
+  });
+  flushSync(() => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+}
+
+describe('CalendarView: agenda and month', () => {
+  test('the Month layout draws a hairline grid with events as text lines and opens detail in a drawer', async () => {
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const iso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}T12:00:00`;
+    eventsList = () => Promise.resolve({ events: [{ id: 'ev-m', title: 'Planning', start: iso, end: iso }] });
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('Planning'));
+    expect(el.querySelector('[data-testid="calendar-month"]')).toBeNull();
+
+    const month = [...el.querySelectorAll<HTMLElement>('[role="radio"]')].find((node) => node.textContent === 'Month');
+    flushSync(() => month?.click());
+    await waitFor(() => Boolean(el.querySelector('[data-testid="calendar-month"]')));
+    const eventLine = [...el.querySelectorAll<HTMLElement>('.cal-month__event')].find((node) => node.textContent === 'Planning');
+    expect(eventLine).toBeDefined();
+
+    flushSync(() => eventLine?.click());
+    await waitFor(() => Boolean(document.body.querySelector('[role="dialog"] [data-testid="calendar-event-detail"]')));
     unmount();
   });
 });
@@ -188,21 +233,8 @@ describe('CalendarView: create / export / import', () => {
       return Promise.resolve({ eventId: 'created-1', uid: 'created-1@x', createdAt: '2026-01-01T00:00:00Z' });
     };
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('input[aria-label="Event title"]')));
-
-    const title = el.querySelector('input[aria-label="Event title"]') as HTMLInputElement;
-    const start = el.querySelector('input[aria-label="Event start"]') as HTMLInputElement;
-    const end = el.querySelector('input[aria-label="Event end"]') as HTMLInputElement;
-    const form = title.closest('form') as HTMLFormElement;
-
-    flushSync(() => {
-      setNativeValue(title, 'Standup');
-      setNativeValue(start, '2026-01-01T09:00');
-      setNativeValue(end, '2026-01-01T09:30');
-    });
-    flushSync(() => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
+    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
+    fillNewEvent();
 
     await waitFor(() => (el.textContent ?? '').includes('created-1'));
     expect((captured as { confirm: boolean }).confirm).toBe(true);
@@ -213,29 +245,22 @@ describe('CalendarView: create / export / import', () => {
   test('an unconfigured create refusal shows the honest note, not a scary error', async () => {
     eventsCreate = () => refusal(412, { error: 'CalDAV is not configured.', code: 'CALENDAR_NOT_CONFIGURED' });
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('input[aria-label="Event title"]')));
-
-    const title = el.querySelector('input[aria-label="Event title"]') as HTMLInputElement;
-    const start = el.querySelector('input[aria-label="Event start"]') as HTMLInputElement;
-    const end = el.querySelector('input[aria-label="Event end"]') as HTMLInputElement;
-    const form = title.closest('form') as HTMLFormElement;
-    flushSync(() => {
-      setNativeValue(title, 'Standup');
-      setNativeValue(start, '2026-01-01T09:00');
-      setNativeValue(end, '2026-01-01T09:30');
-    });
-    flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-
-    await waitFor(() => (el.textContent ?? '').includes('Calendar isn’t configured'));
+    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
+    fillNewEvent();
+    await waitFor(() => (document.body.textContent ?? '').includes('Calendar isn’t configured'));
     unmount();
   });
 
   test('importing .ics content reports the honest imported count and any per-event errors', async () => {
     icsImport = () => Promise.resolve({ imported: 1, eventIds: ['imp-1'], errors: ['bad-uid: malformed'] });
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('textarea[aria-label="ICS content to import"]')));
+    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
+    clickByName('More calendar actions');
+    await waitFor(() => Boolean(document.body.querySelector('[role="menuitem"]')));
+    clickByName('Import .ics file content');
+    await waitFor(() => Boolean(document.body.querySelector('#calendar-import textarea')));
 
-    const textarea = el.querySelector('textarea[aria-label="ICS content to import"]') as HTMLTextAreaElement;
+    const textarea = document.body.querySelector('#calendar-import textarea') as HTMLTextAreaElement;
     const form = textarea.closest('form') as HTMLFormElement;
     flushSync(() => {
       setNativeValue(textarea, 'BEGIN:VCALENDAR\nEND:VCALENDAR');

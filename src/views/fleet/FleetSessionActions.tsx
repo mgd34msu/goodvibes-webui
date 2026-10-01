@@ -25,6 +25,8 @@ import { sdk, WEBUI_SURFACE_ID, WEBUI_SURFACE_KIND } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Field';
 
 export interface FleetSessionActionsProps {
   sessionId: string;
@@ -73,38 +75,39 @@ export function FleetSessionActions({ sessionId, steerable, detachable }: FleetS
   if (!steerable && !detachable) return null;
 
   return (
-    <div className="fleet-steer-box">
+    <div className="work-steer">
       {steerable && (
-        <form className="fleet-steer-box__form" onSubmit={submit}>
-          <input
-            type="text"
-            className="fleet-steer-box__input"
+        <form className="work-steer__form" onSubmit={submit}>
+          <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Steer this agent…"
             aria-label="Steer message"
             disabled={steer.isPending}
           />
-          <button
+          <Button
             type="submit"
-            className="fleet-steer-box__send"
+            icon={<SendHorizontal aria-hidden="true" />}
             disabled={!text.trim() || steer.isPending}
             aria-label="Send steer"
           >
-            <SendHorizontal size={14} /> {steer.isPending ? 'Sending…' : 'Steer'}
-          </button>
+            {steer.isPending ? 'Sending…' : 'Steer'}
+          </Button>
         </form>
       )}
       {detachable && (
-        <button
-          type="button"
-          className="fleet-steer-box__detach"
-          disabled={detach.isPending}
-          title="Stop this browser from receiving live updates for this session, does not stop the process, and other attached surfaces are unaffected"
-          onClick={() => detach.mutate()}
-        >
-          <Unlink size={13} /> {detach.isPending ? 'Detaching…' : 'Detach this browser'}
-        </button>
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Unlink aria-hidden="true" />}
+            disabled={detach.isPending}
+            title="Stop this browser from receiving live updates for this session, does not stop the process, and other attached surfaces are unaffected"
+            onClick={() => detach.mutate()}
+          >
+            {detach.isPending ? 'Detaching…' : 'Detach this browser'}
+          </Button>
+        </div>
       )}
     </div>
   );

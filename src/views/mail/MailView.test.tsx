@@ -1,21 +1,22 @@
 /**
  * MailView, the honesty contract mail-refusal.ts documents: not-available renders
  * an honest note (not a fake-empty inbox), a genuinely empty inbox renders the empty
- * state (never a refusal, "no fourth reading"), and the composer's Send/Save draft
- * controls never invite an action that cannot land (disabled while the surface refuses).
+ * state (never a refusal, "no fourth reading"), and a refusing surface renders one
+ * empty state with no compose form and no Compose button, so nothing invites an action
+ * that cannot land.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PeekProvider } from '../../components/peek/PeekPanel';
 import { ToastProvider } from '../../lib/toast';
 import { ToastViewport } from '../../components/toast/ToastViewport';
 
 type InboxListImpl = () => Promise<{ messages: unknown[]; total: number; unreadable?: { uid?: number; detail: string }[] }>;
 
 let inboxList: InboxListImpl = () => Promise.resolve({ messages: [], total: 0 });
+let inboxRead: (uid: number) => Promise<unknown> = () => Promise.reject(Object.assign(new Error('not used'), { status: 500 }));
 
 mock.module('../../lib/goodvibes', () => ({
   // src/lib/queries.ts (imported transitively via queryKeys) destructures these off
@@ -28,7 +29,7 @@ mock.module('../../lib/goodvibes', () => ({
       email: {
         inbox: {
           list: () => inboxList(),
-          read: () => Promise.reject(Object.assign(new Error('not used'), { status: 500 })),
+          read: (uid: number) => inboxRead(uid),
         },
         send: () => Promise.resolve({ messageId: '<x@example.com>', sentAt: '2026-01-01T00:00:00Z' }),
         draft: {
@@ -56,14 +57,10 @@ function render() {
         QueryClientProvider,
         { client },
         React.createElement(
-          PeekProvider,
+          ToastProvider,
           null,
-          React.createElement(
-            ToastProvider,
-            null,
-            React.createElement(MailView),
-            React.createElement(ToastViewport),
-          ),
+          React.createElement(MailView),
+          React.createElement(ToastViewport),
         ),
       ),
     );
@@ -95,36 +92,45 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 
 afterEach(() => {
   inboxList = () => Promise.resolve({ messages: [], total: 0 });
+  inboxRead = () => Promise.reject(Object.assign(new Error('not used'), { status: 500 }));
 });
+
+function buttonNamed(root: ParentNode, name: string): HTMLButtonElement | undefined {
+  return [...root.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent ?? '').trim() === name);
+}
 
 describe('MailView: not-available refusal', () => {
   test('a 501 renders the honest not-available note and no inbox list', async () => {
     inboxList = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-note-not-available"]')));
-    expect(el.textContent).toContain('Mail isn’t available on this daemon yet');
+    expect(el.textContent).toContain('Mail isn’t connected yet');
+    expect(el.textContent).toContain('This daemon doesn’t serve mail. Updating the daemon adds it');
     expect(el.querySelector('[data-testid="mail-list"]')).toBeNull();
     unmount();
   });
 
-  test('while refusing, Send and Save draft are disabled even with the composer fully filled in', async () => {
+  test('while refusing there is no compose form, no Compose button and exactly one action', async () => {
     inboxList = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-note-not-available"]')));
 
-    const to = el.querySelector('input[aria-label="Recipients"]') as HTMLInputElement;
-    const subject = el.querySelector('input[aria-label="Subject"]') as HTMLInputElement;
-    const body = el.querySelector('textarea[aria-label="Message body"]') as HTMLTextAreaElement;
-    flushSync(() => {
-      setNativeValue(to, 'someone@example.com');
-      setNativeValue(subject, 'Hello');
-      setNativeValue(body, 'Body text');
-    });
+    expect(buttonNamed(el, 'Compose')).toBeUndefined();
+    expect(el.querySelector('textarea')).toBeNull();
+    expect(el.querySelector('form')).toBeNull();
+    const note = el.querySelector('[data-testid="mail-note-not-available"]') as HTMLElement;
+    expect(note.querySelectorAll('button')).toHaveLength(1);
+    expect(buttonNamed(note, 'Update daemon')).toBeDefined();
+    unmount();
+  });
 
-    const sendButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Send'));
-    const draftButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Save draft to account'));
-    expect(sendButton?.hasAttribute('disabled')).toBe(true);
-    expect(draftButton?.hasAttribute('disabled')).toBe(true);
+  test('a 412 needs-setup refusal is its own empty state with an Open settings action', async () => {
+    inboxList = () => refusal(412, { error: 'Mail account is not configured.', code: 'EMAIL_NOT_CONFIGURED' });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-note-needs-setup"]')));
+    expect(el.textContent).toContain('Mail isn’t configured');
+    expect(buttonNamed(el, 'Open settings')).toBeDefined();
+    expect(buttonNamed(el, 'Compose')).toBeUndefined();
     unmount();
   });
 });
@@ -145,9 +151,52 @@ describe('MailView: populated / empty ("no fourth reading")', () => {
     expect(rows).toHaveLength(2);
     const unreadRow = rows.find((row) => row.classList.contains('mail-row--unread'));
     expect(unreadRow?.textContent).toContain('Unread one');
-    expect(unreadRow?.querySelector('.mail-row__unread-pill')).not.toBeNull();
+    expect(unreadRow?.querySelector('.gv-dot')).not.toBeNull();
+    expect(unreadRow?.textContent).toContain('Unread');
     const readRow = rows.find((row) => !row.classList.contains('mail-row--unread'));
-    expect(readRow?.querySelector('.mail-row__unread-pill')).toBeNull();
+    expect(readRow?.querySelector('.gv-dot')).toBeNull();
+    unmount();
+  });
+
+  test('opening a row shows the message in the right pane, and Reply opens the compose panel prefilled', async () => {
+    inboxList = () => Promise.resolve({
+      messages: [
+        { uid: 5, from: 'a@example.com', subject: 'Lunch?', date: '2026-01-01T09:00:00Z', unread: true, bodyPreview: 'p', messageId: '<lunch@x>' },
+      ],
+      total: 1,
+    });
+    inboxRead = () => Promise.resolve({
+      uid: 5, from: 'a@example.com', subject: 'Lunch?', date: '2026-01-01T09:00:00Z', messageId: '<lunch@x>', bodyText: 'Noon works?',
+    });
+    const { el, unmount } = render();
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
+    flushSync(() => (el.querySelector('.mail-row .gv-row__main') as HTMLElement).click());
+    await waitFor(() => Boolean(el.querySelector('[data-testid="mail-message-detail"]')));
+    expect(el.textContent).toContain('Noon works?');
+
+    flushSync(() => buttonNamed(el, 'Reply')?.click());
+    await waitFor(() => Boolean(document.body.querySelector('[data-testid="mail-compose"]')));
+    const compose = document.body.querySelector('[data-testid="mail-compose"]') as HTMLElement;
+    const inputs = [...compose.querySelectorAll('input')];
+    expect(inputs[0]?.value).toBe('a@example.com');
+    expect(inputs[1]?.value).toBe('Re: Lunch?');
+    // Nothing typed yet, so Send stays disabled.
+    expect(buttonNamed(compose, 'Send')?.hasAttribute('disabled')).toBe(true);
+    unmount();
+  });
+
+  test('Compose opens a glass panel that Escape closes', async () => {
+    inboxList = () => Promise.resolve({ messages: [], total: 0 });
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('Nothing in the inbox'));
+    flushSync(() => buttonNamed(el, 'Compose')?.click());
+    const compose = el.querySelector('[data-testid="mail-compose"]') as HTMLElement;
+    expect(compose).not.toBeNull();
+    expect(compose.classList.contains('glass')).toBe(true);
+    flushSync(() => {
+      compose.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    });
+    expect(el.querySelector('[data-testid="mail-compose"]')).toBeNull();
     unmount();
   });
 
@@ -177,7 +226,7 @@ describe('MailView: inbox order is sender-proof (uid, never date)', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
 
-    const subjects = [...el.querySelectorAll('.mail-row__subject')].map((node) => node.textContent);
+    const subjects = [...el.querySelectorAll('.mail-row .gv-row__title')].map((node) => node.textContent);
     // Newest-first by uid: 3, 2, 1, the spoofed-date message (uid 1) is last, not first.
     expect(subjects[0]).toContain('Real, newest uid');
     expect(subjects[1]).toContain('Real, older uid');
@@ -198,7 +247,7 @@ describe('MailView: inbox order is sender-proof (uid, never date)', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-list"]')));
 
-    const subjects = [...el.querySelectorAll('.mail-row__subject')].map((node) => node.textContent);
+    const subjects = [...el.querySelectorAll('.mail-row .gv-row__title')].map((node) => node.textContent);
     expect(subjects[0]).toContain('thirty');
     expect(subjects[1]).toContain('twenty');
     expect(subjects[2]).toContain('ten');

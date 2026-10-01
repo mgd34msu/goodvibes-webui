@@ -17,11 +17,10 @@
  */
 import { useState } from 'react';
 import { AlertTriangle, Map as MapIcon } from 'lucide-react';
-import { countFrom, firstString } from '../../lib/object';
-import { DataBlock } from '../../components/DataBlock';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { compactJson, countFrom, firstString } from '../../lib/object';
+import { CodeFrame, EmptyState, SkeletonRows } from '../../components/data-view/DataView';
+import { Button } from '../../components/ui/Button';
 import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import '../../styles/components/knowledge.css';
 
 /** A well-formed-enough SVG document to hand to an <img> data URL. */
@@ -67,13 +66,7 @@ export function KnowledgeMap({
   const [erroredSvg, setErroredSvg] = useState<string | null>(null);
 
   if (isPending || statusPending) {
-    return (
-      <div className="knowledge-skeleton-group">
-        <SkeletonBlock width="100%" height={16} />
-        <SkeletonBlock width="85%" height={16} />
-        <SkeletonBlock width="100%" height={140} />
-      </div>
-    );
+    return <SkeletonRows count={3} label="Loading the knowledge map" />;
   }
 
   if (error) {
@@ -92,42 +85,31 @@ export function KnowledgeMap({
   if (baseIsEmpty) {
     if (jobRunCount && jobRunCount > 0) {
       return (
-        <EmptyState
-          icon={<AlertTriangle size={24} />}
-          title={`${jobRunCount} indexing job${jobRunCount === 1 ? '' : 's'} ran, 0 nodes`}
-          description="Indexing may still be in progress, filtered out everything, or be failing to produce nodes."
-          action={{ label: 'View jobs', onClick: onViewJobs }}
-        />
+        <EmptyState icon={<AlertTriangle />} title={`${jobRunCount} indexing job${jobRunCount === 1 ? '' : 's'} ran, 0 nodes`} action={<Button variant="secondary" onClick={onViewJobs}>View jobs</Button>}>
+          Indexing may still be in progress, filtered out everything, or be failing to produce nodes.
+        </EmptyState>
       );
     }
     return (
-      <EmptyState
-        icon={<MapIcon size={24} />}
-        title="No knowledge indexed yet"
-        description="Add a source above to start building the map."
-      />
+      <EmptyState icon={<MapIcon />} title="No knowledge indexed yet">
+          Add a link to start building the map.
+      </EmptyState>
     );
   }
 
   if (nodeCount === 0 && hasFilter) {
     return (
-      <EmptyState
-        icon={<MapIcon size={24} />}
-        title="No nodes match this filter"
-        description="Try a different query, or clear the filter to see the full map."
-        action={{ label: 'Clear filter', onClick: onClearFilter }}
-      />
+      <EmptyState icon={<MapIcon />} title="No nodes match this filter" action={<Button variant="secondary" onClick={onClearFilter}>Clear filter</Button>}>
+          Try a different query, or clear the filter to see the full map.
+      </EmptyState>
     );
   }
 
   if (nodeCount === 0) {
     return (
-      <EmptyState
-        icon={<AlertTriangle size={24} />}
-        title="Map returned 0 nodes"
-        description={`The knowledge base reports ${overallNodeCount ?? totalNodeCount} node(s) elsewhere, but this unfiltered read came back empty.`}
-        action={{ label: 'View jobs', onClick: onViewJobs }}
-      />
+      <EmptyState icon={<AlertTriangle />} title="Map returned 0 nodes" action={<Button variant="secondary" onClick={onViewJobs}>View jobs</Button>}>
+          {`The knowledge base reports ${overallNodeCount ?? totalNodeCount} node(s) elsewhere, but this unfiltered read came back empty.`}
+      </EmptyState>
     );
   }
 
@@ -162,21 +144,22 @@ export function KnowledgeMap({
           </p>
         </>
       ) : (
-        <EmptyState
-          icon={<AlertTriangle size={24} />}
-          title="Map unavailable"
-          description="The daemon returned no renderable map for these nodes."
-        />
+        <EmptyState icon={<AlertTriangle />} title="Map unavailable">
+          The daemon returned no renderable map for these nodes.
+        </EmptyState>
       )}
-      <button
-        type="button"
-        className="knowledge-map-render__toggle"
-        onClick={() => setShowRaw((value) => !value)}
-        aria-expanded={showRaw}
-      >
-        {showRaw ? 'Hide raw data' : 'View raw'}
-      </button>
-      {showRaw && <DataBlock title="Raw Map Data" value={data} />}
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="knowledge-map-render__toggle"
+          onClick={() => setShowRaw((value) => !value)}
+          aria-expanded={showRaw}
+        >
+          {showRaw ? 'Hide raw data' : 'View raw'}
+        </Button>
+      </div>
+      {showRaw && <CodeFrame label="Raw map data">{compactJson(data)}</CodeFrame>}
     </div>
   );
 }

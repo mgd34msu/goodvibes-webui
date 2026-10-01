@@ -25,22 +25,13 @@ import { DaemonReceipts } from './components/status/DaemonReceipts';
 import { clearStoredAuthToken, getCurrentAuth, hasStoredTokenSync, sdk } from './lib/goodvibes';
 import { loadBootSnapshot, queryKeys } from './lib/queries';
 import { ChatView } from './views/ChatView';
-import { SessionsView } from './views/sessions/SessionsView';
-import { HostedSessionsView } from './views/sessions/HostedSessionsView';
-import { FleetView } from './views/fleet/FleetView';
-import { CheckpointsView } from './views/checkpoints/CheckpointsView';
-import { ApprovalsTasksView } from './views/approvals/ApprovalsTasksView';
-import { WorkstreamView } from './views/workstream/WorkstreamView';
-import { CiWatchesView } from './views/ci/CiWatchesView';
+import { WorkView } from './views/work/WorkView';
+import { LibraryView } from './views/library/LibraryView';
+import { PersonalView } from './views/personal/PersonalView';
 import { CheckInView } from './views/checkin/CheckInView';
 import { PhoneNodeView } from './views/phone/PhoneNodeView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
-import { KnowledgeView } from './views/KnowledgeView';
-import { MemoryView } from './views/memory/MemoryView';
-import { CalendarView } from './views/calendar/CalendarView';
-import { MailView } from './views/mail/MailView';
-import { DatesView } from './views/dates/DatesView';
 import { SettingsDialog } from './components/settings/dialog/SettingsDialog';
 import type { SettingsSectionId } from './components/settings/dialog/sections';
 import { attentionCount } from './lib/fleet';
@@ -62,7 +53,7 @@ import { formatError, isDaemonUnreachableError, isMethodUnavailableError, isSess
 
 export default function App() {
   const queryClient = useQueryClient();
-  const { view, setView, session: activeChatSessionId, setSession, setUrlState, settings: settingsSection } = useUrlState();
+  const { view, setView, setTab, tab, session: activeChatSessionId, setSession, setUrlState, settings: settingsSection } = useUrlState();
   const activeView: ViewId = view;
   const [draftChatRequested, setDraftChatRequested] = useState(false);
   // One record of the companion chat sessions this browser knows about (local copies,
@@ -281,7 +272,7 @@ export default function App() {
   }, [activeChatSessionId, chatSessionItems, chatSessions.isSuccess, queryClient, setSession]);
 
   const handleNavigate = useCallback(
-    (nextView: ViewId, options?: { newChat?: boolean }) => {
+    (nextView: ViewId, options?: { newChat?: boolean; tab?: string }) => {
       if (options?.newChat) {
         // One URL update for view and session together: setView then setSession would
         // build the second entry from the pre-navigation state and put the old view back.
@@ -289,7 +280,7 @@ export default function App() {
         setDraftChatRequested(true);
         return;
       }
-      setView(nextView);
+      setView(nextView, options?.tab ? { tab: options.tab } : undefined);
     },
     [setView, setUrlState],
   );
@@ -312,9 +303,17 @@ export default function App() {
 
   // Open a specific session in the chat view, one history entry (view + session
   // together), used by the CI "open fix session" affordance.
+  // The chat list loads in every view (for Recent), so it can predate a session
+  // that was just started (a CI fix session): refresh it first, or the chat view
+  // would treat the new id as unknown and switch to another chat.
   const handleOpenSession = useCallback(
-    (sessionId: string) => setUrlState({ view: 'chat', session: sessionId }),
-    [setUrlState],
+    (sessionId: string) => {
+      void queryClient.refetchQueries({ queryKey: ['companion-chat', 'sessions'] }).finally(() => {
+        setDraftChatRequested(false);
+        setUrlState({ view: 'chat', session: sessionId });
+      });
+    },
+    [queryClient, setUrlState],
   );
 
   const recentChats = useMemo(
@@ -551,20 +550,19 @@ export default function App() {
           userName={signedInName}
         />
       )}
-      {activeView === 'sessions' && <SessionsView streamPaused={Boolean(sessionRealtime.error)} />}
-      {activeView === 'hosted-sessions' && <HostedSessionsView />}
-      {activeView === 'fleet' && <FleetView subscriptionActive={fleetSubscriptionActive} onOpenSession={handleOpenSession} />}
-      {activeView === 'checkpoints' && <CheckpointsView />}
-      {activeView === 'approvals-tasks' && <ApprovalsTasksView onOpenSession={handleOpenSession} />}
-      {activeView === 'workstream' && <WorkstreamView />}
-      {activeView === 'ci-watches' && <CiWatchesView onOpenSession={handleOpenSession} />}
+      {activeView === 'work' && (
+        <WorkView
+          tab={tab}
+          onTabChange={setTab}
+          subscriptionActive={fleetSubscriptionActive}
+          streamPaused={Boolean(sessionRealtime.error)}
+          onOpenSession={handleOpenSession}
+        />
+      )}
+      {activeView === 'library' && <LibraryView tab={tab} onTabChange={setTab} />}
+      {activeView === 'personal' && <PersonalView tab={tab} onTabChange={setTab} />}
       {activeView === 'checkin' && <CheckInView />}
       {activeView === 'phone' && <PhoneNodeView />}
-      {activeView === 'knowledge' && <KnowledgeView />}
-      {activeView === 'memory' && <MemoryView />}
-      {activeView === 'calendar' && <CalendarView />}
-      {activeView === 'mail' && <MailView />}
-      {activeView === 'dates' && <DatesView />}
     </ShellLayout>
     <SettingsDialog
       open={Boolean(settingsSection)}

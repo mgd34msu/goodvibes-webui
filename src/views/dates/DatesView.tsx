@@ -1,100 +1,115 @@
 /**
- * DatesView, the occasions/plans dates panel, over the daemon's sixteen
- * `occasions.*` verbs (docs/occasions.md). Follows the same shape MailView and
- * CalendarView established: this surface renders what the read verbs return and
- * calls the write verbs for the actions they support; nothing here computes a
+ * Occasions, the Occasions tab of Personal: upcoming occasions, plans, and the
+ * open items the daemon is holding, over its sixteen `occasions.*` verbs
+ * (docs/occasions.md). This surface renders what the read verbs return and calls
+ * the write verbs for the actions they support; nothing here computes a
  * proximity word, a lead-time adjustment, a nudge cadence, or a nudge date, every
- * one of those stays server-side (docs/occasions.md §7's governing line: a consumer
- * that computed anything beyond calling these verbs and rendering the answers would
- * be a second implementation of a rule that lives in the daemon).
+ * one of those stays server-side (docs/occasions.md §7's governing line: a
+ * consumer that computed anything beyond calling these verbs and rendering the
+ * answers would be a second implementation of a rule that lives in the daemon).
+ *
+ * LAYOUT: one list of rows in groups (Open items, Upcoming, Plans) with the
+ * selected row's detail in the right pane: an occasion shows its facts, your
+ * answer and its gift history; a plan shows its dates; a gift interview shows
+ * its next question. "Add occasion" is the tab's one primary action and "Add
+ * plan" sits beside it; both open a dialog that previews before it confirms. The
+ * daemon's own record counts and the sweep sit in a quiet disclosure at the end.
  *
  * PULL-ONLY, NOT A NUDGE CHANNEL: the daemon pushes occasion/plan nudges to
- * Telegram and the agent, never the TUI (docs/occasions.md §4.2, "that's more of a
- * 'get work done' kind of interface", a ruling that generalises beyond occasions).
- * This webui panel is the same kind of interface, so it never originates a push,
- * it only reads what's outstanding (`occasions.pending`) and lets the operator act
- * on it (answer / resolve a conflict / continue an interview), which is a pull, not
- * a nudge.
+ * Telegram and the agent, never the TUI (docs/occasions.md §4.2). This panel is
+ * the same kind of interface, so it never originates a push, it only reads
+ * what's outstanding (`occasions.pending`) and lets the operator act on it
+ * (answer / resolve a conflict / continue an interview), which is a pull.
  *
  * DATES: occasions.list is the one read verb that returns real dates
- * (`nextOccurrence`, `daysUntil`), docs/occasions.md §4.3 draws this exactly:
- * a nudge never carries the date, but "occasions.list does return the dates,
- * because that is him asking his own system over an authenticated verb, the
- * explicit ask that unlocks a closed-tier read." occasions.pending's nudge
- * subjects carry only `proximity` (a word), never a date, this view renders
- * that distinction verbatim rather than flattening both to "the date".
+ * (`nextOccurrence`, `daysUntil`), docs/occasions.md §4.3 draws this exactly.
+ * occasions.pending's nudge subjects carry only `proximity` (a word), never a
+ * date, this view renders that distinction verbatim rather than flattening both
+ * to "the date".
  *
- * HONESTY: occasions.* is a brand-new verb family (this SDK release) that may not
- * be wired on every daemon build yet, same situation calendar.* and email.* were in
- * when they first landed, every read here treats a 404/501 as the honest
- * not-available state (EmptyState with a pointer), never a fabricated empty list.
- * The e2e mock daemon answers an unrecognised invoke id with `{}`, so every render
- * path below optional-chains into query results rather than assuming a shape.
+ * HONESTY: occasions.* may not be wired on every daemon build yet. When the list
+ * read answers 404/501 the whole tab is one empty state that says so and offers
+ * the daemon update; when a later read fails the group it feeds says so in place.
  */
-import { useState, type SyntheticEvent } from 'react';
+import { useState, type ReactNode, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  Cake,
-  Gift,
-  Plane,
-  RefreshCw,
-  Sparkles,
-  Trash2,
-} from 'lucide-react';
+import { AlertCircle, Cake, Plane, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { OperatorMethodInput, OperatorMethodOutput } from '../../lib/goodvibes';
 import { WEBUI_PROFILE_AUTHORITY, WEBUI_PROFILE_SURFACE } from '../../lib/owner-profile';
 import { queryKeys } from '../../lib/queries';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
-import { EmptyState } from '../../components/feedback/EmptyState';
-import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import ErrorBoundary from '../../components/feedback/ErrorBoundary';
-import { usePeek } from '../../components/peek/PeekPanel';
 import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
 import { useToast } from '../../lib/toast';
-import { DatesGiftHistoryPeekBody } from './DatesGiftHistoryPeek';
+import {
+  DetailPane,
+  DetailSection,
+  Disclosure,
+  EmptyState,
+  Facts,
+  ListDetail,
+  RowGroup,
+  SkeletonRows,
+} from '../../components/data-view/DataView';
+import {
+  Button,
+  Checkbox,
+  Chip,
+  Dialog,
+  Field,
+  IconButton,
+  Input,
+  Row,
+  Select,
+  StatusDot,
+  type StatusTone,
+} from '../../components/ui';
+import { DateField } from '../../components/ui/DateField';
+import { PersonalPage } from '../personal/PersonalPage';
+import { openSettingsSection } from '../personal/openSettings';
+import { DatesGiftHistoryBody } from './DatesGiftHistoryPeek';
 import '../../styles/components/dates.css';
 
-/** The utterance a manual dates-panel capture carries, same role
+/** The utterance a manual occasions-tab capture carries, same role
  * owner-profile.ts's SETTINGS_EDIT_UTTERANCE plays for a settings edit: a plain
  * statement of where the fact came from, honest for THIS surface only (the operator
- * typing directly into the panel), never hardcoded by a caller that could be
+ * typing directly into the tab), never hardcoded by a caller that could be
  * relaying someone else's words. */
 const DATES_PANEL_UTTERANCE = '(added in the dates panel)';
 
 type OccasionsListResult = OperatorMethodOutput<'occasions.list'>;
 type OccasionListEntry = OccasionsListResult['occasions'][number];
-type OccasionConflict = OccasionsListResult['conflicts'][number];
 type UnparsedLine = OccasionsListResult['unparsed'][number];
 type PlansListResult = OperatorMethodOutput<'occasions.plans.list'>;
 type PlanEntry = PlansListResult['plans'][number];
 type PendingResult = OperatorMethodOutput<'occasions.pending'>;
-type PendingConflict = PendingResult['conflicts'][number];
 type InterviewState = NonNullable<PendingResult['interviews']>[number];
 type OccasionKind = 'gift-giving' | 'neither' | 'remember-only';
+type Recurrence = 'annual' | 'once';
 
-function notAvailableNote(error: unknown): { title: string; description: string } | null {
-  if (isMethodUnavailableError(error) || isMethodNotInvokableError(error)) {
-    return {
-      title: 'Dates isn’t available on this daemon yet',
-      description: 'This daemon build has no occasions handler wired up. Upgrade the daemon to see occasions and plans here.',
-    };
-  }
-  return null;
+type Selection = { kind: 'occasion' | 'plan' | 'interview'; id: string } | null;
+
+const KIND_OPTIONS = [
+  { value: 'gift-giving', label: 'Gift-giving' },
+  { value: 'remember-only', label: 'Remember only' },
+  { value: 'neither', label: 'Neither' },
+] as const;
+
+const RECURRENCE_OPTIONS = [
+  { value: 'annual', label: 'Every year' },
+  { value: 'once', label: 'One time' },
+] as const;
+
+function isNotAvailable(error: unknown): boolean {
+  return isMethodUnavailableError(error) || isMethodNotInvokableError(error);
 }
 
 function kindLabel(kind: OccasionKind): string {
   if (kind === 'gift-giving') return 'Gift-giving';
   if (kind === 'remember-only') return 'Remember only';
   return 'Neither';
-}
-
-function kindTone(kind: OccasionKind): string {
-  if (kind === 'gift-giving') return 'info';
-  return 'neutral';
 }
 
 function answerLabel(answer: OccasionListEntry['answer']): string {
@@ -104,24 +119,18 @@ function answerLabel(answer: OccasionListEntry['answer']): string {
   return 'Not yet answered';
 }
 
-function answerTone(answer: OccasionListEntry['answer']): string {
+function answerTone(answer: OccasionListEntry['answer']): StatusTone {
   if (answer === 'yes') return 'ok';
   if (answer === 'no') return 'bad';
-  if (answer === 'later') return 'warning';
-  return 'neutral';
-}
-
-function proximityTone(proximity: 'approaching' | 'imminent' | 'soon'): string {
-  if (proximity === 'imminent') return 'bad';
-  if (proximity === 'soon') return 'warning';
-  return 'neutral';
+  if (answer === 'later') return 'warn';
+  return 'idle';
 }
 
 /** `daysUntil` is the one place this view renders a real date-derived number, the
  * verb it comes from (occasions.list) is the explicit-ask read docs/occasions.md
  * §4.3 carves out, not the nudge path that never carries one. */
 function daysUntilLabel(daysUntil: number | null): string {
-  if (daysUntil === null) return '—';
+  if (daysUntil === null) return 'No date';
   if (daysUntil === 0) return 'Today';
   if (daysUntil === 1) return 'Tomorrow';
   if (daysUntil < 0) return `${String(Math.abs(daysUntil))} days ago`;
@@ -129,9 +138,13 @@ function daysUntilLabel(daysUntil: number | null): string {
 }
 
 function formatDateOnly(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return 'No date';
   const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function joinMeta(parts: readonly (string | null | undefined | false)[]): string {
+  return parts.filter(Boolean).join(' · ');
 }
 
 /** Shared between occasions.list.unparsed and occasions.plans.list.unparsed, both
@@ -140,42 +153,77 @@ function formatDateOnly(iso: string | null): string {
 function UnparsedLinesNote({ items }: { items: readonly UnparsedLine[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="dates-note dates-note--unparsed" role="status" data-testid="dates-unparsed">
-      <h3>
-        {items.length === 1 ? '1 line could not be read' : `${String(items.length)} lines could not be read`}
-      </h3>
-      <ul>
-        {items.map((item) => (
-          <li key={item.lineIndex}>
-            <code>{item.text}</code>: {item.reason}
-          </li>
-        ))}
-      </ul>
+    <div className="dv-notice dv-notice--warn dates-note" role="status" data-testid="dates-unparsed">
+      <AlertCircle aria-hidden="true" />
+      <div>
+        <p className="dates-note__title">
+          {items.length === 1 ? '1 line could not be read' : `${String(items.length)} lines could not be read`}
+        </p>
+        <ul>
+          {items.map((item) => (
+            <li key={item.lineIndex}>
+              <code>{item.text}</code>: {item.reason}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
 
-export function DatesView() {
+/** A read that failed after the list loaded: say so where its rows would be. */
+function LoadNote({ label, error, onRetry }: { label: string; error: unknown; onRetry: () => void }) {
+  const unavailable = isNotAvailable(error);
+  return (
+    <div className={unavailable ? 'dv-notice dates-note' : 'dv-notice dv-notice--bad dates-note'} role="status">
+      <AlertCircle aria-hidden="true" />
+      <div className="dates-note__row">
+        <span>{unavailable ? `${label} aren’t available on this daemon yet.` : `${label} failed to load: ${formatError(error)}`}</span>
+        {!unavailable && <Button variant="ghost" size="sm" onClick={onRetry}>Try again</Button>}
+      </div>
+    </div>
+  );
+}
+
+interface OccasionDraft {
+  title: string;
+  date: string;
+  person: string;
+  kind: OccasionKind | '';
+  recurrence: Recurrence;
+  leadDays: string;
+}
+
+interface PlanDraft {
+  title: string;
+  from: string;
+  to: string;
+  away: boolean;
+  destination: string;
+}
+
+const EMPTY_OCCASION: OccasionDraft = { title: '', date: '', person: '', kind: '', recurrence: 'annual', leadDays: '' };
+const EMPTY_PLAN: PlanDraft = { title: '', from: '', to: '', away: false, destination: '' };
+
+export interface DatesViewProps {
+  /** The Personal tab switcher; shown first in the filter row. */
+  tabs?: ReactNode;
+}
+
+export function DatesView({ tabs }: DatesViewProps = {}) {
   const queryClient = useQueryClient();
-  const peek = usePeek();
   const { toast } = useToast();
   const confirm = useConfirmSheet();
 
+  const [selection, setSelection] = useState<Selection>(null);
   const [sweepResult, setSweepResult] = useState<OperatorMethodOutput<'occasions.sweep'> | null>(null);
 
-  const [occasionTitle, setOccasionTitle] = useState('');
-  const [occasionDate, setOccasionDate] = useState('');
-  const [occasionPerson, setOccasionPerson] = useState('');
-  const [occasionKind, setOccasionKind] = useState<OccasionKind | ''>('');
-  const [occasionRecurrence, setOccasionRecurrence] = useState<'annual' | 'once'>('annual');
-  const [occasionLeadDays, setOccasionLeadDays] = useState('');
+  const [occasionOpen, setOccasionOpen] = useState(false);
+  const [occasion, setOccasion] = useState<OccasionDraft>(EMPTY_OCCASION);
   const [occasionProposal, setOccasionProposal] = useState<OperatorMethodOutput<'occasions.propose'> | null>(null);
 
-  const [planTitle, setPlanTitle] = useState('');
-  const [planFrom, setPlanFrom] = useState('');
-  const [planTo, setPlanTo] = useState('');
-  const [planAway, setPlanAway] = useState(false);
-  const [planDestination, setPlanDestination] = useState('');
+  const [planOpen, setPlanOpen] = useState(false);
+  const [plan, setPlan] = useState<PlanDraft>(EMPTY_PLAN);
   const [planProposal, setPlanProposal] = useState<OperatorMethodOutput<'occasions.plans.propose'> | null>(null);
 
   const [interviewDrafts, setInterviewDrafts] = useState<Record<string, string>>({});
@@ -205,7 +253,7 @@ export function DatesView() {
       }
       toast({
         title: 'Answer recorded',
-        description: result.interview ? 'A short gift interview opened: continue it in Open items below.' : undefined,
+        description: result.interview ? 'A short gift interview opened: continue it under Gift interviews.' : undefined,
         tone: 'success',
       });
     },
@@ -217,6 +265,7 @@ export function DatesView() {
       sdk.operator.occasions.remove({ occasionId, confirmed: true, authority: WEBUI_PROFILE_AUTHORITY }),
     onSuccess: async (result) => {
       await invalidateAll();
+      if (result.ok) setSelection(null);
       toast({
         title: result.ok ? 'Removed' : 'Not removed',
         description: result.ok ? result.disclosure : (result.reason ?? undefined),
@@ -267,12 +316,12 @@ export function DatesView() {
   const proposeOccasion = useMutation({
     mutationFn: () =>
       sdk.operator.occasions.propose({
-        title: occasionTitle.trim(),
-        date: occasionDate,
-        ...(occasionKind ? { kind: occasionKind } : {}),
-        ...(occasionPerson.trim() ? { person: occasionPerson.trim() } : {}),
-        recurrence: occasionRecurrence,
-        ...(occasionLeadDays.trim() ? { leadDays: Number(occasionLeadDays) } : {}),
+        title: occasion.title.trim(),
+        date: occasion.date,
+        ...(occasion.kind ? { kind: occasion.kind } : {}),
+        ...(occasion.person.trim() ? { person: occasion.person.trim() } : {}),
+        recurrence: occasion.recurrence,
+        ...(occasion.leadDays.trim() ? { leadDays: Number(occasion.leadDays) } : {}),
       }),
     onSuccess: (result) => setOccasionProposal(result),
     onError: (error: unknown) => toast({ title: 'Preview failed', description: formatError(error), tone: 'danger' }),
@@ -281,12 +330,12 @@ export function DatesView() {
   const confirmOccasion = useMutation({
     mutationFn: () =>
       sdk.operator.occasions.confirm({
-        title: occasionTitle.trim(),
-        date: occasionDate,
-        kind: occasionKind as OccasionKind,
-        ...(occasionPerson.trim() ? { person: occasionPerson.trim() } : {}),
-        recurrence: occasionRecurrence,
-        ...(occasionLeadDays.trim() ? { leadDays: Number(occasionLeadDays) } : {}),
+        title: occasion.title.trim(),
+        date: occasion.date,
+        kind: occasion.kind as OccasionKind,
+        ...(occasion.person.trim() ? { person: occasion.person.trim() } : {}),
+        recurrence: occasion.recurrence,
+        ...(occasion.leadDays.trim() ? { leadDays: Number(occasion.leadDays) } : {}),
         surface: WEBUI_PROFILE_SURFACE,
         said: DATES_PANEL_UTTERANCE,
         authority: WEBUI_PROFILE_AUTHORITY,
@@ -297,12 +346,9 @@ export function DatesView() {
         toast({ title: 'Not saved', description: result.reason ?? undefined, tone: 'danger' });
         return;
       }
-      setOccasionTitle('');
-      setOccasionDate('');
-      setOccasionPerson('');
-      setOccasionKind('');
-      setOccasionLeadDays('');
+      setOccasion(EMPTY_OCCASION);
       setOccasionProposal(null);
+      setOccasionOpen(false);
       toast({ title: 'Occasion added', description: result.disclosure, tone: 'success' });
     },
     onError: (error: unknown) => toast({ title: 'Save failed', description: formatError(error), tone: 'danger' }),
@@ -311,11 +357,11 @@ export function DatesView() {
   const proposePlan = useMutation({
     mutationFn: () =>
       sdk.operator.occasions.plans.propose({
-        title: planTitle.trim(),
-        from: planFrom,
-        to: planTo,
-        away: planAway,
-        ...(planDestination.trim() ? { destination: planDestination.trim() } : {}),
+        title: plan.title.trim(),
+        from: plan.from,
+        to: plan.to,
+        away: plan.away,
+        ...(plan.destination.trim() ? { destination: plan.destination.trim() } : {}),
       }),
     onSuccess: (result) => setPlanProposal(result),
     onError: (error: unknown) => toast({ title: 'Preview failed', description: formatError(error), tone: 'danger' }),
@@ -324,11 +370,11 @@ export function DatesView() {
   const confirmPlan = useMutation({
     mutationFn: () =>
       sdk.operator.occasions.plans.confirm({
-        title: planTitle.trim(),
-        from: planFrom,
-        to: planTo,
-        away: planAway,
-        ...(planDestination.trim() ? { destination: planDestination.trim() } : {}),
+        title: plan.title.trim(),
+        from: plan.from,
+        to: plan.to,
+        away: plan.away,
+        ...(plan.destination.trim() ? { destination: plan.destination.trim() } : {}),
         surface: WEBUI_PROFILE_SURFACE,
         said: DATES_PANEL_UTTERANCE,
         authority: WEBUI_PROFILE_AUTHORITY,
@@ -339,498 +385,628 @@ export function DatesView() {
         toast({ title: 'Not saved', description: result.reason ?? undefined, tone: 'danger' });
         return;
       }
-      setPlanTitle('');
-      setPlanFrom('');
-      setPlanTo('');
-      setPlanAway(false);
-      setPlanDestination('');
+      setPlan(EMPTY_PLAN);
       setPlanProposal(null);
+      setPlanOpen(false);
       toast({ title: 'Plan added', description: result.disclosure, tone: 'success' });
     },
     onError: (error: unknown) => toast({ title: 'Save failed', description: formatError(error), tone: 'danger' }),
   });
 
-  function openGiftHistory(occasionId: string, title: string): void {
-    peek.open({ title: `Gift history: ${title}`, content: <DatesGiftHistoryPeekBody occasionId={occasionId} /> });
+  /** Editing any field makes an earlier preview stale, so it is dropped. */
+  function editOccasion(patch: Partial<OccasionDraft>): void {
+    setOccasion((current) => ({ ...current, ...patch }));
+    setOccasionProposal(null);
+  }
+
+  function editPlan(patch: Partial<PlanDraft>): void {
+    setPlan((current) => ({ ...current, ...patch }));
+    setPlanProposal(null);
   }
 
   function submitOccasionProposal(event: SyntheticEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (occasionTitle.trim() && occasionDate) proposeOccasion.mutate();
+    if (occasion.title.trim() && occasion.date) proposeOccasion.mutate();
   }
 
   function submitPlanProposal(event: SyntheticEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (planTitle.trim() && planFrom && planTo) proposePlan.mutate();
+    if (plan.title.trim() && plan.from && plan.to) proposePlan.mutate();
   }
 
-  const listNote = list.error ? notAvailableNote(list.error) : null;
-  const plansNote = plans.error ? notAvailableNote(plans.error) : null;
-  const pendingNote = pending.error ? notAvailableNote(pending.error) : null;
-  const stateNote = state.error ? notAvailableNote(state.error) : null;
+  async function askRemove(kind: 'occasion' | 'plan', id: string, title: string): Promise<void> {
+    const ok = await confirm.ask({
+      title: kind === 'occasion' ? 'Remove this occasion?' : 'Remove this plan?',
+      target: title,
+      description: kind === 'occasion'
+        ? 'Removes the line from your profile and every acknowledgement/gift record against it. This takes one confirmation and cannot be undone here.'
+        : 'Removes the line from your profile and every record against it. This takes one confirmation and cannot be undone here.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+    });
+    if (ok) removeOccasion.mutate(id);
+  }
+
+  function refreshAll(): void {
+    void list.refetch();
+    void plans.refetch();
+    void pending.refetch();
+    void state.refetch();
+  }
 
   const occasionEntries: readonly OccasionListEntry[] = list.data?.occasions ?? [];
-  const occasionConflicts: readonly OccasionConflict[] = list.data?.conflicts ?? [];
   const planEntries: readonly PlanEntry[] = plans.data?.plans ?? [];
-  const pendingConflicts: readonly PendingConflict[] = pending.data?.conflicts ?? [];
+  const nudge = pending.data?.nudge ?? null;
+  const pendingConflicts = pending.data?.conflicts ?? [];
+  const listConflicts = list.data?.conflicts ?? [];
   const interviews: readonly InterviewState[] = pending.data?.interviews ?? [];
+  const conflictCount = listConflicts.length + pendingConflicts.length;
 
-  return (
-    <ErrorBoundary fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Dates view failed" />}>
-      <div className="stack">
-        {/* Upcoming occasions (occasions.list). The one read verb that returns real
-            dates, per docs/occasions.md §4.3 (see file header). */}
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Upcoming</h2>
-            <Cake size={18} aria-hidden="true" />
-            <button type="button" className="secondary-button" onClick={() => void list.refetch()} aria-label="Refresh upcoming occasions">
-              <RefreshCw size={14} aria-hidden="true" />
-            </button>
-          </div>
+  const listUnavailable = list.error ? isNotAvailable(list.error) : false;
 
-          {list.isPending ? (
-            <SkeletonBlock variant="text" lines={4} />
-          ) : listNote ? (
-            <EmptyState icon={<Cake size={24} aria-hidden="true" />} title={listNote.title} description={listNote.description} />
-          ) : list.error ? (
-            <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Occasions failed to load" />
-          ) : occasionEntries.length === 0 ? (
-            <EmptyState icon={<Cake size={24} aria-hidden="true" />} title="No occasions yet" description="Add one below, or tell the agent about a birthday or anniversary." />
-          ) : (
-            <ul className="dates-occasion-list" data-testid="dates-occasion-list">
-              {occasionEntries.map((entry) => (
-                <li key={entry.occasion.id} className="dates-occasion-row">
-                  <div className="dates-occasion-row__top">
-                    <span className="dates-occasion-row__title">{entry.occasion.title}</span>
-                    {entry.occasion.person ? <span className="dates-occasion-row__person">{entry.occasion.person}</span> : null}
-                    <span className={`badge ${kindTone(entry.occasion.kind)}`}>{kindLabel(entry.occasion.kind)}</span>
-                    <span className={`badge ${answerTone(entry.answer)}`}>{answerLabel(entry.answer)}</span>
-                    {entry.mirrored ? <span className="badge info">Mirrored to calendar</span> : null}
-                  </div>
-                  <div className="dates-occasion-row__meta">
-                    <span>{formatDateOnly(entry.nextOccurrence)}</span>
-                    <span>·</span>
-                    <span>{daysUntilLabel(entry.daysUntil)}</span>
-                    {entry.inLeadWindow ? <span className="badge warning">In lead window</span> : null}
-                  </div>
-                  <div className="dates-occasion-row__actions">
-                    <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                      onClick={() => answerOccasion.mutate({ occasionId: entry.occasion.id, answer: 'yes' })}>
-                      Yes
-                    </button>
-                    <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                      onClick={() => answerOccasion.mutate({ occasionId: entry.occasion.id, answer: 'no' })}>
-                      No
-                    </button>
-                    <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                      onClick={() => answerOccasion.mutate({ occasionId: entry.occasion.id, answer: 'later' })}>
-                      Later
-                    </button>
-                    <button type="button" className="secondary-button" onClick={() => openGiftHistory(entry.occasion.id, entry.occasion.title)}>
-                      <Gift size={13} aria-hidden="true" /> Gift history
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button dates-remove-button"
-                      disabled={removeOccasion.isPending}
-                      onClick={async () => {
-                        const ok = await confirm.ask({
-                          title: 'Remove this occasion?',
-                          target: entry.occasion.title,
-                          description: 'Removes the line from your profile and every acknowledgement/gift record against it. This takes one confirmation and cannot be undone here.',
-                          confirmLabel: 'Remove',
-                          tone: 'danger',
-                        });
-                        if (ok) removeOccasion.mutate(entry.occasion.id);
-                      }}
-                    >
-                      <Trash2 size={13} aria-hidden="true" /> Remove
-                    </button>
-                  </div>
-                </li>
+  const selectedOccasion = selection?.kind === 'occasion'
+    ? occasionEntries.find((entry) => entry.occasion.id === selection.id)
+    : undefined;
+  const selectedPlan = selection?.kind === 'plan' ? planEntries.find((entry) => entry.id === selection.id) : undefined;
+  const selectedInterview = selection?.kind === 'interview'
+    ? interviews.find((entry) => entry.interviewId === selection.id)
+    : undefined;
+  const detailOpen = Boolean(selectedOccasion ?? selectedPlan ?? selectedInterview);
+
+  const occasionTitleFor = (occasionId: string): string =>
+    occasionEntries.find((entry) => entry.occasion.id === occasionId)?.occasion.title ?? occasionId;
+
+  function openOccasion(occasionId: string): void {
+    if (occasionEntries.some((entry) => entry.occasion.id === occasionId)) setSelection({ kind: 'occasion', id: occasionId });
+  }
+
+  // ── Detail pane ──────────────────────────────────────────────────
+  function renderDetail(): ReactNode {
+    if (selectedOccasion) {
+      const entry = selectedOccasion;
+      return (
+        <DetailPane
+          title={entry.occasion.title}
+          meta={joinMeta([entry.occasion.person, kindLabel(entry.occasion.kind)])}
+          onClose={() => setSelection(null)}
+          closeLabel="Close occasion"
+          actions={(
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Trash2 />}
+              disabled={removeOccasion.isPending}
+              onClick={() => void askRemove('occasion', entry.occasion.id, entry.occasion.title)}
+            >
+              Remove
+            </Button>
+          )}
+        >
+          <Facts
+            items={[
+              { label: 'Next date', value: formatDateOnly(entry.nextOccurrence) },
+              { label: 'Countdown', value: daysUntilLabel(entry.daysUntil) },
+              { label: 'Person', value: entry.occasion.person ?? undefined },
+              { label: 'Kind', value: kindLabel(entry.occasion.kind) },
+              { label: 'Gift this year', value: answerLabel(entry.answer) },
+              { label: 'Reminders', value: entry.inLeadWindow ? 'In lead window' : undefined },
+              { label: 'Calendar', value: entry.mirrored ? 'Mirrored to calendar' : undefined },
+            ]}
+          />
+          <DetailSection title="Your answer">
+            <div className="dates-answers" role="group" aria-label="Your answer">
+              {(['yes', 'no', 'later'] as const).map((answer) => (
+                <Button
+                  key={answer}
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={entry.answer === answer}
+                  disabled={answerOccasion.isPending}
+                  onClick={() => answerOccasion.mutate({ occasionId: entry.occasion.id, answer })}
+                >
+                  {answerLabel(answer)}
+                </Button>
               ))}
-            </ul>
+            </div>
+          </DetailSection>
+          <DetailSection title="Gift history">
+            <DatesGiftHistoryBody occasionId={entry.occasion.id} />
+          </DetailSection>
+        </DetailPane>
+      );
+    }
+
+    if (selectedPlan) {
+      const item = selectedPlan;
+      return (
+        <DetailPane
+          title={item.title}
+          meta={`${formatDateOnly(item.from)} to ${formatDateOnly(item.to)}`}
+          onClose={() => setSelection(null)}
+          closeLabel="Close plan"
+          actions={(
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Trash2 />}
+              disabled={removeOccasion.isPending}
+              onClick={() => void askRemove('plan', item.id, item.title)}
+            >
+              Remove
+            </Button>
           )}
+        >
+          <Facts
+            items={[
+              { label: 'From', value: formatDateOnly(item.from) },
+              { label: 'To', value: formatDateOnly(item.to) },
+              { label: 'Destination', value: item.destination ?? undefined },
+              { label: 'Away', value: item.away ? 'You will be away' : undefined },
+            ]}
+          />
+        </DetailPane>
+      );
+    }
 
-          {!list.isPending && !listNote ? <UnparsedLinesNote items={list.data?.unparsed ?? []} /> : null}
-
-          {occasionConflicts.length > 0 ? (
-            <div className="dates-note dates-note--conflict" role="alert" data-testid="dates-conflicts">
-              <h3><AlertTriangle size={14} aria-hidden="true" /> Conflicting dates</h3>
-              <ul>
-                {occasionConflicts.map((conflict) => (
-                  <li key={conflict.occasionId}>
-                    <span>{conflict.title}: {conflict.dates.join(' vs. ')}</span>
-                    <button type="button" className="secondary-button" disabled={resolveConflict.isPending} onClick={() => resolveConflict.mutate(conflict.occasionId)}>
-                      Resolved
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <form className="form-grid dates-add-form" onSubmit={submitOccasionProposal}>
-            <h3>Add an occasion</h3>
-            <label>
-              Title
-              <input value={occasionTitle} onChange={(e) => setOccasionTitle(e.target.value)} aria-label="Occasion title" required />
-            </label>
-            <div className="form-split">
-              <label>
-                Date
-                <input type="date" value={occasionDate} onChange={(e) => setOccasionDate(e.target.value)} aria-label="Occasion date" required />
-              </label>
-              <label>
-                Recurrence
-                <select value={occasionRecurrence} onChange={(e) => setOccasionRecurrence(e.target.value as 'annual' | 'once')} aria-label="Recurrence">
-                  <option value="annual">Annual</option>
-                  <option value="once">One-time</option>
-                </select>
-              </label>
-            </div>
-            <div className="form-split">
-              <label>
-                Person
-                <input value={occasionPerson} onChange={(e) => setOccasionPerson(e.target.value)} aria-label="Person" />
-              </label>
-              <label>
-                Lead days (optional)
-                <input type="number" min={0} value={occasionLeadDays} onChange={(e) => setOccasionLeadDays(e.target.value)} aria-label="Lead days override" />
-              </label>
-            </div>
-            <label>
-              Kind
-              <select value={occasionKind} onChange={(e) => setOccasionKind(e.target.value as OccasionKind | '')} aria-label="Occasion kind">
-                <option value="">Choose before confirming…</option>
-                <option value="gift-giving">Gift-giving</option>
-                <option value="remember-only">Remember only</option>
-                <option value="neither">Neither</option>
-              </select>
-            </label>
-            <button className="secondary-button" type="submit" disabled={proposeOccasion.isPending || !occasionTitle.trim() || !occasionDate}>
-              {proposeOccasion.isPending ? 'Previewing…' : 'Preview'}
-            </button>
-            {occasionProposal ? (
-              occasionProposal.ok ? (
-                <div className="dates-proposal" role="status">
-                  <p>{occasionProposal.confirmation}</p>
-                  {occasionProposal.conflictsWith.length > 0 ? <p className="dates-proposal__warning">Conflicts with: {occasionProposal.conflictsWith.join(', ')}</p> : null}
-                  {occasionProposal.needsKind && !occasionKind ? <p className="dates-proposal__warning">Pick a kind above before confirming.</p> : null}
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={confirmOccasion.isPending || !occasionKind}
-                    onClick={() => confirmOccasion.mutate()}
-                  >
-                    {confirmOccasion.isPending ? 'Saving…' : 'Confirm'}
-                  </button>
-                </div>
-              ) : (
-                <p className="dates-proposal__warning" role="alert">{occasionProposal.reason ?? 'Could not preview this occasion.'}</p>
-              )
-            ) : null}
-          </form>
-        </section>
-
-        {/* Plans. Dated ranges with attributes, ambient rather than prompting
-            (docs/occasions.md §1). */}
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Plans</h2>
-            <Plane size={18} aria-hidden="true" />
-            <button type="button" className="secondary-button" onClick={() => void plans.refetch()} aria-label="Refresh plans">
-              <RefreshCw size={14} aria-hidden="true" />
-            </button>
-          </div>
-
-          {plans.isPending ? (
-            <SkeletonBlock variant="text" lines={3} />
-          ) : plansNote ? (
-            <EmptyState icon={<Plane size={24} aria-hidden="true" />} title={plansNote.title} description={plansNote.description} />
-          ) : plans.error ? (
-            <ErrorState error={plans.error} onRetry={() => void plans.refetch()} title="Plans failed to load" />
+    if (selectedInterview) {
+      const interview = selectedInterview;
+      const step = interview.nextStep;
+      const landedOn = (landedOnDrafts[interview.interviewId] ?? '').trim();
+      return (
+        <DetailPane
+          title="Gift interview"
+          meta={occasionTitleFor(interview.occasionId)}
+          onClose={() => setSelection(null)}
+          closeLabel="Close interview"
+        >
+          {interview.complete ? (
+            <form
+              className="dates-interview"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (landedOn) recordInterview.mutate({ interviewId: interview.interviewId, landedOn });
+              }}
+            >
+              <Field label="What did you land on?">
+                <Input
+                  value={landedOnDrafts[interview.interviewId] ?? ''}
+                  onChange={(event) => setLandedOnDrafts((current) => ({ ...current, [interview.interviewId]: event.target.value }))}
+                />
+              </Field>
+              <div>
+                <Button variant="primary" type="submit" disabled={recordInterview.isPending || !landedOn}>Record</Button>
+              </div>
+            </form>
+          ) : step ? (
+            <form
+              className="dates-interview"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const text = (interviewDrafts[step.id] ?? '').trim();
+                if (text) answerInterview.mutate({ interviewId: interview.interviewId, stepId: step.id, text });
+              }}
+            >
+              <Field label={step.prompt}>
+                <Input
+                  value={interviewDrafts[step.id] ?? ''}
+                  onChange={(event) => setInterviewDrafts((current) => ({ ...current, [step.id]: event.target.value }))}
+                />
+              </Field>
+              <div>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={answerInterview.isPending || !(interviewDrafts[step.id] ?? '').trim()}
+                >
+                  Answer
+                </Button>
+              </div>
+            </form>
           ) : (
-            <>
-              {plans.data?.awayNow ? (
-                <div className="dates-note dates-note--away" role="status">
-                  <Plane size={14} aria-hidden="true" /> Away now: {plans.data.awayNow.title}
-                  {plans.data.awayNow.destination ? `, ${plans.data.awayNow.destination}` : ''} (through {formatDateOnly(plans.data.awayNow.to)})
-                </div>
-              ) : null}
-              {planEntries.length === 0 ? (
-                <EmptyState icon={<Plane size={24} aria-hidden="true" />} title="No plans yet" description="Add one below, or tell the agent about an upcoming trip." />
-              ) : (
-                <ul className="dates-plan-list" data-testid="dates-plan-list">
-                  {planEntries.map((planItem) => (
-                    <li key={planItem.id} className="dates-plan-row">
-                      <div className="dates-plan-row__top">
-                        <span className="dates-plan-row__title">{planItem.title}</span>
-                        {planItem.away ? <span className="badge warning">Away</span> : null}
-                      </div>
-                      <div className="dates-plan-row__meta">
-                        <span>{formatDateOnly(planItem.from)} – {formatDateOnly(planItem.to)}</span>
-                        {planItem.destination ? <span>{planItem.destination}</span> : null}
-                      </div>
-                      <div className="dates-plan-row__actions">
-                        <button
-                          type="button"
-                          className="secondary-button dates-remove-button"
-                          disabled={removeOccasion.isPending}
-                          onClick={async () => {
-                            const ok = await confirm.ask({
-                              title: 'Remove this plan?',
-                              target: planItem.title,
-                              description: 'Removes the line from your profile and every record against it. This takes one confirmation and cannot be undone here.',
-                              confirmLabel: 'Remove',
-                              tone: 'danger',
-                            });
-                            if (ok) removeOccasion.mutate(planItem.id);
-                          }}
-                        >
-                          <Trash2 size={13} aria-hidden="true" /> Remove
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <UnparsedLinesNote items={plans.data?.unparsed ?? []} />
-            </>
+            <p className="dates-interview__done">Waiting on the next step.</p>
           )}
+        </DetailPane>
+      );
+    }
 
-          <form className="form-grid dates-add-form" onSubmit={submitPlanProposal}>
-            <h3>Add a plan</h3>
-            <label>
-              Title
-              <input value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} aria-label="Plan title" required />
-            </label>
-            <div className="form-split">
-              <label>
-                From
-                <input type="date" value={planFrom} onChange={(e) => setPlanFrom(e.target.value)} aria-label="Plan start date" required />
-              </label>
-              <label>
-                To
-                <input type="date" value={planTo} onChange={(e) => setPlanTo(e.target.value)} aria-label="Plan end date" required />
-              </label>
-            </div>
-            <label>
-              Destination
-              <input value={planDestination} onChange={(e) => setPlanDestination(e.target.value)} aria-label="Destination" />
-            </label>
-            <label className="dates-add-form__checkbox">
-              <input type="checkbox" checked={planAway} onChange={(e) => setPlanAway(e.target.checked)} />
-              I'll be away during this plan
-            </label>
-            <button className="secondary-button" type="submit" disabled={proposePlan.isPending || !planTitle.trim() || !planFrom || !planTo}>
-              {proposePlan.isPending ? 'Previewing…' : 'Preview'}
-            </button>
-            {planProposal ? (
-              planProposal.ok ? (
-                <div className="dates-proposal" role="status">
-                  <p>{planProposal.confirmation}</p>
-                  {planProposal.conflictsWith.length > 0 ? <p className="dates-proposal__warning">Conflicts with: {planProposal.conflictsWith.join(', ')}</p> : null}
-                  <button type="button" className="primary-button" disabled={confirmPlan.isPending} onClick={() => confirmPlan.mutate()}>
-                    {confirmPlan.isPending ? 'Saving…' : 'Confirm'}
-                  </button>
-                </div>
-              ) : (
-                <p className="dates-proposal__warning" role="alert">{planProposal.reason ?? 'Could not preview this plan.'}</p>
-              )
-            ) : null}
-          </form>
-        </section>
+    return null;
+  }
 
-        {/* Open items (occasions.pending). "Nothing unresolved is ever dropped"
-            (docs/occasions.md §2): the outstanding nudge, conflicts, and in-progress
-            interviews, all delivered to nobody until this panel reads them. */}
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Open items</h2>
-            <Sparkles size={18} aria-hidden="true" />
-            <button type="button" className="secondary-button" onClick={() => void pending.refetch()} aria-label="Refresh open items">
-              <RefreshCw size={14} aria-hidden="true" />
-            </button>
-          </div>
+  // ── List pane ────────────────────────────────────────────────────
+  const hasOpenItems = Boolean(nudge) || conflictCount > 0 || interviews.length > 0;
+  const nothingAtAll = occasionEntries.length === 0 && planEntries.length === 0 && !hasOpenItems && !plans.error && !pending.error;
 
-          {pending.isPending ? (
-            <SkeletonBlock variant="text" lines={3} />
-          ) : pendingNote ? (
-            <EmptyState icon={<Sparkles size={24} aria-hidden="true" />} title={pendingNote.title} description={pendingNote.description} />
-          ) : pending.error ? (
-            <ErrorState error={pending.error} onRetry={() => void pending.refetch()} title="Open items failed to load" />
-          ) : !pending.data?.nudge && pendingConflicts.length === 0 && interviews.length === 0 ? (
-            <EmptyState icon={<Sparkles size={24} aria-hidden="true" />} title="Nothing outstanding" description="No unanswered nudge, no unresolved conflict, and no interview in progress." />
-          ) : (
-            <div className="dates-open-items">
-              {pending.data?.nudge ? (
-                <div className="dates-nudge" data-testid="dates-nudge">
-                  <p className="dates-nudge__message">{pending.data.nudge.message}</p>
-                  <ul className="dates-nudge__subjects">
-                    {pending.data.nudge.subjects.map((subject) => (
-                      <li key={subject.occasionId} className="dates-nudge__subject">
-                        <span className="dates-occasion-row__title">{subject.title}</span>
-                        {subject.person ? <span className="dates-occasion-row__person">{subject.person}</span> : null}
-                        <span className={`badge ${kindTone(subject.kind)}`}>{kindLabel(subject.kind)}</span>
-                        <span className={`badge ${proximityTone(subject.proximity)}`}>{subject.proximity}</span>
-                        {pending.data?.nudge?.answerable ? (
-                          <span className="dates-nudge__subject-actions">
-                            <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                              onClick={() => answerOccasion.mutate({ occasionId: subject.occasionId, answer: 'yes' })}>
-                              Yes
-                            </button>
-                            <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                              onClick={() => answerOccasion.mutate({ occasionId: subject.occasionId, answer: 'no' })}>
-                              No
-                            </button>
-                            <button type="button" className="secondary-button" disabled={answerOccasion.isPending}
-                              onClick={() => answerOccasion.mutate({ occasionId: subject.occasionId, answer: 'later' })}>
-                              Later
-                            </button>
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+  const listBody = (
+    <>
+      {plans.data?.awayNow ? (
+        <div className="dv-notice dates-note" role="status">
+          <Plane aria-hidden="true" />
+          <span>
+            Away now: {plans.data.awayNow.title}
+            {plans.data.awayNow.destination ? `, ${plans.data.awayNow.destination}` : ''} (through {formatDateOnly(plans.data.awayNow.to)})
+          </span>
+        </div>
+      ) : null}
 
-              {pendingConflicts.length > 0 ? (
-                <div className="dates-note dates-note--conflict" role="alert">
-                  <h3><AlertTriangle size={14} aria-hidden="true" /> Conflicts</h3>
-                  <ul>
-                    {pendingConflicts.map((conflict) => (
-                      <li key={conflict.occasionId}>
-                        <span>{conflict.message}</span>
-                        <button type="button" className="secondary-button" disabled={resolveConflict.isPending} onClick={() => resolveConflict.mutate(conflict.occasionId)}>
-                          Resolved
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+      {pending.error ? <LoadNote label="Open items" error={pending.error} onRetry={() => void pending.refetch()} /> : null}
 
-              {interviews.length > 0 ? (
-                <ul className="dates-interview-list" data-testid="dates-interview-list">
-                  {interviews.map((interview) => (
-                    <li key={interview.interviewId} className="dates-interview">
-                      <p className="dates-interview__title">Gift interview: {interview.occasionId}</p>
-                      {interview.complete ? (
-                        <div className="dates-interview__record">
-                          <label>
-                            What did you land on?
-                            <input
-                              value={landedOnDrafts[interview.interviewId] ?? ''}
-                              onChange={(e) => setLandedOnDrafts((current) => ({ ...current, [interview.interviewId]: e.target.value }))}
-                              aria-label={`What you landed on for interview ${interview.interviewId}`}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            disabled={recordInterview.isPending || !(landedOnDrafts[interview.interviewId] ?? '').trim()}
-                            onClick={() => recordInterview.mutate({ interviewId: interview.interviewId, landedOn: (landedOnDrafts[interview.interviewId] ?? '').trim() })}
-                          >
-                            Record
-                          </button>
-                        </div>
-                      ) : interview.nextStep ? (
-                        (() => {
-                          const stepId = interview.nextStep.id;
-                          return (
-                            <div className="dates-interview__step">
-                              <p>{interview.nextStep.prompt}</p>
-                              <input
-                                value={interviewDrafts[stepId] ?? ''}
-                                onChange={(e) => setInterviewDrafts((current) => ({ ...current, [stepId]: e.target.value }))}
-                                aria-label={interview.nextStep.prompt}
-                              />
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                disabled={answerInterview.isPending || !(interviewDrafts[stepId] ?? '').trim()}
-                                onClick={() => answerInterview.mutate({ interviewId: interview.interviewId, stepId, text: (interviewDrafts[stepId] ?? '').trim() })}
-                              >
-                                Answer
-                              </button>
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <p className="dates-interview__done">Waiting on the next step.</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          )}
-        </section>
+      {nudge ? (
+        <div className="dates-nudge" data-testid="dates-nudge">
+          <p className="dates-nudge__message">{nudge.message}</p>
+          <RowGroup label="Asking about" count={nudge.subjects.length}>
+            {nudge.subjects.map((subject) => (
+              <Row
+                key={subject.occasionId}
+                title={subject.title}
+                meta={joinMeta([subject.person, kindLabel(subject.kind)])}
+                trailing={<Chip size="sm">{subject.proximity}</Chip>}
+                onSelect={occasionEntries.some((entry) => entry.occasion.id === subject.occasionId)
+                  ? () => openOccasion(subject.occasionId)
+                  : undefined}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      ) : null}
 
-        {/* State (occasions.state). The machine-owned store's own disclosure: counts
-            and reasons only, never the underlying acknowledgement/gift content
-            (docs/occasions.md §3.2). */}
-        <section className="panel">
-          <div className="panel-title">
-            <h2>State</h2>
-            <button type="button" className="secondary-button" onClick={() => void state.refetch()} aria-label="Refresh state">
-              <RefreshCw size={14} aria-hidden="true" />
-            </button>
-          </div>
+      {conflictCount > 0 ? (
+        <div data-testid="dates-conflicts" role="alert">
+          <RowGroup label="Conflicting dates" count={conflictCount}>
+            {listConflicts.map((conflict) => (
+              <Row
+                key={`list-${conflict.occasionId}`}
+                title={conflict.title}
+                meta={conflict.dates.join(' vs. ')}
+                trailing={(
+                  <Button variant="outline" size="sm" disabled={resolveConflict.isPending} onClick={() => resolveConflict.mutate(conflict.occasionId)}>
+                    Resolved
+                  </Button>
+                )}
+              />
+            ))}
+            {pendingConflicts.map((conflict) => (
+              <Row
+                key={`pending-${conflict.occasionId}`}
+                title={conflict.message}
+                trailing={(
+                  <Button variant="outline" size="sm" disabled={resolveConflict.isPending} onClick={() => resolveConflict.mutate(conflict.occasionId)}>
+                    Resolved
+                  </Button>
+                )}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      ) : null}
 
-          {state.isPending ? (
-            <SkeletonBlock variant="text" lines={3} />
-          ) : stateNote ? (
-            <EmptyState title={stateNote.title} description={stateNote.description} />
-          ) : state.error ? (
-            <ErrorState error={state.error} onRetry={() => void state.refetch()} title="State failed to load" />
-          ) : (
+      {interviews.length > 0 ? (
+        <div data-testid="dates-interview-list">
+          <RowGroup label="Gift interviews" count={interviews.length}>
+            {interviews.map((interview) => (
+              <Row
+                key={interview.interviewId}
+                title={occasionTitleFor(interview.occasionId)}
+                meta={interview.complete ? 'What did you land on?' : (interview.nextStep?.prompt ?? 'Waiting on the next step')}
+                selected={selection?.kind === 'interview' && selection.id === interview.interviewId}
+                onSelect={() => setSelection({ kind: 'interview', id: interview.interviewId })}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      ) : null}
+
+      {occasionEntries.length > 0 ? (
+        <div data-testid="dates-occasion-list">
+          <RowGroup label="Upcoming" count={occasionEntries.length}>
+            {occasionEntries.map((entry) => (
+              <Row
+                key={entry.occasion.id}
+                className="dates-occasion-row"
+                leading={<StatusDot tone={answerTone(entry.answer)} srLabel={answerLabel(entry.answer)} />}
+                title={entry.occasion.title}
+                meta={joinMeta([
+                  formatDateOnly(entry.nextOccurrence),
+                  entry.occasion.person,
+                  kindLabel(entry.occasion.kind),
+                  entry.inLeadWindow && 'In lead window',
+                ])}
+                trailing={<span className="dv-value">{daysUntilLabel(entry.daysUntil)}</span>}
+                selected={selection?.kind === 'occasion' && selection.id === entry.occasion.id}
+                onSelect={() => setSelection({ kind: 'occasion', id: entry.occasion.id })}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      ) : null}
+      <UnparsedLinesNote items={list.data?.unparsed ?? []} />
+
+      {plans.error ? (
+        <LoadNote label="Plans" error={plans.error} onRetry={() => void plans.refetch()} />
+      ) : planEntries.length > 0 ? (
+        <div data-testid="dates-plan-list">
+          <RowGroup label="Plans" count={planEntries.length}>
+            {planEntries.map((item) => (
+              <Row
+                key={item.id}
+                className="dates-plan-row"
+                title={item.title}
+                meta={joinMeta([`${formatDateOnly(item.from)} to ${formatDateOnly(item.to)}`, item.destination])}
+                trailing={item.away ? <Chip size="sm" tone="warn">Away</Chip> : undefined}
+                selected={selection?.kind === 'plan' && selection.id === item.id}
+                onSelect={() => setSelection({ kind: 'plan', id: item.id })}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      ) : null}
+      <UnparsedLinesNote items={plans.data?.unparsed ?? []} />
+
+      {nothingAtAll ? (
+        <EmptyState
+          icon={<Cake />}
+          title="No occasions yet"
+          action={<Button variant="outline" onClick={() => setOccasionOpen(true)}>Add occasion</Button>}
+        >
+          Add a birthday or anniversary, or tell the agent about one.
+        </EmptyState>
+      ) : null}
+
+      <div className="dates-store" data-testid="dates-state-section">
+        {state.error ? (
+          <LoadNote label="Stored records" error={state.error} onRetry={() => void state.refetch()} />
+        ) : state.data ? (
+          <Disclosure summary="Stored records">
             <div className="dates-state" data-testid="dates-state">
-              {state.data?.corruption ? (
-                <div className="dates-note dates-note--conflict" role="alert">
-                  <AlertTriangle size={14} aria-hidden="true" /> {state.data.corruption}
+              {state.data.corruption ? (
+                <div className="dv-notice dv-notice--bad dates-note" role="alert">
+                  <AlertCircle aria-hidden="true" />
+                  <span>{state.data.corruption}</span>
                 </div>
               ) : null}
-              <dl className="dates-state__counts">
-                <dt>Acknowledgements</dt>
-                <dd>{state.data?.acknowledgements ?? 0}</dd>
-                <dt>Gift records</dt>
-                <dd>{state.data?.giftRecords ?? 0}</dd>
-                <dt>Open items</dt>
-                <dd>{state.data?.openItems ?? 0}</dd>
-                <dt>Interviews</dt>
-                <dd>{state.data?.interviews ?? 0}</dd>
-                <dt>Calendar mirrors</dt>
-                <dd>{state.data?.mirrors ?? 0}</dd>
-              </dl>
-              {state.data?.lastSweep ? (
-                <p className="dates-state__last-sweep">
+              <Facts
+                items={[
+                  { label: 'Acknowledgements', value: state.data.acknowledgements ?? 0 },
+                  { label: 'Gift records', value: state.data.giftRecords ?? 0 },
+                  { label: 'Open items', value: state.data.openItems ?? 0 },
+                  { label: 'Interviews', value: state.data.interviews ?? 0 },
+                  { label: 'Calendar mirrors', value: state.data.mirrors ?? 0 },
+                ]}
+              />
+              {state.data.lastSweep ? (
+                <p className="dates-state__text">
                   Last swept {formatRelative(state.data.lastSweep.sweptAt)}, expired {state.data.lastSweep.expiredAcknowledgements} acknowledgement(s),
                   reaped {state.data.lastSweep.orphanedRecords} orphaned record(s), expired {state.data.lastSweep.expiredOpenItems} open item(s),
                   aged out {state.data.lastSweep.agedGiftRecords} gift record(s), dropped {state.data.lastSweep.droppedInterviews} interview(s),
                   cleared {state.data.lastSweep.staleMirrors} stale mirror(s).
                 </p>
               ) : (
-                <p className="dates-state__last-sweep">No sweep has run yet.</p>
+                <p className="dates-state__text">No sweep has run yet.</p>
               )}
-              <button type="button" className="secondary-button" disabled={runSweep.isPending} onClick={() => runSweep.mutate()}>
-                {runSweep.isPending ? 'Sweeping…' : 'Run sweep now'}
-              </button>
+              <div>
+                <Button variant="outline" size="sm" disabled={runSweep.isPending} onClick={() => runSweep.mutate()}>
+                  {runSweep.isPending ? 'Sweeping…' : 'Run sweep now'}
+                </Button>
+              </div>
               {sweepResult ? (
-                <p className="dates-state__sweep-result" role="status">
+                <p className="dates-state__text" role="status">
                   {sweepResult.hold ? `Held: ${sweepResult.hold}.` : sweepResult.delivered ? `Delivered via ${sweepResult.deliveryChannel}.` : 'Ran with nothing to deliver.'}
                   {' '}Mirrored {sweepResult.mirrored} occasion(s).
                 </p>
               ) : null}
             </div>
-          )}
-        </section>
-
-        {confirm.element}
+          </Disclosure>
+        ) : null}
       </div>
+    </>
+  );
+
+  // ── Page ─────────────────────────────────────────────────────────
+  const filters = listUnavailable ? undefined : (
+    <div className="dv-filters__end">
+      <IconButton label="Refresh occasions" icon={<RefreshCw />} onClick={refreshAll} />
+    </div>
+  );
+
+  const action = listUnavailable || list.isPending ? undefined : (
+    <>
+      <Button variant="outline" onClick={() => setPlanOpen(true)}>Add plan</Button>
+      <Button variant="primary" icon={<Plus />} onClick={() => setOccasionOpen(true)}>Add occasion</Button>
+    </>
+  );
+
+  let content: ReactNode;
+  if (list.isPending) {
+    content = <SkeletonRows count={6} label="Loading occasions" />;
+  } else if (listUnavailable) {
+    content = (
+      <EmptyState
+        icon={<Cake />}
+        title="Occasions aren’t available on this daemon yet"
+        role="status"
+        action={<Button variant="outline" onClick={() => openSettingsSection('about')}>Update daemon</Button>}
+      >
+        This daemon build has no occasions handler wired up. Updating the daemon adds occasions and plans here.
+      </EmptyState>
+    );
+  } else if (list.error) {
+    content = (
+      <EmptyState
+        icon={<AlertCircle />}
+        title="Occasions failed to load"
+        role="status"
+        action={<Button variant="outline" onClick={() => void list.refetch()}>Try again</Button>}
+      >
+        {formatError(list.error)}
+      </EmptyState>
+    );
+  } else {
+    content = (
+      <ListDetail
+        list={listBody}
+        detail={renderDetail()}
+        detailOpen={detailOpen}
+        onCloseDetail={() => setSelection(null)}
+        listLabel="Occasions and plans"
+        detailLabel="Details"
+        backLabel="All occasions"
+      />
+    );
+  }
+
+  const occasionPreviewReady = Boolean(occasionProposal?.ok);
+
+  return (
+    <ErrorBoundary
+      fallback={(err, reset) => (
+        <EmptyState icon={<AlertCircle />} title="Occasions view failed" action={<Button variant="outline" onClick={reset}>Try again</Button>}>
+          {formatError(err)}
+        </EmptyState>
+      )}
+    >
+      <PersonalPage tabs={tabs} filters={filters} action={action}>
+        {content}
+      </PersonalPage>
+
+      <Dialog
+        open={occasionOpen}
+        onClose={() => setOccasionOpen(false)}
+        title="Add occasion"
+        description="Preview shows what will be saved. Nothing is added until you confirm."
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setOccasionOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              type="submit"
+              form="dates-add-occasion"
+              disabled={proposeOccasion.isPending || !occasion.title.trim() || !occasion.date}
+            >
+              {proposeOccasion.isPending ? 'Previewing…' : 'Preview'}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={confirmOccasion.isPending || !occasionPreviewReady || !occasion.kind}
+              onClick={() => confirmOccasion.mutate()}
+            >
+              {confirmOccasion.isPending ? 'Saving…' : 'Confirm'}
+            </Button>
+          </>
+        )}
+      >
+        <form id="dates-add-occasion" className="personal-form" onSubmit={submitOccasionProposal}>
+          <Field label="Title">
+            <Input value={occasion.title} onChange={(event) => editOccasion({ title: event.target.value })} required />
+          </Field>
+          <div className="personal-form__split">
+            <Field label="Date">
+              <DateField value={occasion.date} onChange={(value) => editOccasion({ date: value })} required />
+            </Field>
+            <Field label="Repeats">
+              <Select<Recurrence>
+                value={occasion.recurrence}
+                onChange={(value) => editOccasion({ recurrence: value })}
+                options={RECURRENCE_OPTIONS}
+              />
+            </Field>
+          </div>
+          <div className="personal-form__split">
+            <Field label="Person">
+              <Input value={occasion.person} onChange={(event) => editOccasion({ person: event.target.value })} />
+            </Field>
+            <Field label="Lead days (optional)">
+              <Input type="number" min={0} value={occasion.leadDays} onChange={(event) => editOccasion({ leadDays: event.target.value })} />
+            </Field>
+          </div>
+          <Field label="Kind">
+            <Select<OccasionKind>
+              value={occasion.kind}
+              onChange={(value) => editOccasion({ kind: value })}
+              options={KIND_OPTIONS}
+              placeholder="Choose before confirming"
+            />
+          </Field>
+          {occasionProposal ? (
+            occasionProposal.ok ? (
+              <div className="dv-notice dates-proposal" role="status">
+                <div>
+                  <p>{occasionProposal.confirmation}</p>
+                  {occasionProposal.conflictsWith.length > 0 ? <p>Conflicts with: {occasionProposal.conflictsWith.join(', ')}</p> : null}
+                  {occasionProposal.needsKind && !occasion.kind ? <p>Pick a kind above before confirming.</p> : null}
+                </div>
+              </div>
+            ) : (
+              <div className="dv-notice dv-notice--bad dates-proposal" role="alert">
+                <AlertCircle aria-hidden="true" />
+                <span>{occasionProposal.reason ?? 'Could not preview this occasion.'}</span>
+              </div>
+            )
+          ) : null}
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={planOpen}
+        onClose={() => setPlanOpen(false)}
+        title="Add plan"
+        description="Preview shows what will be saved. Nothing is added until you confirm."
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setPlanOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              type="submit"
+              form="dates-add-plan"
+              disabled={proposePlan.isPending || !plan.title.trim() || !plan.from || !plan.to}
+            >
+              {proposePlan.isPending ? 'Previewing…' : 'Preview'}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={confirmPlan.isPending || !planProposal?.ok}
+              onClick={() => confirmPlan.mutate()}
+            >
+              {confirmPlan.isPending ? 'Saving…' : 'Confirm'}
+            </Button>
+          </>
+        )}
+      >
+        <form id="dates-add-plan" className="personal-form" onSubmit={submitPlanProposal}>
+          <Field label="Title">
+            <Input value={plan.title} onChange={(event) => editPlan({ title: event.target.value })} required />
+          </Field>
+          <div className="personal-form__split">
+            <Field label="From">
+              <DateField value={plan.from} onChange={(value) => editPlan({ from: value })} required />
+            </Field>
+            <Field label="To">
+              <DateField value={plan.to} onChange={(value) => editPlan({ to: value })} required />
+            </Field>
+          </div>
+          <Field label="Destination">
+            <Input value={plan.destination} onChange={(event) => editPlan({ destination: event.target.value })} />
+          </Field>
+          <Checkbox checked={plan.away} onChange={(checked) => editPlan({ away: checked })}>
+            I’ll be away during this plan
+          </Checkbox>
+          {planProposal ? (
+            planProposal.ok ? (
+              <div className="dv-notice dates-proposal" role="status">
+                <div>
+                  <p>{planProposal.confirmation}</p>
+                  {planProposal.conflictsWith.length > 0 ? <p>Conflicts with: {planProposal.conflictsWith.join(', ')}</p> : null}
+                </div>
+              </div>
+            ) : (
+              <div className="dv-notice dv-notice--bad dates-proposal" role="alert">
+                <AlertCircle aria-hidden="true" />
+                <span>{planProposal.reason ?? 'Could not preview this plan.'}</span>
+              </div>
+            )
+          ) : null}
+        </form>
+      </Dialog>
+
+      {confirm.element}
     </ErrorBoundary>
   );
 }

@@ -118,6 +118,7 @@ mock.module('./lib/goodvibes', () => ({
   WEBUI_SURFACE_ID: 'goodvibes-webui',
   WEBUI_SURFACE_KIND: 'webui',
   GOODVIBES_BASE_URL: 'http://localhost/test',
+  WEBUI_VERSION: undefined,
   // MemoryView (mounted unconditionally by App.tsx's render switch) imports this
   // named value at module load time, a plain re-export of the SDK's constant, not
   // exercised by any test in this file.
@@ -271,12 +272,12 @@ afterEach(() => {
 
 describe('App: daemon-unreachable gate preserves in-progress work', () => {
   test('a daemon blip mid-typing does not reset the selected session or discard the steer draft', async () => {
-    window.history.pushState({}, '', '/?view=sessions');
+    window.history.pushState({}, '', '/?view=work&tab=sessions');
     const { container, client, unmount } = render();
     await flushMicrotasks();
 
-    // Select the only session in the union.
-    const row = [...container.querySelectorAll('.sessions-row')]
+    // Select the only session in the union (Work, Sessions).
+    const row = [...container.querySelectorAll('.gv-row__main')]
       .find((r) => r.textContent?.includes('Session One'));
     expect(row).toBeTruthy();
     flushSync(() => {

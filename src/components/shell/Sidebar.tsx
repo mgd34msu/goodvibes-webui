@@ -198,7 +198,7 @@ export function SidebarContent({
                   </span>
                 )
                 : undefined}
-              onClick={() => onNavigate(destination.defaultView)}
+              onClick={() => onNavigate(destination.view)}
             />
           );
         })}

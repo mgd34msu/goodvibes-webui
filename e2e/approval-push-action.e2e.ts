@@ -11,12 +11,15 @@ test('an Allow hand-off approves the seeded approval and clears the fragment', a
 
   await page.goto('/?view=approvals-tasks#approval-action=approve&approval-id=appr-e2e-1');
 
-  // The approval resolves to approved (the mock flips its status on the real POST).
-  await expect(page.locator('.approval-card').first()).toContainText('approved');
   // A success toast confirms the decision landed.
   await expect(page.getByText('Approved', { exact: true })).toBeVisible();
   // The one-shot action fragment is scrubbed from the URL.
   await expect.poll(() => new URL(page.url()).hash).not.toContain('approval-action');
+  // The approval left Needs you and shows as approved among finished work.
+  await expect(page.getByRole('region', { name: 'Needs you' }).locator('.gv-row', { hasText: /^Approve bash/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('option', { name: 'Active and finished' }).click();
+  await expect(page.getByRole('region', { name: 'Finished' }).locator('.gv-row', { hasText: /^Approve bash/ })).toContainText('Approved');
 });
 
 test('a Deny hand-off denies the seeded approval', async ({ page }) => {
@@ -24,6 +27,8 @@ test('a Deny hand-off denies the seeded approval', async ({ page }) => {
 
   await page.goto('/?view=approvals-tasks#approval-action=deny&approval-id=appr-e2e-1');
 
-  await expect(page.locator('.approval-card').first()).toContainText('denied');
   await expect.poll(() => new URL(page.url()).hash).not.toContain('approval-action');
+  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('option', { name: 'Active and finished' }).click();
+  await expect(page.getByRole('region', { name: 'Finished' }).locator('.gv-row', { hasText: /^Approve bash/ })).toContainText('Denied');
 });

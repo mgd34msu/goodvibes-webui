@@ -11,7 +11,11 @@ import { PackageSearch } from 'lucide-react';
 import { invokeMethod } from '../../lib/goodvibes';
 import type { OperatorMethodInput } from '../../lib/goodvibes';
 import { asRecord, firstArray, firstString, countFrom } from '../../lib/object';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { EmptyState } from '../../components/data-view/DataView';
+import { Button } from '../../components/ui/Button';
+import { Field, Input } from '../../components/ui/Field';
+import { Row, RowList } from '../../components/ui/Row';
+import { Select } from '../../components/ui/Select';
 import { ErrorState } from '../../components/feedback/ErrorState';
 
 type PacketDetail = NonNullable<OperatorMethodInput<'knowledge.packet'>['detail']>;
@@ -76,87 +80,86 @@ export function KnowledgePacketPanel() {
 
   return (
     <div className="knowledge-packet">
-      <form className="form-grid" onSubmit={submit}>
-        <label>
-          Task
-          <input
+      <form className="lib-form" onSubmit={submit}>
+        <Field label="Task" help="The packet is the compact context an agent would carry into this task.">
+          <Input
             value={task}
             onChange={(event) => setTask(event.target.value)}
             placeholder="Describe the task this packet is for"
             aria-label="Task description"
           />
-        </label>
-        <div className="form-split">
-          <label>
-            Detail
-            <select value={detail} onChange={(event) => setDetail(event.target.value as PacketDetail)} aria-label="Packet detail level">
-              <option value="compact">Compact</option>
-              <option value="standard">Standard</option>
-              <option value="detailed">Detailed</option>
-            </select>
-          </label>
-          <label>
-            Budget (tokens)
-            <input
+        </Field>
+        <div className="lib-form__split">
+          <Field label="Detail">
+            <Select<PacketDetail>
+              value={detail}
+              onChange={setDetail}
+              aria-label="Packet detail level"
+              options={[
+                { value: 'compact', label: 'Compact' },
+                { value: 'standard', label: 'Standard' },
+                { value: 'detailed', label: 'Detailed' },
+              ]}
+            />
+          </Field>
+          <Field label="Budget (tokens)">
+            <Input
               value={budgetLimit}
               onChange={(event) => setBudgetLimit(event.target.value)}
               placeholder="Optional"
               inputMode="numeric"
               aria-label="Token budget limit"
             />
-          </label>
+          </Field>
         </div>
-        <label>
-          Write scope
-          <input
+        <Field label="Write scope">
+          <Input
             value={writeScope}
             onChange={(event) => setWriteScope(event.target.value)}
             placeholder="Comma-separated paths, optional"
             aria-label="Write scope, comma separated"
           />
-        </label>
-        <button className="primary-button" type="submit" disabled={packet.isPending || !task.trim()} aria-busy={packet.isPending}>
-          {packet.isPending ? 'Building…' : 'Build Packet'}
-        </button>
+        </Field>
+        <div>
+          <Button type="submit" variant="secondary" disabled={packet.isPending || !task.trim()} aria-busy={packet.isPending}>
+            {packet.isPending ? 'Building…' : 'Build packet'}
+          </Button>
+        </div>
       </form>
 
       {packet.error ? (
         <ErrorState error={packet.error} onRetry={() => { if (task.trim()) packet.mutate(); }} title="Packet build failed" />
       ) : packet.data ? (
         items.length === 0 ? (
-          <EmptyState
-            icon={<PackageSearch size={24} aria-hidden="true" />}
-            title="Packet has no items"
-            description="Nothing in the knowledge base matched this task within the given budget."
-          />
+          <EmptyState icon={<PackageSearch />} title="Packet has no items">
+            Nothing in the knowledge base matched this task within the given budget.
+          </EmptyState>
         ) : (
           <div className="knowledge-packet__result">
-            <p className="knowledge-packet__summary">
+            <p className="lib-quiet knowledge-packet__summary">
               {items.length} item{items.length === 1 ? '' : 's'} · ~{estimatedTokens} estimated tokens
             </p>
             {truncation && (
-              <p className="knowledge-packet__truncation-note" role="note">
+              <p className="dv-notice knowledge-packet__truncation-note" role="note">
                 Showing {items.length} of {truncation.totalCandidates} candidates ({truncation.droppedCount} dropped).
               </p>
             )}
-            <ul className="knowledge-packet__items">
+            <RowList aria-label="Packet items">
               {items.map((item, index) => {
                 const kind = firstString(item, ['kind']) || 'item';
                 const title = firstString(item, ['title']) || firstString(item, ['id']) || `Item ${index + 1}`;
                 const reason = firstString(item, ['reason']);
                 const score = countFrom(item, ['score']);
                 return (
-                  <li key={firstString(item, ['id']) || index}>
-                    <div className="knowledge-packet__item-head">
-                      <span className="knowledge-packet__item-kind">{kind}</span>
-                      <span className="knowledge-packet__item-score">{score.toFixed(2)}</span>
-                    </div>
-                    <strong>{title}</strong>
-                    {reason && <span className="knowledge-packet__item-reason">{reason}</span>}
-                  </li>
+                  <Row
+                    key={firstString(item, ['id']) || index}
+                    title={title}
+                    meta={[kind, reason].filter(Boolean).join(' · ')}
+                    trailing={<span className="dv-value">{score.toFixed(2)}</span>}
+                  />
                 );
               })}
-            </ul>
+            </RowList>
           </div>
         )
       ) : null}

@@ -1,6 +1,6 @@
 /**
- * DatesView, the honesty contract notAvailableNote() documents (a 404/501 renders
- * an honest not-available note, never a fabricated empty list), the "no fourth
+ * DatesView (the Occasions tab), the honesty contract (a 404/501 renders one honest
+ * not-available empty state with a daemon-update action, never a fabricated empty list), the "no fourth
  * reading" for a genuinely empty read, and the one distinction docs/occasions.md
  * §4.3 draws hardest: occasions.list renders real dates (nextOccurrence/daysUntil),
  * while occasions.pending's nudge subjects render only a proximity WORD, never a
@@ -11,7 +11,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PeekProvider } from '../../components/peek/PeekPanel';
 import { ToastProvider } from '../../lib/toast';
 import { ToastViewport } from '../../components/toast/ToastViewport';
 
@@ -88,14 +87,10 @@ function render() {
         QueryClientProvider,
         { client },
         React.createElement(
-          PeekProvider,
+          ToastProvider,
           null,
-          React.createElement(
-            ToastProvider,
-            null,
-            React.createElement(DatesView),
-            React.createElement(ToastViewport),
-          ),
+          React.createElement(DatesView),
+          React.createElement(ToastViewport),
         ),
       ),
     );
@@ -107,6 +102,15 @@ function render() {
       container.remove();
     },
   };
+}
+
+function buttonNamed(root: ParentNode, name: string): HTMLButtonElement | undefined {
+  return [...root.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent ?? '').trim() === name);
+}
+
+/** Select the first occasion row so its detail pane opens. */
+function openFirstRow(el: HTMLElement): void {
+  flushSync(() => (el.querySelector('[data-testid="dates-occasion-list"] .gv-row__main') as HTMLElement).click());
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
@@ -131,8 +135,10 @@ describe('DatesView: not-available refusal', () => {
   test('a 501 on occasions.list renders the honest not-available note, not an empty list', async () => {
     listImpl = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Dates isn’t available on this daemon yet'));
+    await waitFor(() => (el.textContent ?? '').includes('Occasions aren’t available on this daemon yet'));
     expect(el.querySelector('[data-testid="dates-occasion-list"]')).toBeNull();
+    // One action, and no Add occasion / Add plan while the surface cannot answer.
+    expect([...el.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Update daemon']);
     unmount();
   });
 });
@@ -169,7 +175,7 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     expect(el.textContent).toContain('Not yet answered');
     // occasions.list is the explicit-ask read that DOES return the real date
     // (docs/occasions.md §4.3), the formatted nextOccurrence must render.
-    expect(el.textContent).toContain('March 14, 2027');
+    expect(el.textContent).toContain('Mar 14, 2027');
     unmount();
   });
 
@@ -184,14 +190,15 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-occasion-list"]')));
-    const yesButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Yes');
-    flushSync(() => yesButton?.click());
+    openFirstRow(el);
+    await waitFor(() => Boolean(buttonNamed(el, 'Yes')));
+    flushSync(() => buttonNamed(el, 'Yes')?.click());
     await waitFor(() => answerCalls.length > 0);
     expect(answerCalls[0]).toEqual({ occasionId: 'occ-1', answer: 'yes' });
     unmount();
   });
 
-  test('clicking Gift history opens the peek and calls occasions.gifts for that occasion', async () => {
+  test('selecting an occasion shows its gift history in the detail pane and calls occasions.gifts for that occasion', async () => {
     listImpl = () => Promise.resolve({
       today: '2026-07-29', timezone: 'America/Chicago',
       occasions: [{
@@ -202,9 +209,9 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-occasion-list"]')));
-    const giftButton = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Gift history'));
-    flushSync(() => giftButton?.click());
+    openFirstRow(el);
     await waitFor(() => giftsCalls.length > 0);
+    expect(el.textContent).toContain('Gift history');
     expect(giftsCalls[0]).toBe('occ-9');
     unmount();
   });
@@ -257,8 +264,30 @@ describe('DatesView: state disclosure', () => {
     });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-state"]')));
+    expect(el.querySelector('details')?.textContent).toContain('Stored records');
     expect(el.textContent).toContain('3');
     expect(el.textContent).toContain('2');
+    unmount();
+  });
+});
+
+describe('DatesView: dialogs use the kit controls', () => {
+  test('Add occasion and Add plan open dialogs with no browser select, date or checkbox widgets', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('No occasions yet'));
+
+    flushSync(() => buttonNamed(el, 'Add occasion')?.click());
+    await waitFor(() => Boolean(document.body.querySelector('#dates-add-occasion')));
+    const occasionForm = document.body.querySelector('#dates-add-occasion') as HTMLElement;
+    expect(occasionForm.querySelector('select, input[type="date"], input[type="datetime-local"]')).toBeNull();
+    expect(occasionForm.querySelectorAll('[aria-haspopup="listbox"]').length).toBe(2);
+    flushSync(() => buttonNamed(document.body, 'Cancel')?.click());
+
+    flushSync(() => buttonNamed(el, 'Add plan')?.click());
+    await waitFor(() => Boolean(document.body.querySelector('#dates-add-plan')));
+    const planForm = document.body.querySelector('#dates-add-plan') as HTMLElement;
+    expect(planForm.querySelector('select, input[type="date"]')).toBeNull();
+    expect(planForm.querySelector('.gv-checkbox')).not.toBeNull();
     unmount();
   });
 });

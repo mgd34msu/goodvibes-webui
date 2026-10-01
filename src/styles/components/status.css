@@ -138,8 +138,7 @@
   white-space: nowrap;
 }
 
-/* PowerChip — "sleep disabled" — danger idiom (matches checkpoints.css's
- * destructive-restore chip): an active override the owner should notice, not
+/* PowerChip — "sleep disabled" — danger idiom: an active override the owner should notice, not
  * ambient status. */
 .status-strip__segment--power {
   color: var(--text);

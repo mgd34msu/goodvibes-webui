@@ -15,14 +15,16 @@ import {
   type ViewId,
   decodeUrlState,
   encodeUrlState,
-  isLegacySettingsView,
+  isLegacyView,
   pushState,
   replaceState,
 } from '../lib/router';
 
 export interface UrlStateSetters {
-  /** Navigate to a different view, preserving session/filters. */
-  setView: (view: ViewId, options?: { replace?: boolean }) => void;
+  /** Navigate to a different view, preserving session/filters. A new view starts on its default tab. */
+  setView: (view: ViewId, options?: { replace?: boolean; tab?: string }) => void;
+  /** Switch the current destination's tab ('' for its default). Replaces the history entry by default. */
+  setTab: (tab: string, options?: { replace?: boolean }) => void;
   /** Update the active session id. */
   setSession: (session: string, options?: { replace?: boolean }) => void;
   /** Merge filter key/value pairs into current filters. Pass undefined value to remove a key. */
@@ -58,10 +60,11 @@ export function useUrlState(): UseUrlStateReturn {
   // unconditional extra render when the URL is already normalized.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    // An old ?view=admin / providers / principals link: rewrite it in place to
-    // its new home (the chat view with the settings dialog open on a section).
-    // The fragment is kept: a pairing hand-off (#pair=…) may ride the same link.
-    if (isLegacySettingsView(window.location.search)) {
+    // An old link (?view=admin, providers, principals, or one of the data views
+    // that became Work, Library and Personal): rewrite it in place to its new
+    // home. The fragment is kept: a pairing hand-off (#pair=…), a push
+    // notification's approval action or fleet focus may ride the same link.
+    if (isLegacyView(window.location.search)) {
       const url = `${window.location.pathname}?${encodeUrlState(urlState)}${window.location.hash}`;
       window.history.replaceState(urlState, '', url);
       return;
@@ -87,15 +90,29 @@ export function useUrlState(): UseUrlStateReturn {
     };
   }, []);
 
-  const setView = useCallback((view: ViewId, options?: { replace?: boolean }): void => {
+  const setView = useCallback((view: ViewId, options?: { replace?: boolean; tab?: string }): void => {
     // Compute next state from the current closure value, NOT inside the
     // setLocalState updater. This ensures the history side-effect fires exactly
     // once per call even under React StrictMode, which double-invokes updaters.
-    const nextState: AppUrlState = { ...urlState, view };
+    // A tab belongs to its destination: moving to another view drops it.
+    const tab = options?.tab ?? (view === urlState.view ? urlState.tab : undefined);
+    const { tab: _previousTab, ...rest } = urlState;
+    const nextState: AppUrlState = tab ? { ...rest, view, tab } : { ...rest, view };
     if (options?.replace) {
       replaceState(nextState);
     } else {
       pushState(nextState);
+    }
+    setLocalState(nextState);
+  }, [urlState]);
+
+  const setTab = useCallback((tab: string, options?: { replace?: boolean }): void => {
+    const { tab: _previousTab, ...rest } = urlState;
+    const nextState: AppUrlState = tab ? { ...rest, tab } : rest;
+    if (options?.replace === false) {
+      pushState(nextState);
+    } else {
+      replaceState(nextState);
     }
     setLocalState(nextState);
   }, [urlState]);
@@ -160,6 +177,7 @@ export function useUrlState(): UseUrlStateReturn {
   return {
     ...urlState,
     setView,
+    setTab,
     setSession,
     setFilters,
     resetFilters,

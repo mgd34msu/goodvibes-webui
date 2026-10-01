@@ -1,7 +1,8 @@
 /**
- * MemoryView, the web UI's first consumer of the canonical, cross-surface memory
- * store (memory.records.* / memory.review-queue, SDK 1.1.0). Search & browse, add,
- * review-queue, delete, and a read-only personas surface (VIBE.md constraint records).
+ * The Memory tab of the Library, the web UI's consumer of the canonical, cross-surface
+ * memory store (memory.records.* SDK 1.1.0): search and browse, record detail with its
+ * review form and confirmed delete, and a read-only personas group (VIBE.md constraint
+ * records). Adding a record is the page's primary action (AddMemoryDialog, in LibraryView).
  *
  * HONESTY. The recall-honesty contract (memory-recall-contract.ts) is applied
  * server-side and surfaced here verbatim via MemorySearchHonestyNote: which search
@@ -9,330 +10,225 @@
  * could not be consulted (never a silent empty result), the soft hashed-provider
  * caveat, and the recall-filter exclusion counts. A daemon that does not serve memory
  * at all (METHOD_NOT_FOUND on the list query) gets an honest "this daemon does not
- * serve memory" state, never a blank panel that reads as "nothing is stored".
+ * serve memory" state, never a blank list that reads as "nothing is stored".
  */
-import { useCallback, useMemo, useRef, useState, type SyntheticEvent } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, Search, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Database, Plus } from 'lucide-react';
 import {
   sdk,
   VIBE_PERSONA_TAG,
-  type MemoryAddInput,
   type MemoryClass,
   type MemoryRecord,
-  type MemorySearchInput,
   type MemoryScope,
-  type MemoryUpdateReviewInput,
+  type MemorySearchInput,
 } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { isMethodUnavailableError } from '../../lib/errors';
-import { usePeek } from '../../components/peek/PeekPanel';
-import { EmptyState } from '../../components/feedback/EmptyState';
-import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { formatError, isMethodUnavailableError } from '../../lib/errors';
+import { EmptyState, ListDetail, RowGroup, SkeletonRows } from '../../components/data-view/DataView';
+import { Button } from '../../components/ui/Button';
+import { Checkbox } from '../../components/ui/Checkbox';
+import { Input } from '../../components/ui/Field';
+import { Select } from '../../components/ui/Select';
 import ErrorBoundary from '../../components/feedback/ErrorBoundary';
+import { ErrorState } from '../../components/feedback/ErrorState';
+import { sentence, useDebouncedValue, useMemoryRecordMutations } from '../library/library-data';
 import { MemoryRecordRow } from './MemoryRecordRow';
-import { MemoryRecordDetail } from './MemoryRecordDetail';
+import { MemoryRecordPane } from './MemoryRecordPane';
 import { MemorySearchHonestyNote } from './MemorySearchHonestyNote';
-import { ReviewQueuePanel } from './ReviewQueuePanel';
-import { ConsolidationReceipts } from './ConsolidationReceipts';
-import { AddMemoryForm } from './AddMemoryForm';
 import { MEMORY_CLASSES, MEMORY_SCOPES, isPersonaRecord, splitTags } from './memory-helpers';
-import { useWebUiPreferences } from '../../lib/ui-preferences';
 import '../../styles/components/memory.css';
 
-const DEFAULT_FILTERS: MemorySearchInput = { limit: 100 };
-const PERSONA_FILTER: MemorySearchInput = { cls: 'constraint', tags: [VIBE_PERSONA_TAG], limit: 100 };
+const LIMIT = 100;
+const PERSONA_FILTER: MemorySearchInput = { cls: 'constraint', tags: [VIBE_PERSONA_TAG], limit: LIMIT };
 
-export function MemoryView() {
-  const queryClient = useQueryClient();
-  const peek = usePeek();
-  const [preferences, setPreference] = useWebUiPreferences();
+export interface MemoryViewProps {
+  /** The Library's shared search text (already settled). */
+  query?: string;
+  /** Opens the Add memory dialog (the empty state's action). */
+  onAddMemory?: () => void;
+}
 
-  const [queryText, setQueryText] = useState('');
+export function MemoryView({ query = '', onAddMemory }: MemoryViewProps) {
   const [semantic, setSemantic] = useState(false);
   const [scopeFilter, setScopeFilter] = useState<MemoryScope | ''>('');
   const [clsFilter, setClsFilter] = useState<MemoryClass | ''>('');
   const [tagsInput, setTagsInput] = useState('');
   const [recall, setRecall] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState<MemorySearchInput>(DEFAULT_FILTERS);
-  // One-tap route from a consolidation proposal to the existing review flow: the
-  // referenced record ids highlight in the review queue below (if present there,
-  // consolidation marks them into it, but a longer queue may push them past the
-  // fetched limit) and the panel scrolls into view. Never filters the queue down,
-  // a jump lands on the row, it does not hide the rest of the queue.
-  const [reviewHighlightIds, setReviewHighlightIds] = useState<ReadonlySet<string>>(new Set());
-  const reviewQueueSectionRef = useRef<HTMLElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const tagsSettled = useDebouncedValue(tagsInput);
 
-  const jumpToReview = useCallback((ids: readonly string[]) => {
-    setReviewHighlightIds(new Set(ids));
-    reviewQueueSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  const { remove, saveReview } = useMemoryRecordMutations();
+
+  const appliedFilters = useMemo<MemorySearchInput>(() => {
+    const tags = splitTags(tagsSettled);
+    return {
+      limit: LIMIT,
+      ...(query.trim() ? { query: query.trim() } : {}),
+      ...(semantic ? { semantic: true } : {}),
+      ...(scopeFilter ? { scope: scopeFilter } : {}),
+      ...(clsFilter ? { cls: clsFilter } : {}),
+      ...(tags.length ? { tags } : {}),
+      ...(recall ? { recall: true } : {}),
+    };
+  }, [query, semantic, scopeFilter, clsFilter, tagsSettled, recall]);
+  const browsing = Object.keys(appliedFilters).length === 1;
 
   const list = useQuery({
     queryKey: [...queryKeys.memoryList, appliedFilters],
     queryFn: () => sdk.operator.memory.search(appliedFilters),
+    placeholderData: keepPreviousData,
   });
-
   const personas = useQuery({
     queryKey: queryKeys.memoryPersonas,
     queryFn: () => sdk.operator.memory.search(PERSONA_FILTER),
-  });
-
-  const reviewQueue = useQuery({
-    queryKey: queryKeys.memoryReviewQueue,
-    queryFn: () => sdk.operator.memory.reviewQueue({ limit: 50 }),
-  });
-
-  const invalidateAll = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['memory'] });
-  }, [queryClient]);
-
-  const addMutation = useMutation({
-    mutationFn: (input: MemoryAddInput) => sdk.operator.memory.add(input),
-    onSuccess: invalidateAll,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (record: MemoryRecord) => sdk.operator.memory.delete(record.id),
-    onSuccess: invalidateAll,
-  });
-
-  const updateReviewMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: MemoryUpdateReviewInput }) => sdk.operator.memory.updateReview(id, input),
-    onSuccess: invalidateAll,
   });
 
   const personaRecords = useMemo(
     () => (personas.data?.records ?? []).filter(isPersonaRecord),
     [personas.data],
   );
+  // Browsing shows personas in their own group (and not twice); with any search or
+  // filter the main list already carries the matching persona records.
+  const showPersonaGroup = browsing && personaRecords.length > 0;
+  const personaIds = useMemo(() => new Set(personaRecords.map((r) => r.id)), [personaRecords]);
+  const records = useMemo(() => {
+    const all = list.data?.records ?? [];
+    return showPersonaGroup ? all.filter((r) => !personaIds.has(r.id)) : all;
+  }, [list.data, showPersonaGroup, personaIds]);
 
-  const openDetail = useCallback((record: MemoryRecord) => {
-    peek.open({ title: record.summary, content: <MemoryRecordDetail record={record} /> });
-  }, [peek]);
+  const selected: MemoryRecord | undefined = useMemo(
+    () => (selectedId === null
+      ? undefined
+      : [...(list.data?.records ?? []), ...personaRecords].find((r) => r.id === selectedId)),
+    [selectedId, list.data, personaRecords],
+  );
 
-  const requestDelete = useCallback((record: MemoryRecord) => {
-    if (!window.confirm(`Delete "${record.summary}" permanently?\n\nThis removes the memory record: it cannot be undone.`)) return;
-    deleteMutation.mutate(record);
-  }, [deleteMutation]);
-
-  function submitSearch(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const tags = splitTags(tagsInput);
-    setAppliedFilters({
-      limit: 100,
-      ...(queryText.trim() ? { query: queryText.trim() } : {}),
-      ...(semantic ? { semantic: true } : {}),
-      ...(scopeFilter ? { scope: scopeFilter } : {}),
-      ...(clsFilter ? { cls: clsFilter } : {}),
-      ...(tags.length ? { tags } : {}),
-      ...(recall ? { recall: true } : {}),
-    });
-  }
-
-  function resetSearch() {
-    setQueryText('');
+  const filtersActive = semantic || recall || scopeFilter !== '' || clsFilter !== '' || tagsInput.trim() !== '';
+  function resetFilters() {
     setSemantic(false);
+    setRecall(false);
     setScopeFilter('');
     setClsFilter('');
     setTagsInput('');
-    setRecall(false);
-    setAppliedFilters(DEFAULT_FILTERS);
   }
 
-  // Honest degrade: this daemon build genuinely does not serve the memory verbs at
-  // all (a real 404 METHOD_NOT_FOUND on the capability, not a transient failure),
-  // replace the whole view rather than showing five separately-broken panels.
-  const memoryUnavailable = list.isError && isMethodUnavailableError(list.error);
-  if (memoryUnavailable) {
+  // Honest degrade: this daemon build genuinely does not serve the memory verbs at all
+  // (a real 404 METHOD_NOT_FOUND on the capability, not a transient failure).
+  if (list.isError && isMethodUnavailableError(list.error)) {
     return (
-      <div className="stack">
-        <EmptyState
-          icon={<Database size={28} />}
-          title="This daemon does not serve memory"
-          description="The connected daemon build has no memory.records.* service. Upgrade it to browse, add, review, or delete memory records here."
-        />
+      <div className="lib-tab">
+        <EmptyState icon={<Database />} title="This daemon does not serve memory">
+          The connected daemon build has no memory.records.* service. Upgrade it to browse, add, review, or delete memory records here.
+        </EmptyState>
       </div>
     );
   }
+
+  const mutationError = remove.error ?? saveReview.error;
+
+  const listPane = (
+    <>
+      <div aria-live="polite" aria-atomic="false">
+        {list.error && (
+          <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Search failed" />
+        )}
+        {list.data && <MemorySearchHonestyNote result={list.data} limit={LIMIT} />}
+      </div>
+      {list.isPending && <SkeletonRows count={6} label="Loading memory" />}
+      {list.data && list.data.records.length === 0 && !showPersonaGroup && (
+        <EmptyState
+          icon={<Database />}
+          title="No memory recorded yet"
+          action={onAddMemory && <Button variant="secondary" icon={<Plus aria-hidden="true" />} onClick={onAddMemory}>Add memory</Button>}
+        >
+          {browsing ? 'Add a memory to start building what GoodVibes remembers.' : 'Nothing matches this search. Try fewer filters.'}
+        </EmptyState>
+      )}
+      {list.data && records.length > 0 && (
+        <RowGroup label="Records" count={records.length}>
+          {records.map((record) => (
+            <MemoryRecordRow
+              key={record.id}
+              record={record}
+              recallFloor={list.data.recallFloor}
+              selected={record.id === selected?.id}
+              onOpen={(r) => setSelectedId(r.id)}
+            />
+          ))}
+        </RowGroup>
+      )}
+      {showPersonaGroup && personas.data && (
+        <RowGroup label="Personas" count={personaRecords.length}>
+          {personaRecords.map((record) => (
+            <MemoryRecordRow
+              key={record.id}
+              record={record}
+              recallFloor={personas.data.recallFloor}
+              selected={record.id === selected?.id}
+              onOpen={(r) => setSelectedId(r.id)}
+            />
+          ))}
+        </RowGroup>
+      )}
+    </>
+  );
 
   return (
     <ErrorBoundary
       fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Memory view failed" />}
     >
-      <div className="stack memory-view-stack">
-        <section className="panel memory-provenance-settings" aria-label="Memory chat-provenance setting">
-          <div className="panel-title">
-            <h2>Chat provenance</h2>
-            <Database size={18} aria-hidden="true" />
-          </div>
-          <label className="check-row preference-row">
-            <input
-              type="checkbox"
-              checked={preferences.memoryProvenanceChipEnabled}
-              onChange={(event) => setPreference('memoryProvenanceChipEnabled', event.target.checked)}
-            />
-            <span>Show which memories a chat turn used</span>
-          </label>
-          <p className="form-note">
-            Off by default. When on, a chat reply that drew on memory shows a small chip you can
-            expand to see exactly which records were used. Nothing renders when this is off, or
-            for a turn that used no memories.
-          </p>
-        </section>
-
-        <form className="memory-search" onSubmit={submitSearch}>
-          <input
-            value={queryText}
-            onChange={(event) => setQueryText(event.target.value)}
-            placeholder="Search memory (leave blank to browse everything)"
-            aria-label="Search memory"
+      <div className="lib-tab">
+        <div className="lib-toolbar" role="group" aria-label="Memory filters">
+          <Select<MemoryScope | ''>
+            value={scopeFilter}
+            aria-label="Filter by scope"
+            onChange={setScopeFilter}
+            options={[{ value: '', label: 'Any scope' }, ...MEMORY_SCOPES.map((s) => ({ value: s, label: sentence(s) }))]}
           />
-          <label className="check-row">
-            <input type="checkbox" checked={semantic} onChange={(event) => setSemantic(event.target.checked)} />
-            Semantic
-          </label>
-          <select value={scopeFilter} onChange={(event) => setScopeFilter(event.target.value as MemoryScope | '')} aria-label="Filter by scope">
-            <option value="">Any scope</option>
-            {MEMORY_SCOPES.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <select value={clsFilter} onChange={(event) => setClsFilter(event.target.value as MemoryClass | '')} aria-label="Filter by type">
-            <option value="">Any type</option>
-            {MEMORY_CLASSES.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-          <input
+          <Select<MemoryClass | ''>
+            value={clsFilter}
+            aria-label="Filter by type"
+            onChange={setClsFilter}
+            options={[{ value: '', label: 'Any type' }, ...MEMORY_CLASSES.map((c) => ({ value: c, label: sentence(c) }))]}
+          />
+          <Input
+            className="lib-toolbar__tags"
             value={tagsInput}
             onChange={(event) => setTagsInput(event.target.value)}
-            placeholder="Tags (comma separated)"
+            placeholder="Tags, comma separated"
             aria-label="Filter by tags"
           />
-          <label className="check-row" title="Apply the recall-injection contract server-side: exclude flagged records outright and drop records below the 60% confidence floor, so this shows what the agent would actually recall.">
-            <input type="checkbox" checked={recall} onChange={(event) => setRecall(event.target.checked)} />
-            What the agent would recall
-          </label>
-          <button className="primary-button" type="submit" disabled={list.isFetching}>
-            <Search size={15} aria-hidden="true" />
-            {list.isFetching ? 'Searching…' : 'Search'}
-          </button>
-          <button className="secondary-button" type="button" onClick={resetSearch}>
-            Reset
-          </button>
-        </form>
-
-        <div aria-live="polite" aria-atomic="false">
-          {list.isPending && (
-            <div className="memory-skeleton-group">
-              <SkeletonBlock width="100%" height={36} />
-              <SkeletonBlock width="100%" height={36} />
-            </div>
-          )}
-          {/* memoryUnavailable already short-circuits to the whole-view degraded state
-              above, so any error reaching here is a different (non-capability) failure. */}
-          {list.error && (
-            <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Search failed" />
-          )}
-          {list.data && <MemorySearchHonestyNote result={list.data} limit={appliedFilters.limit} />}
+          <Checkbox checked={semantic} onChange={setSemantic}>Semantic</Checkbox>
+          <span title="Apply the recall-injection contract server-side: exclude flagged records outright and drop records below the confidence floor, so this shows what the agent would actually recall.">
+            <Checkbox checked={recall} onChange={setRecall}>What the agent would recall</Checkbox>
+          </span>
+          {filtersActive && <Button variant="ghost" size="sm" onClick={resetFilters}>Reset filters</Button>}
         </div>
 
-        <ConsolidationReceipts onReviewIds={jumpToReview} />
+        {mutationError && (
+          <div className="lib-toolbar"><div className="dv-notice dv-notice--bad" role="alert"><span>{formatError(mutationError)}</span></div></div>
+        )}
 
-        <div className="two-column">
-          <AddMemoryForm
-            isPending={addMutation.isPending}
-            error={addMutation.error}
-            onSubmit={(input) => addMutation.mutate(input)}
-          />
-          <section className="panel" aria-label="Review queue" ref={reviewQueueSectionRef}>
-            <div className="panel-title">
-              <h2>Review Queue</h2>
-            </div>
-            <ReviewQueuePanel
-              records={reviewQueue.data?.records ?? []}
-              isPending={reviewQueue.isPending}
-              error={reviewQueue.error}
-              onRetry={() => void reviewQueue.refetch()}
-              savingId={updateReviewMutation.isPending ? updateReviewMutation.variables.id : null}
-              onSave={(id, input) => updateReviewMutation.mutate({ id, input })}
-              highlightIds={reviewHighlightIds}
+        <ListDetail
+          list={listPane}
+          detail={selected && (
+            <MemoryRecordPane
+              key={selected.id}
+              record={selected}
+              onClose={() => setSelectedId(null)}
+              onDelete={(record) => remove.mutate(record)}
+              deleting={remove.isPending && remove.variables.id === selected.id}
+              onSaveReview={(id, input) => saveReview.mutate({ id, input })}
+              saving={saveReview.isPending && saveReview.variables.id === selected.id}
             />
-            {updateReviewMutation.error && (
-              <ErrorState error={updateReviewMutation.error} title="Could not save the review" />
-            )}
-          </section>
-        </div>
-
-        <div className="two-column">
-          <section className="panel memory-record-panel" aria-label="Memory records">
-            <h2>Records</h2>
-            {!list.isPending && !list.error && (
-              list.data.records.length === 0
-                ? (
-                  <EmptyState
-                    icon={<Database size={24} />}
-                    title="No memory recorded yet"
-                    description="Add a memory above, or broaden your search filters."
-                  />
-                )
-                : (
-                  <div className="memory-record-panel__list">
-                    {list.data.records.map((record) => (
-                      <MemoryRecordRow
-                        key={record.id}
-                        record={record}
-                        recallFloor={list.data.recallFloor}
-                        onOpen={openDetail}
-                        onDelete={requestDelete}
-                        deleting={deleteMutation.isPending && deleteMutation.variables.id === record.id}
-                      />
-                    ))}
-                  </div>
-                )
-            )}
-            {deleteMutation.error && (
-              <ErrorState error={deleteMutation.error} title="Delete failed" />
-            )}
-          </section>
-
-          <section className="panel memory-record-panel" aria-label="Personas">
-            <div className="panel-title">
-              <h2>Personas</h2>
-              <Users size={18} aria-hidden="true" />
-            </div>
-            {personas.isPending && (
-              <div className="memory-skeleton-group">
-                <SkeletonBlock width="100%" height={36} />
-              </div>
-            )}
-            {personas.error && !isMethodUnavailableError(personas.error) && (
-              <ErrorState error={personas.error} onRetry={() => void personas.refetch()} title="Personas unavailable" />
-            )}
-            {!personas.isPending && !personas.error && (
-              personaRecords.length === 0
-                ? (
-                  <EmptyState
-                    icon={<Users size={24} />}
-                    title="No persona records"
-                    description="VIBE.md persona/preference lines appear here once imported as memory records."
-                  />
-                )
-                : (
-                  <div className="memory-record-panel__list">
-                    {personaRecords.map((record) => (
-                      <MemoryRecordRow
-                        key={record.id}
-                        record={record}
-                        recallFloor={personas.data.recallFloor}
-                        onOpen={openDetail}
-                        onDelete={requestDelete}
-                        deleting={deleteMutation.isPending && deleteMutation.variables.id === record.id}
-                      />
-                    ))}
-                  </div>
-                )
-            )}
-          </section>
-        </div>
+          )}
+          detailOpen={selected !== undefined}
+          onCloseDetail={() => setSelectedId(null)}
+          listLabel="Memory records"
+          detailLabel="Memory record"
+          backLabel="All memory"
+        />
       </div>
     </ErrorBoundary>
   );

@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { openSettings } from './support/app';
+import { openRow, openSettings } from './support/app';
 import { STEERABLE_SESSION } from './support/seed';
 
 const DIR = 'e2e/.artifacts/screenshots';
@@ -47,8 +47,8 @@ test('provider status in plain words', async ({ page }, testInfo) => {
 
 test('knowledge map', async ({ page }, testInfo) => {
   await installMockDaemon(page);
-  await page.goto('/?view=knowledge');
-  await expect(page.locator('.view-frame')).toBeVisible();
+  await page.goto('/?view=library&tab=knowledge');
+  await expect(page.locator('.dv-page')).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'knowledge-map'), fullPage: true });
 });
 
@@ -63,18 +63,19 @@ test('chat degraded states (mocked stream drop)', async ({ page }, testInfo) => 
 
 test('steer composer reflects a paused stream', async ({ page }, testInfo) => {
   await installMockDaemon(page, { dropStreams: true });
-  await page.goto('/?view=sessions');
-  await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
-  await expect(page.locator('.session-detail__transcript')).toBeVisible();
+  await page.goto('/?view=work&tab=sessions');
+  await openRow(page, STEERABLE_SESSION.title);
+  await expect(page.getByRole('list', { name: 'Transcript' })).toBeVisible();
   await expect(page.locator('.steer-composer__stream-note')).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'steer-composer-paused'), fullPage: true });
 });
 
 test('delete-means-delete affordance', async ({ page }, testInfo) => {
   await installMockDaemon(page, { deleteAvailable: true });
-  await page.goto('/?view=sessions');
-  await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
-  await expect(page.locator('.session-detail__actions')).toBeVisible();
+  await page.goto('/?view=work&tab=sessions');
+  const detail = await openRow(page, STEERABLE_SESSION.title);
+  await detail.getByRole('button', { name: 'More session actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Delete permanently' })).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'delete-affordance'), fullPage: true });
 });
 
@@ -82,7 +83,7 @@ for (const theme of ['dark', 'light'] as const) {
   test(`white-band surfaces: ${theme} theme`, async ({ page }, testInfo) => {
     await seedTheme(page, theme);
     await installMockDaemon(page);
-    await page.goto('/?view=sessions');
+    await page.goto('/?view=work');
     await expect(page.locator('.shell-header')).toBeVisible();
     // Prove the header surface is token-driven (no white band in dark theme).
     const topbarBg = await page.locator('.shell-main').evaluate((el) => getComputedStyle(el.closest('.app-shell')!).backgroundColor);
@@ -102,34 +103,38 @@ function luminanceOf(rgb: string): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-// F2 (hero legibility): the session-detail header is a themed surface card, so its
-// title never renders dark-on-dark in light theme. Asserted by computed contrast, not
-// only by eye, the header background and its title must land on opposite luminance
-// sides in BOTH themes.
+// F2 (hero legibility): the session detail's title never renders dark-on-dark or
+// light-on-light. The detail pane sits on the page (no card), so the title is
+// measured against the first opaque background behind it, in both themes.
 for (const theme of ['dark', 'light'] as const) {
-  test(`session-detail hero title stays legible, ${theme} theme`, async ({ page }, testInfo) => {
+  test(`session detail title stays legible, ${theme} theme`, async ({ page }, testInfo) => {
     await seedTheme(page, theme);
     await installMockDaemon(page);
-    await page.goto('/?view=sessions');
-    await page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) }).click();
-    const header = page.locator('.session-detail__header');
-    await expect(header).toBeVisible();
+    await page.goto('/?view=work&tab=sessions');
+    const detail = await openRow(page, STEERABLE_SESSION.title);
+    const title = detail.locator('.dv-pane__title');
+    await expect(title).toBeVisible();
 
-    const headerBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const titleColor = await header.locator('h2').evaluate((el) => getComputedStyle(el).color);
-    const bgLum = luminanceOf(headerBg);
+    const bg = await title.evaluate((el) => {
+      let node: Element | null = el;
+      while (node) {
+        const color = getComputedStyle(node).backgroundColor;
+        if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') return color;
+        node = node.parentElement;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    });
+    const titleColor = await title.evaluate((el) => getComputedStyle(el).color);
+    const bgLum = luminanceOf(bg);
     const fgLum = luminanceOf(titleColor);
 
-    // The card must be an opaque themed surface (not transparent → not the dark canvas).
-    expect(headerBg).not.toBe('rgba(0, 0, 0, 0)');
-    // Real contrast: title and its card sit on opposite luminance halves.
     expect(Math.abs(bgLum - fgLum)).toBeGreaterThan(80);
     if (theme === 'light') {
-      expect(bgLum).toBeGreaterThan(200); // near-white card
-      expect(fgLum).toBeLessThan(120); // dark title
+      expect(bgLum).toBeGreaterThan(200);
+      expect(fgLum).toBeLessThan(120);
     } else {
-      expect(bgLum).toBeLessThan(120); // dark card
-      expect(fgLum).toBeGreaterThan(200); // light title
+      expect(bgLum).toBeLessThan(120);
+      expect(fgLum).toBeGreaterThan(200);
     }
 
     await page.screenshot({ path: shot(testInfo, `session-hero-${theme}`), fullPage: true });

@@ -1,5 +1,5 @@
 /**
- * Fleet attention + live subscription, proves the consumer-side attention work
+ * Work: fleet attention + live subscription, proves the consumer-side attention work
  * against the hermetic mock daemon:
  *
  *   - a node the daemon flagged as needsAttention shows a distinct badge, floats to
@@ -24,12 +24,12 @@ import {
   FLEET_PICK_NODE,
   FLEET_WATCHER_NODE,
 } from './support/seed';
-import { openNavigation } from './support/app';
+import { detailPane, listRow, openNavigation } from './support/app';
 
 test('the Work nav entry shows a needs-you count for every blocked node, any reason', async ({ page }) => {
   await installMockDaemon(page);
   // Start on another view, the badge is derived app-wide, not only on the Fleet view.
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work&tab=sessions');
   await expect(page.locator('.app-shell')).toBeVisible();
   // Three seeded nodes need attention (FLEET_BLOCKED_NODE 'input', FLEET_PICK_NODE
   // 'pick', FLEET_CONFLICT_NODE 'conflict') → count of 3, named in the Work entry's
@@ -44,43 +44,44 @@ test('the Work nav entry shows a needs-you count for every blocked node, any rea
   await expect(page.locator('.shell-nav-item__count').first()).toHaveText('3');
 });
 
-test('the blocked node shows a distinct attention badge and floats to the top of the tree', async ({ page }) => {
+test('the blocked node is listed under Needs you with its reason, ahead of running work', async ({ page }) => {
   await installMockDaemon(page);
   await page.goto('/?view=fleet');
   await expect(page.locator('.app-shell')).toBeVisible();
+  // The old ?view=fleet link lands on Work, All.
+  await expect(page).toHaveURL(/view=work&tab=all/);
 
-  const rows = page.locator('.fleet-row');
-  await expect(rows.first()).toContainText(FLEET_BLOCKED_NODE.label);
-  // The attention badge names the reason.
-  const attention = page.locator('.fleet-row .badge.attention').first();
-  await expect(attention).toHaveText('Needs input');
-  await expect(attention).toHaveAttribute('data-attention-reason', 'input');
-  // The other seeded nodes still render, nothing is dropped.
-  await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
-  await expect(page.locator('.fleet-row', { hasText: FLEET_WATCHER_NODE.label })).toBeVisible();
+  const needs = page.getByRole('region', { name: 'Needs you' });
+  const blocked = needs.locator('.gv-row', { hasText: FLEET_BLOCKED_NODE.label });
+  await expect(blocked).toBeVisible();
+  // The status word names the reason (status is never color alone).
+  const reason = blocked.locator('[data-attention-reason="input"]');
+  await expect(reason).toHaveText('Needs input');
+  // The other seeded nodes still render, under Running; nothing is dropped.
+  const running = page.getByRole('region', { name: 'Running' });
+  await expect(running.locator('.gv-row', { hasText: FLEET_AGENT_NODE.label }).first()).toBeVisible();
+  await expect(running.locator('.gv-row', { hasText: FLEET_WATCHER_NODE.label })).toBeVisible();
 });
 
-test('a pick-blocked workstream and a conflict-blocked item each show their own reason-specific badge', async ({ page }) => {
+test('a pick-blocked workstream and a conflict-blocked item each show their own reason', async ({ page }) => {
   await installMockDaemon(page);
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
 
-  const pickRow = page.locator('.fleet-row', { hasText: FLEET_PICK_NODE.label });
-  await expect(pickRow.locator('.badge.attention')).toHaveText('Needs your pick');
-  await expect(pickRow.locator('.badge.attention')).toHaveAttribute('data-attention-reason', 'pick');
+  const pickRow = listRow(page, FLEET_PICK_NODE.label);
+  await expect(pickRow.locator('[data-attention-reason="pick"]')).toHaveText('Needs your pick');
 
-  const conflictRow = page.locator('.fleet-row', { hasText: FLEET_CONFLICT_NODE.label });
-  await expect(conflictRow.locator('.badge.attention')).toHaveText('Merge conflict waiting on you');
-  await expect(conflictRow.locator('.badge.attention')).toHaveAttribute('data-attention-reason', 'conflict');
+  const conflictRow = listRow(page, FLEET_CONFLICT_NODE.label);
+  await expect(conflictRow.locator('[data-attention-reason="conflict"]')).toHaveText('Merge conflict');
 });
 
-test('a needs-input deep link opens the Fleet view focused on the blocked node', async ({ page }) => {
+test('a needs-input deep link opens Work focused on the blocked node', async ({ page }) => {
   await installMockDaemon(page);
   // The shape a push notification tap produces (notification-link.ts).
   await page.goto('/?view=fleet#fleet-node=agent-blocked-7&fleet-session=session-blocked');
   await expect(page.locator('.app-shell')).toBeVisible();
-  // The node's detail pane is focused (not the default picker).
-  const detail = page.locator('.fleet-detail');
+  // The node's detail is open (not the first approval, not the list).
+  const detail = detailPane(page);
   await expect(detail).toBeVisible();
   await expect(detail).toContainText(FLEET_BLOCKED_NODE.label);
   await expect(detail).toContainText('session-blocked');
@@ -88,27 +89,23 @@ test('a needs-input deep link opens the Fleet view focused on the blocked node',
   await expect.poll(() => page.evaluate(() => window.location.hash)).toBe('');
 });
 
-test('a fleet event over the subscription adds the announced node to the tree', async ({ page }) => {
+test('a fleet event over the subscription adds the announced node to the list', async ({ page }) => {
   await installMockDaemon(page, {
     fleetEvents: [
       { type: 'FLEET_NODE_STARTED', nodeId: FLEET_EVENT_NODE.id, kind: 'agent', label: FLEET_EVENT_NODE.label, state: 'thinking' },
     ],
   });
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
-  // The baseline seeded node is there immediately.
-  await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
-  // The event-announced node is NOT in the baseline snapshot, it appears only
-  // because the fleet frame invalidated the snapshot and the refetch surfaced it.
-  await expect(page.locator('.fleet-row', { hasText: FLEET_EVENT_NODE.label })).toBeVisible();
+  await expect(listRow(page, FLEET_AGENT_NODE.label)).toBeVisible();
+  // Not in the baseline snapshot: it appears because the fleet frame invalidated the snapshot.
+  await expect(listRow(page, FLEET_EVENT_NODE.label)).toBeVisible();
 });
 
-test('the tree still renders from the poll fallback when the subscription is dropped', async ({ page }) => {
+test('the list still renders from the poll fallback when the subscription is dropped', async ({ page }) => {
   await installMockDaemon(page, { dropStreams: true });
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
-  // No live subscription (streams close immediately → paused), but the poll-backed
-  // snapshot query still populates the tree honestly.
-  await expect(page.locator('.fleet-row', { hasText: FLEET_AGENT_NODE.label })).toBeVisible();
-  await expect(page.locator('.fleet-row', { hasText: FLEET_BLOCKED_NODE.label })).toBeVisible();
+  await expect(listRow(page, FLEET_AGENT_NODE.label)).toBeVisible();
+  await expect(listRow(page, FLEET_BLOCKED_NODE.label)).toBeVisible();
 });

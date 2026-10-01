@@ -1,171 +1,178 @@
-/**
- * calendar.css — CalendarView styles.
- * Uses token names from src/styles/tokens.css exclusively (read-only —
- * owned by the presentation-bridge brief). DO NOT edit tokens.css or
- * styles.css from here.
+/*
+ * Calendar tab of Personal: the agenda rows come from the data-view template,
+ * so this file holds only the month grid, the month navigation and the event
+ * detail. Tokens only; hairlines, no fills behind text except the today marker.
  */
 
-/* ============================================================
-   Range controls — from/to/calendar filter row
-   ============================================================ */
-.calendar-range-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.calendar-range-controls label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--text-2);
-}
-
-.calendar-status-region {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* ============================================================
-   Event list
-   ============================================================ */
-.calendar-event-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-height: clamp(240px, 40vh, 420px);
-  overflow-y: auto;
-}
-
-.calendar-event-row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-
-.calendar-event-row:hover {
-  border-color: var(--accent);
-}
-
-.calendar-event-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.calendar-event-row__time {
-  flex: 0 0 auto;
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  white-space: nowrap;
-}
-
-.calendar-event-row__title {
-  flex: 1 1 auto;
-  /* Without this, a flex item's default min-width:auto — combined with
-     white-space:nowrap — means its minimum size is its FULL unwrapped text
-     width, so a long event title can never actually shrink to the ellipsis
-     and instead forces the row (and the page) wider than the viewport. */
+.calendar-filter-calendar {
+  width: 168px;
   min-width: 0;
+}
+
+.calendar-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-month-nav__label {
+  min-width: 132px;
+  color: var(--text);
   font-weight: var(--weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-.calendar-event-row__location {
-  flex: 0 0 auto;
-  font-size: var(--text-xs);
-  color: var(--text-3);
-}
-
-/* ============================================================
-   ICS export / import
-   ============================================================ */
-.calendar-ics-export {
+.calendar-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  gap: 24px;
+  min-width: 0;
 }
 
-.calendar-ics-import textarea {
-  font-family: var(--font-mono, monospace);
-  font-size: var(--text-xs);
-}
-
-.calendar-export-success,
-.calendar-create-success {
-  font-size: var(--text-sm);
-  color: var(--ok);
+.calendar-detail__description {
   margin: 0;
-}
-
-.calendar-import-result {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.calendar-import-result__errors {
-  margin: 0;
-  padding-left: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--bad);
-}
-
-/* ============================================================
-   Peek detail body
-   ============================================================ */
-.calendar-peek-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-}
-
-.calendar-peek-body__range {
   color: var(--text-2);
-  font-size: var(--text-sm);
-}
-
-.calendar-peek-body__description {
+  line-height: 22px;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.calendar-peek-body__uid {
-  font-size: var(--text-xs);
+.calendar-detail__uid {
+  margin: 0;
+  color: var(--text-3);
+  font: var(--weight-regular) var(--text-meta) / 18px var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.calendar-drawer-body {
+  padding: 4px 24px 24px;
+}
+
+.calendar-notice__errors {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.calendar-ics-input {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* ── Month grid ────────────────────────────────────────────── */
+.cal-month {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.cal-month__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal-month__weekday {
+  padding: 8px 8px;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.cal-month__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 6px 6px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.cal-month__cell--outside {
   color: var(--text-3);
 }
 
-.calendar-peek-loading {
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.cal-month__cell--outside .cal-month__day,
+.cal-month__cell--outside .cal-month__event {
+  color: var(--text-3);
 }
 
-/* Phone: let the event list expand freely, and stack range controls. */
-@media (max-width: 680px) {
-  .calendar-event-list {
-    max-height: none;
+.cal-month__day {
+  align-self: flex-start;
+  min-width: 22px;
+  padding: 0 4px;
+  color: var(--text-2);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 22px;
+  text-align: center;
+}
+
+.cal-month__day--today {
+  color: var(--text);
+  background: var(--surface-2);
+  font-weight: var(--weight-semibold);
+}
+
+.cal-month__event {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px;
+  overflow: hidden;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  font: inherit;
+  font-size: var(--text-meta);
+  line-height: 16px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cal-month__event:hover {
+  background: var(--surface);
+}
+
+.cal-month__event--selected {
+  background: var(--surface-2);
+}
+
+@media (max-width: 899px) {
+  .calendar-filter-calendar {
+    flex: 1 1 140px;
+    width: auto;
   }
-  .calendar-range-controls {
-    flex-direction: column;
-    align-items: stretch;
+
+  .cal-month__weekday {
+    padding: 6px 2px;
+    text-align: center;
+  }
+
+  .cal-month__cell {
+    min-height: 64px;
+    padding: 4px 2px 6px;
+  }
+
+  .cal-month__day {
+    align-self: center;
+  }
+
+  .cal-month__event {
+    padding: 1px 2px;
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  .calendar-drawer-body {
+    padding: 4px 16px 24px;
   }
 }

@@ -14,16 +14,17 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 const VIEWS: { view: string; label: string }[] = [
   { view: 'chat', label: 'Chat' },
-  { view: 'sessions', label: 'Sessions' },
-  { view: 'fleet', label: 'Fleet' },
-  { view: 'checkpoints', label: 'Checkpoints' },
-  { view: 'approvals-tasks', label: 'Approvals' },
-  { view: 'workstream', label: 'Workstream' },
-  { view: 'ci-watches', label: 'CI' },
+  { view: 'work', label: 'Work' },
+  { view: 'work&tab=sessions', label: 'Work sessions' },
+  { view: 'work&tab=processes', label: 'Work processes' },
+  { view: 'checkpoints', label: 'Checkpoints (old link)' },
   { view: 'checkin', label: 'Check-in' },
-  { view: 'knowledge', label: 'Knowledge' },
-  { view: 'memory', label: 'Memory' },
-  { view: 'calendar', label: 'Calendar' },
+  { view: 'library&tab=knowledge', label: 'Knowledge' },
+  { view: 'library&tab=memory', label: 'Memory' },
+  { view: 'library&tab=review', label: 'Review' },
+  { view: 'personal&tab=calendar', label: 'Calendar' },
+  { view: 'personal&tab=mail', label: 'Mail' },
+  { view: 'personal&tab=occasions', label: 'Occasions' },
 ];
 
 for (const { view, label } of VIEWS) {
@@ -42,11 +43,14 @@ for (const { view, label } of VIEWS) {
   });
 }
 
-test('Sessions: the list is usable; refresh is tappable, rows readable', async ({ page }) => {
-  await page.goto('/?view=sessions');
-  await expect(page.locator('.sessions-view')).toBeVisible();
-  await expectTappable(page, '.sessions-toolbar .icon-button', 'sessions refresh');
-  await expect(page.locator('.sessions-row').first()).toBeVisible();
+test('Work: the list is usable; refresh is tappable, rows readable and 56 tall', async ({ page }) => {
+  await page.goto('/?view=work&tab=sessions');
+  await expect(page.locator('.dv-page')).toBeVisible();
+  await expectTappable(page, '.dv-filters .gv-icon-button', 'work refresh');
+  const row = page.locator('.dv-list .gv-row').first();
+  await expect(row).toBeVisible();
+  const box = await row.boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(55.5);
   await expectNoHorizontalScroll(page);
 });
 
@@ -72,7 +76,7 @@ test('Settings: every section renders full-screen on a phone with no horizontal 
 });
 
 test('drawer opened on a phone does not trap; the scrim closes it from any view', async ({ page }) => {
-  await page.goto('/?view=fleet');
+  await page.goto('/?view=work');
   await expect(page.locator('.app-shell')).toBeVisible();
   // No permanent rail on a phone: the workspace has the full width.
   await expect(page.locator('.shell-sidebar')).toHaveCount(0);
@@ -85,12 +89,12 @@ test('drawer opened on a phone does not trap; the scrim closes it from any view'
 });
 
 test('a destination picked in the drawer navigates and closes the drawer', async ({ page }) => {
-  await page.goto('/?view=sessions');
+  await page.goto('/?view=work');
   await openNavigation(page);
   await page.getByRole('dialog', { name: 'Navigation' }).getByRole('button', { name: 'Library' }).click();
   await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeHidden();
-  await expect(page).toHaveURL(/view=knowledge/);
-  // The temporary section switch keeps every Library view one tap away.
+  await expect(page).toHaveURL(/view=library/);
+  // Library's own tabs keep Memory, Knowledge and Review one tap away.
   await expect(page.getByRole('radiogroup', { name: 'Library sections' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

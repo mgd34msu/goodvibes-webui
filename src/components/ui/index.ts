@@ -9,6 +9,8 @@ export { Field, Input, Textarea, type FieldProps } from './Field';
 export { Select, type SelectProps, type SelectOption } from './Select';
 export { Segmented, type SegmentedProps, type SegmentedOption } from './Segmented';
 export { Toggle, type ToggleProps } from './Toggle';
+export { Checkbox, type CheckboxProps } from './Checkbox';
+export { DateField, type DateFieldProps } from './DateField';
 export { Chip, type ChipProps } from './Chip';
 export { StatusDot, type StatusDotProps, type StatusTone } from './StatusDot';
 export { Row, RowList, type RowProps } from './Row';

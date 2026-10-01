@@ -1,45 +1,63 @@
 /**
- * CalendarView, events (list/get/create) + ICS import/export over the daemon's
- * CalDAV-backed `calendar.*` verbs. Calendar is a daemon/agent feature with no TUI
- * command surface (the parity audit's ground truth), the web UI is its first
+ * Calendar, the Calendar tab of Personal. Events (list/get/create) and ICS
+ * import/export over the daemon's CalDAV-backed `calendar.*` verbs. Calendar is
+ * a daemon/agent feature with no TUI command surface, the web UI is its first
  * screen.
+ *
+ * Layout: an agenda grouped by day (list) with the selected event's detail in
+ * the right pane, or a month grid with the detail in a drawer. The Segmented
+ * "Agenda / Month" in the filter row switches between them. "New event" is the
+ * tab's one primary action; .ics export and import live in the "More" menu.
  *
  * HONESTY CONTRACT (three refusal shapes, each rendered distinctly, never folded
  * into a generic "error"):
  *  1. UNCONFIGURED, the daemon's 412 CALENDAR_NOT_CONFIGURED / CALENDAR_CREDENTIALS_MISSING.
- *     The operator has not brought their own CalDAV endpoint. This mirrors the
- *     provider/credential "unconfigured" honesty ruling (presentation-bridge.ts:
- *     neutral/info, not a fault), a pointer to the config keys
- *     (`surfaces.calendar.caldavUrl` / `caldavUser` / `caldavPassword`), the calendar
- *     surface's own bring-your-own-endpoint setup, is shown instead of a scary error.
+ *     The operator has not brought their own CalDAV endpoint. Neutral, not a
+ *     fault: a pointer to the config keys (`surfaces.calendar.caldavUrl` /
+ *     `caldavUser` / `caldavPassword`) and one action that opens settings.
  *  2. NOT AVAILABLE, a 404 "unknown gateway method" or 501 "not invokable" refusal:
- *     this daemon build has no live calendar handler wired at all (the SDK ships the
- *     `calendar.*` contract `invokable: false` by construction; only a daemon that has
- *     registered a real CalDAV handler answers normally). Distinct from "unconfigured":
- *     here the CAPABILITY itself is missing, not just its configuration.
+ *     this daemon build has no live calendar handler wired at all. Distinct from
+ *     "unconfigured": the CAPABILITY itself is missing, not just its configuration.
  *  3. GENUINE ERROR, anything else (network failure, a malformed range, a CalDAV
- *     auth failure against a configured endpoint), ErrorState with retry.
+ *     auth failure against a configured endpoint), an empty state with retry.
  * Never fabricate a fourth "it's just empty" reading for any of the three above.
  */
-import { SyntheticEvent, useMemo, useState } from 'react';
+import { SyntheticEvent, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CalendarPlus, Download, Upload } from 'lucide-react';
+import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, MoreHorizontal, Plus, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { CalendarEventCreateInput, CalendarIcsImportInput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import {
+  formatError,
   isCalendarAuthFailedError,
   isCalendarUnconfiguredError,
   isMethodNotInvokableError,
   isMethodUnavailableError,
 } from '../../lib/errors';
-import { EmptyState } from '../../components/feedback/EmptyState';
-import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
 import ErrorBoundary from '../../components/feedback/ErrorBoundary';
-import { usePeek } from '../../components/peek/PeekPanel';
-import { CalendarEventPeekBody } from './CalendarEventPeek';
+import { DetailPane, EmptyState, RowGroup, SkeletonRows, ListDetail } from '../../components/data-view/DataView';
+import {
+  Button,
+  Dialog,
+  Drawer,
+  Field,
+  IconButton,
+  Input,
+  Menu,
+  MenuItem,
+  Row,
+  Segmented,
+  Textarea,
+} from '../../components/ui';
+import { DateField, parseIsoDate, toIsoDate, monthGrid } from '../../components/ui/DateField';
+import { PersonalNotice, PersonalPage } from '../personal/PersonalPage';
+import { openSettingsSection } from '../personal/openSettings';
+import { CalendarEventBody, useCalendarEventDetail } from './CalendarEventPeek';
+import { CalendarMonth, eventDayKey } from './CalendarMonth';
 import '../../styles/components/calendar.css';
+
+type CalendarLayout = 'agenda' | 'month';
 
 function isoDateOffset(days: number): string {
   const date = new Date();
@@ -70,38 +88,77 @@ function downloadIcs(icsContent: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+interface CalendarNote {
+  title: string;
+  description: string;
+  /** Settings section that fixes it, when settings can. */
+  settings?: string;
+}
+
 /** Classify a calendar-surface error into one of the three honest outcomes. Returns
- * null for a genuine error (the caller falls back to a plain ErrorState). */
-function unconfiguredNote(error: unknown): { title: string; description: string } | null {
+ * null for a genuine error (the caller falls back to a plain retry state). */
+function unconfiguredNote(error: unknown): CalendarNote | null {
   if (isCalendarUnconfiguredError(error)) {
     return {
       title: 'Calendar isn’t configured',
       description: 'Bring your own CalDAV endpoint: set surfaces.calendar.caldavUrl, surfaces.calendar.caldavUser, and surfaces.calendar.caldavPassword in daemon config, then reload.',
+      settings: 'all',
     };
   }
   if (isMethodUnavailableError(error) || isMethodNotInvokableError(error)) {
     return {
       title: 'Calendar isn’t available on this daemon yet',
       description: 'This daemon build has no calendar handler wired up. Upgrade the daemon, or use a build that registers the CalDAV surface.',
+      settings: 'about',
     };
   }
   if (isCalendarAuthFailedError(error)) {
     return {
       title: 'CalDAV sign-in failed',
       description: 'The configured CalDAV endpoint rejected the stored credentials. Check surfaces.calendar.caldavUser/caldavPassword.',
+      settings: 'all',
     };
   }
   return null;
 }
 
-export function CalendarView() {
-  const queryClient = useQueryClient();
-  const peek = usePeek();
+function dayLabel(key: string): string {
+  const date = parseIsoDate(key);
+  if (!date) return key;
+  const today = new Date();
+  const todayKey = toIsoDate(today);
+  const tomorrowKey = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1));
+  const text = date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  if (key === todayKey) return `Today, ${text}`;
+  if (key === tomorrowKey) return `Tomorrow, ${text}`;
+  return text;
+}
 
+function timeLabel(start: string): string {
+  const parsed = new Date(start);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+export interface CalendarViewProps {
+  /** The Personal tab switcher; shown first in the filter row. */
+  tabs?: ReactNode;
+}
+
+export function CalendarView({ tabs }: CalendarViewProps = {}) {
+  const queryClient = useQueryClient();
+
+  const [layout, setLayout] = useState<CalendarLayout>('agenda');
   const [from, setFrom] = useState(() => isoDateOffset(0));
   const [to, setTo] = useState(() => isoDateOffset(14));
+  const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [calendarId, setCalendarId] = useState('');
+  const [selectedId, setSelectedId] = useState('');
 
+  const [newOpen, setNewOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -109,20 +166,29 @@ export function CalendarView() {
   const [description, setDescription] = useState('');
   const [attendees, setAttendees] = useState('');
 
+  const [importOpen, setImportOpen] = useState(false);
   const [icsContent, setIcsContent] = useState('');
 
-  const rangeFrom = toRangeStartIso(from);
-  const rangeTo = toRangeEndIso(to);
+  const [notice, setNotice] = useState<{ tone?: 'bad'; body: ReactNode } | null>(null);
+
+  const monthDays = useMemo(() => monthGrid(month), [month]);
+  const rangeFromDate = layout === 'month' ? toIsoDate(monthDays[0]) : from;
+  const rangeToDate = layout === 'month' ? toIsoDate(monthDays[monthDays.length - 1]) : to;
+  const rangeFrom = toRangeStartIso(rangeFromDate);
+  const rangeTo = toRangeEndIso(rangeToDate);
+  const calendarFilter = calendarId.trim();
 
   const events = useQuery({
     queryKey: queryKeys.calendarEvents(rangeFrom, rangeTo, calendarId),
     queryFn: () => sdk.operator.calendar.events.list({
       from: rangeFrom || undefined,
       to: rangeTo || undefined,
-      ...(calendarId.trim() ? { calendarId: calendarId.trim() } : {}),
-      limit: 100,
+      ...(calendarFilter ? { calendarId: calendarFilter } : {}),
+      limit: layout === 'month' ? 250 : 100,
     }),
   });
+
+  const detail = useCalendarEventDetail(selectedId, calendarFilter || undefined);
 
   const create = useMutation({
     mutationFn: () => {
@@ -134,17 +200,19 @@ export function CalendarView() {
         ...(location.trim() ? { location: location.trim() } : {}),
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(splitAttendees(attendees) ? { attendees: splitAttendees(attendees) } : {}),
-        ...(calendarId.trim() ? { calendarId: calendarId.trim() } : {}),
+        ...(calendarFilter ? { calendarId: calendarFilter } : {}),
       };
       return sdk.operator.calendar.events.create(input);
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setTitle('');
       setStart('');
       setEnd('');
       setLocation('');
       setDescription('');
       setAttendees('');
+      setNewOpen(false);
+      setNotice({ body: `Event created (id ${result.eventId}).` });
       await queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
     },
   });
@@ -153,9 +221,16 @@ export function CalendarView() {
     mutationFn: () => sdk.operator.calendar.ics.export({
       from: rangeFrom || undefined,
       to: rangeTo || undefined,
-      ...(calendarId.trim() ? { calendarId: calendarId.trim() } : {}),
+      ...(calendarFilter ? { calendarId: calendarFilter } : {}),
     }),
-    onSuccess: (result) => downloadIcs(result.icsContent, `calendar-export-${from}-to-${to}.ics`),
+    onSuccess: (result) => {
+      downloadIcs(result.icsContent, `calendar-export-${rangeFromDate}-to-${rangeToDate}.ics`);
+      setNotice({ body: `Exported ${String(result.eventCount)} event(s).` });
+    },
+    onError: (error) => {
+      const note = unconfiguredNote(error);
+      setNotice({ tone: 'bad', body: note ? `${note.title}. ${note.description}` : `Export failed: ${formatError(error)}` });
+    },
   });
 
   const importIcs = useMutation({
@@ -163,26 +238,45 @@ export function CalendarView() {
       const input: CalendarIcsImportInput = {
         icsContent,
         confirm: true,
-        ...(calendarId.trim() ? { calendarId: calendarId.trim() } : {}),
+        ...(calendarFilter ? { calendarId: calendarFilter } : {}),
       };
       return sdk.operator.calendar.ics.import(input);
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setIcsContent('');
+      setImportOpen(false);
+      setNotice({
+        body: (
+          <div>
+            <p>Imported {result.imported} event(s).</p>
+            {result.errors.length > 0 && (
+              <ul className="calendar-notice__errors">
+                {result.errors.map((message, index) => <li key={index}>{message}</li>)}
+              </ul>
+            )}
+          </div>
+        ),
+      });
       await queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
     },
   });
 
-  const items = events.data?.events ?? [];
-  const sortedItems = useMemo(() => [...items].sort((a, b) => a.start.localeCompare(b.start)), [items]);
+  const items = events.data?.events;
+  const sortedItems = useMemo(() => [...(items ?? [])].sort((a, b) => a.start.localeCompare(b.start)), [items]);
+  const groups = useMemo(() => {
+    const map = new Map<string, typeof sortedItems>();
+    for (const item of sortedItems) {
+      const key = eventDayKey(item.start);
+      const list = map.get(key);
+      if (list) list.push(item);
+      else map.set(key, [item]);
+    }
+    return [...map.entries()];
+  }, [sortedItems]);
   const honestNote = events.error ? unconfiguredNote(events.error) : null;
-
-  const openEventPeek = (eventId: string) => {
-    peek.open({
-      title: 'Event Detail',
-      content: <CalendarEventPeekBody eventId={eventId} calendarId={calendarId.trim() || undefined} />,
-    });
-  };
+  const createNote = create.error ? unconfiguredNote(create.error) : null;
+  const importNote = importIcs.error ? unconfiguredNote(importIcs.error) : null;
+  const working = !events.isPending && !events.error;
 
   function submitCreate(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -194,177 +288,265 @@ export function CalendarView() {
     if (icsContent.trim()) importIcs.mutate();
   }
 
-  const createNote = create.error ? unconfiguredNote(create.error) : null;
-  const importNote = importIcs.error ? unconfiguredNote(importIcs.error) : null;
-  const exportNote = exportIcs.error ? unconfiguredNote(exportIcs.error) : null;
+  function changeLayout(next: CalendarLayout) {
+    setLayout(next);
+    setSelectedId('');
+  }
+
+  function shiftMonth(delta: number) {
+    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+    setSelectedId('');
+  }
+
+  const monthLabel = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const filters = (
+    <>
+      <Segmented<CalendarLayout>
+        label="Calendar layout"
+        value={layout}
+        options={[{ value: 'agenda', label: 'Agenda' }, { value: 'month', label: 'Month' }]}
+        onChange={changeLayout}
+      />
+      {layout === 'agenda' ? (
+        <>
+          <DateField value={from} onChange={setFrom} aria-label="Range start" />
+          <DateField value={to} onChange={setTo} aria-label="Range end" />
+        </>
+      ) : (
+        <div className="calendar-month-nav">
+          <IconButton label="Previous month" icon={<ChevronLeft />} onClick={() => shiftMonth(-1)} />
+          <span className="calendar-month-nav__label" aria-live="polite">{monthLabel}</span>
+          <IconButton label="Next month" icon={<ChevronRight />} onClick={() => shiftMonth(1)} />
+          <Button variant="ghost" size="sm" onClick={() => { setMonth(startOfMonth(new Date())); setSelectedId(''); }}>
+            Today
+          </Button>
+        </div>
+      )}
+      <Input
+        className="calendar-filter-calendar"
+        value={calendarId}
+        onChange={(event) => setCalendarId(event.target.value)}
+        placeholder="Default calendar"
+        aria-label="Logical calendar id"
+      />
+      <div className="dv-filters__end">
+        <IconButton label="Refresh events" icon={<RefreshCw />} onClick={() => void events.refetch()} />
+        <Menu
+          label="More calendar actions"
+          placement="bottom-end"
+          trigger={(props) => <IconButton label="More calendar actions" icon={<MoreHorizontal />} {...props} />}
+        >
+          <MenuItem onSelect={() => exportIcs.mutate()} disabled={exportIcs.isPending || !working}>Export range as .ics</MenuItem>
+          <MenuItem onSelect={() => setImportOpen(true)} disabled={Boolean(honestNote)}>Import .ics file content</MenuItem>
+        </Menu>
+      </div>
+    </>
+  );
+
+  const action = honestNote
+    ? undefined
+    : <Button variant="primary" icon={<Plus />} onClick={() => setNewOpen(true)}>New event</Button>;
+
+  const noticeNode = notice ? <PersonalNotice tone={notice.tone}>{notice.body}</PersonalNotice> : null;
+
+  let content: ReactNode;
+  if (events.isPending) {
+    content = <SkeletonRows count={6} label="Loading events" />;
+  } else if (honestNote) {
+    content = (
+      <EmptyState
+        icon={<CalendarDays />}
+        title={honestNote.title}
+        role="status"
+        action={honestNote.settings
+          ? <Button variant="outline" onClick={() => openSettingsSection(honestNote.settings ?? 'general')}>
+              {honestNote.settings === 'about' ? 'Update daemon' : 'Open settings'}
+            </Button>
+          : undefined}
+      >
+        {honestNote.description}
+      </EmptyState>
+    );
+  } else if (events.error) {
+    content = (
+      <EmptyState
+        icon={<AlertCircle />}
+        title="Events failed to load"
+        role="status"
+        action={<Button variant="outline" onClick={() => void events.refetch()}>Try again</Button>}
+      >
+        {formatError(events.error)}
+      </EmptyState>
+    );
+  } else if (layout === 'month') {
+    content = (
+      <>
+        {noticeNode}
+        <CalendarMonth month={month} events={sortedItems} selectedId={selectedId} onSelect={setSelectedId} />
+      </>
+    );
+  } else if (sortedItems.length === 0) {
+    content = (
+      <>
+        {noticeNode}
+        <EmptyState
+          icon={<CalendarDays />}
+          title="No events in this range"
+          action={<Button variant="outline" onClick={() => setNewOpen(true)}>New event</Button>}
+        >
+          Try a wider date range, or add the first event.
+        </EmptyState>
+      </>
+    );
+  } else {
+    const list = (
+      <>
+        {noticeNode}
+        <div data-testid="calendar-agenda">
+          {groups.map(([key, dayItems]) => (
+            <RowGroup key={key} label={dayLabel(key)} count={dayItems.length}>
+              {dayItems.map((item) => (
+                <Row
+                  key={item.id}
+                  className="calendar-event-row"
+                  title={item.title}
+                  meta={item.location}
+                  selected={item.id === selectedId}
+                  onSelect={() => setSelectedId(item.id)}
+                  trailing={<span className="dv-value">{timeLabel(item.start)}</span>}
+                />
+              ))}
+            </RowGroup>
+          ))}
+        </div>
+      </>
+    );
+    content = (
+      <ListDetail
+        list={list}
+        detailOpen={Boolean(selectedId)}
+        onCloseDetail={() => setSelectedId('')}
+        listLabel="Events"
+        detailLabel="Event detail"
+        backLabel="All events"
+        detail={(
+          <DetailPane title={detail.data?.title ?? 'Event'} onClose={() => setSelectedId('')} closeLabel="Close event">
+            <CalendarEventBody detail={detail} />
+          </DetailPane>
+        )}
+      />
+    );
+  }
 
   return (
     <ErrorBoundary
-      fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Calendar view failed" />}
+      fallback={(err, reset) => (
+        <EmptyState icon={<AlertCircle />} title="Calendar view failed" action={<Button variant="outline" onClick={reset}>Try again</Button>}>
+          {formatError(err)}
+        </EmptyState>
+      )}
     >
-      <div className="stack">
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Calendar</h2>
-            <CalendarDays size={18} aria-hidden="true" />
-          </div>
-          <div className="calendar-range-controls">
-            <label>
-              From
-              <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Range start" />
-            </label>
-            <label>
-              To
-              <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="Range end" />
-            </label>
-            <label>
-              Calendar
-              <input
-                value={calendarId}
-                onChange={(event) => setCalendarId(event.target.value)}
-                placeholder="Default calendar"
-                aria-label="Logical calendar id"
-              />
-            </label>
-            <button type="button" className="secondary-button" onClick={() => void events.refetch()} aria-label="Refresh events">
-              Refresh
-            </button>
-          </div>
+      <PersonalPage tabs={tabs} filters={filters} action={action}>
+        {content}
+      </PersonalPage>
 
-          <div aria-live="polite" aria-atomic="false" className="calendar-status-region">
-            {events.isPending ? (
-              <div className="knowledge-skeleton-group">
-                <SkeletonBlock width="100%" height={36} />
-                <SkeletonBlock width="100%" height={36} />
-                <SkeletonBlock width="100%" height={36} />
-              </div>
-            ) : honestNote ? (
-              <EmptyState icon={<CalendarDays size={24} aria-hidden="true" />} title={honestNote.title} description={honestNote.description} />
-            ) : events.error ? (
-              <ErrorState error={events.error} onRetry={() => void events.refetch()} title="Events failed to load" />
-            ) : sortedItems.length === 0 ? (
-              <EmptyState icon={<CalendarDays size={24} aria-hidden="true" />} title="No events in this range" description="Try a wider date range, or create the first event below." />
-            ) : (
-              <ul className="calendar-event-list" aria-label="Calendar events">
-                {sortedItems.map((item) => (
-                  <li key={item.id}>
-                    <button type="button" className="calendar-event-row" onClick={() => openEventPeek(item.id)}>
-                      <span className="calendar-event-row__time">
-                        {new Date(item.start).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      </span>
-                      <span className="calendar-event-row__title">{item.title}</span>
-                      {item.location && <span className="calendar-event-row__location">{item.location}</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-
-        <div className="two-column">
-          <section className="panel">
-            <div className="panel-title">
-              <h2>New Event</h2>
-              <CalendarPlus size={18} aria-hidden="true" />
-            </div>
-            <form className="form-grid" onSubmit={submitCreate}>
-              <label>
-                Title
-                <input value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Event title" required />
-              </label>
-              <div className="form-split">
-                <label>
-                  Start
-                  <input type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} aria-label="Event start" required />
-                </label>
-                <label>
-                  End
-                  <input type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} aria-label="Event end" required />
-                </label>
-              </div>
-              <label>
-                Location
-                <input value={location} onChange={(event) => setLocation(event.target.value)} aria-label="Event location" />
-              </label>
-              <label>
-                Description
-                <textarea value={description} onChange={(event) => setDescription(event.target.value)} aria-label="Event description" />
-              </label>
-              <label>
-                Attendees
-                <input value={attendees} onChange={(event) => setAttendees(event.target.value)} placeholder="Comma separated" aria-label="Attendees, comma separated" />
-              </label>
-              <button className="primary-button" type="submit" disabled={create.isPending || !title.trim() || !start || !end} aria-busy={create.isPending}>
-                {create.isPending ? 'Creating…' : 'Create Event'}
-              </button>
-            </form>
-            {createNote ? (
-              <EmptyState icon={<CalendarDays size={20} aria-hidden="true" />} title={createNote.title} description={createNote.description} />
-            ) : create.error ? (
-              <ErrorState error={create.error} onRetry={() => create.mutate()} title="Create failed" />
-            ) : create.data ? (
-              <p className="calendar-create-success" role="status">Created: event id {create.data.eventId}</p>
-            ) : null}
-          </section>
-
-          <section className="panel">
-            <div className="panel-title">
-              <h2>iCalendar</h2>
-              <Download size={18} aria-hidden="true" />
-            </div>
-            <div className="calendar-ics-export">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => exportIcs.mutate()}
-                disabled={exportIcs.isPending}
-                aria-busy={exportIcs.isPending}
-              >
-                {exportIcs.isPending ? 'Exporting…' : 'Export range as .ics'}
-              </button>
-              {exportNote ? (
-                <EmptyState icon={<Download size={20} aria-hidden="true" />} title={exportNote.title} description={exportNote.description} />
-              ) : exportIcs.error ? (
-                <ErrorState error={exportIcs.error} onRetry={() => exportIcs.mutate()} title="Export failed" />
-              ) : exportIcs.data ? (
-                <p className="calendar-export-success" role="status">Exported {exportIcs.data.eventCount} event(s).</p>
-              ) : null}
-            </div>
-
-            <form className="form-grid calendar-ics-import" onSubmit={submitImport}>
-              <label>
-                Import .ics content
-                <textarea
-                  value={icsContent}
-                  onChange={(event) => setIcsContent(event.target.value)}
-                  placeholder="BEGIN:VCALENDAR..."
-                  aria-label="ICS content to import"
-                  rows={6}
-                />
-              </label>
-              <button className="primary-button" type="submit" disabled={importIcs.isPending || !icsContent.trim()} aria-busy={importIcs.isPending}>
-                <Upload size={14} aria-hidden="true" />
-                {importIcs.isPending ? 'Importing…' : 'Import .ics'}
-              </button>
-            </form>
-            {importNote ? (
-              <EmptyState icon={<Upload size={20} aria-hidden="true" />} title={importNote.title} description={importNote.description} />
-            ) : importIcs.error ? (
-              <ErrorState error={importIcs.error} onRetry={() => importIcs.mutate()} title="Import failed" />
-            ) : importIcs.data ? (
-              <div className="calendar-import-result" role="status">
-                <p>Imported {importIcs.data.imported} event(s).</p>
-                {importIcs.data.errors.length > 0 && (
-                  <ul className="calendar-import-result__errors">
-                    {importIcs.data.errors.map((message, index) => <li key={index}>{message}</li>)}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </section>
+      <Drawer
+        open={layout === 'month' && Boolean(selectedId)}
+        onClose={() => setSelectedId('')}
+        label="Event detail"
+        title={detail.data?.title ?? 'Event'}
+      >
+        <div className="calendar-drawer-body">
+          <CalendarEventBody detail={detail} />
         </div>
-      </div>
+      </Drawer>
+
+      <Dialog
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        title="New event"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              type="submit"
+              form="calendar-new-event"
+              disabled={create.isPending || !title.trim() || !start || !end}
+              aria-busy={create.isPending}
+            >
+              {create.isPending ? 'Creating…' : 'Create event'}
+            </Button>
+          </>
+        )}
+      >
+        <form id="calendar-new-event" className="personal-form" onSubmit={submitCreate}>
+          <Field label="Title">
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} required />
+          </Field>
+          <div className="personal-form__split">
+            <Field label="Start">
+              <DateField time value={start} onChange={setStart} required />
+            </Field>
+            <Field label="End">
+              <DateField time value={end} onChange={setEnd} required />
+            </Field>
+          </div>
+          <Field label="Location">
+            <Input value={location} onChange={(event) => setLocation(event.target.value)} />
+          </Field>
+          <Field label="Description">
+            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+          </Field>
+          <Field label="Attendees" help="Separate addresses with commas.">
+            <Input value={attendees} onChange={(event) => setAttendees(event.target.value)} />
+          </Field>
+          {createNote ? (
+            <div className="dv-notice" role="status"><span>{createNote.title}. {createNote.description}</span></div>
+          ) : create.error ? (
+            <div className="dv-notice dv-notice--bad" role="alert"><AlertCircle aria-hidden="true" /><span>Create failed: {formatError(create.error)}</span></div>
+          ) : null}
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import .ics content"
+        description="Paste iCalendar text. Every event in it is added to the calendar."
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              type="submit"
+              form="calendar-import"
+              disabled={importIcs.isPending || !icsContent.trim()}
+              aria-busy={importIcs.isPending}
+            >
+              {importIcs.isPending ? 'Importing…' : 'Import'}
+            </Button>
+          </>
+        )}
+      >
+        <form id="calendar-import" className="personal-form" onSubmit={submitImport}>
+          <Field label="iCalendar content">
+            <Textarea
+              className="calendar-ics-input"
+              value={icsContent}
+              onChange={(event) => setIcsContent(event.target.value)}
+              placeholder="BEGIN:VCALENDAR..."
+              rows={8}
+            />
+          </Field>
+          {importNote ? (
+            <div className="dv-notice" role="status"><span>{importNote.title}. {importNote.description}</span></div>
+          ) : importIcs.error ? (
+            <div className="dv-notice dv-notice--bad" role="alert"><AlertCircle aria-hidden="true" /><span>Import failed: {formatError(importIcs.error)}</span></div>
+          ) : null}
+        </form>
+      </Dialog>
     </ErrorBoundary>
   );
 }

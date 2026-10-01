@@ -130,3 +130,24 @@ export async function closeNavigation(page: Page): Promise<void> {
   await page.locator('.gv-overlay > .scrim').click({ position: { x: 370, y: 422 } });
   await expect(drawer).toBeHidden();
 }
+
+/**
+ * A row in a data view's list (Work, Library, Personal), by its visible text.
+ * The first match: a session and the agent running in it can share a title.
+ */
+export function listRow(page: Page, text: string | RegExp): Locator {
+  return page.locator('.dv-list .gv-row', { hasText: text }).first();
+}
+
+/** Open a data-view row's detail (clicks the row's main button). */
+export async function openRow(page: Page, text: string | RegExp): Promise<Locator> {
+  await listRow(page, text).first().locator('.gv-row__main').click();
+  const detail = page.locator('.dv-detail');
+  await expect(detail).toBeVisible();
+  return detail;
+}
+
+/** The open detail pane of a data view. */
+export function detailPane(page: Page): Locator {
+  return page.locator('.dv-detail');
+}

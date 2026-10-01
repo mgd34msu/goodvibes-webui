@@ -59,8 +59,10 @@ function firstPrivateNetworkAddress(): string | undefined {
 /**
  * Where the one build lands. The service worker caches only built, hashed assets,
  * which is also what lets pwa-offline.e2e.ts prove the app opens offline.
+ * GOODVIBES_E2E_DIST moves it, so two local runs on different ports do not
+ * empty each other's build.
  */
-const E2E_DIST = 'e2e/.artifacts/e2e-dist';
+const E2E_DIST = process.env.GOODVIBES_E2E_DIST ?? 'e2e/.artifacts/e2e-dist';
 
 /** Env for the build and every preview: the daemon is the deliberate-503 stub. */
 const PREVIEW_ENV = {

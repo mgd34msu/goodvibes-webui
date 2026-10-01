@@ -1,5 +1,6 @@
 import { AlertTriangle, Info } from 'lucide-react';
 import type { MemorySearchResult } from '../../lib/goodvibes';
+import { Chip } from '../../components/ui/Chip';
 
 /**
  * The recall-honesty contract, surfaced verbatim (memory-recall-contract.ts, promoted
@@ -15,40 +16,35 @@ import type { MemorySearchResult } from '../../lib/goodvibes';
  * `totalBeforeRecallFilter` is NOT "every record that matches", it is
  * `baseRecords.length` from `runHonestMemorySearch` (memory-recall-contract.ts), i.e.
  * whatever the underlying search returned, which is itself capped at the caller's own
- * `limit`. Labeling it "total before filtering" over-claims completeness (300 could
- * match while the label reads 100). `limit` is the exact `limit` this component's
- * caller searched with, so the label can say "of the first N" instead of implying N is
- * the whole matching set.
+ * `limit`. `limit` is the exact `limit` this component's caller searched with, so the
+ * label says "of the first N" instead of implying N is the whole matching set.
  *
- * The recall floor itself (`excludedBelowFloorCount`'s threshold) now travels on the
- * wire as `result.recallFloor` (memory-recall-contract.ts's `MIN_PROMPT_MEMORY_CONFIDENCE`,
- * promoted onto `HonestMemorySearchResult`), the label states it directly from that
- * value, never a hardcoded percentage, so it can never silently drift if the store's
- * floor is retuned.
+ * The recall floor itself travels on the wire as `result.recallFloor`; the label
+ * states it directly from that value, never a hardcoded percentage.
  */
 export function MemorySearchHonestyNote({ result, limit }: { result: MemorySearchResult; limit?: number }) {
   return (
-    <div className="memory-honesty-note" aria-live="polite">
-      <span className={`badge ${result.mode === 'semantic' ? 'ok' : 'neutral'}`}>
-        {result.mode === 'semantic' ? 'Semantic search' : 'Literal search'}
-      </span>
+    <div className="lib-honesty" aria-live="polite">
+      <div className="lib-honesty__mode">
+        <Chip size="sm">{result.mode === 'semantic' ? 'Semantic search' : 'Literal search'}</Chip>
+      </div>
 
       {result.indexUnavailableReason !== null && (
-        <div className="memory-honesty-note__banner memory-honesty-note__banner--degraded" role="status">
-          <AlertTriangle size={16} aria-hidden="true" />
+        <div className="dv-notice dv-notice--warn lib-honesty__banner--degraded" role="status">
+          <AlertTriangle aria-hidden="true" />
           <span>{result.indexUnavailableReason}</span>
         </div>
       )}
 
       {result.caveat !== null && (
-        <div className="memory-honesty-note__banner memory-honesty-note__banner--caveat" role="status">
-          <Info size={16} aria-hidden="true" />
+        <div className="dv-notice lib-honesty__banner--caveat" role="status">
+          <Info aria-hidden="true" />
           <span>{result.caveat}</span>
         </div>
       )}
 
       {result.recallFiltered && (
-        <p className="memory-honesty-note__recall-stats">
+        <p className="lib-honesty__stats">
           {result.records.length} shown after the recall filter
           {' · '}{result.excludedFlaggedCount} excluded (flagged stale/contradicted)
           {' · '}{result.excludedBelowFloorCount} excluded (below the {result.recallFloor}% recall floor)

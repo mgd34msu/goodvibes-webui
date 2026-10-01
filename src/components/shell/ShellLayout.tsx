@@ -13,12 +13,12 @@ import { useOptionalToast } from '../../lib/toast';
 import { usePeek } from '../peek/PeekPanel';
 import { Drawer } from '../ui/Drawer';
 import { connectionPhrase, type HealthSummary } from './AccountMenu';
-import { DestinationTabs } from './DestinationTabs';
 import { ShellHeader } from './ShellHeader';
 import { HeaderSlotsProvider } from './HeaderSlots';
 import { Sidebar, SidebarContent, type SidebarProps } from './Sidebar';
 import { useShell } from './ShellContext';
 import '../../styles/components/shell.css';
+import '../../styles/components/data-view.css';
 
 export interface ShellLayoutProps extends SidebarProps {
   title: string;
@@ -184,7 +184,6 @@ export function ShellLayout({
         )}
         {banners}
         <section className="view-frame">
-          <DestinationTabs view={sidebar.view} onNavigate={sidebar.onNavigate} />
           {/* The frame scrolls; the body is content-sized, so a view's `height: 100%`
               resolves to its content (as it always has) rather than being squeezed
               into whatever the header and banners leave. Chat alone fills the frame. */}

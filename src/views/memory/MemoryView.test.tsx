@@ -11,7 +11,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PeekProvider } from '../../components/peek/PeekPanel';
 
 interface FakeMemoryRecord {
   id: string;
@@ -84,14 +83,9 @@ let listResult: unknown = searchResult();
 let personaResult: unknown = searchResult();
 let searchImpl: (input?: unknown) => Promise<unknown> = (input) =>
   Promise.resolve(isPersonaFilter(input) ? personaResult : listResult);
-let reviewQueueImpl: () => Promise<unknown> = () => Promise.resolve({ records: [] });
-let addImpl: (input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
-let deleteImpl: (id: string) => Promise<unknown> = (id) => Promise.resolve({ id, deleted: true });
+let deleteCalls: string[] = [];
+let deleteImpl: (id: string) => Promise<unknown> = (id) => { deleteCalls.push(id); return Promise.resolve({ id, deleted: true }); };
 let updateReviewImpl: (id: string, input: unknown) => Promise<unknown> = () => Promise.resolve({ record: memoryRecord() });
-// memory.consolidation.receipts (SDK 1.8.0), MemoryView renders ConsolidationReceipts,
-// which calls this on mount; default to the honest "nothing yet" empty state so the
-// existing search/review-queue-focused tests below are unaffected by its presence.
-let consolidationReceiptsImpl: () => Promise<unknown> = () => Promise.resolve({ receipts: [], pendingProposals: [] });
 
 mock.module('../../lib/goodvibes', () => ({
   VIBE_PERSONA_TAG: 'vibe',
@@ -104,13 +98,8 @@ mock.module('../../lib/goodvibes', () => ({
     operator: {
       memory: {
         search: (input?: unknown) => searchImpl(input),
-        add: (input: unknown) => addImpl(input),
         delete: (id: string) => deleteImpl(id),
         updateReview: (id: string, input: unknown) => updateReviewImpl(id, input),
-        reviewQueue: () => reviewQueueImpl(),
-        consolidation: {
-          receipts: () => consolidationReceiptsImpl(),
-        },
       },
     },
   },
@@ -128,7 +117,7 @@ function render() {
       React.createElement(
         QueryClientProvider,
         { client },
-        React.createElement(PeekProvider, null, React.createElement(MemoryView)),
+        React.createElement(MemoryView, { query: '' }),
       ),
     );
   });
@@ -160,11 +149,9 @@ afterEach(() => {
   listResult = searchResult();
   personaResult = searchResult();
   searchImpl = (input) => Promise.resolve(isPersonaFilter(input) ? personaResult : listResult);
-  reviewQueueImpl = () => Promise.resolve({ records: [] });
-  addImpl = () => Promise.resolve({ record: memoryRecord() });
-  deleteImpl = (id) => Promise.resolve({ id, deleted: true });
+  deleteCalls = [];
+  deleteImpl = (id) => { deleteCalls.push(id); return Promise.resolve({ id, deleted: true }); };
   updateReviewImpl = () => Promise.resolve({ record: memoryRecord() });
-  consolidationReceiptsImpl = () => Promise.resolve({ receipts: [], pendingProposals: [] });
 });
 
 describe('MemoryView: results state', () => {
@@ -180,9 +167,9 @@ describe('MemoryView: results state', () => {
     });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Deploys use blue-green'));
-    expect(el.textContent).toContain('decision');
+    expect(el.textContent).toContain('Decision');
     expect(el.textContent).toContain('team');
-    expect(el.textContent).toContain('88%');
+    expect(el.textContent).toContain('88% confident');
     unmount();
   });
 });
@@ -244,7 +231,7 @@ describe('MemoryView: honest degrade', () => {
     await waitFor(() => (el.textContent ?? '').includes('This daemon does not serve memory'));
     // The degraded state replaces the search form/panels entirely, it is not layered
     // as one more banner alongside a workspace that still looks otherwise functional.
-    expect(el.querySelector('.memory-search')).toBeFalsy();
+    expect(el.querySelector('[aria-label="Memory filters"]')).toBeFalsy();
     unmount();
   });
 
@@ -257,78 +244,53 @@ describe('MemoryView: honest degrade', () => {
   });
 });
 
+describe('MemoryView: record detail', () => {
+  test('opening a record shows its detail pane with the review form and a confirmed delete', async () => {
+    listResult = searchResult({ records: [memoryRecord({ id: 'r1', summary: 'Deploys use blue-green', detail: 'Two stacks, one live.' })] });
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('Deploys use blue-green'));
+    click(el.querySelector('button.gv-row__main'));
+    await waitFor(() => (el.textContent ?? '').includes('Two stacks, one live.'));
+    expect(el.querySelector('[aria-label="Memory record"]')).toBeTruthy();
+    expect(el.querySelector('[aria-label="Review state for Deploys use blue-green"]')).toBeTruthy();
+    click([...el.querySelectorAll('button')].find((b) => b.textContent === 'Delete'));
+    // Delete asks first: nothing is removed until the dialog is confirmed.
+    await waitFor(() => Boolean(document.body.querySelector('[role="dialog"]')));
+    expect(deleteCalls).toEqual([]);
+    click([...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent === 'Delete memory'));
+    await waitFor(() => deleteCalls.length === 1);
+    expect(deleteCalls).toEqual(['r1']);
+    unmount();
+  });
+
+  test('the chat-provenance setting no longer sits on the content page (it lives in Settings, Memory)', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => (el.textContent ?? '').includes('No memory recorded yet'));
+    expect(el.textContent).not.toContain('Chat provenance');
+    expect(el.querySelector('input[type="checkbox"][aria-label*="provenance" i]')).toBeFalsy();
+    unmount();
+  });
+});
+
 describe('MemoryView: personas (VIBE.md read surface)', () => {
   test('a constraint record tagged "vibe" renders under Personas, not just Records', async () => {
     const persona = memoryRecord({ id: 'p1', cls: 'constraint', tags: ['vibe'], summary: 'Prefer plain language over jargon' });
     personaResult = searchResult({ records: [persona] });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Prefer plain language over jargon'));
-    const personasPanel = el.querySelector('[aria-label="Personas"]');
-    expect(personasPanel?.textContent).toContain('Prefer plain language over jargon');
+    const personasGroup = el.querySelector('ul[aria-label="Personas"]');
+    expect(personasGroup?.textContent).toContain('Prefer plain language over jargon');
+    // Browsing shows a persona once, in its own group, not again under Records.
+    expect(el.querySelector('ul[aria-label="Records"]')).toBeFalsy();
     unmount();
   });
 
-  test('no persona records renders an honest empty state, not a silent gap', async () => {
+  test('no persona records means no Personas group, not an empty shell', async () => {
+    listResult = searchResult({ records: [memoryRecord()] });
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No persona records'));
+    await waitFor(() => (el.textContent ?? '').includes('The daemon is the single writer'));
+    expect(el.querySelector('ul[aria-label="Personas"]')).toBeFalsy();
     unmount();
   });
 });
 
-describe('MemoryView: chat-provenance setting (owner-ruled, default OFF)', () => {
-  afterEach(() => {
-    window.localStorage.removeItem('goodvibes.webui.preferences');
-  });
-
-  test('the toggle defaults to unchecked', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('.memory-provenance-settings')));
-    const toggle = el.querySelector('.memory-provenance-settings input[type="checkbox"]') as HTMLInputElement | null;
-    expect(toggle).not.toBeNull();
-    expect(toggle?.checked).toBe(false);
-    unmount();
-  });
-
-  test('toggling it on persists to the shared webui-preferences store', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('.memory-provenance-settings')));
-    const toggle = el.querySelector('.memory-provenance-settings input[type="checkbox"]') as HTMLInputElement;
-    flushSync(() => { toggle.click(); });
-    expect(toggle.checked).toBe(true);
-    const stored = JSON.parse(window.localStorage.getItem('goodvibes.webui.preferences') ?? '{}');
-    expect(stored.memoryProvenanceChipEnabled).toBe(true);
-    unmount();
-  });
-});
-
-describe('MemoryView: consolidation receipts route to the review queue (SDK 1.8.0)', () => {
-  test('a pending proposal\'s "Review" jump highlights exactly its referenced record in the queue', async () => {
-    consolidationReceiptsImpl = () => Promise.resolve({
-      receipts: [],
-      pendingProposals: [{
-        kind: 'contradiction',
-        ids: ['r1'],
-        route: 'memory action:"curator" query:"consolidation"',
-        reason: 'Same-summary records disagree and neither is a clearly-newer verified winner.',
-      }],
-    });
-    reviewQueueImpl = () => Promise.resolve({ records: [memoryRecord({ id: 'r1' }), memoryRecord({ id: 'r2' })] });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Same-summary records disagree'));
-    click([...el.querySelectorAll('.consolidation-proposal-row button')].find((b) => b.textContent?.includes('Review')));
-    await waitFor(() => Boolean(el.querySelector('.memory-review-row--highlighted')));
-    const highlighted = [...el.querySelectorAll('.memory-review-row--highlighted')];
-    expect(highlighted).toHaveLength(1);
-    expect(highlighted[0]?.getAttribute('data-record-id')).toBe('r1');
-    // The OTHER queued record is untouched, a jump highlights, it never filters.
-    expect(el.querySelector('[data-record-id="r2"]')?.classList.contains('memory-review-row--highlighted')).toBe(false);
-    unmount();
-  });
-
-  test('a daemon build with no consolidation scheduler renders the honest "does not run consolidation" state', async () => {
-    consolidationReceiptsImpl = () => Promise.reject(Object.assign(new Error('not available'), { status: 501 }));
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('This daemon does not run consolidation'));
-    unmount();
-  });
-});

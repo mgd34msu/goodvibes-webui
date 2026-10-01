@@ -8,6 +8,7 @@ import {
   decodeUrlState,
   encodeUrlState,
   getCurrentUrlState,
+  isLegacyView,
   pushState,
   replaceState,
 } from './router';
@@ -31,8 +32,8 @@ function makeState(overrides: Partial<AppUrlState> = {}): AppUrlState {
 
 describe('encodeUrlState', () => {
   test('encodes view', () => {
-    const result = encodeUrlState(makeState({ view: 'knowledge' }));
-    expect(result).toContain('view=knowledge');
+    const result = encodeUrlState(makeState({ view: 'library' }));
+    expect(result).toContain('view=library');
   });
 
   test('omits session when empty', () => {
@@ -93,12 +94,13 @@ describe('encodeUrlState', () => {
     expect(decoded.get('filter[empty]')).toBeNull();
   });
 
-  test('all four valid views encode correctly', () => {
-    for (const view of ['chat', 'knowledge', 'memory', 'fleet'] as const) {
-      const result = encodeUrlState(makeState({ view }));
-      const decoded = new URLSearchParams(result);
+  test('every destination encodes correctly, with its tab', () => {
+    for (const view of ['chat', 'work', 'library', 'personal'] as const) {
+      const decoded = new URLSearchParams(encodeUrlState(makeState({ view })));
       expect(decoded.get('view')).toBe(view);
     }
+    expect(encodeUrlState(makeState({ view: 'work', tab: 'agents' }))).toBe('view=work&tab=agents');
+    expect(encodeUrlState(makeState({ view: 'work', tab: '' }))).not.toContain('tab');
   });
 });
 
@@ -108,26 +110,35 @@ describe('encodeUrlState', () => {
 
 describe('decodeUrlState', () => {
   test('decodes all valid view values', () => {
-    expect(decodeUrlState('?view=knowledge').view).toBe('knowledge');
-    expect(decodeUrlState('?view=memory').view).toBe('memory');
-    expect(decodeUrlState('?view=fleet').view).toBe('fleet');
-    expect(decodeUrlState('?view=chat').view).toBe('chat');
+    for (const view of ['chat', 'work', 'library', 'personal', 'checkin', 'phone'] as const) {
+      expect(decodeUrlState(`?view=${view}`).view).toBe(view);
+    }
+    expect(decodeUrlState('?view=work&tab=processes').tab).toBe('processes');
   });
 
-  // fleet/checkpoints are wired end-to-end (App.tsx); approvals-tasks/workstream
-  // are registered ahead of their own views landing (see the nav-entries comment
-  // in App.tsx), all four must round-trip now so neither silently falls back
-  // to 'chat'.
-  test('decodes the fleet/checkpoints/approvals-tasks/workstream view ids', () => {
-    expect(decodeUrlState('?view=fleet').view).toBe('fleet');
-    expect(decodeUrlState('?view=checkpoints').view).toBe('checkpoints');
-    expect(decodeUrlState('?view=approvals-tasks').view).toBe('approvals-tasks');
-    expect(decodeUrlState('?view=workstream').view).toBe('workstream');
-  });
-
-  // ci-watches (SDK 1.6.1's initiative family, CI watches/status view).
-  test('decodes the ci-watches view id', () => {
-    expect(decodeUrlState('?view=ci-watches').view).toBe('ci-watches');
+  // The data views became Work, Library and Personal: every old id decodes to
+  // its destination and tab, so no old link falls back to chat.
+  test('old data-view links decode to their destination and tab', () => {
+    const cases: [string, string, string][] = [
+      ['sessions', 'work', 'sessions'],
+      ['hosted-sessions', 'work', 'sessions'],
+      ['fleet', 'work', 'all'],
+      ['approvals-tasks', 'work', 'all'],
+      ['workstream', 'work', 'processes'],
+      ['ci-watches', 'work', 'processes'],
+      ['checkpoints', 'work', 'checkpoints'],
+      ['knowledge', 'library', 'knowledge'],
+      ['memory', 'library', 'memory'],
+      ['calendar', 'personal', 'calendar'],
+      ['mail', 'personal', 'mail'],
+      ['dates', 'personal', 'occasions'],
+    ];
+    for (const [old, view, tab] of cases) {
+      expect(decodeUrlState(`?view=${old}`)).toEqual({ view, session: '', filters: {}, tab } as AppUrlState);
+    }
+    expect(isLegacyView('?view=fleet')).toBe(true);
+    expect(isLegacyView('?view=admin')).toBe(true);
+    expect(isLegacyView('?view=work')).toBe(false);
   });
 
   // checkin (SDK 1.6.1's initiative family, proactive check-in config/receipts view).
@@ -142,11 +153,6 @@ describe('decodeUrlState', () => {
     expect(decodeUrlState('?view=providers').settings).toBe('models');
     expect(decodeUrlState('?view=principals').settings).toBe('people');
     expect(decodeUrlState('?view=principals').view).toBe('chat');
-  });
-
-  // dates (docs/occasions.md, occasions/plans dates panel).
-  test('decodes the dates view id', () => {
-    expect(decodeUrlState('?view=dates').view).toBe('dates');
   });
 
   test('invalid view falls back to chat', () => {
@@ -212,7 +218,8 @@ describe('decodeUrlState', () => {
 describe('encodeUrlState / decodeUrlState round-trip', () => {
   test('round-trips a full state object', () => {
     const original = makeState({
-      view: 'knowledge',
+      view: 'library',
+      tab: 'knowledge',
       session: 'sess-abc',
       filters: { category: 'docs', status: 'published' },
     });
@@ -223,7 +230,7 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
 
   test('round-trips state with special chars in filter values', () => {
     const original = makeState({
-      view: 'fleet',
+      view: 'work',
       session: '',
       filters: { q: 'hello world', tag: 'a=b&c=d' },
     });
@@ -232,23 +239,16 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
     expect(decoded).toEqual(original);
   });
 
-  test('round-trips all four views', () => {
-    for (const view of ['chat', 'knowledge', 'memory', 'fleet'] as const) {
+  test('round-trips every view', () => {
+    for (const view of ['chat', 'work', 'library', 'personal', 'checkin', 'phone'] as const) {
       const encoded = encodeUrlState(makeState({ view }));
       expect(decodeUrlState(`?${encoded}`).view).toBe(view);
     }
   });
 
-  test('round-trips the fleet/checkpoints/approvals-tasks/workstream view ids', () => {
-    for (const view of ['fleet', 'checkpoints', 'approvals-tasks', 'workstream'] as const) {
-      const encoded = encodeUrlState(makeState({ view }));
-      expect(decodeUrlState(`?${encoded}`).view).toBe(view);
-    }
-  });
-
-  test('round-trips the ci-watches view id', () => {
-    const encoded = encodeUrlState(makeState({ view: 'ci-watches' }));
-    expect(decodeUrlState(`?${encoded}`).view).toBe('ci-watches');
+  test('round-trips a destination tab', () => {
+    const original = makeState({ view: 'personal', tab: 'occasions' });
+    expect(decodeUrlState(`?${encodeUrlState(original)}`)).toEqual(original);
   });
 
   test('round-trips the checkin view id', () => {
@@ -257,15 +257,10 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   });
 
   test('round-trips the settings dialog section', () => {
-    const encoded = encodeUrlState(makeState({ view: 'fleet', settings: 'models' }));
+    const encoded = encodeUrlState(makeState({ view: 'work', settings: 'models' }));
     expect(encoded).toContain('settings=models');
-    expect(decodeUrlState(`?${encoded}`)).toEqual({ view: 'fleet', session: '', filters: {}, settings: 'models' });
+    expect(decodeUrlState(`?${encoded}`)).toEqual({ view: 'work', session: '', filters: {}, settings: 'models' });
     expect(encodeUrlState(makeState({ settings: '' }))).not.toContain('settings');
-  });
-
-  test('round-trips the dates view id', () => {
-    const encoded = encodeUrlState(makeState({ view: 'dates' }));
-    expect(decodeUrlState(`?${encoded}`).view).toBe('dates');
   });
 
   test('filter key ordering is stable across encode/decode', () => {
@@ -303,15 +298,15 @@ describe('pushState', () => {
   });
 
   test('calls history.pushState once with encoded URL', () => {
-    const state = makeState({ view: 'memory', session: 's1' });
+    const state = makeState({ view: 'library', session: 's1' });
     pushState(state);
     expect(pushCalls).toHaveLength(1);
-    expect(pushCalls[0].url).toContain('view=memory');
+    expect(pushCalls[0].url).toContain('view=library');
     expect(pushCalls[0].url).toContain('session=s1');
   });
 
   test('passes the state object to history.pushState', () => {
-    const state = makeState({ view: 'fleet' });
+    const state = makeState({ view: 'work' });
     pushState(state);
     expect(pushCalls[0].state).toEqual(state);
   });
@@ -346,14 +341,14 @@ describe('replaceState', () => {
   });
 
   test('calls history.replaceState once with encoded URL', () => {
-    const state = makeState({ view: 'knowledge' });
+    const state = makeState({ view: 'library' });
     replaceState(state);
     expect(replaceCalls).toHaveLength(1);
-    expect(replaceCalls[0].url).toContain('view=knowledge');
+    expect(replaceCalls[0].url).toContain('view=library');
   });
 
   test('passes the state object to history.replaceState', () => {
-    const state = makeState({ view: 'memory' });
+    const state = makeState({ view: 'library' });
     replaceState(state);
     expect(replaceCalls[0].state).toEqual(state);
   });
@@ -377,9 +372,9 @@ describe('getCurrentUrlState', () => {
   });
 
   test('reflects URL changes pushed by pushState', () => {
-    window.history.pushState(null, '', '/?view=fleet&session=x');
+    window.history.pushState(null, '', '/?view=work&session=x');
     const state = getCurrentUrlState();
-    expect(state.view).toBe('fleet');
+    expect(state.view).toBe('work');
     expect(state.session).toBe('x');
   });
 });

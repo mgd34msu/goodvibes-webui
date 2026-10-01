@@ -41,7 +41,7 @@
 .calendar-detail__uid {
   margin: 0;
   color: var(--text-3);
-  font: var(--weight-regular) var(--text-meta) / 18px var(--font-mono);
+  font: var(--weight-regular) var(--text-meta) / var(--leading-meta) var(--font-mono);
   overflow-wrap: anywhere;
 }
 

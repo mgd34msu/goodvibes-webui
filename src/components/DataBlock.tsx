@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { compactJson } from '../lib/object';
 import { MarkdownMessage } from './MarkdownMessage';
+import { Button } from './ui/Button';
+import { CodeFrame, DetailSection } from './data-view/DataView';
 import { useOptionalToast } from '../lib/toast';
+import '../styles/components/feedback.css';
 
 interface DataBlockProps {
   title: string;
@@ -32,16 +35,17 @@ function DataBlockCopyButton({ text }: { text: string }) {
   }
 
   return (
-    <button
-      type="button"
-      className="data-block-copy"
+    <Button
+      size="sm"
+      variant="ghost"
+      className="feedback-data-block__copy"
       onClick={handleCopy}
       title="Copy"
       aria-label="Copy value"
+      icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
     >
-      {copied ? <Check size={13} /> : <Copy size={13} />}
-      <span>{copied ? 'Copied' : 'Copy'}</span>
-    </button>
+      {copied ? 'Copied' : 'Copy'}
+    </Button>
   );
 }
 
@@ -49,20 +53,17 @@ export function DataBlock({ title, value, empty = 'No data' }: DataBlockProps) {
   const hasValue = value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0);
 
   return (
-    <section className="data-block">
-      <header>
-        <h3>{title}</h3>
-      </header>
+    <DetailSection title={title}>
       {hasValue
         ? typeof value === 'string'
-          ? <div className="data-block-markdown"><MarkdownMessage content={value} /></div>
+          ? <div className="feedback-data-block__markdown"><MarkdownMessage content={value} /></div>
           : (
-            <div className="data-block-pre-wrap">
+            <div className="feedback-data-block__code">
               <DataBlockCopyButton text={compactJson(value)} />
-              <pre>{compactJson(value)}</pre>
+              <CodeFrame>{compactJson(value)}</CodeFrame>
             </div>
           )
-        : <p className="empty-state">{empty}</p>}
-    </section>
+        : <p className="feedback-data-block__empty">{empty}</p>}
+    </DetailSection>
   );
 }

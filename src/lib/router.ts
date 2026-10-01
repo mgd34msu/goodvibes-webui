@@ -2,7 +2,7 @@
  * router.ts, dependency-free URL state encoder/decoder
  *
  * URL schema:
- *   ?view=chat|work|library|personal|checkin|phone
+ *   ?view=chat|work|library|personal|phone
  *   &tab=<tab>                    (work, library and personal: the section shown)
  *   &session=<sessionId>          (chat view only; omitted when empty)
  *   &settings=<section>           (the settings dialog is open on that section)
@@ -11,7 +11,8 @@
  * Old view ids keep working. Admin, Providers and Principals are sections of
  * the settings dialog: `?view=admin` decodes to the chat view with the dialog
  * open on Account, `?view=providers` on Models and providers, `?view=principals`
- * on People and channels (LEGACY_SETTINGS_VIEWS). The thirteen data views
+ * on People and channels, and the old Check-ins page `?view=checkin` on the
+ * Check-ins section (LEGACY_SETTINGS_VIEWS). The thirteen data views
  * became three destinations (design doc "Navigation map"): `?view=fleet` and
  * the rest decode to their destination and tab (LEGACY_VIEW_REDIRECTS), and
  * useUrlState rewrites such a link in place, keeping its fragment (a push
@@ -25,7 +26,6 @@ export type ViewId =
   | 'work'
   | 'library'
   | 'personal'
-  | 'checkin'
   | 'phone';
 
 /** The Work view's kind filter, plus `checkpoints` (a session's Checkpoints tab). */
@@ -48,6 +48,7 @@ export const LEGACY_SETTINGS_VIEWS: Readonly<Record<string, string>> = {
   admin: 'account',
   providers: 'models',
   principals: 'people',
+  checkin: 'checkins',
 };
 
 /** Old data-view ids and the destination and tab each now lives on. */
@@ -71,7 +72,6 @@ const VALID_VIEWS: ReadonlySet<string> = new Set<ViewId>([
   'work',
   'library',
   'personal',
-  'checkin',
   'phone',
 ]);
 

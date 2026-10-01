@@ -19,13 +19,15 @@
  * landed).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Radio, XCircle } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
+import { Button } from '../ui/Button';
 import { useConfirm } from '../ui/ConfirmDialog';
+import { StatusDot } from '../ui/StatusDot';
+import { SettingsBlock } from './dialog/parts';
+import { whenLabel } from '../../lib/when-label';
 import '../../styles/components/tailscale.css';
 
 export function TailscaleSettings() {
@@ -53,10 +55,8 @@ export function TailscaleSettings() {
 
   async function handleServe(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Serve over tailscale',
-      description:
-        'Runs `tailscale serve --bg` so tailscale fronts this daemon at its https MagicDNS URL. '
-        + 'The daemon never mints its own certificate, tailscale terminates TLS. Safe to run again.',
+      title: 'Serve this daemon over Tailscale?',
+      description: 'Tailscale serves it at its HTTPS address on your tailnet and handles the certificate, and running it again is safe.',
       confirmLabel: 'Serve over tailscale',
     });
     if (!ok) return;
@@ -77,24 +77,34 @@ export function TailscaleSettings() {
   const lastServe = serveRun.data?.receipt ?? detection.data.lastServe;
 
   return (
-    <section className="panel tailscale-panel" data-testid="tailscale-settings">
+    <SettingsBlock
+      testId="tailscale-settings"
+      title="Tailscale"
+      description={(
+        <>
+          Connected as <strong>{detection.data.magicDnsName}</strong>. Serving over tailscale puts this
+          daemon at an https address, the kind browser features like the camera and push need, without
+          the daemon making its own certificate.
+        </>
+      )}
+      actions={(
+        <Button
+          variant="primary"
+          disabled={serveRun.isPending}
+          onClick={() => void handleServe()}
+        >
+          {serveRun.isPending ? 'Setting up…' : lastServe?.ok ? 'Serve over tailscale again' : 'Serve over tailscale'}
+        </Button>
+      )}
+    >
       {confirm.element}
-      <div className="panel-title">
-        <h2>Tailscale</h2>
-        <Radio size={18} aria-hidden="true" />
-      </div>
-      <p className="form-note">
-        Connected as <strong>{detection.data.magicDnsName}</strong>. Serving over tailscale fronts this
-        daemon at an https MagicDNS URL, the one browser-gated capabilities need, without the daemon
-        ever minting its own certificate.
-      </p>
 
       {lastServe && (
         <div
           className={`tailscale-panel__receipt tailscale-panel__receipt--${lastServe.ok ? 'ok' : 'danger'}`}
           role="status"
         >
-          {lastServe.ok ? <CheckCircle2 size={15} aria-hidden="true" /> : <XCircle size={15} aria-hidden="true" />}
+          <StatusDot tone={lastServe.ok ? 'ok' : 'bad'} />
           <span>
             {lastServe.ok && lastServe.url ? (
               <>
@@ -104,24 +114,14 @@ export function TailscaleSettings() {
             ) : (
               lastServe.detail
             )}
-            {' · '}
-            {formatRelative(lastServe.at)}
+            {whenLabel(lastServe.at) ? ` · ${whenLabel(lastServe.at)}` : ''}
           </span>
         </div>
       )}
 
-      <button
-        type="button"
-        className="primary-button"
-        disabled={serveRun.isPending}
-        onClick={() => void handleServe()}
-      >
-        {serveRun.isPending ? 'Setting up…' : lastServe?.ok ? 'Serve over tailscale again' : 'Serve over tailscale'}
-      </button>
-
       {serveRun.isError && (
         <div className="banner warning" role="alert">{formatError(serveRun.error)}</div>
       )}
-    </section>
+    </SettingsBlock>
   );
 }

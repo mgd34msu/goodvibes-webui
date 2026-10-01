@@ -1,63 +1,41 @@
 /*
- * TaskGraphPanel layout — a vertical list, phone-width legible by
- * construction (no fixed-width diagram layout). Colors come from the shared
- * token layer (src/styles/tokens.css); this file is layout only.
+ * TaskGraphPanel: a vertical list of kit rows, legible at phone width by
+ * construction (no fixed-width diagram). The row shape comes from the kit
+ * (ui.css .gv-row); this file only spaces the panel and its pool line.
  */
 
 .task-graph-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
+  min-width: 0;
 }
 
-.task-graph-panel__pool {
-  margin: 0;
-  font-size: var(--text-sm, 13px);
-  color: var(--text-2);
+.task-graph-panel__pool,
+.task-graph-panel__empty {
+  margin: 0 0 var(--space-3);
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+}
+
+.task-graph-panel__empty {
+  margin-bottom: 0;
 }
 
 .task-graph-nodes {
-  list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
+  list-style: none;
+  border-top: 1px solid var(--line);
 }
 
-.task-graph-node {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.task-graph-node__head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1, 4px);
-}
-
+/* Node titles can be long: wrap instead of truncating. */
 .task-graph-node__title {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  word-break: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-.task-graph-node__blocked-reason {
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
-}
-
-.task-graph-node__files {
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-3);
-  word-break: break-word;
+.task-graph-node .gv-row__trailing {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }

@@ -102,10 +102,24 @@ afterEach(() => {
 describe('ModelWorkspaceModal: multi-target routing', () => {
   test('renders all five targets with TUI-parity labels', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
+    await waitFor(() => Boolean(el.querySelector('[role="radiogroup"]')));
     for (const label of ['Main Chat', 'Helper Model', 'Tool LLM', 'TTS LLM', 'Embeddings']) {
       expect(el.textContent).toContain(label);
     }
+    unmount();
+  });
+
+  test('model rows are kit rows with context and price on the right and one secondary action', async () => {
+    const { el, unmount } = render();
+    await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
+    const opusRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('Claude Opus 4'));
+    expect(opusRow?.classList.contains('gv-row')).toBe(true);
+    expect(opusRow?.classList.contains('gv-row--selected')).toBe(true);
+    expect(opusRow?.querySelector('.model-workspace-figures')?.textContent).toContain('$15 in / $75 out');
+    expect(opusRow?.querySelector('button')?.textContent).toBe('Current');
+    const gptRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('GPT-5'));
+    expect(gptRow?.querySelector('button')?.className).toContain('gv-button--secondary');
+    expect(el.querySelector('.primary-button, .secondary-button, select')).toBeNull();
     unmount();
   });
 
@@ -131,7 +145,7 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
   test('main target: selecting a model calls models.current.set with its registryKey, never config.set', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('GPT-5') ?? false);
-    const gpt5Row = [...el.querySelectorAll('.providers-model-row')].find((r) => r.textContent?.includes('GPT-5'));
+    const gpt5Row = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('GPT-5'));
     click(gpt5Row?.querySelector('button'));
     await waitFor(() => selectCalls.length > 0);
     expect(selectCalls).toEqual(['openai:gpt-5']);
@@ -141,11 +155,11 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
 
   test('helper target: selecting a model writes globalProvider + globalModel + enabled via config.set, never models.current.set', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
-    const helperTab = [...el.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Helper Model');
+    await waitFor(() => Boolean(el.querySelector('[role="radiogroup"]')));
+    const helperTab = [...el.querySelectorAll('[role="radio"]')].find((t) => t.textContent === 'Helper Model');
     click(helperTab);
     await waitFor(() => el.textContent?.includes('GPT-5') ?? false);
-    const gpt5Row = [...el.querySelectorAll('.providers-model-row')].find((r) => r.textContent?.includes('GPT-5'));
+    const gpt5Row = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('GPT-5'));
     click(gpt5Row?.querySelector('button'));
     await waitFor(() => configSetCalls.length >= 3);
     expect(configSetCalls).toEqual([
@@ -159,13 +173,13 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
 
   test('embeddings target: no model concept; lists providers only, "Use" writes provider.embeddingProvider alone', async () => {
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('[role="tablist"]')));
-    const embeddingsTab = [...el.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Embeddings');
+    await waitFor(() => Boolean(el.querySelector('[role="radiogroup"]')));
+    const embeddingsTab = [...el.querySelectorAll('[role="radio"]')].find((t) => t.textContent === 'Embeddings');
     click(embeddingsTab);
     await waitFor(() => el.textContent?.includes('no model selection') ?? false);
-    await waitFor(() => Boolean([...el.querySelectorAll('.providers-model-row')].find((r) => r.textContent?.includes('openai'))));
+    await waitFor(() => Boolean([...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('openai'))));
     expect(el.textContent).not.toContain('claude-opus-4');
-    const openaiRow = [...el.querySelectorAll('.providers-model-row')].find((r) => r.textContent?.includes('openai'));
+    const openaiRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('openai'));
     click(openaiRow?.querySelector('button'));
     await waitFor(() => configSetCalls.length > 0);
     expect(configSetCalls).toEqual([['provider.embeddingProvider', 'openai']]);

@@ -1,50 +1,14 @@
 /*
- * model-workspace.css — ModelWorkspaceModal styles.
- * Uses contract tokens only (TOKEN-CONTRACT.md). Reuses .providers-model-grid
- * / .providers-model-row from providers.css for row layout (identical shape,
- * so keyboard nav + existing CSS keep working).
+ * model-workspace.css: the "Change model" workspace (ModelWorkspaceModal).
+ * Model rows are kit Rows: name left; context, price and one secondary
+ * action right; a hairline between; the selected row carries the accent marker.
  */
 
-/* A horizontally-scrollable single-line strip, not flex-wrap: wrap — the
- * modal header itself doesn't scroll (only .modal-body does), so at a narrow
- * (phone) width, wrapped rows would land outside the fixed-position modal's
- * visible area with nothing able to scroll them into view. A scrollable
- * strip keeps every target reachable (contained scroll — never triggers the
- * page-level horizontal-scroll the phone honesty bar forbids). */
+/* The target switcher scrolls inside its own track, never the page. */
 .model-workspace-targets {
   display: flex;
-  gap: var(--space-1);
-  flex-wrap: nowrap;
-  overflow-x: auto;
   min-width: 0;
-  scrollbar-width: thin;
-}
-
-.model-workspace-target {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
-}
-
-.model-workspace-target:hover {
-  color: var(--text);
-}
-
-.model-workspace-target--active {
-  background: var(--accent-soft);
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-.model-workspace-target:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  margin-bottom: var(--space-4);
 }
 
 .model-workspace-routing {
@@ -53,87 +17,61 @@
   justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-4);
-  background: var(--canvas);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
+  color: var(--text-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
 }
 
 .model-workspace-routing__current strong {
-  font-family: var(--font-mono);
   color: var(--text);
-}
-
-.model-workspace-routing__note {
-  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  overflow-wrap: anywhere;
 }
 
 .model-workspace-enable-toggle {
-  flex-shrink: 0;
+  flex: none;
+}
+
+.model-workspace-available-only {
+  flex: none;
+  align-self: end;
+  min-height: 36px;
 }
 
 .model-workspace-filters {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: var(--space-3);
-  flex-wrap: wrap;
   margin-bottom: var(--space-4);
 }
 
-.model-workspace-search {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 1 1 200px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--text-2);
-}
-
-.model-workspace-search input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: var(--text-sm);
-}
-
-.model-workspace-search input:focus {
-  outline: none;
+.model-workspace-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: start;
+  gap: var(--space-3);
 }
 
 .model-workspace-filter {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
+  gap: 6px;
+  min-width: 0;
+}
+
+.model-workspace-filter__label {
   color: var(--text-2);
-}
-
-.model-workspace-filter select {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  background: var(--canvas);
-  color: var(--text);
   font-size: var(--text-sm);
-}
-
-.model-workspace-filter select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  line-height: var(--leading-meta);
 }
 
 .model-workspace-filter__note {
-  color: var(--text-3, var(--text-2));
-  font-style: italic;
-}
-
-.model-workspace-available-only {
-  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .model-workspace-skeleton {
@@ -145,26 +83,54 @@
 .model-workspace-groups {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
 .model-workspace-group__title {
   margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-meta);
 }
 
-.model-workspace-price {
+.model-workspace-row__key {
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
+}
+
+.model-workspace-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   color: var(--text-2);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The current row's "Current" label stays readable (it is a disabled button). */
+.model-workspace-row .gv-button:disabled {
+  color: var(--text-2);
+  opacity: 1;
+  cursor: default;
 }
 
 @media (max-width: 480px) {
-  .model-workspace-filters {
-    flex-direction: column;
-    align-items: stretch;
+  .model-workspace-row {
+    flex-wrap: wrap;
+  }
+
+  .model-workspace-row .gv-row__trailing {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .model-workspace-figures {
+    align-items: flex-start;
+    text-align: left;
   }
 }

@@ -5,9 +5,9 @@
  * carries no CONFIG_SCHEMA entry, so it gets its own panel rather than a
  * SettingsModal row.
  *
- * Renders the tier as a status chip reusing the webui's OWN `.badge` tone idiom
- * (memory-governance.ts's memoryTierBadgeClass, neutral/info/warning/bad for
- * normal/elevated/high/critical), a labeled budget-vs-RSS bar, a per-cache footprint
+ * Renders the tier as a kit Chip with a status dot (memory-governance.ts's
+ * memoryTierBadgeClass, neutral/info/warning/bad for normal/elevated/high/critical,
+ * mapped to idle/info/warn/bad), a labeled budget-vs-RSS bar, a per-cache footprint
  * table, the paused-deferrable-jobs list, and the leak-tripwire line.
  *
  * Honest states: a daemon build with no ops.memory.get id at all (404,
@@ -28,6 +28,7 @@
  * invent new event infrastructure.
  */
 import { MemoryStick } from 'lucide-react';
+import type { StatusTone } from '../ui/StatusDot';
 import { useMemoryDiagnostics } from '../../hooks/useMemoryDiagnostics';
 import { isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { formatBytes } from '../../lib/object';
@@ -38,11 +39,19 @@ import {
   memoryTierLabel,
   tripwireLine,
 } from '../../lib/memory-governance';
-import { contractGlyphForMemoryTier } from '../../lib/presentation-bridge';
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { Chip } from '../ui/Chip';
+import { SettingsBlock } from './dialog/parts';
 import '../../styles/components/memory-diagnostics.css';
+
+const TIER_TONE: Record<ReturnType<typeof memoryTierBadgeClass>, StatusTone> = {
+  neutral: 'idle',
+  info: 'info',
+  warning: 'warn',
+  bad: 'bad',
+};
 
 export function MemoryDiagnostics() {
   const diagnostics = useMemoryDiagnostics();
@@ -51,11 +60,7 @@ export function MemoryDiagnostics() {
     && (isMethodUnavailableError(diagnostics.error) || isMethodNotInvokableError(diagnostics.error));
 
   return (
-    <section className="panel memory-diagnostics" aria-label="Memory diagnostics" data-testid="memory-diagnostics">
-      <div className="panel-title">
-        <h2>Memory</h2>
-        <MemoryStick size={18} aria-hidden="true" />
-      </div>
+    <SettingsBlock className="memory-diagnostics" title="Memory use" testId="memory-diagnostics">
 
       {diagnostics.isPending && (
         <div aria-label="Loading memory diagnostics" aria-busy="true">
@@ -77,17 +82,15 @@ export function MemoryDiagnostics() {
 
       {diagnostics.isSuccess && (() => {
         const snapshot = diagnostics.data;
-        const tone = memoryTierBadgeClass(snapshot.tier);
+        const tone = TIER_TONE[memoryTierBadgeClass(snapshot.tier)];
         const usedPct = clampUsedPct(snapshot.usedPct);
 
         return (
           <>
             <div className="memory-diagnostics__tier-row">
-              <span className={`badge ${tone}`} data-contract-glyph={contractGlyphForMemoryTier(snapshot.tier)}>
-                {memoryTierLabel(snapshot.tier)}
-              </span>
+              <Chip tone={tone} className="memory-diagnostics__tier">{memoryTierLabel(snapshot.tier)}</Chip>
               {snapshot.refusingExpensiveWork && (
-                <span className="form-note" role="note">Refusing expensive work while under pressure.</span>
+                <span className="memory-diagnostics__note" role="note">Refusing expensive work while under pressure.</span>
               )}
             </div>
 
@@ -109,7 +112,7 @@ export function MemoryDiagnostics() {
                   style={{ width: `${usedPct}%` }}
                 />
               </div>
-              <p className="form-note">
+              <p className="memory-diagnostics__note">
                 Heap {formatMb(snapshot.heapUsedMb)}
                 {typeof snapshot.heapTotalMb === 'number' ? ` of ${formatMb(snapshot.heapTotalMb)}` : ''}
               </p>
@@ -117,7 +120,7 @@ export function MemoryDiagnostics() {
 
             {snapshot.caches.length > 0 && (
               <table className="memory-diagnostics__caches">
-                <caption className="form-note">Per-cache footprint</caption>
+                <caption className="memory-diagnostics__caption">Per-cache footprint</caption>
                 <thead>
                   <tr>
                     <th scope="col">Cache</th>
@@ -138,14 +141,14 @@ export function MemoryDiagnostics() {
             )}
 
             {snapshot.pausedJobs.length > 0 ? (
-              <div>
-                <strong>Paused jobs</strong>
+              <div className="memory-diagnostics__paused">
+                <h4 className="memory-diagnostics__subtitle">Paused jobs</h4>
                 <ul className="memory-diagnostics__paused-jobs">
                   {snapshot.pausedJobs.map((job) => <li key={job}>{job}</li>)}
                 </ul>
               </div>
             ) : (
-              <p className="form-note">No deferrable jobs currently paused.</p>
+              <p className="memory-diagnostics__note">No deferrable jobs currently paused.</p>
             )}
 
             <p className={`memory-diagnostics__tripwire${snapshot.tripwire.armed ? ' memory-diagnostics__tripwire--armed' : ''}`} role="status">
@@ -154,6 +157,6 @@ export function MemoryDiagnostics() {
           </>
         );
       })()}
-    </section>
+    </SettingsBlock>
   );
 }

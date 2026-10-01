@@ -1,126 +1,91 @@
 /*
- * Pairing hand-off offer decisions (pairing.handoff.*).
- * Uses contract tokens from src/styles/tokens.css exclusively.
+ * Pairing hand-off offer decisions (pairing.handoff.*): a divided list inside
+ * the kit Dialog. No row is a card; the footer holds the one primary action.
  */
 
 .pairing-handoff {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
 }
 
 .pairing-handoff-posture-notice {
   margin: 0;
 }
 
+.pairing-handoff-note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
 /* Standalone one-shot banner (App.tsx, a plain #pair=<token> hand-off with no
-   offer set) — same tone, its own dismiss affordance. */
+   offer set): the shared .banner with its own dismiss button on the right. */
 .pairing-posture-notice {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .pairing-posture-notice__dismiss {
   margin-left: auto;
-  padding: var(--space-1, 4px) var(--space-3, 12px);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-xs, 6px);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 
-.pairing-posture-notice__dismiss:hover {
-  background: var(--surface-2);
-}
-
-.pairing-handoff-offers {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.pairing-handoff-offers,
+.pairing-handoff-results {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.pairing-handoff-offer {
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
+.pairing-handoff-offer,
+.pairing-handoff-result {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.pairing-handoff-offer__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+.pairing-handoff-offer:last-child,
+.pairing-handoff-result:last-child {
+  border-bottom: 0;
 }
 
 .pairing-handoff-offer__label {
-  font-weight: 600;
-  font-size: var(--text-sm, 13px);
+  color: var(--text);
+  font-weight: var(--weight-medium);
 }
 
 .pairing-handoff-offer__desc {
-  margin: 4px 0 0 26px;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
-}
-
-.pairing-handoff-results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
+  margin: var(--space-1) 0 0 26px;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .pairing-handoff-result {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pairing-handoff-result__name {
+  color: var(--text);
+  font-weight: var(--weight-medium);
 }
 
 .pairing-handoff-result__status {
-  font-size: var(--text-xs, 12px);
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--surface);
-}
-
-.pairing-handoff-result--completed .pairing-handoff-result__status {
-  color: var(--ok);
-}
-
-.pairing-handoff-result--failed .pairing-handoff-result__status {
-  color: var(--bad);
-}
-
-.pairing-handoff-result--declined .pairing-handoff-result__status,
-.pairing-handoff-result--unavailable .pairing-handoff-result__status {
-  color: var(--text-3);
+  margin-left: auto;
+  color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .pairing-handoff-result__detail {
   flex-basis: 100%;
-  font-size: var(--text-xs, 11px);
+  padding-left: 15px;
   color: var(--text-3);
-}
-
-@media (max-width: 980px) {
-  .pairing-handoff-offer__row input[type='checkbox'] {
-    width: 22px;
-    height: 22px;
-  }
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }

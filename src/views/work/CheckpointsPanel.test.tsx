@@ -274,14 +274,12 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
     openRestore(el);
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
     const sheet = el.querySelector('.gv-confirm')!;
-    // The sheet states the target and the overwrite consequence.
-    expect(sheet.textContent).toContain('diff base');
-    expect(sheet.textContent?.toLowerCase()).toContain('overwrite');
-    // ...and the restorePreview enrichment: how many files would change plus a sampled path.
+    // The dialog asks the question naming the checkpoint, then one sentence with
+    // the restorePreview count.
+    expect(sheet.textContent).toContain('Restore the workspace to “diff base”?');
     expect(previewCalls).toHaveLength(1);
     expect(previewCalls[0]).toMatchObject({ id: 'wcp_1' });
-    expect(sheet.textContent).toContain('1 file would change');
-    expect(sheet.textContent).toContain('a.txt');
+    expect(sheet.textContent).toContain('Files changed since then are replaced; 1 file changes.');
     click(sheet.querySelector('.gv-confirm__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     expect(restoreCalls).toHaveLength(1);

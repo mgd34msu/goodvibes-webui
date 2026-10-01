@@ -145,19 +145,19 @@
 .gv-field__label {
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .gv-field__help {
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .gv-field__error {
   color: var(--bad);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .gv-input {
@@ -169,7 +169,7 @@
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   transition: border-color var(--motion-fast) ease-out, box-shadow var(--motion-fast) ease-out;
 }
 
@@ -193,6 +193,18 @@ textarea.gv-input {
   box-shadow: var(--focus-ring);
 }
 
+/* Search fields (settings, Work, Library): no glow. Focus is a quiet border
+   change, and only for keyboard focus (owner review 2026-09-30). */
+.gv-input--search:focus {
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+.gv-input--search:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+  box-shadow: none;
+}
+
 .gv-input[aria-invalid="true"] {
   border-color: var(--bad);
 }
@@ -211,7 +223,7 @@ textarea.gv-input {
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   text-align: left;
   cursor: pointer;
 }
@@ -269,7 +281,7 @@ textarea.gv-input {
   background: transparent;
   border: 0;
   border-radius: var(--radius-item);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -352,7 +364,7 @@ textarea.gv-input {
   padding: 6px 10px 8px;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   white-space: normal;
 }
 
@@ -430,7 +442,7 @@ textarea.gv-input {
   border-radius: var(--radius-xs);
   box-shadow: var(--shadow);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   pointer-events: none;
   animation: gv-fade-in var(--motion-fast) ease-out both;
 }
@@ -668,7 +680,7 @@ button.gv-row__main::after {
   overflow: hidden;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -768,7 +780,7 @@ button.gv-row__main::after {
   margin: 4px 0 0;
   color: var(--text-2);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .gv-dialog__body {
@@ -790,7 +802,7 @@ button.gv-row__main::after {
   color: var(--text);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .gv-confirm .gv-dialog__footer {
@@ -983,7 +995,7 @@ button.gv-row__main::after {
   gap: 8px;
   color: var(--text);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   cursor: pointer;
 }
 
@@ -1230,7 +1242,7 @@ button.gv-row__main::after {
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   text-align: left;
   cursor: pointer;
   transition: background-color var(--motion-fast) ease-out;

@@ -66,7 +66,7 @@ describe('MemoryDiagnostics', () => {
     mockDiagnostics = { isPending: true, isError: false, isSuccess: false, data: undefined, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('.badge')).toBeNull();
+    expect(el.querySelector('.memory-diagnostics__tier')).toBeNull();
     expect(el.textContent).toContain('Memory');
   });
 
@@ -115,8 +115,8 @@ describe('MemoryDiagnostics', () => {
     mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: NORMAL_SNAPSHOT, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    const chip = el.querySelector('.badge');
-    expect(chip?.className).toContain('neutral');
+    const chip = el.querySelector('.memory-diagnostics__tier');
+    expect(chip?.querySelector('.gv-dot--idle')).not.toBeNull();
     expect(chip?.textContent).toBe('Normal');
     expect(el.textContent).toContain('256 MB of 1024 MB budget');
     expect(el.textContent).toContain('25%');
@@ -132,14 +132,14 @@ describe('MemoryDiagnostics', () => {
     mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: { ...NORMAL_SNAPSHOT, tier: 'elevated', usedPct: 65 }, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('.badge')?.className).toContain('info');
+    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--info')).not.toBeNull();
   });
 
   test('high tier gets the warning tone', () => {
     mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: { ...NORMAL_SNAPSHOT, tier: 'high', usedPct: 85 }, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('.badge')?.className).toContain('warning');
+    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--warn')).not.toBeNull();
   });
 
   test('critical tier gets the bad tone and shows the refusing-expensive-work note', () => {
@@ -152,7 +152,7 @@ describe('MemoryDiagnostics', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('.badge')?.className).toContain('bad');
+    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--bad')).not.toBeNull();
     expect(el.textContent).toContain('Refusing expensive work while under pressure.');
   });
 

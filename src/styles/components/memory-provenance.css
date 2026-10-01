@@ -58,7 +58,7 @@
   gap: 4px;
   padding: 8px 0;
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .memory-provenance-chip__list li + li {

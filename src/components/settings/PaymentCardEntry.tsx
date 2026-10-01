@@ -61,11 +61,15 @@
  */
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CreditCard } from 'lucide-react';
 import { describeCardEntryRefusal } from '@pellux/goodvibes-sdk/platform/payments';
 import { sdk } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
+import { Button } from '../ui/Button';
+import { Chip } from '../ui/Chip';
+import { Field, Input } from '../ui/Field';
+import { Row, RowList } from '../ui/Row';
 import { Select } from '../ui/Select';
+import { SettingsBlock } from './dialog/parts';
 import { useToast } from '../../lib/toast';
 import { minorUnitsToMajorText } from '../../lib/money';
 import {
@@ -157,7 +161,7 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
     // must never ask the question. No inputs are rendered at all, not disabled
     // ones, which would still be an invitation to type.
     return (
-      <section className="settings-card-entry panel" data-testid="payment-card-entry-refused">
+      <section className="settings-card-entry" data-testid="payment-card-entry-refused">
         <div className="banner warning" role="alert">
           {describeCardEntryRefusal(surface)}
         </div>
@@ -168,44 +172,41 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
   const list = cards.data?.cards ?? [];
 
   return (
-    <section className="settings-card-entry panel" data-testid="payment-card-entry">
-      <div className="panel-title">
-        <h2>Payment card</h2>
-        <CreditCard size={16} aria-hidden="true" />
-      </div>
-      <p className="settings-card-note">
-        The number, expiry, security code and cardholder name go to the daemon&apos;s secret store, encrypted at
-        rest, and are never shown again. There is no way to read them back, here or anywhere else. A virtual card
-        with a hard issuer cap bounds what any leak could cost to one number you can kill; a real card number cannot
-        be capped by anything this software does.
-      </p>
-
+    <SettingsBlock
+      className="settings-card-entry"
+      testId="payment-card-entry"
+      title="Payment card"
+      description="The number, expiry, security code and cardholder name go to the daemon's secret store, encrypted, and are never shown again. There is no way to read them back, here or anywhere else. A virtual card with a hard issuer cap limits what a leak could cost to one number you can cancel; a real card number cannot be capped by anything this software does."
+    >
       {list.length > 0 && (
-        <table className="settings-table settings-card-list" data-testid="payment-card-list">
-          <tbody>
+        <div className="settings-card-list" data-testid="payment-card-list">
+          <RowList aria-label="Stored cards">
             {list.map((card) => (
-              <tr key={card.id}>
-                <th scope="row">{card.label}</th>
-                <td>
-                  {card.brand} ···{card.last4} · {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear} ·{' '}
-                  {card.kind}
-                  {card.issuerCapMinorUnits !== null && ` · cap ${minorUnitsToMajorText(card.issuerCapMinorUnits, currency)} ${currency}`}
-                  {card.materialComplete ? ' · complete' : ' · incomplete'}
-                </td>
-              </tr>
+              <Row
+                key={card.id}
+                title={card.label}
+                meta={[
+                  `${card.brand} ···${card.last4}`,
+                  `${String(card.expiryMonth).padStart(2, '0')}/${card.expiryYear}`,
+                  card.kind,
+                  card.issuerCapMinorUnits !== null
+                    ? `cap ${minorUnitsToMajorText(card.issuerCapMinorUnits, currency)} ${currency}`
+                    : '',
+                ].filter(Boolean).join(' · ')}
+                trailing={<Chip tone={card.materialComplete ? 'ok' : 'warn'}>{card.materialComplete ? 'Complete' : 'Incomplete'}</Chip>}
+              />
             ))}
-          </tbody>
-        </table>
+          </RowList>
+        </div>
       )}
 
       {/*
         No <form> element, deliberately. See condition 5 in the header. The
         button below is an ordinary button with a click handler, not a submit.
       */}
-      <div className="form-grid settings-card-form">
-        <label htmlFor="gv-card-label">
-          Label
-          <input
+      <div className="settings-card-form">
+        <Field label="Label">
+          <Input
             id="gv-card-label"
             type="text"
             value={draft.label}
@@ -214,13 +215,11 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('label', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-kind">
-          Kind
+        <Field label="Kind">
           <Select
             id="gv-card-kind"
-            className="settings-field-select"
             value={draft.kind}
             disabled={saving}
             onChange={(next) => update('kind', next)}
@@ -229,11 +228,10 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
               { value: 'real', label: 'real' },
             ]}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-number">
-          Card number
-          <input
+        <Field label="Card number">
+          <Input
             id="gv-card-number"
             type="text"
             inputMode="numeric"
@@ -244,11 +242,10 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('number', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-expiry">
-          Expiry (MM/YY)
-          <input
+        <Field label="Expiry (MM/YY)">
+          <Input
             id="gv-card-expiry"
             type="text"
             inputMode="numeric"
@@ -259,11 +256,10 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('expiry', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-cvv">
-          Security code
-          <input
+        <Field label="Security code">
+          <Input
             id="gv-card-cvv"
             type="text"
             inputMode="numeric"
@@ -274,11 +270,10 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('cvv', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-holder">
-          Cardholder name
-          <input
+        <Field label="Cardholder name">
+          <Input
             id="gv-card-holder"
             type="text"
             value={draft.cardholderName}
@@ -288,11 +283,10 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('cardholderName', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <label htmlFor="gv-card-cap">
-          Issuer cap ({currency}, optional)
-          <input
+        <Field label={`Issuer cap (${currency}, optional)`} help="The cap is what you declared. We cannot verify it and never enforce it; only your card issuer can.">
+          <Input
             id="gv-card-cap"
             type="text"
             inputMode="decimal"
@@ -303,28 +297,25 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
             onChange={(event) => update('issuerCap', event.target.value)}
             {...CARD_INPUT_GUARDS}
           />
-        </label>
+        </Field>
 
-        <button
-          type="button"
-          className="primary-button"
-          disabled={saving}
-          data-testid="payment-card-submit"
-          onClick={() => void submit()}
-        >
-          {saving ? 'Storing…' : 'Store card'}
-        </button>
+        <div className="settings-card-form__submit">
+          <Button
+            variant="primary"
+            disabled={saving}
+            data-testid="payment-card-submit"
+            onClick={() => void submit()}
+          >
+            {saving ? 'Storing…' : 'Store card'}
+          </Button>
+        </div>
       </div>
-
-      <p className="settings-card-note settings-card-cap-note">
-        The issuer cap is what YOU declared to us. We cannot verify it and never enforce it, only your issuer can.
-      </p>
 
       {error && (
         <div className="banner warning" role="alert" data-testid="payment-card-error">
           {error}
         </div>
       )}
-    </section>
+    </SettingsBlock>
   );
 }

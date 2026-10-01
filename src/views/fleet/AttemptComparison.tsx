@@ -11,12 +11,15 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Gavel, Trophy } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { FleetAttemptGroup, FleetAttemptCandidate, FleetAttemptJudgment } from '../../lib/goodvibes';
 import { formatError, isConflictError, isMethodNotInvokableError } from '../../lib/errors';
 import { parseUnifiedDiff } from '../../lib/unified-diff';
 import { DiffMultibuffer } from '../../components/diff/DiffMultibuffer';
+import { DetailSection } from '../../components/data-view/DataView';
+import { Button } from '../../components/ui/Button';
+import { Chip } from '../../components/ui/Chip';
 import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Radio } from '../../components/ui/Radio';
@@ -80,7 +83,23 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
   const judgeUnavailable = judge.isError && isMethodNotInvokableError(judge.error);
 
   return (
-    <Dialog open={open} onClose={onClose} title={`Compare attempts: ${group.sourceTitle}`} size="wide">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`Compare attempts: ${group.sourceTitle}`}
+      size="wide"
+      footer={
+        <Button
+          variant="primary"
+          className="attempt-cmp__pick-btn"
+          icon={<Trophy size={16} aria-hidden="true" />}
+          disabled={!selectedId || pick.isPending || heldCandidates.length === 0}
+          onClick={() => setConfirmPick(true)}
+        >
+          {pick.isPending ? 'Merging winner…' : 'Pick this winner'}
+        </Button>
+      }
+    >
       <div className="attempt-cmp">
         <p className="attempt-cmp__intro">
           {heldCandidates.length} held candidate{heldCandidates.length === 1 ? '' : 's'} of {group.candidates.length}.
@@ -88,20 +107,20 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
         </p>
 
         {/* Judge proposal. CLEARLY labelled as model judgment, never an auto-pick. */}
-        <div className="attempt-cmp__judge">
-          <div className="attempt-cmp__judge-head">
-            <Gavel size={14} aria-hidden="true" />
-            <strong>Model judgment</strong>
-            <span className="attempt-cmp__judge-tag">proposal only, a human still confirms</span>
-            <button
-              type="button"
+        <DetailSection
+          title="Model judgment"
+          actions={
+            <Button
+              size="sm"
               className="attempt-cmp__judge-btn"
               disabled={judge.isPending}
               onClick={() => judge.mutate()}
             >
               {judge.isPending ? 'Asking the judge…' : judgment ? 'Re-run judge' : 'Ask the judge'}
-            </button>
-          </div>
+            </Button>
+          }
+        >
+          <p className="attempt-cmp__note">This is a proposal only; a human still confirms.</p>
           {judgeUnavailable && (
             <p className="attempt-cmp__note" role="note">No judge model is configured on this engine, pick manually.</p>
           )}
@@ -125,7 +144,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
               )}
             </div>
           )}
-        </div>
+        </DetailSection>
 
         <div className="attempt-cmp__candidates">
           {group.candidates.map((candidate) => {
@@ -133,7 +152,10 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
             const isProposed = judgment?.proposedWinnerItemId === candidate.itemId;
             const files = candidate.diff ? parseUnifiedDiff(candidate.diff.unifiedDiff) : [];
             return (
-              <div key={candidate.itemId} className={`attempt-cmp__candidate${isProposed ? ' attempt-cmp__candidate--proposed' : ''}`}>
+              <section
+                key={candidate.itemId}
+                className={`attempt-cmp__candidate${selectedId === candidate.itemId && held ? ' attempt-cmp__candidate--selected' : ''}`}
+              >
                 <div className="attempt-cmp__candidate-head">
                   <Radio
                     className="attempt-cmp__pick-radio"
@@ -147,14 +169,16 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
                       #{candidate.attemptIndex + 1} {candidate.title}
                     </span>
                   </Radio>
-                  <span className={`badge ${held ? 'ok' : 'bad'}`}>{candidate.state}</span>
-                  {isProposed && <span className="badge attention">judge pick</span>}
-                  <span className="badge neutral">{candidateCost(candidate)}</span>
+                  <span className="attempt-cmp__chips">
+                    <Chip size="sm" tone={held ? 'ok' : 'bad'}>{held ? 'Ready to merge' : candidate.state}</Chip>
+                    {isProposed && <Chip size="sm" tone="info">Judge&apos;s pick</Chip>}
+                    <Chip size="sm">{candidateCost(candidate)}</Chip>
+                  </span>
                 </div>
-                <div className="attempt-cmp__candidate-meta">
-                  <small>{candidate.usage.inputTokens} in · {candidate.usage.outputTokens} out · {candidate.usage.toolCallCount} tool calls</small>
-                  {candidate.branch && <small> · {candidate.branch}</small>}
-                </div>
+                <p className="attempt-cmp__candidate-meta">
+                  {candidate.usage.inputTokens} in · {candidate.usage.outputTokens} out · {candidate.usage.toolCallCount} tool calls
+                  {candidate.branch && <span className="attempt-cmp__branch"> · {candidate.branch}</span>}
+                </p>
                 {candidate.failureReason && (
                   <p className="attempt-cmp__failure" role="note">Failed: {candidate.failureReason}</p>
                 )}
@@ -163,7 +187,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
                 ) : (
                   !candidate.failureReason && <p className="attempt-cmp__note" role="note">No diff captured for this candidate.</p>
                 )}
-              </div>
+              </section>
             );
           })}
         </div>
@@ -172,27 +196,15 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
         {pick.isError && !isConflictError(pick.error) && (
           <p className="attempt-cmp__error" role="alert">{formatError(pick.error)}</p>
         )}
-
-        <div className="attempt-cmp__actions">
-          <button
-            type="button"
-            className="attempt-cmp__pick-btn"
-            disabled={!selectedId || pick.isPending || heldCandidates.length === 0}
-            onClick={() => setConfirmPick(true)}
-          >
-            <Trophy size={15} aria-hidden="true" />
-            {pick.isPending ? 'Merging winner…' : 'Pick this winner'}
-          </button>
-        </div>
       </div>
 
       {confirmPick && (
         <ConfirmDialog
           open
           tone="danger"
-          title="Pick this attempt as the winner"
+          title="Pick this attempt as the winner?"
           target={group.candidates.find((c) => c.itemId === selectedId)?.title ?? selectedId}
-          description="Merges the winner through the integration lane and cleans every losing worktree. This cannot be undone."
+          description="The winner is merged and every other attempt's worktree is removed for good."
           confirmLabel="Pick winner"
           onConfirm={() => { setConfirmPick(false); setConflict(null); pick.mutate(selectedId); }}
           onCancel={() => setConfirmPick(false)}

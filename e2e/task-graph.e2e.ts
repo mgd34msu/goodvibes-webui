@@ -24,7 +24,7 @@ test('the task graph renders every state tell for the selected workstream', asyn
   // Pool summary, the brief's own vocabulary verbatim, plus the daemon's own
   // more specific spawn-refusal detail appended honestly.
   await expect(panel.locator('[data-testid="task-graph-pool"]')).toHaveText(
-    '1 ready, 2 running, at cap (fleet.maxSize=2): new spawns wait for a running agent to free a slot',
+    '1 ready, 2 running, at the limit of 2 running at once: new spawns wait for a running agent to free a slot',
   );
 
   // Every state tell from the representative fixture. Filter by the row's

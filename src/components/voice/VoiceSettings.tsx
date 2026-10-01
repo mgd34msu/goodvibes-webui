@@ -30,7 +30,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invokeMethod, sdk } from '../../lib/goodvibes';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { asRecord, formatBytes } from '../../lib/object';
-import { classifyBadgeTone, contractGlyphForBadgeTone } from '../../lib/presentation-bridge';
 import { useSharedVoiceConfig, useVoiceStatus } from '../../lib/voice/useVoice';
 import { TTS_UNAVAILABLE_MESSAGE, describeSharedVoice } from '../../lib/voice/voice-config';
 import {
@@ -42,8 +41,10 @@ import {
 } from '../../lib/voice/voice-local-setup';
 import { useVoiceLocalInstall, useVoiceLocalStatus } from '../../hooks/useVoiceLocalSetup';
 import { WakeWordSettings } from './WakeWordSettings';
-import { Select } from '../ui/Select';
+import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
+import { Select } from '../ui/Select';
+import { StatusDot } from '../ui/StatusDot';
 
 interface VoiceOption {
   id: string;
@@ -102,9 +103,6 @@ export function VoiceSettings() {
   const localUnavailable = localStatus.isError
     && (isMethodUnavailableError(localStatus.error) || isMethodNotInvokableError(localStatus.error));
 
-  const tone = classifyBadgeTone(availability.ttsAvailable ? 'ready' : 'unconfigured');
-  const glyph = contractGlyphForBadgeTone(tone);
-
   return (
     <div className="voice-settings">
       <button
@@ -124,7 +122,7 @@ export function VoiceSettings() {
         onClose={() => setOpen(false)}
         title="Spoken voice"
         className="voice-settings-popover"
-        headerActions={<span className={`voice-settings-tone tone-${tone}`} aria-hidden>{glyph}</span>}
+        headerActions={<StatusDot tone={availability.ttsAvailable ? 'ok' : 'idle'} srLabel={availability.ttsAvailable ? 'Spoken voice ready' : 'Spoken voice not set up'} />}
       >
           {availability.ttsAvailable ? (
             <>
@@ -132,7 +130,7 @@ export function VoiceSettings() {
                 Current voice: <strong>{describeSharedVoice(config)}</strong>
               </p>
               <div className="voice-settings-field">
-                <span aria-hidden="true">Provider</span>
+                <span className="voice-settings-field__label" aria-hidden="true">Provider</span>
                 <Select
                   aria-label="Provider"
                   className="voice-settings-provider"
@@ -143,7 +141,7 @@ export function VoiceSettings() {
                 />
               </div>
               <div className="voice-settings-field">
-                <span aria-hidden="true">Voice</span>
+                <span className="voice-settings-field__label" aria-hidden="true">Voice</span>
                 <Select
                   aria-label="Voice"
                   className="voice-settings-voice"
@@ -154,7 +152,7 @@ export function VoiceSettings() {
                 />
               </div>
               {voicesQuery.isLoading && <p className="voice-settings-hint">Loading voices…</p>}
-              <p className="voice-settings-hint">One voice across terminal, desktop, and agent.</p>
+              <p className="voice-settings-hint">One voice for the terminal, the desktop app and the agent.</p>
             </>
           ) : (
             <p className="voice-settings-unavailable">{TTS_UNAVAILABLE_MESSAGE}</p>
@@ -203,16 +201,15 @@ export function VoiceSettings() {
                     {/* The one-act setup action. Hidden while a retriable failure's own
                         Retry (below) is the offered action, one button, not two twins. */}
                     {needsSetup && !retriable && (
-                      <button
-                        type="button"
-                        className="secondary-button"
+                      <Button
+                        className="voice-settings-action"
                         disabled={localInstall.isPending}
                         onClick={() => localInstall.mutate()}
                       >
                         {localInstall.isPending
                           ? 'Installing…'
                           : `Set up local voice${typeof status.offerBytes === 'number' ? ` (~${formatBytes(status.offerBytes)})` : ''}`}
-                      </button>
+                      </Button>
                     )}
 
                     {/* Live per-component progress of the ACTIVE install run, from
@@ -271,14 +268,13 @@ export function VoiceSettings() {
                           </p>
                         )}
                         {retriable && needsSetup && (
-                          <button
-                            type="button"
-                            className="secondary-button"
+                          <Button
+                            className="voice-settings-action"
                             disabled={localInstall.isPending}
                             onClick={() => localInstall.mutate()}
                           >
                             {localInstall.isPending ? 'Installing…' : 'Retry'}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}

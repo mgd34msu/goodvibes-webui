@@ -1,18 +1,12 @@
 /*
- * StatusStrip component styles (daemon pulse)
- * Uses contract tokens from src/styles/tokens.css exclusively.
- * Do NOT hardcode hex or px where a token exists.
- */
-
-/*
- * Status chips and the connection dot.
+ * Header chips and notices.
  *
  * The bottom status strip is gone (design doc "App shell": connection state
- * lives in the avatar dot and the account menu). What remains here are the
- * chips that must never be invisible while their condition holds, the
- * sleep-disabled chip (PowerChip), the wake-word listening chip (WakeChip) and
- * the reload-to-update chip, rendered in the shell header's indicator slot, plus
- * the connection dot used on the avatar and in the account menu.
+ * lives in the avatar dot and the account menu). What remains are the chips
+ * that must never be invisible while their condition holds: the sleep-disabled
+ * chip (PowerChip), the wake-word listening chip (WakeChip) and the
+ * reload-to-update chip, rendered in the shell header's indicator slot; plus
+ * the relay overflow notice and the daemon receipts.
  *
  * Chips are neutral (--surface-2, full radius, 24 tall); only the icon carries
  * the status hue, and a word always sits beside it.
@@ -32,71 +26,6 @@
   font-size: var(--text-meta);
 }
 
-.status-strip__segment--active .status-strip__label {
-  color: var(--text);
-}
-
-.status-strip__segment--active .status-strip__icon {
-  color: var(--accent);
-}
-
-/* Connection dot: the design doc's 7px status dot. */
-.status-strip__dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full, 999px);
-  flex-shrink: 0;
-  transition: background-color var(--motion-base, 180ms) var(--ease-standard, ease);
-}
-
-.status-strip__dot--connected {
-  background-color: var(--ok);
-}
-
-.status-strip__dot--reconnecting {
-  background-color: var(--warn);
-  animation: status-strip-pulse var(--motion-slow, 260ms) ease-in-out infinite alternate;
-}
-
-.status-strip__dot--down {
-  background-color: var(--bad);
-}
-
-/* SSE state coloring */
-.status-strip__segment--sse-active .status-strip__icon {
-  color: var(--ok);
-}
-
-.status-strip__segment--sse-connecting .status-strip__icon {
-  color: var(--warn);
-}
-
-.status-strip__segment--sse-error .status-strip__icon {
-  color: var(--bad);
-}
-
-.status-strip__segment--sse-disabled .status-strip__icon {
-  color: var(--text-3);
-}
-
-/* Event streaming genuinely cannot work over relay (not a fault to fix, not a
- * reconnect-and-it-'ll-be-fine state) — an informational tone, not the danger
- * color 'error' uses. */
-.status-strip__segment--sse-relay-unsupported .status-strip__icon {
-  color: var(--info, var(--text-3));
-}
-
-/* ROUTE axis. 'relay' gets a distinct (info, not success) color so a tunneled
- * session is never visually indistinguishable from an ordinary direct one. */
-.status-strip__segment--route-direct .status-strip__icon {
-  color: var(--ok);
-}
-
-.status-strip__segment--route-relay .status-strip__icon {
-  color: var(--info, var(--warn));
-}
-
 .status-strip__icon {
   color: var(--text-3);
   flex-shrink: 0;
@@ -104,80 +33,25 @@
 
 .status-strip__label {
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   color: inherit;
 }
 
-/* Contract-sourced severity glyph (src/lib/presentation-bridge.ts,
- * StatusStrip.tsx's `data-contract-glyph` attribute on the connection-axis
- * label). Scoped to the connection segment specifically — not every
- * `.status-strip__label` carries the attribute. Generated CSS content, not a
- * DOM text node, so `.textContent` still reports exactly the label text. */
-.status-strip__segment--connection .status-strip__label::before {
-  content: attr(data-contract-glyph);
-  margin-right: 2px;
-  opacity: 0.85;
-}
-
-.status-strip__label--mono {
-  font-family: var(--font-mono);
-  font-size: 11px; /* intentional sub-token: 11px < --text-xs (12px); model name
-                   * needs slightly tighter scale to stay unobtrusive */
-  color: var(--text-3);
-}
-
-/* Segment model — slightly dimmed, ellipsis on overflow */
-.status-strip__segment--model {
-  max-width: 200px;
-  overflow: hidden;
-}
-
-.status-strip__segment--model .status-strip__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* PowerChip — "sleep disabled" — danger idiom: an active override the owner should notice, not
- * ambient status. */
-.status-strip__segment--power {
-  color: var(--text);
-}
-
-.status-strip__segment--power .status-strip__icon {
-  color: var(--bad);
-}
-
-.status-strip__segment--power .status-strip__label {
-  font-weight: var(--weight-medium);
-}
-
-/* Client-build compatibility floor warning — same danger idiom as PowerChip
- * above: an active condition the owner should notice, not ambient status. */
+/* Sleep disabled and the reload-to-update warning: an active condition to
+ * notice. Same chip, the icon carries the hue. */
+.status-strip__segment--power,
 .status-strip__segment--compatibility-warning {
   color: var(--text);
 }
 
+.status-strip__segment--power .status-strip__icon,
 .status-strip__segment--compatibility-warning .status-strip__icon {
   color: var(--bad);
 }
 
+.status-strip__segment--power .status-strip__label,
 .status-strip__segment--compatibility-warning .status-strip__label {
   font-weight: var(--weight-medium);
-}
-
-/* Pulse animation for reconnecting dot */
-@keyframes status-strip-pulse {
-  from { opacity: 1; }
-  to   { opacity: 0.35; }
-}
-
-/* Respect prefers-reduced-motion */
-@media (prefers-reduced-motion: reduce) {
-  .status-strip__dot--reconnecting {
-    animation: none;
-    opacity: 1;
-  }
 }
 
 /* ── Relay live-event overflow notice ─────────────────────────────────────── */
@@ -189,18 +63,6 @@
 
 .relay-overflow-resync {
   margin-left: auto;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-xs, 6px);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.relay-overflow-resync:hover {
-  background: var(--surface-2);
 }
 
 /* ── Daemon receipts (consumed once per connect) ──────────────────────────── */
@@ -225,53 +87,35 @@
 
 .daemon-receipt__dismiss {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-xs, 6px);
-  background: transparent;
   color: inherit;
-  cursor: pointer;
 }
 
-.daemon-receipt__dismiss:hover {
-  background: var(--surface-2);
-}
-
-/* Wake-word listening chip (voice.wake.indicator: "statusline").
-   Three visual states, each with an icon and a text label beside it so colour is
-   never the sole signal:
-     --wake-live      the microphone IS open right now (accent, gently pulsing)
-     --wake-attention restarting or stopped, i.e. something to look at (danger)
-     --wake-idle      loading models, i.e. on its way up (muted) */
-.status-strip__segment--wake-live {
+/* Wake-word listening chip (voice.wake.indicator: "statusline"). Each state has
+   an icon and a word beside it, so colour is never the only signal:
+     --wake-live      the microphone is open right now (accent, gently pulsing)
+     --wake-attention restarting or stopped (the icon turns bad) */
+.status-strip__segment--wake-live,
+.status-strip__segment--wake-attention {
   color: var(--text);
 }
 
 .status-strip__segment--wake-live .status-strip__icon {
   color: var(--accent);
-}
-
-.status-strip__segment--wake-live .status-strip__label {
-  font-weight: var(--weight-medium);
-}
-
-.status-strip__segment--wake-live .status-strip__icon {
   animation: status-strip-pulse 1.6s ease-in-out infinite alternate;
-}
-
-.status-strip__segment--wake-attention {
-  color: var(--text);
 }
 
 .status-strip__segment--wake-attention .status-strip__icon {
   color: var(--bad);
 }
 
+.status-strip__segment--wake-live .status-strip__label,
 .status-strip__segment--wake-attention .status-strip__label {
   font-weight: var(--weight-medium);
+}
+
+@keyframes status-strip-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {

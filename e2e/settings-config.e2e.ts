@@ -16,8 +16,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * Open a section and make sure its content (not the phone's section list)
- * is showing: on a phone, the General link opens on the list first.
+ * Open a section's page and make sure its content (not the phone's list) is
+ * showing: on a phone, the General link opens on the list first. `label` is
+ * the page's label (a section opens the page that holds it).
  */
 async function openSection(page: Page, section: string, label: string): Promise<Locator> {
   const dialog = await openSettings(page, section);
@@ -55,7 +56,7 @@ test.describe('entry points, deep links and dismissal', () => {
     await expect(page).not.toHaveURL(/settings=/);
   });
 
-  test('Ctrl , opens the dialog on desktop, focus lands in search and returns on close', async ({ page }, testInfo) => {
+  test('Ctrl , opens the dialog on desktop on the page title, typing goes to search, focus returns on close', async ({ page }, testInfo) => {
     only(testInfo, DESKTOP);
     await page.goto('/?view=library');
     await expect(page.locator('.app-shell')).toBeVisible();
@@ -63,7 +64,19 @@ test.describe('entry points, deep links and dismissal', () => {
     await page.keyboard.press('Control+Comma');
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('searchbox', { name: 'Search settings' })).toBeFocused();
+    // The search field does not take focus on open; the page title does.
+    const search = dialog.getByRole('searchbox', { name: 'Search settings' });
+    await expect(dialog.locator('.settings-pane-title')).toBeFocused();
+    await expect(search).not.toBeFocused();
+    // Typing a character outside a field moves it into search.
+    await page.keyboard.press('t');
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('t');
+    await search.fill('');
+    await dialog.locator('.settings-pane-title').focus();
+    await page.keyboard.press('/');
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('');
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Collapse sidebar' })).toBeFocused();
@@ -98,14 +111,45 @@ test.describe('entry points, deep links and dismissal', () => {
     await expect(dialog.locator('.settings-pane-title')).toHaveText('Models and providers');
   });
 
+  test('older section links open the parent page, scrolled to the section', async ({ page }) => {
+    for (const [section, pageLabel, heading] of [
+      ['devices', 'Account', 'Devices and pairing'],
+      ['people', 'Account', 'People and channels'],
+      ['credentials', 'Models and providers', 'Credentials'],
+      ['network', 'General', 'Network'],
+      ['all', 'General', 'Advanced'],
+      ['checkins', 'Notifications', 'Check-ins'],
+    ] as const) {
+      const dialog = await openSettings(page, section);
+      await expect(dialog.locator('.settings-pane-title')).toHaveText(pageLabel);
+      await expect(dialog.getByRole('heading', { name: heading, exact: true, level: 3 })).toBeInViewport();
+    }
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('the old Check-ins page link and the account menu entry open Check-ins in Notifications', async ({ page }) => {
+    await page.goto('/?view=checkin');
+    let dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog.locator('.settings-pane-title')).toHaveText('Notifications');
+    await expect(page).toHaveURL(/settings=checkins/);
+    await expect(dialog.getByRole('button', { name: 'Run check-in now' })).toBeVisible();
+    await closeDialog(page);
+
+    await openNavigation(page);
+    await page.getByRole('button', { name: /^Account: / }).click();
+    await page.getByRole('menu', { name: 'Account' }).getByRole('menuitem', { name: 'Check-ins' }).click();
+    dialog = page.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog.getByRole('heading', { name: 'Check-ins', exact: true, level: 3 })).toBeInViewport();
+  });
+
   test('Account shows the current sign-in as readable fields, raw JSON only behind "Show details"', async ({ page }) => {
     const dialog = await openSection(page, 'account', 'Account');
     const signIn = dialog.getByRole('region', { name: 'Current sign-in' });
     await expect(signIn.locator('.settings-readable')).toContainText('Username');
     await expect(signIn.locator('.settings-readable')).toContainText('operator');
-    await expect(signIn.locator('.data-block')).toHaveCount(0);
+    await expect(signIn.locator('.feedback-data-block__code')).toHaveCount(0);
     await signIn.getByRole('button', { name: 'Show details' }).click();
-    await expect(signIn.locator('.data-block')).toBeVisible();
+    await expect(signIn.locator('.feedback-data-block__code')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 });
@@ -163,7 +207,7 @@ test('voice.local.* and fleet.maxSize (SDK 1.8.0) render in their real sections,
     await expect(dialog.getByText(key, { exact: true })).toBeVisible();
   }
 
-  dialog = await openSection(page, 'devices', 'Devices and pairing');
+  dialog = await openSection(page, 'devices', 'Account');
   await expect(dialog.getByText('fleet.maxSize', { exact: true })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });
@@ -172,9 +216,13 @@ test('sections replace the old domain tabs, and the dissolved enablement bucket 
   const dialog = await openSettings(page, 'general');
   const nav = dialog.getByRole('navigation', { name: 'Settings sections' });
   if (!(await nav.isVisible())) await dialog.getByRole('button', { name: 'Back to settings' }).click();
-  for (const label of ['General', 'Account', 'Devices and pairing', 'People and channels', 'Models and providers', 'Credentials', 'Voice', 'Notifications', 'Memory', 'Permissions', 'Network', 'Usage', 'About']) {
+  const labels = ['General', 'Account', 'Models and providers', 'Voice', 'Notifications', 'Memory', 'Permissions'];
+  for (const label of labels) {
     await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
+  // Seven pages and no group headings; the former pages are sections inside them.
+  await expect(nav.getByRole('button')).toHaveCount(labels.length);
+  await expect(nav.getByRole('group')).toHaveCount(0);
   await expect(dialog.getByText('Feature Flags')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
@@ -251,7 +299,7 @@ test('a feature description renders complete and un-clipped at phone width', asy
 });
 
 test('a secret-shaped surfaces.* key never renders its raw value', async ({ page }) => {
-  const dialog = await openSection(page, 'devices', 'Devices and pairing');
+  const dialog = await openSection(page, 'devices', 'Account');
   await expect(dialog.getByText('surfaces.slack.botToken')).toBeVisible();
   await expect(dialog.getByText('xoxb-e2e-hermetic-secret-9999')).toHaveCount(0);
   // Last 4 chars only, per the mask contract. Every secret-typed key renders a
@@ -269,7 +317,7 @@ test('an admin-scope refusal renders honestly, distinct from a generic failure',
 });
 
 test('the Advanced editor writes through config.set and the change is honestly reflected on reopen', async ({ page }) => {
-  let dialog = await openSection(page, 'all', 'All settings');
+  let dialog = await openSection(page, 'all', 'General');
   await dialog.getByPlaceholder('settings.path').fill('display.theme');
   await dialog.getByPlaceholder('JSON or text').fill('"cyberpunk"');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
@@ -378,7 +426,7 @@ test.describe('daemon.timezone: searchable IANA picker', () => {
 
 test.describe('payments.*: budget money fields and the cvvHandling trade-off warning', () => {
   test('a budget field is entered in ordinary currency units and stored/read back as the exact amount typed', async ({ page }) => {
-    let dialog = await openSection(page, 'usage', 'Usage');
+    let dialog = await openSection(page, 'usage', 'Models and providers');
     const field = dialog.locator('[data-config-key="payments.budget.dailyItem"]');
     await expect(field).toBeVisible();
     const moneyField = field.locator('[data-testid="money-field"]');
@@ -393,13 +441,13 @@ test.describe('payments.*: budget money fields and the cvvHandling trade-off war
 
     // Reopen: the mock daemon's mutable config tree round-trips the exact
     // amount typed back into the input, unscaled.
-    dialog = await openSection(page, 'usage', 'Usage');
+    dialog = await openSection(page, 'usage', 'Models and providers');
     const reopened = dialog.locator('[data-config-key="payments.budget.dailyItem"] [data-testid="money-field"]');
     await expect(reopened.getByLabel(/Amount in USD/)).toHaveValue('100');
   });
 
   test('cvvHandling: selecting "prompt" surfaces the trade-off warning; "stored" shows none', async ({ page }) => {
-    const dialog = await openSection(page, 'usage', 'Usage');
+    const dialog = await openSection(page, 'usage', 'Models and providers');
     const field = dialog.locator('[data-config-key="payments.cvvHandling"]');
     await expect(field).toBeVisible();
     const select = field.locator('[data-testid="cvv-handling-field"]').getByRole('button', { name: 'payments.cvvHandling' });
@@ -419,7 +467,7 @@ test.describe('payments.*: budget money fields and the cvvHandling trade-off war
   });
 
   test('no card material (cvv/pan/cardNumber) ever renders anywhere in the Payments group', async ({ page }) => {
-    const dialog = await openSection(page, 'usage', 'Usage');
+    const dialog = await openSection(page, 'usage', 'Models and providers');
     const group = dialog.locator('[data-config-group="payments"]');
     await expect(group.locator('[data-config-key*="cvv" i]:not([data-config-key="payments.cvvHandling"])')).toHaveCount(0);
     await expect(group.locator('[data-config-key*="pan" i]')).toHaveCount(0);

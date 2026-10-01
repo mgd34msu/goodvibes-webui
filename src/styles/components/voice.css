@@ -1,38 +1,13 @@
-/**
- * voice.css — spoken output + dictation controls.
- *
- * Reads the shared CSS-variable tokens (styles/tokens.css) — no new palette, so voice
- * controls sit in the same visual system as the rest of the chat surface, light and dark.
+/*
+ * voice.css: spoken output, dictation and wake-word controls. Tokens only, so
+ * voice controls sit in the same system as the rest of the chat surface.
  */
 
-/* ── Read-aloud button (per assistant message action row) ──────────────────── */
-
-.voice-speak-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-3);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  padding: 4px;
-}
-
-.voice-speak-btn:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--surface);
-}
+/* ── Read-aloud button (per assistant message action row) ──────────────────
+   A kit IconButton; only the playing state needs a rule. */
 
 .voice-speak-btn.is-playing {
-  color: var(--accent);
-}
-
-.voice-speak-btn.voice-unavailable,
-.voice-speak-btn:disabled {
-  color: var(--text-3);
-  cursor: not-allowed;
-  opacity: 0.6;
+  color: var(--text);
 }
 
 /* ── Mic (composer) ─────────────────────────────────────────────────────────── */
@@ -72,9 +47,9 @@
   z-index: var(--z-overlay);
   width: max-content;
   max-width: min(280px, 80vw);
-  padding: 8px 10px;
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
+  padding: 8px 12px;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
   color: var(--text);
   background: var(--glass);
   border: 1px solid var(--line);
@@ -93,24 +68,15 @@
 .voice-settings-popover .gv-dialog__body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
+}
+
+.voice-settings-action {
+  align-self: flex-start;
 }
 
 .voice-settings-title {
   font-weight: var(--weight-medium);
-}
-
-.voice-settings-tone.tone-ok {
-  color: var(--ok);
-}
-.voice-settings-tone.tone-warning {
-  color: var(--warn);
-}
-.voice-settings-tone.tone-bad {
-  color: var(--bad);
-}
-.voice-settings-tone.tone-neutral {
-  color: var(--text-3);
 }
 
 .voice-settings-shared {
@@ -122,15 +88,20 @@
 .voice-settings-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: var(--text-xs);
+  gap: 6px;
   color: var(--text-2);
 }
 
+.voice-settings-field__label {
+  font-size: var(--text-sm);
+  line-height: var(--leading-meta);
+}
+
 .voice-settings-hint {
-  font-size: var(--text-xs);
-  color: var(--text-3);
   margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .voice-settings-unavailable {
@@ -144,8 +115,8 @@
 .voice-settings-local {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
 
@@ -153,8 +124,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: var(--text-xs);
   color: var(--text-2);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .voice-settings-local-receipt p {
@@ -166,11 +138,11 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   margin: 0;
   padding: 0;
-  font-size: var(--text-xs);
   color: var(--text-2);
+  font-size: var(--text-meta);
 }
 
 .voice-settings-local-progress li {
@@ -180,7 +152,7 @@
 }
 
 .voice-settings-local-progress__name {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .voice-settings-local-progress li[data-phase='done'] .voice-settings-local-progress__phase {
@@ -218,7 +190,7 @@
 }
 
 .wake-banner__label {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .wake-banner__detail {
@@ -251,9 +223,9 @@
 .voice-settings-wake {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
 
@@ -266,9 +238,9 @@
 .voice-settings-wake-reasons {
   margin: 0;
   padding-left: 18px;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  opacity: 0.9;
+  color: var(--text-2);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .voice-settings-wake-reasons li + li {
@@ -276,5 +248,5 @@
 }
 
 .voice-settings-wake-reasons code {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }

@@ -13,7 +13,7 @@
   margin: 0 0 8px;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .mail-row__lead {
@@ -74,13 +74,13 @@
   margin: 0;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .mail-detail__uid {
   margin: 0;
   color: var(--text-3);
-  font: var(--weight-regular) var(--text-meta) / 18px var(--font-mono);
+  font: var(--weight-regular) var(--text-meta) / var(--leading-meta) var(--font-mono);
 }
 
 /* ── Compose panel: glass, lower right; a bottom sheet on phones ── */
@@ -178,43 +178,3 @@
 }
 
 /* Settings panel (MailAccountSettings) */
-
-.mail-settings__intro {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--text-2);
-  line-height: 1.5;
-}
-
-.mail-settings__rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.mail-settings__row {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  min-width: 0;
-}
-
-.mail-settings__row-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-2);
-}
-
-.mail-settings__row-name {
-  font-weight: 600;
-}
-
-.mail-settings__row-detail {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-2);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}

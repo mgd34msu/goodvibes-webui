@@ -1,140 +1,176 @@
 /*
- * OwnerProfileSettings layout. Colors come from the shared token layer
- * (src/styles/tokens.css) plus the existing `.badge` / `.banner` classes
- * (src/styles.css); this file is layout only, no new palette — the same rule
- * memory-diagnostics.css states for itself.
+ * OwnerProfileSettings layout. Sections are plain groups divided by hairlines,
+ * fields are label-over-value lines divided by --line (never cards), actions
+ * are small ghost buttons. Inline notices use the shared .banner.
  */
-
-.owner-profile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
 
 .owner-profile__report:empty {
   display: none;
 }
 
-.owner-profile__status {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.owner-profile__report {
+  margin-bottom: var(--space-3);
 }
 
-/* The profile file's path — plain inert text, never a link. */
+.owner-profile__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* The profile file's path: plain inert text, never a link. */
 .owner-profile__path {
-  font-family: var(--font-mono, monospace);
-  font-size: var(--text-sm, 13px);
   color: var(--text-2);
-  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.owner-profile__note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+}
+
+.owner-profile__subtitle {
+  margin: 0 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
 .owner-profile__invalid-list {
-  font-size: var(--text-sm, 13px);
+  margin-bottom: var(--space-3);
   color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .owner-profile__invalid-list ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.2rem;
+  margin: 0;
+  padding-left: 20px;
 }
 
 .owner-profile__sections {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-6);
 }
 
 .owner-profile__section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
+  gap: var(--space-2);
 }
 
-.owner-profile__section h3 {
+.owner-profile__section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.owner-profile__section-title {
   margin: 0;
-  font-size: var(--text-md, 15px);
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-ui);
 }
 
-/* Third-party personal data (docs/owner-profile.md §10) — a visible marker so the
-   containment rule is legible on the surface, not only in the code. */
+/* Third-party personal data: a visible note so the containment rule is legible
+   on the surface, not only in the code. */
 .owner-profile__containment {
   margin: 0;
-  padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--warn);
-  background: var(--surface);
-  font-size: var(--text-sm, 13px);
   color: var(--text-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
 }
 
 .owner-profile__fields {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   margin: 0;
 }
 
 .owner-profile__field {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 2px;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.owner-profile__field:last-child {
+  border-bottom: 0;
 }
 
 .owner-profile__field-label {
-  font-weight: 600;
-  font-size: var(--text-sm, 13px);
-  color: var(--text-2);
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .owner-profile__field-body {
-  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
 }
 
 .owner-profile__value {
   overflow-wrap: anywhere;
 }
 
-/* The compact provenance suffix a learned line carries (§4.2). */
+/* The compact provenance suffix a learned line carries. */
 .owner-profile__provenance {
-  font-size: var(--text-sm, 13px);
-  color: var(--text-2);
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .owner-profile__invalid {
   margin: 0;
-  font-size: var(--text-sm, 13px);
   color: var(--warn);
+  font-size: var(--text-sm);
 }
 
 .owner-profile__lines {
-  margin: 0;
-  padding-left: 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* His prose, rendered as the prose it is — never restyled into a table. */
+.owner-profile__line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.owner-profile__line:last-child {
+  border-bottom: 0;
+}
+
+/* The owner's prose, rendered as the prose it is. */
 .owner-profile__prose {
   margin: 0;
+  color: var(--text);
+  line-height: var(--leading-ui);
   overflow-wrap: anywhere;
 }
 
 .owner-profile__row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.owner-profile__row-actions .secondary-button {
-  font-size: var(--text-sm, 13px);
-  padding: 0.2rem 0.5rem;
+  gap: var(--space-1);
+  margin-left: -8px;
 }
 
 .owner-profile__danger {
@@ -145,7 +181,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 .owner-profile__edit-input {
@@ -153,25 +189,33 @@
   min-width: 0;
 }
 
-.owner-profile__edit-form .form-note {
+.owner-profile__edit-form .owner-profile__note {
   flex-basis: 100%;
-  margin: 0;
 }
 
 .owner-profile__provenance-detail {
-  margin: 0.25rem 0 0;
-  padding: 0.4rem 0.6rem;
-  background: var(--surface);
-  border-radius: var(--radius-xs, 6px);
-  font-size: var(--text-sm, 13px);
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--line-strong);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.owner-profile__provenance-detail p {
+  margin: 0 0 var(--space-1);
 }
 
 .owner-profile__superseded {
-  margin: 0.25rem 0 0;
-  padding-left: 1.2rem;
+  margin: var(--space-1) 0 var(--space-2);
+  padding-left: 20px;
+}
+
+.owner-profile__empty {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .owner-profile__add {
   align-self: flex-start;
-  font-size: var(--text-sm, 13px);
 }

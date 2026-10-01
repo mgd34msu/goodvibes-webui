@@ -1,231 +1,124 @@
 /*
- * Check-in configuration, run-now, and receipts (checkin.*).
- * Uses contract tokens from src/styles/tokens.css exclusively.
+ * Check-ins page (CheckInView): settings facts, the last manual run, and the
+ * receipts as divided rows. Page frame, headings and Facts come from the
+ * data-view template (data-view.css); this file adds the page's own spacing.
  */
 
-.checkin-view {
+.checkin-sections {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 16px);
-  max-width: 640px;
-}
-
-.checkin-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-}
-
-.checkin-section__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2, 8px);
-}
-
-.checkin-section__header h2 {
-  margin: 0;
-  font-size: var(--text-md, 15px);
-}
-
-.checkin-section__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1, 4px);
+  gap: var(--space-8);
+  max-width: 720px;
 }
 
 .checkin-empty {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
-  padding: var(--space-2, 8px);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-xs, 6px);
-  background: var(--surface);
-}
-
-.checkin-config-display {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.checkin-config-display__fields {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px var(--space-2, 8px);
   margin: 0;
-  font-size: var(--text-xs, 12px);
-}
-
-.checkin-config-display__fields dt {
   color: var(--text-3);
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
 }
 
-.checkin-config-display__fields dd {
-  margin: 0;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.checkin-config-display__edit {
-  align-self: flex-start;
+.checkin-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--text-xs, 12px);
-  background: var(--accent-soft);
-  color: var(--text);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-xs, 6px);
-  padding: 4px 10px;
-  cursor: pointer;
+}
+
+/* A cron expression is code: mono. */
+.checkin-code {
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .checkin-edit-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
-.checkin-edit-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
+.checkin-edit-form > .gv-field {
+  align-self: stretch;
+  max-width: 420px;
 }
 
-.checkin-edit-form__checkbox {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 6px !important;
-}
-
-.checkin-edit-form input[type="text"] {
-  background: var(--canvas);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-  padding: 6px 8px;
-  font-size: var(--text-xs, 12px);
+.checkin-edit-form__code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .checkin-edit-form__actions {
   display: flex;
-  gap: var(--space-2, 8px);
-}
-
-.checkin-edit-form__actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs, 12px);
-  background: var(--accent-soft);
-  color: var(--text);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-xs, 6px);
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-.checkin-edit-form__actions button.secondary {
-  background: transparent;
-  border-color: var(--line);
-}
-
-.checkin-edit-form__actions button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.checkin-run-button {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-xs, 12px);
-  background: var(--accent-soft);
-  color: var(--text);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-xs, 6px);
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-.checkin-run-button:disabled {
-  opacity: 0.6;
-  cursor: default;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .checkin-run-result {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
+  gap: var(--space-1);
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
+}
+
+.checkin-run-result__summary {
+  margin: 0;
+  color: var(--text-2);
 }
 
 .checkin-receipts {
-  list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1, 4px);
+  list-style: none;
 }
 
+/* A receipt reads like any row; its summary may wrap, and the reason, message
+   and error lines sit under the meta line in --text-3. */
 .checkin-receipt {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-2, 8px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 6px);
-}
-
-.checkin-receipt__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-.checkin-receipt__meta {
-  font-size: var(--text-xs, 11px);
-  color: var(--text-3);
+  align-items: flex-start;
 }
 
 .checkin-receipt__summary {
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-  color: var(--text);
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .checkin-receipt__detail {
-  margin: 0;
-  font-size: var(--text-xs, 12px);
-  color: var(--text-2);
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  overflow-wrap: anywhere;
 }
 
 .checkin-receipt__error {
   color: var(--bad);
 }
 
-@media (max-width: 980px) {
-  .checkin-edit-form__actions button,
-  .checkin-config-display__edit,
-  .checkin-run-button {
-    min-height: 44px;
+.checkin-receipt__outcome {
+  align-self: flex-start;
+  gap: 6px;
+  padding-top: 2px;
+  text-align: right;
+}
+
+@media (max-width: 480px) {
+  .checkin-receipt {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .checkin-receipt__outcome {
+    align-self: flex-start;
+    margin-left: 0;
+    padding-top: 0;
+    text-align: left;
   }
 }

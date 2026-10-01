@@ -133,7 +133,7 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
                     onClick={() => {
                       void confirm.ask({
                         title: 'Drop this queued message?',
-                        description: 'It will never be sent.',
+                        description: 'It is removed from the queue and never sent.',
                         confirmLabel: 'Drop message',
                         tone: 'danger',
                       }).then((confirmed) => {

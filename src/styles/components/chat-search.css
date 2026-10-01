@@ -39,7 +39,7 @@
   color: var(--text);
   background: transparent;
   border: 0;
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
 }
 
 .chat-search__input:focus-visible {
@@ -119,7 +119,7 @@
   color: var(--text-3);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .chat-search__section-caption {
@@ -166,7 +166,7 @@
   color: var(--text);
   border-radius: var(--radius-item);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   cursor: pointer;
 }
 
@@ -196,7 +196,7 @@
   background: var(--surface-2);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .chat-search__result {
@@ -222,7 +222,7 @@
   color: var(--text);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -241,7 +241,7 @@
   overflow: hidden;
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow-wrap: anywhere;

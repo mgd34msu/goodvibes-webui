@@ -21,6 +21,7 @@
  */
 import { useState } from 'react';
 import { manualPriceKey, priceSourceLabel, type WireCostSource } from '../../lib/cost-source';
+import { Button } from '../ui/Button';
 import { ModelPricesModal } from './ModelPricesModal';
 import '../../styles/components/pricing.css';
 
@@ -43,13 +44,14 @@ export function PriceSourceNote({ costSource, pricingAsOf, provider, model }: Pr
   return (
     <span className="price-source-note" data-testid="price-source-note">
       {sourceText && <span className="price-source-note__label">{sourceText}</span>}
-      <button
-        type="button"
-        className="link-button price-source-note__edit"
+      <Button
+        size="sm"
+        variant="ghost"
+        className="price-source-note__edit"
         onClick={() => setEditorOpen(true)}
       >
         {manual ? 'Edit price' : 'Set price'}
-      </button>
+      </Button>
       {/* Mounted only while open, so a closed note stays inert (no toast/query
           context needed until the user actually reaches for the editor). */}
       {editorOpen && (

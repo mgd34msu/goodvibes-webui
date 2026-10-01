@@ -1,194 +1,64 @@
 /*
- * session-changes.css — SessionChanges.tsx (the hunk-selectable diff in the session
- * detail) and HunkCommentSheet.tsx (the comment composer sheet).
- * Contract tokens only (src/styles/tokens.css). Phone-first: hunks are big tap targets;
- * the composer is a bottom sheet on a phone, a centered dialog on desktop.
+ * session-changes.css: SessionChanges.tsx (the Changes tab of a session's detail)
+ * and the three hunk dialogs (review, comment, revert). Nothing in it is a card.
+ * The diff itself is DiffMultibuffer (diff-multibuffer.css).
  */
 
 .session-changes {
-  margin-top: var(--space-3, 12px);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-3, 12px);
-}
-
-.session-changes__toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  width: 100%;
-  min-height: 44px;
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm, 10px);
-  color: var(--text);
-  font-size: var(--text-sm, 13px);
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-}
-
-.session-changes__toggle-hint {
-  margin-left: auto;
-  font-weight: 400;
-  font-size: var(--text-xs, 11px);
-  color: var(--text-3, var(--text-2));
+  min-width: 0;
 }
 
 .session-changes__body {
-  margin-top: var(--space-3, 12px);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
 }
 
 .session-changes__toolbar {
   display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
+  align-items: flex-end;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
+.session-changes__refresh {
+  margin-left: auto;
+}
+
 .session-changes__baseline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  font-size: var(--text-xs, 11px);
-  color: var(--text-2);
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
-}
-
-.session-changes__baseline select {
-  flex: 1;
-  min-width: 0;
-  min-height: 36px;
-}
-
-.session-changes__mode-toggle {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 var(--space-2, 8px);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs, 8px);
-  color: var(--text-2);
-  font-size: var(--text-xs, 11px);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.session-changes__mode-toggle:hover,
-.session-changes__mode-toggle:focus-visible {
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-.session-changes__inline-link {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-size: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 .session-changes__captured,
-.session-changes__stale,
 .session-changes__sent,
 .session-changes__send-error {
   margin: 0;
-  font-size: var(--text-xs, 11px);
-  line-height: 1.45;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
   overflow-wrap: anywhere;
 }
 
-.session-changes__captured { color: var(--text-3, var(--text-2)); }
-.session-changes__stale { color: var(--warn, var(--warn)); }
-.session-changes__sent { color: var(--ok, var(--ok)); }
-.session-changes__send-error { color: var(--bad, var(--bad)); }
+.session-changes__captured { color: var(--text-3); }
+.session-changes__send-error { color: var(--bad); }
 
-.session-changes__empty,
-.session-changes__binary {
-  margin: 0;
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  font-size: var(--text-xs, 11px);
-  color: var(--text-2);
-  background: var(--surface);
-  border-radius: var(--radius-sm, 10px);
-}
-
-.session-changes__file {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm, 10px);
-  overflow: hidden;
-}
-
-.session-changes__file-head {
+.session-changes__sent {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
+  color: var(--text-2);
 }
 
-.session-changes__file-path {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: var(--text-xs, 11px);
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.session-changes__hunk {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: var(--surface, var(--canvas));
-  cursor: pointer;
-}
-
-.session-changes__hunk:first-of-type { border-top: 0; }
-.session-changes__hunk:hover,
-.session-changes__hunk:focus-visible { background: var(--surface); }
-
-.session-changes__hunk-header {
-  display: block;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: var(--text-xs, 11px);
-  color: var(--text-3, var(--text-2));
-  margin-bottom: var(--space-1, 4px);
-}
-
-.session-changes__hunk-lines {
-  display: block;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: var(--text-xs, 11px);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.session-changes__line { display: block; }
-.session-changes__line--add { color: var(--ok, var(--ok)); }
-.session-changes__line--del { color: var(--bad, var(--bad)); }
-.session-changes__line--context { color: var(--text-2); }
-.session-changes__line--meta,
-.session-changes__line--more { color: var(--text-3, var(--text-2)); font-style: italic; }
-
-.session-changes__hunk-cta {
-  display: inline-block;
-  margin-top: var(--space-1, 4px);
-  font-size: var(--text-xs, 11px);
-  font-weight: 600;
-  color: var(--accent);
+.session-changes__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-base);
+  line-height: var(--leading-ui);
 }
 
 /* ── Hunk sheets (kit Dialogs: review, comment, revert) ─────────────── */
@@ -220,20 +90,20 @@
   margin: 0;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .hunk-sheet__excerpt {
   max-height: 30vh;
   margin: 0;
   overflow: auto;
-  padding: 8px 12px;
+  padding: 10px 14px 12px;
   background: var(--code);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
   white-space: pre;
 }
 
@@ -252,7 +122,7 @@
 .hunk-sheet__conflict {
   margin: 0;
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .hunk-sheet__error { color: var(--bad); }
@@ -272,30 +142,30 @@
 .hunk-actions__btn--approve svg { color: var(--ok); }
 .hunk-actions__btn--reject svg { color: var(--bad); }
 
-/* ── Session review cockpit progress indicator ───────────────────────── */
+/* ── Review progress ──────────────────────────────────────────────────── */
 
 .session-changes__progress {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
-  font-size: var(--text-xs, 11px);
+  gap: var(--space-2);
   color: var(--text-2);
-  font-weight: 600;
+  font-size: var(--text-meta);
 }
 
 .session-changes__progress-bar {
   flex: 1;
   height: 4px;
   min-width: 40px;
-  border-radius: 999px;
-  background: var(--surface);
   overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
 }
 
 .session-changes__progress-fill {
+  display: block;
   height: 100%;
-  background: var(--ok, var(--ok));
-  transition: width 120ms ease-out;
+  background: var(--accent);
+  transition: width var(--motion-fast) ease-out;
 }
 
 @media (max-width: 899px) {

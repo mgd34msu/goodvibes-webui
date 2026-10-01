@@ -83,8 +83,14 @@ import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { Button } from '../ui/Button';
+import { Chip } from '../ui/Chip';
 import { useConfirm } from '../ui/ConfirmDialog';
+import { Input } from '../ui/Field';
+import { SettingsBlock } from './dialog/parts';
 import '../../styles/components/owner-profile.css';
+
+const STATE_TONE = { ok: 'ok', neutral: 'idle', bad: 'bad' } as const;
 
 interface ActionReport {
   readonly tone: 'ok' | 'info' | 'warning';
@@ -109,7 +115,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
 
   if (query.isPending) {
     return (
-      <p className="form-note owner-profile__provenance-detail" aria-busy="true">
+      <p className="owner-profile__note owner-profile__provenance-detail" aria-busy="true">
         Looking up where this came from…
       </p>
     );
@@ -136,7 +142,7 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
 
       {answer.superseded.length > 0 ? (
         <>
-          <p className="form-note">Earlier values, still kept in the file:</p>
+          <p className="owner-profile__note">Earlier values, still kept in the file:</p>
           <ol className="owner-profile__superseded">
             {answer.superseded.map((entry, index) => (
               <li key={`${entry.value}-${String(index)}`}>
@@ -145,22 +151,21 @@ function FieldProvenance({ field, actions }: { field: ProfileField; actions: Row
                   <span className="owner-profile__provenance">, {provenanceSummary(entry.provenance)}</span>
                 )}
                 {entry.supersededOn.length > 0 && (
-                  <span className="form-note"> (superseded {entry.supersededOn})</span>
+                  <span className="owner-profile__note"> (superseded {entry.supersededOn})</span>
                 )}
               </li>
             ))}
           </ol>
-          <button
-            className="secondary-button"
-            type="button"
+          <Button
+            size="sm"
             disabled={actions.busy}
             onClick={() => { actions.onUndo(field.fieldId, field.label); }}
           >
             Undo: put the most recent earlier value back
-          </button>
+          </Button>
         </>
       ) : (
-        <p className="form-note">No earlier values kept, so there is nothing to undo.</p>
+        <p className="owner-profile__note">No earlier values kept, so there is nothing to undo.</p>
       )}
     </div>
   );
@@ -188,22 +193,21 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
       <dd className="owner-profile__field-body">
         {editing ? (
           <form className="owner-profile__edit-form" onSubmit={submit}>
-            <input
+            <Input
               className="owner-profile__edit-input"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               aria-label={`New value for ${field.label}`}
               autoComplete="off"
             />
-            <button className="primary-button" type="submit" disabled={actions.busy}>Save</button>
-            <button
-              className="secondary-button"
-              type="button"
+            <Button type="submit" variant="primary" size="sm" disabled={actions.busy}>Save</Button>
+            <Button
+              size="sm"
               onClick={() => { setDraft(field.value); setEditing(false); }}
             >
               Cancel
-            </button>
-            <p className="form-note">
+            </Button>
+            <p className="owner-profile__note">
               Saving keeps the current value in the file as an earlier value, so Undo can put it
               back. Nothing is overwritten silently.
             </p>
@@ -222,29 +226,30 @@ function FieldRow({ field, actions }: { field: ProfileField; actions: RowActions
               </p>
             )}
             <div className="owner-profile__row-actions">
-              <button
-                className="secondary-button"
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => { setDraft(field.value); setEditing(true); }}
               >
                 Edit
-              </button>
-              <button
-                className="secondary-button"
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 aria-expanded={provenanceOpen}
                 onClick={() => setProvenanceOpen((open) => !open)}
               >
                 Where did you get that?
-              </button>
-              <button
-                className="secondary-button owner-profile__danger"
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="owner-profile__danger"
                 disabled={actions.busy}
                 onClick={() => { actions.onForget(target, field.label); }}
               >
                 Forget
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -283,29 +288,30 @@ function ProseRow({
         )}
       </p>
       <div className="owner-profile__row-actions">
-        <button
-          className="secondary-button"
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           aria-expanded={provenanceOpen}
           onClick={() => setProvenanceOpen((open) => !open)}
         >
           Where did you get that?
-        </button>
-        <button
-          className="secondary-button owner-profile__danger"
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="owner-profile__danger"
           disabled={actions.busy}
           onClick={() => { actions.onForget(target, line.text); }}
         >
           Forget
-        </button>
+        </Button>
       </div>
       {provenanceOpen && (
         <div className="owner-profile__provenance-detail">
           {line.provenance
             ? <p>{provenanceSummary(line.provenance)}</p>
             : <p>No provenance recorded, you wrote or edited this line by hand.</p>}
-          <p className="form-note">
+          <p className="owner-profile__note">
             That is the whole answer for a note: notes keep no earlier versions, so there is
             nothing further to look up and nothing to undo.
           </p>
@@ -351,12 +357,10 @@ function SectionBlock({
       aria-label={section.heading}
     >
       <div className="owner-profile__section-head">
-        <h3>{section.heading}</h3>
-        <span className={`badge ${section.tier === 'open' ? 'neutral' : 'info'}`}>
-          {section.tier === 'open' ? 'Open' : 'Closed'}
-        </span>
+        <h4 className="owner-profile__section-title">{section.heading}</h4>
+        <Chip size="sm">{section.tier === 'open' ? 'Open' : 'Closed'}</Chip>
       </div>
-      <p className="form-note">{tierNote(section.tier)}</p>
+      <p className="owner-profile__note">{tierNote(section.tier)}</p>
 
       {thirdParty && (
         <p className="owner-profile__containment" role="note">
@@ -382,28 +386,28 @@ function SectionBlock({
         </ul>
       )}
 
-      {empty && <p className="empty-state">Nothing recorded in this section.</p>}
+      {empty && <p className="owner-profile__empty">Nothing recorded in this section.</p>}
 
       {adding ? (
         <form className="owner-profile__edit-form" onSubmit={submit}>
-          <input
+          <Input
             className="owner-profile__edit-input"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             aria-label={`New line in ${section.heading}`}
             autoComplete="off"
           />
-          <button className="primary-button" type="submit" disabled={actions.busy || draft.trim().length === 0}>
+          <Button type="submit" variant="primary" size="sm" disabled={actions.busy || draft.trim().length === 0}>
             Add
-          </button>
-          <button className="secondary-button" type="button" onClick={() => { setDraft(''); setAdding(false); }}>
+          </Button>
+          <Button size="sm" onClick={() => { setDraft(''); setAdding(false); }}>
             Cancel
-          </button>
+          </Button>
         </form>
       ) : (
-        <button className="secondary-button owner-profile__add" type="button" onClick={() => setAdding(true)}>
+        <Button size="sm" className="owner-profile__add" onClick={() => setAdding(true)}>
           Add a line to {section.heading}
-        </button>
+        </Button>
       )}
     </section>
   );
@@ -470,10 +474,9 @@ export function OwnerProfileSettings() {
 
   async function onForget(target: ProfileTarget, label: string) {
     const confirmed = await confirm.ask({
-      title: 'Forget this permanently',
+      title: 'Forget this for good?',
       target: label,
-      description:
-        'This deletes the line from your profile file, together with the earlier values kept for it, so there is nothing left to undo. No copy is retained anywhere.',
+      description: 'The line and its earlier values are deleted from your profile, and no copy is kept.',
       confirmLabel: 'Forget it',
       tone: 'danger',
     });
@@ -492,17 +495,12 @@ export function OwnerProfileSettings() {
   };
 
   return (
-    <section className="panel owner-profile" aria-label="Owner profile" data-testid="owner-profile-settings">
-      <div className="panel-title">
-        <h2>Owner profile</h2>
-        <UserRound size={18} aria-hidden="true" />
-      </div>
-
-      <p className="form-note">
-        One Markdown file the daemon keeps, holding what the platform knows about you. Edit it here
-        or by hand, your hand edits win and are never rewritten. Lines it learned from you carry a
-        short note saying where it heard them.
-      </p>
+    <SettingsBlock
+      className="owner-profile"
+      testId="owner-profile-settings"
+      title="Owner profile"
+      description="One Markdown file the daemon keeps, holding what the platform knows about you. Edit it here or by hand; your hand edits win and are never rewritten. Lines it learned from you carry a short note saying where it heard them."
+    >
 
       <div className="owner-profile__report" role="status" aria-live="polite" aria-atomic="true">
         {report && (
@@ -512,27 +510,27 @@ export function OwnerProfileSettings() {
 
       {status.isSuccess && (
         <div className="owner-profile__status" data-testid="profile-status">
-          <span className={`badge ${profileStateBadgeClass(status.data.state)}`}>
+          <Chip tone={STATE_TONE[profileStateBadgeClass(status.data.state)]}>
             {profileStateLabel(status.data.state)}
-          </span>
+          </Chip>
           {/* Inert text, never a link and never fetched. The same stance MemoryRecordDetail
               takes with a path-shaped provenance ref. */}
           <span className="owner-profile__path">{status.data.path}</span>
           {status.data.lineCount !== undefined && (
-            <span className="form-note">{status.data.lineCount} lines</span>
+            <span className="owner-profile__note">{status.data.lineCount} lines</span>
           )}
           {status.data.fieldCount !== undefined && (
-            <span className="form-note">{status.data.fieldCount} fields</span>
+            <span className="owner-profile__note">{status.data.fieldCount} fields</span>
           )}
           {status.data.proseLineCount !== undefined && (
-            <span className="form-note">{status.data.proseLineCount} notes</span>
+            <span className="owner-profile__note">{status.data.proseLineCount} notes</span>
           )}
         </div>
       )}
 
       {status.isSuccess && status.data.invalidFields.length > 0 && (
         <div className="owner-profile__invalid-list" role="note">
-          <strong>Values kept as written but not valid</strong>
+          <p className="owner-profile__subtitle">Values kept as written but not valid</p>
           <ul>
             {status.data.invalidFields.map((entry) => (
               <li key={entry.fieldId}>{entry.fieldId}: {entry.reason}</li>
@@ -572,7 +570,7 @@ export function OwnerProfileSettings() {
       {profile.isSuccess && profile.data.state === 'unavailable' && (
         <div className="banner warning" role="alert" data-testid="profile-unavailable">
           <p>{profileUnavailableLine(profile.data.reason, profile.data.path)}</p>
-          <p className="form-note">
+          <p className="owner-profile__note">
             Nothing is shown below because the file could not be read, not because your profile is
             empty.
           </p>
@@ -596,6 +594,6 @@ export function OwnerProfileSettings() {
       )}
 
       {confirm.element}
-    </section>
+    </SettingsBlock>
   );
 }

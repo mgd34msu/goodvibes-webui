@@ -125,7 +125,7 @@ describe('CalendarView: the three honest refusal states', () => {
     eventsList = () => refusal(412, { error: 'CalDAV is not configured.', code: 'CALENDAR_NOT_CONFIGURED' });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Calendar isn’t configured'));
-    expect(el.textContent).toContain('caldavUrl');
+    expect(el.textContent).toContain('Add your calendar in Settings');
     expect(el.querySelector('.feedback-error-state')).toBeNull();
     unmount();
   });

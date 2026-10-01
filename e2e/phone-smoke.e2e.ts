@@ -18,7 +18,7 @@ const VIEWS: { view: string; label: string }[] = [
   { view: 'work&tab=sessions', label: 'Work sessions' },
   { view: 'work&tab=processes', label: 'Work processes' },
   { view: 'checkpoints', label: 'Checkpoints (old link)' },
-  { view: 'checkin', label: 'Check-in' },
+  { view: 'checkin', label: 'Check-ins (old link, opens Settings)' },
   { view: 'library&tab=knowledge', label: 'Knowledge' },
   { view: 'library&tab=memory', label: 'Memory' },
   { view: 'library&tab=review', label: 'Review' },

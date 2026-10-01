@@ -84,6 +84,12 @@ export interface ChatMockOptions {
    * queued messages).
    */
   queuedMessages?: Readonly<Record<string, readonly { id: string; queuedAt: number; text: string }[]>>;
+  /**
+   * The source of the code block every assistant reply ends with. Default a
+   * one-line console.log; the design proof passes a long line to prove code
+   * scrolls inside its frame on a phone.
+   */
+  replyCode?: string;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -142,7 +148,7 @@ export async function installChatMockDaemon(page: Page, options: ChatMockOptions
       id: nextId('a'),
       sessionId,
       role: 'assistant',
-      content: `${label}\n\n\`\`\`js\nconsole.log('reply ${seq}');\n\`\`\``,
+      content: `${label}\n\n\`\`\`js\n${options.replyCode ?? `console.log('reply ${seq}');`}\n\`\`\``,
       attachments: [],
       createdAt: nextTime(),
       ...(options.assistantReplyMemoryRecordIds?.length

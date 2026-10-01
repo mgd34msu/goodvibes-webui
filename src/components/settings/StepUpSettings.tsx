@@ -14,7 +14,7 @@
  * rendered plainly with a specific message; nothing is faked or silently swallowed.
  */
 import { useState } from 'react';
-import { KeyRound, ShieldCheck, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useToast } from '../../lib/toast';
 import { sdk } from '../../lib/goodvibes';
 import {
@@ -27,6 +27,10 @@ import {
   stepUpAvailability,
   type RegisteredCredentialRecord,
 } from '../../lib/stepup';
+import { Button } from '../ui/Button';
+import { Field, Input } from '../ui/Field';
+import { StatusDot } from '../ui/StatusDot';
+import { SettingsBlock } from './dialog/parts';
 
 export function StepUpSettings() {
   const { toast } = useToast();
@@ -95,18 +99,11 @@ export function StepUpSettings() {
   };
 
   return (
-    <section className="settings-stepup panel">
-      <div className="panel-title">
-        <h2>Security: step-up verification</h2>
-        <ShieldCheck size={16} aria-hidden="true" />
-      </div>
-
-      <p className="stepup-note">
-        When GoodVibes reaches the daemon over the relay, actions that change state (sending a
-        message, responding to a permission ask, controlling a session) require a passkey
-        confirmation. Register a passkey on this device to confirm them inline.
-      </p>
-
+    <SettingsBlock
+      className="settings-stepup"
+      title="Passkey confirmation"
+      description="When GoodVibes reaches the daemon over the relay, actions that change something (sending a message, answering a permission ask, controlling a session) need a passkey confirmation. Register a passkey on this device to confirm them inline."
+    >
       {!availability.supported ? (
         <div className="banner warning" role="status">
           {availability.reason ?? 'Passkeys are not supported in this browser.'}
@@ -114,40 +111,34 @@ export function StepUpSettings() {
       ) : (
         <>
           <div className="stepup-status" role="status">
-            {registered ? (
-              <span>
-                <KeyRound size={14} aria-hidden="true" />{' '}
-                A passkey is registered on this device
-                {registered.label ? ` (${registered.label})` : ''}.
-              </span>
-            ) : (
-              <span>No passkey is registered on this device yet.</span>
-            )}
+            <StatusDot tone={registered ? 'ok' : 'idle'} />
+            <span>
+              {registered
+                ? `A passkey is registered on this device${registered.label ? ` (${registered.label})` : ''}.`
+                : 'No passkey is registered on this device yet.'}
+            </span>
           </div>
 
-          <div className="form-grid">
-            <label>
-              Passkey label (optional)
-              <input
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder="e.g. My laptop"
-                disabled={busy !== null}
-              />
-            </label>
-          </div>
+          <Field label="Passkey label (optional)">
+            <Input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="e.g. My laptop"
+              disabled={busy !== null}
+            />
+          </Field>
 
           <div className="stepup-actions">
-            <button type="button" className="primary-button" onClick={() => void handleRegister()} disabled={busy !== null}>
+            <Button variant="primary" onClick={() => void handleRegister()} disabled={busy !== null}>
               {busy === 'register' ? 'Waiting for passkey…' : registered ? 'Register a new passkey' : 'Register a passkey'}
-            </button>
-            <button type="button" className="secondary-button" onClick={() => void handleVerify()} disabled={busy !== null}>
+            </Button>
+            <Button onClick={() => void handleVerify()} disabled={busy !== null}>
               {busy === 'verify' ? 'Waiting for passkey…' : 'Verify now'}
-            </button>
+            </Button>
             {registered && (
-              <button type="button" className="secondary-button" onClick={handleForget} disabled={busy !== null}>
-                <Trash2 size={14} aria-hidden="true" /> Forget on this device
-              </button>
+              <Button variant="ghost" icon={<Trash2 aria-hidden="true" />} onClick={handleForget} disabled={busy !== null}>
+                Forget on this device
+              </Button>
             )}
           </div>
         </>
@@ -158,6 +149,6 @@ export function StepUpSettings() {
           {error}
         </div>
       )}
-    </section>
+    </SettingsBlock>
   );
 }

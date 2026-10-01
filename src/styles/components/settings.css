@@ -1,35 +1,11 @@
 /*
- * settings.css — the schema-driven config rows the settings dialog renders
- * (SettingsField, FeatureUnitCard and their specialized editors). The dialog's
- * own frame lives in settings-dialog.css.
+ * settings.css: the schema-driven config rows the settings dialog renders
+ * (SettingsField, FeatureUnitCard and their specialized editors), the passkey
+ * step-up pieces and the card entry form. The dialog's own frame and the
+ * block / row primitives live in settings-dialog.css. Tokens only.
  */
 
-.settings-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.settings-degraded {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  background: var(--canvas);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.settings-degraded strong {
-  color: var(--text);
-}
-
-.settings-degraded span {
-  color: var(--text-2);
-  font-size: var(--text-sm);
-}
-
-/* ── Typed field editor ───────────────────────────────────────────────────── */
+/* ── Typed field editor: label and description left, the kit control right ── */
 .settings-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -60,7 +36,7 @@
   color: var(--text);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .settings-field-persisted,
@@ -70,33 +46,33 @@
 
 .settings-field-head {
   display: flex;
-  align-items: baseline;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   margin-top: 2px;
 }
 
 .settings-field-key {
   padding: 0;
+  color: var(--text-3);
   background: none;
   border: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-3);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .settings-field-default,
 .settings-field-hint {
-  font-size: var(--text-xs);
   color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 .settings-field-desc {
   margin: var(--space-1) 0 0;
   color: var(--text-2);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .settings-field-control {
@@ -107,6 +83,7 @@
   min-width: 0;
 }
 
+/* The kit Select and Input sit at a fixed 220 beside their label. */
 .settings-field-input,
 .settings-field-select {
   width: 220px;
@@ -120,31 +97,17 @@
 
 .settings-field-secret {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
 }
 
 .settings-field-error {
   margin-top: var(--space-2);
 }
 
-/* Daemon-owned badge: this key's config.set writes land in the daemon's own
-   store and apply to every connected client, not just this browser. */
-.settings-field-daemon-badge,
-.feature-unit-daemon-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-regular);
-  color: var(--text-2);
-  background: transparent;
-}
-
+/* Daemon-owned chip: this key's writes land in the daemon's own store and apply
+   to every connected client, not just this browser. */
 .feature-unit-daemon-badge {
   margin-left: var(--space-2);
   vertical-align: middle;
@@ -154,17 +117,16 @@
 .settings-field-persisted,
 .feature-unit-persisted {
   margin: var(--space-1) 0 0;
-  font-size: 0.75rem;
-  color: var(--contract-state-good, var(--text-2));
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 .settings-daemon-flag {
-  font-size: 0.75rem;
-  color: var(--text-2);
-  font-style: italic;
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
-/* ── Feature unit (a capability + its settings): a flat block, no card ── */
+/* ── Feature unit (a capability and its settings): a flat block, no card ── */
 .feature-unit {
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--line);
@@ -181,9 +143,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-.feature-unit-title {
   min-width: 0;
 }
 
@@ -192,61 +151,54 @@
   color: var(--text);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .feature-unit-state {
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-2);
-}
-
-.feature-unit-state--enabled {
-  color: var(--contract-state-good, var(--text));
-}
-
-.feature-unit-locked {
-  font-size: 0.75rem;
-  color: var(--text-2);
-  font-style: italic;
+  font-size: var(--text-meta);
 }
 
 .feature-unit-desc {
   margin: var(--space-2) 0;
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 1.4;
+  line-height: var(--leading-ui);
 }
 
 .feature-unit-note {
   margin: var(--space-1) 0;
-  color: var(--text-2);
-  font-size: 0.75rem;
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 /* Enablement change saved this session; the daemon applies it on restart. */
 .feature-unit-pending {
   margin: var(--space-1) 0;
-  font-size: 0.75rem;
-  color: var(--contract-state-warn, var(--text));
+  color: var(--warn);
+  font-size: var(--text-meta);
 }
 
 /* Enum enablement: the feature's mode select in the unit header. */
 .feature-unit-mode {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--space-2);
-  flex-shrink: 0;
 }
 
 .feature-unit-mode-label {
-  font-size: 0.75rem;
-  color: var(--text-2);
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 .feature-unit-mode-desc {
   margin: var(--space-1) 0;
-  color: var(--text-2);
-  font-size: 0.75rem;
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 .feature-unit-fields {
@@ -255,11 +207,10 @@
   border-left: 1px solid var(--line);
 }
 
-.settings-raw-note,
-.settings-advanced-note {
+.settings-raw-note {
+  margin: var(--space-3) 0 var(--space-2);
   color: var(--text-2);
   font-size: var(--text-sm);
-  margin: var(--space-3) 0 var(--space-2);
 }
 
 .settings-advanced {
@@ -287,24 +238,25 @@
   }
 }
 
-/* ── Step-up (passkey) settings + inline ceremony ─────────────────────────── */
-.settings-stepup {
-  margin-top: var(--space-4);
+/* ── Step-up (passkey) settings and the inline ceremony ───────────────────── */
+.settings-stepup .gv-field {
+  max-width: 420px;
 }
 
 .stepup-note {
+  margin: 0;
   color: var(--text-2);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
 }
 
 .stepup-status {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.9rem;
-  margin: var(--space-2) 0;
+  margin: 0 0 var(--space-3);
+  color: var(--text-2);
+  font-size: var(--text-sm);
 }
 
 .stepup-actions {
@@ -324,16 +276,29 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  line-height: 1.5;
+  margin: 0;
+  color: var(--text);
+  line-height: var(--leading-ui);
+}
+
+.stepup-lead svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-2);
+}
+
+.stepup-target {
+  margin: 0;
 }
 
 .stepup-target code {
   display: inline-block;
   padding: var(--space-1) var(--space-2);
-  background: var(--surface, var(--surface-2));
-  border-radius: var(--radius-xs, 6px);
-  font-size: 0.85rem;
-  word-break: break-all;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
 }
 
 /* ─── Model prices editor (pricing.modelPrices) ──────────────────────────── */
@@ -345,77 +310,21 @@
 }
 
 .model-prices-empty {
-  color: var(--text-2, var(--text-2));
-  font-size: 0.9rem;
   margin: 0;
-}
-
-.model-prices-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.model-prices-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  background: var(--surface, var(--surface-2));
-  border-radius: var(--radius-xs, 6px);
-}
-
-.model-prices-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.model-prices-key {
-  font-size: 0.85rem;
-  word-break: break-all;
-}
-
-.model-prices-summary {
-  font-size: 0.85rem;
-  color: var(--text-2, var(--text-2));
-}
-
-.model-prices-row-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: var(--text-sm);
 }
 
 .model-prices-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .model-prices-form-prices {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--space-2);
-}
-
-.model-prices-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: 0.85rem;
-  min-width: 0;
-}
-
-.model-prices-form-field input {
-  width: 100%;
-  min-width: 0;
+  gap: var(--space-3);
 }
 
 .model-prices-form-actions {
@@ -437,15 +346,15 @@
 
 .settings-field-object textarea {
   width: 100%;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .settings-field-object .gv-button {
   align-self: flex-start;
 }
 
-/* daemon.timezone — searchable IANA zone picker. */
+/* daemon.timezone: searchable IANA zone picker. */
 .timezone-picker {
   display: flex;
   flex-direction: column;
@@ -454,15 +363,12 @@
   max-width: 360px;
 }
 
-.timezone-picker-search {
-  width: 100%;
-}
-
+.timezone-picker-search,
 .timezone-picker-select {
   width: 100%;
 }
 
-/* payments.budget.* (unit: 'money' schema keys) — currency-labeled amount input. */
+/* payments.budget.* (unit: 'money' schema keys): currency-labeled amount input. */
 .money-field {
   display: flex;
   flex-direction: column;
@@ -476,13 +382,13 @@
 }
 
 .money-field-currency {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--text-2);
   min-width: 3ch;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 
-/* payments.cvvHandling — enum select plus the trade-off warning on 'prompt'. */
+/* payments.cvvHandling: enum select plus the trade-off warning on 'prompt'. */
 .cvv-handling-field {
   display: flex;
   flex-direction: column;
@@ -494,31 +400,51 @@
   max-width: 42rem;
 }
 
+/* ── Account status rows (mail and calendar) ───────────────────────────────── */
+.account-status__detail {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* The key of a stored credential: an environment-style name, mono. */
+.credential-status__key {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.accounts-panel__notes {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  white-space: normal;
+}
+
 /* ── Card entry ────────────────────────────────────────────────────────────
    The panel where a card number, expiry, security code and cardholder name
    are typed. See PaymentCardEntry.tsx for the six conditions the owner's
    ruling carried; the only one with a stylesheet half is the concealment
    below. */
-.settings-card-entry {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.settings-card-list {
+  width: 100%;
   margin-bottom: var(--space-4);
 }
 
-.settings-card-note {
-  margin: 0;
-  max-width: 46rem;
-  color: var(--text-2);
-  font-size: var(--text-sm);
-}
-
-.settings-card-list {
-  width: 100%;
-}
-
 .settings-card-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
   width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+.settings-card-form__submit {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .settings-card-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /*
@@ -530,7 +456,7 @@
   mask. -webkit-text-security gets the same look with none of the semantics.
 
   Stated honestly: this is cosmetic, and a browser without the property shows
-  the characters as typed. It is not what keeps the value safe — the value's
+  the characters as typed. It is not what keeps the value safe: the value's
   safety is that it goes out over the authenticated daemon channel in a POST
   body, is never returned by any method, and is cleared from component state on
   submit.

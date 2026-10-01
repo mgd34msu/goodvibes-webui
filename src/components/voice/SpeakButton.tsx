@@ -13,7 +13,9 @@
  */
 import { Loader, Square, Volume2, VolumeX } from 'lucide-react';
 import { useTts } from '../../lib/voice/useVoice';
-import { TTS_UNAVAILABLE_MESSAGE, describeSharedVoice } from '../../lib/voice/voice-config';
+import { TTS_UNAVAILABLE_MESSAGE } from '../../lib/voice/voice-config';
+import { IconButton } from '../ui/IconButton';
+import '../../styles/components/voice.css';
 
 interface SpeakButtonProps {
   readonly messageId: string;
@@ -21,7 +23,7 @@ interface SpeakButtonProps {
 }
 
 export function SpeakButton({ messageId, text }: SpeakButtonProps) {
-  const { availability, voiceConfig, canPlay, state, isActive, speak, stop } = useTts();
+  const { availability, canPlay, state, isActive, speak, stop } = useTts();
 
   if (!text.trim()) return null;
 
@@ -34,55 +36,43 @@ export function SpeakButton({ messageId, text }: SpeakButtonProps) {
       ? 'This browser cannot play synthesised audio.'
       : TTS_UNAVAILABLE_MESSAGE;
     return (
-      <button
-        type="button"
+      <IconButton
         className="voice-speak-btn voice-unavailable"
-        title={reason}
-        aria-label={`Read aloud unavailable, ${reason}`}
+        label={`Read aloud unavailable, ${reason}`}
+        icon={<VolumeX aria-hidden />}
         disabled
-      >
-        <VolumeX size={13} aria-hidden />
-      </button>
+      />
     );
   }
 
   if (loading) {
     return (
-      <button
-        type="button"
+      <IconButton
         className="voice-speak-btn is-loading"
-        title="Preparing spoken reply: click to cancel"
-        aria-label="Preparing spoken reply: click to cancel"
+        label="Preparing spoken reply: click to cancel"
+        icon={<Loader aria-hidden className="voice-spin" />}
         onClick={stop}
-      >
-        <Loader size={13} aria-hidden className="voice-spin" />
-      </button>
+      />
     );
   }
 
   if (playing) {
     return (
-      <button
-        type="button"
+      <IconButton
         className="voice-speak-btn is-playing"
-        title="Stop reading"
-        aria-label="Stop reading aloud"
+        label="Stop reading aloud"
+        icon={<Square aria-hidden />}
         onClick={stop}
-      >
-        <Square size={13} aria-hidden />
-      </button>
+      />
     );
   }
 
   return (
-    <button
-      type="button"
+    <IconButton
       className="voice-speak-btn"
-      title={`Read aloud (voice: ${describeSharedVoice(voiceConfig)})`}
-      aria-label="Read this reply aloud"
+      label="Read this reply aloud"
+      icon={<Volume2 aria-hidden />}
       onClick={() => speak(messageId, text)}
-    >
-      <Volume2 size={13} aria-hidden />
-    </button>
+    />
   );
 }

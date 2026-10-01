@@ -23,11 +23,15 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { KeyRound } from 'lucide-react';
+import type { StatusTone } from './ui/StatusDot';
 import { sdk } from '../lib/goodvibes';
 import { deriveCredentialAvailability, type CredentialStatusEntry } from '../lib/provider-status';
 import { errorCode, serializeError } from '../lib/errors';
 import { EmptyState } from './feedback/EmptyState';
 import { SkeletonBlock } from './feedback/SkeletonBlock';
+import { Chip } from './ui/Chip';
+import { Row, RowList } from './ui/Row';
+import { SettingsBlock } from './settings/dialog/parts';
 import '../styles/components/providers.css';
 
 /**
@@ -52,9 +56,9 @@ function isAdminRequiredError(error: unknown): boolean {
   return status === 403;
 }
 
-function credentialTone(entry: CredentialStatusEntry): 'ok' | 'warning' | 'neutral' {
-  if (!entry.configured) return 'neutral';
-  return entry.usable ? 'ok' : 'warning';
+function credentialTone(entry: CredentialStatusEntry): StatusTone {
+  if (!entry.configured) return 'idle';
+  return entry.usable ? 'ok' : 'warn';
 }
 
 function credentialLabel(entry: CredentialStatusEntry): string {
@@ -93,12 +97,7 @@ export function CredentialStatusPanel({ selectedProviderId }: CredentialStatusPa
   const credentials = availability?.available === true ? availability.credentials : null;
 
   return (
-    <section className="panel credential-status" aria-label="Credential status">
-      <div className="panel-title">
-        <h2>Credential Status</h2>
-        <KeyRound size={18} aria-hidden="true" />
-      </div>
-
+    <SettingsBlock className="credential-status" title="Credential status">
       {query.isPending ? (
         <div className="credential-status__skeleton" aria-label="Loading credential status" aria-busy="true">
           {Array.from({ length: 3 }, (_, i) => (
@@ -122,28 +121,23 @@ export function CredentialStatusPanel({ selectedProviderId }: CredentialStatusPa
           description="No credential status reported by the daemon."
         />
       ) : credentials !== null ? (
-        <div className="providers-model-grid" role="list" aria-label="Credentials">
+        <RowList aria-label="Credentials">
           {credentials.map((entry) => {
             const matched = Boolean(
               selectedProviderId && entry.key.toLowerCase().includes(selectedProviderId.toLowerCase()),
             );
             return (
-              <article
+              <Row
                 key={entry.key}
-                className={matched ? 'providers-model-row providers-model-row--current' : 'providers-model-row'}
-                role="listitem"
-                aria-label={`${entry.key}, ${credentialLabel(entry)}${matched ? ', for the selected provider' : ''}`}
-              >
-                <div className="providers-model-row__copy">
-                  <strong>{entry.key}</strong>
-                  <span>{entry.source ?? 'source unknown'}</span>
-                </div>
-                <span className={`badge ${credentialTone(entry)}`}>{credentialLabel(entry)}</span>
-              </article>
+                selected={matched}
+                title={<span className="credential-status__key">{entry.key}</span>}
+                meta={`${entry.source ?? 'source unknown'}${matched ? ' · for the selected provider' : ''}`}
+                trailing={<Chip tone={credentialTone(entry)}>{credentialLabel(entry)}</Chip>}
+              />
             );
           })}
-        </div>
+        </RowList>
       ) : null}
-    </section>
+    </SettingsBlock>
   );
 }

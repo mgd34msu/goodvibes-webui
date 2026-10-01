@@ -1,32 +1,16 @@
-/*
- * TailscaleSettings layout. Colors come from the shared token layer
- * (src/styles/tokens.css); this file is layout only, no new palette.
- */
-
-.tailscale-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
+/* TailscaleSettings: the serve receipt is a status line (dot and words). */
 
 .tailscale-panel__receipt {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: var(--radius-xs, 6px);
-  font-size: var(--text-sm, 13px);
-  align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
 }
 
-.tailscale-panel__receipt--ok {
-  background: var(--ok-soft);
-  color: var(--ok);
-  border: 1px solid var(--ok);
-}
-
-.tailscale-panel__receipt--danger {
-  background: var(--bad-soft);
-  color: var(--bad);
-  border: 1px solid var(--bad);
+.tailscale-panel__receipt .gv-dot {
+  margin-top: 6px;
 }

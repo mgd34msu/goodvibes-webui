@@ -141,7 +141,7 @@
   color: var(--text);
   border-radius: var(--radius-sm);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   cursor: pointer;
   user-select: none;
   transition: background-color var(--motion-fast) ease-out;

@@ -5,9 +5,15 @@
  * JSON behind a "Show details" disclosure.
  */
 import { ChevronRight } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { createContext, useContext, useId, useState, type ReactNode } from 'react';
 import { DataBlock } from '../../DataBlock';
 import { asRecord } from '../../../lib/object';
+
+/**
+ * The heading level a SettingsBlock title takes: h3 directly under the page
+ * title, h4 when the block sits inside a titled section of a multi-section page.
+ */
+export const SettingsHeadingLevel = createContext<3 | 4>(3);
 
 export function SettingsBlock({
   title,
@@ -26,6 +32,7 @@ export function SettingsBlock({
   testId?: string;
 }) {
   const titleId = useId();
+  const Heading = useContext(SettingsHeadingLevel) === 4 ? 'h4' : 'h3';
   return (
     <section
       className={['settings-block', className ?? ''].filter(Boolean).join(' ')}
@@ -34,7 +41,7 @@ export function SettingsBlock({
     >
       <div className="settings-block__head">
         <div className="settings-block__titles">
-          <h3 id={titleId} className="settings-block__title">{title}</h3>
+          <Heading id={titleId} className="settings-block__title">{title}</Heading>
           {description && <p className="settings-block__description">{description}</p>}
         </div>
         {actions && <div className="settings-block__actions">{actions}</div>}

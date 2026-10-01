@@ -1,13 +1,19 @@
 /* Self-hosted Geist and Geist Mono (400, 500, 600), bundled by Vite: no font CDN. */
 @import './styles/fonts.css';
 @import './styles/tokens.css';
-/* Generated from the SDK presentation contract — see
+/* Generated from the SDK presentation contract: see
    src/styles/generated/presentation-tokens.css's own header for what this
    layer is (and is not) and scripts/generate-presentation-tokens.ts for how
-   it's produced. */
+   it is produced. */
 @import './styles/generated/presentation-tokens.css';
 /* Glass and scrim: the one floating material and the one modal backdrop. */
 @import './styles/materials.css';
+
+/*
+ * Global rules only: element defaults, focus, the view frame, the inline
+ * notice, and the two small shared classes still in use. Every component
+ * styles itself in src/styles/components/ (the kit in ui.css).
+ */
 
 /* === Global rendering === */
 :root {
@@ -35,7 +41,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   color: var(--text);
   /* Flat canvas. --page-art is `none` in every slate theme; only the opt-in
      GoodVibes Neon theme paints its glow and grid there. */
@@ -43,12 +49,21 @@ body {
   background-color: var(--canvas);
 }
 
-.data-block pre,
-.diagnostic-block pre,
 code,
 kbd,
 samp {
   font-family: var(--font-mono);
+}
+
+/* Inline code outside chat prose (chat's own rule is in markdown.css): a quiet
+   chip, never accent colored. Code blocks and code frames reset it. */
+code {
+  padding: 1px 5px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  font-size: 0.9em;
 }
 
 ::selection {
@@ -57,14 +72,17 @@ samp {
 
 button,
 input,
-textarea,
-select {
+textarea {
   font: inherit;
   color: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 /* Focus is always visible: a 2px accent outline with a 3px soft halo, never removed. */
@@ -74,205 +92,69 @@ button {
   box-shadow: var(--focus-ring);
 }
 
-button:disabled {
-  cursor: not-allowed;
-}
-
-.icon-button,
-.primary-button,
-.secondary-button,
-.segmented button,
-.row-actions button {
-  border: 0;
-}
-
-/* Attention count on a nav entry (Fleet: processes blocked on a human). Anchored
-   to the icon so it stays visible on the collapsed icon-only phone rail, where the
-   text label is hidden. */
-
-.status-dot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  box-shadow: none;
-}
-
-.status-dot.ok {
-  background: var(--ok);
-}
-
-.status-dot.warning {
-  background: var(--warn);
-}
-
-.eyebrow {
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.icon-button,
-.row-actions button {
-  display: inline-grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  padding: 0;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  box-shadow: none;
-}
-
-.icon-button:hover,
-.row-actions button:hover {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: var(--ok);
-}
-
-.row-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
+/* === View frame (ShellLayout) === */
 .view-frame {
   max-width: 1760px;
   margin: 0 auto;
   padding: 26px 28px 36px;
 }
 
-.stack {
-  display: grid;
-  gap: 18px;
+:root[data-density="compact"] .view-frame {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-6);
 }
 
+/* === Inline notice: .banner.warning / .banner.info ===
+   A flat surface with a strong hairline and the text in --text; the status hue
+   lives only on the notice's icon, or on a leading dot when it has none
+   (design doc "Color": status is never a background larger than a chip). The
+   page-level banners under the shell header are styled in shell.css. */
 .banner {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: calc(1760px - 56px);
-  margin: 14px auto 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-}
-
-.banner.warning {
-  color: var(--warn);
-  background: var(--warn-soft);
-  border: 1px solid var(--warn);
-}
-
-/* Informational, not a warning — the plain-http-on-LAN posture notice
-   (pairing.posture.get's one honest notice line): everything works, this is a
-   deliberate supported deployment, not a problem to fix. */
-.banner.info {
-  color: var(--info);
-  background: var(--info-soft);
-  border: 1px solid var(--info-soft);
-}
-
-:root[data-theme="light"] .banner.info {
-  color: var(--info);
-}
-
-.action-banner {
-  justify-content: space-between;
-}
-
-.action-banner span {
-  flex: 1;
-}
-
-.action-banner button,
-.secondary-button {
-  min-height: 34px;
-  padding: 0 12px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  font-weight: 800;
-}
-
-.action-banner button:hover,
-.secondary-button:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.panel,
-.data-block,
-.answer-panel,
-.side-panel,
-.chat-surface,
-.detail-header,
-.knowledge-search {
-  /* Token-driven text color (single declaration, correct in both themes) —
-     the unscoped "dark" block further down used to also declare `color:
-     #f8fbff` for this same selector list; once this fix scoped ONLY that
-     block's `background` to light theme (see the :root[data-theme="light"]
-     rule below), the still-unscoped `color: #f8fbff` kept winning in light
-     theme too, producing near-invisible white-on-white text — a regression
-     caught by the live Playwright proof for this fix, not by source reading
-     alone. Declaring the token here once removes the duplicate literal
-     entirely (see the reconciled dark block further down). */
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  box-shadow: none;
-}
-
-/* Light-theme surface background, scoped so it can never win in dark theme by
-   accident of source order (same anti-pattern fc6dcf8 fixed for badges): the
-   dark composite background for this same selector list lives further down,
-   unscoped (dark is the :root default per tokens.css), and this scoped rule's
-   higher specificity (:root[data-theme="light"] ...) beats it deterministically
-   whenever light theme is active — a reorder of the two blocks cannot resurrect
-   a white surface in dark theme. */
-:root[data-theme="light"] .panel,
-:root[data-theme="light"] .data-block,
-:root[data-theme="light"] .answer-panel,
-:root[data-theme="light"] .side-panel,
-:root[data-theme="light"] .chat-surface,
-:root[data-theme="light"] .detail-header,
-:root[data-theme="light"] .knowledge-search {
-  background: var(--surface);
-}
-
-.panel:hover,
-.answer-panel:hover,
-.side-panel:hover,
-.chat-surface:hover {
-  border-color: var(--line-strong);
-  box-shadow: none;
-}
-
-.panel-title,
-.detail-header,
-.chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
 }
 
-.panel-title svg {
-  color: var(--accent);
+.banner > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
 }
 
-.record-row span,
-.model-row span,
-.action-row span,
-.detail-header span,
-.chat-header span {
-  color: var(--text-2);
-  font-size: 0.82rem;
+.banner:not(:has(> svg))::before {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-3);
+  content: '';
 }
 
+.banner.warning > svg { color: var(--warn); }
+.banner.warning::before { background: var(--warn); }
+.banner.info > svg { color: var(--info); }
+.banner.info::before { background: var(--info); }
+
+@media (max-width: 480px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+}
+
+/* === Small shared classes still in use === */
+
+/* The current model line in Settings, Models and providers (ModelsSection). */
 .current-model {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -296,1226 +178,28 @@ button:disabled {
 
 .current-model span {
   color: var(--text-2);
-  font-size: 0.86rem;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
   overflow-wrap: anywhere;
 }
 
-.two-column,
-.split-layout,
-.chat-layout {
-  display: grid;
-  gap: 18px;
-}
-
-.two-column {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.three-column {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.split-layout,
-.chat-layout {
-  grid-template-columns: 320px minmax(0, 1fr);
-  align-items: start;
-}
-
-.chat-layout {
-  align-items: stretch;
-}
-
-.side-panel,
-.chat-surface,
-.panel,
-.data-block,
-.answer-panel,
-.detail-header,
-.knowledge-search {
-  /* Every one of these is used as a grid item inside .two-column/.three-column
-     (minmax(0, 1fr) tracks) or .split-layout/.chat-layout. minmax(0, ...) zeroes
-     the TRACK's own minimum, but a grid item's own box still defaults to
-     min-width:auto unless reset here — so long unbroken content nested inside
-     (a long calendar event title, a long knowledge candidate name) can still
-     force the item, and everything above it, wider than the viewport. Same
-     class of bug as .side-panel/.chat-surface above; .panel is the one this
-     rule was missing (MOBILE-ADAPT overflow sweep). */
-  min-width: 0;
-}
-
-.chat-layout .side-panel {
-  min-height: calc(100vh - 144px);
-}
-
-.side-panel,
-.panel,
-.data-block,
-.answer-panel {
-  padding: 16px;
-}
-
-.panel h2,
-.data-block h3,
-.answer-panel h2,
-.side-panel h2,
-.chat-header h2,
-.detail-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.25;
-}
-
-.record-list,
-.action-list,
-.model-grid {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.record-row,
-.action-row,
-.model-row {
-  display: grid;
-  gap: 5px;
-  width: 100%;
-  min-width: 0;
-  padding: 11px;
-  color: inherit;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  text-align: left;
-}
-
-.record-row {
-  transition: background 130ms ease, border-color 130ms ease, transform 130ms ease;
-}
-
-.record-row.selected,
-.record-row:hover {
-  background: var(--surface-2);
-  border-color: var(--accent);
-}
-
-.record-row:hover {
-  transform: translateY(-1px);
-}
-
-.record-row strong,
-.model-copy strong,
-.model-row strong,
-.action-row strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.action-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.model-row {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-}
-
-.model-row.selected {
-  background: var(--surface-2);
-  border-color: var(--accent);
-}
-
-.model-copy {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.row-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  min-height: 24px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 800;
-  gap: 4px;
-  overflow-wrap: anywhere;
-}
-
-/* Contract-sourced severity glyph (src/lib/presentation-bridge.ts,
-   StatusBadge.tsx's `data-contract-glyph` attribute) — the same glyph
-   vocabulary the TUI/agent render through. Generated CSS content, not a DOM
-   text node, so StatusBadge's `.textContent` is unaffected everywhere it's
-   asserted on exactly (RecordList, SessionHeader, ...). Decorative only —
-   the label text and tone color already carry the meaning. */
-.badge::before {
-  content: attr(data-contract-glyph);
-  line-height: 1;
-  opacity: 0.85;
-}
-
-:root[data-theme="light"] .badge.ok {
-  color: var(--ok);
-  background: var(--ok-soft);
-}
-
-:root[data-theme="light"] .badge.warning {
-  color: var(--warn);
-  background: var(--warn-soft);
-}
-
-:root[data-theme="light"] .badge.bad {
-  color: var(--bad);
-  background: var(--bad-soft);
-}
-
-:root[data-theme="light"] .badge.neutral {
-  color: var(--text-2);
-  background: var(--surface-2);
-}
-
-/* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
-   distinct from a deliberate close, which stays .badge.neutral. */
-:root[data-theme="light"] .badge.info {
-  color: var(--info);
-  background: var(--info-soft);
-}
-
-:root[data-theme="light"] .badge.attention {
-  color: var(--warn);
-  background: var(--warn-soft);
-  box-shadow: inset 0 0 0 1px var(--warn);
-}
-
-.data-block {
-  min-width: 0;
-}
-
-.data-block header {
-  margin-bottom: 10px;
-}
-
-.data-block pre {
-  max-height: 360px;
-  margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.data-block-markdown {
-  max-height: 420px;
-  overflow: auto;
-  color: var(--text);
-}
-
-.data-block-pre-wrap {
-  position: relative;
-}
-
-.data-block-copy {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 2px 8px;
-  border: none;
-  border-radius: 4px;
-  background: var(--surface, var(--surface-2));
-  color: var(--text-2, var(--text-2));
-  font-size: 0.72rem;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
-  z-index: 1;
-}
-
-.data-block-pre-wrap:hover .data-block-copy,
-.data-block-copy:focus-visible {
-  opacity: 1;
-}
-
-.data-block-copy:hover {
-  background: var(--accent-soft, var(--surface-2));
-  color: var(--text, var(--text));
-}
-
-.data-block-copy:focus-visible {
-  outline: 2px solid var(--accent, var(--info));
-  outline-offset: 2px;
-}
-
-.empty-state {
-  margin: 12px 0;
-  color: var(--text-3);
-}
-
-.chat-surface {
-  display: grid;
-  grid-template-rows: auto minmax(460px, 1fr) auto;
-  min-height: calc(100vh - 144px);
-  overflow: hidden;
-  /* Token-driven (see the .topbar fix above for why): this used to be an
-     unconditional light literal (#fbfdfc) with no dark counterpart anywhere
-     in the file, so the chat pane stayed near-white in dark theme unconditionally
-     — not just on a cascade reorder. --surface-raised resolves per theme. */
-  background: var(--surface);
-}
-
-.chat-header {
-  padding: 14px 18px;
-  /* Same fix as .chat-surface immediately above: was an unconditional #ffffff
-     literal with no dark override, so the chat header band stayed white in
-     dark theme. */
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-
-.routing-row,
-.knowledge-search {
-  display: flex;
-  gap: 10px;
-}
-
-.routing-row select,
-.routing-row input,
-.knowledge-search input,
-.form-grid input,
-.form-grid select,
-.form-grid textarea {
-  width: 100%;
-  min-width: 0;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-}
-
-.routing-row select,
-.routing-row input,
-.knowledge-search input,
-.form-grid input,
-.form-grid select {
-  height: 40px;
-  padding: 0 11px;
-}
-
-.form-grid textarea {
-  min-height: 82px;
-  padding: 11px;
-  resize: vertical;
-}
-
-.turn-inspector {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-2);
-  font-size: 0.78rem;
-}
-
-.turn-inspector > span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  max-width: 100%;
-  padding: 0 9px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-}
-
-.turn-inspector details {
-  width: 100%;
-  color: var(--text-2);
-}
-
-.turn-inspector summary {
-  width: fit-content;
-  cursor: pointer;
-}
-
-.turn-inspector pre {
-  max-height: 180px;
-  margin: 6px 0 0;
-  padding: 9px;
-  overflow: auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-}
-
-.routing-note {
-  margin: -2px 0 0;
-  color: var(--text-2);
-  font-size: 0.84rem;
-}
-
-.primary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 15px;
-  color: var(--text);
-  background: var(--accent);
-  border-radius: 7px;
-  box-shadow: none;
-  font-weight: 800;
-}
-
-.primary-button:hover:not(:disabled) {
-  background: var(--accent);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
-  opacity: 0.55;
-}
-
-.secondary-button {
-  width: fit-content;
-  background: var(--surface);
-}
-
-.knowledge-search {
-  align-items: center;
-  padding: 12px;
-}
-
-.segmented {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  padding: 4px;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-}
-
-.segmented button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 11px;
-  color: var(--text-2);
-  background: transparent;
-  border-radius: 6px;
-}
-
-.segmented button.active {
-  color: var(--text);
-  background: var(--surface);
-  box-shadow: none;
-}
-
-.answer-text {
-  margin: 12px 0 16px;
-  max-width: 920px;
-  line-height: 1.62;
-}
-
-.metadata-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.detail-header {
-  padding: 16px;
-}
-
-.form-grid {
-  display: grid;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.form-grid label {
-  display: grid;
-  gap: 6px;
-  color: var(--text-2);
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-.form-split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.check-row {
-  display: flex !important;
-  grid-template-columns: none !important;
-  align-items: center;
-  gap: 9px !important;
-}
-
-.check-row input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-}
-
-.knowledge-map-controls,
-.projection-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.knowledge-map-controls input {
-  width: 100%;
-  min-width: 0;
-  height: 40px;
-  padding: 0 11px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-}
-
-.projection-layout {
-  display: grid;
-  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.projection-actions {
-  justify-content: flex-start;
-}
-
-.projection-results {
-  margin-top: 14px;
-}
-
+/* A short help line under a control (MemoryProvenanceChip). */
 .form-note {
   margin: 12px 0 0;
   color: var(--text-2);
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
-.diagnostic-block {
-  margin-top: 12px;
-  color: var(--text-2);
-  font-size: 0.84rem;
-}
-
-.diagnostic-block summary {
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.diagnostic-block pre {
-  max-height: 260px;
-  margin: 10px 0 0;
-  padding: 10px;
-  overflow: auto;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.runtime-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.runtime-grid > div {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 8px;
-  align-items: center;
-  min-width: 0;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-}
-
-.runtime-grid svg,
-.runtime-grid .status-dot {
-  grid-row: span 2;
-}
-
-.runtime-grid strong,
-.runtime-grid span:not(.status-dot) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-grid span:not(.status-dot) {
-  color: var(--text-2);
-  font-size: 0.82rem;
-}
-
-code {
-  padding: 1px 5px;
-  color: var(--accent);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  font-size: 0.9em;
-}
-
-.auth-guidance {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 14px;
-  padding: 16px;
-  background:
-    var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  box-shadow: none;
-}
-
-.auth-guidance > div:first-child {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: var(--radius-sm);
-}
-
-.auth-guidance h2 {
-  margin: 0 0 6px;
-  font-size: 1rem;
-}
-
-.auth-guidance p {
-  max-width: 920px;
-  margin: 0;
-  color: var(--text-2);
-  line-height: 1.48;
-}
-
-/*
- * Dark theme values are now the DEFAULT in src/styles/tokens.css.
- * The :root block here consumed to be the dark override but tokens.css
- * makes dark the root default, so nothing extra is needed here.
- * Light theme tokens live in :root[data-theme="light"] inside tokens.css.
- */
-
-/* .topbar's color/background/border-bottom/box-shadow are now declared once,
-   token-driven, at its base rule (see :442) — the duplicate unscoped override
-   that used to live here (and only won by source order) is gone; there is
-   nothing left to reorder. */
-
-.eyebrow {
-  color: var(--accent);
-}
-
-/* .topbar h1 and the headings inside the panel-group surfaces (.panel h2,
-   .data-block h3, .answer-panel h2, .side-panel h2, .detail-header h2) are
-   split out from the literal-color list below: those surfaces' own text
-   color is now token-driven (var(--text), declared once at each
-   surface's base rule) — an unscoped literal here would win by specificity
-   over the inherited token color in EVERY theme (this selector is more
-   specific than a plain `.panel`), reintroducing the exact white-on-white
-   regression the token fix above exists to prevent. The remaining
-   selectors' surfaces (.current-model, .record-row, .model-row,
-   .action-row, .model-copy) are untouched by this fix and keep the literal
-   — out of this work order's owned region. */
-.current-model strong,
-.record-row strong,
-.model-copy strong,
-.model-row strong,
-.action-row strong {
-  color: var(--text);
-}
-
-.icon-button,
-.row-actions button,
-.action-banner button,
-.secondary-button {
-  color: var(--text);
-  background: var(--accent-soft);
-  border: 1px solid var(--line);
-  box-shadow: none;
-}
-
-.icon-button:hover,
-.row-actions button:hover,
-.action-banner button:hover,
-.secondary-button:hover {
-  color: var(--text);
-  background: var(--accent);
-  border-color: var(--line-strong);
-  box-shadow: none;
-}
-
-.banner.warning {
-  color: var(--warn);
-  background: var(--warn-soft);
-  border: 1px solid var(--warn);
-}
-
-/* `color` removed from this list for .panel/.data-block/.answer-panel/
-   .side-panel/.detail-header/.knowledge-search — their text color is now
-   token-driven at their own base rule (see :565), correct in both themes
-   with one declaration. .auth-guidance is NOT part of that fix (out of this
-   work order's owned region — its own background is a separate, untouched,
-   pre-existing literal) and keeps its literal color, declared on its own
-   immediately below, unchanged from before. */
-.panel,
-.data-block,
-.answer-panel,
-.side-panel,
-.detail-header,
-.knowledge-search,
-.auth-guidance {
-  background:
-    var(--canvas);
-  border: 1px solid var(--line);
-  box-shadow: none;
-}
-
-/* Preserves .auth-guidance's exact prior color — split out of the list
-   above only so .panel/.data-block/.answer-panel/.side-panel/.detail-header/
-   .knowledge-search could move to a token; .auth-guidance itself is
-   untouched by this work order. */
-.auth-guidance {
-  color: var(--text);
-}
-
-.panel:hover,
-.answer-panel:hover,
-.side-panel:hover,
-.chat-surface:hover {
-  border-color: var(--line-strong);
-  box-shadow: none;
-}
-
-.panel-title svg {
-  color: var(--accent);
-  filter: none;
-}
-
-.record-row span,
-.model-row span,
-.action-row span,
-.detail-header span,
-.chat-header span,
-.current-model span,
-.form-note,
-.diagnostic-block,
-.runtime-grid span:not(.status-dot),
-.turn-inspector,
-.routing-note,
-.auth-guidance p {
-  color: var(--info);
-}
-
-.empty-state {
-  color: var(--info);
-}
-
-.record-row,
-.action-row,
-.model-row,
-.runtime-grid > div {
-  color: var(--text);
-  background: var(--accent-soft);
-  border: 1px solid var(--line);
-}
-
-.record-row.selected,
-.record-row:hover,
-.model-row.selected {
-  color: var(--text);
-  background: var(--accent-soft);
-  border-color: var(--line-strong);
-  box-shadow: none;
-}
-
-.badge.ok {
-  color: var(--ok);
-  background: var(--ok-soft);
-}
-
-.badge.warning {
-  color: var(--warn);
-  background: var(--warn-soft);
-}
-
-.badge.bad {
-  color: var(--text-2);
-  background: var(--surface-2);
-}
-
-.badge.neutral {
-  color: var(--text);
-  background: var(--accent-soft);
-}
-
-/* Idle-reaped sessions (auto-reopen on next heartbeat) get their own tone —
-   distinct from a deliberate close, which stays .badge.neutral. */
-.badge.info {
-  color: var(--info);
-  background: var(--info-soft);
-}
-
-/* Attention: a node the daemon flagged as blocked on a human (needsAttention).
-   Deliberately louder than .warning — a bordered accent so "someone is waiting
-   on you" reads at a glance in the row's badge cluster. */
-.badge.attention {
-  color: var(--warn);
-  background: var(--warn-soft);
-  box-shadow: inset 0 0 0 1px var(--warn);
-}
-
-/*
- * Contract-sourced severity glyph for a `.badge` carrying `data-contract-state`
- * (FleetView.tsx / WorkstreamView.tsx's StateBadge — see presentation-bridge.ts's
- * contractStateForBadgeTone). Deliberately NOT a color migration of the badge itself:
- * `.badge.ok/.warning/.bad/.neutral` above keep this web UI's own hand-picked palette
- * (tokens.css's documented "webui-only, not the SDK contract" layer) — only the small
- * prefix glyph is sourced from the generated contract tables (src/styles/generated/
- * presentation-tokens.css), mirroring status.css's `.status-strip__segment--connection`
- * rule for the REACHABLE axis. This is a REAL var() consumer for both generated custom-
- * property families (`--contract-glyph-*` content, `--contract-state-*` color) for the
- * 4-of-16 keys the good/warn/bad/info bucket actually uses.
- */
-.badge[data-contract-state]::before {
-  content: '';
-  margin-right: 3px;
-  opacity: 0.85;
-}
-
-.badge[data-contract-state="good"]::before {
-  content: var(--contract-glyph-success);
-  color: var(--contract-state-good);
-}
-
-.badge[data-contract-state="warn"]::before {
-  content: var(--contract-glyph-warn);
-  color: var(--contract-state-warn);
-}
-
-.badge[data-contract-state="bad"]::before {
-  content: var(--contract-glyph-failure);
-  color: var(--contract-state-bad);
-}
-
-.badge[data-contract-state="info"]::before {
-  content: var(--contract-glyph-info);
-  color: var(--contract-state-info);
-}
-
-.primary-button {
-  color: var(--text);
-  background: var(--accent);
-  box-shadow: none;
-}
-
-.primary-button:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--accent-2);
-  box-shadow: none;
-}
-
-.segmented {
-  background: var(--canvas);
-  border: 1px solid var(--line);
-}
-
-.segmented button {
-  color: var(--info);
-}
-
-.segmented button.active {
-  color: var(--text);
-  background: var(--accent);
-  box-shadow: none;
-}
-
-.routing-row select,
-.routing-row input,
-.knowledge-search input,
-.knowledge-map-controls input,
-.form-grid input,
-.form-grid select,
-.form-grid textarea {
-  color: var(--text);
-  background: var(--canvas);
-  border: 1px solid var(--line);
-}
-
-.routing-row select:focus,
-.routing-row input:focus,
-.knowledge-search input:focus,
-.knowledge-map-controls input:focus,
-.form-grid input:focus,
-.form-grid select:focus,
-.form-grid textarea:focus {
-  border-color: var(--line-strong);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.routing-row select::placeholder,
-.routing-row input::placeholder,
-.knowledge-search input::placeholder,
-.knowledge-map-controls input::placeholder,
-.form-grid input::placeholder,
-.form-grid textarea::placeholder {
-  color: var(--text-2);
-}
-
-.data-block pre,
-.diagnostic-block pre,
-.turn-inspector pre {
-  color: var(--text);
-  background: var(--canvas);
-  border: 1px solid var(--line);
-}
-
-.data-block-markdown {
-  color: var(--text);
-}
-
-code {
-  color: var(--text);
-  background: var(--accent-soft);
-  border-color: var(--line);
-}
-
-.auth-guidance {
-  background:
-    var(--canvas);
-}
-
-.auth-guidance > div:first-child {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-/* ─────────────────────────────────────────
-   DENSITY — consuming rules
-   Tokens are set in tokens.css; these rules
-   wire them to actual components.
-───────────────────────────────────────── */
-
-/* App shell: tighten sidebar gaps */
-
-/* Nav items use the row-height token */
-
-/* Topbar: use space tokens for padding */
-
-/* view-frame: vertical padding tightens in compact */
-:root[data-density="compact"] .view-frame {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-6);
-}
-
-/* Panels: padding tightens in compact */
-:root[data-density="compact"] .panel,
-:root[data-density="compact"] .side-panel,
-:root[data-density="compact"] .data-block,
-:root[data-density="compact"] .answer-panel,
-:root[data-density="compact"] .detail-header {
-  padding: var(--space-3);
-}
-
-/* Stacks tighten */
-:root[data-density="compact"] .stack {
-  gap: var(--space-3);
-}
-
-:root[data-density="compact"] .two-column,
-:root[data-density="compact"] .three-column,
-:root[data-density="compact"] .split-layout {
-  gap: var(--space-3);
-}
-
-/* Record rows: min-height driven by compact row-h */
-.record-row,
-.action-row,
-.model-row {
-  min-height: var(--row-h);
-}
-
-:root[data-density="compact"] .record-row,
-:root[data-density="compact"] .action-row,
-:root[data-density="compact"] .model-row {
-  padding: var(--space-2) var(--space-3);
-}
-
-/* Sidebar sessions list: compact row heights */
-
-/* Form inputs: compact height — use --row-h (overridden to 28px in compact by tokens.css) */
-:root[data-density="compact"] .routing-row select,
-:root[data-density="compact"] .routing-row input,
-:root[data-density="compact"] .knowledge-search input,
-:root[data-density="compact"] .knowledge-map-controls input,
-:root[data-density="compact"] .form-grid input,
-:root[data-density="compact"] .form-grid select {
-  height: var(--row-h);
-}
-
-/* ─────────────────────────────────────────
-   SIDEBAR OVERLAY SCRIM
-   Tap-outside-to-close for the mobile sidebar.
-   The .sidebar-scrim element is rendered by the
-   Phase 3b / integration workstream in App.tsx.
-   CSS is ready; DOM element is deferred.
-───────────────────────────────────────── */
-
-/* ─────────────────────────────────────────
-   BREAKPOINT: ≤1280px
-───────────────────────────────────────── */
-@media (max-width: 1280px) {
-  .metadata-grid,
-  .runtime-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 980px) {
-  /* ── App shell: single main column.
-     Collapsed sidebar = narrow 60px fixed rail on left.
-     Open sidebar = full-width fixed overlay on top of workspace. ── */
-
-  /* Collapsed: narrow icon-rail stays fixed on the left. */
-  
-
-  /* The sidebar is position:fixed here (out of grid flow), so the workspace — the only
-     in-flow child — would auto-place into the FIRST (60px rail) track and end up
-     underneath the fixed rail. Pin it to the second track so it sits to the RIGHT of
-     the rail, its content fully visible and clickable (the phone default is the
-     collapsed rail, so this path is now the common case, not a rare one). */
-  
-
-  /* Open: sidebar overlays — workspace fills full width. */
-  
-
-  /* Sidebar: always fixed. When open it overlays workspace. */
-  
-
-  /* Open: full sidebar overlays content */
-  
-
-  /* Collapsed: narrow icon-rail */
-  
-
-  /* When sidebar is open, show a scrim behind it.
-     (The .sidebar-scrim element is rendered by App.tsx — tapping it closes
-     the sidebar, same as the toggle button.) */
-  
-
-  /* Collapsed = a clean icon rail: the phone default. Keep the copy HIDDEN so
-     the 60px rail shows only icons — the workspace is visible first, and the brand
-     mark (or tapping the rail) opens the full drawer. Centering the items keeps the
-     icons on the rail's axis. */
-  
-
-  
-
-  
-
-  /* Grid dot pattern: starts from sidebar-collapsed edge */
-  
-
-  /* Single-column nav at ≤980: the old 3-column grid packed nav items into
-     ~80px cells, which forced every label ("Checkpoints", "Workstream"…) to
-     ellipsis-truncate mid-word. One column per row lets the full label render — both
-     in the open 264px overlay and stacked as icons in the collapsed rail. */
-  
-
-  /* Labels wrap legibly instead of truncating (belt-and-suspenders with the single
-     column above — a full-word wrap, never a mid-word ellipsis clip). */
-  
-
-  
-
-  
-
-  
-
-  /* ── Non-chat view layouts: stack on tablet ── */
-  .split-layout,
-  .chat-layout,
-  .two-column,
-  .projection-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .chat-layout .side-panel {
-    min-height: auto;
-  }
-
-  .three-column {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* Panels inside non-chat views: allow natural height, no overflow cap */
-  .side-panel {
-    overflow: visible;
-  }
-}
-
+/* === Phone widths === */
 @media (max-width: 680px) {
-  /* Sidebar stays as fixed overlay (from 980 block); tighten padding */
-  
-
-  
-
-  /* Single column stays single — inherited from the ≤980 block; restated for
-     clarity now that the drawer is a full-width overlay at phone widths. */
-  
-
-  /* nav-item min-height: use token (--row-h = 36px default, 28px compact) */
-  
-
-  
-
   .view-frame {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding: 16px 14px 36px;
   }
 
-  
-
-  
-
-  .view-frame {
-    padding-top: 16px;
-  }
-
-  /* three-column falls back to single on phone */
-  .three-column {
-    grid-template-columns: 1fr;
-  }
-
-  .metadata-grid,
-  .runtime-grid,
-  .form-split {
-    grid-template-columns: 1fr;
-  }
-
-  /* Non-chat panels: allow natural scroll, no max-height cap on phone */
-  .side-panel {
-    max-height: none;
-    overflow-y: visible;
-  }
-
-  .routing-row,
-.knowledge-search,
-.knowledge-map-controls,
-.projection-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .chat-surface {
-    min-height: 640px;
-  }
-}
-
-/* ────────────────────────────────────────
-   BREAKPOINT: ≤480px (very small phones)
-   Mirrors the per-component 480px blocks already
-   present in providers.css and peek.css.
-──────────────────────────────────────── */
-@media (max-width: 480px) {
-  /* Nav items: enforce 44px touch target minimum */
-  
-
-  /* Topbar: single column, start-aligned actions */
-  
-
-  
-
-  /* Banner text: allow wrap on very narrow screens */
-  .banner {
-    flex-wrap: wrap;
-  }
-
-  /* Form grids: always single column */
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Sidebar-scrim: full-viewport at this size too (inherited from 980px rule) */
-}
-
-/* ────────────────────────────────────────
-   TOUCH-TARGET FLOOR (the mobile-first pass)
-   Every interactive control on the phone journey clears a 44px minimum — the
-   sub-44px desktop sizes (36px icon buttons, 34px nav icons, 40px primary
-   buttons, the 28px hover-only session delete) are raised at phone width so a
-   thumb can hit them. Scoped to ≤680px so desktop density is untouched.
-──────────────────────────────────────── */
-@media (max-width: 680px) {
-  .icon-button,
-.row-actions button {
-    width: 44px;
-    height: 44px;
-  }
-
-  
-
-  /* Collapsed icon rail: trim its padding so the full-width nav buttons inside the
-     60px rail still clear a 44px tap target (14px padding would leave only ~32px). */
-  
-
-  
-
-  .primary-button,
-  .secondary-button {
-    min-height: 44px;
-  }
-
-  /* The sidebar's chat-delete: was 28px and revealed only on hover — unreachable on
-     a touch screen. At phone width it is a persistent 44px target. */
-  
-
-  /* The steer send button is the hero's final tap — make it unmistakably tappable. */
+  /* The steer send button is the hero's final tap: a full 44px target. */
   .steer-composer__send {
     min-width: 44px;
     min-height: 44px;
   }
 }
-
-/* A coarse pointer (touch) with no hover has NO way to reveal a hover-only control,
-   at ANY viewport width (a tablet is >680px but still touch). Reveal the sidebar
-   chat-delete for every coarse pointer, not just narrow ones. */
-

@@ -11,7 +11,7 @@
   min-width: 0;
   color: inherit;
   font-size: var(--text-md);
-  line-height: 26px;
+  line-height: var(--leading-prose);
   overflow-wrap: anywhere;
 }
 
@@ -110,7 +110,7 @@
   overflow-x: auto;
   border-collapse: collapse;
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .markdown-message th,
@@ -149,15 +149,19 @@
 .markdown-code-label {
   min-width: 0;
   overflow: hidden;
-  font: var(--weight-regular) var(--text-xs) / 18px var(--font-ui);
+  font: var(--weight-regular) var(--text-xs) / var(--leading-meta) var(--font-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The scroll viewport is inset from the frame by the frame's padding, so a
+   long line clips 14px inside the frame on both sides at every scroll
+   position: text never runs into the frame edge, and only the code scrolls,
+   never the page. */
 .markdown-code-block pre,
 .markdown-code-pre {
-  margin: 0;
-  padding: 12px 14px;
+  margin: 0 14px;
+  padding: 12px 0;
   overflow-x: auto;
   background: transparent;
   border: 0;
@@ -168,7 +172,7 @@
   min-width: max-content;
   padding: 0;
   color: var(--text);
-  font: var(--weight-regular) var(--text-sm) / 20px var(--font-mono);
+  font: var(--weight-regular) var(--text-sm) / var(--leading-ui) var(--font-mono);
   white-space: pre;
   background: transparent;
   border: 0;
@@ -177,14 +181,14 @@
 
 /* Line numbers (a preference): a plain gutter, no band behind any line. */
 .markdown-code-block.numbered .markdown-code-pre {
-  padding: 12px 0;
+  margin-left: 0;
 }
 
 .markdown-code-line {
   display: grid;
   grid-template-columns: 4.2ch minmax(0, 1fr);
   min-width: max-content;
-  padding: 0 14px 0 0;
+  padding: 0;
   background: none;
 }
 

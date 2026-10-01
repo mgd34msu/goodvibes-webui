@@ -32,6 +32,7 @@ import {
   type ScannerFailure,
 } from '../../lib/pairing-qr-camera';
 import type { QrDetector } from '../../lib/pairing-qr-detector';
+import { Button } from '../ui/Button';
 import '../../styles/components/pairing-scanner.css';
 
 /** How often a frame is pulled off the preview and handed to the decoder. */
@@ -311,13 +312,13 @@ export function PairingQrScanner({ onScanned, onCancel, bindings }: PairingQrSca
 
       <div className="pairing-scanner__actions">
         {phase.status === 'unreadable' ? (
-          <button type="button" className="secondary-button" onClick={retry}>
+          <Button onClick={retry}>
             Try again
-          </button>
+          </Button>
         ) : null}
-        <button type="button" className="link-button" onClick={onCancel}>
+        <Button variant="ghost" onClick={onCancel}>
           {phase.status === 'failed' ? 'Back to sign-in' : 'Cancel'}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useDaemonReceipts } from '../../hooks/useDaemonReceipts';
+import { IconButton } from '../ui/IconButton';
 import '../../styles/components/status.css';
 
 // Split a receipt line into text and http(s) URL runs so an announcement's URL
@@ -47,14 +48,14 @@ export function DaemonReceipts({ connected, signedIn }: DaemonReceiptsProps) {
         <div key={receipt.id} className="banner info daemon-receipt" data-testid="daemon-receipt">
           <Bell size={16} aria-hidden="true" />
           <span className="daemon-receipt__text" title={receipt.text}>{renderReceiptText(receipt.text)}</span>
-          <button
-            type="button"
+          <IconButton
+            size="sm"
+            noTooltip
             className="daemon-receipt__dismiss"
-            aria-label={`Dismiss notice: ${receipt.text}`}
+            label={`Dismiss notice: ${receipt.text}`}
+            icon={<X size={14} aria-hidden="true" />}
             onClick={() => dismiss(receipt.id)}
-          >
-            <X size={14} aria-hidden="true" />
-          </button>
+          />
         </div>
       ))}
     </div>

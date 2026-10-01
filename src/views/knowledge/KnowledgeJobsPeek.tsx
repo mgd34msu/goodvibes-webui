@@ -14,9 +14,10 @@ import { Chip } from '../../components/ui/Chip';
 import { Row, RowList } from '../../components/ui/Row';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { statusTone } from '../library/library-data';
+import { whenLabel } from '../../lib/when-label';
 
 function formatRunTimestamp(value: unknown): string {
-  return typeof value === 'number' && Number.isFinite(value) ? new Date(value).toLocaleString() : 'unknown time';
+  return (typeof value === 'number' && whenLabel(value)) || 'unknown time';
 }
 
 export function KnowledgeJobsPeekBody() {

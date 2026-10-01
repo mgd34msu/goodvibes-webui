@@ -41,7 +41,7 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
 
   // Gated by the shared confirm-sheet idiom, not applied on the raw click.
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('tailscale serve --bg');
+  await expect(page.locator('.gv-confirm')).toContainText('HTTPS address on your tailnet');
   await page.locator('.gv-confirm__confirm').click();
 
   // The resulting receipt renders the real https MagicDNS URL, as a link.

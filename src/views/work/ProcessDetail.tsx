@@ -182,8 +182,9 @@ export function ProcessDetail({ node, archived, approvals, onOpenItem, onClose, 
 
   async function handleStop(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Stop this watcher',
+      title: 'Stop this watcher?',
       target: node.label || node.id,
+      description: 'It stops right away and reports nothing further.',
       confirmLabel: 'Stop',
       tone: 'danger',
     });

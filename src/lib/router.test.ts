@@ -110,7 +110,7 @@ describe('encodeUrlState', () => {
 
 describe('decodeUrlState', () => {
   test('decodes all valid view values', () => {
-    for (const view of ['chat', 'work', 'library', 'personal', 'checkin', 'phone'] as const) {
+    for (const view of ['chat', 'work', 'library', 'personal', 'phone'] as const) {
       expect(decodeUrlState(`?view=${view}`).view).toBe(view);
     }
     expect(decodeUrlState('?view=work&tab=processes').tab).toBe('processes');
@@ -141,9 +141,10 @@ describe('decodeUrlState', () => {
     expect(isLegacyView('?view=work')).toBe(false);
   });
 
-  // checkin (SDK 1.6.1's initiative family, proactive check-in config/receipts view).
-  test('decodes the checkin view id', () => {
-    expect(decodeUrlState('?view=checkin').view).toBe('checkin');
+  // Check-ins moved into Settings, Notifications: the old page link opens it there.
+  test('the old checkin page link opens the settings dialog on Check-ins', () => {
+    expect(decodeUrlState('?view=checkin')).toEqual({ view: 'chat', session: '', filters: {}, settings: 'checkins' });
+    expect(isLegacyView('?view=checkin')).toBe(true);
   });
 
   // Admin, Providers and Principals are settings dialog sections now: their old
@@ -240,7 +241,7 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   });
 
   test('round-trips every view', () => {
-    for (const view of ['chat', 'work', 'library', 'personal', 'checkin', 'phone'] as const) {
+    for (const view of ['chat', 'work', 'library', 'personal', 'phone'] as const) {
       const encoded = encodeUrlState(makeState({ view }));
       expect(decodeUrlState(`?${encoded}`).view).toBe(view);
     }
@@ -249,11 +250,6 @@ describe('encodeUrlState / decodeUrlState round-trip', () => {
   test('round-trips a destination tab', () => {
     const original = makeState({ view: 'personal', tab: 'occasions' });
     expect(decodeUrlState(`?${encodeUrlState(original)}`)).toEqual(original);
-  });
-
-  test('round-trips the checkin view id', () => {
-    const encoded = encodeUrlState(makeState({ view: 'checkin' }));
-    expect(decodeUrlState(`?${encoded}`).view).toBe('checkin');
   });
 
   test('round-trips the settings dialog section', () => {

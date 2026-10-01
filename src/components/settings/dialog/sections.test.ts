@@ -2,24 +2,38 @@ import { describe, expect, test } from 'bun:test';
 import { CONFIG_SCHEMA_ENTRIES } from '../../../lib/generated/config-schema';
 import { buildSettingsModel } from '../../../lib/settings-model';
 import {
+  SETTINGS_PAGES,
   SETTINGS_SECTIONS,
   groupsForSection,
+  matchSettingsPages,
   matchSettingsSections,
+  pageOfSection,
   resolveSettingsSection,
   sectionForNamespace,
-  sectionGroups,
+  sectionsOfPage,
 } from './sections';
 
 const groups = buildSettingsModel({ display: { theme: 'nord' }, mystery: { key: 1 } });
 
 describe('settings dialog sections', () => {
-  test('the design doc sections exist, in order', () => {
-    expect(SETTINGS_SECTIONS.map((s) => s.label)).toEqual([
-      'General', 'Account', 'Devices and pairing', 'People and channels',
-      'Models and providers', 'Credentials', 'Usage',
-      'Voice', 'Notifications', 'Memory', 'Permissions',
-      'Network', 'All settings', 'About',
+  test('the nav holds seven pages, in order', () => {
+    expect(SETTINGS_PAGES.map((p) => p.label)).toEqual([
+      'General', 'Account', 'Models and providers', 'Voice', 'Notifications', 'Memory', 'Permissions',
     ]);
+  });
+
+  test('every section lives on exactly one page, and each page opens on the section named like it', () => {
+    const placed = SETTINGS_PAGES.flatMap((p) => sectionsOfPage(p.id).map((s) => s.id));
+    expect([...placed].sort()).toEqual(SETTINGS_SECTIONS.map((s) => s.id).sort());
+    expect(new Set(placed).size).toBe(placed.length);
+    for (const page of SETTINGS_PAGES) {
+      expect(sectionsOfPage(page.id)[0].id).toBe(page.id);
+      for (const section of sectionsOfPage(page.id)) expect(pageOfSection(section.id)).toBe(page.id);
+    }
+    expect(sectionsOfPage('general').map((s) => s.label)).toEqual(['Appearance and behavior', 'Network', 'About', 'Advanced']);
+    expect(sectionsOfPage('account').map((s) => s.label)).toEqual(['Sign-in', 'Devices and pairing', 'People and channels']);
+    expect(sectionsOfPage('models').map((s) => s.label)).toEqual(['Current model and providers', 'Credentials', 'Usage']);
+    expect(sectionsOfPage('notifications').map((s) => s.label)).toEqual(['Notifications', 'Check-ins']);
   });
 
   test('deep links: known ids, old names and unknown values', () => {
@@ -27,6 +41,14 @@ describe('settings dialog sections', () => {
     expect(resolveSettingsSection('providers')).toBe('models');
     expect(resolveSettingsSection('admin')).toBe('account');
     expect(resolveSettingsSection('principals')).toBe('people');
+    // Every older section link still resolves to its section, now on a page.
+    for (const id of ['devices', 'people', 'credentials', 'usage', 'network', 'about', 'all', 'checkins'] as const) {
+      expect(resolveSettingsSection(id)).toBe(id);
+    }
+    expect(resolveSettingsSection('checkin')).toBe('checkins');
+    expect(pageOfSection(resolveSettingsSection('devices'))).toBe('account');
+    expect(pageOfSection(resolveSettingsSection('checkins'))).toBe('notifications');
+    expect(pageOfSection(resolveSettingsSection('all'))).toBe('general');
     expect(resolveSettingsSection('nonsense')).toBe('general');
     expect(resolveSettingsSection('')).toBe('general');
   });
@@ -61,6 +83,7 @@ describe('settings dialog sections', () => {
     expect(sectionForNamespace('payments')).toBe('usage');
     expect(sectionForNamespace('relay')).toBe('network');
     expect(sectionForNamespace('orchestration')).toBe('all');
+    expect(sectionForNamespace('checkin')).toBe('checkins');
   });
 
   test('search matches section words whole, and counts matching settings elsewhere', () => {
@@ -77,8 +100,14 @@ describe('settings dialog sections', () => {
     expect(matchSettingsSections('', all)).toHaveLength(SETTINGS_SECTIONS.length);
   });
 
-  test('nav groups keep their order and drop empty groups', () => {
-    expect(sectionGroups().map((g) => g.label)).toEqual(['You', 'Models', 'Assistant', 'System']);
-    expect(sectionGroups(['about', 'general']).map((g) => g.label)).toEqual(['You', 'System']);
+  test('pages match through their sections, in nav order, summing setting counts', () => {
+    const all = buildSettingsModel({});
+    expect(matchSettingsPages(matchSettingsSections('', all)).map((p) => p.id)).toEqual(SETTINGS_PAGES.map((p) => p.id));
+    const tailscale = matchSettingsPages(matchSettingsSections('tailscale', all));
+    expect(tailscale[0]?.id).toBe('general');
+    expect(tailscale[0]?.sections.map((m) => m.id)).toContain('network');
+    const checkins = matchSettingsPages(matchSettingsSections('quiet hours', all));
+    expect(checkins.map((p) => p.id)).toContain('notifications');
+    expect(matchSettingsPages([])).toEqual([]);
   });
 });

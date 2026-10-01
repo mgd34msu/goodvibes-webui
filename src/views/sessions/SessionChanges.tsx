@@ -24,7 +24,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, FileDiff, RefreshCw } from 'lucide-react';
+import { CheckCircle2, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { WorkspaceCheckpoint, CheckpointsRevertHunkPreviewResult } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -38,7 +38,11 @@ import { ErrorState } from '../../components/feedback/ErrorState';
 import { HunkCommentSheet } from './HunkCommentSheet';
 import { HunkActionSheet } from './HunkActionSheet';
 import { HunkRevertSheet, type HunkRevertPhase } from './HunkRevertSheet';
+import { Button } from '../../components/ui/Button';
+import { Field } from '../../components/ui/Field';
+import { IconButton } from '../../components/ui/IconButton';
 import { Select } from '../../components/ui/Select';
+import { StatusDot } from '../../components/ui/StatusDot';
 import '../../styles/components/session-changes.css';
 
 interface SessionChangesProps {
@@ -62,7 +66,6 @@ type ViewMode = 'session' | 'workspace';
 
 export function SessionChanges({ sessionId, canSteer, closed, streamPaused = false }: SessionChangesProps) {
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<ViewMode>('session');
   const [baselineId, setBaselineId] = useState('');
 
@@ -85,7 +88,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const sessionChanges = useQuery({
     queryKey: queryKeys.sessionChanges(sessionId),
     queryFn: () => sdk.operator.sessions.changes.get(sessionId),
-    enabled: expanded && mode === 'session',
+    enabled: mode === 'session',
   });
   const sessionChangesUnavailable = sessionChanges.isError && isMethodUnavailableError(sessionChanges.error);
   const sessionChangesFailed = sessionChanges.isError && !sessionChangesUnavailable;
@@ -95,7 +98,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const list = useQuery({
     queryKey: queryKeys.checkpoints,
     queryFn: () => sdk.operator.checkpoints.list(),
-    enabled: expanded && mode === 'workspace',
+    enabled: mode === 'workspace',
   });
 
   const checkpoints = useMemo(
@@ -120,7 +123,7 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
   const diff = useQuery({
     queryKey: [...queryKeys.checkpoints, effectiveBaselineId, 'diff', 'working-tree'],
     queryFn: () => sdk.operator.checkpoints.diff({ a: effectiveBaselineId }),
-    enabled: expanded && mode === 'workspace' && Boolean(effectiveBaselineId),
+    enabled: mode === 'workspace' && Boolean(effectiveBaselineId),
   });
 
   const files = useMemo(() => {
@@ -329,38 +332,25 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
 
   return (
     <section className="session-changes">
-      <button
-        type="button"
-        className="session-changes__toggle"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <FileDiff size={15} aria-hidden="true" />
-        <span>Changes</span>
-        <span className="session-changes__toggle-hint">
-          {expanded ? 'Review, comment, or revert a hunk' : 'Review the file changes this session made'}
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="session-changes__body">
-          <div className="session-changes__toolbar">
-            {mode === 'session' ? (
-              <button
-                type="button"
-                className="session-changes__mode-toggle"
-                onClick={() => setMode('workspace')}
-                title="Older sessions predate session-id stamping on checkpoints, this reads the raw workspace checkpoint timeline instead"
-              >
-                Workspace-scoped view (fallback)
-              </button>
-            ) : (
-              <>
-                <button type="button" className="session-changes__mode-toggle" onClick={() => setMode('session')}>
-                  ← Back to session changes
-                </button>
-                <div className="session-changes__baseline">
-                  <span aria-hidden="true">Baseline</span>
+      <div className="session-changes__body">
+        <div className="session-changes__toolbar">
+          {mode === 'session' ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="session-changes__mode-toggle"
+              onClick={() => setMode('workspace')}
+              title="Older sessions did not tag their checkpoints, so this shows the whole workspace's checkpoint timeline instead"
+            >
+              View workspace changes
+            </Button>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" className="session-changes__mode-toggle" onClick={() => setMode('session')}>
+                Back to session changes
+              </Button>
+              <div className="session-changes__baseline">
+                <Field label="Baseline">
                   <Select
                     value={effectiveBaselineId}
                     onChange={setBaselineId}
@@ -371,124 +361,126 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
                       label: `${c.label || c.id} · ${kindLabel(c.kind)} · ${formatRelative(c.createdAt)}`,
                     }))}
                   />
-                </div>
+                </Field>
+              </div>
+            </>
+          )}
+          <IconButton
+            size="sm"
+            className="session-changes__refresh"
+            label={mode === 'session' ? 'Refresh session changes' : 'Refresh checkpoints and diff'}
+            icon={<RefreshCw size={14} aria-hidden="true" />}
+            onClick={() => { void refreshActiveDiff(); if (mode === 'workspace') void list.refetch(); }}
+          />
+        </div>
+
+        {totalHunks > 0 && (
+          <div className="session-changes__progress" role="status" aria-label="Review progress">
+            <CheckCircle2 size={14} aria-hidden="true" />
+            <span>{reviewedCount} of {totalHunks} hunk{totalHunks === 1 ? '' : 's'} reviewed</span>
+            <span className="session-changes__progress-bar" aria-hidden="true">
+              <span
+                className="session-changes__progress-fill"
+                style={{ width: `${totalHunks ? Math.round((reviewedCount / totalHunks) * 100) : 0}%` }}
+              />
+            </span>
+          </div>
+        )}
+
+        {lastSent && sendState === 'delivered' && (
+          <p className="session-changes__sent" role="status">
+            <StatusDot tone="ok" />
+            Comment sent: {lastSent}.
+          </p>
+        )}
+        {sendState === 'failed' && sendError && !commentTarget && (
+          <p className="session-changes__send-error" role="alert">{sendError}</p>
+        )}
+        {streamPaused && (
+          <div className="banner warning session-changes__stale" role="note">
+            Live updates paused: this diff may lag the working tree until the stream reconnects.
+          </div>
+        )}
+
+        {mode === 'session' && (
+          <>
+            {sessionChanges.isPending && <SkeletonBlock variant="text" lines={3} />}
+            {sessionChangesFailed && (
+              <ErrorState error={sessionChanges.error} onRetry={() => void sessionChanges.refetch()} title="Failed to load session changes" />
+            )}
+            {sessionChangesUnavailable && (
+              <div className="session-changes__empty" role="note">
+                <span>This daemon doesn&apos;t serve session-scoped changes yet.</span>
+                <Button size="sm" className="session-changes__inline-link" onClick={() => setMode('workspace')}>
+                  View workspace-wide changes instead
+                </Button>
+              </div>
+            )}
+            {sessionHasNoCapturedChanges && (
+              <div className="session-changes__empty" role="note">
+                <span>
+                  No captured changes for this session. No workspace checkpoints have been tagged with this
+                  session yet; older sessions never were.
+                </span>
+                <Button size="sm" className="session-changes__inline-link" onClick={() => setMode('workspace')}>
+                  View workspace-wide changes instead
+                </Button>
+              </div>
+            )}
+            {sessionChanges.isSuccess && !sessionHasNoCapturedChanges && (
+              <>
+                <p className="session-changes__captured">{capturedLabel}</p>
+                {changedCount === 0 && (
+                  <div className="session-changes__empty" role="note">
+                    No file differences in this session&apos;s captured checkpoints.
+                  </div>
+                )}
               </>
             )}
-            <button
-              type="button"
-              className="icon-button"
-              title={mode === 'session' ? 'Refresh session changes' : 'Refresh checkpoints and diff'}
-              onClick={() => { void refreshActiveDiff(); if (mode === 'workspace') void list.refetch(); }}
-            >
-              <RefreshCw size={14} />
-            </button>
-          </div>
+          </>
+        )}
 
-          {totalHunks > 0 && (
-            <div className="session-changes__progress" role="status" aria-label="Review progress">
-              <CheckCircle2 size={13} aria-hidden="true" />
-              <span>{reviewedCount} of {totalHunks} hunk{totalHunks === 1 ? '' : 's'} reviewed</span>
-              <span className="session-changes__progress-bar" aria-hidden="true">
-                <span
-                  className="session-changes__progress-fill"
-                  style={{ width: `${totalHunks ? Math.round((reviewedCount / totalHunks) * 100) : 0}%` }}
-                />
-              </span>
-            </div>
-          )}
+        {mode === 'workspace' && (
+          <>
+            {list.isPending && <SkeletonBlock variant="text" lines={3} />}
+            {list.isError && (
+              <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Failed to load checkpoints" />
+            )}
+            {list.isSuccess && !checkpoints.length && (
+              <div className="session-changes__empty" role="note">
+                No workspace checkpoints yet. The daemon takes one for each turn and agent run, and you can create one
+                from the session's Checkpoints tab. Without one there is no file diff to show.
+              </div>
+            )}
 
-          {lastSent && sendState === 'delivered' && (
-            <p className="session-changes__sent" role="status">Comment sent: {lastSent}.</p>
-          )}
-          {sendState === 'failed' && sendError && !commentTarget && (
-            <p className="session-changes__send-error" role="alert">{sendError}</p>
-          )}
-          {streamPaused && (
-            <p className="session-changes__stale" role="note">
-              Live updates paused: this diff may lag the working tree until the stream reconnects.
-            </p>
-          )}
+            {baseline && (
+              <>
+                <p className="session-changes__captured">{capturedLabel}</p>
 
-          {mode === 'session' && (
-            <>
-              {sessionChanges.isPending && <SkeletonBlock variant="text" lines={3} />}
-              {sessionChangesFailed && (
-                <ErrorState error={sessionChanges.error} onRetry={() => void sessionChanges.refetch()} title="Failed to load session changes" />
-              )}
-              {sessionChangesUnavailable && (
-                <div className="session-changes__empty" role="note">
-                  This daemon doesn&apos;t serve session-scoped changes (sessions.changes.get) yet.
-                  {' '}
-                  <button type="button" className="session-changes__inline-link" onClick={() => setMode('workspace')}>
-                    View workspace-wide changes instead
-                  </button>
-                </div>
-              )}
-              {sessionHasNoCapturedChanges && (
-                <div className="session-changes__empty" role="note">
-                  No captured changes for this session, no workspace checkpoints have been stamped with this
-                  session&apos;s id yet (older sessions predate session-id stamping).
-                  {' '}
-                  <button type="button" className="session-changes__inline-link" onClick={() => setMode('workspace')}>
-                    View workspace-wide changes instead
-                  </button>
-                </div>
-              )}
-              {sessionChanges.isSuccess && !sessionHasNoCapturedChanges && (
-                <>
-                  <p className="session-changes__captured">{capturedLabel}</p>
-                  {changedCount === 0 && (
-                    <div className="session-changes__empty" role="note">
-                      No file differences in this session&apos;s captured checkpoints.
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
+                {diff.isPending && <SkeletonBlock variant="text" lines={5} />}
+                {diff.isError && (
+                  <ErrorState error={diff.error} onRetry={() => void diff.refetch()} title="Failed to load diff" />
+                )}
+                {diff.isSuccess && changedCount === 0 && (
+                  <div className="session-changes__empty" role="note">
+                    No file differences between this checkpoint and the working tree.
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
 
-          {mode === 'workspace' && (
-            <>
-              {list.isPending && <SkeletonBlock variant="text" lines={3} />}
-              {list.isError && (
-                <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Failed to load checkpoints" />
-              )}
-              {list.isSuccess && !checkpoints.length && (
-                <div className="session-changes__empty" role="note">
-                  No workspace checkpoints yet. The daemon captures them per turn/agent-run (or create one from the
-                  Checkpoints view). Without one there is no file diff to show.
-                </div>
-              )}
-
-              {baseline && (
-                <>
-                  <p className="session-changes__captured">{capturedLabel}</p>
-
-                  {diff.isPending && <SkeletonBlock variant="text" lines={5} />}
-                  {diff.isError && (
-                    <ErrorState error={diff.error} onRetry={() => void diff.refetch()} title="Failed to load diff" />
-                  )}
-                  {diff.isSuccess && changedCount === 0 && (
-                    <div className="session-changes__empty" role="note">
-                      No file differences between this checkpoint and the working tree.
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-
-          {changedCount > 0 && (
-            <DiffMultibuffer
-              files={files}
-              onHunkActivate={openAction}
-              statusFor={statusFor}
-              hunkCtaLabel="Review, comment, or revert"
-              idPrefix="session-changes"
-            />
-          )}
-        </div>
-      )}
+        {changedCount > 0 && (
+          <DiffMultibuffer
+            files={files}
+            onHunkActivate={openAction}
+            statusFor={statusFor}
+            hunkCtaLabel="Review, comment, or revert"
+            idPrefix="session-changes"
+          />
+        )}
+      </div>
 
       {actionTarget && (
         <HunkActionSheet

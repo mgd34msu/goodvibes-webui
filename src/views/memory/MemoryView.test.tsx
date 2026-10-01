@@ -256,9 +256,9 @@ describe('MemoryView: record detail', () => {
     expect(el.querySelector('[aria-label="Review state for Deploys use blue-green"]')).toBeTruthy();
     click([...el.querySelectorAll('button')].find((b) => b.textContent === 'Delete'));
     // Delete asks first: nothing is removed until the dialog is confirmed.
-    await waitFor(() => Boolean(document.body.querySelector('[role="dialog"]')));
+    await waitFor(() => Boolean(document.body.querySelector('.gv-confirm')));
     expect(deleteCalls).toEqual([]);
-    click([...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent === 'Delete memory'));
+    click([...document.body.querySelectorAll('.gv-confirm__confirm')].find((b) => b.textContent === 'Delete memory'));
     await waitFor(() => deleteCalls.length === 1);
     expect(deleteCalls).toEqual(['r1']);
     unmount();

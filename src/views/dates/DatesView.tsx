@@ -419,8 +419,8 @@ export function DatesView({ tabs }: DatesViewProps = {}) {
       title: kind === 'occasion' ? 'Remove this occasion?' : 'Remove this plan?',
       target: title,
       description: kind === 'occasion'
-        ? 'Removes the line from your profile and every acknowledgement/gift record against it. This takes one confirmation and cannot be undone here.'
-        : 'Removes the line from your profile and every record against it. This takes one confirmation and cannot be undone here.',
+        ? 'It leaves your profile for good, along with its acknowledgements and gift records.'
+        : 'It leaves your profile for good, along with every record against it.',
       confirmLabel: 'Remove',
       tone: 'danger',
     });
@@ -915,7 +915,7 @@ export function DatesView({ tabs }: DatesViewProps = {}) {
               <Input value={occasion.person} onChange={(event) => editOccasion({ person: event.target.value })} />
             </Field>
             <Field label="Lead days (optional)">
-              <Input type="number" min={0} value={occasion.leadDays} onChange={(event) => editOccasion({ leadDays: event.target.value })} />
+              <Input inputMode="numeric" pattern="[0-9]*" value={occasion.leadDays} onChange={(event) => editOccasion({ leadDays: event.target.value.replace(/[^0-9]/g, '') })} />
             </Field>
           </div>
           <Field label="Kind">

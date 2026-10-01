@@ -13,14 +13,18 @@
  * unavailable instead of offering a control that would fail.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Smartphone } from 'lucide-react';
 import { GOODVIBES_BASE_URL } from '../../lib/goodvibes';
 import {
   PhoneNodeClient,
   browserPhoneNodeStorage,
   type PhoneNodeState,
 } from '../../lib/device-node/phone-node-client';
+import { RowGroup } from '../../components/data-view/DataView';
 import { DeviceGrants } from '../../components/settings/DeviceGrants';
+import { whenLabel } from '../../lib/when-label';
+import { Button } from '../../components/ui/Button';
+import { Row } from '../../components/ui/Row';
+import { StatusDot } from '../../components/ui/StatusDot';
 import '../../styles/components/device.css';
 
 const CAPABILITY_LABELS: Readonly<Record<string, string>> = {
@@ -71,71 +75,63 @@ export function PhoneNodeView() {
 
   const secureContextOk = typeof window !== 'undefined' && window.isSecureContext;
 
+  const action = state.status === 'unpaired' || state.status === 'error'
+    ? { label: 'Pair this phone', primary: true, run: () => void clientRef.current?.requestPairing() }
+    : state.status === 'awaiting-approval'
+      ? { label: 'Finish pairing', primary: true, run: () => void clientRef.current?.verifyPairing() }
+      : state.status === 'connected'
+        ? { label: 'Unpair this phone', primary: false, run: () => clientRef.current?.unpair() }
+        : null;
+
   return (
     <div className="view phone-node-view">
-      <section className="panel device-panel">
-        <div className="panel-title">
-          <h2>This phone as a capability</h2>
-          <Smartphone size={18} aria-hidden="true" />
-        </div>
-
-        <p className="device-panel__description">{state.message}</p>
+      <section className="device-page" aria-labelledby="phone-node-title">
+        <header className="device-page__header">
+          <div className="device-page__text">
+            <h2 id="phone-node-title" className="device-page__title">This phone as a capability</h2>
+            <p className="device-page__description">{state.message}</p>
+          </div>
+          {action ? (
+            <Button variant={action.primary ? 'primary' : 'secondary'} onClick={action.run}>
+              {action.label}
+            </Button>
+          ) : null}
+        </header>
 
         {!secureContextOk ? (
-          <p role="note" className="device-panel__notice">
+          <div role="note" className="banner warning">
             This page is not on a secure connection, so the browser will not give it the camera,
             the screen, location, or the clipboard. Everything else still works. An https address
             (Tailscale gives you one without minting certificates) unlocks the rest.
-          </p>
+          </div>
         ) : null}
 
-        <div className="device-panel__actions">
-          {state.status === 'unpaired' || state.status === 'error' ? (
-            <button type="button" onClick={() => void clientRef.current?.requestPairing()}>
-              Pair this phone
-            </button>
-          ) : null}
-          {state.status === 'awaiting-approval' ? (
-            <button type="button" onClick={() => void clientRef.current?.verifyPairing()}>
-              Finish pairing
-            </button>
-          ) : null}
-          {state.status === 'connected' ? (
-            <button type="button" onClick={() => clientRef.current?.unpair()}>
-              Unpair this phone
-            </button>
-          ) : null}
-        </div>
+        <RowGroup label="What this phone offers" count={state.announced.length}>
+          {state.announced.length === 0 ? (
+            <li className="device-page__empty">
+              Nothing yet: this browser offers none of the device capabilities on this connection.
+            </li>
+          ) : (
+            state.announced.map((id) => (
+              <Row key={id} title={CAPABILITY_LABELS[id] ?? id} meta="Asks before every use" />
+            ))
+          )}
+        </RowGroup>
 
-        <h3 className="device-panel__heading">What this phone offers</h3>
-        {state.announced.length === 0 ? (
-          <p>Nothing yet: this browser offers none of the device capabilities on this connection.</p>
-        ) : (
-          <ul className="device-list">
-            {state.announced.map((id) => (
-              <li key={id} className="device-list__row">
-                <span>{CAPABILITY_LABELS[id] ?? id}</span>
-                <span className="device-list__detail">asks before every use</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <h3 className="device-panel__heading">What this phone has served</h3>
-        {state.activity.length === 0 ? (
-          <p>Nothing yet.</p>
-        ) : (
-          <ul className="device-list">
-            {state.activity.map((entry) => (
-              <li key={`${String(entry.at)}-${entry.capabilityId}`} className="device-list__row">
-                <span>{CAPABILITY_LABELS[entry.capabilityId] ?? entry.capabilityId}</span>
-                <span className="device-list__detail">
-                  {entry.ok ? 'served' : 'refused'} · {entry.detail} · {new Date(entry.at).toLocaleTimeString()}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <RowGroup label="What this phone has served" count={state.activity.length}>
+          {state.activity.length === 0 ? (
+            <li className="device-page__empty">Nothing yet.</li>
+          ) : (
+            state.activity.map((entry) => (
+              <Row
+                key={`${String(entry.at)}-${entry.capabilityId}`}
+                leading={<StatusDot tone={entry.ok ? 'ok' : 'bad'} />}
+                title={CAPABILITY_LABELS[entry.capabilityId] ?? entry.capabilityId}
+                meta={[entry.ok ? 'Served' : 'Refused', entry.detail, whenLabel(entry.at)].filter(Boolean).join(' · ')}
+              />
+            ))
+          )}
+        </RowGroup>
       </section>
 
       <DeviceGrants />

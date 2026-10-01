@@ -16,7 +16,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellRing, BellOff, Send, ShieldAlert, Smartphone } from 'lucide-react';
+import { BellRing, BellOff, Send, ShieldAlert } from 'lucide-react';
 import {
   currentSubscription,
   describePushSubscribeError,
@@ -29,6 +29,8 @@ import type { PushSupport, NotificationPermissionState } from '../../lib/push/pu
 import { useInstallPrompt } from '../../lib/pwa/install-prompt';
 import { capabilityReason, useOriginPosture } from '../../hooks/useOriginPosture';
 import { useToast } from '../../lib/toast';
+import { Button } from '../ui/Button';
+import { SettingRow, SettingsBlock } from './dialog/parts';
 import '../../styles/components/notifications.css';
 
 const pushErrorMessage = describePushSubscribeError;
@@ -104,12 +106,7 @@ export function NotificationSettings() {
   const isSubscribed = subscribed.data === true;
 
   return (
-    <section className="panel notifications-panel">
-      <div className="panel-title">
-        <h2>Notifications &amp; install</h2>
-        <BellRing size={18} aria-hidden="true" />
-      </div>
-
+    <SettingsBlock className="notifications-panel" title="Notifications & install">
       {support === 'insecure-context' ? (
         <div className="banner warning" role="status">
           <ShieldAlert size={16} aria-hidden="true" /> {pushReason}
@@ -122,11 +119,6 @@ export function NotificationSettings() {
         </div>
       ) : (
         <div className="notifications-push">
-          <p className="form-note">
-            Get an approval or completion as a notification on this device, even when the app
-            isn&rsquo;t open. Notifications come straight from your daemon, nothing is stored
-            elsewhere.
-          </p>
           {permission === 'denied' && (
             <div className="banner warning" role="status">
               <BellOff size={16} aria-hidden="true" />{' '}
@@ -134,66 +126,78 @@ export function NotificationSettings() {
               site settings to subscribe.
             </div>
           )}
-          <div className="notifications-actions">
-            {isSubscribed ? (
-              <>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={unsubscribe.isPending}
-                  onClick={() => unsubscribe.mutate()}
-                >
-                  <BellOff size={15} aria-hidden="true" /> {unsubscribe.isPending ? 'Turning off…' : 'Turn off notifications'}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={test.isPending}
-                  onClick={() => test.mutate()}
-                >
-                  <Send size={15} aria-hidden="true" /> {test.isPending ? 'Sending…' : 'Send a test push'}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="primary-button"
-                disabled={subscribe.isPending || permission === 'denied'}
-                onClick={() => subscribe.mutate()}
-              >
-                <BellRing size={15} aria-hidden="true" /> {subscribe.isPending ? 'Enabling…' : 'Turn on notifications'}
-              </button>
-            )}
+          <div className="settings-rows">
+            <SettingRow
+              label="Push notifications"
+              description="Get an approval or completion as a notification on this device, even when the app isn’t open. They come straight from your daemon; nothing is stored elsewhere."
+              control={(
+                <div className="notifications-actions">
+                  {isSubscribed ? (
+                    <>
+                      <Button
+                        size="sm"
+                        icon={<Send aria-hidden="true" />}
+                        disabled={test.isPending}
+                        onClick={() => test.mutate()}
+                      >
+                        {test.isPending ? 'Sending…' : 'Send a test push'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        icon={<BellOff aria-hidden="true" />}
+                        disabled={unsubscribe.isPending}
+                        onClick={() => unsubscribe.mutate()}
+                      >
+                        {unsubscribe.isPending ? 'Turning off…' : 'Turn off notifications'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<BellRing aria-hidden="true" />}
+                      disabled={subscribe.isPending || permission === 'denied'}
+                      onClick={() => subscribe.mutate()}
+                    >
+                      {subscribe.isPending ? 'Enabling…' : 'Turn on notifications'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            />
           </div>
         </div>
       )}
 
       <div className="notifications-install">
-        <div className="notifications-install__head">
-          <Smartphone size={16} aria-hidden="true" />
-          <strong>Install this app</strong>
-        </div>
-        {affordance === 'installed' ? (
-          <p className="form-note">This app is installed and running from your Home Screen.</p>
-        ) : affordance === 'prompt' ? (
-          <button type="button" className="secondary-button" onClick={() => void promptInstall()}>
-            Add to Home Screen
-          </button>
-        ) : affordance === 'ios-instructions' ? (
-          <p className="form-note">
-            To install on iOS: tap the Share button, then <strong>Add to Home Screen</strong>.
-            Open the installed app once to enable notifications.
-          </p>
-        ) : installBlockedByInsecureOrigin ? (
+        {installBlockedByInsecureOrigin ? (
           <div className="banner warning" role="status">
             <ShieldAlert size={16} aria-hidden="true" /> {installReason}
           </div>
-        ) : (
-          <p className="form-note">
-            Use your browser&rsquo;s menu to add this app to your Home Screen or apps.
-          </p>
-        )}
+        ) : null}
+        <div className="settings-rows">
+          <SettingRow
+            label="Install this app"
+            description={
+              affordance === 'installed' ? 'This app is installed and running from your Home Screen.'
+                : affordance === 'ios-instructions' ? (
+                  <>
+                    To install on iOS: tap the Share button, then <strong>Add to Home Screen</strong>.
+                    Open the installed app once to enable notifications.
+                  </>
+                )
+                  : affordance === 'prompt' ? 'Adds this app to your Home Screen or apps.'
+                    : installBlockedByInsecureOrigin ? undefined
+                      : 'Use your browser’s menu to add this app to your Home Screen or apps.'
+            }
+            control={affordance === 'prompt' ? (
+              <Button size="sm" onClick={() => void promptInstall()}>
+                Add to Home Screen
+              </Button>
+            ) : null}
+          />
+        </div>
       </div>
-    </section>
+    </SettingsBlock>
   );
 }

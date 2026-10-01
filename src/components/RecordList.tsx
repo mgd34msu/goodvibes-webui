@@ -1,5 +1,7 @@
 import { bestId, bestStatus, bestTitle } from '../lib/object';
 import { StatusBadge } from './StatusBadge';
+import { Row, RowList } from './ui/Row';
+import '../styles/components/feedback.css';
 
 interface RecordListProps {
   items: unknown[];
@@ -8,37 +10,25 @@ interface RecordListProps {
   empty?: string;
 }
 
+/** A divided list of records: title, id as meta, status word right-aligned. */
 export function RecordList({ items, selectedId, onSelect, empty = 'No records' }: RecordListProps) {
-  if (!items.length) return <p className="empty-state">{empty}</p>;
+  if (!items.length) return <p className="record-list__empty">{empty}</p>;
 
   return (
-    <div className="record-list">
+    <RowList>
       {items.map((item, index) => {
         const id = bestId(item) || String(index);
-        const selected = selectedId === id;
-        const content = (
-          <>
-            <strong>{bestTitle(item, id)}</strong>
-            <span>{id}</span>
-            <StatusBadge value={bestStatus(item)} />
-          </>
-        );
-
-        return onSelect ? (
-          <button
+        return (
+          <Row
             key={`${id}-${index}`}
-            type="button"
-            className={selected ? 'record-row selected' : 'record-row'}
-            onClick={() => onSelect(id)}
-          >
-            {content}
-          </button>
-        ) : (
-          <div key={`${id}-${index}`} className="record-row">
-            {content}
-          </div>
+            title={bestTitle(item, id)}
+            meta={id}
+            selected={selectedId === id}
+            {...(onSelect ? { onSelect: () => onSelect(id) } : {})}
+            trailing={<StatusBadge value={bestStatus(item)} />}
+          />
         );
       })}
-    </div>
+    </RowList>
   );
 }

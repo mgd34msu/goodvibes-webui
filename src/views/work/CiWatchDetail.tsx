@@ -108,9 +108,9 @@ export function CiWatchDetail({ watch, onClose, onOpenSession }: {
 
   async function handleDelete(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Delete this CI watch',
+      title: 'Delete this CI watch?',
       target: ciWatchLabel(watch),
-      description: 'This stops notifications for this repo, ref or pull request. Existing status history is unaffected.',
+      description: 'Its notifications stop, and the status history it already has stays.',
       confirmLabel: 'Delete',
       tone: 'danger',
     });

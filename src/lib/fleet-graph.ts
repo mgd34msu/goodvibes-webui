@@ -42,7 +42,7 @@ export function isKnownGraphNodeState(state: string): boolean {
 export function graphNodeStateLabel(state: string): string {
   switch (state) {
     case 'pending': return 'Ready';
-    case 'awaiting-capacity': return 'Ready (at cap)';
+    case 'awaiting-capacity': return 'Ready, waiting for a free slot';
     case 'in-phase': return 'Running';
     case 'passed': return 'Done';
     case 'failed': return 'Failed';
@@ -69,12 +69,12 @@ export function graphNodeStateTone(state: string): BadgeTone {
 
 /**
  * The pool summary line, verbatim in the brief's own wording:
- * "N ready, M running, at cap (fleet.maxSize=N)", only the "at cap" clause is
+ * "N ready, M running, at the limit of N running at once", only the limit clause is
  * conditional (pool.atCap). `pool` is null when the daemon reports no elastic
  * pool for this workstream (a fixed-capacity or single-agent run), callers
  * should not render a summary line at all in that case.
  */
 export function poolSummaryLabel(pool: NonNullable<FleetGraphPool>): string {
   const base = `${pool.ready} ready, ${pool.running} running`;
-  return pool.atCap ? `${base}, at cap (fleet.maxSize=${pool.maxSize})` : base;
+  return pool.atCap ? `${base}, at the limit of ${pool.maxSize} running at once` : base;
 }

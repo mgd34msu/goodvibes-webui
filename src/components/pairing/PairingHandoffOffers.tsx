@@ -25,8 +25,10 @@
  */
 import { useState } from 'react';
 import { BellRing, KeyRound, Radio } from 'lucide-react';
+import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
 import { Dialog } from '../ui/Dialog';
+import { StatusDot, type StatusTone } from '../ui/StatusDot';
 import { sdk } from '../../lib/goodvibes';
 import type {
   PairingHandoffCompleteNotificationsAccept,
@@ -58,7 +60,7 @@ const OFFER_META: Record<PairingOfferKind, { label: string; description: string;
   },
   relay: {
     label: 'Remote connectivity',
-    description: 'Reach your daemon through the rendezvous relay when this device is off your LAN.',
+    description: 'Reach your daemon through the relay when this device is off your home network.',
     icon: Radio,
   },
   passkey: {
@@ -73,6 +75,13 @@ const STATUS_LABEL: Record<PairingHandoffOutcome['status'], string> = {
   declined: 'Declined',
   unavailable: 'Not available',
   failed: 'Failed',
+};
+
+const STATUS_TONE: Record<PairingHandoffOutcome['status'], StatusTone> = {
+  completed: 'ok',
+  declined: 'idle',
+  unavailable: 'idle',
+  failed: 'bad',
 };
 
 export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingHandoffOffersProps) {
@@ -150,33 +159,44 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
   }
 
   return (
-    <Dialog open title="Finish pairing this device" onClose={onDone}>
+    <Dialog
+      open
+      title="Finish pairing this device"
+      onClose={onDone}
+      footer={phase === 'done' ? (
+        <Button variant="primary" onClick={onDone}>
+          Continue to the app
+        </Button>
+      ) : (
+        <Button variant="primary" disabled={phase === 'submitting'} onClick={() => void handleContinue()}>
+          {phase === 'submitting' ? 'Completing…' : 'Continue'}
+        </Button>
+      )}
+    >
       <div className="pairing-handoff">
         {postureNotice && (
           <p className="banner info pairing-handoff-posture-notice" role="status">{postureNotice}</p>
         )}
         {phase === 'done' ? (
           <>
-            <p className="form-note">Here’s what happened with each offer from this pairing link:</p>
+            <p className="pairing-handoff-note">Here’s what happened with each offer from this pairing link:</p>
             <ul className="pairing-handoff-results">
               {(results ?? []).map((result) => {
                 const meta = OFFER_META[result.kind as PairingOfferKind];
                 return (
                   <li key={result.kind} className={`pairing-handoff-result pairing-handoff-result--${result.status}`}>
-                    <strong>{meta?.label ?? result.kind}</strong>
+                    <StatusDot tone={STATUS_TONE[result.status]} />
+                    <strong className="pairing-handoff-result__name">{meta?.label ?? result.kind}</strong>
                     <span className="pairing-handoff-result__status">{STATUS_LABEL[result.status]}</span>
                     {result.detail && <small className="pairing-handoff-result__detail">{result.detail}</small>}
                   </li>
                 );
               })}
             </ul>
-            <button type="button" className="primary-button" onClick={onDone}>
-              Continue to the app
-            </button>
           </>
         ) : (
           <>
-            <p className="form-note">
+            <p className="pairing-handoff-note">
               This pairing link also offers to set up a few things on this device. Each is optional;
               uncheck anything you’d rather skip.
             </p>
@@ -203,14 +223,6 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
                 );
               })}
             </ul>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={phase === 'submitting'}
-              onClick={() => void handleContinue()}
-            >
-              {phase === 'submitting' ? 'Completing…' : 'Continue'}
-            </button>
           </>
         )}
       </div>

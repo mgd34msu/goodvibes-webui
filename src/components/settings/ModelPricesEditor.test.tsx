@@ -53,7 +53,7 @@ const TABLE = {
 describe('ModelPricesEditor', () => {
   test('renders one row per entry with the full rate summary', () => {
     const { el, unmount } = render(TABLE, async () => {});
-    const rows = [...el.querySelectorAll('.model-prices-row')];
+    const rows = [...el.querySelectorAll('.price-row')];
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('anthropic:claude-3-5-haiku');
     expect(rows[0].textContent).toContain('in $0.8 · out $4 per 1M tokens');
@@ -64,7 +64,7 @@ describe('ModelPricesEditor', () => {
   test('empty table states there are no manual prices (no fake rows)', () => {
     const { el, unmount } = render({}, async () => {});
     expect(el.querySelector('.model-prices-empty')?.textContent).toContain('No manual prices set');
-    expect(el.querySelectorAll('.model-prices-row').length).toBe(0);
+    expect(el.querySelectorAll('.price-row').length).toBe(0);
     unmount();
   });
 

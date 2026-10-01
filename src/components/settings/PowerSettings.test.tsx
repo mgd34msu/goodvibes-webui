@@ -65,7 +65,7 @@ describe('PowerSettings', () => {
     mockStatus = { isPending: true, isError: false, data: undefined, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(el.querySelector('button[role="switch"]')).toBeNull();
     expect(el.textContent).toContain('Power');
   });
 
@@ -73,7 +73,7 @@ describe('PowerSettings', () => {
     mockStatus = { isPending: false, isError: true, error: new Error('boom'), data: undefined, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(el.querySelector('button[role="switch"]')).toBeNull();
     expect(el.textContent).toContain('Power state unavailable');
   });
 
@@ -81,15 +81,15 @@ describe('PowerSettings', () => {
     mockStatus = { isPending: false, isError: false, data: NOT_HELD_STATE, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    const toggle = el.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    const toggle = el.querySelector('button[role="switch"]') as HTMLButtonElement | null;
     expect(toggle).not.toBeNull();
-    expect(toggle?.checked).toBe(false);
+    expect(toggle?.getAttribute('aria-checked')).toBe('false');
     expect(el.querySelector('.power-panel__state--danger')).toBeNull();
     expect(el.textContent).toContain('Not currently held');
     // Ruled shape: exactly one toggle control, no timer/duration inputs, no
     // AC-only sub-option selects anywhere in the panel.
-    expect(el.querySelectorAll('input, select').length).toBe(1);
-    expect(el.querySelector('input[type="checkbox"]')).not.toBeNull();
+    expect(el.querySelectorAll('input, select, button[role="switch"]').length).toBe(1);
+    expect(el.querySelector('button[role="switch"]')).not.toBeNull();
   });
 
   test('ON state: toggle checked, danger chip shows held classes', () => {
@@ -104,8 +104,8 @@ describe('PowerSettings', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    const toggle = el.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-    expect(toggle?.checked).toBe(true);
+    const toggle = el.querySelector('button[role="switch"]') as HTMLButtonElement | null;
+    expect(toggle?.getAttribute('aria-checked')).toBe('true');
     const chip = el.querySelector('.power-panel__state--danger');
     expect(chip).not.toBeNull();
     expect(chip?.textContent).toContain('idle, sleep');
@@ -141,7 +141,7 @@ describe('PowerSettings', () => {
     mockStatus = { isPending: false, isError: false, data: NOT_HELD_STATE, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    const toggle = el.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const toggle = el.querySelector('button[role="switch"]') as HTMLButtonElement;
     flushSync(() => { toggle.click(); });
     expect(mutateCalls).toEqual([true]);
   });

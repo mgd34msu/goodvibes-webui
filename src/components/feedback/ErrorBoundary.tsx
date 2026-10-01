@@ -7,6 +7,7 @@
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { formatError } from '../../lib/errors';
+import { Button } from '../ui/Button';
 import '../../styles/components/feedback.css';
 
 export interface ErrorBoundaryProps {
@@ -73,13 +74,9 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
         </div>
         <p className="feedback-error-boundary__title">Something went wrong</p>
         <p className="feedback-error-boundary__message">{message}</p>
-        <button
-          type="button"
-          className="feedback-error-boundary__retry"
-          onClick={this.handleReset}
-        >
+        <Button className="feedback-error-boundary__retry" onClick={this.handleReset}>
           Try again
-        </button>
+        </Button>
       </div>
     );
   }

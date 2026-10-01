@@ -6,6 +6,7 @@ import {
   kindLabel,
   restoreConfirmMessage,
   restoreConfirmMessageWithPreview,
+  restoreConfirmTitle,
   retentionLabel,
   sortCheckpointsNewestFirst,
 } from './checkpoints';
@@ -78,56 +79,37 @@ describe('CHECKPOINT_NOOP_MESSAGE', () => {
   });
 });
 
-describe('restoreConfirmMessage', () => {
-  test('names the checkpoint label and warns about overwriting the working tree', () => {
-    const message = restoreConfirmMessage(checkpoint({ id: 'wcp_1', label: 'diff base' }));
-    expect(message).toContain('diff base');
-    expect(message.toLowerCase()).toContain('overwrite');
+describe('restore confirm copy', () => {
+  const preview = (affectedPathCount: number) => ({
+    checkpointId: 'wcp_1',
+    label: 'diff base',
+    affectedPathCount,
+    affectedPathSample: affectedPathCount ? ['src/a.ts'] : [],
+    stat: '',
   });
 
-  test('falls back to the id when there is no label', () => {
-    const message = restoreConfirmMessage(checkpoint({ id: 'wcp_2', label: '' }));
-    expect(message).toContain('wcp_2');
-  });
-});
-
-describe('restoreConfirmMessageWithPreview', () => {
-  const cp = checkpoint({ id: 'wcp_1', label: 'diff base' });
-
-  test('keeps the base warning and adds the affected-file count and a sampled path', () => {
-    const message = restoreConfirmMessageWithPreview(cp, {
-      checkpointId: 'wcp_1',
-      label: 'diff base',
-      affectedPathCount: 3,
-      affectedPathSample: ['src/a.ts', 'src/b.ts'],
-      stat: '3 files changed',
-    });
-    expect(message.toLowerCase()).toContain('overwrite');
-    expect(message).toContain('3 files would change');
-    expect(message).toContain('src/a.ts');
-    expect(message).toContain('… and 1 more');
+  test('the title asks the question and names the checkpoint, falling back to its id', () => {
+    expect(restoreConfirmTitle(checkpoint({ id: 'wcp_1', label: 'diff base' }))).toBe('Restore the workspace to “diff base”?');
+    expect(restoreConfirmTitle(checkpoint({ id: 'wcp_2', label: '' }))).toBe('Restore the workspace to “wcp_2”?');
   });
 
-  test('uses singular wording for a single affected file', () => {
-    const message = restoreConfirmMessageWithPreview(cp, {
-      checkpointId: 'wcp_1',
-      label: 'diff base',
-      affectedPathCount: 1,
-      affectedPathSample: ['src/a.ts'],
-      stat: '1 file changed',
-    });
-    expect(message).toContain('1 file would change');
-    expect(message).not.toContain('would change:\n  … and');
+  test('without a preview the description is one sentence about replaced files', () => {
+    expect(restoreConfirmMessage()).toBe('Files changed since then are replaced.');
   });
 
-  test('reports "no files would change" when the preview is empty', () => {
-    const message = restoreConfirmMessageWithPreview(cp, {
-      checkpointId: 'wcp_1',
-      label: 'diff base',
-      affectedPathCount: 0,
-      affectedPathSample: [],
-      stat: '',
-    });
-    expect(message.toLowerCase()).toContain('no files would change');
+  test('with a preview it states the count in one sentence, singular and plural', () => {
+    expect(restoreConfirmMessageWithPreview(preview(1))).toBe('Files changed since then are replaced; 1 file changes.');
+    expect(restoreConfirmMessageWithPreview(preview(3))).toBe('Files changed since then are replaced; 3 files change.');
+  });
+
+  test('an empty preview says nothing changes', () => {
+    expect(restoreConfirmMessageWithPreview(preview(0))).toBe('The workspace already matches it, so no files change.');
+  });
+
+  test('no copy uses capitals for emphasis or implementation terms', () => {
+    for (const text of [restoreConfirmMessage(), restoreConfirmMessageWithPreview(preview(2))]) {
+      expect(text).not.toMatch(/\b[A-Z]{3,}\b/);
+      expect(text.toLowerCase()).not.toContain('git');
+    }
   });
 });

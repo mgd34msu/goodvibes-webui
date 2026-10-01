@@ -6,6 +6,7 @@
  * re-appears for this hand-off once dismissed or acknowledged.
  */
 import { Info } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface PairingPostureNoticeProps {
   readonly notice: string;
@@ -17,9 +18,9 @@ export function PairingPostureNotice({ notice, onDismiss }: PairingPostureNotice
     <div className="banner info pairing-posture-notice" role="status" aria-live="polite">
       <Info size={16} aria-hidden="true" />
       <span>{notice}</span>
-      <button type="button" className="pairing-posture-notice__dismiss" onClick={onDismiss}>
+      <Button size="sm" variant="ghost" className="pairing-posture-notice__dismiss" onClick={onDismiss}>
         Dismiss
-      </button>
+      </Button>
     </div>
   );
 }

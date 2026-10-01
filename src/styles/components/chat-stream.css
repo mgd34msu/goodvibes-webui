@@ -73,7 +73,7 @@
   gap: 8px;
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .active-tool-call__name {

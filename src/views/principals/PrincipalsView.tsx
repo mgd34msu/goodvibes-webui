@@ -18,14 +18,19 @@
 
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw, Settings2, Trash2, Users } from 'lucide-react';
+import { Pencil, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { OperatorMethodInput, OperatorMethodOutput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { Button } from '../../components/ui/Button';
 import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { Field, Input, Textarea } from '../../components/ui/Field';
+import { IconButton } from '../../components/ui/IconButton';
+import { Row, RowList } from '../../components/ui/Row';
+import { SettingsBlock } from '../../components/settings/dialog/parts';
 import { formatError, isMethodUnavailableError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import { Select } from '../../components/ui/Select';
@@ -51,6 +56,12 @@ function identitiesFromDraft(draft: string): OperatorMethodInput<'principals.cre
       return { channel: channel.trim(), value: rest.join(':').trim() };
     })
     .filter((identity) => identity.channel && identity.value);
+}
+
+/** "no channel identities", "1 channel identity", "3 channel identities". */
+function identityCount(count: number): string {
+  if (count === 0) return 'no channel identities';
+  return `${String(count)} channel ${count === 1 ? 'identity' : 'identities'}`;
 }
 
 function identitiesToDraft(identities: Principal['identities']): string {
@@ -82,12 +93,10 @@ function PrincipalForm({
 
   return (
     <form className="principals-form" onSubmit={handleSubmit}>
-      <label>
-        Name
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} required />
-      </label>
-      <label>
-        Kind
+      <Field label="Name">
+        <Input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} required />
+      </Field>
+      <Field label="Kind">
         <Select<PrincipalKind>
           aria-label="Kind"
           value={kind}
@@ -95,20 +104,19 @@ function PrincipalForm({
           disabled={submitting}
           options={PRINCIPAL_KINDS.map((k) => ({ value: k, label: k }))}
         />
-      </label>
-      <label>
-        Channel identities (one per line, "channel:value")
-        <textarea
+      </Field>
+      <Field label="Channel identities" help={'One per line, written "channel:value".'}>
+        <Textarea
           value={identitiesDraft}
           onChange={(e) => setIdentitiesDraft(e.target.value)}
           placeholder="slack:U123ABC"
           rows={3}
           disabled={submitting}
         />
-      </label>
+      </Field>
       <div className="principals-form__actions">
-        <button type="submit" disabled={submitting || !name.trim()}>{submitting ? 'Saving…' : submitLabel}</button>
-        <button type="button" className="secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
+        <Button type="submit" variant="primary" size="sm" disabled={submitting || !name.trim()}>{submitting ? 'Saving…' : submitLabel}</Button>
+        <Button size="sm" onClick={onCancel} disabled={submitting}>Cancel</Button>
       </div>
     </form>
   );
@@ -162,9 +170,9 @@ function PrincipalsSection() {
 
   async function handleCreate(input: { name: string; kind: PrincipalKind; identities: OperatorMethodInput<'principals.create'>['identities'] }): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Create this principal',
+      title: 'Create this principal?',
       target: input.name,
-      description: `Kind: ${input.kind}. ${input.identities?.length ? `${input.identities.length} channel identit${input.identities.length === 1 ? 'y' : 'ies'} mapped.` : 'No channel identities mapped yet.'}`,
+      description: `It is created as a ${input.kind} with ${identityCount(input.identities?.length ?? 0)} mapped.`,
       confirmLabel: 'Create',
     });
     if (!ok) return;
@@ -173,9 +181,9 @@ function PrincipalsSection() {
 
   async function handleUpdate(principal: Principal, input: { name: string; kind: PrincipalKind; identities: OperatorMethodInput<'principals.create'>['identities'] }): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Save changes to this principal',
+      title: 'Save changes to this principal?',
       target: principal.name,
-      description: `Name: ${input.name}. Kind: ${input.kind}. ${input.identities?.length ?? 0} channel identit${(input.identities?.length ?? 0) === 1 ? 'y' : 'ies'} mapped: this REPLACES the identity set.`,
+      description: `Its channel identities are replaced with the ${identityCount(input.identities?.length ?? 0)} listed here.`,
       confirmLabel: 'Save',
     });
     if (!ok) return;
@@ -184,9 +192,9 @@ function PrincipalsSection() {
 
   async function handleDelete(principal: Principal): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Delete this principal',
+      title: 'Delete this principal?',
       target: principal.name,
-      description: 'This is permanent. Any channel identities mapped to it will resolve as unknown until re-mapped.',
+      description: 'Channel identities mapped to it show as unknown until you map them again.',
       confirmLabel: 'Delete',
       tone: 'danger',
     });
@@ -195,26 +203,27 @@ function PrincipalsSection() {
   }
 
   return (
-    <section className="principals-section">
-      {confirm.element}
-      <div className="principals-section__header">
-        <h2>Principals</h2>
+    <SettingsBlock
+      className="principals-section"
+      title="Principals"
+      description="Named identities that channel messages are attributed to."
+      actions={(
         <div className="principals-section__actions">
-          <button className="icon-button" type="button" title="New principal" onClick={() => setShowCreate((v) => !v)}>
-            <Plus size={15} />
-          </button>
-          <button className="icon-button" type="button" title="Refresh" onClick={() => void list.refetch()}>
-            <RefreshCw size={15} />
-          </button>
+          <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setShowCreate((v) => !v)}>
+            New principal
+          </Button>
+          <IconButton label="Refresh principals" icon={<RefreshCw aria-hidden="true" />} onClick={() => void list.refetch()} />
         </div>
-      </div>
+      )}
+    >
+      {confirm.element}
 
       {showCreate && (
         <PrincipalForm submitting={create.isPending} submitLabel="Create" onCancel={() => setShowCreate(false)} onSubmit={(input) => void handleCreate(input)} />
       )}
 
       {list.isPending && <SkeletonBlock variant="text" lines={4} />}
-      {unavailable && <div className="principals-empty" role="note">Principals are unavailable on this daemon.</div>}
+      {unavailable && <p className="principals-empty" role="note">Principals are unavailable on this daemon.</p>}
       {list.isError && !unavailable && (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Failed to load principals" />
       )}
@@ -228,45 +237,44 @@ function PrincipalsSection() {
       )}
 
       {principals.length > 0 && (
-        <ul className="principals-rows">
-          {principals.map((principal) => (
-            <li key={principal.id} className="principals-row">
-              {editingId === principal.id ? (
-                <PrincipalForm
-                  initial={principal}
-                  submitting={update.isPending}
-                  submitLabel="Save"
-                  onCancel={() => setEditingId('')}
-                  onSubmit={(input) => void handleUpdate(principal, input)}
-                />
-              ) : (
+        <RowList aria-label="Principals">
+          {principals.map((principal) => editingId === principal.id ? (
+            <li key={principal.id} className="gv-row principals-row principals-row--editing">
+              <PrincipalForm
+                initial={principal}
+                submitting={update.isPending}
+                submitLabel="Save"
+                onCancel={() => setEditingId('')}
+                onSubmit={(input) => void handleUpdate(principal, input)}
+              />
+            </li>
+          ) : (
+            <Row
+              key={principal.id}
+              className="principals-row"
+              title={principal.name}
+              meta={[
+                principal.kind,
+                principal.identities.length === 0
+                  ? 'no channel identities'
+                  : principal.identities.map((identity) => `${identity.channel}:${identity.value}`).join(', '),
+              ].join(' · ')}
+              trailing={(
                 <>
-                  <div className="principals-row__main">
-                    <span className="principals-row__name">{principal.name}</span>
-                    <span className="badge neutral">{principal.kind}</span>
-                    <div className="principals-row__identities">
-                      {principal.identities.length === 0
-                        ? <span className="principals-row__meta">no channel identities</span>
-                        : principal.identities.map((identity, index) => (
-                          <span key={index} className="badge neutral">{identity.channel}:{identity.value}</span>
-                        ))}
-                    </div>
-                  </div>
-                  <div className="principals-row__actions">
-                    <button type="button" className="icon-button" title="Edit" onClick={() => setEditingId(principal.id)}>
-                      <Settings2 size={14} />
-                    </button>
-                    <button type="button" className="icon-button" title="Delete" onClick={() => void handleDelete(principal)} disabled={remove.isPending}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  <IconButton label={`Edit ${principal.name}`} icon={<Pencil aria-hidden="true" />} onClick={() => setEditingId(principal.id)} />
+                  <IconButton
+                    label={`Delete ${principal.name}`}
+                    icon={<Trash2 aria-hidden="true" />}
+                    onClick={() => void handleDelete(principal)}
+                    disabled={remove.isPending}
+                  />
                 </>
               )}
-            </li>
+            />
           ))}
-        </ul>
+        </RowList>
       )}
-    </section>
+    </SettingsBlock>
   );
 }
 
@@ -301,24 +309,19 @@ function ChannelProfileForm({
 
   return (
     <form className="principals-form" onSubmit={handleSubmit}>
-      <label>
-        Surface kind
-        <input type="text" value={surfaceKind} onChange={(e) => setSurfaceKind(e.target.value)} placeholder="slack" disabled={submitting || Boolean(initial?.surfaceKind)} required />
-      </label>
-      <label>
-        Channel id (optional: scopes the binding to one channel)
-        <input type="text" value={channelId} onChange={(e) => setChannelId(e.target.value)} disabled={submitting || Boolean(initial?.channelId)} />
-      </label>
-      <label>
-        Model (optional)
-        <input type="text" value={model} onChange={(e) => setModel(e.target.value)} disabled={submitting} />
-      </label>
-      <label>
-        Provider (optional)
-        <input type="text" value={provider} onChange={(e) => setProvider(e.target.value)} disabled={submitting} />
-      </label>
-      <label>
-        Permission mode (optional)
+      <Field label="Surface kind">
+        <Input type="text" value={surfaceKind} onChange={(e) => setSurfaceKind(e.target.value)} placeholder="slack" disabled={submitting || Boolean(initial?.surfaceKind)} required />
+      </Field>
+      <Field label="Channel id (optional)" help="Scopes the binding to one channel.">
+        <Input type="text" value={channelId} onChange={(e) => setChannelId(e.target.value)} disabled={submitting || Boolean(initial?.channelId)} />
+      </Field>
+      <Field label="Model (optional)">
+        <Input type="text" value={model} onChange={(e) => setModel(e.target.value)} disabled={submitting} />
+      </Field>
+      <Field label="Provider (optional)">
+        <Input type="text" value={provider} onChange={(e) => setProvider(e.target.value)} disabled={submitting} />
+      </Field>
+      <Field label="Permission mode (optional)">
         <Select<PermissionMode | ''>
           aria-label="Permission mode (optional)"
           value={permissionMode}
@@ -326,10 +329,10 @@ function ChannelProfileForm({
           disabled={submitting}
           options={[{ value: '', label: 'Unset' }, ...PERMISSION_MODES.map((mode) => ({ value: mode, label: mode }))]}
         />
-      </label>
+      </Field>
       <div className="principals-form__actions">
-        <button type="submit" disabled={submitting || !surfaceKind.trim()}>{submitting ? 'Saving…' : 'Save'}</button>
-        <button type="button" className="secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
+        <Button type="submit" variant="primary" size="sm" disabled={submitting || !surfaceKind.trim()}>{submitting ? 'Saving…' : 'Save'}</Button>
+        <Button size="sm" onClick={onCancel} disabled={submitting}>Cancel</Button>
       </div>
     </form>
   );
@@ -373,7 +376,7 @@ function ChannelProfilesSection() {
 
   async function handleDelete(binding: ChannelBinding): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Delete this channel profile binding',
+      title: 'Delete this channel profile binding?',
       target: binding.channelId ? `${binding.surfaceKind}:${binding.channelId}` : binding.surfaceKind,
       description: 'Sessions this channel originates will no longer inherit these defaults.',
       confirmLabel: 'Delete',
@@ -384,70 +387,75 @@ function ChannelProfilesSection() {
   }
 
   return (
-    <section className="principals-section">
-      {confirm.element}
-      <div className="principals-section__header">
-        <h2>Channel profiles</h2>
+    <SettingsBlock
+      className="principals-section"
+      title="Channel profiles"
+      description="The model and permission defaults a channel's sessions start with."
+      actions={(
         <div className="principals-section__actions">
-          <button className="icon-button" type="button" title="New binding" onClick={() => setShowCreate((v) => !v)}>
-            <Plus size={15} />
-          </button>
-          <button className="icon-button" type="button" title="Refresh" onClick={() => void list.refetch()}>
-            <RefreshCw size={15} />
-          </button>
+          <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setShowCreate((v) => !v)}>
+            New binding
+          </Button>
+          <IconButton label="Refresh channel profiles" icon={<RefreshCw aria-hidden="true" />} onClick={() => void list.refetch()} />
         </div>
-      </div>
+      )}
+    >
+      {confirm.element}
 
       {showCreate && (
         <ChannelProfileForm submitting={set.isPending} onCancel={() => setShowCreate(false)} onSubmit={(input) => set.mutate(input)} />
       )}
 
       {list.isPending && <SkeletonBlock variant="text" lines={4} />}
-      {unavailable && <div className="principals-empty" role="note">Channel profiles are unavailable on this daemon.</div>}
+      {unavailable && <p className="principals-empty" role="note">Channel profiles are unavailable on this daemon.</p>}
       {list.isError && !unavailable && (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} title="Failed to load channel profiles" />
       )}
       {list.isSuccess && bindings.length === 0 && (
-        <EmptyState title="No channel profile bindings yet" description="Bind a surface (and optionally one channel within it) to model/permission defaults." />
+        <EmptyState title="No channel profile bindings yet" description="Bind a surface (and optionally one channel within it) to model and permission defaults." />
       )}
 
       {bindings.length > 0 && (
-        <ul className="principals-rows">
+        <RowList aria-label="Channel profiles">
           {bindings.map((binding) => {
             const key = `${binding.surfaceKind}:${binding.channelId ?? ''}`;
-            return (
-              <li key={key} className="principals-row">
-                {editingKey === key ? (
-                  <ChannelProfileForm
-                    initial={binding}
-                    submitting={set.isPending}
-                    onCancel={() => setEditingKey('')}
-                    onSubmit={(input) => set.mutate(input)}
-                  />
-                ) : (
+            const name = `${binding.surfaceKind}${binding.channelId ? `:${binding.channelId}` : ''}`;
+            return editingKey === key ? (
+              <li key={key} className="gv-row principals-row principals-row--editing">
+                <ChannelProfileForm
+                  initial={binding}
+                  submitting={set.isPending}
+                  onCancel={() => setEditingKey('')}
+                  onSubmit={(input) => set.mutate(input)}
+                />
+              </li>
+            ) : (
+              <Row
+                key={key}
+                className="principals-row"
+                title={name}
+                meta={[
+                  binding.model && `model: ${binding.model}`,
+                  binding.provider && `provider: ${binding.provider}`,
+                  binding.permissionMode,
+                ].filter(Boolean).join(' · ') || 'Uses the defaults'}
+                trailing={(
                   <>
-                    <div className="principals-row__main">
-                      <span className="principals-row__name">{binding.surfaceKind}{binding.channelId ? `:${binding.channelId}` : ''}</span>
-                      {binding.model && <span className="badge neutral">model: {binding.model}</span>}
-                      {binding.provider && <span className="badge neutral">provider: {binding.provider}</span>}
-                      {binding.permissionMode && <span className="badge neutral">{binding.permissionMode}</span>}
-                    </div>
-                    <div className="principals-row__actions">
-                      <button type="button" className="icon-button" title="Edit" onClick={() => setEditingKey(key)}>
-                        <Settings2 size={14} />
-                      </button>
-                      <button type="button" className="icon-button" title="Delete" onClick={() => void handleDelete(binding)} disabled={remove.isPending}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <IconButton label={`Edit ${name}`} icon={<Pencil aria-hidden="true" />} onClick={() => setEditingKey(key)} />
+                    <IconButton
+                      label={`Delete ${name}`}
+                      icon={<Trash2 aria-hidden="true" />}
+                      onClick={() => void handleDelete(binding)}
+                      disabled={remove.isPending}
+                    />
                   </>
                 )}
-              </li>
+              />
             );
           })}
-        </ul>
+        </RowList>
       )}
-    </section>
+    </SettingsBlock>
   );
 }
 

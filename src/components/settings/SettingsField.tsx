@@ -44,6 +44,7 @@ import { useState } from 'react';
 import { maskSecretValue } from '../../lib/config-redaction';
 import { settingLabelForKey } from '../../lib/setting-label';
 import { Button } from '../ui/Button';
+import { Chip } from '../ui/Chip';
 import { Input, Textarea } from '../ui/Field';
 import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
@@ -103,7 +104,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
   }
 
   const defaultNote = !field.present ? (
-    <span className="settings-field-default" title="Not set in the daemon config, showing the schema default.">
+    <span className="settings-field-default" title="Not set in the daemon config, showing the built-in default.">
       default
     </span>
   ) : null;
@@ -263,7 +264,7 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       return (
         <Input
           className="settings-field-input"
-          type="number"
+          type="text"
           inputMode="decimal"
           aria-label={field.key}
           value={draft}
@@ -318,23 +319,24 @@ export function SettingsField({ field, onCommit, persisted, currency }: Settings
       data-daemon-owned={field.daemonOwned}
     >
       <div className="settings-field-text">
-      <div className="settings-field-label">{settingLabelForKey(field.key)}</div>
-      <div className="settings-field-head">
-        <code className="settings-field-key">{field.key}</code>
-        {field.daemonOwned && (
-          <span
-            className="settings-field-daemon-badge"
-            title="Daemon-owned: stored in the daemon's own config and applies to every connected client, not just this browser."
-          >
-            Daemon-owned
-          </span>
-        )}
-        {defaultNote}
-        {field.validationHint && field.type === 'number' && (
-          <span className="settings-field-hint">{field.validationHint}</span>
-        )}
-      </div>
-      {field.description && <p className="settings-field-desc">{field.description}</p>}
+        <div className="settings-field-label">{settingLabelForKey(field.key)}</div>
+        <div className="settings-field-head">
+          <code className="settings-field-key">{field.key}</code>
+          {field.daemonOwned && (
+            <Chip
+              size="sm"
+              className="settings-field-daemon-badge"
+              title="Daemon-owned: stored in the daemon's own config and applies to every connected client, not just this browser."
+            >
+              Daemon-owned
+            </Chip>
+          )}
+          {defaultNote}
+          {field.validationHint && field.type === 'number' && (
+            <span className="settings-field-hint">{field.validationHint}</span>
+          )}
+        </div>
+        {field.description && <p className="settings-field-desc">{field.description}</p>}
       </div>
       <div className="settings-field-control">{control}</div>
       {persisted?.persistedTo && (

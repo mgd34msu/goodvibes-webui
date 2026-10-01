@@ -249,7 +249,7 @@ export function useHostedAttachment(
     const confirmed = await confirm.ask({
       title: 'End this hosted session?',
       target: attachedSession.title || attachedSession.id,
-      description: 'This ends the session immediately for every attached client, regardless of its detach policy, including a "survive" session that would otherwise stay running. This cannot be undone.',
+      description: 'It ends now for every attached client, whatever its detach policy.',
       confirmLabel: 'End session',
       tone: 'danger',
     });

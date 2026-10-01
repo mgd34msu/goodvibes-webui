@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useRelayOverflow } from '../../hooks/useRelayOverflow';
 import { acknowledgeRelayOverflow } from '../../lib/relay-stream-overflow';
+import { Button } from '../ui/Button';
 import '../../styles/components/status.css';
 
 export function RelayOverflowBanner() {
@@ -30,9 +31,9 @@ export function RelayOverflowBanner() {
       <span>
         {`Live updates over the relay dropped ${totalDropped} event${totalDropped === 1 ? '' : 's'}, this view may be out of date.`}
       </span>
-      <button type="button" className="relay-overflow-resync" onClick={handleResync}>
+      <Button size="sm" className="relay-overflow-resync" onClick={handleResync}>
         Resync
-      </button>
+      </Button>
     </div>
   );
 }

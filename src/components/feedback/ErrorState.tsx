@@ -8,6 +8,7 @@
  */
 import type { FC } from 'react';
 import { formatError } from '../../lib/errors';
+import { Button } from '../ui/Button';
 import '../../styles/components/feedback.css';
 
 export interface ErrorStateProps {
@@ -46,14 +47,9 @@ export const ErrorState: FC<ErrorStateProps> = ({
         {message && <span className="feedback-error-state__message">{message}</span>}
       </div>
       {onRetry && (
-        <button
-          type="button"
-          className="feedback-error-state__retry"
-          onClick={onRetry}
-          aria-label="Retry"
-        >
+        <Button size="sm" className="feedback-error-state__retry" onClick={onRetry} aria-label="Retry">
           Retry
-        </button>
+        </Button>
       )}
     </div>
   );

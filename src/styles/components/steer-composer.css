@@ -13,7 +13,7 @@
   margin: 0;
   color: var(--text-2);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .steer-composer__stream-note {

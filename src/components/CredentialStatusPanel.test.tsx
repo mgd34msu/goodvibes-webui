@@ -104,7 +104,7 @@ describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
     await waitFor(() => (el.textContent ?? '').includes('BROKEN_ENV_REF'));
     expect(el.textContent).toContain('configured, not usable');
     // Never rendered as plain "usable" or a fabricated "ok".
-    expect(el.querySelector('.badge.ok')).toBeNull();
+    expect(el.querySelector('.gv-dot--ok')).toBeNull();
     unmount();
   });
 
@@ -139,11 +139,11 @@ describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
       });
     const { el, unmount } = render('anthropic');
     await waitFor(() => (el.textContent ?? '').includes('ANTHROPIC_API_KEY'));
-    const rows = [...el.querySelectorAll('.providers-model-row')];
+    const rows = [...el.querySelectorAll('.gv-row')];
     const anthropicRow = rows.find((r) => r.textContent?.includes('ANTHROPIC_API_KEY'));
     const openaiRow = rows.find((r) => r.textContent?.includes('OPENAI_API_KEY'));
-    expect(anthropicRow?.className).toContain('providers-model-row--current');
-    expect(openaiRow?.className).not.toContain('providers-model-row--current');
+    expect(anthropicRow?.className).toContain('gv-row--selected');
+    expect(openaiRow?.className).not.toContain('gv-row--selected');
     unmount();
   });
 });

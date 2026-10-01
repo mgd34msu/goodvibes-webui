@@ -388,6 +388,7 @@ export function WorkView({ tab, onTabChange, subscriptionActive = true, streamPa
           <div className="dv-filters__search">
             <Input
               type="search"
+              className="gv-input--search"
               aria-label="Search work"
               placeholder="Search work"
               value={query}

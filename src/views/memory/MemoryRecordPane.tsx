@@ -3,7 +3,7 @@ import { useId, useState, type SyntheticEvent } from 'react';
 import type { MemoryRecord, MemoryUpdateReviewInput } from '../../lib/goodvibes';
 import { DetailPane, DetailSection } from '../../components/data-view/DataView';
 import { Button } from '../../components/ui/Button';
-import { Dialog } from '../../components/ui/Dialog';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { Field, Input } from '../../components/ui/Field';
 import { Select } from '../../components/ui/Select';
 import { sentence } from '../library/library-data';
@@ -29,7 +29,7 @@ export function MemoryRecordPane({ record, onClose, onDelete, deleting, onSaveRe
   const [state, setState] = useState(record.reviewState);
   const [confidence, setConfidence] = useState(String(Math.round(record.confidence)));
   const [staleReason, setStaleReason] = useState(record.staleReason ?? '');
-  const [confirming, setConfirming] = useState(false);
+  const confirm = useConfirm();
   const flagged = isFlaggedReviewState(state);
   const parsed = Number(confidence);
   const confidenceValid = confidence.trim() !== '' && Number.isFinite(parsed) && parsed >= 0 && parsed <= 100;
@@ -44,6 +44,17 @@ export function MemoryRecordPane({ record, onClose, onDelete, deleting, onSaveRe
     });
   }
 
+  async function handleDelete(): Promise<void> {
+    const ok = await confirm.ask({
+      title: 'Delete this memory?',
+      target: record.summary,
+      description: 'It is removed for good and cannot be brought back.',
+      confirmLabel: 'Delete memory',
+      tone: 'danger',
+    });
+    if (ok) onDelete(record);
+  }
+
   return (
     <>
       <DetailPane
@@ -51,7 +62,7 @@ export function MemoryRecordPane({ record, onClose, onDelete, deleting, onSaveRe
         meta={`${sentence(record.cls)} · ${record.scope}`}
         onClose={onClose}
         actions={(
-          <Button variant="ghost" size="sm" icon={<Trash2 aria-hidden="true" />} disabled={deleting} onClick={() => setConfirming(true)}>
+          <Button variant="ghost" size="sm" icon={<Trash2 aria-hidden="true" />} disabled={deleting} onClick={() => void handleDelete()}>
             Delete
           </Button>
         )}
@@ -75,10 +86,8 @@ export function MemoryRecordPane({ record, onClose, onDelete, deleting, onSaveRe
             </Field>
             <Field label="Confidence (0 to 100)" error={confidence.trim() !== '' && !confidenceValid ? 'Enter a number from 0 to 100.' : undefined}>
               <Input
-                type="number"
-                min={0}
-                max={100}
                 inputMode="numeric"
+                pattern="[0-9]*"
                 value={confidence}
                 aria-label={`Confidence for ${record.summary}`}
                 onChange={(event) => setConfidence(event.target.value)}
@@ -98,28 +107,7 @@ export function MemoryRecordPane({ record, onClose, onDelete, deleting, onSaveRe
         </DetailSection>
       </DetailPane>
 
-      <Dialog
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        size="confirm"
-        title="Delete this memory?"
-        description={`"${record.summary}" will be removed permanently. This cannot be undone.`}
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button
-              variant="danger"
-              disabled={deleting}
-              onClick={() => {
-                setConfirming(false);
-                onDelete(record);
-              }}
-            >
-              Delete memory
-            </Button>
-          </>
-        )}
-      />
+      {confirm.element}
     </>
   );
 }

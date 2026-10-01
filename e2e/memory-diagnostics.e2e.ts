@@ -16,10 +16,10 @@ test('the elevated-tier snapshot renders the chip, bar, caches, paused job, and 
   const panel = page.locator('.memory-diagnostics');
   await expect(panel).toBeVisible();
 
-  // Tier chip, the existing .badge idiom, info tone for 'elevated'.
-  const chip = panel.locator('.badge');
+  // Tier chip: a kit Chip whose dot carries the tone (info for 'elevated').
+  const chip = panel.locator('.memory-diagnostics__tier');
   await expect(chip).toHaveText('Elevated');
-  await expect(chip).toHaveClass(/info/);
+  await expect(chip.locator('.gv-dot--info')).toBeVisible();
 
   // Budget-vs-RSS bar, labeled with the real numbers (never placeholders).
   await expect(panel).toContainText('700 MB of 1024 MB budget');
@@ -50,9 +50,9 @@ test('a critical-tier snapshot shows the danger chip, the refusing-work note, an
   await openSettings(page, 'memory');
 
   const panel = page.locator('.memory-diagnostics');
-  const chip = panel.locator('.badge');
+  const chip = panel.locator('.memory-diagnostics__tier');
   await expect(chip).toHaveText('Critical');
-  await expect(chip).toHaveClass(/bad/);
+  await expect(chip.locator('.gv-dot--bad')).toBeVisible();
   await expect(panel).toContainText('Refusing expensive work while under pressure.');
   await expect(panel).toContainText('Leak tripwire: armed: sustained growth of 3.2 MB/s for 45s.');
 });

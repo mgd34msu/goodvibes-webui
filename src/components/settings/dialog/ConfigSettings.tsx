@@ -38,6 +38,7 @@ import { useToast } from '../../../lib/toast';
 import { ErrorState } from '../../feedback/ErrorState';
 import { SkeletonBlock } from '../../feedback/SkeletonBlock';
 import { SettingsField } from '../SettingsField';
+import { SettingsHeadingLevel } from './parts';
 import { FeatureUnitCard } from '../FeatureUnitCard';
 import { PaymentCardEntry } from '../PaymentCardEntry';
 import { displayConfigValue } from '../../../lib/config-redaction';
@@ -166,6 +167,8 @@ export function ConfigGroupList({
 }) {
   const { config, refused, degraded, commit, persistedByKey, pendingRestartIds, markPendingRestart, currency } = useConfigSettings();
   const shown = useMemo(() => filterSettingsModel([...groups], query), [groups, query]);
+  // One level under the section heading when the list sits inside a titled section.
+  const GroupHeading = useContext(SettingsHeadingLevel) === 4 ? 'h4' : 'h3';
 
   if (config.isPending) {
     return (
@@ -200,7 +203,7 @@ export function ConfigGroupList({
           data-config-group={group.id}
           aria-labelledby={`settings-config-group-${group.id}`}
         >
-          <h3 id={`settings-config-group-${group.id}`} className="settings-config-group__title">{group.label}</h3>
+          <GroupHeading id={`settings-config-group-${group.id}`} className="settings-config-group__title">{group.label}</GroupHeading>
           {/*
             Card entry sits at the top of the Payments group, above the budgets
             and windows that govern how it gets used. It is not a schema-driven

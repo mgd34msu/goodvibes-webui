@@ -118,7 +118,7 @@ describe('TaskGraphPanel', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('[data-testid="task-graph-pool"]')));
-    expect(el.querySelector('[data-testid="task-graph-pool"]')?.textContent).toBe('1 ready, 2 running, at cap (fleet.maxSize=2)');
+    expect(el.querySelector('[data-testid="task-graph-pool"]')?.textContent).toBe('1 ready, 2 running, at the limit of 2 running at once');
   });
 
   test('a pool not at cap omits the "at cap" clause', async () => {
@@ -150,7 +150,8 @@ describe('TaskGraphPanel', () => {
     await waitFor(() => Boolean(el.querySelector('[data-testid="task-graph-node"]')));
     const row = el.querySelector('[data-testid="task-graph-node"]');
     expect(row?.textContent).toContain('quantum-superposed');
-    expect(row?.querySelector('.badge')?.className).toContain('warning');
+    expect(row?.querySelector('.gv-chip')?.getAttribute('data-tone')).toBe('warning');
+    expect(row?.querySelector('.gv-dot--warn')).not.toBeNull();
   });
 
   test('loading state renders a skeleton, no node rows', () => {

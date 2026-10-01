@@ -1,3 +1,4 @@
+import { whenLabel } from './when-label';
 export type AnyRecord = Record<string, unknown>;
 
 export function asRecord(value: unknown): AnyRecord {
@@ -67,7 +68,7 @@ export function countFrom(value: unknown, keys: string[]): number {
 }
 
 export function formatRelative(value: unknown): string {
-  if (typeof value === 'number' && Number.isFinite(value)) return new Date(value).toLocaleString();
+  if (typeof value === 'number' && Number.isFinite(value)) return whenLabel(value) || 'unknown';
   if (typeof value === 'string' && value.trim()) return value;
   return 'unknown';
 }

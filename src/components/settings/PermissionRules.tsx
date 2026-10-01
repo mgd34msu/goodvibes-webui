@@ -12,13 +12,13 @@ import { sdk } from '../../lib/goodvibes';
 import type { PermissionRuleRecord } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
 import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
 import { Row, RowList } from '../ui/Row';
 import { StatusDot } from '../ui/StatusDot';
 import { SettingsBlock } from './dialog/parts';
+import { whenLabel } from '../../lib/when-label';
 
 /** One-line reading of a rule: effect, tier, tool. */
 export function ruleSummary(rule: PermissionRuleRecord): string {
@@ -68,7 +68,7 @@ export function PermissionRules() {
               className="permission-rule-row"
               leading={<StatusDot tone={rule.effect === 'deny' ? 'bad' : 'ok'} srLabel={rule.effect} />}
               title={ruleSummary(rule)}
-              meta={[rule.description ?? '', `created ${formatRelative(rule.createdAt)}`].filter(Boolean).join(' · ')}
+              meta={[rule.description ?? '', whenLabel(rule.createdAt) && `created ${whenLabel(rule.createdAt)}`].filter(Boolean).join(' · ')}
               trailing={(
                 <Button
                   size="sm"

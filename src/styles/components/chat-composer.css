@@ -14,16 +14,28 @@
   min-width: 0;
 }
 
+/* A rounded notice above the composer, like .banner: the hue is only the dot. */
 .composer-error {
-  padding: 6px 12px;
+  position: relative;
+  padding: 8px 14px 8px 30px;
   color: var(--text);
-  background: transparent;
-  border: 0;
-  border-left: 2px solid var(--warn);
-  border-radius: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   overflow-wrap: anywhere;
+}
+
+.composer-error::before {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--warn);
+  content: '';
 }
 
 .composer-box {
@@ -119,7 +131,7 @@
   width: 20px;
   height: 20px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .composer-attachment button {
@@ -320,7 +332,7 @@
   padding: 6px 10px;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .composer-slash-item {

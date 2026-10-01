@@ -38,16 +38,14 @@ import {
 import { readExecPromptAsk, isTerminalApprovalStatus } from '../../lib/approvals';
 import { hostedStatusLabel } from '../../lib/hosted-sessions';
 import { isClosedStatus, isReapedStatus, kindLabel as sessionKindLabel, projectLabel, type UnionSessionRecord } from '../../lib/sessions-union';
-import { formatRelative } from '../../lib/object';
+import { whenLabel } from '../../lib/when-label';
 
 /**
  * A relative time for a row or a detail, or '' when the record carries no
  * real time (missing, zero, or before 2000): never an epoch date.
  */
-export function whenLabel(value: number | undefined | null): string {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 946_684_800_000) return '';
-  return formatRelative(value);
-}
+/** Short time label ("5m ago", "Nov 14"); '' for a missing or epoch time. */
+export { whenLabel };
 
 /** Sentence-case a status word for display. */
 export function sentenceCase(word: string): string {

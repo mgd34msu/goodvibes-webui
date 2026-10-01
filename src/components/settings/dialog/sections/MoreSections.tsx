@@ -31,6 +31,7 @@ import { PrincipalsView } from '../../../../views/principals/PrincipalsView';
 import { ConfigGroupList, RawConfigEditor, useConfigSettings } from '../ConfigSettings';
 import { ReadableValue, SettingRow, SettingsBlock } from '../parts';
 import { groupsForSection, type SettingsSectionId } from '../sections';
+import { CheckInSettings } from '../../../../views/checkin/CheckInView';
 
 function SectionConfig({ id, emptyText }: { id: SettingsSectionId; emptyText?: string }) {
   const { groups } = useConfigSettings();
@@ -140,6 +141,15 @@ export function NotificationsSection() {
     <>
       <NotificationSettings />
       <SectionConfig id="notifications" />
+    </>
+  );
+}
+
+export function CheckinsSection() {
+  return (
+    <>
+      <CheckInSettings />
+      <SectionConfig id="checkins" />
     </>
   );
 }

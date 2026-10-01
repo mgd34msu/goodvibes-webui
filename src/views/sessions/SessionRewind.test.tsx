@@ -114,7 +114,6 @@ afterEach(() => {
 describe('SessionRewind', () => {
   test('expands, derives turn anchors, and previews the plan with both scopes', async () => {
     const { container, unmount } = render();
-    click(container.querySelector('.session-rewind__toggle'));
     await settle();
 
     // the most recent turn anchor leads the list
@@ -142,7 +141,6 @@ describe('SessionRewind', () => {
       warnings: ['Conversation rewind is unavailable: no conversation store is wired on this runtime.'],
     };
     const { container, unmount } = render();
-    click(container.querySelector('.session-rewind__toggle'));
     await settle();
     click(container.querySelector('.session-rewind__preview-btn'));
     await settle(3);
@@ -155,7 +153,6 @@ describe('SessionRewind', () => {
 
   test('confirming the rewind applies with the minted token and renders the receipt + undo point', async () => {
     const { container, unmount } = render();
-    click(container.querySelector('.session-rewind__toggle'));
     await settle();
     click(container.querySelector('.session-rewind__preview-btn'));
     await settle(3);
@@ -176,7 +173,6 @@ describe('SessionRewind', () => {
 
   test('undoing the file restore runs checkpoints.restore against the recorded safety checkpoint', async () => {
     const { container, unmount } = render();
-    click(container.querySelector('.session-rewind__toggle'));
     await settle();
     click(container.querySelector('.session-rewind__preview-btn'));
     await settle(3);

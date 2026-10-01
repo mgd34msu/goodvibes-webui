@@ -33,7 +33,7 @@
   color: var(--text-3);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .artifacts-code-list,
@@ -65,15 +65,15 @@
   overflow: hidden;
   color: var(--text-3);
   font-size: var(--text-xs);
-  line-height: 18px;
+  line-height: var(--leading-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .artifact-code-pre {
   max-height: 60vh;
-  margin: 0;
-  padding: 12px 14px;
+  margin: 0 14px;
+  padding: 12px 0;
   overflow: auto;
   background: transparent;
   border: 0;
@@ -84,7 +84,7 @@
   min-width: max-content;
   padding: 0;
   color: var(--text);
-  font: var(--weight-regular) var(--text-sm) / 20px var(--font-mono);
+  font: var(--weight-regular) var(--text-sm) / var(--leading-ui) var(--font-mono);
   white-space: pre;
   background: transparent;
   border: 0;
@@ -97,7 +97,7 @@
   min-height: 48px;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .artifact-file-icon {
@@ -115,7 +115,7 @@
   color: var(--text);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

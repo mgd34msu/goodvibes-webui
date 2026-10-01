@@ -182,7 +182,6 @@ const ONE_CHECKPOINT = [{
 describe('SessionChanges', () => {
   test('expands and renders the session-scoped diff in the multibuffer by default', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     expect(container.textContent).toContain('src/foo.ts');
@@ -197,7 +196,6 @@ describe('SessionChanges', () => {
 
   test('APPROVE marks a hunk reviewed and advances the reviewed/total indicator', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     openHunkAction(container, 'approve');
@@ -213,7 +211,6 @@ describe('SessionChanges', () => {
 
   test('COMMENT & STEER steers the session with the structured context block', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     openHunkAction(container, 'comment');
@@ -246,7 +243,6 @@ describe('SessionChanges', () => {
 
   test('with no bound agent COMMENT queues a follow-up instead of steering', async () => {
     const { container, unmount } = render({ canSteer: false, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
     openHunkAction(container, 'comment');
     await settle(2);
@@ -268,7 +264,6 @@ describe('SessionChanges', () => {
 
   test('REJECT & REVERT previews then reverts the exact hunk with the minted confirm token', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     openHunkAction(container, 'reject');
@@ -300,7 +295,6 @@ describe('SessionChanges', () => {
       token: null, expiresAt: null,
     };
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     openHunkAction(container, 'reject');
@@ -319,7 +313,6 @@ describe('SessionChanges', () => {
   test('a 409 conflict on apply (hunk went stale between preview and confirm) shows the conflict state, not a partial write', async () => {
     revertError = { status: 409, code: 'CONFLICT', message: 'hunk no longer applies' };
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     openHunkAction(container, 'reject');
@@ -338,7 +331,6 @@ describe('SessionChanges', () => {
       files: [], unifiedDiff: '', stat: '',
     };
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     expect(container.textContent).toContain('No captured changes for this session');
@@ -352,7 +344,6 @@ describe('SessionChanges', () => {
   test('the workspace-scoped toggle switches away from session changes', async () => {
     checkpoints = ONE_CHECKPOINT;
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
     expect(container.textContent).toContain('src/foo.ts');
 
@@ -368,7 +359,6 @@ describe('SessionChanges', () => {
   test('a daemon that has never heard of sessions.changes.get offers the workspace-scoped fallback', async () => {
     sessionChangesError = { status: 404, code: 'METHOD_NOT_FOUND', message: 'Unknown gateway method' };
     const { container, unmount } = render({ canSteer: true, closed: false });
-    click(container.querySelector('.session-changes__toggle'));
     await settle();
 
     expect(container.textContent).toContain("doesn't serve session-scoped changes");
@@ -376,15 +366,18 @@ describe('SessionChanges', () => {
     unmount();
   });
 
-  test('the session-changes query is not fired until the section is expanded', async () => {
-    const { container, client, unmount } = render({ canSteer: true, closed: false });
-    await settle(2);
-    const idle = client.getQueryState(queryKeys.sessionChanges('s-1'));
-    expect(idle?.fetchStatus).toBe('idle');
-    expect(idle?.data).toBeUndefined();
-    click(container.querySelector('.session-changes__toggle'));
+  test('the session-changes query fires when the Changes tab mounts the section', async () => {
+    const { client, unmount } = render({ canSteer: true, closed: false });
     await settle();
     expect(client.getQueryState(queryKeys.sessionChanges('s-1'))?.data).toBeDefined();
+    unmount();
+  });
+
+  test('the section is always open: no disclosure toggle, the toolbar is there', async () => {
+    const { container, unmount } = render({ canSteer: true, closed: false });
+    await settle();
+    expect(container.querySelector('.session-changes__toggle')).toBeNull();
+    expect(container.querySelector('.session-changes__toolbar')).not.toBeNull();
     unmount();
   });
 });

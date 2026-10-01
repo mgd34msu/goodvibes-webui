@@ -17,6 +17,7 @@ import { ErrorState } from './feedback/ErrorState';
 import { SkeletonBlock } from './feedback/SkeletonBlock';
 import { asRecord, firstArrayAtPath, firstString } from '../lib/object';
 import { Landmark } from 'lucide-react';
+import { SettingsBlock } from './settings/dialog/parts';
 import '../styles/components/providers.css';
 
 export interface AccountsPanelProps {
@@ -63,12 +64,7 @@ export function AccountsPanel({ data, isLoading, isError, error, onRetry }: Acco
   const issueCount = typeof asRecord(data).issueCount === 'number' ? (asRecord(data).issueCount as number) : rows.reduce((sum, r) => sum + r.issues.length, 0);
 
   return (
-    <section className="panel accounts-panel" aria-label="Accounts and subscriptions">
-      <div className="panel-title">
-        <h2>Accounts &amp; Subscriptions</h2>
-        <Landmark size={18} aria-hidden="true" />
-      </div>
-
+    <SettingsBlock className="accounts-panel" title="Accounts and subscriptions">
       {isLoading ? (
         <div className="accounts-panel__skeleton" aria-label="Loading accounts" aria-busy="true">
           {Array.from({ length: 3 }, (_, i) => (
@@ -89,42 +85,46 @@ export function AccountsPanel({ data, isLoading, isError, error, onRetry }: Acco
             {configuredCount} of {rows.length} providers configured
             {issueCount > 0 ? ` · ${issueCount} issue${issueCount === 1 ? '' : 's'}` : ''}
           </p>
-          <div className="providers-model-grid" role="list" aria-label="Provider accounts">
+          <ul className="gv-rows" aria-label="Provider accounts">
             {rows.map((row) => (
-              <article key={row.providerId} className="providers-model-row accounts-panel__row" role="listitem">
-                <div className="providers-model-row__copy">
-                  <strong>{row.providerId}</strong>
-                  <span>
-                    {row.activeRoute} · {row.modelCount} model{row.modelCount === 1 ? '' : 's'}
+              <li key={row.providerId} className="gv-row accounts-panel__row">
+                <div className="gv-row__main">
+                  <span className="gv-row__text">
+                    <span className="gv-row__title">{row.providerId}</span>
+                    <span className="gv-row__meta accounts-panel__route">
+                      {row.activeRoute} · {row.modelCount} model{row.modelCount === 1 ? '' : 's'}
+                    </span>
+                    {row.usageWindows.length > 0 && (
+                      <ul className="accounts-panel__notes accounts-panel__windows">
+                        {row.usageWindows.map((w) => (
+                          <li key={w.label}>{w.label}: {w.detail}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {row.issues.length > 0 && (
+                      <ul className="accounts-panel__notes accounts-panel__issues">
+                        {row.issues.map((issue) => (
+                          <li key={issue}>{issue}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {row.recommendedActions.length > 0 && (
+                      <ul className="accounts-panel__notes accounts-panel__actions-list">
+                        {row.recommendedActions.map((action) => (
+                          <li key={action}>{action}</li>
+                        ))}
+                      </ul>
+                    )}
                   </span>
-                  {row.usageWindows.length > 0 && (
-                    <ul className="accounts-panel__windows">
-                      {row.usageWindows.map((w) => (
-                        <li key={w.label}>{w.label}: {w.detail}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {row.issues.length > 0 && (
-                    <ul className="accounts-panel__issues">
-                      {row.issues.map((issue) => (
-                        <li key={issue}>{issue}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {row.recommendedActions.length > 0 && (
-                    <ul className="accounts-panel__actions-list">
-                      {row.recommendedActions.map((action) => (
-                        <li key={action}>{action}</li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
-                <StatusBadge value={row.authFreshness} />
-              </article>
+                <div className="gv-row__trailing">
+                  <StatusBadge value={row.authFreshness} />
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </>
       )}
-    </section>
+    </SettingsBlock>
   );
 }

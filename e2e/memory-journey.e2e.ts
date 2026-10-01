@@ -89,7 +89,7 @@ test('delete means delete. The record is gone after a confirmation, not just hid
   await records.getByRole('button', { name: new RegExp(MEMORY_FACT.summary) }).click();
 
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  const confirm = page.getByRole('dialog', { name: 'Delete this memory?' });
+  const confirm = page.getByRole('alertdialog', { name: 'Delete this memory?' });
   await expect(confirm).toContainText(MEMORY_FACT.summary);
   await confirm.getByRole('button', { name: 'Delete memory' }).click();
 

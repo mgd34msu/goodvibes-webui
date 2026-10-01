@@ -91,7 +91,7 @@ test('revoking one device 401s it while the current session (a different token) 
   const phoneRow = page.locator('.pairing-token-row', { hasText: 'Phone' });
   await phoneRow.getByRole('button', { name: /Revoke/ }).click();
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('signed out immediately');
+  await expect(page.locator('.gv-confirm')).toContainText('signed out now');
   await page.locator('.gv-confirm__confirm').click();
   await expect(pairingPanel(page).getByText('Phone', { exact: true })).toHaveCount(0);
 
@@ -119,12 +119,12 @@ test('migrate mints this browser its own token; revoke-shared is gated by a dang
 
   await page.getByRole('button', { name: 'Give this browser its own token' }).click();
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('you stay signed in');
+  await expect(page.locator('.gv-confirm')).toContainText('stays signed in');
   await page.locator('.gv-confirm__confirm').click();
   await expect(page.getByText('This browser now has its own token')).toBeVisible();
 
   await page.getByRole('button', { name: 'Revoke the shared token' }).click();
-  await expect(page.locator('.gv-confirm')).toContainText('cannot be undone');
+  await expect(page.locator('.gv-confirm')).toContainText('signed out now');
   const sheetClass = await page.locator('.gv-confirm').getAttribute('class');
   expect(sheetClass).toContain('danger');
   await page.locator('.gv-confirm__confirm').click();

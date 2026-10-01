@@ -140,11 +140,11 @@ test('the Agenda / Month toggle shows a month grid without sideways scroll', asy
   await expect(page.getByTestId('calendar-agenda')).toBeVisible();
 });
 
-test('unconfigured: the daemon\'s 412 CALENDAR_NOT_CONFIGURED renders the honest bring-your-own-CalDAV note with one action, never a scary error or a fake-empty calendar', async ({ page }) => {
+test('unconfigured: the daemon\'s 412 CALENDAR_NOT_CONFIGURED renders the plain how-to-turn-it-on note with one action, never a scary error or a fake-empty calendar', async ({ page }) => {
   await installMockDaemon(page, { calendar: 'unconfigured' });
   await page.goto(CALENDAR);
   await expect(page.getByText('Calendar isn’t configured')).toBeVisible();
-  await expect(page.getByText('caldavUrl', { exact: false })).toBeVisible();
+  await expect(page.getByText('Add your calendar in Settings and your events show up here.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible();
   // No create action while the surface cannot take one.
   await expect(page.getByRole('button', { name: 'New event' })).toHaveCount(0);

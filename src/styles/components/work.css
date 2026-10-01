@@ -31,7 +31,7 @@
 .work-prose {
   margin: 0;
   color: var(--text);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   overflow-wrap: anywhere;
 }
 
@@ -44,10 +44,15 @@
   font-size: var(--text-sm);
 }
 
+/* The figure, "(estimated)" and the price-source note wrap onto a second
+   line on a narrow detail pane instead of pushing past its edge. */
 .work-cost {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
+  max-width: 100%;
   font-variant-numeric: tabular-nums;
 }
 
@@ -112,7 +117,7 @@
   background: var(--code);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  font: var(--weight-regular) var(--text-xs) / 18px var(--font-mono);
+  font: var(--weight-regular) var(--text-xs) / var(--leading-meta) var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -158,12 +163,12 @@
 .work-transcript__role {
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .work-transcript__body {
   color: var(--text);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -329,7 +334,7 @@
 .node-headline--block {
   margin: 0;
   color: var(--text);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .node-stall-note {

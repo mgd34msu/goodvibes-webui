@@ -20,17 +20,22 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Pencil, RefreshCw, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
+import { Pencil, RefreshCw, Smartphone, Trash2 } from 'lucide-react';
 import { sdk, setExplicitAuthToken } from '../../lib/goodvibes';
 import type { PublicPairingToken } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
+import { Button } from '../ui/Button';
 import { useConfirm } from '../ui/ConfirmDialog';
+import { Input } from '../ui/Field';
+import { IconButton } from '../ui/IconButton';
+import { Row, RowList } from '../ui/Row';
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { SettingsBlock } from './dialog/parts';
+import { whenLabel } from '../../lib/when-label';
 import '../../styles/components/pairing-tokens.css';
 
 export function PairingTokensSettings() {
@@ -102,9 +107,9 @@ export function PairingTokensSettings() {
 
   async function handleRevoke(token: PublicPairingToken): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Revoke this device',
+      title: 'Revoke this device?',
       target: token.name,
-      description: 'It will be signed out immediately and will need to pair again to reconnect.',
+      description: 'It is signed out now and has to pair again to reconnect.',
       confirmLabel: 'Revoke',
       tone: 'danger',
     });
@@ -114,9 +119,8 @@ export function PairingTokensSettings() {
 
   async function handleMigrate(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Give this browser its own pairing token',
-      description:
-        'Mints a new token for this browser and switches it over immediately, you stay signed in, and this browser no longer relies on the shared token.',
+      title: 'Give this browser its own pairing token?',
+      description: 'This browser switches to a new token of its own and stays signed in.',
       confirmLabel: 'Migrate this browser',
     });
     if (!ok) return;
@@ -125,9 +129,8 @@ export function PairingTokensSettings() {
 
   async function handleRevokeShared(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Revoke the shared token',
-      description:
-        'This permanently disables it. Any device that has not yet migrated to its own token, including this one, if it still relies on the shared token, is signed out immediately. This cannot be undone.',
+      title: 'Revoke the shared token?',
+      description: 'Every device still using it is signed out now, this browser included if it has no token of its own.',
       confirmLabel: 'Revoke the shared token',
       tone: 'danger',
     });
@@ -150,43 +153,39 @@ export function PairingTokensSettings() {
   const legacySharedRevoked = tokens.data?.legacySharedRevoked ?? false;
 
   return (
-    <section className="panel pairing-tokens-panel" data-testid="pairing-tokens">
+    <>
       {confirm.element}
-      <div className="panel-title">
-        <h2>Devices &amp; pairing</h2>
-        <KeyRound size={18} aria-hidden="true" />
-      </div>
-      <p className="form-note">
-        Every paired surface (a phone, another browser…) has its own token. Renaming or
-        revoking one never affects any other device. The token itself is only ever shown
-        once, at the moment it is minted; this list never shows one.
-      </p>
+      <SettingsBlock
+        testId="pairing-tokens"
+        title="Devices & pairing"
+        description="Every paired phone or browser has its own token. Renaming or revoking one never affects another. A token is shown once, when it is created, so this list never shows one."
+        actions={(
+          <IconButton
+            label="Refresh devices"
+            icon={<RefreshCw aria-hidden="true" />}
+            disabled={tokens.isFetching}
+            onClick={() => void tokens.refetch()}
+          />
+        )}
+      >
+        {tokens.isPending && <SkeletonBlock variant="text" lines={3} />}
 
-      <div className="pairing-tokens-toolbar">
-        <button type="button" className="icon-button" title="Refresh devices" onClick={() => void tokens.refetch()}>
-          <RefreshCw size={15} className={tokens.isFetching ? 'spin' : undefined} />
-        </button>
-      </div>
+        {tokens.isError && (
+          <ErrorState error={tokens.error} onRetry={() => void tokens.refetch()} title="Failed to load paired devices" />
+        )}
 
-      {tokens.isPending && <SkeletonBlock variant="text" lines={3} />}
+        {tokens.isSuccess && rows.length === 0 && (
+          <EmptyState
+            icon={<Smartphone size={28} />}
+            title="No per-device tokens yet"
+            description="Pairing a device (goodvibes pair, or the hand-off QR) mints one automatically."
+          />
+        )}
 
-      {tokens.isError && (
-        <ErrorState error={tokens.error} onRetry={() => void tokens.refetch()} title="Failed to load paired devices" />
-      )}
-
-      {tokens.isSuccess && rows.length === 0 && (
-        <EmptyState
-          icon={<Smartphone size={28} />}
-          title="No per-device tokens yet"
-          description="Pairing a device (goodvibes pair, or the hand-off QR) mints one automatically."
-        />
-      )}
-
-      {tokens.isSuccess && rows.length > 0 && (
-        <ul className="pairing-tokens-rows">
-          {rows.map((token) => (
-            <li key={token.id} className="pairing-token-row" data-token-id={token.id}>
-              {editingId === token.id ? (
+        {tokens.isSuccess && rows.length > 0 && (
+          <RowList aria-label="Paired devices">
+            {rows.map((token) => editingId === token.id ? (
+              <li key={token.id} className="gv-row pairing-token-row" data-token-id={token.id}>
                 <form
                   className="pairing-token-row__rename-form"
                   onSubmit={(event) => {
@@ -194,91 +193,77 @@ export function PairingTokensSettings() {
                     saveRename(token.id);
                   }}
                 >
-                  <label className="sr-only" htmlFor={`pairing-token-rename-${token.id}`}>
-                    Device name
-                  </label>
-                  <input
+                  <Input
                     id={`pairing-token-rename-${token.id}`}
+                    aria-label="Device name"
                     value={draftName}
                     onChange={(event) => setDraftName(event.target.value)}
                     autoFocus
                   />
-                  <button type="submit" className="secondary-button" disabled={rename.isPending || !draftName.trim()}>
+                  <Button type="submit" variant="primary" size="sm" disabled={rename.isPending || !draftName.trim()}>
                     Save
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => setEditingId(null)}>
+                  </Button>
+                  <Button size="sm" onClick={() => setEditingId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </form>
-              ) : (
-                <div className="pairing-token-row__main">
-                  <strong className="pairing-token-row__name">{token.name}</strong>
-                  <small className="pairing-token-row__meta">
-                    created {formatRelative(token.createdAt)} ·{' '}
-                    {token.lastSeenAt ? `last seen ${formatRelative(token.lastSeenAt)}` : 'never seen'}
-                  </small>
-                </div>
-              )}
-              {editingId !== token.id && (
-                <div className="pairing-token-row__actions">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title={`Rename ${token.name}`}
-                    aria-label={`Rename ${token.name}`}
-                    onClick={() => startRename(token)}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button pairing-token-row__revoke"
-                    disabled={revoke.isPending && revoke.variables === token.id}
-                    onClick={() => void handleRevoke(token)}
-                  >
-                    <Trash2 size={14} /> {revoke.isPending && revoke.variables === token.id ? 'Revoking…' : 'Revoke'}
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="pairing-tokens-legacy">
-        <div className="pairing-tokens-legacy__head">
-          <ShieldAlert size={16} aria-hidden="true" />
-          <strong>Shared token</strong>
-        </div>
-        {legacySharedRevoked ? (
-          <p className="form-note">The legacy shared token has been revoked. Every device now needs its own token.</p>
-        ) : (
-          <>
-            <p className="form-note">
-              Older devices may still be signed in with one shared token. Give each its own token
-              before revoking the shared one, revoking it signs out anything still using it.
-            </p>
-            <div className="pairing-tokens-legacy__actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={migrate.isPending}
-                onClick={() => void handleMigrate()}
-              >
-                {migrate.isPending ? 'Migrating…' : 'Give this browser its own token'}
-              </button>
-              <button
-                type="button"
-                className="secondary-button pairing-tokens-legacy__revoke"
-                disabled={revokeShared.isPending}
-                onClick={() => void handleRevokeShared()}
-              >
-                {revokeShared.isPending ? 'Revoking…' : 'Revoke the shared token'}
-              </button>
-            </div>
-          </>
+              </li>
+            ) : (
+              <Row
+                key={token.id}
+                className="pairing-token-row"
+                title={token.name}
+                meta={[
+                  whenLabel(token.createdAt) && `Created ${whenLabel(token.createdAt)}`,
+                  whenLabel(token.lastSeenAt) ? `last seen ${whenLabel(token.lastSeenAt)}` : 'never seen',
+                ].filter(Boolean).join(' · ')}
+                trailing={(
+                  <>
+                    <IconButton
+                      label={`Rename ${token.name}`}
+                      icon={<Pencil aria-hidden="true" />}
+                      onClick={() => startRename(token)}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="pairing-token-row__revoke"
+                      icon={<Trash2 aria-hidden="true" />}
+                      disabled={revoke.isPending && revoke.variables === token.id}
+                      onClick={() => void handleRevoke(token)}
+                    >
+                      {revoke.isPending && revoke.variables === token.id ? 'Revoking…' : 'Revoke'}
+                    </Button>
+                  </>
+                )}
+              />
+            ))}
+          </RowList>
         )}
-      </div>
-    </section>
+      </SettingsBlock>
+
+      <SettingsBlock
+        title="Shared token"
+        description={legacySharedRevoked
+          ? 'The legacy shared token has been revoked. Every device now needs its own token.'
+          : 'Older devices may still be signed in with one shared token. Give each its own token before revoking the shared one, since revoking it signs out anything still using it.'}
+      >
+        {!legacySharedRevoked && (
+          <div className="pairing-tokens-legacy__actions">
+            <Button disabled={migrate.isPending} onClick={() => void handleMigrate()}>
+              {migrate.isPending ? 'Migrating…' : 'Give this browser its own token'}
+            </Button>
+            <Button
+              variant="danger"
+              className="pairing-tokens-legacy__revoke"
+              disabled={revokeShared.isPending}
+              onClick={() => void handleRevokeShared()}
+            >
+              {revokeShared.isPending ? 'Revoking…' : 'Revoke the shared token'}
+            </Button>
+          </div>
+        )}
+      </SettingsBlock>
+    </>
   );
 }

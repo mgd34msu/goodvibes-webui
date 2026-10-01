@@ -46,6 +46,17 @@ import {
   isMethodUnavailableError,
 } from '../../lib/errors';
 import { mailRefusalNote } from '../../lib/mail-refusal';
+import { Chip } from '../ui/Chip';
+import type { StatusTone } from '../ui/StatusDot';
+import { SettingsBlock } from './dialog/parts';
+
+const STATE_TONE: Record<SurfaceState, StatusTone> = {
+  ready: 'ok',
+  'needs-setup': 'warn',
+  'not-available': 'idle',
+  'auth-failed': 'bad',
+  error: 'warn',
+};
 
 type SurfaceState = 'ready' | 'needs-setup' | 'not-available' | 'auth-failed' | 'error';
 
@@ -91,23 +102,21 @@ function calendarStatus(error: unknown, ok: boolean): SurfaceStatus {
     return {
       state: 'not-available',
       label: STATE_LABEL['not-available'],
-      detail:
-        'This daemon build catalogs the calendar verbs but serves no calendar handler, so there is nothing to configure yet.',
+      detail: 'This daemon has no calendar service yet, and updating the daemon turns it on.',
     };
   }
   if (isCalendarUnconfiguredError(error)) {
     return {
       state: 'needs-setup',
       label: STATE_LABEL['needs-setup'],
-      detail:
-        'No endpoint has been brought yet. Set the CalDAV URL and account in Settings and store the password in the daemon secret tier; Settings writes through the daemon, so the terminal and the agent get the same calendar.',
+      detail: 'Add the calendar address and account below, and the password goes to the daemon so the agent and terminal use it too.',
     };
   }
   if (isCalendarAuthFailedError(error)) {
     return {
       state: 'auth-failed',
       label: STATE_LABEL['auth-failed'],
-      detail: 'The configured endpoint refused the stored credentials. Replace the password in Settings.',
+      detail: 'The calendar server refused the saved password, so replace it below.',
     };
   }
   return { state: 'error', label: STATE_LABEL.error, detail: formatError(error) };
@@ -125,14 +134,18 @@ function SurfaceRow({
   testId: string;
 }) {
   return (
-    <div className="mail-settings__row" data-testid={testId} data-state={status.state}>
-      <div className="mail-settings__row-head">
+    <li className="gv-row account-status" data-testid={testId} data-state={status.state}>
+      <div className="gv-row__main">
         {icon}
-        <span className="mail-settings__row-name">{name}</span>
-        <span className={`status-pill status-pill--${status.state === 'ready' ? 'ok' : 'info'}`}>{status.label}</span>
+        <span className="gv-row__text">
+          <span className="gv-row__title">{name}</span>
+          <span className="gv-row__meta account-status__detail">{status.detail}</span>
+        </span>
       </div>
-      <p className="mail-settings__row-detail">{status.detail}</p>
-    </div>
+      <div className="gv-row__trailing">
+        <Chip tone={STATE_TONE[status.state]}>{status.label}</Chip>
+      </div>
+    </li>
   );
 }
 
@@ -159,32 +172,25 @@ export function MailAccountSettings() {
   const calendar = calendarStatus(calendarProbe.error, !calendarProbe.error);
 
   return (
-    <section className="panel" data-testid="mail-account-settings">
-      <div className="panel-title">
-        <h2>Mail &amp; calendar accounts</h2>
-        <Mail size={18} aria-hidden="true" />
-      </div>
-
-      <p className="mail-settings__intro">
-        Both surfaces are configured in Settings, under the daemon-owned keys. The daemon holds the account and its
-        password, so it keeps working with this browser closed, and the terminal and the agent read the same one. No
-        credential is ever sent to or stored in this browser.
-      </p>
-
-      <div className="mail-settings__rows">
+    <SettingsBlock
+      testId="mail-account-settings"
+      title="Mail & calendar accounts"
+      description="Both are set up in the settings below. The daemon holds the account and its password, so it keeps working with this browser closed, and the terminal and the agent use the same one. Nothing secret is sent to or stored in this browser."
+    >
+      <ul className="gv-rows" aria-label="Account status">
         <SurfaceRow
           icon={<Mail size={16} aria-hidden="true" />}
-          name="Mail (IMAP / SMTP)"
+          name="Mail"
           status={mail}
           testId="mail-surface-status"
         />
         <SurfaceRow
           icon={<CalendarDays size={16} aria-hidden="true" />}
-          name="Calendar (CalDAV)"
+          name="Calendar"
           status={calendar}
           testId="calendar-surface-status"
         />
-      </div>
-    </section>
+      </ul>
+    </SettingsBlock>
   );
 }

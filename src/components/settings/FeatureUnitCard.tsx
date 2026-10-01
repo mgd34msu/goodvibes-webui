@@ -33,7 +33,9 @@ import { useState } from 'react';
 import type { FeatureUnitModel } from '../../lib/settings-model';
 import type { ConfigSetOutcome } from '../../lib/goodvibes';
 import { SettingsField } from './SettingsField';
+import { Chip } from '../ui/Chip';
 import { Select } from '../ui/Select';
+import { StatusDot } from '../ui/StatusDot';
 import { Toggle } from '../ui/Toggle';
 
 interface FeatureUnitCardProps {
@@ -123,18 +125,20 @@ export function FeatureUnitCard({
           <h3>
             {feature.name}
             {daemonOwned && (
-              <span
+              <Chip
+                size="sm"
                 className="feature-unit-daemon-badge"
                 title="Daemon-owned: these settings are stored in the daemon's own config and apply to every connected client, not just this browser."
               >
                 Daemon-owned
-              </span>
+              </Chip>
             )}
           </h3>
           {kind === 'constant' ? (
             <span className="feature-unit-state">Governed by its settings below</span>
           ) : (
             <span className={enabled ? 'feature-unit-state feature-unit-state--enabled' : 'feature-unit-state'}>
+              <StatusDot tone={enabled ? 'ok' : 'idle'} />
               {enabled ? 'Enabled' : 'Disabled'}
               {explicit ? '' : ' (default)'}
             </span>

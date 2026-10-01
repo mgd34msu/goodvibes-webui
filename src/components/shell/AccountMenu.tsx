@@ -8,7 +8,6 @@
  */
 import { BellRing, ChevronDown, LogOut, Settings, Smartphone, Sparkles, SunMoon, Users } from 'lucide-react';
 import type { DaemonHealth } from '../../lib/daemon-health';
-import type { ViewId } from '../../lib/router';
 import { useTheme } from '../../hooks/useTheme';
 import { Menu, MenuCheckboxItem, MenuItem, MenuMeta, MenuRadioGroup, MenuSeparator } from '../ui/Menu';
 import { StatusDot, type StatusTone } from '../ui/StatusDot';
@@ -66,13 +65,12 @@ export interface AccountMenuProps {
   health: HealthSummary;
   /** Rail form: only the avatar shows; the name moves to a tooltip. */
   compact?: boolean;
-  onNavigate: (view: ViewId) => void;
   /** Open the settings dialog, on a section when one is named. */
   onOpenSettings: (section?: string) => void;
   onSignOut: () => void;
 }
 
-export function AccountMenu({ name, health, compact = false, onNavigate, onOpenSettings, onSignOut }: AccountMenuProps) {
+export function AccountMenu({ name, health, compact = false, onOpenSettings, onSignOut }: AccountMenuProps) {
   const { theme, setTheme } = useTheme();
   const tone = connectionTone(health);
   const phrase = connectionPhrase(health);
@@ -106,7 +104,7 @@ export function AccountMenu({ name, health, compact = false, onNavigate, onOpenS
       <MenuItem icon={<Settings />} hint="Ctrl ," onSelect={() => onOpenSettings()}>Settings</MenuItem>
       <MenuItem icon={<Smartphone />} onSelect={() => onOpenSettings('devices')}>Devices and pairing</MenuItem>
       <MenuItem icon={<Users />} onSelect={() => onOpenSettings('people')}>People and channels</MenuItem>
-      <MenuItem icon={<BellRing />} onSelect={() => onNavigate('checkin')}>Check-ins</MenuItem>
+      <MenuItem icon={<BellRing />} onSelect={() => onOpenSettings('checkins')}>Check-ins</MenuItem>
       <MenuSeparator />
       <MenuRadioGroup
         icon={<SunMoon />}

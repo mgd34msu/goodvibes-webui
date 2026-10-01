@@ -147,7 +147,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -297,7 +297,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
-  font: var(--weight-medium) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-medium) var(--text-base) / var(--leading-ui) var(--font-ui);
   cursor: pointer;
   transition: background-color var(--motion-fast) ease-out;
 }
@@ -435,7 +435,7 @@
   color: var(--text);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -507,7 +507,7 @@
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .shell-main > .banner svg {

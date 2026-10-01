@@ -29,7 +29,6 @@ import { ChatView } from './views/ChatView';
 import { WorkView } from './views/work/WorkView';
 import { LibraryView } from './views/library/LibraryView';
 import { PersonalView } from './views/personal/PersonalView';
-import { CheckInView } from './views/checkin/CheckInView';
 import { PhoneNodeView } from './views/phone/PhoneNodeView';
 import { SignedOutGate } from './components/auth/SignedOutGate';
 import { DaemonUnreachableGate } from './components/auth/DaemonUnreachableGate';
@@ -353,7 +352,7 @@ export default function App() {
     void askConfirm({
       title: 'Delete this chat?',
       target: chatTitle,
-      description: 'This removes the chat record permanently; it cannot be reopened.',
+      description: 'The chat is removed for good and cannot be reopened.',
       confirmLabel: 'Delete chat',
       tone: 'danger',
     }).then((confirmed) => {
@@ -588,7 +587,6 @@ export default function App() {
       )}
       {activeView === 'library' && <LibraryView tab={tab} onTabChange={setTab} />}
       {activeView === 'personal' && <PersonalView tab={tab} onTabChange={setTab} />}
-      {activeView === 'checkin' && <CheckInView />}
       {activeView === 'phone' && <PhoneNodeView />}
     </ShellLayout>
     <SettingsDialog

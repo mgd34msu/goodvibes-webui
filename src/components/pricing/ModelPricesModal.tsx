@@ -17,7 +17,7 @@ import { useToast } from '../../lib/toast';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
 import { ModelPricesEditor } from '../settings/ModelPricesEditor';
-import '../../styles/components/settings.css';
+import '../../styles/components/pricing.css';
 
 export interface ModelPricesModalProps {
   readonly open: boolean;
@@ -54,12 +54,12 @@ export function ModelPricesModal({ open, onClose, initialModelKey }: ModelPrices
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Model prices">
-      <p className="model-prices-modal-note">
-        Manual prices, USD per 1M tokens, keyed provider:model. A manual price always wins over
-        provider-served and catalog pricing and applies live. The same table is editable under
-        Settings → Pricing (pricing.modelPrices).
-      </p>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Model prices"
+      description="Your own prices, in US dollars per 1M tokens, written as provider:model. A price you set beats the catalog and applies right away. You can also edit them in Settings."
+    >
       {config.isPending ? (
         <SkeletonBlock variant="block" height={64} />
       ) : config.isError ? (

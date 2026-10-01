@@ -122,7 +122,7 @@
   margin: 0;
   color: var(--text-3);
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .lib-prose {
@@ -151,7 +151,7 @@
   padding: 0;
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   list-style: none;
   overflow-wrap: anywhere;
 }
@@ -209,7 +209,7 @@
   margin: 0;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 /* Notices in lists and panes: a trailing button sits at the end, stacked ones breathe. */

@@ -10,6 +10,7 @@ import {
   type MemoryReviewState,
   type MemoryScope,
 } from '../../lib/goodvibes';
+import { whenLabel } from '../../lib/when-label';
 
 export const MEMORY_CLASSES: readonly MemoryClass[] = [
   'decision', 'constraint', 'incident', 'pattern', 'fact', 'risk', 'runbook', 'architecture', 'ownership',
@@ -80,6 +81,5 @@ export function formatProvenanceLink(link: MemoryProvenanceLink): string {
 }
 
 export function formatTimestamp(value: number | undefined): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-  return new Date(value).toLocaleString();
+  return whenLabel(value) || '—';
 }

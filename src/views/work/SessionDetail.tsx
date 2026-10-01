@@ -259,7 +259,7 @@ export function SessionDetail({ record, agents, tab, onTabChange, streamPaused, 
 
   async function handleClose(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Close this session',
+      title: 'Close this session?',
       target: record.title,
       description: 'It stays in history and can be reopened.',
       confirmLabel: 'Close session',
@@ -269,9 +269,9 @@ export function SessionDetail({ record, agents, tab, onTabChange, streamPaused, 
 
   async function handleDelete(): Promise<void> {
     const ok = await confirm.ask({
-      title: 'Delete this session permanently',
+      title: 'Delete this session?',
       target: record.title,
-      description: 'This removes the session record. It cannot be reopened.',
+      description: 'The session record is removed for good and cannot be reopened.',
       confirmLabel: 'Delete',
       tone: 'danger',
     });

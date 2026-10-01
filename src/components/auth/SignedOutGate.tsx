@@ -42,7 +42,10 @@ import {
   type ScannedPairing,
 } from '../../lib/pairing-qr';
 import { PairingQrScanner } from '../pairing/PairingQrScanner';
+import { Disclosure } from '../data-view/DataView';
+import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
+import { Field, Input } from '../ui/Field';
 import '../../styles/components/auth-gate.css';
 
 export interface SignedOutGateProps {
@@ -160,7 +163,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
     <div className="signed-out-gate" role="main">
       <div className="signed-out-card">
         <div className="signed-out-mark">
-          <ShieldCheck size={28} aria-hidden="true" />
+          <ShieldCheck size={24} aria-hidden="true" />
         </div>
         <h1>Sign in to GoodVibes</h1>
         <p className="signed-out-lede">
@@ -184,7 +187,7 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
 
         <section className="signed-out-pair" aria-labelledby="signed-out-pair-title">
           <div className="signed-out-pair__mark">
-            <QrCode size={22} aria-hidden="true" />
+            <QrCode size={20} aria-hidden="true" />
           </div>
           <div className="signed-out-pair__copy">
             <h2 id="signed-out-pair-title">Scan the QR from your terminal</h2>
@@ -193,17 +196,18 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               It prints a QR code, scan it with this device&rsquo;s camera and the link
               signs you in automatically.
             </p>
-            <button
-              type="button"
-              className="secondary-button signed-out-pair__scan"
+            <Button
+              size="sm"
+              className="signed-out-pair__scan"
+              icon={<Camera aria-hidden="true" />}
               onClick={() => {
                 setScanNotice(null);
                 setScanOriginNote(null);
                 setScanOpen(true);
               }}
             >
-              <Camera size={14} aria-hidden="true" /> Scan with this device&rsquo;s camera
-            </button>
+              Scan with this device&rsquo;s camera
+            </Button>
           </div>
         </section>
 
@@ -230,10 +234,9 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
           <span>or paste a token</span>
         </div>
 
-        <form className="form-grid" onSubmit={submitToken}>
-          <label>
-            Operator token
-            <input
+        <form className="signed-out-form" onSubmit={submitToken}>
+          <Field label="Operator token">
+            <Input
               value={token}
               onChange={(event) => setToken(event.target.value)}
               type="password"
@@ -242,10 +245,10 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               // eslint-disable-next-line jsx-a11y/no-autofocus -- primary action on a dedicated sign-in screen
               autoFocus
             />
-          </label>
-          <button className="primary-button" type="submit" disabled={tokenMutation.isPending || !token.trim()}>
+          </Field>
+          <Button variant="primary" type="submit" disabled={tokenMutation.isPending || !token.trim()}>
             {tokenMutation.isPending ? 'Validating…' : 'Sign in with token'}
-          </button>
+          </Button>
         </form>
 
         {tokenMutation.error && (
@@ -255,37 +258,38 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
         )}
 
         <div className="signed-out-secondary">
-          <button
-            type="button"
-            className="link-button"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="signed-out-toggle"
+            icon={<Radio aria-hidden="true" />}
             onClick={() => setShowRelayPaste((current) => !current)}
             aria-expanded={showRelayPaste}
           >
-            <Radio size={13} aria-hidden="true" /> Connecting from outside the LAN?
-          </button>
+            Connecting from outside the LAN?
+          </Button>
           {showRelayPaste && (
-            <form className="form-grid signed-out-password" onSubmit={submitRelayCode}>
-              <p className="form-note">
+            <form className="signed-out-form signed-out-password" onSubmit={submitRelayCode}>
+              <p className="signed-out-note">
                 If this device cannot reach the daemon directly, scan or paste the relay
                 pairing code the daemon shows (a separate QR from the sign-in one). It
-                lets this device reach the daemon through the relay instead. This does
-                NOT sign you in by itself; still scan/paste an operator token above (or
+                lets this device reach the daemon through the relay instead. It does
+                not sign you in by itself; still scan or paste an operator token above (or
                 after) to sign in. Live updates (chat streaming, fleet events) are not
-                available over the relay, those views fall back to periodic refresh.
+                available over the relay, so those views fall back to periodic refresh.
               </p>
-              <label>
-                Relay pairing code
-                <input
+              <Field label="Relay pairing code">
+                <Input
                   value={relayCode}
                   onChange={(event) => setRelayCode(event.target.value)}
                   type="text"
                   autoComplete="off"
                   placeholder="gvrelay1.…"
                 />
-              </label>
-              <button className="secondary-button" type="submit" disabled={!relayCode.trim()}>
+              </Field>
+              <Button type="submit" disabled={!relayCode.trim()}>
                 Save relay pairing
-              </button>
+              </Button>
               {relayStored && (
                 <div className="banner" role="status">
                   Relay pairing saved. This device will use it automatically when the
@@ -301,9 +305,8 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
           )}
         </div>
 
-        <details className="signed-out-help">
-          <summary>Where do I find a token?</summary>
-          <ul>
+        <Disclosure summary="Where do I find a token?">
+          <ul className="signed-out-help">
             <li>
               Easiest: run <code>goodvibes pair</code> and scan the QR: it carries the
               token for you, no copy/paste.
@@ -320,39 +323,39 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
               likely expired; grab the current one from the daemon output.
             </li>
           </ul>
-        </details>
+        </Disclosure>
 
         <div className="signed-out-secondary">
-          <button
-            type="button"
-            className="link-button"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="signed-out-toggle"
+            icon={<KeyRound aria-hidden="true" />}
             onClick={() => setShowPassword((current) => !current)}
             aria-expanded={showPassword}
           >
-            <KeyRound size={13} aria-hidden="true" /> Use a username &amp; password instead
-          </button>
+            Use a username &amp; password instead
+          </Button>
           {showPassword && (
-            <form className="form-grid signed-out-password" onSubmit={submitLogin}>
-              <p className="form-note">
+            <form className="signed-out-form signed-out-password" onSubmit={submitLogin}>
+              <p className="signed-out-note">
                 Password login only works on hosts where the daemon still holds a bootstrap
                 credential. If it was already consumed, this path will not work, use a token.
               </p>
-              <label>
-                Username
-                <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
-              </label>
-              <label>
-                Password
-                <input
+              <Field label="Username">
+                <Input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
+              </Field>
+              <Field label="Password">
+                <Input
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   type="password"
                   autoComplete="current-password"
                 />
-              </label>
-              <button className="secondary-button" type="submit" disabled={loginMutation.isPending || !username || !password}>
+              </Field>
+              <Button type="submit" disabled={loginMutation.isPending || !username || !password}>
                 {loginMutation.isPending ? 'Signing in…' : 'Sign in with password'}
-              </button>
+              </Button>
               {loginMutation.error && (
                 <div className="banner warning" role="alert">{formatError(loginMutation.error)}</div>
               )}

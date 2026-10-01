@@ -18,7 +18,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { History, Undo2 } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { RewindApplyResult } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
@@ -27,7 +27,10 @@ import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { turnAnchorsFromMessages } from '../../lib/rewind';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { Button } from '../../components/ui/Button';
+import { Field } from '../../components/ui/Field';
 import { Select } from '../../components/ui/Select';
+import { StatusDot } from '../../components/ui/StatusDot';
 import '../../styles/components/session-rewind.css';
 
 type RewindScope = 'files' | 'conversation' | 'both';
@@ -46,7 +49,6 @@ const SCOPES: { value: RewindScope; label: string }[] = [
 
 export function SessionRewind({ sessionId }: SessionRewindProps) {
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
   const [scope, setScope] = useState<RewindScope>('both');
   const [anchorTurnId, setAnchorTurnId] = useState('');
   const [confirmApply, setConfirmApply] = useState(false);
@@ -56,7 +58,6 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
   const messages = useQuery({
     queryKey: queryKeys.sessionMessages(sessionId),
     queryFn: () => sdk.operator.sessions.messages.list(sessionId),
-    enabled: expanded,
   });
 
   const anchors = useMemo(
@@ -102,170 +103,163 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
 
   return (
     <section className="session-rewind">
-      <button
-        type="button"
-        className="session-rewind__toggle"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <History size={15} aria-hidden="true" />
-        <span>Rewind</span>
-        <span className="session-rewind__toggle-hint">
-          {expanded ? 'Preview, then restore files and/or conversation to a turn' : 'Roll this session back to an earlier turn'}
-        </span>
-      </button>
+      <p className="session-rewind__intro">
+        Roll this session back to an earlier turn. Preview what would change, then restore the files, the
+        conversation, or both.
+      </p>
 
-      {expanded && (
-        <div className="session-rewind__body">
-          <div className="session-rewind__controls">
-            <div className="session-rewind__field">
-              <span aria-hidden="true">Scope</span>
-              <Select<RewindScope>
-                value={scope}
-                onChange={(next) => { setScope(next); resetFlow(); }}
-                aria-label="Rewind scope"
-                options={SCOPES}
-              />
-            </div>
-            <div className="session-rewind__field">
-              <span aria-hidden="true">Anchor</span>
-              <Select
-                value={anchorTurnId}
-                onChange={(next) => { setAnchorTurnId(next); resetFlow(); }}
-                aria-label="Rewind turn anchor"
-                disabled={messages.isPending}
-                options={[
-                  { value: '', label: 'Most recent checkpoint (no turn)' },
-                  ...anchors.map((a) => ({ value: a.turnId, label: a.label || a.turnId })),
-                ]}
-              />
-            </div>
-          </div>
-
-          {messages.isPending && <SkeletonBlock variant="text" lines={2} />}
-          {anchors.length === 0 && messages.isSuccess && (
-            <p className="session-rewind__note" role="note">
-              No turn-anchored messages retained for this session, you can still rewind to its most recent checkpoint.
-            </p>
-          )}
-
-          <button
-            type="button"
-            className="session-rewind__preview-btn"
-            disabled={plan.isPending}
-            onClick={() => { setReceipt(null); apply.reset(); plan.mutate(); }}
-          >
-            {plan.isPending ? 'Previewing…' : 'Preview rewind'}
-          </button>
-
-          {plan.isError && <p className="session-rewind__error" role="alert">{formatError(plan.error)}</p>}
-
-          {planData && !receipt && (
-            <div className="session-rewind__plan" role="group" aria-label="Rewind plan preview">
-              <h4 className="session-rewind__plan-title">This rewind would change:</h4>
-              <ul className="session-rewind__plan-list">
-                {(scope === 'files' || scope === 'both') && (
-                  <li>
-                    <strong>Files:</strong>{' '}
-                    {planData.files?.available
-                      ? `restore ${planData.files.affectedFileCount} file${planData.files.affectedFileCount === 1 ? '' : 's'} from checkpoint "${planData.files.checkpointLabel ?? planData.files.checkpointId ?? 'nearest'}"`
-                      : 'unavailable on this runtime: no workspace checkpoint store is wired.'}
-                  </li>
-                )}
-                {(scope === 'conversation' || scope === 'both') && (
-                  <li>
-                    <strong>Conversation:</strong>{' '}
-                    {planData.conversation?.available
-                      ? `drop ${planData.conversation.messagesToDrop} message${planData.conversation.messagesToDrop === 1 ? '' : 's'}, keep ${planData.conversation.messagesRemaining}`
-                      : 'unavailable on this runtime: no conversation store is wired for a rewind here.'}
-                  </li>
-                )}
-              </ul>
-              {planData.warnings.length > 0 && (
-                <ul className="session-rewind__warnings" role="note">
-                  {planData.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              )}
-              <button
-                type="button"
-                className="session-rewind__apply-btn"
-                onClick={() => setConfirmApply(true)}
-              >
-                <Undo2 size={14} aria-hidden="true" /> Rewind to this point…
-              </button>
-            </div>
-          )}
-
-          {apply.isError && <p className="session-rewind__error" role="alert">{formatError(apply.error)}</p>}
-          {applyRefused && (
-            <p className="session-rewind__error" role="alert">
-              {apply.data?.refusal?.reason ?? 'The rewind was refused, preview it again to mint a fresh confirmation.'}
-            </p>
-          )}
-
-          {receipt && (
-            <div className="session-rewind__receipt" role="status">
-              <h4 className="session-rewind__receipt-title">Rewind applied</h4>
-              <ul className="session-rewind__plan-list">
-                {receipt.files && (
-                  <li>
-                    <strong>Files:</strong>{' '}
-                    {receipt.files.restored
-                      ? `restored ${receipt.files.restoredFileCount} file${receipt.files.restoredFileCount === 1 ? '' : 's'}${receipt.files.removedFileCount ? `, removed ${receipt.files.removedFileCount}` : ''}`
-                      : 'not restored'}
-                  </li>
-                )}
-                {receipt.conversation && (
-                  <li>
-                    <strong>Conversation:</strong>{' '}
-                    {receipt.conversation.rewound
-                      ? `dropped ${receipt.conversation.droppedMessages} message${receipt.conversation.droppedMessages === 1 ? '' : 's'}`
-                      : 'not rewound'}
-                  </li>
-                )}
-              </ul>
-              {receipt.warnings.length > 0 && (
-                <ul className="session-rewind__warnings" role="note">
-                  {receipt.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              )}
-
-              <div className="session-rewind__undo">
-                <strong>Undo point recorded.</strong>{' '}
-                {receipt.undo.files ? (
-                  <button
-                    type="button"
-                    className="session-rewind__undo-btn"
-                    disabled={undoFiles.isPending}
-                    onClick={() => setConfirmUndo(true)}
-                  >
-                    {undoFiles.isPending ? 'Undoing…' : 'Undo the file restore'}
-                  </button>
-                ) : (
-                  <span>No file undo point (nothing was restored).</span>
-                )}
-                {receipt.undo.conversation && (
-                  <p className="session-rewind__note" role="note">
-                    The conversation rewind is reversible from its captured snapshot
-                    ({receipt.undo.conversation.undoSnapshotId}), but the browser has no conversation-restore verb, use
-                    the TUI to reverse it.
-                  </p>
-                )}
-              </div>
-              {undoFiles.isError && <p className="session-rewind__error" role="alert">{formatError(undoFiles.error)}</p>}
-              {undoFiles.isSuccess && <p className="session-rewind__ok" role="status">File restore undone.</p>}
-            </div>
-          )}
+      <div className="session-rewind__body">
+        <div className="session-rewind__controls">
+          <Field label="Scope" className="session-rewind__field">
+            <Select<RewindScope>
+              value={scope}
+              onChange={(next) => { setScope(next); resetFlow(); }}
+              aria-label="Rewind scope"
+              options={SCOPES}
+            />
+          </Field>
+          <Field label="Anchor" className="session-rewind__field">
+            <Select
+              value={anchorTurnId}
+              onChange={(next) => { setAnchorTurnId(next); resetFlow(); }}
+              aria-label="Rewind turn anchor"
+              disabled={messages.isPending}
+              options={[
+                { value: '', label: 'Most recent checkpoint (no turn)' },
+                ...anchors.map((a) => ({ value: a.turnId, label: a.label || a.turnId })),
+              ]}
+            />
+          </Field>
         </div>
-      )}
+
+        {messages.isPending && <SkeletonBlock variant="text" lines={2} />}
+        {anchors.length === 0 && messages.isSuccess && (
+          <p className="session-rewind__note" role="note">
+            No turn-anchored messages retained for this session, you can still rewind to its most recent checkpoint.
+          </p>
+        )}
+
+        <Button
+          className="session-rewind__preview-btn"
+          disabled={plan.isPending}
+          onClick={() => { setReceipt(null); apply.reset(); plan.mutate(); }}
+        >
+          {plan.isPending ? 'Previewing…' : 'Preview rewind'}
+        </Button>
+
+        {plan.isError && <p className="session-rewind__error" role="alert">{formatError(plan.error)}</p>}
+
+        {planData && !receipt && (
+          <div className="session-rewind__plan" role="group" aria-label="Rewind plan preview">
+            <h4 className="session-rewind__plan-title">This rewind would change</h4>
+            <ul className="session-rewind__plan-list">
+              {(scope === 'files' || scope === 'both') && (
+                <li>
+                  <strong>Files:</strong>{' '}
+                  {planData.files?.available
+                    ? `restore ${planData.files.affectedFileCount} file${planData.files.affectedFileCount === 1 ? '' : 's'} from checkpoint "${planData.files.checkpointLabel ?? planData.files.checkpointId ?? 'nearest'}"`
+                    : 'unavailable on this runtime: no workspace checkpoint store is wired.'}
+                </li>
+              )}
+              {(scope === 'conversation' || scope === 'both') && (
+                <li>
+                  <strong>Conversation:</strong>{' '}
+                  {planData.conversation?.available
+                    ? `drop ${planData.conversation.messagesToDrop} message${planData.conversation.messagesToDrop === 1 ? '' : 's'}, keep ${planData.conversation.messagesRemaining}`
+                    : 'unavailable on this runtime: no conversation store is wired for a rewind here.'}
+                </li>
+              )}
+            </ul>
+            {planData.warnings.length > 0 && (
+              <ul className="banner warning session-rewind__warnings" role="note">
+                {planData.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
+            <Button
+              variant="danger"
+              className="session-rewind__apply-btn"
+              icon={<Undo2 size={16} aria-hidden="true" />}
+              onClick={() => setConfirmApply(true)}
+            >
+              Rewind to this point…
+            </Button>
+          </div>
+        )}
+
+        {apply.isError && <p className="session-rewind__error" role="alert">{formatError(apply.error)}</p>}
+        {applyRefused && (
+          <p className="session-rewind__error" role="alert">
+            {apply.data?.refusal?.reason ?? 'The rewind was refused, preview it again to mint a fresh confirmation.'}
+          </p>
+        )}
+
+        {receipt && (
+          <div className="session-rewind__receipt" role="status">
+            <h4 className="session-rewind__receipt-title">Rewind applied</h4>
+            <ul className="session-rewind__plan-list">
+              {receipt.files && (
+                <li>
+                  <strong>Files:</strong>{' '}
+                  {receipt.files.restored
+                    ? `restored ${receipt.files.restoredFileCount} file${receipt.files.restoredFileCount === 1 ? '' : 's'}${receipt.files.removedFileCount ? `, removed ${receipt.files.removedFileCount}` : ''}`
+                    : 'not restored'}
+                </li>
+              )}
+              {receipt.conversation && (
+                <li>
+                  <strong>Conversation:</strong>{' '}
+                  {receipt.conversation.rewound
+                    ? `dropped ${receipt.conversation.droppedMessages} message${receipt.conversation.droppedMessages === 1 ? '' : 's'}`
+                    : 'not rewound'}
+                </li>
+              )}
+            </ul>
+            {receipt.warnings.length > 0 && (
+              <ul className="banner warning session-rewind__warnings" role="note">
+                {receipt.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
+
+            <div className="session-rewind__undo">
+              <strong>Undo point recorded.</strong>{' '}
+              {receipt.undo.files ? (
+                <Button
+                  size="sm"
+                  className="session-rewind__undo-btn"
+                  disabled={undoFiles.isPending}
+                  onClick={() => setConfirmUndo(true)}
+                >
+                  {undoFiles.isPending ? 'Undoing…' : 'Undo the file restore'}
+                </Button>
+              ) : (
+                <span>No file undo point (nothing was restored).</span>
+              )}
+              {receipt.undo.conversation && (
+                <p className="session-rewind__note" role="note">
+                  The conversation rewind is kept as a snapshot
+                  ({receipt.undo.conversation.undoSnapshotId}), but this page can&apos;t restore a conversation. Use
+                  the terminal app to reverse it.
+                </p>
+              )}
+            </div>
+            {undoFiles.isError && <p className="session-rewind__error" role="alert">{formatError(undoFiles.error)}</p>}
+            {undoFiles.isSuccess && (
+              <p className="session-rewind__ok" role="status">
+                <StatusDot tone="ok" />
+                File restore undone.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {confirmApply && planData && (
         <ConfirmDialog
           open
           tone="danger"
-          title="Rewind this session"
+          title="Rewind this session?"
           target={`Scope: ${scope}${anchorTurnId ? ` · turn ${anchorTurnId}` : ' · most recent checkpoint'}`}
-          description="Restores files and/or truncates the conversation to this point. An undo point is recorded, so it is reversible."
+          description="The chosen scope goes back to this point, and an undo point is kept so you can reverse it."
           confirmLabel="Rewind"
           onConfirm={() => {
             setConfirmApply(false);
@@ -279,9 +273,9 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
         <ConfirmDialog
           open
           tone="danger"
-          title="Undo the file restore"
+          title="Undo the file restore?"
           target={`Restore checkpoint ${receipt.undo.files.restoreCheckpointId}`}
-          description="Restores the working tree to its pre-rewind state (the safety checkpoint taken before the rewind)."
+          description="The files go back to how they were just before the rewind."
           confirmLabel="Undo"
           onConfirm={() => {
             const id = receipt.undo.files?.restoreCheckpointId;

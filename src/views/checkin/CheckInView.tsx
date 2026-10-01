@@ -1,6 +1,8 @@
 /**
- * CheckInView, the proactive check-in configuration, its run receipts, and a
- * manual run-now trigger (checkin.*).
+ * CheckInSettings, the proactive check-in configuration, its run receipts, and a
+ * manual run-now trigger (checkin.*). It is the Check-ins section of Settings,
+ * Notifications (`?settings=checkins`; the old `?view=checkin` page link opens
+ * it there).
  *
  * Single-column, phone-first: config display up top with an edit control (gated by a
  * confirm sheet, checkin.config.set can ENABLE proactive contact, so every save
@@ -16,17 +18,20 @@
 
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play, RefreshCw, Settings2 } from 'lucide-react';
+import { BellRing, RefreshCw } from 'lucide-react';
 import { sdk } from '../../lib/goodvibes';
 import type { OperatorMethodOutput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { DetailSection, EmptyState, Facts, SkeletonRows } from '../../components/data-view/DataView';
 import { ErrorState } from '../../components/feedback/ErrorState';
-import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
-import { Checkbox } from '../../components/ui/Checkbox';
+import { Button } from '../../components/ui/Button';
 import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { Field, Input } from '../../components/ui/Field';
+import { IconButton } from '../../components/ui/IconButton';
+import { StatusDot, type StatusTone } from '../../components/ui/StatusDot';
+import { Toggle } from '../../components/ui/Toggle';
+import { whenLabel } from '../../lib/when-label';
 import { formatError, isMethodUnavailableError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
 import '../../styles/components/checkin.css';
 
@@ -49,11 +54,17 @@ function outcomeLabel(outcome: string): string {
   }
 }
 
-function outcomeTone(outcome: string): string {
+function outcomeTone(outcome: string): StatusTone {
   if (outcome === 'delivered') return 'ok';
   if (outcome === 'error') return 'bad';
-  if (outcome.startsWith('skipped')) return 'neutral';
-  return 'neutral';
+  return 'idle';
+}
+
+/** "Scheduled" or "Run by you", from the receipt's trigger word. */
+function triggerLabel(trigger: string): string {
+  if (trigger === 'manual') return 'Run by you';
+  if (trigger === 'scheduled') return 'Scheduled';
+  return trigger;
 }
 
 function ConfigEditForm({
@@ -88,10 +99,10 @@ function ConfigEditForm({
     // Every save confirms, this can ENABLE proactive contact (the daemon reaching out
     // on its own schedule), not just the specific edit that flips enabled on.
     const ok = await confirm.ask({
-      title: enabled ? 'Save: proactive check-ins will run' : 'Save check-in configuration',
+      title: enabled ? 'Turn on check-ins?' : 'Save check-in settings?',
       description: enabled
-        ? `The daemon will contact you via ${deliveryChannel || 'the configured channel'} on schedule "${cadence}", outside quiet hours "${quietHours}".`
-        : 'Check-ins remain disabled: no proactive contact will run.',
+        ? `GoodVibes contacts you through ${deliveryChannel || 'the chosen channel'} on the schedule “${cadence}”, outside quiet hours “${quietHours}”.`
+        : 'Check-ins stay off, so GoodVibes never contacts you on its own.',
       confirmLabel: 'Save',
       tone: enabled ? 'danger' : 'default',
     });
@@ -102,46 +113,58 @@ function ConfigEditForm({
   return (
     <form className="checkin-edit-form" onSubmit={(e) => void handleSubmit(e)}>
       {confirm.element}
-      <Checkbox className="checkin-edit-form__checkbox" checked={enabled} onChange={setEnabled} disabled={save.isPending}>
+      <Toggle className="checkin-edit-form__toggle" checked={enabled} onChange={setEnabled} disabled={save.isPending}>
         Enabled
-      </Checkbox>
-      <label>
-        Cadence (cron)
-        <input type="text" value={cadence} onChange={(e) => setCadence(e.target.value)} disabled={save.isPending} />
-      </label>
-      <label>
-        Delivery channel
-        <input type="text" value={deliveryChannel} onChange={(e) => setDeliveryChannel(e.target.value)} disabled={save.isPending} />
-      </label>
-      <label>
-        Quiet hours
-        <input type="text" value={quietHours} onChange={(e) => setQuietHours(e.target.value)} disabled={save.isPending} />
-      </label>
+      </Toggle>
+      <Field label="Schedule" help="A cron expression, for example 0 9 * * * for every day at 9:00.">
+        <Input
+          type="text"
+          className="checkin-edit-form__code"
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value)}
+          disabled={save.isPending}
+        />
+      </Field>
+      <Field label="Delivery channel" help="Where the check-in is sent, for example slack:#daily.">
+        <Input type="text" value={deliveryChannel} onChange={(e) => setDeliveryChannel(e.target.value)} disabled={save.isPending} />
+      </Field>
+      <Field label="Quiet hours" help="No check-ins in this window, for example 22:00-07:00.">
+        <Input type="text" value={quietHours} onChange={(e) => setQuietHours(e.target.value)} disabled={save.isPending} />
+      </Field>
       <div className="checkin-edit-form__actions">
-        <button type="submit" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
-        <button type="button" className="secondary" onClick={onCancel} disabled={save.isPending}>Cancel</button>
+        <Button onClick={onCancel} disabled={save.isPending}>Cancel</Button>
+        <Button type="submit" variant="primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</Button>
       </div>
     </form>
   );
 }
 
+/** One receipt: the summary, one meta line (trigger and when), the outcome right-aligned. */
 function ReceiptRow({ receipt }: { receipt: CheckinReceipt }) {
+  const when = whenLabel(receipt.ranAt);
+  const details = [
+    receipt.decisionReason ? `Reason: ${receipt.decisionReason}` : '',
+    receipt.deliveredMessage ? `Message: ${receipt.deliveredMessage}` : '',
+  ].filter(Boolean);
   return (
-    <li className="checkin-receipt">
-      <div className="checkin-receipt__header">
-        <span className={`badge ${outcomeTone(receipt.outcome)}`}>{outcomeLabel(receipt.outcome)}</span>
-        <span className="badge neutral">{receipt.trigger}</span>
-        <span className="checkin-receipt__meta">{formatRelative(receipt.ranAt)}</span>
+    <li className="gv-row checkin-receipt">
+      <div className="gv-row__main checkin-receipt__main">
+        <span className="gv-row__text">
+          <span className="gv-row__title checkin-receipt__summary">{receipt.briefingSummary}</span>
+          <span className="gv-row__meta">{[triggerLabel(receipt.trigger), when].filter(Boolean).join(' · ')}</span>
+          {details.map((line) => <span key={line} className="checkin-receipt__detail">{line}</span>)}
+          {receipt.error && <span className="checkin-receipt__detail checkin-receipt__error">Error: {receipt.error}</span>}
+        </span>
       </div>
-      <p className="checkin-receipt__summary">{receipt.briefingSummary}</p>
-      {receipt.decisionReason && <p className="checkin-receipt__detail">Reason: {receipt.decisionReason}</p>}
-      {receipt.deliveredMessage && <p className="checkin-receipt__detail">Message: {receipt.deliveredMessage}</p>}
-      {receipt.error && <p className="checkin-receipt__detail checkin-receipt__error">Error: {receipt.error}</p>}
+      <div className="gv-row__trailing checkin-receipt__outcome">
+        <StatusDot tone={outcomeTone(receipt.outcome)} />
+        {outcomeLabel(receipt.outcome)}
+      </div>
     </li>
   );
 }
 
-export function CheckInView() {
+export function CheckInSettings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -177,88 +200,98 @@ export function CheckInView() {
 
   return (
     <div className="checkin-view">
-      <section className="checkin-section">
-        <div className="checkin-section__header">
-          <h2>Configuration</h2>
-          <div className="checkin-section__actions">
-            <button className="icon-button" type="button" title="Refresh" onClick={() => void config.refetch()}>
-              <RefreshCw size={15} />
-            </button>
-          </div>
-        </div>
+      <div className="checkin-sections">
+        <DetailSection
+          title="Settings"
+          actions={
+            <>
+              <Button size="sm" onClick={() => run.mutate()} disabled={run.isPending}>
+                {run.isPending ? 'Running…' : 'Run check-in now'}
+              </Button>
+              {config.isSuccess && !editing && (
+                <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit</Button>
+              )}
+              <IconButton
+                size="sm"
+                label="Refresh settings"
+                icon={<RefreshCw size={14} aria-hidden="true" />}
+                onClick={() => void config.refetch()}
+              />
+            </>
+          }
+        >
+          {config.isPending && <SkeletonRows count={3} label="Loading settings" />}
+          {configUnavailable && <p className="checkin-empty" role="note">Check-in is unavailable on this daemon.</p>}
+          {config.isError && !configUnavailable && (
+            <ErrorState error={config.error} onRetry={() => void config.refetch()} title="Failed to load check-in config" />
+          )}
+          {config.isSuccess && !editing && (
+            <Facts
+              items={[
+                {
+                  label: 'Status',
+                  value: (
+                    <span className="checkin-status">
+                      <StatusDot tone={config.data.config.enabled ? 'ok' : 'idle'} />
+                      {config.data.config.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  ),
+                },
+                { label: 'Schedule', value: <code className="checkin-code">{config.data.config.cadence}</code> },
+                { label: 'Delivery channel', value: config.data.config.deliveryChannel },
+                { label: 'Quiet hours', value: config.data.config.quietHours },
+              ]}
+            />
+          )}
+          {config.isSuccess && editing && (
+            <ConfigEditForm
+              config={config.data.config}
+              onSaved={() => { setEditing(false); void config.refetch(); }}
+              onCancel={() => setEditing(false)}
+            />
+          )}
+        </DetailSection>
 
-        {config.isPending && <SkeletonBlock variant="text" lines={4} />}
-        {configUnavailable && <div className="checkin-empty" role="note">Check-in is unavailable on this daemon.</div>}
-        {config.isError && !configUnavailable && (
-          <ErrorState error={config.error} onRetry={() => void config.refetch()} title="Failed to load check-in config" />
-        )}
-        {config.isSuccess && !editing && (
-          <div className="checkin-config-display">
-            <div className="checkin-config-display__row">
-              <span className={`badge ${config.data.config.enabled ? 'ok' : 'neutral'}`}>
-                {config.data.config.enabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
-            <dl className="checkin-config-display__fields">
-              <dt>Cadence</dt>
-              <dd>{config.data.config.cadence || '—'}</dd>
-              <dt>Delivery channel</dt>
-              <dd>{config.data.config.deliveryChannel || '—'}</dd>
-              <dt>Quiet hours</dt>
-              <dd>{config.data.config.quietHours || '—'}</dd>
-            </dl>
-            <button type="button" className="checkin-config-display__edit" onClick={() => setEditing(true)}>
-              <Settings2 size={14} /> Edit
-            </button>
-          </div>
-        )}
-        {config.isSuccess && editing && (
-          <ConfigEditForm
-            config={config.data.config}
-            onSaved={() => { setEditing(false); void config.refetch(); }}
-            onCancel={() => setEditing(false)}
-          />
-        )}
-      </section>
-
-      <section className="checkin-section">
-        <div className="checkin-section__header">
-          <h2>Run now</h2>
-        </div>
-        <button type="button" className="checkin-run-button" onClick={() => run.mutate()} disabled={run.isPending}>
-          <Play size={14} /> {run.isPending ? 'Running…' : 'Run check-in now'}
-        </button>
         {runResult && (
-          <div className="checkin-run-result">
-            <span className={`badge ${outcomeTone(runResult.outcome)}`}>{outcomeLabel(runResult.outcome)}</span>
-            <p className="checkin-receipt__summary">{runResult.summary}</p>
-          </div>
+          <DetailSection title="Last run">
+            <div className="checkin-run-result">
+              <span className="checkin-status">
+                <StatusDot tone={outcomeTone(runResult.outcome)} />
+                {outcomeLabel(runResult.outcome)}
+              </span>
+              <p className="checkin-run-result__summary">{runResult.summary}</p>
+            </div>
+          </DetailSection>
         )}
-      </section>
 
-      <section className="checkin-section">
-        <div className="checkin-section__header">
-          <h2>Recent receipts</h2>
-          <div className="checkin-section__actions">
-            <button className="icon-button" type="button" title="Refresh" onClick={() => void receipts.refetch()}>
-              <RefreshCw size={15} />
-            </button>
-          </div>
-        </div>
-        {receipts.isPending && <SkeletonBlock variant="text" lines={4} />}
-        {receiptsUnavailable && <div className="checkin-empty" role="note">Check-in receipts are unavailable on this daemon.</div>}
-        {receipts.isError && !receiptsUnavailable && (
-          <ErrorState error={receipts.error} onRetry={() => void receipts.refetch()} title="Failed to load receipts" />
-        )}
-        {receipts.isSuccess && list.length === 0 && (
-          <EmptyState title="No check-in runs yet" description="Receipts appear here after the first scheduled or manual run." />
-        )}
-        {list.length > 0 && (
-          <ul className="checkin-receipts">
-            {list.map((receipt) => <ReceiptRow key={receipt.id} receipt={receipt} />)}
-          </ul>
-        )}
-      </section>
+        <DetailSection
+          title="Recent receipts"
+          actions={
+            <IconButton
+              size="sm"
+              label="Refresh receipts"
+              icon={<RefreshCw size={14} aria-hidden="true" />}
+              onClick={() => void receipts.refetch()}
+            />
+          }
+        >
+          {receipts.isPending && <SkeletonRows count={3} label="Loading receipts" />}
+          {receiptsUnavailable && <p className="checkin-empty" role="note">Check-in receipts are unavailable on this daemon.</p>}
+          {receipts.isError && !receiptsUnavailable && (
+            <ErrorState error={receipts.error} onRetry={() => void receipts.refetch()} title="Failed to load receipts" />
+          )}
+          {receipts.isSuccess && list.length === 0 && (
+            <EmptyState icon={<BellRing size={20} />}>
+              No check-ins yet. They show up here after the first scheduled or manual run.
+            </EmptyState>
+          )}
+          {list.length > 0 && (
+            <ul className="gv-rows checkin-receipts">
+              {list.map((receipt) => <ReceiptRow key={receipt.id} receipt={receipt} />)}
+            </ul>
+          )}
+        </DetailSection>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { sdk } from '../../lib/goodvibes';
 import {
@@ -84,11 +85,27 @@ export function StepUpHost() {
   const registered = getRegisteredCredential();
 
   return (
-    <Dialog open onClose={() => settle(null)} title="Verify to continue">
+    <Dialog
+      open
+      onClose={() => settle(null)}
+      title="Verify to continue"
+      footer={(
+        <>
+          <Button onClick={() => settle(null)} disabled={running}>
+            Cancel
+          </Button>
+          {availability.supported && (
+            <Button variant="primary" onClick={() => void verify()} disabled={running}>
+              {running ? 'Waiting for passkey…' : 'Verify with passkey'}
+            </Button>
+          )}
+        </>
+      )}
+    >
       <div className="stepup-ceremony">
         <p className="stepup-lead">
-          <ShieldCheck size={18} aria-hidden="true" />
-          <span>This action changes state over the relay connection and needs a passkey confirmation.</span>
+          <ShieldCheck size={16} aria-hidden="true" />
+          <span>This action changes something over the relay connection, so it needs a passkey confirmation.</span>
         </p>
         <p className="stepup-target">
           <code>{`${request.method} ${request.path}`}</code>
@@ -100,8 +117,8 @@ export function StepUpHost() {
           </div>
         ) : !registered ? (
           <p className="stepup-note">
-            No passkey is registered on this device yet. If you have a discoverable passkey your
-            browser may still offer it below, otherwise register one in Settings → Security first.
+            No passkey is registered on this device yet. Your browser may still offer a saved
+            passkey when you verify; otherwise register one first, in Settings under Account.
           </p>
         ) : null}
 
@@ -110,17 +127,6 @@ export function StepUpHost() {
             {error}
           </div>
         )}
-
-        <div className="stepup-actions">
-          <button type="button" className="secondary-button" onClick={() => settle(null)} disabled={running}>
-            Cancel
-          </button>
-          {availability.supported && (
-            <button type="button" className="primary-button" onClick={() => void verify()} disabled={running}>
-              {running ? 'Waiting for passkey…' : 'Verify with passkey'}
-            </button>
-          )}
-        </div>
       </div>
     </Dialog>
   );

@@ -22,6 +22,11 @@ import { formatError, isMethodUnavailableError } from '../../lib/errors';
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { Button } from '../ui/Button';
+import { Disclosure } from '../data-view/DataView';
+import { Row, RowList } from '../ui/Row';
+import { SettingsBlock } from './dialog/parts';
+import { whenLabel } from '../../lib/when-label';
 import '../../styles/components/device.css';
 
 type GrantsResult = OperatorMethodOutput<'devices.grants.list'>;
@@ -31,10 +36,12 @@ type HousekeepingResult = OperatorMethodOutput<'devices.housekeeping.run'>;
 export const deviceGrantsQueryKey = ['devices', 'grants'] as const;
 export const deviceNodesQueryKey = ['devices', 'nodes'] as const;
 
+/** A time for a grant line; a missing time reads "never". */
 function formatWhen(value: number | null | undefined): string {
-  if (!value) return 'never';
-  return new Date(value).toLocaleString();
+  return whenLabel(value) || 'never';
 }
+
+const TITLE = 'Phone capability grants';
 
 export function DeviceGrants() {
   const queryClient = useQueryClient();
@@ -66,15 +73,11 @@ export function DeviceGrants() {
 
   if (grants.isPending) {
     return (
-      <section className="panel device-panel">
-        <div className="panel-title">
-          <h2>Phone capability grants</h2>
-          <Smartphone size={18} aria-hidden="true" />
-        </div>
+      <SettingsBlock title={TITLE}>
         <div aria-label="Loading device grants" aria-busy="true">
           <SkeletonBlock variant="text" lines={3} />
         </div>
-      </section>
+      </SettingsBlock>
     );
   }
 
@@ -83,111 +86,106 @@ export function DeviceGrants() {
     // an honest "not on this daemon yet", not an error state to alarm anyone.
     if (isMethodUnavailableError(grants.error)) {
       return (
-        <section className="panel device-panel">
-          <div className="panel-title">
-            <h2>Phone capability grants</h2>
-            <Smartphone size={18} aria-hidden="true" />
-          </div>
+        <SettingsBlock title={TITLE}>
           <EmptyState
             title="Not available on this daemon"
             description="This daemon does not serve the paired-phone capability verbs yet. Update it to manage phone grants here."
           />
-        </section>
+        </SettingsBlock>
       );
     }
     return (
-      <section className="panel device-panel">
-        <div className="panel-title">
-          <h2>Phone capability grants</h2>
-          <Smartphone size={18} aria-hidden="true" />
-        </div>
+      <SettingsBlock title={TITLE}>
         <ErrorState error={grants.error} title="Device grants unavailable" onRetry={() => void grants.refetch()} />
-      </section>
+      </SettingsBlock>
     );
   }
 
-  const rows = grants.data.grants;
+  // A daemon that answers without these lists reads as "none yet", never a crash.
+  const rows = Array.isArray(grants.data.grants) ? grants.data.grants : [];
+  const audit = Array.isArray(grants.data.audit) ? grants.data.audit : [];
   const nodeLabels = new Map((nodes.data?.nodes ?? []).map((node) => [node.nodeId, node.label]));
 
   return (
-    <section className="panel device-panel">
-      <div className="panel-title">
-        <h2>Phone capability grants</h2>
-        <Smartphone size={18} aria-hidden="true" />
-      </div>
-
-      <p className="device-panel__description">
-        Every capability asks before it runs. Choosing "always allow" on that prompt
-        writes one durable grant for that one capability on that one phone, listed here, and
-        revocable here. Revoking deletes the grant, so the next request asks again.
-        {nodes.data ? ` Captures are kept for ${String(nodes.data.captureRetentionHours)} hours.` : ''}
-      </p>
-
-      <div className="device-panel__actions">
-        <button type="button" onClick={() => void grants.refetch()} disabled={grants.isFetching}>
-          <RefreshCw size={14} aria-hidden="true" /> Refresh
-        </button>
-        <button type="button" onClick={() => housekeeping.mutate()} disabled={housekeeping.isPending}>
-          Run housekeeping now
-        </button>
-      </div>
-
+    <SettingsBlock
+      className="device-grants"
+      title={TITLE}
+      description={(
+        <>
+          Every capability asks before it runs. Choosing &quot;always allow&quot; on that prompt
+          writes one durable grant for that one capability on that one phone, listed here, and
+          revocable here. Revoking deletes the grant, so the next request asks again.
+          {nodes.data ? ` Captures are kept for ${String(nodes.data.captureRetentionHours)} hours.` : ''}
+        </>
+      )}
+      actions={(
+        <div className="device-panel__actions">
+          <Button size="sm" icon={<RefreshCw aria-hidden="true" />} onClick={() => void grants.refetch()} disabled={grants.isFetching}>
+            Refresh
+          </Button>
+          <Button size="sm" onClick={() => housekeeping.mutate()} disabled={housekeeping.isPending}>
+            Run housekeeping now
+          </Button>
+        </div>
+      )}
+    >
       {housekeeping.isError ? (
-        <p role="alert">{formatError(housekeeping.error)}</p>
+        <div className="banner warning" role="alert">{formatError(housekeeping.error)}</div>
       ) : null}
       {sweep ? (
-        <p aria-live="polite">{sweep.summary}</p>
+        <p className="device-panel__result" aria-live="polite">{sweep.summary}</p>
       ) : null}
 
       {rows.length === 0 ? (
         <EmptyState
+          icon={<Smartphone size={28} />}
           title="No durable grants"
           description='Nothing has been granted "always allow" yet. Every phone capability is asking each time.'
         />
       ) : (
-        <ul className="device-list">
+        <RowList aria-label="Durable grants">
           {rows.map((grant) => (
-            <li key={grant.grantId} className="device-list__row">
-              <div>
-                <strong>{grant.capabilityTitle}</strong>
-                <div className="device-list__detail">
-                  {nodeLabels.get(grant.nodeId) ?? grant.nodeId} · {grant.nodeKind}
-                </div>
-                <div className="device-list__detail">
-                  Granted {formatWhen(grant.grantedAt)} · expires {formatWhen(grant.expiresAt)} ·
-                  used {String(grant.useCount)} time{grant.useCount === 1 ? '' : 's'} ·
-                  last used {formatWhen(grant.lastUsedAt)}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => revoke.mutate(grant.grantId)}
-                disabled={revoke.isPending}
-                aria-label={`Revoke ${grant.capabilityTitle}`}
-              >
-                <Trash2 size={14} aria-hidden="true" /> Revoke
-              </button>
-            </li>
+            <Row
+              key={grant.grantId}
+              title={grant.capabilityTitle}
+              meta={[
+                `${nodeLabels.get(grant.nodeId) ?? grant.nodeId} · ${grant.nodeKind}`,
+                `Granted ${formatWhen(grant.grantedAt)}`,
+                `expires ${formatWhen(grant.expiresAt)}`,
+                `used ${String(grant.useCount)} time${grant.useCount === 1 ? '' : 's'}`,
+                `last used ${formatWhen(grant.lastUsedAt)}`,
+              ].join(' · ')}
+              trailing={(
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 aria-hidden="true" />}
+                  onClick={() => revoke.mutate(grant.grantId)}
+                  disabled={revoke.isPending}
+                  aria-label={`Revoke ${grant.capabilityTitle}`}
+                >
+                  Revoke
+                </Button>
+              )}
+            />
           ))}
-        </ul>
+        </RowList>
       )}
 
-      {grants.data.audit.length > 0 ? (
-        <details>
-          <summary>Recent grant activity ({grants.data.audit.length})</summary>
-          <ul className="device-list">
-            {grants.data.audit.slice(-25).reverse().map((entry) => (
-              <li key={entry.id} className="device-list__row">
-                <span>
-                  {entry.action} · {entry.capabilityId} · {nodeLabels.get(entry.nodeId) ?? entry.nodeId}
-                  {entry.reason ? ` · ${entry.reason}` : ''}
-                </span>
-                <span>{formatWhen(entry.at)}</span>
-              </li>
+      {audit.length > 0 ? (
+        <Disclosure summary={`Recent grant activity (${audit.length})`}>
+          <RowList aria-label="Recent grant activity">
+            {audit.slice(-25).reverse().map((entry) => (
+              <Row
+                key={entry.id}
+                title={`${entry.action} · ${entry.capabilityId}`}
+                meta={`${nodeLabels.get(entry.nodeId) ?? entry.nodeId}${entry.reason ? ` · ${entry.reason}` : ''}`}
+                trailing={<span className="device-panel__when">{whenLabel(entry.at)}</span>}
+              />
             ))}
-          </ul>
-        </details>
+          </RowList>
+        </Disclosure>
       ) : null}
-    </section>
+    </SettingsBlock>
   );
 }

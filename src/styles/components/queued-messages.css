@@ -20,7 +20,7 @@
   padding: 6px 0;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .queued-messages-panel__note svg {
@@ -50,7 +50,7 @@
   overflow: hidden;
   color: var(--text);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -81,7 +81,7 @@
   background: var(--canvas);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
-  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-regular) var(--text-base) / var(--leading-ui) var(--font-ui);
   resize: vertical;
 }
 

@@ -249,7 +249,6 @@ export function SidebarContent({
           name={accountName}
           health={health}
           compact={compact}
-          onNavigate={onNavigate}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />

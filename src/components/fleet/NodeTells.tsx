@@ -13,7 +13,9 @@
  */
 import type { FleetProcessNode } from '../../lib/goodvibes';
 import { readHeadline, readReviewSummary, readStallTell, stallTellLabel } from '../../lib/fleet';
-import { formatRelative } from '../../lib/object';
+import { whenLabel } from '../../lib/when-label';
+import { Chip } from '../ui/Chip';
+import { StatusDot } from '../ui/StatusDot';
 
 export function NodeHeadline({ node, block = false }: { readonly node: FleetProcessNode; readonly block?: boolean }) {
   const headline = readHeadline(node);
@@ -28,13 +30,15 @@ export function NodeStallBadge({ node }: { readonly node: FleetProcessNode }) {
   const stall = readStallTell(node);
   if (!stall) return null;
   return (
-    <span
-      className="badge warning node-stall-badge"
+    <Chip
+      size="sm"
+      tone="warn"
+      className="node-stall-badge"
       data-testid="fleet-stall"
-      title={`No activity since ${new Date(stall.since).toLocaleTimeString()}, a timestamp comparison, not a judgment`}
+      title={`No activity ${whenLabel(stall.since) || 'recently'}: a comparison of timestamps, not a judgment`}
     >
       {stallTellLabel(stall)}
-    </span>
+    </Chip>
   );
 }
 
@@ -43,7 +47,7 @@ export function NodeStallNote({ node }: { readonly node: FleetProcessNode }) {
   if (!stall) return null;
   return (
     <p className="node-stall-note" role="note" data-testid="fleet-detail-stall">
-      {stallTellLabel(stall)}: last activity {formatRelative(stall.since)}
+      {stallTellLabel(stall)}{whenLabel(stall.since) ? `: last activity ${whenLabel(stall.since)}` : ''}
     </p>
   );
 }
@@ -68,12 +72,15 @@ export function NodeReviewSummary({ node }: { readonly node: FleetProcessNode })
     <div className="fleet-detail__review" data-testid="fleet-detail-review">
       <div className="fleet-detail__review-head">
         <strong>Review</strong>
-        <span className="fleet-detail__review-verdict" data-tone={verdictTone} data-testid="fleet-review-verdict">{verdictLabel}</span>
+        <span className="fleet-detail__review-verdict" data-tone={verdictTone} data-testid="fleet-review-verdict">
+          <StatusDot tone={verdictTone} />
+          {verdictLabel}
+        </span>
         <span className="fleet-detail__review-meta">score {review.score} · {review.cycles} cycle{review.cycles === 1 ? '' : 's'}</span>
       </div>
       {review.checklist.length === 0 ? (
         <p className="fleet-detail__review-empty" role="note" data-testid="fleet-review-empty">
-          The reviewer emitted no acceptance checklist, a gate failure, not an accepted deliverable.
+          The reviewer gave no acceptance checklist. That fails the review gate, so this is not an accepted result.
         </p>
       ) : (
         <ul className="fleet-detail__review-checklist" data-testid="fleet-review-checklist">
@@ -83,7 +90,9 @@ export function NodeReviewSummary({ node }: { readonly node: FleetProcessNode })
               className={entry.verified ? 'verified' : 'unverified'}
               data-verified={entry.verified}
             >
-              <span className="fleet-detail__review-mark" aria-hidden="true">{entry.verified ? '✓' : '✗'}</span>
+              <span className="fleet-detail__review-mark" aria-hidden="true">
+                <StatusDot tone={entry.verified ? 'ok' : 'bad'} />
+              </span>
               <span className="fleet-detail__review-body">
                 <span className="fleet-detail__review-req">{entry.item}</span>
                 <span className="fleet-detail__review-state">{entry.verified ? 'Verified' : 'Not verified'}</span>

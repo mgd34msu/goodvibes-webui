@@ -63,7 +63,7 @@
   overflow: hidden;
   color: var(--text-2);
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -220,7 +220,7 @@
   margin-top: 2px;
   color: var(--text-3);
   font-size: var(--text-meta);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .dv-pane__actions {
@@ -284,7 +284,7 @@
   color: var(--text-3);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .dv-group__count {
@@ -311,7 +311,7 @@
   color: var(--text-3);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .dv-section__actions {
@@ -336,7 +336,7 @@
 .dv-facts__row dt {
   flex: none;
   color: var(--text-3);
-  font-size: var(--text-meta);
+  font-size: var(--text-sm);
 }
 
 .dv-facts__row dd {
@@ -367,7 +367,7 @@
   padding: 10px 14px 12px;
   overflow-x: auto;
   color: var(--text);
-  font: var(--weight-regular) var(--text-sm) / 20px var(--font-mono);
+  font: var(--weight-regular) var(--text-sm) / var(--leading-ui) var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -460,7 +460,7 @@
 .dv-empty__text {
   margin: 0;
   color: var(--text-2);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .dv-empty__action {
@@ -507,7 +507,7 @@
 /* A row's right-hand value: figures in tabular mono. */
 .dv-value {
   color: var(--text-2);
-  font: var(--weight-regular) var(--text-sm) / 20px var(--font-mono);
+  font: var(--weight-regular) var(--text-sm) / var(--leading-ui) var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -522,7 +522,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-ui);
 }
 
 .dv-notice svg {
@@ -536,11 +536,19 @@
 .dv-notice--warn svg { color: var(--warn); }
 
 @media (max-width: 899px) {
+  /* Phone: the action drops under the title when the two do not fit side by
+     side, so the description gets the full width. */
   .dv-header {
+    flex-wrap: wrap;
+    row-gap: 12px;
     padding: 16px 16px 0;
   }
 
-  /* Phone: the description wraps to two lines at most instead of cutting off
+  .dv-header__text {
+    flex: 1 1 220px;
+  }
+
+  /* The description wraps to three lines at most instead of cutting off
      mid-word after a few characters. */
   .dv-description {
     display: -webkit-box;
@@ -548,8 +556,8 @@
     text-overflow: clip;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .dv-filters {

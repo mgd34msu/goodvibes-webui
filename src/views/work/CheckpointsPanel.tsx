@@ -6,7 +6,7 @@
  * Rows list checkpoints newest first; picking one shows its diff against the
  * working tree or another checkpoint (checkpoints.diff's `b`), with restore.
  * Moved from the old Checkpoints view with its rules intact: restore is a
- * destructive git-backed rewrite, so it always confirms, first fetching a
+ * destructive rewrite of the workspace files, so it always confirms, first fetching a
  * non-destructive restorePreview that names the files and mints the single-use
  * token the restore is authorized with (a failed preview falls back to an
  * explicit confirm:true; NOT_FOUND reports the checkpoint as gone). A refused
@@ -24,6 +24,7 @@ import {
   formatBytes,
   kindLabel,
   restoreConfirmMessage,
+  restoreConfirmTitle,
   restoreConfirmMessageWithPreview,
   retentionLabel,
   sortCheckpointsNewestFirst,
@@ -123,11 +124,11 @@ export function CheckpointsPanel() {
 
   async function handleRestore(checkpoint: WorkspaceCheckpoint): Promise<void> {
     let confirmToken: string | undefined;
-    let description = restoreConfirmMessage(checkpoint);
+    let description = restoreConfirmMessage();
     try {
       const preview = await sdk.operator.checkpoints.restorePreview({ id: checkpoint.id });
       confirmToken = preview.token;
-      description = restoreConfirmMessageWithPreview(checkpoint, preview.preview);
+      description = restoreConfirmMessageWithPreview(preview.preview);
     } catch (error) {
       if (isNotFound(error)) {
         toast({
@@ -139,8 +140,7 @@ export function CheckpointsPanel() {
       }
     }
     const ok = await confirm.ask({
-      title: 'Restore this checkpoint',
-      target: checkpoint.label || checkpoint.id,
+      title: restoreConfirmTitle(checkpoint),
       description,
       confirmLabel: 'Restore',
       tone: 'danger',
@@ -153,8 +153,10 @@ export function CheckpointsPanel() {
   async function handleCreate(): Promise<void> {
     if (isPhone) {
       const ok = await confirm.ask({
-        title: 'Create a checkpoint',
-        target: labelDraft.trim() || 'the current workspace',
+        title: 'Create a checkpoint?',
+        description: labelDraft.trim()
+          ? `Saves the workspace as “${labelDraft.trim()}”.`
+          : 'Saves the current workspace as a checkpoint.',
         confirmLabel: 'Snapshot',
       });
       if (!ok) return;

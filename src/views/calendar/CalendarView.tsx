@@ -105,21 +105,21 @@ function unconfiguredNote(error: unknown): CalendarNote | null {
   if (isCalendarUnconfiguredError(error)) {
     return {
       title: 'Calendar isn’t configured',
-      description: 'Bring your own CalDAV endpoint: set surfaces.calendar.caldavUrl, surfaces.calendar.caldavUser, and surfaces.calendar.caldavPassword in daemon config, then reload.',
+      description: 'Add your calendar in Settings and your events show up here.',
       settings: 'all',
     };
   }
   if (isMethodUnavailableError(error) || isMethodNotInvokableError(error)) {
     return {
       title: 'Calendar isn’t available on this daemon yet',
-      description: 'This daemon build has no calendar handler wired up. Upgrade the daemon, or use a build that registers the CalDAV surface.',
+      description: 'This daemon has no calendar service yet, and updating the daemon turns it on.',
       settings: 'about',
     };
   }
   if (isCalendarAuthFailedError(error)) {
     return {
-      title: 'CalDAV sign-in failed',
-      description: 'The configured CalDAV endpoint rejected the stored credentials. Check surfaces.calendar.caldavUser/caldavPassword.',
+      title: 'The calendar server refused the saved password',
+      description: 'Replace the calendar password in Settings and your events show up here.',
       settings: 'all',
     };
   }

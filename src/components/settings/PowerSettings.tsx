@@ -17,13 +17,14 @@
  * honest lid-split `note` when part of the requested coverage was refused)
  * renders alongside it, verbatim, the same as PowerChip's tooltip.
  */
-import { Moon, MoonStar } from 'lucide-react';
 import { usePowerStatus, useSetKeepAwake } from '../../hooks/usePowerStatus';
 import { formatError } from '../../lib/errors';
-import { formatRelative } from '../../lib/object';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
-import { Checkbox } from '../ui/Checkbox';
+import { StatusDot } from '../ui/StatusDot';
+import { Toggle } from '../ui/Toggle';
+import { SettingRow, SettingsBlock } from './dialog/parts';
+import { whenLabel } from '../../lib/when-label';
 import '../../styles/components/power.css';
 
 function classesLabel(classes: readonly string[]): string {
@@ -36,27 +37,19 @@ export function PowerSettings() {
 
   if (status.isPending) {
     return (
-      <section className="panel power-panel">
-        <div className="panel-title">
-          <h2>Power</h2>
-          <Moon size={18} aria-hidden="true" />
-        </div>
+      <SettingsBlock className="power-panel" title="Power">
         <div aria-label="Loading power state" aria-busy="true">
           <SkeletonBlock variant="text" lines={3} />
         </div>
-      </section>
+      </SettingsBlock>
     );
   }
 
   if (status.isError) {
     return (
-      <section className="panel power-panel">
-        <div className="panel-title">
-          <h2>Power</h2>
-          <Moon size={18} aria-hidden="true" />
-        </div>
+      <SettingsBlock className="power-panel" title="Power">
         <ErrorState error={status.error} title="Power state unavailable" onRetry={() => void status.refetch()} />
-      </section>
+      </SettingsBlock>
     );
   }
 
@@ -65,27 +58,27 @@ export function PowerSettings() {
   // null check needed (and eslint's no-unnecessary-condition catches one if added).
   const { work, keepAwake } = status.data;
   const pendingEnabled = setKeepAwake.isPending ? setKeepAwake.variables : keepAwake.enabled;
+  const heldSince = typeof work.heldSince === 'number' ? whenLabel(work.heldSince) : '';
 
   return (
-    <section className="panel power-panel">
-      <div className="panel-title">
-        <h2>Power</h2>
-        <Moon size={18} aria-hidden="true" />
+    <SettingsBlock
+      className="power-panel"
+      title="Power"
+      description="Keep this machine from sleeping while you want it reachable. One switch, no timers; the status strip shows a chip while it holds."
+    >
+      <div className="settings-rows">
+        <SettingRow
+          label="Keep this machine awake"
+          control={(
+            <Toggle
+              checked={pendingEnabled}
+              disabled={setKeepAwake.isPending}
+              aria-label="Keep this machine awake"
+              onChange={(checked) => setKeepAwake.mutate(checked)}
+            />
+          )}
+        />
       </div>
-
-      <p className="form-note">
-        Keep this machine from sleeping while you want it reachable. No timers, no AC-only
-        mode; one toggle, and the status strip always shows a chip while it holds.
-      </p>
-
-      <Checkbox
-        className="preference-row"
-        checked={pendingEnabled}
-        disabled={setKeepAwake.isPending}
-        onChange={(checked) => setKeepAwake.mutate(checked)}
-      >
-        Keep this machine awake
-      </Checkbox>
 
       {setKeepAwake.isError && (
         <div className="banner warning" role="alert">{formatError(setKeepAwake.error)}</div>
@@ -93,7 +86,7 @@ export function PowerSettings() {
 
       {keepAwake.held && (
         <div className="power-panel__state power-panel__state--danger" role="status">
-          <MoonStar size={15} aria-hidden="true" />
+          <StatusDot tone="bad" />
           <span>
             Sleep disabled: holding: {classesLabel(keepAwake.grantedClasses)}
             {keepAwake.deniedClasses.length > 0 ? ` (refused: ${classesLabel(keepAwake.deniedClasses)})` : ''}
@@ -107,23 +100,24 @@ export function PowerSettings() {
         <p className="power-panel__note" role="note">{keepAwake.note}</p>
       )}
 
-      <div className="power-panel__work">
-        <strong>Automatic work inhibitor</strong>
-        {work.held ? (
-          <p className="power-panel__held-because">
-            Held because: {work.reasons.length > 0 ? work.reasons.join('; ') : 'active work'}
-            {typeof work.heldSince === 'number' ? ` (since ${formatRelative(work.heldSince)})` : ''}
-          </p>
-        ) : (
-          <p className="form-note">Not currently held, no active work requires it.</p>
-        )}
-        {work.capExpired && (
-          <p className="banner warning" role="alert">
-            The work inhibitor's cap ({work.capMinutes}m) has expired, the host may sleep during
-            active work.
-          </p>
-        )}
+      <div className="settings-rows">
+        <SettingRow
+          label="Automatic work inhibitor"
+          description={work.held ? (
+            <span className="power-panel__held-because">
+              Held because: {work.reasons.length > 0 ? work.reasons.join('; ') : 'active work'}
+              {heldSince ? ` (since ${heldSince})` : ''}
+            </span>
+          ) : 'Not currently held, no active work requires it.'}
+          control={<span className="power-panel__work-state">{work.held ? 'Held' : 'Idle'}</span>}
+        />
       </div>
-    </section>
+      {work.capExpired && (
+        <div className="banner warning" role="alert">
+          The work inhibitor's cap ({work.capMinutes}m) has expired, the host may sleep during
+          active work.
+        </div>
+      )}
+    </SettingsBlock>
   );
 }

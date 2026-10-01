@@ -45,36 +45,30 @@ export function formatBytes(bytes: number | undefined): string {
 export const CHECKPOINT_NOOP_MESSAGE = 'Nothing to snapshot: the workspace tree is unchanged since the last checkpoint.';
 
 /**
- * The exact wording of the destructive-restore confirm prompt. Named here
- * (not inlined at the call site) so the CheckpointsView test can assert on
- * it without duplicating the copy.
+ * The restore confirm's title: the question, naming the checkpoint. Named here
+ * (not inlined at the call site) so the CheckpointsPanel test can assert on it
+ * without duplicating the copy.
  */
-export function restoreConfirmMessage(checkpoint: WorkspaceCheckpoint): string {
-  return `Restore the workspace to "${checkpoint.label || checkpoint.id}"?\n\n`
-    + 'This overwrites the CURRENT working tree with the files captured by that checkpoint '
-    + '(a git-backed rewrite). Uncommitted changes made since then that are not themselves '
-    + 'checkpointed will be lost.';
+export function restoreConfirmTitle(checkpoint: WorkspaceCheckpoint): string {
+  return `Restore the workspace to “${checkpoint.label || checkpoint.id}”?`;
 }
 
 /**
- * The restore confirm prompt enriched with a checkpoints.restorePreview result:
- * how many files the restore would change and a bounded sample of their paths.
- * Falls back to a "nothing would change" line when the preview reports no
- * affected paths. Built here (not inlined) so CheckpointsView's test can assert
- * on the wording without duplicating it.
+ * The restore confirm's one sentence of consequence when no preview is
+ * available (the preview call failed for a reason other than not-found).
+ */
+export function restoreConfirmMessage(): string {
+  return 'Files changed since then are replaced.';
+}
+
+/**
+ * The restore confirm's one sentence enriched with a checkpoints.restorePreview
+ * result: how many files the restore would change, or that nothing would.
  */
 export function restoreConfirmMessageWithPreview(
-  checkpoint: WorkspaceCheckpoint,
   preview: CheckpointsRestorePreviewResult['preview'],
 ): string {
-  const base = restoreConfirmMessage(checkpoint);
   const count = preview.affectedPathCount;
-  if (count <= 0) {
-    return `${base}\n\nThis checkpoint matches the current working tree, no files would change.`;
-  }
-  const noun = count === 1 ? 'file' : 'files';
-  const sample = preview.affectedPathSample.slice(0, 5);
-  const sampleLines = sample.length ? `\n  ${sample.join('\n  ')}` : '';
-  const remainder = count > sample.length ? `\n  … and ${count - sample.length} more` : '';
-  return `${base}\n\n${count} ${noun} would change:${sampleLines}${remainder}`;
+  if (count <= 0) return 'The workspace already matches it, so no files change.';
+  return `Files changed since then are replaced; ${count} ${count === 1 ? 'file changes' : 'files change'}.`;
 }

@@ -9,10 +9,14 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Search } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
+import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
+import { Input } from '../ui/Field';
+import { Row, RowList } from '../ui/Row';
+import { Segmented } from '../ui/Segmented';
 import { Select } from '../ui/Select';
+import { PHONE_QUERY, useMediaQuery } from '../ui/overlay';
 import { sdk } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
 import { readPath } from '../../lib/object';
@@ -42,6 +46,39 @@ import {
 } from '../../lib/model-catalog';
 import '../../styles/components/model-workspace.css';
 import '../../styles/components/providers.css';
+
+/** "128k context", "1M context", or '' when the catalog reports none. */
+function contextLabel(contextWindow: number | undefined): string {
+  if (typeof contextWindow !== 'number' || !Number.isFinite(contextWindow) || contextWindow <= 0) return '';
+  if (contextWindow >= 1_000_000) return `${Number((contextWindow / 1_000_000).toFixed(1))}M context`;
+  if (contextWindow >= 1_000) return `${Math.round(contextWindow / 1_000)}k context`;
+  return `${contextWindow} context`;
+}
+
+/** "$15 in / $75 out" per 1M tokens, or the tier word when only a tier is served. */
+function priceLabel(model: CatalogModel): string {
+  if (model.pricing) {
+    return `$${model.pricing.inputPerMillionTokens} in / $${model.pricing.outputPerMillionTokens} out`;
+  }
+  return model.tier ?? '';
+}
+
+function ModelFigures({ model }: { model: CatalogModel }) {
+  const context = contextLabel(model.contextWindow);
+  const price = priceLabel(model);
+  if (!context && !price) return null;
+  return (
+    <span className="model-workspace-figures">
+      {context && <span>{context}</span>}
+      {price && (
+        <span title={model.pricing ? 'US dollars per 1M tokens' : undefined}>
+          {price}
+          {model.pricing && model.tier ? ` · ${model.tier}` : ''}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export interface ModelWorkspaceModalProps {
   open: boolean;
@@ -151,29 +188,29 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
   const embeddingsMode = targetHasNoModelConcept(target);
   const enableEntry = buildTargetEnableEntry(target, true);
 
+  const phone = useMediaQuery(PHONE_QUERY);
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Model Workspace"
-      size="wide"
-      headerActions={
-        <div className="model-workspace-targets" role="tablist" aria-label="Model routing target">
-          {MODEL_TARGETS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={t === target}
-              className={t === target ? 'model-workspace-target model-workspace-target--active' : 'model-workspace-target'}
-              onClick={() => setTarget(t)}
-            >
-              {TARGET_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      }
-    >
+    <Dialog open={open} onClose={onClose} title="Model Workspace" size="wide">
+      <div className="model-workspace-targets">
+        {/* Five targets do not fit one segmented row at phone width; a select
+            holds them without clipping. */}
+        {phone ? (
+          <Select<ModelTarget>
+            aria-label="Model routing target"
+            value={target}
+            onChange={setTarget}
+            options={MODEL_TARGETS.map((t) => ({ value: t, label: TARGET_LABELS[t] }))}
+          />
+        ) : (
+          <Segmented<ModelTarget>
+            label="Model routing target"
+            value={target}
+            onChange={setTarget}
+            options={MODEL_TARGETS.map((t) => ({ value: t, label: TARGET_LABELS[t] }))}
+          />
+        )}
+      </div>
+
       <div className="model-workspace-routing" aria-live="polite">
         {routing.unset ? (
           <span className="model-workspace-routing__note">
@@ -198,21 +235,20 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
       </div>
 
       <div className="model-workspace-filters">
-        <label className="model-workspace-search">
-          <Search size={14} aria-hidden="true" />
-          <input
-            type="search"
-            placeholder="Search models"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="Search models"
-          />
-        </label>
+        <Input
+          className="model-workspace-search"
+          type="text"
+          inputMode="search"
+          placeholder="Search models"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          aria-label="Search models"
+        />
 
         {!embeddingsMode && (
-          <>
+          <div className="model-workspace-filter-row">
             <div className="model-workspace-filter">
-              <span aria-hidden="true">Provider</span>
+              <span className="model-workspace-filter__label" aria-hidden="true">Provider</span>
               <Select
                 aria-label="Provider"
                 value={providerFilter || 'all'}
@@ -222,7 +258,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
             </div>
 
             <div className="model-workspace-filter" title={priceDataAvailable ? undefined : 'Not reported by this daemon'}>
-              <span aria-hidden="true">Price</span>
+              <span className="model-workspace-filter__label" aria-hidden="true">Price</span>
               <Select<CategoryFilter>
                 aria-label="Price"
                 value={categoryFilter}
@@ -239,7 +275,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
             </div>
 
             <div className="model-workspace-filter" title="Not reported by this daemon">
-              <span aria-hidden="true">Capability</span>
+              <span className="model-workspace-filter__label" aria-hidden="true">Capability</span>
               <Select
                 aria-label="Capability"
                 value="none"
@@ -256,7 +292,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
             </div>
 
             <div className="model-workspace-filter">
-              <span aria-hidden="true">Group</span>
+              <span className="model-workspace-filter__label" aria-hidden="true">Group</span>
               <Select<GroupByMode>
                 aria-label="Group"
                 value={groupBy}
@@ -277,7 +313,7 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
             <Checkbox className="model-workspace-available-only" checked={availableOnly} onChange={setAvailableOnly}>
               Available only
             </Checkbox>
-          </>
+          </div>
         )}
       </div>
 
@@ -301,31 +337,29 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
         providerIds.length === 0 ? (
           <EmptyState title="No providers" description="No providers are registered with the daemon." />
         ) : (
-          <div className="providers-model-grid" role="list" aria-label="Embedding providers">
+          <RowList aria-label="Embedding providers">
             {providerIds.map((id) => {
               const isCurrent = id === routing.provider;
               return (
-                <article key={id} className={isCurrent ? 'providers-model-row providers-model-row--current' : 'providers-model-row'} role="listitem">
-                  <div className="providers-model-row__current-icon" aria-hidden="true">
-                    {isCurrent && <Check size={16} />}
-                  </div>
-                  <div className="providers-model-row__copy">
-                    <strong>{id}</strong>
-                  </div>
-                  <div className="providers-model-row__actions">
-                    <button
-                      type="button"
-                      className={isCurrent ? 'secondary-button' : 'primary-button'}
+                <Row
+                  key={id}
+                  className="model-workspace-row"
+                  selected={isCurrent}
+                  title={id}
+                  trailing={
+                    <Button
+                      size="sm"
+                      variant={isCurrent ? 'ghost' : 'secondary'}
                       disabled={isCurrent || useModel.isPending}
                       onClick={() => useModel.mutate({ id: '', registryKey: '', provider: id, label: id })}
                     >
                       {isCurrent ? 'Current' : 'Use'}
-                    </button>
-                  </div>
-                </article>
+                    </Button>
+                  }
+                />
               );
             })}
-          </div>
+          </RowList>
         )
       ) : filtered.length === 0 ? (
         <EmptyState title="No models" description="No models match the current search/filter." />
@@ -334,44 +368,33 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
           {groups.map((group) => (
             <section key={group.key} className="model-workspace-group" aria-label={group.label}>
               {groups.length > 1 && <h3 className="model-workspace-group__title">{group.label}</h3>}
-              <div className="providers-model-grid" role="list" aria-label={`Models in ${group.label}`}>
+              <RowList aria-label={`Models in ${group.label}`}>
                 {group.models.map((model) => {
                   const isCurrent = model.registryKey === routing.model || (target === 'main' && `${model.provider}:${model.id}` === `${routing.provider}:${routing.model}`);
                   return (
-                    <article
+                    <Row
                       key={model.registryKey}
-                      className={isCurrent ? 'providers-model-row providers-model-row--current' : 'providers-model-row'}
-                      role="listitem"
-                    >
-                      <div className="providers-model-row__current-icon" aria-hidden="true">
-                        {isCurrent && <Check size={16} />}
-                      </div>
-                      <div className="providers-model-row__copy">
-                        <strong>{model.label}</strong>
-                        <span>{model.registryKey}</span>
-                        {(model.tier ?? model.pricing) && (
-                          <span className="model-workspace-price">
-                            {model.tier ?? ''}
-                            {model.pricing
-                              ? ` · $${model.pricing.inputPerMillionTokens}/$${model.pricing.outputPerMillionTokens} per M tok`
-                              : ''}
-                          </span>
-                        )}
-                      </div>
-                      <div className="providers-model-row__actions">
-                        <button
-                          type="button"
-                          className={isCurrent ? 'secondary-button' : 'primary-button'}
-                          disabled={isCurrent || useModel.isPending}
-                          onClick={() => useModel.mutate(model)}
-                        >
-                          {isCurrent ? 'Current' : 'Use'}
-                        </button>
-                      </div>
-                    </article>
+                      className="model-workspace-row"
+                      selected={isCurrent}
+                      title={model.label}
+                      meta={<span className="model-workspace-row__key">{model.registryKey}</span>}
+                      trailing={
+                        <>
+                          <ModelFigures model={model} />
+                          <Button
+                            size="sm"
+                            variant={isCurrent ? 'ghost' : 'secondary'}
+                            disabled={isCurrent || useModel.isPending}
+                            onClick={() => useModel.mutate(model)}
+                          >
+                            {isCurrent ? 'Current' : 'Use'}
+                          </Button>
+                        </>
+                      }
+                    />
                   );
                 })}
-              </div>
+              </RowList>
             </section>
           ))}
         </div>

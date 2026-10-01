@@ -1,41 +1,18 @@
-/*
- * NotificationSettings layout. Colors/spacing come from the shared token layer
- * (src/styles/tokens.css); this file is layout only, no new palette.
- */
-
-.notifications-panel .notifications-push {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
+/* NotificationSettings: banners and setting rows come from the kit; only the action group needs a rule. */
 
 .notifications-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.notifications-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .notifications-install {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line, var(--line));
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  margin-top: var(--space-2);
 }
 
-.notifications-install__head {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.notifications-install button {
-  align-self: flex-start;
+@media (max-width: 899px) {
+  .notifications-actions {
+    justify-content: flex-start;
+  }
 }

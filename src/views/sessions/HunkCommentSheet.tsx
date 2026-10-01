@@ -14,6 +14,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type SyntheticE
 import { SendHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
+import { Textarea } from '../../components/ui/Field';
 import { shouldSubmitComposerKey } from '../../lib/composer-keys';
 import { formatRange, hunkExcerpt, hunkNewRange, hunkOldRange, type DiffHunk } from '../../lib/unified-diff';
 import '../../styles/components/session-changes.css';
@@ -105,9 +106,9 @@ export function HunkCommentSheet({
       <pre className="hunk-sheet__excerpt" aria-label="Selected change">{hunkExcerpt(hunk)}</pre>
 
       <form id={formId} className="hunk-sheet__form" onSubmit={submit}>
-        <textarea
+        <Textarea
           ref={textareaRef}
-          className="gv-input hunk-sheet__input"
+          className="hunk-sheet__input"
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder={mode === 'steer'
@@ -120,7 +121,7 @@ export function HunkCommentSheet({
         />
         <p className="hunk-sheet__mode" role="status">
           {mode === 'steer'
-            ? 'Sends as a mid-turn steer to the bound agent.'
+            ? 'Sent to the running agent right away.'
             : 'No active agent: queues a follow-up turn.'}
         </p>
         {error && <p className="hunk-sheet__error" role="alert">{error}</p>}

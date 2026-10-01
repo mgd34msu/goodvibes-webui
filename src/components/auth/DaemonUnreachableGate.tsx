@@ -12,6 +12,8 @@
  */
 
 import { PlugZap, RefreshCw } from 'lucide-react';
+import { Disclosure } from '../data-view/DataView';
+import { Button } from '../ui/Button';
 import '../../styles/components/auth-gate.css';
 
 export interface DaemonUnreachableGateProps {
@@ -28,7 +30,7 @@ export function DaemonUnreachableGate({ detail, retrying, onRetry }: DaemonUnrea
     <div className="signed-out-gate" role="main">
       <div className="signed-out-card">
         <div className="signed-out-mark">
-          <PlugZap size={28} aria-hidden="true" />
+          <PlugZap size={24} aria-hidden="true" />
         </div>
         <h1>Can&rsquo;t reach the daemon</h1>
         <p className="signed-out-lede">
@@ -42,20 +44,14 @@ export function DaemonUnreachableGate({ detail, retrying, onRetry }: DaemonUnrea
           {retrying ? ' Reconnecting…' : ' Waiting for the daemon to come back…'}
         </div>
 
-        {detail && <p className="form-note">{detail}</p>}
+        {detail && <p className="signed-out-note">{detail}</p>}
 
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={onRetry}
-          disabled={retrying}
-        >
+        <Button onClick={onRetry} disabled={retrying}>
           {retrying ? 'Retrying…' : 'Retry now'}
-        </button>
+        </Button>
 
-        <details className="signed-out-help">
-          <summary>Why am I seeing this?</summary>
-          <ul>
+        <Disclosure summary="Why am I seeing this?">
+          <ul className="signed-out-help">
             <li>The daemon may have stopped, restarted, or is still booting.</li>
             <li>Check that the daemon process is running and bound to the expected port.</li>
             <li>
@@ -63,7 +59,7 @@ export function DaemonUnreachableGate({ detail, retrying, onRetry }: DaemonUnrea
               automatically once the daemon responds.
             </li>
           </ul>
-        </details>
+        </Disclosure>
       </div>
     </div>
   );

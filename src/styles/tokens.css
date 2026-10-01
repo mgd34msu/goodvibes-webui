@@ -88,7 +88,7 @@
 
   --text:   #1c1d22;
   --text-2: #5f606b;
-  --text-3: #8b8c97;
+  --text-3: #888994;
 
   --primary-bg: #1c1d22;
   --primary-fg: #ffffff;
@@ -99,11 +99,11 @@
   --on-accent:   #ffffff;
   --brand:       linear-gradient(135deg, #5ee0e6, #d18cf5);
 
-  --ok:   #23824d;
+  --ok:   #22814c;
   --warn: #9a6400;
   --bad:  #c8323c;
   --info: #2e62c8;
-  --ok-soft:   rgb(35 130 77 / 0.1);
+  --ok-soft:   rgb(34 129 76 / 0.1);
   --warn-soft: rgb(154 100 0 / 0.1);
   --bad-soft:  rgb(200 50 60 / 0.1);
   --info-soft: rgb(46 98 200 / 0.1);
@@ -131,7 +131,7 @@
 
     --text:   #1c1d22;
     --text-2: #5f606b;
-    --text-3: #8b8c97;
+    --text-3: #888994;
 
     --primary-bg: #1c1d22;
     --primary-fg: #ffffff;
@@ -141,11 +141,11 @@
     --accent-soft: rgb(0 122 131 / 0.1);
     --on-accent:   #ffffff;
 
-    --ok:   #23824d;
+    --ok:   #22814c;
     --warn: #9a6400;
     --bad:  #c8323c;
     --info: #2e62c8;
-    --ok-soft:   rgb(35 130 77 / 0.1);
+    --ok-soft:   rgb(34 129 76 / 0.1);
     --warn-soft: rgb(154 100 0 / 0.1);
     --bad-soft:  rgb(200 50 60 / 0.1);
     --info-soft: rgb(46 98 200 / 0.1);
@@ -241,15 +241,24 @@
   --font-ui:   "Geist Sans", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --text-xs:   12px;
-  --text-meta: 12.5px;
-  --text-sm:   13px;
-  --text-base: 14px;
-  --text-md:   15px;
-  --text-lg:   16px;
-  --text-xl:   20px;
-  --text-2xl:  24px;
-  --text-3xl:  30px;
+  /* One step above the design document's table (owner review 2026-09-30:
+     "bigger pretty much everywhere"): UI 14.5, meta 13, prose 16. */
+  --text-xs:   12.5px;
+  --text-meta: 13px;
+  --text-sm:   13.5px;
+  --text-base: 14.5px;
+  --text-md:   16px;
+  --text-lg:   17px;
+  --text-xl:   22px;
+  --text-2xl:  26px;
+  --text-3xl:  32px;
+
+  /* Line heights in pixels, about 1.5 like the proposal's mockups: interface
+     text, metadata, assistant prose, and the user's message bubble. */
+  --leading-ui:     22px;
+  --leading-meta:   20px;
+  --leading-prose:  28px;
+  --leading-bubble: 26px;
 
   --leading-tight:   1.2;
   --leading-normal:  1.45;

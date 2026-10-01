@@ -4,7 +4,7 @@ import type { ViewId } from '../../lib/router';
 import { ACCOUNT_VIEWS, DESTINATIONS, LIBRARY, PERSONAL, WORK, destinationOf, resolveTab, viewTitle } from './nav';
 
 // Every view the router accepts, the same list src/lib/router.ts validates against.
-const ALL_VIEWS: ViewId[] = ['chat', 'work', 'library', 'personal', 'checkin', 'phone'];
+const ALL_VIEWS: ViewId[] = ['chat', 'work', 'library', 'personal', 'phone'];
 
 describe('navigation map: nothing becomes unreachable', () => {
   test('the list above is exactly what the router accepts', () => {
@@ -31,7 +31,6 @@ describe('navigation map: nothing becomes unreachable', () => {
     expect(destinationOf('work')).toBe('work');
     expect(destinationOf('library')).toBe('library');
     expect(destinationOf('personal')).toBe('personal');
-    expect(destinationOf('checkin')).toBe('account');
     expect(destinationOf('chat')).toBe('chat');
     expect(WORK.tabs.map((t) => t.label)).toEqual(['All', 'Sessions', 'Agents', 'Processes']);
     expect(LIBRARY.tabs.map((t) => t.label)).toEqual(['Memory', 'Knowledge', 'Review']);
@@ -47,7 +46,6 @@ describe('navigation map: nothing becomes unreachable', () => {
   test('titles name the destination, and account pages by their menu label', () => {
     expect(viewTitle('work')).toBe('Work');
     expect(viewTitle('personal')).toBe('Personal');
-    expect(viewTitle('checkin')).toBe('Check-ins');
     expect(viewTitle('phone')).toBe('Phone node');
   });
 });

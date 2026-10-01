@@ -36,16 +36,13 @@ export interface MailRefusalNote {
 }
 
 /**
- * The setup pointer names config keys rather than offering a form, and that is
- * deliberate: mail credentials are daemon-owned state. They are written through
- * `config.set` so the daemon holds them and keeps using them with this browser shut,
- * and so the agent and the TUI, which read the same daemon config, see the same
- * account. A form here that stashed anything in browser storage would break both
- * properties, so the operator is pointed at the settings surface that writes through
- * the daemon instead.
+ * The setup pointer sends the operator to Settings rather than offering a form
+ * here, deliberately: mail credentials are daemon-owned state, written through
+ * config.set so the daemon keeps using them with this browser shut and the agent
+ * and the TUI see the same account. The copy follows the empty-state rule of the
+ * design document: one sentence saying what is missing and what turns it on.
  */
-const SETUP_POINTER =
-  'Set the account in Settings → the mail keys under surfaces (host, port, account address) and store the app password in the daemon secret tier. Settings writes through the daemon, so the account keeps working with this browser closed and the agent and terminal see the same one.';
+const SETUP_POINTER = 'Add your mail account in Settings and your inbox shows up here.';
 
 export function mailRefusalNote(error: unknown): MailRefusalNote | null {
   // Order matters: capability-absent is checked FIRST. Today every email call
@@ -58,8 +55,7 @@ export function mailRefusalNote(error: unknown): MailRefusalNote | null {
     return {
       kind: 'not-available',
       title: 'Mail isn’t available on this daemon yet',
-      description:
-        'This daemon build catalogs the email verbs but serves no mail handler, so there is nothing to configure yet. Upgrade to a daemon build that registers the IMAP/SMTP surface and this view starts working with no change here.',
+      description: 'This daemon has no mail service yet, and updating the daemon turns it on.',
     };
   }
   if (isEmailUnconfiguredError(error)) {
@@ -72,9 +68,8 @@ export function mailRefusalNote(error: unknown): MailRefusalNote | null {
   if (isEmailAuthFailedError(error)) {
     return {
       kind: 'auth-failed',
-      title: 'The mail server rejected the stored credentials',
-      description:
-        'The account is configured but the IMAP/SMTP server refused it; usually a revoked or rotated app password. Replace the stored password in Settings; the daemon holds it, so replacing it there fixes the agent and terminal at the same time.',
+      title: 'The mail server refused the saved password',
+      description: 'Replace the app password in Settings and your inbox shows up here.',
     };
   }
   return null;

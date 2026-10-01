@@ -1,30 +1,31 @@
-import { classifyBadgeTone, contractGlyphForBadgeTone } from '../lib/presentation-bridge';
+import { classifyBadgeTone, type BadgeTone } from '../lib/presentation-bridge';
+import { Chip } from './ui/Chip';
+import type { StatusTone } from './ui/StatusDot';
 
 interface StatusBadgeProps {
   value: string;
 }
 
+const CHIP_TONE: Record<BadgeTone, StatusTone> = {
+  ok: 'ok',
+  warning: 'warn',
+  bad: 'bad',
+  neutral: 'idle',
+};
+
 /**
- * Tone classification (classifyBadgeTone) and the leading glyph
- * (contractGlyphForBadgeTone) both live in src/lib/presentation-bridge.ts,
- * the glyph is sourced from the SDK presentation contract that the TUI and
- * agent already render through, so the same visual severity vocabulary shows
- * up here. See that module for the full tone<->contract mapping and its
- * honesty rationale.
- *
- * The glyph is carried as a `data-contract-glyph` attribute and painted via
- * a `.badge::before { content: attr(data-contract-glyph) }` CSS rule
- * (src/styles.css), NOT as a child text node, StatusBadge's `value` is
- * consumed elsewhere (RecordList, SessionHeader, ProvidersView, ...) with
- * exact-text assertions on `.textContent`; a generated-content pseudo-element
- * adds the visual glyph without changing what `.textContent` reports.
+ * A status word with a dot: a neutral kit Chip where only the dot carries the
+ * hue (design doc "Segmented, toggle, chips, status"). The free-text value is
+ * classified into a tone by classifyBadgeTone (src/lib/presentation-bridge.ts),
+ * which owns the wording-to-severity mapping. The value is the only text node,
+ * so callers asserting on `.textContent` keep working; the tone is also exposed
+ * as `data-tone` for tests and styling hooks.
  */
 export function StatusBadge({ value }: StatusBadgeProps) {
   const tone = classifyBadgeTone(value);
-
   return (
-    <span className={`badge ${tone}`} data-contract-glyph={contractGlyphForBadgeTone(tone)}>
+    <Chip size="sm" tone={CHIP_TONE[tone]} data-tone={tone}>
       {value}
-    </span>
+    </Chip>
   );
 }

@@ -24,6 +24,7 @@
  * real speech. Someone deciding whether to hold a microphone open should be told that
  * before they do it, not after.
  */
+import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
@@ -109,16 +110,15 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
           )}
 
           {!ready && (
-            <button
-              type="button"
-              className="secondary-button"
+            <Button
+              className="voice-settings-action"
               disabled={provision.isPending}
               onClick={() => provision.mutate()}
             >
               {provision.isPending
                 ? 'Downloading…'
                 : `Download the wake-word models${typeof downloadBytes === 'number' && downloadBytes > 0 ? ` (~${formatBytes(downloadBytes)})` : ''}`}
-            </button>
+            </Button>
           )}
 
           {provision.isError && (
@@ -154,7 +154,7 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
         Opted into per browser, not inherited from the terminal: the microphone permission is this origin’s own.
         {settings.enabled
           ? ''
-          : ' Wake detection is switched off globally (voice.wake.enabled), so this alone will not start it.'}
+          : ' Wake detection is switched off for every device, so this alone will not start it.'}
       </p>
 
       {!settings.enabled && (

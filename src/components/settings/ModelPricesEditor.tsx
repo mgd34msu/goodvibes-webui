@@ -12,7 +12,7 @@
  */
 import { useState } from 'react';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Field';
+import { Field, Input } from '../ui/Field';
 import {
   draftFromEntry,
   EMPTY_MODEL_PRICE_DRAFT,
@@ -24,6 +24,7 @@ import {
   upsertModelPrice,
   type ModelPriceDraft,
 } from '../../lib/model-prices';
+import '../../styles/components/pricing.css';
 
 export interface ModelPricesEditorProps {
   /** The live `pricing.modelPrices` value (raw, from config.get). */
@@ -87,22 +88,16 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
 
   function priceInput(label: string, field: keyof ModelPriceDraft, required: boolean) {
     return (
-      <label className="model-prices-form-field">
-        <span>
-          {label}
-          {required ? '' : ' (optional)'}
-        </span>
+      <Field label={required ? label : `${label} (optional)`}>
         <Input
-          type="number"
+          type="text"
           inputMode="decimal"
-          min={0}
-          step="any"
           aria-label={`${label} price (USD per 1M tokens)`}
           value={draft[field]}
           disabled={saving}
           onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}
         />
-      </label>
+      </Field>
     );
   }
 
@@ -111,14 +106,16 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
       {rows.length === 0 ? (
         <p className="model-prices-empty">No manual prices set. A manual price always wins over provider-served and catalog pricing.</p>
       ) : (
-        <ul className="model-prices-rows">
+        <ul className="gv-rows" aria-label="Manual model prices">
           {rows.map(({ modelKey, entry }) => (
-            <li key={modelKey} className="model-prices-row" data-model-key={modelKey}>
-              <div className="model-prices-row-main">
-                <code className="model-prices-key">{modelKey}</code>
-                <span className="model-prices-summary">{modelPriceSummary(entry)}</span>
+            <li key={modelKey} className="gv-row price-row" data-model-key={modelKey}>
+              <div className="gv-row__main">
+                <span className="gv-row__text">
+                  <span className="gv-row__title price-row__key">{modelKey}</span>
+                  <span className="gv-row__meta">{modelPriceSummary(entry)}</span>
+                </span>
               </div>
-              <div className="model-prices-row-actions">
+              <div className="gv-row__trailing">
                 <Button
                   size="sm"
                   disabled={saving}
@@ -150,17 +147,17 @@ export function ModelPricesEditor({ value, onCommit, initialModelKey }: ModelPri
             submitDraft();
           }}
         >
-          <label className="model-prices-form-field model-prices-form-field--key">
-            <span>Model (provider:model)</span>
+          <Field label="Model (provider:model)">
             <Input
               type="text"
+              className="price-row__key"
               aria-label="Model key (provider:model)"
               placeholder="openrouter:deepseek/deepseek-chat"
               value={draft.modelKey}
               disabled={saving}
               onChange={(e) => setDraft({ ...draft, modelKey: e.target.value })}
             />
-          </label>
+          </Field>
           <div className="model-prices-form-prices">
             {priceInput('Input', 'input', true)}
             {priceInput('Output', 'output', true)}

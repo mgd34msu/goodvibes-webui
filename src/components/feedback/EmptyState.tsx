@@ -11,6 +11,7 @@
  * />
  */
 import type { FC, ReactNode } from 'react';
+import { Button } from '../ui/Button';
 import '../../styles/components/feedback.css';
 
 export interface EmptyStateAction {
@@ -49,13 +50,9 @@ export const EmptyState: FC<EmptyStateProps> = ({
       <p className="feedback-empty-state__description">{description}</p>
     )}
     {action && (
-      <button
-        type="button"
-        className="feedback-empty-state__action"
-        onClick={action.onClick}
-      >
-        {action.label}
-      </button>
+      <div className="feedback-empty-state__action">
+        <Button onClick={action.onClick}>{action.label}</Button>
+      </div>
     )}
   </div>
 );

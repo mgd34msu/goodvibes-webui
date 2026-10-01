@@ -1,261 +1,10 @@
-/**
- * providers.css — row styles shared by the credential-status panel, the
- * accounts panel and the model workspace (the Providers view that first owned
- * them is now the settings dialog's Models and providers section). Imported by
- * each of those components.
+/*
+ * providers.css: the non-list parts of the Accounts panel and the Credential
+ * status panel (AccountsPanel.tsx, CredentialStatusPanel.tsx); the credential
+ * rows themselves are kit rows (src/components/ui/Row.tsx).
  */
 
-/* ============================================================
-   Provider list — keyboard nav + focus-visible
-   ============================================================ */
-
-.providers-record-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.providers-record-list .record-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  z-index: 1;
-  position: relative;
-}
-
-/* ============================================================
-   Provider detail — loading skeleton layout
-   ============================================================ */
-
-.providers-skeleton-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) 0;
-}
-
-.providers-skeleton-grid {
-  display: grid;
-  gap: var(--space-2);
-}
-
-/* ============================================================
-   Current model panel
-   ============================================================ */
-
-.providers-current-model {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-}
-
-.providers-current-model__copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.providers-current-model__copy strong {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.providers-current-model__copy span {
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ============================================================
-   Model grid
-   ============================================================ */
-
-.providers-model-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.providers-model-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  transition: border-color var(--motion-fast) var(--ease-standard);
-}
-
-.providers-model-row:focus-within {
-  border-color: var(--line-strong);
-}
-
-/* Non-color current indicator: thicker left border + accent background tint */
-.providers-model-row--current {
-  border-color: var(--accent);
-  border-left-width: 3px;
-  background: var(--accent-soft);
-}
-
-.providers-model-row__copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.providers-model-row__copy strong {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.providers-model-row__copy span {
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.providers-model-row__current-icon {
-  flex-shrink: 0;
-  width: 16px;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-}
-
-.providers-model-row__current-icon--hidden {
-  visibility: hidden;
-}
-
-.providers-model-row__actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* focus-visible on Use button */
-.providers-model-row button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .providers-model-row {
-    transition: none;
-  }
-}
-
-/* ============================================================
-   Live region (aria-live)
-   ============================================================ */
-
-.providers-live-region {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* ============================================================
-   Peek trigger button on provider title
-   ============================================================ */
-
-.providers-peek-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  background: transparent;
-  border: none;
-  padding: 0;
-  color: var(--text);
-  cursor: pointer;
-  font-size: inherit;
-  font-weight: inherit;
-}
-
-.providers-peek-trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-xs);
-}
-
-.providers-peek-trigger:hover {
-  color: var(--accent);
-}
-
-/* ============================================================
-   Responsive adjustments
-   ============================================================ */
-
-/* Tablet: provider list doesn't need an artificial height cap */
-@media (max-width: 980px) {
-  .providers-record-list {
-    /* Natural height in stacked split-layout */
-    max-height: none;
-  }
-}
-
-/* Phone: model rows wrap on very small screens */
-@media (max-width: 480px) {
-  .providers-model-row {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .providers-model-row__actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .providers-current-model {
-    flex-wrap: wrap;
-  }
-}
-
-/* ============================================================
-   Density: compact row heights
-   ============================================================ */
-
-:root[data-density="compact"] .providers-model-row {
-  padding: var(--space-2) var(--space-3);
-  min-height: var(--row-h-compact);
-}
-
-:root[data-density="compact"] .providers-current-model {
-  padding: var(--space-2) 0;
-}
-
-/* ============================================================
-   Credential status panel — honest degraded/refused states.
-   The available-credentials list reuses .providers-model-grid /
-   .providers-model-row above (identical row shape); these two rules cover
-   the two non-list outcomes (see CredentialStatusPanel.tsx).
-   ============================================================ */
-
+/* Credential status panel: the two non-list outcomes. */
 .credential-status__skeleton {
   display: flex;
   flex-direction: column;
@@ -265,11 +14,10 @@
 .credential-status__degraded {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  gap: 2px;
+  padding: var(--space-3) 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .credential-status__degraded strong {
@@ -279,15 +27,12 @@
 }
 
 .credential-status__degraded span {
-  color: var(--text-2);
-  font-size: var(--text-sm);
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
-/* ============================================================
-   Accounts & Subscriptions panel (AccountsPanel.tsx) — reuses
-   .providers-model-grid/.providers-model-row above for row layout.
-   ============================================================ */
-
+/* Accounts panel. */
 .accounts-panel__skeleton {
   display: flex;
   flex-direction: column;
@@ -295,13 +40,10 @@
 }
 
 .accounts-panel__summary {
-  color: var(--text-2);
-  font-size: var(--text-sm);
   margin: 0 0 var(--space-3);
-}
-
-.accounts-panel__row .providers-model-row__copy {
-  gap: var(--space-2);
+  color: var(--text-3);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .accounts-panel__windows,
@@ -309,18 +51,10 @@
 .accounts-panel__actions-list {
   margin: 0;
   padding-left: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--text-2);
+  color: var(--text-3);
+  font-size: var(--text-meta);
 }
 
 .accounts-panel__issues li {
-  color: var(--warn, var(--text-2));
-}
-
-/* ============================================================
-   Model Workspace launcher (ProvidersView.tsx)
-   ============================================================ */
-
-.providers-model-workspace-launch {
-  margin-left: auto;
+  color: var(--warn);
 }

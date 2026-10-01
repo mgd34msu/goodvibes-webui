@@ -67,10 +67,9 @@ export const PERSONAL: Destination = {
 
 export const DESTINATIONS: readonly Destination[] = [WORK, LIBRARY, PERSONAL];
 
-/** Pages outside the destinations: the phone node (from Settings, Devices and pairing) and Check-ins (account menu). */
+/** Pages outside the destinations: the phone node (from Settings, Account, Devices and pairing). */
 export const ACCOUNT_VIEWS: readonly { view: ViewId; label: string }[] = [
   { view: 'phone', label: 'Phone node' },
-  { view: 'checkin', label: 'Check-ins' },
 ];
 
 /** Which sidebar destination owns a view. */

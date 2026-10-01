@@ -49,8 +49,9 @@ export function TaskDetail({ task, onClose }: { task: RuntimeTaskSummary; onClos
 
   async function handleCancel(): Promise<void> {
     if (isPhone && !(await confirm.ask({
-      title: 'Cancel this task',
+      title: 'Cancel this task?',
       target: task.title || task.id,
+      description: 'It stops now and is marked cancelled.',
       confirmLabel: 'Cancel task',
       cancelLabel: 'Keep running',
       tone: 'danger',
@@ -59,7 +60,7 @@ export function TaskDetail({ task, onClose }: { task: RuntimeTaskSummary; onClos
   }
 
   async function handleRetry(): Promise<void> {
-    if (isPhone && !(await confirm.ask({ title: 'Retry this task', target: task.title || task.id, confirmLabel: 'Retry' }))) return;
+    if (isPhone && !(await confirm.ask({ title: 'Retry this task?', target: task.title || task.id, description: 'It runs again as a new attempt.', confirmLabel: 'Retry' }))) return;
     retry.mutate(task.id);
   }
 

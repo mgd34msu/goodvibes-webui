@@ -95,7 +95,7 @@ export function HunkRevertSheet({
         <span className="hunk-sheet__lines">new {newRange} · old {oldRange}</span>
       </div>
 
-      <p className="hunk-sheet__captured">Reverting reverse-applies this change to the live working tree, undoing exactly it:</p>
+      <p className="hunk-sheet__captured">Reverting undoes exactly this change in your working files:</p>
       <pre className="hunk-sheet__excerpt" aria-label="Change that would be reverted">{hunkExcerpt(hunk)}</pre>
 
       {phase === 'previewing' && (

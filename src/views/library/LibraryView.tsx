@@ -75,6 +75,7 @@ export function LibraryView({ tab, onTabChange }: LibraryViewProps) {
               <Search className="lib-search__icon" aria-hidden="true" />
               <Input
                 type="search"
+                className="gv-input--search"
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 placeholder={searchLabel}

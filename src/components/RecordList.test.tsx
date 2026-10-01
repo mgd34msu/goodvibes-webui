@@ -38,7 +38,7 @@ describe('RecordList', () => {
 
   test('renders default empty-state when items is empty', () => {
     const html = renderToStaticMarkup(<RecordList items={[]} />);
-    expect(html).toContain('empty-state');
+    expect(html).toContain('record-list__empty');
     expect(html).toContain('No records');
   });
 
@@ -55,7 +55,7 @@ describe('RecordList', () => {
     const html = renderToStaticMarkup(<RecordList items={[item]} />);
     expect(html).toContain('My Record');
     expect(html).toContain('abc-1');
-    expect(html).toContain('record-row');
+    expect(html).toContain('gv-row');
   });
 
   test('renders all items, one row per item', () => {
@@ -65,7 +65,7 @@ describe('RecordList', () => {
       { id: 'r3', name: 'Third' },
     ];
     const html = renderToStaticMarkup(<RecordList items={items} />);
-    expect(html.split('record-row').length - 1).toBe(3);
+    expect(html.split('<li class="gv-row').length - 1).toBe(3);
     expect(html).toContain('First');
     expect(html).toContain('Third');
   });
@@ -74,14 +74,14 @@ describe('RecordList', () => {
     const item = { id: 'x', name: 'Item' };
     const html = renderToStaticMarkup(<RecordList items={[item]} />);
     expect(html).not.toContain('<button');
-    expect(html).toContain('<div');
+    expect(html).toContain('gv-row__main');
   });
 
   test('item without id field falls back to index as id', () => {
     const item = { name: 'No ID Item' };
     const html = renderToStaticMarkup(<RecordList items={[item]} />);
-    // Index 0 used as fallback id, assert the id <span> specifically
-    expect(html).toContain('<span>0</span>');
+    // Index 0 used as fallback id, shown as the row's meta line
+    expect(html).toContain('<span class="gv-row__meta">0</span>');
     expect(html).toContain('No ID Item');
   });
 
@@ -119,16 +119,14 @@ describe('RecordList', () => {
 
   // ── selection state ──────────────────────────────────────────────────────
 
-  test('selected item row has "selected" class; others do not', () => {
+  test('the selected row carries the selected marker class; others do not', () => {
     const items = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
     const html = renderToStaticMarkup(
       <RecordList items={items} selectedId="b" onSelect={() => {}} />,
     );
     // Two rows: one selected, one not
-    expect(html).toContain('record-row selected');
-    // Count non-selected rows (class="record-row" without 'selected' immediately after)
-    const plainCount = (html.match(/class="record-row"/g) ?? []).length;
-    expect(plainCount).toBe(1);
+    expect(html).toContain('gv-row gv-row--selected');
+    expect((html.match(/gv-row--selected/g) ?? []).length).toBe(1);
   });
 
   // ── aria / keyboard ──────────────────────────────────────────────────────
@@ -144,8 +142,8 @@ describe('RecordList', () => {
   test('non-interactive list renders divs accessible as generic containers', () => {
     const item = { id: 'aria-1', name: 'Static Item' };
     const html = renderToStaticMarkup(<RecordList items={[item]} />);
-    // Should have record-list wrapper div and record-row divs
-    expect(html).toContain('record-list');
+    // A divided list of rows with no button inside
+    expect(html).toContain('gv-rows');
     expect(html).not.toContain('<button');
   });
 });

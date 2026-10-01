@@ -48,6 +48,7 @@ import { openSettingsSection } from '../personal/openSettings';
 import { MailCompose } from './MailCompose';
 import { MailMessageBody, useMailMessage } from './MailMessagePeek';
 import '../../styles/components/mail.css';
+import { whenLabel } from '../../lib/when-label';
 
 const LIMIT_OPTIONS = [
   { value: '25', label: '25 messages' },
@@ -92,7 +93,7 @@ function normalizeRecipients(value: string): string {
 
 function formatWhen(iso: string): string {
   const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? iso : whenLabel(parsed.getTime()) || iso;
 }
 
 /** A compact date for a list row: the time today, the month and day otherwise. */
@@ -231,8 +232,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
     const agreed = await confirm.ask({
       title: 'Send this message?',
       target: recipients,
-      description:
-        'This leaves the account immediately and cannot be recalled. Check the recipients and the subject before confirming.',
+      description: 'It leaves the account right away and cannot be recalled.',
       confirmLabel: 'Send',
       tone: 'danger',
     });
@@ -352,7 +352,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
         detail={(
           <DetailPane
             title={detail.data?.subject || (detail.isPending ? 'Message' : '(no subject)')}
-            meta={detail.data ? `${detail.data.from} · ${new Date(detail.data.date).toLocaleString()}` : undefined}
+            meta={detail.data ? `${detail.data.from} · ${formatWhen(detail.data.date)}` : undefined}
             actions={detail.data ? (
               <Button
                 variant="outline"

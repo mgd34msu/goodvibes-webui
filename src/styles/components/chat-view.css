@@ -97,7 +97,7 @@
   padding: 0 4px;
   color: var(--text-2);
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: var(--leading-meta);
 }
 
 .chat-status__text::before {
@@ -253,7 +253,7 @@
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
-  font: var(--weight-medium) var(--text-base) / 20px var(--font-ui);
+  font: var(--weight-medium) var(--text-base) / var(--leading-ui) var(--font-ui);
 }
 
 .shell-header--phone .chat-title {
@@ -277,7 +277,7 @@
 .chat-working__label {
   color: transparent;
   font-size: var(--text-base);
-  line-height: 20px;
+  line-height: var(--leading-ui);
   background: linear-gradient(90deg, var(--text-3) 0%, var(--text) 40%, var(--text-3) 80%);
   background-size: 200% 100%;
   -webkit-background-clip: text;

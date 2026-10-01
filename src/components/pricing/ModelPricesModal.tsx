@@ -8,7 +8,7 @@
  * invalidated on every successful commit.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Modal } from '../modal/Modal';
+import { Dialog } from '../ui/Dialog';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { readConfigPath } from '../../lib/settings-model';
@@ -54,7 +54,7 @@ export function ModelPricesModal({ open, onClose, initialModelKey }: ModelPrices
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Model prices" size="md">
+    <Dialog open={open} onClose={onClose} title="Model prices">
       <p className="model-prices-modal-note">
         Manual prices, USD per 1M tokens, keyed provider:model. A manual price always wins over
         provider-served and catalog pricing and applies live. The same table is editable under
@@ -71,6 +71,6 @@ export function ModelPricesModal({ open, onClose, initialModelKey }: ModelPrices
           {...(initialModelKey ? { initialModelKey } : {})}
         />
       )}
-    </Modal>
+    </Dialog>
   );
 }

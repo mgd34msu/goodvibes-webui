@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import '../../styles/components/command.css';
 import { registerCommand, unregisterCommand } from '../../lib/commands';
+import { SETTINGS_SECTIONS } from '../settings/dialog/sections';
 import { useHotkeys } from '../../hooks/useHotkeys';
 import { CommandPalette } from './CommandPalette';
 import { ShortcutCheatsheet } from './ShortcutCheatsheet';
@@ -95,15 +96,15 @@ export default function CommandProvider({ onNavigate, onOpenSettings, children }
     registerCommand({
       id: 'nav.providers',
       title: 'Models and providers',
-      group: 'navigation',
+      group: 'settings',
       keywords: ['providers', 'models', 'llm', 'ai', 'settings'],
       shortcut: 'g p',
       run: () => onOpenSettings?.('models'),
     });
     registerCommand({
       id: 'nav.admin',
-      title: 'Settings',
-      group: 'navigation',
+      title: 'Open settings',
+      group: 'settings',
       keywords: ['admin', 'settings', 'auth', 'account', 'preferences'],
       shortcut: 'mod+,',
       run: () => onOpenSettings?.(),
@@ -132,8 +133,24 @@ export default function CommandProvider({ onNavigate, onOpenSettings, children }
       shortcut: '?',
       run: openCheatsheet,
     });
+    // Every other settings section is one command in the palette's Settings group
+    // ("Models and providers" is nav.providers above).
+    const sectionIds: string[] = [];
+    for (const section of SETTINGS_SECTIONS) {
+      if (section.id === 'models') continue;
+      const id = `settings.${section.id}`;
+      sectionIds.push(id);
+      registerCommand({
+        id,
+        title: section.label,
+        group: 'settings',
+        keywords: ['settings', ...section.keywords],
+        run: () => onOpenSettings?.(section.id),
+      });
+    }
 
     return () => {
+      for (const id of sectionIds) unregisterCommand(id);
       unregisterCommand('nav.chat');
       unregisterCommand('nav.knowledge');
       unregisterCommand('nav.work');

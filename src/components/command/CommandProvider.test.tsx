@@ -109,6 +109,10 @@ describe('CommandProvider: command registration', () => {
     expect(ids).toContain('chat.new');
     expect(ids).toContain('system.palette');
     expect(ids).toContain('system.shortcuts');
+    // Every settings section except models (nav.providers) is a Settings command.
+    expect(ids).toContain('settings.account');
+    expect(ids).not.toContain('settings.models');
+    expect(getCommands().find((c) => c.id === 'nav.admin')?.group).toBe('settings');
     unmount();
   });
 
@@ -166,7 +170,7 @@ describe('CommandProvider: command registration', () => {
 describe('CommandProvider: palette open/close', () => {
   test('palette is closed on initial render', () => {
     const { container, unmount } = renderProvider({});
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Command palette"]')).toBeNull();
     unmount();
   });
 
@@ -174,18 +178,18 @@ describe('CommandProvider: palette open/close', () => {
     const { container, unmount } = renderProvider({});
     // 'mod' normalises to Control in test env (no navigator.platform).
     fireDocKeyDown('k', { ctrlKey: true });
-    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Command palette"]')).not.toBeNull();
     unmount();
   });
 
   test('mod+k toggles palette closed when already open', () => {
     const { container, unmount } = renderProvider({});
     fireDocKeyDown('k', { ctrlKey: true });
-    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Command palette"]')).not.toBeNull();
 
     // Second mod+k should close it.
     fireDocKeyDown('k', { ctrlKey: true });
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Command palette"]')).toBeNull();
     unmount();
   });
 
@@ -193,12 +197,12 @@ describe('CommandProvider: palette open/close', () => {
     const { container, unmount } = renderProvider({});
     // Open first.
     fireDocKeyDown('k', { ctrlKey: true });
-    const dialog = container.querySelector('[role="dialog"]') as HTMLElement | null;
+    const dialog = document.querySelector('[aria-label="Command palette"]') as HTMLElement | null;
     expect(dialog).not.toBeNull();
 
     // Fire Escape on the dialog itself (CommandPalette owns Escape via onKeyDown).
     fireKeyDown(dialog!, 'Escape');
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Command palette"]')).toBeNull();
     unmount();
   });
 });

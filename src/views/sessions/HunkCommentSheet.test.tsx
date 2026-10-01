@@ -44,7 +44,8 @@ function render(overrides: Partial<React.ComponentProps<typeof HunkCommentSheet>
   };
   flushSync(() => root.render(React.createElement(HunkCommentSheet, props)));
   return {
-    container,
+    // document.body: the kit Dialog portals there.
+    container: document.body as HTMLElement,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();

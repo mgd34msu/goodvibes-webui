@@ -57,10 +57,10 @@ test('removing an occasion takes one confirmation and then it disappears', async
   await page.goto(OCCASIONS);
   await occasionRow(page, 'Dad').locator('.gv-row__main').click();
   await page.getByRole('region', { name: 'Details' }).getByRole('button', { name: 'Remove' }).click();
-  await expect(page.locator('.confirm-sheet--danger')).toBeVisible();
-  await expect(page.locator('.confirm-sheet')).toContainText('Dad');
-  await page.locator('.confirm-sheet__confirm').click();
-  await expect(page.locator('.confirm-sheet')).toHaveCount(0);
+  await expect(page.locator('.gv-confirm--danger')).toBeVisible();
+  await expect(page.locator('.gv-confirm')).toContainText('Dad');
+  await page.locator('.gv-confirm__confirm').click();
+  await expect(page.locator('.gv-confirm')).toHaveCount(0);
   await expect(page.getByTestId('dates-occasion-list')).not.toContainText('Dad');
 });
 

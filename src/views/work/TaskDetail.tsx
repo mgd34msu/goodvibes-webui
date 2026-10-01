@@ -12,7 +12,7 @@ import type { RuntimeTaskSummary } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError, isSessionClosedError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { useIsPhoneViewport } from '../../hooks/useIsPhoneViewport';
 import { DetailPane, Facts } from '../../components/data-view/DataView';
 import { Button } from '../../components/ui/Button';
@@ -28,7 +28,7 @@ export function TaskDetail({ task, onClose }: { task: RuntimeTaskSummary; onClos
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isPhone = useIsPhoneViewport();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
 
   const cancel = useMutation({
     mutationFn: (taskId: string) => sdk.operator.tasks.cancel(taskId),

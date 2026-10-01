@@ -40,9 +40,9 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
   await serveButton.click();
 
   // Gated by the shared confirm-sheet idiom, not applied on the raw click.
-  await expect(page.locator('.confirm-sheet')).toBeVisible();
-  await expect(page.locator('.confirm-sheet')).toContainText('tailscale serve --bg');
-  await page.locator('.confirm-sheet__confirm').click();
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  await expect(page.locator('.gv-confirm')).toContainText('tailscale serve --bg');
+  await page.locator('.gv-confirm__confirm').click();
 
   // The resulting receipt renders the real https MagicDNS URL, as a link.
   await expect(panel.locator('.tailscale-panel__receipt--ok')).toBeVisible();
@@ -56,9 +56,9 @@ test('cancelling the confirm sheet never runs serve', async ({ page }) => {
   await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await panel.getByRole('button', { name: 'Serve over tailscale' }).click();
-  await expect(page.locator('.confirm-sheet')).toBeVisible();
-  await page.locator('.confirm-sheet__cancel').click();
-  await expect(page.locator('.confirm-sheet')).toHaveCount(0);
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  await page.locator('.gv-confirm__cancel').click();
+  await expect(page.locator('.gv-confirm')).toHaveCount(0);
   await expect(panel.locator('.tailscale-panel__receipt--ok')).toHaveCount(0);
 });
 
@@ -83,7 +83,7 @@ test('a failed serve (e.g. a permission error) renders the daemon\'s own receipt
   await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await panel.getByRole('button', { name: 'Serve over tailscale' }).click();
-  await page.locator('.confirm-sheet__confirm').click();
+  await page.locator('.gv-confirm__confirm').click();
   const failed = panel.locator('.tailscale-panel__receipt--danger');
   await expect(failed).toBeVisible();
   await expect(failed).toContainText('permission denied');

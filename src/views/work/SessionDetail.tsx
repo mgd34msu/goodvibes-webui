@@ -39,7 +39,7 @@ import { permissionModeLabel, type SettablePermissionMode } from '../../lib/perm
 import { outcomeLabel, type CompactionCheck, type CompactionReceipt } from '../../lib/compaction';
 import { useCompactionReceipts } from '../../hooks/useCompactionReceipts';
 import { PermissionModeSheet } from '../../components/confirm/PermissionModeSheet';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
 import { DetailPane, DetailSection, Facts } from '../../components/data-view/DataView';
 import { Button } from '../../components/ui/Button';
@@ -186,7 +186,7 @@ export interface SessionDetailProps {
 
 export function SessionDetail({ record, agents, tab, onTabChange, streamPaused, onOpenItem, onOpenInChat, onClose }: SessionDetailProps) {
   const queryClient = useQueryClient();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const closed = isClosedStatus(record.status);
   const reaped = isReapedStatus(record);
   const retention = retentionLabel(record);

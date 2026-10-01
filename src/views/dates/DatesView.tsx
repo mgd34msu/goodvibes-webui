@@ -41,7 +41,7 @@ import { queryKeys } from '../../lib/queries';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import ErrorBoundary from '../../components/feedback/ErrorBoundary';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../lib/toast';
 import {
   DetailPane,
@@ -213,7 +213,7 @@ export interface DatesViewProps {
 export function DatesView({ tabs }: DatesViewProps = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
 
   const [selection, setSelection] = useState<Selection>(null);
   const [sweepResult, setSweepResult] = useState<OperatorMethodOutput<'occasions.sweep'> | null>(null);
@@ -842,6 +842,7 @@ export function DatesView({ tabs }: DatesViewProps = {}) {
   } else {
     content = (
       <ListDetail
+        mode="peek"
         list={listBody}
         detail={renderDetail()}
         detailOpen={detailOpen}

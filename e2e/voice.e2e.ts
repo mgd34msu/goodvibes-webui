@@ -14,7 +14,7 @@
 import { test, expect } from '@playwright/test';
 import { installChatMockDaemon } from './support/chat-mock';
 import { installFakeAudio, installVoiceRoutes, trackAudioContexts, waitForAudioFlow } from './support/voice-mock';
-import { expectNoHorizontalScroll, only, PHONE } from './support/app';
+import { expectNoHorizontalScroll, only, PHONE, expectBottomSheet } from './support/app';
 
 test.use({
   permissions: ['microphone'],
@@ -155,23 +155,25 @@ test('the provider selection shows local beside elevenlabs (SDK 1.8.0 voice.loca
   await expect(page.locator('.app-shell')).toBeVisible();
 
   await page.locator('.voice-settings-btn').click();
-  const providerSelect = page.locator('.voice-settings-popover label')
-    .filter({ has: page.locator('span', { hasText: /^Provider$/ }) })
-    .locator('select');
+  const providerSelect = page.locator('.voice-settings-popover').getByRole('button', { name: 'Provider' });
   await expect(providerSelect).toBeVisible();
-  const optionLabels = await providerSelect.locator('option').allTextContents();
+  await providerSelect.click();
+  const list = page.getByRole('listbox', { name: 'Provider' });
+  const optionLabels = await list.getByRole('option').allTextContents();
   expect(optionLabels).toEqual(['ElevenLabs', 'Local engines (free, offline)']);
 
   // Selecting local writes tts.provider through the same shared-config path.
   const configWrite = page.waitForRequest((req) => req.method() === 'POST' && req.url().includes('/config'));
-  await providerSelect.selectOption('local');
+  await list.getByRole('option', { name: 'Local engines (free, offline)' }).click();
   await configWrite;
+  // Picking from the list leaves the voice dialog open.
+  await expect(page.locator('.voice-settings-popover')).toBeVisible();
 });
 
-test.describe('Voice settings: phone: a full-screen sheet, not a floating popover (MOBILE-ADAPT)', () => {
+test.describe('Voice settings: phone: a bottom sheet, not a floating popover (MOBILE-ADAPT)', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
-  test('opens as a full-viewport sheet with an explicit close affordance', async ({ page }) => {
+  test('opens as a full-width bottom sheet with an explicit close affordance', async ({ page }) => {
     await installChatMockDaemon(page);
     await installVoiceRoutes(page);
     await page.goto('/?view=chat');
@@ -181,21 +183,13 @@ test.describe('Voice settings: phone: a full-screen sheet, not a floating popove
     await expect(trigger).toBeVisible();
     await trigger.click();
 
+    // A kit dialog: on a phone, a full-width bottom sheet with a grabber.
     const sheet = page.locator('.voice-settings-popover');
     await expect(sheet).toBeVisible();
-    const box = await sheet.boundingBox();
-    const viewport = page.viewportSize();
-    expect(box).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    if (box && viewport) {
-      // Near-fullscreen: within a few px of the viewport in both dimensions,
-      // the same near-fullscreen shape the shared Modal uses at this breakpoint.
-      expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2);
-      expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);
-    }
+    await expectBottomSheet(page, sheet);
     await expectNoHorizontalScroll(page);
 
-    await page.locator('.voice-settings-close').click();
+    await sheet.getByRole('button', { name: 'Close' }).click();
     await expect(sheet).toBeHidden();
   });
 });

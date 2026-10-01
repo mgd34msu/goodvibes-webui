@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { ToastEntry, ToastTone } from '../../lib/toast';
 import { useAutoDismiss } from '../../lib/toast';
 
@@ -40,10 +41,10 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       onFocus={handleFocus}
       onBlur={handleBlur}
     >
-      <div className="toast__body">
+      <div className="toast__body" title={toast.description ? `${toast.title} ${toast.description}` : undefined}>
         <p className="toast__title">{toast.title}</p>
         {toast.description && (
-          <p className="toast__description">{toast.description}</p>
+          <span className="toast__description">{toast.description}</span>
         )}
       </div>
       <div className="toast__actions">
@@ -65,7 +66,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
           aria-label="Dismiss notification"
           onClick={() => onDismiss(toast.id)}
         >
-          ×
+          <X aria-hidden="true" />
         </button>
       </div>
     </div>

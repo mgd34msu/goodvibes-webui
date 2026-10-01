@@ -83,7 +83,7 @@ import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
-import { useConfirmSheet } from '../confirm/useConfirmSheet';
+import { useConfirm } from '../ui/ConfirmDialog';
 import '../../styles/components/owner-profile.css';
 
 interface ActionReport {
@@ -423,7 +423,7 @@ export function OwnerProfileSettings() {
   const appendLine = useAppendOwnerProfileLine();
   const forget = useForgetOwnerProfile();
   const undo = useUndoOwnerProfile();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [report, setReport] = useState<ActionReport | null>(null);
 
   const busy = setField.isPending || appendLine.isPending || forget.isPending || undo.isPending;

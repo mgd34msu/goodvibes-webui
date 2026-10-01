@@ -33,7 +33,11 @@ export function useModalFocus(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
   initialFocusRef?: RefObject<HTMLElement | null>,
+  options?: { recoverFocus?: boolean },
 ): void {
+  // A non-modal overlay (the desktop peek drawer) wraps Tab inside itself but
+  // lets a pointer move focus to the page beside it.
+  const recoverFocus = options?.recoverFocus ?? true;
   useEffect(() => {
     if (!active) return undefined;
     const container = containerRef.current;
@@ -72,14 +76,76 @@ export function useModalFocus(
     }
 
     container.addEventListener('keydown', onKeyDown);
-    document.addEventListener('focusin', onFocusIn, true);
+    if (recoverFocus) document.addEventListener('focusin', onFocusIn, true);
     return () => {
       container.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('focusin', onFocusIn, true);
+      if (recoverFocus) document.removeEventListener('focusin', onFocusIn, true);
       if (previous && previous.isConnected) previous.focus({ preventScroll: true });
     };
     // initialFocusRef is a ref object; its identity is stable.
-  }, [active, containerRef, initialFocusRef]);
+  }, [active, containerRef, initialFocusRef, recoverFocus]);
+}
+
+/**
+ * The open-overlay stack, in open order. Escape closes only the overlay on top:
+ * an overlay that listens for Escape outside its own element (the non-modal peek
+ * drawer, the command palette) asks `isTopOverlay` before it acts.
+ */
+const overlayStack: symbol[] = [];
+
+/** Register an open overlay; returns a function that reports whether it is on top. */
+export function useOverlayLayer(active: boolean): () => boolean {
+  const tokenRef = useRef<symbol | null>(null);
+  useEffect(() => {
+    if (!active) return undefined;
+    const token = Symbol('gv-overlay');
+    tokenRef.current = token;
+    overlayStack.push(token);
+    return () => {
+      const index = overlayStack.lastIndexOf(token);
+      if (index >= 0) overlayStack.splice(index, 1);
+      tokenRef.current = null;
+    };
+  }, [active]);
+  return useCallback(() => {
+    const token = tokenRef.current;
+    return token !== null && overlayStack[overlayStack.length - 1] === token;
+  }, []);
+}
+
+/**
+ * Escape that lands outside every overlay (focus fell back to the page, say after
+ * the button that held it was disabled) closes the overlay on top, and only that
+ * one. Escape inside an overlay is that overlay's own business (its onKeyDown);
+ * a key something else already used (defaultPrevented) is left alone.
+ */
+export function useTopLayerEscape(
+  open: boolean,
+  isTop: () => boolean,
+  onClose: () => void,
+): void {
+  const closeRef = useRef(onClose);
+  useLayoutEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    if (!open) return undefined;
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (!isTop()) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-gv-layer]')) return;
+      event.preventDefault();
+      closeRef.current();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, isTop]);
+}
+
+/** Test seam: how many overlays are registered. */
+export function openOverlayCount(): number {
+  return overlayStack.length;
 }
 
 /** Call `onDismiss` on a pointer press outside every element in `refs` while `active`. */

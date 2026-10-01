@@ -111,7 +111,8 @@ function render(open = true): { el: HTMLElement; unmount: () => void } {
     ));
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => { root.unmount(); });
       container.parentNode?.removeChild(container);
@@ -216,7 +217,7 @@ describe('the per-origin opt-in', () => {
     const view = render();
     cleanup = view.unmount;
     const checkbox = [...view.el.querySelectorAll('input[type="checkbox"]')]
-      .find((element) => element.parentElement?.textContent?.includes('Listen for the wake word in this browser'));
+      .find((element) => element.closest('label')?.textContent?.includes('Listen for the wake word in this browser'));
     expect(checkbox).toBeDefined();
     expect((checkbox as HTMLInputElement).checked).toBe(false);
 
@@ -236,7 +237,7 @@ describe('the per-origin opt-in', () => {
     const view = render();
     cleanup = view.unmount;
     const checkbox = [...view.el.querySelectorAll('input[type="checkbox"]')]
-      .find((element) => element.parentElement?.textContent?.includes('all surfaces'));
+      .find((element) => element.closest('label')?.textContent?.includes('all surfaces'));
     expect(checkbox).toBeDefined();
     flushSync(() => { (checkbox as HTMLInputElement).click(); });
     await flushMutations();

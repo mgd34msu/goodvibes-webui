@@ -74,7 +74,8 @@ function render(onPicked = () => {}, onClose = () => {}) {
       React.createElement(AttemptComparison, { open: true, group: GROUP as never, onClose, onPicked }),
     ));
   });
-  return { container, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
+  // document.body: kit Dialogs portal there.
+  return { container: document.body as HTMLElement, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
 }
 
 async function settle(times = 4) {
@@ -122,7 +123,7 @@ describe('AttemptComparison', () => {
     // default selection is the first held candidate (i-1)
     click(container.querySelector('.attempt-cmp__pick-btn'));
     await settle(2);
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     expect(pickCalls).toEqual([{ groupId: 'g-1', winnerItemId: 'i-1', confirm: true }]);
@@ -135,7 +136,7 @@ describe('AttemptComparison', () => {
     const { container, unmount } = render();
     click(container.querySelector('.attempt-cmp__pick-btn'));
     await settle(2);
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     expect(pickCalls).toHaveLength(1);
@@ -149,7 +150,7 @@ describe('AttemptComparison', () => {
     const { container, unmount } = render(() => { picked = true; });
     click(container.querySelector('.attempt-cmp__pick-btn'));
     await settle(2);
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     expect(pickCalls).toEqual([{ groupId: 'g-1', winnerItemId: 'i-1', confirm: true }]);

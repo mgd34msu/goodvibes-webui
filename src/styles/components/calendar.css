@@ -46,7 +46,7 @@
 }
 
 .calendar-drawer-body {
-  padding: 4px 24px 24px;
+  padding: 0;
 }
 
 .calendar-notice__errors {
@@ -175,4 +175,73 @@
   .calendar-drawer-body {
     padding: 4px 16px 24px;
   }
+}
+
+/* Phone: one compact row under the tabs (layout toggle, one date-range button,
+   the more menu), so the agenda starts high on the screen. */
+.calendar-phone-controls {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dv-filters .calendar-phone-controls > .calendar-layout-toggle {
+  width: auto;
+  flex: none;
+}
+
+.calendar-range-button {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.calendar-range-button__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-phone-controls .calendar-month-nav {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  gap: 0;
+}
+
+.calendar-phone-controls .calendar-month-nav__label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-phone-controls > .gv-icon-button,
+.calendar-phone-controls > :last-child {
+  flex: none;
+}
+
+.calendar-range-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 4px 8px;
+}
+
+.calendar-range-sheet__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: 24px;
+}
+
+.calendar-range-sheet__done {
+  width: 100%;
+  min-height: 44px;
 }

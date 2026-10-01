@@ -721,6 +721,10 @@ button.gv-row__main::after {
   width: min(420px, calc(100vw - 32px));
 }
 
+.gv-dialog--wide {
+  width: min(880px, calc(100vw - 32px));
+}
+
 .gv-dialog--large {
   width: min(880px, calc(100vw - 32px));
   height: min(640px, calc(100dvh - 48px));
@@ -737,6 +741,13 @@ button.gv-row__main::after {
   align-items: flex-start;
   gap: 12px;
   padding: 18px 16px 0 20px;
+}
+
+.gv-dialog__header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .gv-dialog__titles {
@@ -766,6 +777,24 @@ button.gv-row__main::after {
   overflow-y: auto;
   padding: 16px 20px;
   color: var(--text);
+}
+
+.gv-confirm .gv-dialog__body {
+  padding-top: 8px;
+  padding-bottom: 4px;
+}
+
+.gv-confirm__target {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 20px;
+}
+
+.gv-confirm .gv-dialog__footer {
+  padding-top: 16px;
 }
 
 .gv-dialog__footer {
@@ -823,6 +852,7 @@ button.gv-row__main::after {
 @media (max-width: 899px) {
   .gv-dialog,
   .gv-dialog--confirm,
+  .gv-dialog--wide,
   .gv-dialog--large {
     top: auto;
     right: 0;
@@ -914,19 +944,23 @@ button.gv-row__main::after {
   padding: 16px;
 }
 
-/* A right drawer on phone is a bottom sheet (design doc "Menus and modals"). */
-@media (max-width: 899px) {
-  .gv-drawer--right {
-    top: auto;
-    right: 0;
-    left: 0;
-    width: 100% !important;
-    max-height: calc(100dvh - 48px);
-    border-right: 1px solid var(--line-strong);
-    border-bottom: 0;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    animation: gv-slide-in-up var(--motion-slow) var(--ease-standard) both;
-  }
+/* A right drawer on phone is a bottom sheet over the scrim, with a grabber and
+   20 top radius (design doc "Menus and modals", "Phone"). */
+.gv-drawer--sheet {
+  top: auto;
+  right: 0;
+  left: 0;
+  width: 100%;
+  max-height: calc(100dvh - 48px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  animation: gv-slide-in-up var(--motion-slow) var(--ease-standard) both;
+}
+
+.gv-drawer--sheet > .gv-drawer__body {
+  flex: 0 1 auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1013,6 +1047,24 @@ button.gv-row__main::after {
   .gv-checkbox {
     min-height: 44px;
   }
+}
+
+/* ── Radio (shares the checkbox box) ────────────────────────── */
+.gv-radio__box {
+  border-radius: var(--radius-full);
+}
+
+.gv-radio__dot {
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+  background: var(--on-accent);
+  border-radius: var(--radius-full);
+  opacity: 0;
+}
+
+.gv-checkbox__input:checked ~ .gv-radio__dot {
+  opacity: 1;
 }
 
 /* ── Date field ─────────────────────────────────────────────── */
@@ -1159,4 +1211,49 @@ button.gv-row__main::after {
 .gv-date__day--selected:hover {
   color: var(--primary-fg);
   background: var(--primary-bg);
+}
+
+/* ── Choice list (a dialog that picks one of a few options) ─── */
+.gv-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gv-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: var(--weight-regular) var(--text-base) / 20px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease-out;
+}
+
+.gv-choice:hover:not(:disabled),
+.gv-choice[aria-pressed="true"] {
+  background: var(--surface-2);
+}
+
+.gv-choice:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gv-choice__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.gv-choice__check {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text);
 }

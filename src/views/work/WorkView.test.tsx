@@ -188,7 +188,8 @@ function render(tab?: string): { el: HTMLElement; unmount: () => void } {
     ));
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();
@@ -343,8 +344,8 @@ describe('details', () => {
     click(rowButton(el, 'PR watcher'));
     click(button(el.querySelector('.dv-detail')!, 'Stop'));
     expect(calls.watchersStop).toEqual([]);
-    await waitFor(() => Boolean(document.querySelector('.confirm-sheet__confirm')));
-    click(document.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(document.querySelector('.gv-confirm__confirm')));
+    click(document.querySelector('.gv-confirm__confirm'));
     await waitFor(() => calls.watchersStop.length === 1);
     expect(calls.watchersStop).toEqual(['watcher-1']);
     unmount();
@@ -379,9 +380,9 @@ describe('details', () => {
     click(rowButton(el, 'Refactor the spine'));
     await waitFor(() => (el.querySelector('.dv-detail')?.textContent ?? '').includes('hello there'));
     click(button(el.querySelector('.dv-detail')!, 'Close session'));
-    await waitFor(() => Boolean(document.querySelector('.confirm-sheet__confirm')));
+    await waitFor(() => Boolean(document.querySelector('.gv-confirm__confirm')));
     expect(calls.close).toEqual([]);
-    click(document.querySelector('.confirm-sheet__confirm'));
+    click(document.querySelector('.gv-confirm__confirm'));
     await waitFor(() => calls.close.length === 1);
     unmount();
   });

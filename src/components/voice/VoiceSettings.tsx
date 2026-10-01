@@ -24,8 +24,8 @@
  * (and this round's adoption note: no streamed per-step progress exists on the wire,
  * install is a single request/response call).
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { invokeMethod, sdk } from '../../lib/goodvibes';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
@@ -42,6 +42,8 @@ import {
 } from '../../lib/voice/voice-local-setup';
 import { useVoiceLocalInstall, useVoiceLocalStatus } from '../../hooks/useVoiceLocalSetup';
 import { WakeWordSettings } from './WakeWordSettings';
+import { Select } from '../ui/Select';
+import { Dialog } from '../ui/Dialog';
 
 interface VoiceOption {
   id: string;
@@ -61,7 +63,6 @@ function readVoices(data: unknown): VoiceOption[] {
 
 export function VoiceSettings() {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const { availability } = useVoiceStatus();
@@ -101,27 +102,11 @@ export function VoiceSettings() {
   const localUnavailable = localStatus.isError
     && (isMethodUnavailableError(localStatus.error) || isMethodNotInvokableError(localStatus.error));
 
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
   const tone = classifyBadgeTone(availability.ttsAvailable ? 'ready' : 'unconfigured');
   const glyph = contractGlyphForBadgeTone(tone);
 
   return (
-    <div className="voice-settings" ref={containerRef}>
+    <div className="voice-settings">
       <button
         type="button"
         className="composer-tool voice-settings-btn"
@@ -134,54 +119,40 @@ export function VoiceSettings() {
         <Settings2 size={16} aria-hidden />
       </button>
 
-      {open && (
-        <div className="voice-settings-popover" role="dialog" aria-label="Voice settings">
-          <div className="voice-settings-header">
-            <span className={`voice-settings-tone tone-${tone}`} aria-hidden>{glyph}</span>
-            <span className="voice-settings-title">Spoken voice</span>
-            {/* On a phone this popover becomes a full-screen sheet (voice.css, matching
-                the shared Modal's <=480px convention) with no "tap outside" area to close
-                it, so an explicit close button is required, not optional chrome. */}
-            <button
-              type="button"
-              className="voice-settings-close"
-              aria-label="Close voice settings"
-              onClick={() => setOpen(false)}
-            >
-              <X size={16} aria-hidden />
-            </button>
-          </div>
-
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Spoken voice"
+        className="voice-settings-popover"
+        headerActions={<span className={`voice-settings-tone tone-${tone}`} aria-hidden>{glyph}</span>}
+      >
           {availability.ttsAvailable ? (
             <>
               <p className="voice-settings-shared">
                 Current voice: <strong>{describeSharedVoice(config)}</strong>
               </p>
-              <label className="voice-settings-field">
-                <span>Provider</span>
-                <select
+              <div className="voice-settings-field">
+                <span aria-hidden="true">Provider</span>
+                <Select
+                  aria-label="Provider"
+                  className="voice-settings-provider"
                   value={selectedProvider}
                   disabled={setKey.isPending}
-                  onChange={(event) => setKey.mutate({ key: 'tts.provider', value: event.target.value })}
-                >
-                  {ttsProviders.map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="voice-settings-field">
-                <span>Voice</span>
-                <select
+                  onChange={(next) => setKey.mutate({ key: 'tts.provider', value: next })}
+                  options={ttsProviders.map((p) => ({ value: p.id, label: p.label }))}
+                />
+              </div>
+              <div className="voice-settings-field">
+                <span aria-hidden="true">Voice</span>
+                <Select
+                  aria-label="Voice"
+                  className="voice-settings-voice"
                   value={config.voice}
                   disabled={setKey.isPending || voicesQuery.isLoading || !voices.length}
-                  onChange={(event) => setKey.mutate({ key: 'tts.voice', value: event.target.value })}
-                >
-                  <option value="">Provider default</option>
-                  {voices.map((v) => (
-                    <option key={v.id} value={v.id}>{v.label}</option>
-                  ))}
-                </select>
-              </label>
+                  onChange={(next) => setKey.mutate({ key: 'tts.voice', value: next })}
+                  options={[{ value: '', label: 'Provider default' }, ...voices.map((v) => ({ value: v.id, label: v.label }))]}
+                />
+              </div>
               {voicesQuery.isLoading && <p className="voice-settings-hint">Loading voices…</p>}
               <p className="voice-settings-hint">One voice across terminal, desktop, and agent.</p>
             </>
@@ -323,8 +294,7 @@ export function VoiceSettings() {
               it running in a browser needs an act (download) and an opt-in
               (per-origin microphone permission) that no config row can express. */}
           <WakeWordSettings open={open} />
-        </div>
-      )}
+      </Dialog>
     </div>
   );
 }

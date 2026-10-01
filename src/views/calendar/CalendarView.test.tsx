@@ -49,7 +49,7 @@ mock.module('../../lib/goodvibes', () => ({
   },
 }));
 
-const { CalendarView } = await import('./CalendarView');
+const { CalendarView, formatRangeLabel } = await import('./CalendarView');
 
 function refusal(status: number, body: unknown): Promise<never> {
   return Promise.reject(Object.assign(new Error(`request failed: ${status}`), { status, body }));
@@ -70,7 +70,8 @@ function render() {
     );
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();
@@ -270,5 +271,25 @@ describe('CalendarView: create / export / import', () => {
     await waitFor(() => (el.textContent ?? '').includes('Imported 1 event'));
     expect(el.textContent).toContain('bad-uid: malformed');
     unmount();
+  });
+});
+
+describe('formatRangeLabel (the phone date-range button)', () => {
+  const now = new Date(2026, 8, 30);
+  test('a range inside one month reads "Oct 1 – 15"', () => {
+    expect(formatRangeLabel('2026-10-01', '2026-10-15', now)).toBe('Oct 1 – 15');
+  });
+  test('a range across months names both months', () => {
+    expect(formatRangeLabel('2026-09-28', '2026-10-05', now)).toBe('Sep 28 – Oct 5');
+  });
+  test('the year appears only when the range leaves this year', () => {
+    expect(formatRangeLabel('2026-12-28', '2027-01-04', now)).toBe('Dec 28, 2026 – Jan 4, 2027');
+    expect(formatRangeLabel('2027-01-02', '2027-01-09', now)).toBe('Jan 2 – 9, 2027');
+  });
+  test('one day, and open ends', () => {
+    expect(formatRangeLabel('2026-10-03', '2026-10-03', now)).toBe('Oct 3');
+    expect(formatRangeLabel('', '2026-10-03', now)).toBe('Until Oct 3');
+    expect(formatRangeLabel('2026-10-03', '', now)).toBe('From Oct 3');
+    expect(formatRangeLabel('', '', now)).toBe('Any date');
   });
 });

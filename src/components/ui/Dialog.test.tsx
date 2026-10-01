@@ -83,6 +83,13 @@ describe('Dialog: modal, labelled, focus-trapped', () => {
     expect(windowSawEscape).toBe(false);
   });
 
+  test('Escape with focus lost to the page still closes the dialog on top', () => {
+    renderDialog(true);
+    (document.activeElement as HTMLElement | null)?.blur();
+    key(document.body, 'Escape');
+    expect(closes).toBe(1);
+  });
+
   test('closing returns focus to what opened it', () => {
     renderDialog(true);
     renderDialog(false);

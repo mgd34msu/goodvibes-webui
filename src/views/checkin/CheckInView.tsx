@@ -23,7 +23,8 @@ import { queryKeys } from '../../lib/queries';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { Checkbox } from '../../components/ui/Checkbox';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { formatError, isMethodUnavailableError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
@@ -65,7 +66,7 @@ function ConfigEditForm({
   onCancel: () => void;
 }) {
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [enabled, setEnabled] = useState(config.enabled);
   const [cadence, setCadence] = useState(config.cadence);
   const [deliveryChannel, setDeliveryChannel] = useState(config.deliveryChannel);
@@ -101,10 +102,9 @@ function ConfigEditForm({
   return (
     <form className="checkin-edit-form" onSubmit={(e) => void handleSubmit(e)}>
       {confirm.element}
-      <label className="checkin-edit-form__checkbox">
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} disabled={save.isPending} />
+      <Checkbox className="checkin-edit-form__checkbox" checked={enabled} onChange={setEnabled} disabled={save.isPending}>
         Enabled
-      </label>
+      </Checkbox>
       <label>
         Cadence (cron)
         <input type="text" value={cadence} onChange={(e) => setCadence(e.target.value)} disabled={save.isPending} />

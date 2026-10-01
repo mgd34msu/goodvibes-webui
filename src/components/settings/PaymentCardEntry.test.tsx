@@ -185,8 +185,10 @@ describe('the panel is usable and honest', () => {
 
   test('the kind selector defaults to virtual and says why', () => {
     const { container, unmount } = render();
-    const select = container.querySelector('#gv-card-kind') as HTMLSelectElement;
-    expect(select.value).toBe('virtual');
+    // A kit Select: the trigger shows the chosen option's label.
+    const select = container.querySelector('#gv-card-kind') as HTMLButtonElement;
+    expect(select.getAttribute('aria-haspopup')).toBe('listbox');
+    expect(select.textContent).toContain('virtual');
     expect(select.textContent).toContain('recommended');
     unmount();
   });

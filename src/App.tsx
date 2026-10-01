@@ -5,7 +5,8 @@ import { ShellLayout } from './components/shell/ShellLayout';
 import { viewTitle } from './components/shell/nav';
 import { PowerChip } from './components/status/PowerChip';
 import { WakeChip } from './components/voice/WakeChip';
-import { getCommands } from './lib/commands';
+import { getCommands, registerCommand, unregisterCommand } from './lib/commands';
+import { useConfirm } from './components/ui/ConfirmDialog';
 import { useUrlState } from './hooks/useUrlState';
 import type { ViewId } from './lib/router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -344,14 +345,39 @@ export default function App() {
     setDraftChatRequested(false);
     setUrlState({ view: 'chat', session: sessionId });
   }, [setUrlState]);
+  const confirmDialog = useConfirm();
+  const askConfirm = confirmDialog.ask;
   const handleDeleteChat = useCallback((sessionId: string, chatTitle: string) => {
     // Truthful confirm text: this is a hard delete, not the close-in-disguise it
     // used to be, see the deleteChat mutation above.
-    if (!window.confirm(
-      `Delete "${chatTitle}" permanently?\n\nThis removes the chat record: it cannot be reopened.`,
-    )) return;
-    deleteChat.mutate(sessionId);
-  }, [deleteChat]);
+    void askConfirm({
+      title: 'Delete this chat?',
+      target: chatTitle,
+      description: 'This removes the chat record permanently; it cannot be reopened.',
+      confirmLabel: 'Delete chat',
+      tone: 'danger',
+    }).then((confirmed) => {
+      if (confirmed) deleteChat.mutate(sessionId);
+    });
+  }, [askConfirm, deleteChat]);
+
+  // The palette's "Chats" group: the recent chats, each one command that opens it.
+  useEffect(() => {
+    const ids = recentChats.slice(0, 8).map((chat) => {
+      const id = `chats.open.${chat.id}`;
+      registerCommand({
+        id,
+        title: chat.title || 'Untitled chat',
+        group: 'chats',
+        keywords: ['chat', 'open', 'recent'],
+        run: () => handleOpenChat(chat.id),
+      });
+      return id;
+    });
+    return () => {
+      for (const id of ids) unregisterCommand(id);
+    };
+  }, [recentChats, handleOpenChat]);
   const handleSearch = useCallback(() => {
     getCommands().find((command) => command.id === 'system.palette')?.run();
   }, []);
@@ -437,6 +463,7 @@ export default function App() {
     <AppShell view={view} onNavigate={handleNavigate} onOpenSettings={openSettings}>
     <div className="app-shell-root">
     <StepUpHost />
+    {confirmDialog.element}
     {/* A hand-off bundle (#pair=<token>&offers=…) surfaces its offer set once the
         token has validated. usePairingHandoff clears it back to [] via
         dismissOffers once the operator has decided (submitted or explicitly

@@ -2624,7 +2624,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
     const path = new URL(request.url()).pathname;
 
     if (method === 'GET' && path === '/api/calendar/events') {
-      return json(route, calendarEventsResponse());
+      // Honor the requested window like the daemon does, so what the agenda shows
+      // is what a real calendar would return for the selected range.
+      const params = new URL(request.url()).searchParams;
+      return json(route, calendarEventsResponse({ from: params.get('from'), to: params.get('to') }));
     }
     const eventGetMatch = path.match(/^\/api\/calendar\/events\/([^/]+)$/);
     if (method === 'GET' && eventGetMatch) {
@@ -2634,7 +2637,8 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
       return json(route, { eventId: 'ev-new', uid: 'ev-new@goodvibes', createdAt: new Date(0).toISOString() });
     }
     if (method === 'GET' && path === '/api/calendar/ics/export') {
-      return json(route, { icsContent: 'BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR', eventCount: calendarEventsResponse().events.length });
+      const params = new URL(request.url()).searchParams;
+      return json(route, { icsContent: 'BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR', eventCount: calendarEventsResponse({ from: params.get('from'), to: params.get('to') }).events.length });
     }
     if (method === 'POST' && path === '/api/calendar/ics/import') {
       return json(route, { imported: 1, eventIds: ['ev-imported'], errors: [] });

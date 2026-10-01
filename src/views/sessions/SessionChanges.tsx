@@ -38,6 +38,7 @@ import { ErrorState } from '../../components/feedback/ErrorState';
 import { HunkCommentSheet } from './HunkCommentSheet';
 import { HunkActionSheet } from './HunkActionSheet';
 import { HunkRevertSheet, type HunkRevertPhase } from './HunkRevertSheet';
+import { Select } from '../../components/ui/Select';
 import '../../styles/components/session-changes.css';
 
 interface SessionChangesProps {
@@ -358,21 +359,19 @@ export function SessionChanges({ sessionId, canSteer, closed, streamPaused = fal
                 <button type="button" className="session-changes__mode-toggle" onClick={() => setMode('session')}>
                   ← Back to session changes
                 </button>
-                <label className="session-changes__baseline">
-                  Baseline
-                  <select
+                <div className="session-changes__baseline">
+                  <span aria-hidden="true">Baseline</span>
+                  <Select
                     value={effectiveBaselineId}
-                    onChange={(e) => setBaselineId(e.target.value)}
+                    onChange={setBaselineId}
                     aria-label="Diff baseline checkpoint"
                     disabled={!checkpoints.length}
-                  >
-                    {checkpoints.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {(c.label || c.id)} · {kindLabel(c.kind)} · {formatRelative(c.createdAt)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={checkpoints.map((c) => ({
+                      value: c.id,
+                      label: `${c.label || c.id} · ${kindLabel(c.kind)} · ${formatRelative(c.createdAt)}`,
+                    }))}
+                  />
+                </div>
               </>
             )}
             <button

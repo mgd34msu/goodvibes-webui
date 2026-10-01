@@ -1,301 +1,290 @@
 /*
- * Command system styles
- * Uses token vars from TOKEN-CONTRACT.md / src/styles/tokens.css
- * The backdrop is the --scrim material and both panels are --glass (see the
- * @supports block at the end and src/styles/materials.css).
- * Two surfaces: CommandPalette (.cmd-*) and ShortcutCheatsheet (.cheat-*)
+ * command.css: the command palette and the shortcut cheatsheet (design doc
+ * "Menus and modals", "Glass and elevation", "Motion").
+ *
+ * The palette is 640 wide glass with 16 radius over the scrim, a 52-tall search
+ * field on top divided by a hairline, results grouped Chats / Go to / Actions /
+ * Settings as 36-tall rows, and a quiet key-hint footer. It opens in 180 ms with
+ * a fade and a .98 to 1 scale; on a phone it is a full-height sheet sliding up in
+ * 240 ms. With reduced motion both are instant (ui.css zeroes the motion tokens).
  */
 
-/* ─── Shared backdrop ─────────────────────────────────────────────────── */
+/* ─── Command palette ─────────────────────────────────────────────── */
 
-.cmd-backdrop,
-.cheat-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim-solid);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: clamp(var(--space-8), 10vh, 120px);
-  z-index: var(--z-palette);
-  animation: cmd-fade-in var(--motion-fast) var(--ease-standard);
+.cmd-overlay {
+  z-index: var(--z-palette, var(--z-overlay));
 }
-
-@keyframes cmd-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cmd-backdrop,
-  .cheat-backdrop {
-    animation: none;
-  }
-}
-
-/* ─── Command Palette ─────────────────────────────────────────────────── */
 
 .cmd-palette {
-  background: var(--glass-solid);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
-  width: min(640px, calc(100vw - var(--space-8)));
-  max-height: min(480px, 60vh);
+  position: absolute;
+  top: max(12vh, 64px);
+  left: 50%;
   display: flex;
   flex-direction: column;
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(520px, calc(100dvh - max(12vh, 64px) - 24px));
   overflow: hidden;
-  animation: cmd-slide-in var(--motion-base) var(--ease-spring);
+  border-radius: var(--radius-lg);
+  transform: translateX(-50%);
+  transform-origin: top center;
+  animation: cmd-palette-in var(--motion-base) var(--ease-standard) both;
 }
 
-@keyframes cmd-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.cmd-palette:focus {
+  outline: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cmd-palette {
-    animation: none;
-  }
+@keyframes cmd-palette-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.98); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 
-/* Search row */
-.cmd-search-row {
+/* Phone: a full-height sheet with the grabber, 20 top radius. */
+.cmd-palette--sheet {
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-height: none;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-bottom: 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  transform: none;
+  animation: gv-slide-in-up var(--motion-slow) var(--ease-standard) both;
+}
+
+.cmd-search {
   display: flex;
+  flex: none;
   align-items: center;
-  padding: var(--space-3) var(--space-4);
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 12px 0 16px;
   border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
+}
+
+.cmd-search__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text-3);
 }
 
 .cmd-input {
   flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
   color: var(--text);
-  font-family: var(--font-ui);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: var(--weight-regular) var(--text-md) / 24px var(--font-ui);
+  text-overflow: ellipsis;
+}
+
+.cmd-input:focus,
+.cmd-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Focus stays visible: the search row's hairline turns accent while the field
+   has the keyboard (design doc "Accessibility"). */
+.cmd-search:focus-within {
+  border-bottom-color: var(--accent);
 }
 
 .cmd-input::placeholder {
   color: var(--text-3);
 }
 
-/* Results list */
-.cmd-list {
-  list-style: none;
-  margin: 0;
-  padding: var(--space-2) 0;
-  overflow-y: auto;
-  flex: 1;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
+.cmd-search__cancel {
+  flex: none;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: var(--weight-medium) var(--text-base) / 1 var(--font-ui);
+  cursor: pointer;
 }
 
-.cmd-group {
-  display: contents;
+.cmd-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+}
+
+.cmd-group + .cmd-group {
+  margin-top: 6px;
 }
 
 .cmd-group-label {
-  padding: var(--space-2) var(--space-4) var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
+  padding: 8px 10px 4px;
   color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  pointer-events: none;
-  user-select: none;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  line-height: 16px;
 }
 
 .cmd-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  line-height: 20px;
   cursor: pointer;
-  border-radius: var(--radius-xs);
-  margin: 0 var(--space-2);
-  transition: background var(--motion-fast) var(--ease-standard);
-  min-height: var(--row-h);
+  user-select: none;
+  transition: background-color var(--motion-fast) ease-out;
 }
 
-.cmd-item:hover,
 .cmd-item--active {
-  background: var(--accent-soft);
+  background: var(--surface-2);
 }
 
-.cmd-item--active .cmd-item-title {
-  color: var(--accent);
+.cmd-item-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+
+.cmd-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cmd-item--active .cmd-item-icon {
+  color: var(--text-2);
 }
 
 .cmd-item-title {
-  font-size: var(--text-sm);
-  color: var(--text);
-  font-family: var(--font-ui);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cmd-item-kbd {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  background: var(--surface);
+.cmd-item-kbd,
+.cmd-footer kbd,
+.cheat-keys kbd {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  color: var(--text-3);
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: var(--radius-xs);
-  padding: 1px var(--space-1);
+  font: var(--weight-regular) var(--text-xs) / 1 var(--font-ui);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .cmd-empty {
-  padding: var(--space-8) var(--space-4);
-  text-align: center;
-  color: var(--text-3);
-  font-size: var(--text-sm);
-}
-
-/* ─── Shortcut Cheatsheet ─────────────────────────────────────────────── */
-
-.cheat-sheet {
-  background: var(--glass-solid);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
-  width: min(560px, calc(100vw - var(--space-8)));
-  max-height: min(600px, 70vh);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: cmd-slide-in var(--motion-base) var(--ease-spring);
-  outline: none;
-}
-
-.cheat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-}
-
-.cheat-title {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-  color: var(--text);
-}
-
-.cheat-close {
-  background: none;
-  border: none;
-  cursor: pointer;
+  padding: 28px 16px;
   color: var(--text-2);
   font-size: var(--text-base);
-  line-height: 1;
-  padding: var(--space-1);
-  border-radius: var(--radius-xs);
-  transition: color var(--motion-fast) var(--ease-standard);
+  text-align: center;
 }
 
-.cheat-close:hover {
-  color: var(--text);
+.cmd-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+  min-height: 36px;
+  padding: 0 16px;
+  color: var(--text-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-meta);
 }
 
-.cheat-close:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.cmd-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.cheat-body {
-  overflow-y: auto;
-  flex: 1;
-  padding: var(--space-4) var(--space-6);
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
+.cmd-footer kbd svg {
+  width: 12px;
+  height: 12px;
 }
 
-.cheat-group {
-  margin-bottom: var(--space-6);
+/* Phone rows reach the 44 touch floor. */
+@media (max-width: 899px) {
+  .cmd-item {
+    min-height: 44px;
+  }
+
+  .cmd-list {
+    padding: 6px 8px 16px;
+  }
 }
 
-.cheat-group:last-child {
-  margin-bottom: 0;
+@media (prefers-reduced-motion: reduce) {
+  .cmd-palette,
+  .cmd-palette--sheet {
+    animation: none !important;
+  }
+}
+
+/* ─── Shortcut cheatsheet (a kit Dialog) ──────────────────────────── */
+
+.cheat-group + .cheat-group {
+  margin-top: 16px;
 }
 
 .cheat-group-label {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
+  margin: 0 0 4px;
   color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  line-height: 16px;
 }
 
 .cheat-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  margin: 0;
 }
 
 .cheat-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  min-height: var(--row-h);
+  gap: 12px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cheat-row:last-child {
+  border-bottom: 0;
 }
 
 .cheat-action {
-  font-size: var(--text-sm);
+  min-width: 0;
   color: var(--text);
-  font-family: var(--font-ui);
+  font-size: var(--text-base);
 }
 
 .cheat-keys {
   margin: 0;
 }
 
-.cheat-keys kbd {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  padding: 1px var(--space-1);
-  white-space: nowrap;
-}
-
 .cheat-empty {
-  color: var(--text-3);
-  font-size: var(--text-sm);
-  padding: var(--space-4) 0;
-}
-
-/* Glass and scrim (design doc "Glass and elevation"): the translucent recipe
-   where backdrop-filter works; the opaque values above are the fallback. */
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .cmd-backdrop,
-  .cheat-backdrop {
-    background: var(--scrim);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-  }
-
-  .cmd-palette,
-  .cheat-sheet {
-    background: var(--glass);
-    -webkit-backdrop-filter: blur(22px) saturate(1.4);
-    backdrop-filter: blur(22px) saturate(1.4);
-  }
+  margin: 0;
+  color: var(--text-2);
 }

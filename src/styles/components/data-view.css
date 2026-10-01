@@ -540,6 +540,18 @@
     padding: 16px 16px 0;
   }
 
+  /* Phone: the description wraps to two lines at most instead of cutting off
+     mid-word after a few characters. */
+  .dv-description {
+    display: -webkit-box;
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
   .dv-filters {
     padding: 12px 16px 0;
   }
@@ -613,4 +625,43 @@
   .dv-pane__tabs .gv-segmented__item {
     min-height: 44px;
   }
+}
+
+/* ── Peek drawer (ListDetail mode="peek") ──────────────────────────
+   The detail pane fills the kit Drawer: its header sits at the top of the
+   glass panel, its body scrolls, its footer stays at the bottom. On a phone
+   the drawer is a bottom sheet and the pane takes its content height. */
+.dv-peek > .gv-drawer__body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dv-peek .dv-detail {
+  flex: 1;
+}
+
+.dv-peek .dv-pane__header {
+  padding: 16px 12px 12px 20px;
+}
+
+.dv-peek .dv-pane__tabs {
+  padding: 0 20px 12px;
+}
+
+.dv-peek .dv-pane__body {
+  padding: 4px 20px 24px;
+}
+
+.dv-peek .dv-pane__footer {
+  padding: 12px 20px;
+}
+
+.dv-peek.gv-drawer--sheet .dv-pane__header {
+  padding-top: 4px;
+}
+
+.dv-peek.gv-drawer--sheet .dv-pane__footer {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }

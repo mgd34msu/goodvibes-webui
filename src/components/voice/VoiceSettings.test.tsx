@@ -82,7 +82,8 @@ function render(): { el: HTMLElement; unmount: () => void } {
     root.render(React.createElement(QueryClientProvider, { client }, React.createElement(VoiceSettings)));
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);

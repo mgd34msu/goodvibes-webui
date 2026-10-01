@@ -32,7 +32,7 @@ import { isTerminalApprovalStatus } from '../../lib/approvals';
 import { compactJson } from '../../lib/object';
 import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { NodeHeadline, NodeReviewSummary, NodeStallNote } from '../../components/fleet/NodeTells';
 import { TaskGraphPanel } from '../../components/fleet/TaskGraphPanel';
 import { PriceSourceNote } from '../../components/pricing/PriceSourceNote';
@@ -119,7 +119,7 @@ function ObservedSteer({ node, observed }: { node: FleetProcessNode; observed: N
 export function ProcessDetail({ node, archived, approvals, onOpenItem, onClose, onGone }: ProcessDetailProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const backed = useMemo(() => wireBackedActions(node), [node]);
   const unbackedNote = useMemo(() => unbackedCapabilityNote(node), [node]);
   const pendingApprovals = useMemo(

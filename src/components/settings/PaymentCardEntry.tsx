@@ -65,6 +65,7 @@ import { CreditCard } from 'lucide-react';
 import { describeCardEntryRefusal } from '@pellux/goodvibes-sdk/platform/payments';
 import { sdk } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
+import { Select } from '../ui/Select';
 import { useToast } from '../../lib/toast';
 import { minorUnitsToMajorText } from '../../lib/money';
 import {
@@ -217,16 +218,17 @@ export function PaymentCardEntry({ currency = 'USD', surface = WEBUI_CARD_ENTRY_
 
         <label htmlFor="gv-card-kind">
           Kind
-          <select
+          <Select
             id="gv-card-kind"
             className="settings-field-select"
             value={draft.kind}
             disabled={saving}
-            onChange={(event) => update('kind', event.target.value)}
-          >
-            <option value="virtual">virtual (recommended: issuer-capped, killable)</option>
-            <option value="real">real</option>
-          </select>
+            onChange={(next) => update('kind', next)}
+            options={[
+              { value: 'virtual', label: 'virtual (recommended: issuer-capped, killable)' },
+              { value: 'real', label: 'real' },
+            ]}
+          />
         </label>
 
         <label htmlFor="gv-card-number">

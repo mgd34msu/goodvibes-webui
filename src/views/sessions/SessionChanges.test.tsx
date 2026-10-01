@@ -119,7 +119,8 @@ function render(props: { canSteer: boolean; closed: boolean }) {
     ));
   });
   return {
-    container,
+    // document.body: the kit Dialog portals there.
+    container: document.body as HTMLElement,
     client,
     unmount: () => { flushSync(() => root.unmount()); container.remove(); },
   };

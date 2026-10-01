@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { IconButton } from '../../components/ui/IconButton';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { sdk } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
@@ -33,6 +34,7 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState('');
   const [draftText, setDraftText] = useState('');
+  const confirm = useConfirm();
 
   const list = useQuery({
     queryKey: queryKeys.sessionQueuedMessages(sessionId),
@@ -60,10 +62,11 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
   });
 
   const messages = list.data?.messages ?? [];
-  if (messages.length === 0) return null;
+  if (messages.length === 0) return confirm.element;
 
   return (
     <div className="queued-messages-panel" aria-label="Queued messages">
+      {confirm.element}
       <p className="queued-messages-panel__note" role="note">
         <Clock size={14} aria-hidden="true" />
         Queued: will be sent once the current reply finishes. Edit or drop it before then.
@@ -128,9 +131,14 @@ export function QueuedMessagesPanel({ sessionId, active }: QueuedMessagesPanelPr
                     tooltipPlacement="top"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
-                      if (window.confirm('Drop this queued message? It will never be sent.')) {
-                        deleteMutation.mutate(message.id);
-                      }
+                      void confirm.ask({
+                        title: 'Drop this queued message?',
+                        description: 'It will never be sent.',
+                        confirmLabel: 'Drop message',
+                        tone: 'danger',
+                      }).then((confirmed) => {
+                        if (confirmed) deleteMutation.mutate(message.id);
+                      });
                     }}
                   />
                 </div>

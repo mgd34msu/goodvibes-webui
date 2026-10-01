@@ -25,7 +25,8 @@
  */
 import { useState } from 'react';
 import { BellRing, KeyRound, Radio } from 'lucide-react';
-import { Modal } from '../modal/Modal';
+import { Checkbox } from '../ui/Checkbox';
+import { Dialog } from '../ui/Dialog';
 import { sdk } from '../../lib/goodvibes';
 import type {
   PairingHandoffCompleteNotificationsAccept,
@@ -149,7 +150,7 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
   }
 
   return (
-    <Modal open title="Finish pairing this device" onClose={onDone}>
+    <Dialog open title="Finish pairing this device" onClose={onDone}>
       <div className="pairing-handoff">
         {postureNotice && (
           <p className="banner info pairing-handoff-posture-notice" role="status">{postureNotice}</p>
@@ -186,18 +187,15 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
                 const disabled = kind === 'passkey' && !passkeyAvailable;
                 return (
                   <li key={kind} className="pairing-handoff-offer">
-                    <label className="pairing-handoff-offer__row">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(accepted[kind]) && !disabled}
-                        disabled={disabled || phase === 'submitting'}
-                        onChange={(event) =>
-                          setAccepted((prev) => ({ ...prev, [kind]: event.target.checked }))
-                        }
-                      />
+                    <Checkbox
+                      className="pairing-handoff-offer__row"
+                      checked={Boolean(accepted[kind]) && !disabled}
+                      disabled={disabled || phase === 'submitting'}
+                      onChange={(checked) => setAccepted((prev) => ({ ...prev, [kind]: checked }))}
+                    >
                       <Icon size={16} aria-hidden="true" />
                       <span className="pairing-handoff-offer__label">{meta.label}</span>
-                    </label>
+                    </Checkbox>
                     <p className="pairing-handoff-offer__desc">
                       {disabled ? 'This browser does not support passkeys, so this offer cannot be completed here.' : meta.description}
                     </p>
@@ -216,6 +214,6 @@ export function PairingHandoffOffers({ offers, onDone, postureNotice }: PairingH
           </>
         )}
       </div>
-    </Modal>
+    </Dialog>
   );
 }

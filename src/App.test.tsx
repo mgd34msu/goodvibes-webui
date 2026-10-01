@@ -427,11 +427,14 @@ describe('App: D-WEBUI-2: no stored token skips the authenticated-shell flash', 
 });
 
 describe('App: delete-means-delete, companion chat sidebar delete', () => {
-  const originalConfirm = window.confirm;
-
-  afterEach(() => {
-    window.confirm = originalConfirm;
-  });
+  /** Answer the kit ConfirmDialog the delete opens (it replaced window.confirm). */
+  async function answerConfirm(confirmed: boolean): Promise<void> {
+    const dialog = document.querySelector('[role="alertdialog"].gv-confirm');
+    expect(dialog?.textContent).toContain('Delete this chat?');
+    const button = document.querySelector(confirmed ? '.gv-confirm__confirm' : '.gv-confirm__cancel') as HTMLButtonElement;
+    flushSync(() => button.click());
+    await flushMicrotasks();
+  }
 
   function deleteButtonFor(container: HTMLElement, title: string): HTMLButtonElement {
     const row = [...container.querySelectorAll('.shell-recent__row')]
@@ -443,7 +446,6 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
 
   test('the confirm gate fires before any destructive call; declining leaves close/delete uncalled', async () => {
     window.history.pushState({}, '', '/?view=chat');
-    window.confirm = () => false;
     const { container, unmount } = render();
     await flushMicrotasks();
     expect(container.textContent).toContain('Chat One');
@@ -452,6 +454,7 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
       deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
     await flushMicrotasks();
+    await answerConfirm(false);
 
     expect(chatCloseCalls).toEqual([]);
     expect(chatDeleteCalls).toEqual([]);
@@ -462,7 +465,6 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
 
   test('an honest post-S1 daemon: delete closes first, then really removes; proof-of-gone confirms absence, no false banner', async () => {
     window.history.pushState({}, '', '/?view=chat');
-    window.confirm = () => true;
     chatDeleteReallyRemoves = true;
     const { container, unmount } = render();
     await flushMicrotasks();
@@ -472,6 +474,7 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
       deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
     await flushMicrotasks();
+    await answerConfirm(true);
 
     // Close-then-delete, in that order, honoring the "delete requires closed" verb.
     expect(chatCloseCalls).toEqual(['c1']);
@@ -486,7 +489,6 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
 
   test('a still-soft-closing pre-S1 daemon: delete does NOT make the row vanish silently. It comes back with an honest "did not complete" banner', async () => {
     window.history.pushState({}, '', '/?view=chat');
-    window.confirm = () => true;
     chatDeleteReallyRemoves = false;
     const { container, unmount } = render();
     await flushMicrotasks();
@@ -496,6 +498,7 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
       deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
     await flushMicrotasks();
+    await answerConfirm(true);
 
     expect(chatDeleteCalls).toEqual(['c1']);
     // The record was only soft-closed server-side (chatDeleteReallyRemoves=false), so
@@ -511,7 +514,6 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
 
   test('an older daemon with no close route yet: close 404s honestly but delete still proceeds (and the reconcile still catches the still-soft-close outcome)', async () => {
     window.history.pushState({}, '', '/?view=chat');
-    window.confirm = () => true;
     chatCloseAvailable = false;
     chatDeleteReallyRemoves = false;
     const { container, unmount } = render();
@@ -521,6 +523,7 @@ describe('App: delete-means-delete, companion chat sidebar delete', () => {
       deleteButtonFor(container, 'Chat One').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     });
     await flushMicrotasks();
+    await answerConfirm(true);
 
     // close was attempted (and honestly failed as unavailable) but did not block delete.
     expect(chatCloseCalls).toEqual(['c1']);

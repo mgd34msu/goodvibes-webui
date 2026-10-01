@@ -70,7 +70,8 @@ function render(): { el: HTMLElement; client: QueryClient; unmount: () => void }
     );
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     client,
     unmount: () => {
       flushSync(() => root.unmount());
@@ -151,8 +152,8 @@ describe('TailscaleSettings: usable environment', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="tailscale-settings"]')));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Serve over tailscale')));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => serveRunCalls.length > 0);
     await waitFor(() => Boolean(el.querySelector('.tailscale-panel__receipt--ok')));
     expect(el.textContent).toContain('https://my-host.ts.net');
@@ -164,12 +165,12 @@ describe('TailscaleSettings: usable environment', () => {
     const { el, client, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="tailscale-settings"]')));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Serve over tailscale')));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__cancel'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__cancel'));
     // The sheet closes as ask() resolves false. The handler resumes after that
     // await on a microtask, and a serve mutation would reach the SDK on further
     // microtasks, so one real event-loop turn after the close lets all of it run.
-    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await waitFor(() => !el.querySelector('.gv-confirm'));
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(client.getMutationCache().getAll()).toHaveLength(0);
     expect(serveRunCalls).toHaveLength(0);
@@ -185,8 +186,8 @@ describe('TailscaleSettings: usable environment', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="tailscale-settings"]')));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Serve over tailscale')));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => Boolean(el.querySelector('.tailscale-panel__receipt--danger')));
     expect(el.textContent).toContain('permission denied');
     unmount();

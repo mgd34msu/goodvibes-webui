@@ -1,96 +1,63 @@
 /**
- * PermissionModeSheet, a touch-first picker for a session's permission mode.
+ * PermissionModeSheet, the picker for a session's permission mode, on the kit
+ * Dialog (420 wide glass on desktop, a bottom sheet with a grabber on a phone).
+ * Each settable mode is one 44-tall choice; the current one carries a check.
+ * Presentational only: the caller runs the sessions.permissionMode.set mutation
+ * after onSelect fires and owns pendingMode (the list is disabled while a write
+ * is in flight).
  *
- * Same surface as ConfirmSheet (centered dialog on desktop, bottom sheet on a
- * phone; shares confirm-sheet.css and the focus-trap/Escape/backdrop behavior)
- * but offers a list of mode choices instead of a single confirm/cancel pair,
- * the "existing confirm-sheet pattern" the session-view permission-mode control
- * reuses. Presentational only: the caller runs the sessions.permissionMode.set
- * mutation after onSelect fires and owns pendingMode (disables the sheet while
- * a write is in flight, matching ConfirmSheet's "caller owns the mutation"
- * contract).
- *
- * Only SETTABLE_PERMISSION_MODES render as choices, 'custom' is a read-only
- * wire state (a bespoke rule set), never a value `sessions.permissionMode.set`
- * accepts (lib/permission-mode.ts). If the session is currently in custom mode,
- * none of the rendered options is highlighted as current, which is honest: none
- * of them IS the current mode.
+ * Only SETTABLE_PERMISSION_MODES render as choices: 'custom' is a read-only wire
+ * state (a bespoke rule set), never a value `sessions.permissionMode.set`
+ * accepts (lib/permission-mode.ts). In custom mode no choice is marked current,
+ * which is honest: none of them is.
  */
-import { useEffect, useId, useRef } from 'react';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { Check } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Dialog } from '../ui/Dialog';
 import { SETTABLE_PERMISSION_MODES, permissionModeLabel, type SettablePermissionMode } from '../../lib/permission-mode';
-import '../../styles/components/confirm-sheet.css';
 
 export interface PermissionModeSheetProps {
   open: boolean;
   /** '' when the current mode has not been read from the daemon yet. */
   currentMode: string;
-  /** The mode a write is currently in flight for, if any, disables the list. */
+  /** The mode a write is currently in flight for, if any; disables the list. */
   pendingMode?: string;
   onSelect: (mode: SettablePermissionMode) => void;
   onCancel: () => void;
 }
 
 export function PermissionModeSheet({ open, currentMode, pendingMode, onSelect, onCancel }: PermissionModeSheetProps) {
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
-  const firstOptionRef = useRef<HTMLButtonElement>(null);
-  const titleId = useId();
-  const descId = useId();
-
-  useEffect(() => {
-    if (!open) return undefined;
-    firstOptionRef.current?.focus();
-    function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onCancel]);
-
-  if (!open) return null;
   const busy = Boolean(pendingMode);
-
   return (
-    <div className="confirm-sheet-root">
-      <div className="confirm-sheet-backdrop" aria-hidden="true" onClick={onCancel} />
-      <div
-        ref={trapRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        className="confirm-sheet"
-      >
-        <h2 id={titleId} className="confirm-sheet__title">Set permission mode</h2>
-        <p id={descId} className="confirm-sheet__desc">
-          Applies to this session&apos;s live runtime. Only available while this session
-          is the daemon&apos;s own live local session.
-        </p>
-        <div className="confirm-sheet__actions permission-mode-sheet__options">
-          {SETTABLE_PERMISSION_MODES.map((mode, index) => (
+    <Dialog
+      open={open}
+      onClose={busy ? () => undefined : onCancel}
+      title="Set permission mode"
+      description="Applies to this session's live runtime, while it is the daemon's own local session."
+      size="confirm"
+      footer={<Button variant="secondary" onClick={onCancel} disabled={busy}>Close</Button>}
+    >
+      <div className="gv-choice-list" role="group" aria-label="Permission modes">
+        {SETTABLE_PERMISSION_MODES.map((mode) => {
+          const current = mode === currentMode;
+          return (
             <button
               key={mode}
-              ref={index === 0 ? firstOptionRef : undefined}
               type="button"
+              className="gv-choice"
               disabled={busy}
-              aria-pressed={mode === currentMode}
-              className={`confirm-sheet__cancel permission-mode-sheet__option${mode === currentMode ? ' permission-mode-sheet__option--current' : ''}`}
+              aria-pressed={current}
               onClick={() => onSelect(mode)}
             >
-              {permissionModeLabel(mode)}
-              {mode === pendingMode ? '…' : ''}
+              <span className="gv-choice__label">
+                {permissionModeLabel(mode)}
+                {mode === pendingMode ? '…' : ''}
+              </span>
+              {current && <Check className="gv-choice__check" aria-hidden="true" />}
             </button>
-          ))}
-        </div>
-        <div className="confirm-sheet__actions">
-          <button type="button" className="confirm-sheet__cancel" onClick={onCancel} disabled={busy}>
-            Close
-          </button>
-        </div>
+          );
+        })}
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -9,6 +9,8 @@
  */
 
 export type CommandGroup =
+  | 'chats'
+  | 'settings'
   | 'navigation'
   | 'chat'
   | 'knowledge'
@@ -68,12 +70,15 @@ export function unregisterCommand(id: string): void {
 
 /**
  * Return a snapshot of all currently registered commands,
- * ordered by group then title.
+ * ordered by group then title (recent chats keep their registration order).
  */
 export function getCommands(): CommandDef[] {
   return Array.from(registry.commands.values()).sort((a, b) => {
     const gCmp = a.group.localeCompare(b.group);
-    return gCmp !== 0 ? gCmp : a.title.localeCompare(b.title);
+    if (gCmp !== 0) return gCmp;
+    // Recent chats keep their registration order (most recent first).
+    if (a.group === 'chats') return 0;
+    return a.title.localeCompare(b.title);
   });
 }
 

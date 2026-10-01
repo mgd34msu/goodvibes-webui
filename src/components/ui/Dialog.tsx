@@ -2,7 +2,7 @@ import { X } from 'lucide-react';
 import { useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from './IconButton';
-import { useModalFocus } from './overlay';
+import { useModalFocus, useOverlayLayer, useTopLayerEscape } from './overlay';
 import '../../styles/components/ui.css';
 
 export interface DialogProps {
@@ -10,8 +10,15 @@ export interface DialogProps {
   onClose: () => void;
   title: string;
   description?: ReactNode;
-  /** confirm: 420 wide. default: 560. large: 880 by 640 (the settings dialog). */
-  size?: 'confirm' | 'default' | 'large';
+  /**
+   * confirm: 420 wide. default: 560. wide: 880 wide, content height (a table or
+   * a comparison). large: 880 by 640 (the settings dialog).
+   */
+  size?: 'confirm' | 'default' | 'wide' | 'large';
+  /** alertdialog for a confirmation that interrupts; dialog otherwise. */
+  role?: 'dialog' | 'alertdialog';
+  /** Controls in the header before the close button (a target switcher). */
+  headerActions?: ReactNode;
   /** Right-aligned buttons: secondary Cancel, then the one primary or danger action. */
   footer?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement | null>;
@@ -39,6 +46,8 @@ export function Dialog({
   title,
   description,
   size = 'default',
+  role = 'dialog',
+  headerActions,
   footer,
   initialFocusRef,
   hideClose = false,
@@ -50,6 +59,8 @@ export function Dialog({
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
   useModalFocus(open, panelRef, initialFocusRef);
+  const isTop = useOverlayLayer(open);
+  useTopLayerEscape(open, isTop, onClose);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -67,13 +78,13 @@ export function Dialog({
     }
   };
 
-  const sizeClass = size === 'confirm' ? 'gv-dialog--confirm' : size === 'large' ? 'gv-dialog--large' : '';
+  const sizeClass = size === 'default' ? '' : `gv-dialog--${size}`;
   return createPortal(
     <div className="gv-overlay" data-gv-layer="">
       <div className="scrim" aria-hidden="true" onClick={onClose} />
       <div
         ref={panelRef}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
@@ -94,6 +105,7 @@ export function Dialog({
             <h2 id={titleId} className="gv-dialog__title">{title}</h2>
             {description && <p id={descriptionId} className="gv-dialog__description">{description}</p>}
           </div>
+          {headerActions && <div className="gv-dialog__header-actions">{headerActions}</div>}
           {!hideClose && <IconButton label="Close" icon={<X />} onClick={onClose} noTooltip />}
         </div>
         {children && <div className="gv-dialog__body">{children}</div>}

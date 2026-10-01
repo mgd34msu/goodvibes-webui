@@ -12,10 +12,13 @@ import { MEMORY_FACT, MEMORY_REVIEW_CANDIDATE } from './support/seed';
 
 const PANEL = '[data-testid="consolidation-receipts"]';
 
-/** On a phone the proposal's detail fills the screen; Back returns to the list. */
+/** On a phone the proposal's detail is a bottom sheet over the list; Escape closes it. */
 async function backToListIfPhone(page: Page): Promise<void> {
-  const back = page.getByRole('button', { name: 'All review' });
-  if (await back.isVisible()) await back.click();
+  const sheet = page.locator('.dv-peek.gv-drawer--sheet');
+  if (await sheet.isVisible()) {
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+  }
 }
 
 test('a pending contradiction proposal renders kind, reason and record count', async ({ page }) => {

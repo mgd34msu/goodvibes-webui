@@ -27,7 +27,7 @@ import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../confirm/useConfirmSheet';
+import { useConfirm } from '../ui/ConfirmDialog';
 import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
@@ -36,7 +36,7 @@ import '../../styles/components/pairing-tokens.css';
 export function PairingTokensSettings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
 

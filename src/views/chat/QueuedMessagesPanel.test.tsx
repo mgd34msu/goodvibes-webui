@@ -54,7 +54,8 @@ function render(sessionId = 's-1', active = true): { el: HTMLElement; client: Qu
     root.render(React.createElement(QueryClientProvider, { client }, React.createElement(QueuedMessagesPanel, { sessionId, active })));
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     client,
     unmount: () => {
       flushSync(() => { root.unmount(); });
@@ -92,7 +93,6 @@ async function pump(): Promise<void> {
 }
 
 let cleanup: (() => void) | null = null;
-let confirmSpy: ((message?: string) => boolean) | null = null;
 
 afterEach(() => {
   jest.useRealTimers();
@@ -103,10 +103,6 @@ afterEach(() => {
   deleteImpl = (sessionId, id) => Promise.resolve({ sessionId, id, deleted: true });
   calls.edit = [];
   calls.delete = [];
-  if (confirmSpy) {
-    window.confirm = confirmSpy;
-    confirmSpy = null;
-  }
 });
 
 describe('QueuedMessagesPanel', () => {
@@ -177,12 +173,15 @@ describe('QueuedMessagesPanel', () => {
       sessionId,
       messages: [{ id: 'q-1', queuedAt: 1000, text: 'Drop me' }],
     });
-    confirmSpy = window.confirm;
-    window.confirm = () => true;
     const { el, unmount } = render();
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('.queued-message__delete')));
     click(el.querySelector('.queued-message__delete'));
+    // The kit ConfirmDialog asks; nothing is deleted before the answer.
+    await waitFor(() => Boolean(document.querySelector('.gv-confirm')));
+    expect(document.querySelector('.gv-confirm')?.textContent).toContain('Drop this queued message?');
+    expect(calls.delete).toEqual([]);
+    click(document.querySelector('.gv-confirm__confirm'));
     await waitFor(() => calls.delete.length > 0);
     expect(calls.delete).toEqual(['q-1']);
   });
@@ -192,18 +191,14 @@ describe('QueuedMessagesPanel', () => {
       sessionId,
       messages: [{ id: 'q-1', queuedAt: 1000, text: 'Keep me' }],
     });
-    confirmSpy = window.confirm;
-    const asked: string[] = [];
-    window.confirm = (message?: string) => {
-      asked.push(message ?? '');
-      return false;
-    };
     const { el, client, unmount } = render();
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('.queued-message__delete')));
     click(el.querySelector('.queued-message__delete'));
+    await waitFor(() => Boolean(document.querySelector('.gv-confirm')));
+    click(document.querySelector('.gv-confirm__cancel'));
+    await waitFor(() => !document.querySelector('.gv-confirm'));
     // The click asked, the answer was no, and no delete was ever started.
-    expect(asked).toHaveLength(1);
     expect(client.getMutationCache().getAll()).toHaveLength(0);
     expect(calls.delete).toEqual([]);
     expect(el.querySelector('.queued-message')?.textContent).toContain('Keep me');

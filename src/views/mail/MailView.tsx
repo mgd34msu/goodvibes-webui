@@ -37,7 +37,7 @@ import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import ErrorBoundary from '../../components/feedback/ErrorBoundary';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { DetailPane, EmptyState, ListDetail, SkeletonRows } from '../../components/data-view/DataView';
 import { Button, Checkbox, IconButton, Row, RowList, Select, StatusDot } from '../../components/ui';
 import { DateField } from '../../components/ui/DateField';
@@ -118,7 +118,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
   // flip its unread flag either. Invalidating anyway would refetch the whole inbox to
   // redraw identical rows and would quietly imply a relationship that is not there.
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
 
   const [limit, setLimit] = useState('25');
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -342,6 +342,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
     );
     content = (
       <ListDetail
+        mode="peek"
         list={list}
         detailOpen={selectedUid !== null}
         onCloseDetail={() => setSelectedUid(null)}

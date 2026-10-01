@@ -24,6 +24,7 @@
  * real speech. Someone deciding whether to hold a microphone open should be told that
  * before they do it, not after.
  */
+import { Checkbox } from '../ui/Checkbox';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { sdk } from '../../lib/goodvibes';
 import { formatError, isMethodNotInvokableError, isMethodUnavailableError } from '../../lib/errors';
@@ -141,15 +142,14 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
       {/* The per-origin opt-in. Off by default and it must stay off until someone
           asks for it here: while it is off this tab never calls getUserMedia, so no
           microphone permission prompt appears at all. */}
-      <label className="voice-settings-field voice-settings-field--check">
-        <input
-          type="checkbox"
-          checked={settings.surfaceEnabled}
-          disabled={setKey.isPending}
-          onChange={(event) => setKey.mutate({ key: WAKE_SURFACE_KEY, value: event.target.checked })}
-        />
-        <span>Listen for the wake word in this browser</span>
-      </label>
+      <Checkbox
+        className="voice-settings-field voice-settings-field--check"
+        checked={settings.surfaceEnabled}
+        disabled={setKey.isPending}
+        onChange={(checked) => setKey.mutate({ key: WAKE_SURFACE_KEY, value: checked })}
+      >
+        Listen for the wake word in this browser
+      </Checkbox>
       <p className="voice-settings-hint">
         Opted into per browser, not inherited from the terminal: the microphone permission is this origin’s own.
         {settings.enabled
@@ -158,15 +158,14 @@ export function WakeWordSettings({ open }: WakeWordSettingsProps) {
       </p>
 
       {!settings.enabled && (
-        <label className="voice-settings-field voice-settings-field--check">
-          <input
-            type="checkbox"
-            checked={settings.enabled}
-            disabled={setKey.isPending}
-            onChange={(event) => setKey.mutate({ key: 'voice.wake.enabled', value: event.target.checked })}
-          />
-          <span>Enable wake-word detection (all surfaces)</span>
-        </label>
+        <Checkbox
+          className="voice-settings-field voice-settings-field--check"
+          checked={settings.enabled}
+          disabled={setKey.isPending}
+          onChange={(checked) => setKey.mutate({ key: 'voice.wake.enabled', value: checked })}
+        >
+          Enable wake-word detection (all surfaces)
+        </Checkbox>
       )}
 
       {setKey.isError && <p className="voice-settings-hint" role="alert">{formatError(setKey.error)}</p>}

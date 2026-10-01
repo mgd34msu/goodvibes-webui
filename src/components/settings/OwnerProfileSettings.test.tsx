@@ -109,7 +109,8 @@ function render(): { el: HTMLElement; unmount: () => void } {
   const root = createRoot(container);
   flushSync(() => { root.render(React.createElement(OwnerProfileSettings)); });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => { root.unmount(); });
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -423,7 +424,7 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { buttonIn(row, 'Forget').click(); });
 
     // Confirm first, deleting is permanent, so it is never a bare click.
-    const confirmButton = window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm');
+    const confirmButton = window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm');
     expect(confirmButton).not.toBeNull();
     flushSync(() => { confirmButton?.click(); });
     await settle();
@@ -441,7 +442,7 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
     await settle();
 
     const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
@@ -460,7 +461,7 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
     await settle();
 
     expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Deleted phone from your profile.');
@@ -472,7 +473,7 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__cancel')?.click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__cancel')?.click(); });
     await settle();
 
     expect(forgetCalls.length).toBe(0);
@@ -484,7 +485,7 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-line-41"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
     await settle();
 
     expect(forgetCalls).toEqual([
@@ -507,7 +508,7 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
 
     flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-line-41"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.confirm-sheet__confirm')?.click(); });
+    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
     await settle();
 
     const report = el.querySelector('.owner-profile__report')?.textContent ?? '';

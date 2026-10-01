@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildGroups } from './command-groups';
+import { buildGroups, buildPaletteSections, PALETTE_SECTION_LABELS, paletteSectionFor } from './command-groups';
 import type { CommandDef } from './commands';
 
 // Minimal stubs, only the shape that buildGroups reads (group field)
@@ -56,5 +56,32 @@ describe('buildGroups', () => {
   test('group key not in GROUP_LABELS is still preserved as-is', () => {
     const result = buildGroups([cmd('x', 'unknown-group')]);
     expect(result[0]!.group).toBe('unknown-group');
+  });
+});
+
+describe('palette sections', () => {
+  test('groups map to Chats, Go to, Actions, Settings', () => {
+    expect(paletteSectionFor('chats')).toBe('chats');
+    expect(paletteSectionFor('navigation')).toBe('goto');
+    expect(paletteSectionFor('settings')).toBe('settings');
+    expect(paletteSectionFor('providers')).toBe('settings');
+    expect(paletteSectionFor('admin')).toBe('settings');
+    expect(paletteSectionFor('system')).toBe('actions');
+    expect(paletteSectionFor('chat')).toBe('actions');
+    expect(paletteSectionFor('view')).toBe('actions');
+  });
+
+  test('buildPaletteSections orders sections fixed, keeps incoming order inside, drops empty ones', () => {
+    const result = buildPaletteSections([
+      cmd('s1', 'settings'),
+      cmd('a1', 'system'),
+      cmd('g1', 'navigation'),
+      cmd('a2', 'chat'),
+      cmd('c1', 'chats'),
+    ]);
+    expect(result.map((r) => r.section)).toEqual(['chats', 'goto', 'actions', 'settings']);
+    expect(result[2]!.commands.map((c) => c.id)).toEqual(['a1', 'a2']);
+    expect(buildPaletteSections([cmd('g', 'navigation')]).map((r) => r.section)).toEqual(['goto']);
+    expect(PALETTE_SECTION_LABELS.goto).toBe('Go to');
   });
 });

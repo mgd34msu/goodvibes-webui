@@ -42,7 +42,7 @@ import {
   type ScannedPairing,
 } from '../../lib/pairing-qr';
 import { PairingQrScanner } from '../pairing/PairingQrScanner';
-import { Modal } from '../modal/Modal';
+import { Dialog } from '../ui/Dialog';
 import '../../styles/components/auth-gate.css';
 
 export interface SignedOutGateProps {
@@ -222,9 +222,9 @@ export function SignedOutGate({ pairingError, relayPairingError }: SignedOutGate
           </div>
         )}
 
-        <Modal open={scanOpen} onClose={() => setScanOpen(false)} title="Scan a pairing QR">
+        <Dialog open={scanOpen} onClose={() => setScanOpen(false)} title="Scan a pairing QR">
           <PairingQrScanner onScanned={acceptScan} onCancel={() => setScanOpen(false)} />
-        </Modal>
+        </Dialog>
 
         <div className="signed-out-or" role="separator" aria-label="or paste a token">
           <span>or paste a token</span>

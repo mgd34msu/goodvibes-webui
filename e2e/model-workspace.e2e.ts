@@ -7,7 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
-import { expectNoHorizontalScroll, only, openSettings, PHONE } from './support/app';
+import { expectNoHorizontalScroll, only, openSettings, PHONE, expectBottomSheet } from './support/app';
 
 test.beforeEach(async ({ page }) => {
   await installMockDaemon(page);
@@ -15,21 +15,16 @@ test.beforeEach(async ({ page }) => {
   await expect(settings.getByTestId('current-model')).toBeVisible();
 });
 
-test.describe('phone: the modal is a near-fullscreen sheet (MOBILE-ADAPT)', () => {
+test.describe('phone: the dialog is a full-width bottom sheet (MOBILE-ADAPT)', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
-  test('the panel fills the viewport instead of floating as a centered card', async ({ page }) => {
+  test('the panel is a tall bottom sheet instead of floating as a centered card', async ({ page }) => {
     await page.getByRole('button', { name: 'Change model' }).click();
     const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
     await expect(dialog).toBeVisible();
-    const box = await dialog.boundingBox();
-    const viewport = page.viewportSize();
-    expect(box).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    if (box && viewport) {
-      expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2);
-      expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);
-    }
+    // A phone dialog is a bottom sheet: full width on the bottom edge, and this
+    // one's content makes it as tall as a sheet gets (32 short of the top).
+    await expectBottomSheet(page, dialog, { minHeight: 844 - 32 - 1 });
     await expectNoHorizontalScroll(page);
   });
 });
@@ -57,14 +52,14 @@ test('the price filter is honestly enabled, real tier data exists in the fixture
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
   await expect(dialog.getByText('gpt-5', { exact: true })).toBeVisible();
-  await expect(dialog.locator('.model-workspace-filter', { hasText: 'Price' }).locator('select')).toBeEnabled();
+  await expect(dialog.getByRole('button', { name: 'Price' })).toBeEnabled();
 });
 
 test('the capability filter is honestly disabled, no daemon serves that data today', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
   await expect(dialog.getByText('Not reported by this daemon').first()).toBeVisible();
-  await expect(dialog.locator('.model-workspace-filter', { hasText: 'Capability' }).locator('select')).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Capability' })).toBeDisabled();
 });
 
 test('main target: selecting GPT-5 calls models.select and the current-model panel updates honestly', async ({ page }) => {

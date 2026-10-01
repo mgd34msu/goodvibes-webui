@@ -25,9 +25,10 @@ import { queryKeys } from '../../lib/queries';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ErrorState } from '../../components/feedback/ErrorState';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { formatError, isMethodUnavailableError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
+import { Select } from '../../components/ui/Select';
 import '../../styles/components/principals.css';
 
 type Principal = OperatorMethodOutput<'principals.list'>['principals'][number];
@@ -87,9 +88,13 @@ function PrincipalForm({
       </label>
       <label>
         Kind
-        <select value={kind} onChange={(e) => setKind(e.target.value as PrincipalKind)} disabled={submitting}>
-          {PRINCIPAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-        </select>
+        <Select<PrincipalKind>
+          aria-label="Kind"
+          value={kind}
+          onChange={setKind}
+          disabled={submitting}
+          options={PRINCIPAL_KINDS.map((k) => ({ value: k, label: k }))}
+        />
       </label>
       <label>
         Channel identities (one per line, "channel:value")
@@ -112,7 +117,7 @@ function PrincipalForm({
 function PrincipalsSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState('');
 
@@ -314,10 +319,13 @@ function ChannelProfileForm({
       </label>
       <label>
         Permission mode (optional)
-        <select value={permissionMode} onChange={(e) => setPermissionMode(e.target.value as PermissionMode | '')} disabled={submitting}>
-          <option value="">— unset —</option>
-          {PERMISSION_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
-        </select>
+        <Select<PermissionMode | ''>
+          aria-label="Permission mode (optional)"
+          value={permissionMode}
+          onChange={setPermissionMode}
+          disabled={submitting}
+          options={[{ value: '', label: 'Unset' }, ...PERMISSION_MODES.map((mode) => ({ value: mode, label: mode }))]}
+        />
       </label>
       <div className="principals-form__actions">
         <button type="submit" disabled={submitting || !surfaceKind.trim()}>{submitting ? 'Saving…' : 'Save'}</button>
@@ -330,7 +338,7 @@ function ChannelProfileForm({
 function ChannelProfilesSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [showCreate, setShowCreate] = useState(false);
   const [editingKey, setEditingKey] = useState('');
 

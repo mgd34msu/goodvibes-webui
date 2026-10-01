@@ -165,6 +165,7 @@ export function ReviewTab({ query = '' }: ReviewTabProps) {
     <ErrorBoundary fallback={(err, reset) => <ErrorState error={err} onRetry={reset} title="Review failed" />}>
       <div className="lib-tab">
         <ListDetail
+          mode="peek"
           list={list}
           detail={detail}
           detailOpen={detail !== null}

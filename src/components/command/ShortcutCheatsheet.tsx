@@ -1,14 +1,13 @@
 /**
- * ShortcutCheatsheet
- *
- * Overlay triggered by pressing "?" that lists all registered
- * commands that have a shortcut defined, grouped by category.
- * Dismiss with Escape or clicking the backdrop.
+ * ShortcutCheatsheet: the "?" dialog listing every registered command that has a
+ * shortcut, in the palette's sections. A kit Dialog: glass over the scrim, focus
+ * trapped and returned, Escape or the scrim closes it.
  */
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type CommandDef, getCommands, subscribeCommands } from '../../lib/commands';
-import { buildGroups, GROUP_LABELS } from '../../lib/command-groups';
+import { buildPaletteSections, PALETTE_SECTION_LABELS } from '../../lib/command-groups';
+import { Dialog } from '../ui/Dialog';
+import { formatShortcut } from './CommandPalette';
 
 interface ShortcutCheatsheetProps {
   open: boolean;
@@ -17,96 +16,35 @@ interface ShortcutCheatsheetProps {
 
 export function ShortcutCheatsheet({ open, onClose }: ShortcutCheatsheetProps) {
   const [allCommands, setAllCommands] = useState<CommandDef[]>(() => getCommands());
-  const overlayRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const unsub = subscribeCommands(() => setAllCommands(getCommands()));
-    return unsub;
-  }, []);
+  useEffect(() => subscribeCommands(() => setAllCommands(getCommands())), []);
 
-  // Focus overlay on open so Escape fires
-  useEffect(() => {
-    if (open) {
-      requestAnimationFrame(() => overlayRef.current?.focus());
-    }
-  }, [open]);
-
-  const withShortcuts = useMemo(
-    () => allCommands.filter((cmd) => Boolean(cmd.shortcut)),
+  const sections = useMemo(
+    () => buildPaletteSections(allCommands.filter((cmd) => Boolean(cmd.shortcut))),
     [allCommands],
   );
 
-  const grouped = useMemo(() => buildGroups(withShortcuts), [withShortcuts]);
-
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
-
-  const handleBackdropClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (event.target === event.currentTarget) onClose();
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
   return (
-    <div
-      className="cheat-backdrop"
-      role="presentation"
-      onClick={handleBackdropClick}
-    >
-      <div
-        ref={overlayRef}
-        className="cheat-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <div className="cheat-header">
-          <h2 className="cheat-title">Keyboard Shortcuts</h2>
-          <button
-            className="cheat-close"
-            type="button"
-            aria-label="Close shortcuts"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="cheat-body">
-          {grouped.length === 0 ? (
-            <p className="cheat-empty">No shortcuts registered.</p>
-          ) : (
-            grouped.map(({ group, commands }) => (
-              <section key={group} className="cheat-group">
-                <h3 className="cheat-group-label">
-                  {GROUP_LABELS[group] ?? group}
-                </h3>
-                <dl className="cheat-list">
-                  {commands.map((cmd) => (
-                    <div key={cmd.id} className="cheat-row">
-                      <dt className="cheat-action">{cmd.title}</dt>
-                      <dd className="cheat-keys">
-                        <kbd>{cmd.shortcut}</kbd>
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" className="cheat-sheet">
+      {sections.length === 0 ? (
+        <p className="cheat-empty">No shortcuts registered.</p>
+      ) : (
+        sections.map(({ section, commands }) => (
+          <section key={section} className="cheat-group" aria-label={PALETTE_SECTION_LABELS[section]}>
+            <h3 className="cheat-group-label">{PALETTE_SECTION_LABELS[section]}</h3>
+            <dl className="cheat-list">
+              {commands.map((cmd) => (
+                <div key={cmd.id} className="cheat-row">
+                  <dt className="cheat-action">{cmd.title}</dt>
+                  <dd className="cheat-keys">
+                    <kbd>{formatShortcut(cmd.shortcut ?? '')}</kbd>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))
+      )}
+    </Dialog>
   );
 }
-
-

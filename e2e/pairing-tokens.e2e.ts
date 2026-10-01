@@ -90,9 +90,9 @@ test('revoking one device 401s it while the current session (a different token) 
   await openPairingSettings(page);
   const phoneRow = page.locator('.pairing-token-row', { hasText: 'Phone' });
   await phoneRow.getByRole('button', { name: /Revoke/ }).click();
-  await expect(page.locator('.confirm-sheet')).toBeVisible();
-  await expect(page.locator('.confirm-sheet')).toContainText('signed out immediately');
-  await page.locator('.confirm-sheet__confirm').click();
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  await expect(page.locator('.gv-confirm')).toContainText('signed out immediately');
+  await page.locator('.gv-confirm__confirm').click();
   await expect(pairingPanel(page).getByText('Phone', { exact: true })).toHaveCount(0);
 
   // The phone's own token is now revoked, its next authenticated call 401s.
@@ -118,15 +118,15 @@ test('migrate mints this browser its own token; revoke-shared is gated by a dang
   await openPairingSettings(page);
 
   await page.getByRole('button', { name: 'Give this browser its own token' }).click();
-  await expect(page.locator('.confirm-sheet')).toBeVisible();
-  await expect(page.locator('.confirm-sheet')).toContainText('you stay signed in');
-  await page.locator('.confirm-sheet__confirm').click();
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  await expect(page.locator('.gv-confirm')).toContainText('you stay signed in');
+  await page.locator('.gv-confirm__confirm').click();
   await expect(page.getByText('This browser now has its own token')).toBeVisible();
 
   await page.getByRole('button', { name: 'Revoke the shared token' }).click();
-  await expect(page.locator('.confirm-sheet')).toContainText('cannot be undone');
-  const sheetClass = await page.locator('.confirm-sheet').getAttribute('class');
+  await expect(page.locator('.gv-confirm')).toContainText('cannot be undone');
+  const sheetClass = await page.locator('.gv-confirm').getAttribute('class');
   expect(sheetClass).toContain('danger');
-  await page.locator('.confirm-sheet__confirm').click();
+  await page.locator('.gv-confirm__confirm').click();
   await expect(page.getByText('has been revoked')).toBeVisible();
 });

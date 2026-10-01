@@ -122,7 +122,8 @@ function render() {
     );
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();

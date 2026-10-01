@@ -23,6 +23,7 @@ import { formatError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
+import { Checkbox } from '../ui/Checkbox';
 import '../../styles/components/power.css';
 
 function classesLabel(classes: readonly string[]): string {
@@ -77,15 +78,14 @@ export function PowerSettings() {
         mode; one toggle, and the status strip always shows a chip while it holds.
       </p>
 
-      <label className="check-row preference-row">
-        <input
-          type="checkbox"
-          checked={pendingEnabled}
-          disabled={setKeepAwake.isPending}
-          onChange={(event) => setKeepAwake.mutate(event.target.checked)}
-        />
-        <span>Keep this machine awake</span>
-      </label>
+      <Checkbox
+        className="preference-row"
+        checked={pendingEnabled}
+        disabled={setKeepAwake.isPending}
+        onChange={(checked) => setKeepAwake.mutate(checked)}
+      >
+        Keep this machine awake
+      </Checkbox>
 
       {setKeepAwake.isError && (
         <div className="banner warning" role="alert">{formatError(setKeepAwake.error)}</div>

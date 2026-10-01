@@ -99,13 +99,20 @@
 .toast__body {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
   padding-block: 4px;
+  white-space: nowrap;
 }
 
+/* One line (design doc "Toast"): the title, then any detail in --text-2, cut
+   with an ellipsis; the full text is the body's tooltip and the live region. */
 .toast__title {
+  /* The title keeps its words; the detail gives way first. */
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text);
@@ -115,10 +122,12 @@
 }
 
 .toast__description {
-  margin: 0;
+  flex: 1 1000 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-2);
-  font-size: var(--text-meta);
-  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toast__actions {
@@ -159,6 +168,11 @@
   line-height: 1;
   cursor: pointer;
   transition: background-color var(--motion-fast) ease-out, color var(--motion-fast) ease-out;
+}
+
+.toast__dismiss-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .toast__dismiss-btn:hover {

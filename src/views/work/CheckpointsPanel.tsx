@@ -28,7 +28,7 @@ import {
   retentionLabel,
   sortCheckpointsNewestFirst,
 } from '../../lib/checkpoints';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { useIsPhoneViewport } from '../../hooks/useIsPhoneViewport';
 import { errorCode, formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
@@ -47,7 +47,7 @@ export function CheckpointsPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isPhone = useIsPhoneViewport();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [selectedId, setSelectedId] = useState('');
   // '' compares against the working tree; another id compares two checkpoints.
   const [compareToId, setCompareToId] = useState('');

@@ -1,546 +1,149 @@
 /**
- * Tests for PeekPanel (slide-over peek panel).
- * Uses react-dom/client + flushSync + happy-dom (bunfig.toml preload).
- *
- * Event dispatching:
- *   bun's globalThis.dispatchEvent() rejects happy-dom Event objects.
- *   PeekPanel registers keydown/focusin on window/document (bun-native targets).
- *   Fix: intercept window/document addEventListener to capture handlers, then
- *   invoke them directly in tests. Capture is installed before renderPeek() in
- *   beforeEach and stays active through afterEach so useEffect-registered
- *   handlers (fired after flushSync) are always captured.
- *
- * Focus behaviour:
- *   PeekPanel's focus useEffect runs synchronously within flushSync (React 19
- *   production + bun flushes passive effects in the same microtask batch).
- *   IMPORTANT: PeekPanel focuses the first focusable element in the *entire
- *   panel div*, the peek-close button in the header comes before the body
- *   content. Tests that check "first focusable" must account for this ordering.
- *
- * DOM click events on happy-dom elements work correctly: PeekPanel uses React
- * onClick which delegates via React's container (a happy-dom element).
+ * PeekProvider / usePeek on the kit Drawer: the peek opens as a labelled glass
+ * drawer, closes from its button and from Escape (inside it or on the page beside
+ * it), never lets Escape reach listeners underneath, leaves Escape alone while a
+ * dialog sits above it, and moves focus in on open and back to the opener on close.
  */
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import React from 'react';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
+import { Dialog } from '../ui/Dialog';
 import { PeekProvider, usePeek } from './PeekPanel';
 
-// ---------------------------------------------------------------------------
-// Event handler capture
-// Installed once per test in beforeEach, torn down in afterEach.
-// ---------------------------------------------------------------------------
+let container: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
+let api: ReturnType<typeof usePeek> | null = null;
+let opener: HTMLButtonElement;
 
-type AnyHandler = (e: unknown) => void;
-// Store all handlers per event type (PeekPanel registers 2 keydown listeners).
-const _capturedWindow = new Map<string, AnyHandler[]>();
-const _capturedDocument = new Map<string, AnyHandler[]>();
-let _origWinAdd: typeof window.addEventListener | null = null;
-let _origDocAdd: typeof document.addEventListener | null = null;
-
-function installCapture(): void {
-  _capturedWindow.clear();
-  _capturedDocument.clear();
-  _origWinAdd = window.addEventListener.bind(window);
-  _origDocAdd = document.addEventListener.bind(document);
-
-  (window as unknown as Record<string, unknown>).addEventListener = (
-    type: string,
-    handler: EventListenerOrEventListenerObject,
-    opts?: unknown,
-  ) => {
-    const arr = _capturedWindow.get(type) ?? [];
-    arr.push(handler as AnyHandler);
-    _capturedWindow.set(type, arr);
-    _origWinAdd!(type, handler as EventListener, opts as AddEventListenerOptions);
-  };
-
-  (document as unknown as Record<string, unknown>).addEventListener = (
-    type: string,
-    handler: EventListenerOrEventListenerObject,
-    opts?: unknown,
-  ) => {
-    const arr = _capturedDocument.get(type) ?? [];
-    arr.push(handler as AnyHandler);
-    _capturedDocument.set(type, arr);
-    _origDocAdd!(type, handler as EventListener, opts as AddEventListenerOptions);
-  };
+function Grab({ withDialog }: { withDialog: boolean }) {
+  api = usePeek();
+  return withDialog ? <Dialog open onClose={() => undefined} title="Above"><button type="button">Inside dialog</button></Dialog> : null;
 }
 
-function removeCapture(): void {
-  if (_origWinAdd) {
-    (window as unknown as Record<string, unknown>).addEventListener = _origWinAdd;
-    _origWinAdd = null;
-  }
-  if (_origDocAdd) {
-    (document as unknown as Record<string, unknown>).addEventListener = _origDocAdd;
-    _origDocAdd = null;
-  }
-}
-
-/** Invoke ALL captured window keydown handlers (PeekPanel registers 2). */
-/**
- * Advance the fake clock inside flushSync, so a state update a timer callback
- * makes is committed before this returns.
- */
-function elapse(ms: number): void {
-  flushSync(() => {
-    jest.advanceTimersByTime(ms);
-  });
-}
-
-function fireKeydown(key: string, shiftKey = false): void {
-  const handlers = _capturedWindow.get('keydown') ?? [];
-  const evt = { key, shiftKey, preventDefault: () => {} };
-  flushSync(() => { handlers.forEach((h) => h(evt)); });
-}
-
-/** Invoke the captured document focusin handlers. */
-function fireFocusin(target: EventTarget): void {
-  const handlers = _capturedDocument.get('focusin') ?? [];
-  const evt = { target };
-  flushSync(() => { handlers.forEach((h) => h(evt)); });
-}
-
-// ---------------------------------------------------------------------------
-// Harness
-// ---------------------------------------------------------------------------
-
-interface PeekHandle {
-  open: (title?: string, content?: React.ReactNode) => void;
-  close: () => void;
-  isOpen: () => boolean;
-}
-
-function renderPeek(): {
-  container: HTMLElement;
-  handle: PeekHandle;
-  unmount: () => void;
-} {
-  const container = document.createElement('div');
-  document.body.appendChild(container);
-  const root = createRoot(container);
-
-  let peekCtx!: ReturnType<typeof usePeek>;
-
-  function Inner(): React.ReactElement {
-    peekCtx = usePeek();
-    return <button type="button" data-testid="trigger">Open</button>;
-  }
-
+function render(withDialog = false): void {
   flushSync(() => {
     root.render(
       <PeekProvider>
-        <Inner />
+        <Grab withDialog={withDialog} />
       </PeekProvider>,
     );
   });
-
-  const defaultContent = <button type="button" data-testid="content-btn">Content Action</button>;
-
-  const handle: PeekHandle = {
-    open: (title = 'Test Panel', content = defaultContent) => {
-      flushSync(() => { peekCtx.open({ title, content }); });
-      // Second flush ensures any deferred microtasks from useEffect also complete
-      flushSync(() => {});
-    },
-    close: () => { flushSync(() => { peekCtx.close(); }); },
-    isOpen: () => peekCtx.isOpen,
-  };
-
-  return {
-    container,
-    handle,
-    unmount: () => {
-      flushSync(() => { root.unmount(); });
-      if (container.parentNode) container.parentNode.removeChild(container);
-    },
-  };
 }
 
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// Capture installed BEFORE renderPeek so all addEventListener calls including
-// those from mount-time useEffect (none in this component) are intercepted.
-// Capture stays active throughout the test so open()-triggered useEffects are
-// captured (they register keydown/focusin after the flushSync in open()).
-// ---------------------------------------------------------------------------
+function openPeek(title = 'Message'): void {
+  flushSync(() => {
+    api!.open({ title, content: <p><button type="button" className="peek-action">Reply</button> Body text</p> });
+  });
+}
 
-let container: HTMLElement;
-let handle: PeekHandle;
-let unmount: () => void;
+function key(target: EventTarget, k: string, shiftKey = false): KeyboardEvent {
+  const event = new window.KeyboardEvent('keydown', { key: k, shiftKey, bubbles: true, cancelable: true });
+  flushSync(() => { target.dispatchEvent(event); });
+  return event;
+}
+
+const drawer = () => document.querySelector('[data-testid="peek-drawer"]');
 
 beforeEach(() => {
-  installCapture();
-  ({ container, handle, unmount } = renderPeek());
+  api = null;
+  opener = document.createElement('button');
+  opener.textContent = 'Open';
+  document.body.appendChild(opener);
+  opener.focus();
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
 });
 
 afterEach(() => {
-  try { unmount(); } finally { removeCapture(); }
+  flushSync(() => root.unmount());
+  container.remove();
+  opener.remove();
 });
 
-// ---------------------------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------------------------
+describe('Peek drawer', () => {
+  test('nothing renders until a peek is opened', () => {
+    render();
+    expect(drawer()).toBeNull();
+    expect(api!.isOpen).toBe(false);
+  });
 
-describe('PeekPanel: rendering', () => {
-  test('panel is initially closed (no peek-panel--open class)', () => {
-    const panel = container.querySelector('[role="dialog"]');
+  test('opens as a labelled right glass drawer with the title and content', () => {
+    render();
+    openPeek('Design review');
+    const panel = drawer()!;
     expect(panel).not.toBeNull();
-    expect(panel!.classList.contains('peek-panel--open')).toBe(false);
+    expect(panel.getAttribute('role')).toBe('dialog');
+    expect(panel.getAttribute('aria-label')).toBe('Design review');
+    expect(panel.classList.contains('glass')).toBe(true);
+    expect(panel.classList.contains('gv-drawer--right')).toBe(true);
+    expect(panel.querySelector('.gv-drawer__title')?.textContent).toBe('Design review');
+    expect(panel.textContent).toContain('Body text');
+    expect(api!.isOpen).toBe(true);
   });
 
-  test('open adds peek-panel--open class', () => {
-    handle.open();
-    const panel = container.querySelector('[role="dialog"]');
-    expect(panel!.classList.contains('peek-panel--open')).toBe(true);
+  test('focus moves into the drawer on open and returns to the opener on close', () => {
+    render();
+    openPeek();
+    expect(drawer()!.contains(document.activeElement)).toBe(true);
+    flushSync(() => api!.close());
+    expect(drawer()).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 
-  test('open renders provided content inside the panel body', () => {
-    handle.open('My Panel', <span data-testid="my-content">Hello</span>);
-    const content = container.querySelector('[data-testid="my-content"]');
-    expect(content).not.toBeNull();
-    expect(content!.textContent).toBe('Hello');
+  test('the close button closes it', () => {
+    render();
+    openPeek();
+    const close = drawer()!.querySelector('button[aria-label="Close"]') as HTMLButtonElement;
+    flushSync(() => close.click());
+    expect(drawer()).toBeNull();
   });
 
-  test('panel has role=dialog', () => {
-    const panel = container.querySelector('[role="dialog"]');
-    expect(panel).not.toBeNull();
+  test('Escape inside the drawer closes it and never reaches window listeners', () => {
+    render();
+    openPeek();
+    let windowSaw = false;
+    const onWindow = (e: KeyboardEvent) => { if (e.key === 'Escape') windowSaw = true; };
+    window.addEventListener('keydown', onWindow);
+    key(drawer()!.querySelector('.peek-action')!, 'Escape');
+    window.removeEventListener('keydown', onWindow);
+    expect(drawer()).toBeNull();
+    expect(windowSaw).toBe(false);
   });
 
-  test('panel has aria-modal="true"', () => {
-    handle.open();
-    const panel = container.querySelector('[role="dialog"]');
-    expect(panel!.getAttribute('aria-modal')).toBe('true');
+  test('Escape pressed on the page beside the non-modal drawer closes it', () => {
+    render();
+    openPeek();
+    key(opener, 'Escape');
+    expect(drawer()).toBeNull();
   });
 
-  test('panel aria-label matches the title passed to open()', () => {
-    handle.open('Details View');
-    const panel = container.querySelector('[role="dialog"]');
-    expect(panel!.getAttribute('aria-label')).toBe('Details View');
+  test('with a dialog above it, Escape on the page leaves the peek open (only the top overlay closes)', () => {
+    render();
+    openPeek();
+    render(true);
+    expect(document.querySelector('[role="dialog"][aria-modal="true"]')).not.toBeNull();
+    key(opener, 'Escape');
+    expect(drawer()).not.toBeNull();
   });
 
-  test('backdrop element is present', () => {
-    const backdrop = container.querySelector('.peek-backdrop');
-    expect(backdrop).not.toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Focus on open
-//
-// PeekPanel focuses the first focusable element inside the panel div.
-// The panel structure is: header (containing peek-close button) + body.
-// Therefore the FIRST focusable element is always the .peek-close button,
-// not any button in the content body.
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: focus on open', () => {
-  test('focus lands inside the panel when opened (first focusable = close button)', () => {
-    handle.open(
-      'Focus Test',
-      <button type="button" data-testid="content-btn">Content</button>,
-    );
-    // The panel div contains the active element
-    const panel = container.querySelector('[role="dialog"]')!;
-    expect(panel.contains(document.activeElement)).toBe(true);
-    // The close button is the first focusable, it gets focus
-    expect(document.activeElement?.classList.contains('peek-close')).toBe(true);
+  test('Tab wraps inside the drawer', () => {
+    render();
+    openPeek();
+    const buttons = [...drawer()!.querySelectorAll('button')] as HTMLButtonElement[];
+    const last = buttons[buttons.length - 1];
+    last.focus();
+    const event = key(last, 'Tab');
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(buttons[0]);
   });
 
-  test('focus lands inside the panel regardless of content (text-only body)', () => {
-    // The close button is always present in the header, so the panelRef.focus()
-    // fallback path (PeekPanel.tsx:108-110) is unreachable via the public API.
-    // This test verifies the invariant: opening always lands focus inside the panel.
-    handle.open('No Extra Focusable', <span>Text only content</span>);
-    const panel = container.querySelector('[role="dialog"]')!;
-    expect(panel.contains(document.activeElement)).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Escape key closes panel
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: Escape key', () => {
-  test('Escape key closes the panel', () => {
-    handle.open();
-    expect(handle.isOpen()).toBe(true);
-    // keydown handler is registered in useEffect after open(), captured via installCapture
-    fireKeydown('Escape');
-    expect(handle.isOpen()).toBe(false);
+  test('opening a second peek replaces the content in place', () => {
+    render();
+    openPeek('First');
+    openPeek('Second');
+    expect(document.querySelectorAll('[data-testid="peek-drawer"]').length).toBe(1);
+    expect(drawer()!.getAttribute('aria-label')).toBe('Second');
   });
 
-  test('non-Escape keydown does not close the panel', () => {
-    handle.open();
-    fireKeydown('Enter');
-    expect(handle.isOpen()).toBe(true);
-  });
-
-  test('Escape does nothing when panel is closed (no handler registered)', () => {
-    expect(handle.isOpen()).toBe(false);
-    // When closed, the Escape handler is removed; calling fireKeydown is a no-op
-    fireKeydown('Escape');
-    expect(handle.isOpen()).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Backdrop click closes panel
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: backdrop click', () => {
-  test('clicking the backdrop closes the panel', () => {
-    handle.open();
-    expect(handle.isOpen()).toBe(true);
-    const backdrop = container.querySelector('.peek-backdrop')!;
-    flushSync(() => {
-      backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    expect(handle.isOpen()).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Close button
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: close button', () => {
-  test('close button click closes the panel', () => {
-    handle.open();
-    const closeBtn = container.querySelector('.peek-close')!;
-    flushSync(() => {
-      closeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    expect(handle.isOpen()).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Focus trap, Tab / Shift+Tab wrapping
-//
-// PeekPanel's focus-trap useEffect registers keydown on window after open().
-// The handler is captured via installCapture() which was installed in beforeEach
-// before renderPeek(), so subsequent addEventListener calls (including those
-// from useEffect triggered by open()) are intercepted.
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: focus trap', () => {
-  test('Tab on last focusable element wraps focus to first', () => {
-    handle.open(
-      'Trap',
-      // Note: peek-close is BEFORE this button, focusable order is:
-      // [0] peek-close  [1] extra-btn
-      <button type="button" data-testid="extra-btn">Extra</button>,
-    );
-    const panel = container.querySelector<HTMLElement>('[role="dialog"]')!;
-    // Focus the last focusable element (extra-btn)
-    const extraBtn = panel.querySelector<HTMLElement>('[data-testid="extra-btn"]')!;
-    extraBtn.focus();
-    expect(document.activeElement).toBe(extraBtn);
-
-    // Tab should wrap to first (peek-close)
-    fireKeydown('Tab', false);
-
-    const closeBtn = panel.querySelector<HTMLElement>('.peek-close')!;
-    expect(document.activeElement).toBe(closeBtn);
-  });
-
-  test('Shift+Tab on first focusable element wraps focus to last', () => {
-    handle.open(
-      'Trap',
-      <button type="button" data-testid="extra-btn">Extra</button>,
-    );
-    const panel = container.querySelector<HTMLElement>('[role="dialog"]')!;
-    // Focus the first focusable element (peek-close)
-    const closeBtn = panel.querySelector<HTMLElement>('.peek-close')!;
-    closeBtn.focus();
-    expect(document.activeElement).toBe(closeBtn);
-
-    // Shift+Tab should wrap to last (extra-btn)
-    fireKeydown('Tab', true /* shiftKey */);
-
-    const extraBtn = panel.querySelector<HTMLElement>('[data-testid="extra-btn"]')!;
-    expect(document.activeElement).toBe(extraBtn);
-  });
-
-  test('Tab does not wrap when there is only one focusable element (close button)', () => {
-    // With content-only text, peek-close is the only focusable element
-    handle.open('Solo', <span>No extra buttons</span>);
-    const panel = container.querySelector<HTMLElement>('[role="dialog"]')!;
-    const closeBtn = panel.querySelector<HTMLElement>('.peek-close')!;
-    closeBtn.focus();
-
-    // Neither Tab nor Shift+Tab should change focus since there is only one element
-    // The handler returns early when first === last
-    fireKeydown('Tab', false);
-    // No assertion on exact focus target since handler returns early, panel stays open
-    expect(handle.isOpen()).toBe(true);
-  });
-
-  test('focusin recovery pulls stray focus back inside the panel', () => {
-    handle.open(
-      'Stray',
-      <button type="button" data-testid="inside-btn">Inside</button>,
-    );
-
-    const outsider = document.createElement('button');
-    outsider.setAttribute('data-testid', 'outsider');
-    document.body.appendChild(outsider);
-    outsider.focus();
-
-    // Fire the captured focusin handler with outsider as target
-    fireFocusin(outsider);
-
-    const panel = container.querySelector('[role="dialog"]')!;
-    expect(panel.contains(document.activeElement)).toBe(true);
-
-    document.body.removeChild(outsider);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Focus restoration on close
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: focus restoration on close', () => {
-  test('focus returns to the trigger element after close', () => {
-    const trigger = container.querySelector<HTMLElement>('[data-testid="trigger"]')!;
-    trigger.focus();
-    expect(document.activeElement).toBe(trigger);
-
-    handle.open();
-    // Focus should have moved inside panel (to peek-close button)
-    const panel = container.querySelector('[role="dialog"]')!;
-    expect(panel.contains(document.activeElement)).toBe(true);
-
-    // Close, useEffect fires synchronously within flushSync, restores focus to trigger
-    handle.close();
-    expect(document.activeElement).toBe(trigger);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Deferred payload cleanup after close (PEEK_EXIT_DELAY_MS = 320 ms)
-// close() calls setTimeout(() => setPayload(null), 320); fake timers step it.
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: deferred payload cleanup', () => {
-  test('payload content stays through the 320 ms exit window and is cleared at its end', () => {
-    jest.useFakeTimers();
-    try {
-      handle.open('Cleanup Test', <span data-testid="cleanup-content">Content</span>);
-      expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
-
-      handle.close();
-      // isOpen is false immediately
-      expect(handle.isOpen()).toBe(false);
-
-      // Content stays mounted for the whole exit animation window...
-      elapse(319);
-      expect(container.querySelector('[data-testid="cleanup-content"]')).not.toBeNull();
-
-      // ...and is gone once it ends.
-      elapse(1);
-      expect(container.querySelector('[data-testid="cleanup-content"]')).toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// aria-hidden filter in getFocusableElements (PeekPanel.tsx:75-78)
-// Focusable elements inside an aria-hidden ancestor must be excluded from
-// the focus trap's candidate list.
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: aria-hidden focus exclusion', () => {
-  test('element inside aria-hidden container is excluded from Tab target list', () => {
-    // Content: one real button + one button hidden from AT inside aria-hidden wrapper.
-    // The Tab trap should only see the real button (plus the close button),
-    // never the aria-hidden one.
-    handle.open(
-      'AriaHidden Test',
-      <>
-        <button type="button" data-testid="visible-btn">Visible</button>
-        <div aria-hidden="true">
-          <button type="button" data-testid="hidden-btn">Hidden from AT</button>
-        </div>
-      </>,
-    );
-    const panel = container.querySelector<HTMLElement>('[role="dialog"]')!;
-    // Focusable list seen by trap: [peek-close, visible-btn] (hidden-btn excluded)
-    const visibleBtn = panel.querySelector<HTMLElement>('[data-testid="visible-btn"]')!;
-    visibleBtn.focus();
-    expect(document.activeElement).toBe(visibleBtn);
-
-    // Tab from visible-btn (last non-hidden element) should wrap to peek-close (first)
-    fireKeydown('Tab', false);
-    const closeBtn = panel.querySelector<HTMLElement>('.peek-close')!;
-    expect(document.activeElement).toBe(closeBtn);
-
-    // The hidden button is never in the cycle
-    const hiddenBtn = panel.querySelector<HTMLElement>('[data-testid="hidden-btn"]')!;
-    expect(document.activeElement).not.toBe(hiddenBtn);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// usePeek hook error boundary
-// ---------------------------------------------------------------------------
-
-describe('usePeek: context validation', () => {
-  test('throws with a helpful message when used outside PeekProvider', () => {
-    const el = document.createElement('div');
-    document.body.appendChild(el);
-    const root = createRoot(el);
-    let caught: Error | null = null;
-
-    function BadConsumer(): null {
-      try { usePeek(); } catch (e) { caught = e as Error; }
-      return null;
-    }
-
-    flushSync(() => { root.render(<BadConsumer />); });
-    expect(caught).not.toBeNull();
-    expect(caught!.message).toContain('PeekProvider');
-
-    flushSync(() => { root.unmount(); });
-    if (el.parentNode) el.parentNode.removeChild(el);
-  });
-
-  test('isOpen is false initially', () => {
-    expect(handle.isOpen()).toBe(false);
-  });
-
-  test('isOpen is true after open()', () => {
-    handle.open();
-    expect(handle.isOpen()).toBe(true);
-  });
-
-  test('isOpen is false after close()', () => {
-    handle.open();
-    handle.close();
-    expect(handle.isOpen()).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Reopen inside the exit window
-// ---------------------------------------------------------------------------
-
-describe('PeekPanel: reopening during the exit animation keeps the new content', () => {
-  test('an open() within 320 ms of a close() is not wiped by the pending exit timer', async () => {
-    handle.open('First', <span data-testid="first">First</span>);
-    handle.close();
-    handle.open('Second', <span data-testid="second">Second</span>);
-    // Outlast the 320 ms exit delay the close scheduled.
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    flushSync(() => {});
-    const panel = container.querySelector('[role="dialog"]')!;
-    expect(panel.classList.contains('peek-panel--open')).toBe(true);
-    expect(container.querySelector('[data-testid="second"]')).not.toBeNull();
-    expect(panel.getAttribute('aria-label')).toBe('Second');
-  });
 });

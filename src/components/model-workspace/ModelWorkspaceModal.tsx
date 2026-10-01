@@ -10,7 +10,9 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Search } from 'lucide-react';
-import { Modal } from '../modal/Modal';
+import { Dialog } from '../ui/Dialog';
+import { Checkbox } from '../ui/Checkbox';
+import { Select } from '../ui/Select';
 import { sdk } from '../../lib/goodvibes';
 import { formatError } from '../../lib/errors';
 import { readPath } from '../../lib/object';
@@ -150,12 +152,12 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
   const enableEntry = buildTargetEnableEntry(target, true);
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
       title="Model Workspace"
-      size="lg"
-      headerExtra={
+      size="wide"
+      headerActions={
         <div className="model-workspace-targets" role="tablist" aria-label="Model routing target">
           {MODEL_TARGETS.map((t) => (
             <button
@@ -184,15 +186,14 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
           </span>
         )}
         {enableEntry && (
-          <label className="check-row model-workspace-enable-toggle">
-            <input
-              type="checkbox"
-              checked={routing.enabled}
-              disabled={toggleEnabled.isPending}
-              onChange={(event) => toggleEnabled.mutate(event.target.checked)}
-            />
-            <span>Enabled</span>
-          </label>
+          <Checkbox
+            className="model-workspace-enable-toggle"
+            checked={routing.enabled}
+            disabled={toggleEnabled.isPending}
+            onChange={(checked) => toggleEnabled.mutate(checked)}
+          >
+            Enabled
+          </Checkbox>
         )}
       </div>
 
@@ -210,62 +211,72 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
 
         {!embeddingsMode && (
           <>
-            <label className="model-workspace-filter">
-              <span>Provider</span>
-              <select value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)}>
-                <option value="">All</option>
-                {providerIds.map((id) => (
-                  <option key={id} value={id}>{id}</option>
-                ))}
-              </select>
-            </label>
+            <div className="model-workspace-filter">
+              <span aria-hidden="true">Provider</span>
+              <Select
+                aria-label="Provider"
+                value={providerFilter || 'all'}
+                onChange={(next) => setProviderFilter(next === 'all' ? '' : next)}
+                options={[{ value: 'all', label: 'All' }, ...providerIds.map((id) => ({ value: id, label: id }))]}
+              />
+            </div>
 
-            <label className="model-workspace-filter" title={priceDataAvailable ? undefined : 'Not reported by this daemon'}>
-              <span>Price</span>
-              <select
+            <div className="model-workspace-filter" title={priceDataAvailable ? undefined : 'Not reported by this daemon'}>
+              <span aria-hidden="true">Price</span>
+              <Select<CategoryFilter>
+                aria-label="Price"
                 value={categoryFilter}
                 disabled={!priceDataAvailable}
-                onChange={(event) => setCategoryFilter(event.target.value as CategoryFilter)}
-              >
-                <option value="all">All</option>
-                <option value="free">Free</option>
-                <option value="paid">Paid</option>
-                <option value="subscription">Subscription</option>
-              </select>
-              {!priceDataAvailable && <small className="model-workspace-filter__note">Not reported by this daemon</small>}
-            </label>
-
-            <label className="model-workspace-filter" title="Not reported by this daemon">
-              <span>Capability</span>
-              <select value="none" disabled={!capabilityDataAvailable}>
-                <option value="none">None</option>
-                <option value="reasoning">Reasoning</option>
-                <option value="toolUse">Tool use</option>
-                <option value="multimodal">Multimodal</option>
-              </select>
-              <small className="model-workspace-filter__note">Not reported by this daemon</small>
-            </label>
-
-            <label className="model-workspace-filter">
-              <span>Group</span>
-              <select value={groupBy} onChange={(event) => setGroupBy(event.target.value as GroupByMode)}>
-                <option value="provider">Provider</option>
-                <option value="family">Family</option>
-                <option value="pricingTier">Pricing tier</option>
-                <option value="qualityTier" disabled={!qualityTierDataAvailable}>
-                  Quality tier{qualityTierDataAvailable ? '' : ' (unavailable)'}
-                </option>
-              </select>
-            </label>
-
-            <label className="check-row model-workspace-available-only">
-              <input
-                type="checkbox"
-                checked={availableOnly}
-                onChange={(event) => setAvailableOnly(event.target.checked)}
+                onChange={setCategoryFilter}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'free', label: 'Free' },
+                  { value: 'paid', label: 'Paid' },
+                  { value: 'subscription', label: 'Subscription' },
+                ]}
               />
-              <span>Available only</span>
-            </label>
+              {!priceDataAvailable && <small className="model-workspace-filter__note">Not reported by this daemon</small>}
+            </div>
+
+            <div className="model-workspace-filter" title="Not reported by this daemon">
+              <span aria-hidden="true">Capability</span>
+              <Select
+                aria-label="Capability"
+                value="none"
+                disabled={!capabilityDataAvailable}
+                onChange={() => undefined}
+                options={[
+                  { value: 'none', label: 'None' },
+                  { value: 'reasoning', label: 'Reasoning' },
+                  { value: 'toolUse', label: 'Tool use' },
+                  { value: 'multimodal', label: 'Multimodal' },
+                ]}
+              />
+              <small className="model-workspace-filter__note">Not reported by this daemon</small>
+            </div>
+
+            <div className="model-workspace-filter">
+              <span aria-hidden="true">Group</span>
+              <Select<GroupByMode>
+                aria-label="Group"
+                value={groupBy}
+                onChange={setGroupBy}
+                options={[
+                  { value: 'provider', label: 'Provider' },
+                  { value: 'family', label: 'Family' },
+                  { value: 'pricingTier', label: 'Pricing tier' },
+                  {
+                    value: 'qualityTier',
+                    label: `Quality tier${qualityTierDataAvailable ? '' : ' (unavailable)'}`,
+                    disabled: !qualityTierDataAvailable,
+                  },
+                ]}
+              />
+            </div>
+
+            <Checkbox className="model-workspace-available-only" checked={availableOnly} onChange={setAvailableOnly}>
+              Available only
+            </Checkbox>
           </>
         )}
       </div>
@@ -365,6 +376,6 @@ export function ModelWorkspaceModal({ open, onClose }: ModelWorkspaceModalProps)
           ))}
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 }

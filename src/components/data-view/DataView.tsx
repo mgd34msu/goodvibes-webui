@@ -12,9 +12,10 @@
  * with a Back button in place of the list.
  */
 import { ArrowLeft, X } from 'lucide-react';
-import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useRightPanel } from '../shell/ShellContext';
 import { Button } from '../ui/Button';
+import { Drawer } from '../ui/Drawer';
 import { IconButton } from '../ui/IconButton';
 import { RowList } from '../ui/Row';
 import { PHONE_QUERY, useMediaQuery } from '../ui/overlay';
@@ -50,6 +51,9 @@ export function DataPage({ title, description, action, filters, className, child
   );
 }
 
+/** True inside a peek drawer: the detail pane keeps its close button on phones. */
+const PeekHostContext = createContext(false);
+
 export interface ListDetailProps {
   list: ReactNode;
   /** The detail pane's content; shown while `detailOpen`. */
@@ -63,11 +67,18 @@ export interface ListDetailProps {
   detailLabel: string;
   /** Back button text on phones, e.g. "All work". */
   backLabel?: string;
+  /**
+   * split (Work): the detail is the second pane of a 400 / rest split.
+   * peek (Library, Personal): the list keeps the full width and the detail opens
+   * as the right glass drawer, 440 wide, folding the sidebar to its rail; on a
+   * phone it is a bottom sheet (design doc "Menus and modals").
+   */
+  mode?: 'split' | 'peek';
   className?: string;
 }
 
 /**
- * List and detail split, 400 / rest. The list pane and the detail pane scroll
+ * List and detail split, 400 / rest, or a full-width list with a peek drawer. The list pane and the detail pane scroll
  * on their own. Without a detail the list takes the full width.
  */
 export function ListDetail({
@@ -78,11 +89,14 @@ export function ListDetail({
   listLabel,
   detailLabel,
   backLabel = 'Back',
+  mode = 'split',
   className,
 }: ListDetailProps) {
   const phone = useMediaQuery(PHONE_QUERY);
   const open = detailOpen && detail !== undefined && detail !== null;
-  useRightPanel(open && !phone);
+  const peek = mode === 'peek';
+  // The peek Drawer registers the right panel itself.
+  useRightPanel(open && !phone && !peek);
 
   // Escape closes the detail from anywhere on the page, unless an overlay (a
   // dialog, menu, popover, drawer) is open or a field has the keyboard: those
@@ -92,7 +106,7 @@ export function ListDetail({
     closeRef.current = onCloseDetail;
   });
   useEffect(() => {
-    if (!open || phone) return undefined;
+    if (!open || phone || peek) return undefined;
     function onKeyDown(event: KeyboardEvent): void {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       if (document.querySelector('[data-gv-layer]:not(.gv-tooltip), [role="alertdialog"]')) return;
@@ -103,7 +117,20 @@ export function ListDetail({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, phone]);
+  }, [open, phone, peek]);
+
+  if (peek) {
+    return (
+      <div className={['dv-split', 'dv-split--peek', className ?? ''].filter(Boolean).join(' ')} data-phone={phone ? '' : undefined}>
+        <section className="dv-list" aria-label={listLabel}>{list}</section>
+        <Drawer open={open} onClose={onCloseDetail} label={detailLabel} header={false} className="dv-peek">
+          <PeekHostContext.Provider value>
+            <section className="dv-detail" aria-label={detailLabel}>{detail}</section>
+          </PeekHostContext.Provider>
+        </Drawer>
+      </div>
+    );
+  }
 
   const classes = ['dv-split', open ? 'dv-split--detail' : '', className ?? ''].filter(Boolean).join(' ');
 
@@ -157,7 +184,9 @@ export interface DetailPaneProps {
 
 /** The detail pane's header (16/600 title, meta, close), optional tabs, scrolling body, footer. */
 export function DetailPane({ title, meta, status, actions, tabs, onClose, closeLabel = 'Close', footer, children }: DetailPaneProps) {
-  const phone = useMediaQuery(PHONE_QUERY);
+  const inPeek = useContext(PeekHostContext);
+  // On a phone the split shows a Back button instead; a peek sheet keeps its close.
+  const phone = useMediaQuery(PHONE_QUERY) && !inPeek;
   return (
     <div className="dv-pane">
       <div className="dv-pane__header">

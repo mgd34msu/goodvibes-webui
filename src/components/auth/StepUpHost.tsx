@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { Modal } from '../modal/Modal';
+import { Dialog } from '../ui/Dialog';
 import { sdk } from '../../lib/goodvibes';
 import {
   describeStepUpError,
@@ -84,7 +84,7 @@ export function StepUpHost() {
   const registered = getRegisteredCredential();
 
   return (
-    <Modal open onClose={() => settle(null)} title="Verify to continue" size="md">
+    <Dialog open onClose={() => settle(null)} title="Verify to continue">
       <div className="stepup-ceremony">
         <p className="stepup-lead">
           <ShieldCheck size={18} aria-hidden="true" />
@@ -122,6 +122,6 @@ export function StepUpHost() {
           )}
         </div>
       </div>
-    </Modal>
+    </Dialog>
   );
 }

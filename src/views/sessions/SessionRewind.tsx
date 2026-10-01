@@ -25,8 +25,9 @@ import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import { companionMessagesFromListResponse } from '../../lib/companion-chat';
 import { turnAnchorsFromMessages } from '../../lib/rewind';
-import { ConfirmSheet } from '../../components/confirm/ConfirmSheet';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { SkeletonBlock } from '../../components/feedback/SkeletonBlock';
+import { Select } from '../../components/ui/Select';
 import '../../styles/components/session-rewind.css';
 
 type RewindScope = 'files' | 'conversation' | 'both';
@@ -117,26 +118,28 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
       {expanded && (
         <div className="session-rewind__body">
           <div className="session-rewind__controls">
-            <label className="session-rewind__field">
-              Scope
-              <select value={scope} onChange={(e) => { setScope(e.target.value as RewindScope); resetFlow(); }} aria-label="Rewind scope">
-                {SCOPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </label>
-            <label className="session-rewind__field">
-              Anchor
-              <select
+            <div className="session-rewind__field">
+              <span aria-hidden="true">Scope</span>
+              <Select<RewindScope>
+                value={scope}
+                onChange={(next) => { setScope(next); resetFlow(); }}
+                aria-label="Rewind scope"
+                options={SCOPES}
+              />
+            </div>
+            <div className="session-rewind__field">
+              <span aria-hidden="true">Anchor</span>
+              <Select
                 value={anchorTurnId}
-                onChange={(e) => { setAnchorTurnId(e.target.value); resetFlow(); }}
+                onChange={(next) => { setAnchorTurnId(next); resetFlow(); }}
                 aria-label="Rewind turn anchor"
                 disabled={messages.isPending}
-              >
-                <option value="">Most recent checkpoint (no turn)</option>
-                {anchors.map((a) => (
-                  <option key={a.turnId} value={a.turnId}>{a.label || a.turnId}</option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: '', label: 'Most recent checkpoint (no turn)' },
+                  ...anchors.map((a) => ({ value: a.turnId, label: a.label || a.turnId })),
+                ]}
+              />
+            </div>
           </div>
 
           {messages.isPending && <SkeletonBlock variant="text" lines={2} />}
@@ -257,7 +260,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
       )}
 
       {confirmApply && planData && (
-        <ConfirmSheet
+        <ConfirmDialog
           open
           tone="danger"
           title="Rewind this session"
@@ -273,7 +276,7 @@ export function SessionRewind({ sessionId }: SessionRewindProps) {
       )}
 
       {confirmUndo && receipt?.undo.files && (
-        <ConfirmSheet
+        <ConfirmDialog
           open
           tone="danger"
           title="Undo the file restore"

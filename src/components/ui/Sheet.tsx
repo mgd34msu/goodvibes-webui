@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useModalFocus } from './overlay';
+import { useModalFocus, useOverlayLayer, useTopLayerEscape } from './overlay';
 import '../../styles/components/ui.css';
 
 export interface SheetProps {
@@ -18,6 +18,8 @@ export interface SheetProps {
 export function Sheet({ open, onClose, label, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useModalFocus(open, panelRef);
+  const isTop = useOverlayLayer(open);
+  useTopLayerEscape(open, isTop, onClose);
   if (!open || typeof document === 'undefined') return null;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {

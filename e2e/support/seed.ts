@@ -601,36 +601,63 @@ export function knowledgePacketResponse(task: string, truncated = false) {
 /**
  * Calendar events fixture (calendar.events.list/.get), the wire shape per
  * method-catalog-calendar.ts's CALENDAR_EVENT_SUMMARY_SCHEMA/DETAIL_SCHEMA.
- * Two events so the e2e sort-by-start proof has something to sort.
+ *
+ * Dated relative to today so they fall inside the view's default 15-day agenda
+ * window: ev-1 tomorrow morning, ev-2 the day after. The seed lists ev-2 first
+ * so the e2e sort-by-start proof has something to sort. ev-old sits two months
+ * back, outside the default window, so a range the mock honors visibly drops it.
  */
-export function calendarEventsResponse() {
+function seedDay(offsetDays: number, hour: number, minute = 0): string {
+  const date = new Date();
+  date.setUTCHours(hour, minute, 0, 0);
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString();
+}
+
+function calendarSeedEvents() {
+  return [
+    {
+      id: 'ev-2',
+      title: 'Design review',
+      start: seedDay(2, 15),
+      end: seedDay(2, 16),
+      location: 'Room B',
+    },
+    {
+      id: 'ev-1',
+      title: 'Team standup',
+      start: seedDay(1, 9),
+      end: seedDay(1, 9, 15),
+    },
+    {
+      id: 'ev-old',
+      title: 'Quarter kickoff',
+      start: seedDay(-60, 14),
+      end: seedDay(-60, 15),
+    },
+  ];
+}
+
+/**
+ * calendar.events.list: like the daemon, only events that overlap the requested
+ * window (`from` / `to`, ISO strings; either may be absent) come back.
+ */
+export function calendarEventsResponse(range: { from?: string | null; to?: string | null } = {}) {
+  const fromMs = range.from ? Date.parse(range.from) : Number.NEGATIVE_INFINITY;
+  const toMs = range.to ? Date.parse(range.to) : Number.POSITIVE_INFINITY;
   return {
-    events: [
-      {
-        id: 'ev-2',
-        title: 'Design review',
-        start: '2026-08-02T15:00:00.000Z',
-        end: '2026-08-02T16:00:00.000Z',
-        location: 'Room B',
-      },
-      {
-        id: 'ev-1',
-        title: 'Team standup',
-        start: '2026-08-01T09:00:00.000Z',
-        end: '2026-08-01T09:15:00.000Z',
-      },
-    ],
+    events: calendarSeedEvents().filter((event) => Date.parse(event.end) >= fromMs && Date.parse(event.start) <= toMs),
   };
 }
 
 export function calendarEventDetailResponse(eventId: string) {
-  const base = calendarEventsResponse().events.find((event) => event.id === eventId);
+  const base = calendarSeedEvents().find((event) => event.id === eventId);
   return {
     id: eventId,
     uid: `${eventId}@goodvibes`,
     title: base?.title ?? 'Unknown event',
-    start: base?.start ?? '2026-08-01T09:00:00.000Z',
-    end: base?.end ?? '2026-08-01T09:15:00.000Z',
+    start: base?.start ?? seedDay(1, 9),
+    end: base?.end ?? seedDay(1, 9, 15),
     ...(base?.location ? { location: base.location } : {}),
     description: 'Seeded e2e fixture event.',
     attendees: ['Operator'],

@@ -13,9 +13,9 @@
  * Bottom sheet on a phone, centered dialog on desktop, focus trap + Escape/backdrop cancel
  *, the same idiom as ConfirmSheet / HunkCommentSheet.
  */
-import { useEffect, useId, type KeyboardEvent } from 'react';
 import { Check, MessageSquare, Undo2 } from 'lucide-react';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
 import { formatRange, hunkExcerpt, hunkNewRange, hunkOldRange, type DiffHunk } from '../../lib/unified-diff';
 import '../../styles/components/session-changes.css';
 
@@ -44,53 +44,39 @@ export function HunkActionSheet({
   onReject,
   onCancel,
 }: HunkActionSheetProps) {
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) return undefined;
-    function onKeyDown(event: KeyboardEvent | globalThis.KeyboardEvent): void {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onCancel]);
-
   if (!open) return null;
 
   const newRange = formatRange(hunkNewRange(hunk));
   const oldRange = formatRange(hunkOldRange(hunk));
 
   return (
-    <div className="hunk-sheet-root">
-      <div className="hunk-sheet-backdrop" aria-hidden="true" onClick={onCancel} />
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="hunk-sheet">
-        <h2 id={titleId} className="hunk-sheet__title">Review this change</h2>
-        <div className="hunk-sheet__context">
-          <span className="hunk-sheet__path">{filePath}</span>
-          <span className="hunk-sheet__lines">new {newRange} · old {oldRange}</span>
-        </div>
-        <pre className="hunk-sheet__excerpt" aria-label="Selected change">{hunkExcerpt(hunk)}</pre>
-
-        <div className="hunk-actions">
-          <button type="button" className="hunk-actions__btn hunk-actions__btn--approve" onClick={onApprove}>
-            <Check size={16} aria-hidden="true" />
-            {reviewed ? 'Marked reviewed: undo' : 'Approve (mark reviewed)'}
-          </button>
-          <button type="button" className="hunk-actions__btn" onClick={onComment}>
-            <MessageSquare size={16} aria-hidden="true" />
-            {commentMode === 'steer' ? 'Comment & steer' : 'Comment & queue follow-up'}
-          </button>
-          <button type="button" className="hunk-actions__btn hunk-actions__btn--reject" onClick={onReject}>
-            <Undo2 size={16} aria-hidden="true" />
-            Reject & revert this hunk
-          </button>
-          <button type="button" className="hunk-actions__cancel" onClick={onCancel}>Cancel</button>
-        </div>
+    <Dialog
+      open
+      onClose={onCancel}
+      title="Review this change"
+      className="hunk-sheet"
+      footer={<Button variant="secondary" className="hunk-actions__cancel" onClick={onCancel}>Cancel</Button>}
+    >
+      <div className="hunk-sheet__context">
+        <span className="hunk-sheet__path">{filePath}</span>
+        <span className="hunk-sheet__lines">new {newRange} · old {oldRange}</span>
       </div>
-    </div>
+      <pre className="hunk-sheet__excerpt" aria-label="Selected change">{hunkExcerpt(hunk)}</pre>
+
+      <div className="hunk-actions gv-choice-list">
+        <button type="button" className="gv-choice hunk-actions__btn hunk-actions__btn--approve" onClick={onApprove}>
+          <Check aria-hidden="true" />
+          <span className="gv-choice__label">{reviewed ? 'Marked reviewed: undo' : 'Approve (mark reviewed)'}</span>
+        </button>
+        <button type="button" className="gv-choice hunk-actions__btn" onClick={onComment}>
+          <MessageSquare aria-hidden="true" />
+          <span className="gv-choice__label">{commentMode === 'steer' ? 'Comment & steer' : 'Comment & queue follow-up'}</span>
+        </button>
+        <button type="button" className="gv-choice hunk-actions__btn hunk-actions__btn--reject" onClick={onReject}>
+          <Undo2 aria-hidden="true" />
+          <span className="gv-choice__label">Reject & revert this hunk</span>
+        </button>
+      </div>
+    </Dialog>
   );
 }

@@ -74,7 +74,8 @@ function render() {
       React.createElement(SessionRewind, { sessionId: 's-1', closed: false }),
     ));
   });
-  return { container, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
+  // document.body: kit Dialogs portal there.
+  return { container: document.body as HTMLElement, unmount: () => { flushSync(() => root.unmount()); container.remove(); } };
 }
 
 async function settle(times = 6) {
@@ -117,9 +118,12 @@ describe('SessionRewind', () => {
     await settle();
 
     // the most recent turn anchor leads the list
-    const anchorSelect = container.querySelector('[aria-label="Rewind turn anchor"]') as HTMLSelectElement;
+    const anchorSelect = container.querySelector('button[aria-label="Rewind turn anchor"]') as HTMLButtonElement;
     expect(anchorSelect).not.toBeNull();
-    expect(anchorSelect.textContent).toContain('second ask');
+    click(anchorSelect);
+    const anchorOptions = [...document.querySelectorAll('[role="listbox"][aria-label="Rewind turn anchor"] [role="option"]')].map((o) => o.textContent);
+    expect(anchorOptions.join(' | ')).toContain('second ask');
+    click(anchorSelect);
 
     click(container.querySelector('.session-rewind__preview-btn'));
     await settle(3);
@@ -159,7 +163,7 @@ describe('SessionRewind', () => {
     click(container.querySelector('.session-rewind__apply-btn'));
     await settle(2);
     // confirm sheet → confirm
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     expect(applyCalls).toHaveLength(1);
@@ -178,12 +182,12 @@ describe('SessionRewind', () => {
     await settle(3);
     click(container.querySelector('.session-rewind__apply-btn'));
     await settle(2);
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     click(container.querySelector('.session-rewind__undo-btn'));
     await settle(2);
-    click(container.querySelector('.confirm-sheet__confirm'));
+    click(container.querySelector('.gv-confirm__confirm'));
     await settle(3);
 
     expect(restoreCalls).toHaveLength(1);

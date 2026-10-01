@@ -70,7 +70,8 @@ function render() {
     );
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -111,7 +112,8 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
   test('the price filter is enabled; real tier data is present in this fixture', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
-    const priceSelect = [...el.querySelectorAll('select')].find((s) => s.closest('label')?.textContent?.startsWith('Price'));
+    const priceSelect = el.querySelector('.model-workspace-filter button[aria-label="Price"]');
+    expect(priceSelect).not.toBeNull();
     expect(priceSelect?.hasAttribute('disabled')).toBe(false);
     unmount();
   });
@@ -120,7 +122,8 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
     expect(el.textContent).toContain('Not reported by this daemon');
-    const capabilitySelect = [...el.querySelectorAll('select')].find((s) => s.closest('label')?.textContent?.startsWith('Capability'));
+    const capabilitySelect = el.querySelector('.model-workspace-filter button[aria-label="Capability"]');
+    expect(capabilitySelect).not.toBeNull();
     expect(capabilitySelect?.hasAttribute('disabled')).toBe(true);
     unmount();
   });

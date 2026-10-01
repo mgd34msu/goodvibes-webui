@@ -25,13 +25,13 @@ import { queryKeys } from '../../lib/queries';
 import { formatError } from '../../lib/errors';
 import { formatRelative } from '../../lib/object';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../confirm/useConfirmSheet';
+import { useConfirm } from '../ui/ConfirmDialog';
 import '../../styles/components/tailscale.css';
 
 export function TailscaleSettings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
 
   const detection = useQuery({
     queryKey: queryKeys.tailscale,

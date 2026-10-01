@@ -42,7 +42,6 @@ test('a queued message renders with its text and can be edited in place', async 
 });
 
 test('a queued message can be deleted (with confirmation) before it is ever sent', async ({ page }) => {
-  page.on('dialog', (dialog) => void dialog.accept());
   const daemon = await installChatMockDaemon(page, {
     queuedMessages: { [FIRST_SESSION_ID]: [{ id: 'q-1', queuedAt: 1000, text: 'Drop this one' }] },
   });
@@ -57,6 +56,10 @@ test('a queued message can be deleted (with confirmation) before it is ever sent
   const panel = page.locator('.queued-messages-panel');
   await expect(panel).toContainText('Drop this one');
   await panel.locator('.queued-message__delete').click();
+  // The kit confirm dialog asks first; nothing is dropped until the answer.
+  const confirm = page.getByRole('alertdialog', { name: 'Drop this queued message?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: 'Drop message' }).click();
 
   await expect(page.locator('.queued-messages-panel')).toHaveCount(0);
   await expect.poll(() => daemon.queuedMessagesOf(FIRST_SESSION_ID)).toEqual([]);

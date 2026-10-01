@@ -39,7 +39,7 @@ import {
   type HostedStreamFrame,
 } from '../../lib/hosted-session-stream';
 import { useHostedSessionRealtime } from '../../hooks/useHostedSessionRealtime';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { formatError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
 import { DetailPane, DetailSection, Facts, SkeletonRows } from '../../components/data-view/DataView';
@@ -62,7 +62,7 @@ export interface HostedAttachment {
   readonly killPending: boolean;
   readonly leave: () => void;
   readonly kill: () => void;
-  readonly confirmElement: ReturnType<typeof useConfirmSheet>['element'];
+  readonly confirmElement: ReturnType<typeof useConfirm>['element'];
 }
 
 /**
@@ -76,7 +76,7 @@ export function useHostedAttachment(
 ): HostedAttachment {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [clientId] = useState(() => ensureHostedClientId());
 
   const [attachedSession, setAttachedSession] = useState<HostedSessionRecord | null>(null);

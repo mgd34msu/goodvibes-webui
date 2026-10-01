@@ -151,3 +151,22 @@ export async function openRow(page: Page, text: string | RegExp): Promise<Locato
 export function detailPane(page: Page): Locator {
   return page.locator('.dv-detail');
 }
+
+/**
+ * A phone bottom sheet (design doc "Phone"): once its 240 ms slide-in settles it
+ * spans the full viewport width and sits on the bottom edge. Polls, so a box read
+ * mid-animation never decides the result.
+ */
+export async function expectBottomSheet(page: Page, sheet: Locator, options?: { minHeight?: number }): Promise<void> {
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  await expect.poll(async () => {
+    const box = await sheet.boundingBox();
+    if (!box || !viewport) return 'no box';
+    const bottom = Math.round(box.y + box.height);
+    const tallEnough = options?.minHeight === undefined || box.height >= options.minHeight;
+    return Math.round(box.width) === viewport.width && bottom === viewport.height && tallEnough
+      ? 'sheet'
+      : `width ${Math.round(box.width)}, bottom ${bottom}, height ${Math.round(box.height)}`;
+  }).toBe('sheet');
+}

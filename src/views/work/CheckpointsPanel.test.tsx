@@ -79,7 +79,8 @@ function render(seed: unknown = FIXTURE_LIST): { el: HTMLElement; unmount: () =>
     ));
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       if (container.parentNode) container.parentNode.removeChild(container);
@@ -257,12 +258,12 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
     const { el, unmount } = render();
     openRestore(el);
     // The confirm sheet is open (destructive restore always confirms).
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click([...el.querySelectorAll('.confirm-sheet__cancel')][0]);
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click([...el.querySelectorAll('.gv-confirm__cancel')][0]);
     // The sheet closes as ask() resolves false. The handler resumes after that
     // await on a microtask, and a restore mutation would reach the SDK on further
     // microtasks, so one real event-loop turn after the close lets all of it run.
-    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await waitFor(() => !el.querySelector('.gv-confirm'));
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(restoreCalls).toHaveLength(0);
     unmount();
@@ -271,8 +272,8 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
   test('restore fires exactly once after confirming, authorized by the preview token', async () => {
     const { el, unmount } = render();
     openRestore(el);
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    const sheet = el.querySelector('.confirm-sheet')!;
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    const sheet = el.querySelector('.gv-confirm')!;
     // The sheet states the target and the overwrite consequence.
     expect(sheet.textContent).toContain('diff base');
     expect(sheet.textContent?.toLowerCase()).toContain('overwrite');
@@ -281,7 +282,7 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
     expect(previewCalls[0]).toMatchObject({ id: 'wcp_1' });
     expect(sheet.textContent).toContain('1 file would change');
     expect(sheet.textContent).toContain('a.txt');
-    click(sheet.querySelector('.confirm-sheet__confirm'));
+    click(sheet.querySelector('.gv-confirm__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     expect(restoreCalls).toHaveLength(1);
     // The restore is authorized by the single-use token from the preview, not a blind confirm.
@@ -303,8 +304,8 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
     });
     const { el, unmount } = render();
     openRestore(el);
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     // The refusal reason is shown, and the success wording never appears.
     await waitFor(() => Boolean(el.querySelector('.toast')));
@@ -319,8 +320,8 @@ describe('CheckpointsPanel restore: destructive confirm gate', () => {
     const { el, unmount } = render();
     openRestore(el);
     // The confirm sheet still opens (best-effort preview), with the un-enriched message.
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => restoreCalls.length > 0);
     expect(restoreCalls[0]).toMatchObject({ id: 'wcp_1', confirm: true });
     unmount();

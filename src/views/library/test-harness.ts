@@ -58,7 +58,8 @@ export function renderInto(element: React.ReactElement): { el: HTMLElement; unmo
     root.render(React.createElement(QueryClientProvider, { client }, element));
   });
   return {
-    el: container,
+    // document.body: detail peeks are kit Drawers portaled there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();

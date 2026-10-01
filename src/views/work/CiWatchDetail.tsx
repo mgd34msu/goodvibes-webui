@@ -14,7 +14,7 @@ import type { OperatorMethodOutput } from '../../lib/goodvibes';
 import { queryKeys } from '../../lib/queries';
 import { formatError, isMethodUnavailableError } from '../../lib/errors';
 import { useToast } from '../../lib/toast';
-import { useConfirmSheet } from '../../components/confirm/useConfirmSheet';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import { DetailPane, DetailSection, Facts } from '../../components/data-view/DataView';
 import { Button } from '../../components/ui/Button';
 import { Row, RowList } from '../../components/ui/Row';
@@ -77,7 +77,7 @@ export function CiWatchDetail({ watch, onClose, onOpenSession }: {
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirmSheet();
+  const confirm = useConfirm();
   const [runResult, setRunResult] = useState<CiWatchRunResult | null>(null);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.ciWatches });
 

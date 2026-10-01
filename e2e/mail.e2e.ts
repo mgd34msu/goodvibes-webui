@@ -102,8 +102,8 @@ test('configured: Compose opens a glass panel at the lower right, and Send is en
   await expectNoHorizontalScroll(page);
 
   await send.click();
-  await expect(page.locator('.confirm-sheet')).toBeVisible();
-  await page.locator('.confirm-sheet__confirm').click();
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  await page.locator('.gv-confirm__confirm').click();
   await expect(page.getByText('Message sent')).toBeVisible();
   await expect(compose).toHaveCount(0);
 });

@@ -46,9 +46,13 @@ import {
   Input,
   Menu,
   MenuItem,
+  MenuSeparator,
   Row,
   Segmented,
+  Sheet,
   Textarea,
+  useMediaQuery,
+  PHONE_QUERY,
 } from '../../components/ui';
 import { DateField, parseIsoDate, toIsoDate, monthGrid } from '../../components/ui/DateField';
 import { PersonalNotice, PersonalPage } from '../personal/PersonalPage';
@@ -139,6 +143,28 @@ function timeLabel(start: string): string {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * The phone's one date-range button: "Oct 1 – 15" inside one month, "Sep 28 –
+ * Oct 5" across months, with the year only when the range leaves this year.
+ */
+export function formatRangeLabel(from: string, to: string, now: Date = new Date()): string {
+  const start = parseIsoDate(from);
+  const end = parseIsoDate(to);
+  if (!start && !end) return 'Any date';
+  const year = now.getFullYear();
+  const withYear = (start && start.getFullYear() !== year) || (end && end.getFullYear() !== year);
+  const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) => date.toLocaleDateString('en-US', opts);
+  const monthDay: Intl.DateTimeFormatOptions = withYear ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' };
+  if (!start) return `Until ${fmt(end as Date, monthDay)}`;
+  if (!end) return `From ${fmt(start, monthDay)}`;
+  if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+    if (start.getDate() === end.getDate()) return fmt(start, monthDay);
+    const head = fmt(start, { month: 'short', day: 'numeric' });
+    return withYear ? `${head} – ${end.getDate()}, ${end.getFullYear()}` : `${head} – ${end.getDate()}`;
+  }
+  return `${fmt(start, monthDay)} – ${fmt(end, monthDay)}`;
+}
+
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -150,6 +176,8 @@ export interface CalendarViewProps {
 
 export function CalendarView({ tabs }: CalendarViewProps = {}) {
   const queryClient = useQueryClient();
+  const phone = useMediaQuery(PHONE_QUERY);
+  const [rangeOpen, setRangeOpen] = useState(false);
 
   const [layout, setLayout] = useState<CalendarLayout>('agenda');
   const [from, setFrom] = useState(() => isoDateOffset(0));
@@ -299,30 +327,82 @@ export function CalendarView({ tabs }: CalendarViewProps = {}) {
   }
 
   const monthLabel = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const shortMonthLabel = month.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
-  const filters = (
+  const layoutToggle = (
+    <Segmented<CalendarLayout>
+      label="Calendar layout"
+      className="calendar-layout-toggle"
+      value={layout}
+      options={[{ value: 'agenda', label: 'Agenda' }, { value: 'month', label: 'Month' }]}
+      onChange={changeLayout}
+    />
+  );
+
+  const goToday = () => {
+    setMonth(startOfMonth(new Date()));
+    setSelectedId('');
+  };
+
+  const moreMenu = (
+    <Menu
+      label="More calendar actions"
+      placement="bottom-end"
+      trigger={(props) => <IconButton label="More calendar actions" icon={<MoreHorizontal />} {...props} />}
+    >
+      {phone && <MenuItem icon={<RefreshCw />} onSelect={() => void events.refetch()}>Refresh events</MenuItem>}
+      {phone && layout === 'month' && <MenuItem onSelect={goToday}>Go to this month</MenuItem>}
+      {phone && <MenuSeparator />}
+      <MenuItem onSelect={() => exportIcs.mutate()} disabled={exportIcs.isPending || !working}>Export range as .ics</MenuItem>
+      <MenuItem onSelect={() => setImportOpen(true)} disabled={Boolean(honestNote)}>Import .ics file content</MenuItem>
+    </Menu>
+  );
+
+  const monthNav = (
+    <div className="calendar-month-nav">
+      <IconButton label="Previous month" icon={<ChevronLeft />} onClick={() => shiftMonth(-1)} />
+      <span className="calendar-month-nav__label" aria-live="polite">{phone ? shortMonthLabel : monthLabel}</span>
+      <IconButton label="Next month" icon={<ChevronRight />} onClick={() => shiftMonth(1)} />
+      {!phone && (
+        <Button variant="ghost" size="sm" onClick={goToday}>
+          Today
+        </Button>
+      )}
+    </div>
+  );
+
+  const rangeLabel = formatRangeLabel(from, to);
+  const calendarLabel = calendarFilter || 'Default calendar';
+
+  // Phone: one compact row (layout toggle, one date-range button, the more menu),
+  // so the agenda starts near the top of the screen. The range and the calendar
+  // choice live in a sheet.
+  const filters = phone ? (
+    <div className="calendar-phone-controls">
+      {layoutToggle}
+      {layout === 'agenda' ? (
+        <Button
+          variant="outline"
+          className="calendar-range-button"
+          icon={<CalendarDays aria-hidden="true" />}
+          onClick={() => setRangeOpen(true)}
+          aria-label={`Date range ${rangeLabel}, ${calendarLabel}. Change`}
+          aria-haspopup="dialog"
+        >
+          <span className="calendar-range-button__text">{rangeLabel}</span>
+        </Button>
+      ) : monthNav}
+      {moreMenu}
+    </div>
+  ) : (
     <>
-      <Segmented<CalendarLayout>
-        label="Calendar layout"
-        value={layout}
-        options={[{ value: 'agenda', label: 'Agenda' }, { value: 'month', label: 'Month' }]}
-        onChange={changeLayout}
-      />
+      {layoutToggle}
       {layout === 'agenda' ? (
         <>
           <DateField value={from} onChange={setFrom} aria-label="Range start" />
           <DateField value={to} onChange={setTo} aria-label="Range end" />
         </>
-      ) : (
-        <div className="calendar-month-nav">
-          <IconButton label="Previous month" icon={<ChevronLeft />} onClick={() => shiftMonth(-1)} />
-          <span className="calendar-month-nav__label" aria-live="polite">{monthLabel}</span>
-          <IconButton label="Next month" icon={<ChevronRight />} onClick={() => shiftMonth(1)} />
-          <Button variant="ghost" size="sm" onClick={() => { setMonth(startOfMonth(new Date())); setSelectedId(''); }}>
-            Today
-          </Button>
-        </div>
-      )}
+      ) : monthNav}
       <Input
         className="calendar-filter-calendar"
         value={calendarId}
@@ -332,14 +412,7 @@ export function CalendarView({ tabs }: CalendarViewProps = {}) {
       />
       <div className="dv-filters__end">
         <IconButton label="Refresh events" icon={<RefreshCw />} onClick={() => void events.refetch()} />
-        <Menu
-          label="More calendar actions"
-          placement="bottom-end"
-          trigger={(props) => <IconButton label="More calendar actions" icon={<MoreHorizontal />} {...props} />}
-        >
-          <MenuItem onSelect={() => exportIcs.mutate()} disabled={exportIcs.isPending || !working}>Export range as .ics</MenuItem>
-          <MenuItem onSelect={() => setImportOpen(true)} disabled={Boolean(honestNote)}>Import .ics file content</MenuItem>
-        </Menu>
+        {moreMenu}
       </div>
     </>
   );
@@ -424,6 +497,7 @@ export function CalendarView({ tabs }: CalendarViewProps = {}) {
     );
     content = (
       <ListDetail
+        mode="peek"
         list={list}
         detailOpen={Boolean(selectedId)}
         onCloseDetail={() => setSelectedId('')}
@@ -461,6 +535,29 @@ export function CalendarView({ tabs }: CalendarViewProps = {}) {
           <CalendarEventBody detail={detail} />
         </div>
       </Drawer>
+
+      <Sheet open={phone && rangeOpen} onClose={() => setRangeOpen(false)} label="Date range">
+        <div className="calendar-range-sheet">
+          <h2 className="calendar-range-sheet__title">Date range</h2>
+          <div className="personal-form__split">
+            <Field label="From">
+              <DateField value={from} onChange={setFrom} aria-label="Range start" />
+            </Field>
+            <Field label="To">
+              <DateField value={to} onChange={setTo} aria-label="Range end" />
+            </Field>
+          </div>
+          <Field label="Calendar" help="Leave empty for the default calendar.">
+            <Input
+              value={calendarId}
+              onChange={(event) => setCalendarId(event.target.value)}
+              placeholder="Default calendar"
+              aria-label="Logical calendar id"
+            />
+          </Field>
+          <Button variant="primary" className="calendar-range-sheet__done" onClick={() => setRangeOpen(false)}>Done</Button>
+        </div>
+      </Sheet>
 
       <Dialog
         open={newOpen}

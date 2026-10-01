@@ -17,8 +17,9 @@ import type { FleetAttemptGroup, FleetAttemptCandidate, FleetAttemptJudgment } f
 import { formatError, isConflictError, isMethodNotInvokableError } from '../../lib/errors';
 import { parseUnifiedDiff } from '../../lib/unified-diff';
 import { DiffMultibuffer } from '../../components/diff/DiffMultibuffer';
-import { Modal } from '../../components/modal/Modal';
-import { ConfirmSheet } from '../../components/confirm/ConfirmSheet';
+import { Dialog } from '../../components/ui/Dialog';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Radio } from '../../components/ui/Radio';
 import '../../styles/components/attempt-comparison.css';
 
 interface AttemptComparisonProps {
@@ -79,7 +80,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
   const judgeUnavailable = judge.isError && isMethodNotInvokableError(judge.error);
 
   return (
-    <Modal open={open} onClose={onClose} title={`Compare attempts: ${group.sourceTitle}`} size="lg">
+    <Dialog open={open} onClose={onClose} title={`Compare attempts: ${group.sourceTitle}`} size="wide">
       <div className="attempt-cmp">
         <p className="attempt-cmp__intro">
           {heldCandidates.length} held candidate{heldCandidates.length === 1 ? '' : 's'} of {group.candidates.length}.
@@ -134,19 +135,18 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
             return (
               <div key={candidate.itemId} className={`attempt-cmp__candidate${isProposed ? ' attempt-cmp__candidate--proposed' : ''}`}>
                 <div className="attempt-cmp__candidate-head">
-                  <label className="attempt-cmp__pick-radio">
-                    <input
-                      type="radio"
-                      name="attempt-winner"
-                      value={candidate.itemId}
-                      checked={selectedId === candidate.itemId}
-                      disabled={!held}
-                      onChange={() => setSelectedId(candidate.itemId)}
-                    />
+                  <Radio
+                    className="attempt-cmp__pick-radio"
+                    name="attempt-winner"
+                    value={candidate.itemId}
+                    checked={selectedId === candidate.itemId}
+                    disabled={!held}
+                    onChange={() => setSelectedId(candidate.itemId)}
+                  >
                     <span className="attempt-cmp__candidate-title">
                       #{candidate.attemptIndex + 1} {candidate.title}
                     </span>
-                  </label>
+                  </Radio>
                   <span className={`badge ${held ? 'ok' : 'bad'}`}>{candidate.state}</span>
                   {isProposed && <span className="badge attention">judge pick</span>}
                   <span className="badge neutral">{candidateCost(candidate)}</span>
@@ -187,7 +187,7 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
       </div>
 
       {confirmPick && (
-        <ConfirmSheet
+        <ConfirmDialog
           open
           tone="danger"
           title="Pick this attempt as the winner"
@@ -198,6 +198,6 @@ export function AttemptComparison({ open, group, onClose, onPicked }: AttemptCom
           onCancel={() => setConfirmPick(false)}
         />
       )}
-    </Modal>
+    </Dialog>
   );
 }

@@ -68,6 +68,13 @@ test('review: saving a review state from the Review tab round-trips into the rec
   await page.getByRole('option', { name: 'Reviewed' }).click();
   await pane.getByRole('button', { name: 'Save review' }).click();
 
+  // On a phone the review item is a bottom sheet over the page: close it first.
+  const sheet = page.locator('.dv-peek.gv-drawer--sheet');
+  if (await sheet.isVisible()) {
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+  }
+
   // The saved state reflects back into the record's own row on the Memory tab.
   await page.getByRole('radio', { name: 'Memory' }).click();
   await expect(

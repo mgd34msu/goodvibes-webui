@@ -85,7 +85,8 @@ function render(): { el: HTMLElement; unmount: () => void } {
     );
   });
   return {
-    el: container,
+    // document.body: kit overlays (dialogs, drawers, menus) portal there.
+    el: document.body,
     unmount: () => {
       flushSync(() => root.unmount());
       container.remove();
@@ -182,12 +183,12 @@ describe('PairingTokensSettings revoke: confirm gate', () => {
     await waitFor(() => (el.textContent ?? '').includes('Phone'));
     const row = [...el.querySelectorAll('.pairing-token-row')].find((r) => r.textContent?.includes('Phone'));
     click(row?.querySelector('.pairing-token-row__revoke'));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__cancel'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__cancel'));
     // The sheet closes as ask() resolves false. The handler resumes after that
     // await on a microtask, and a revoke mutation would reach the SDK on further
     // microtasks, so one real event-loop turn after the close lets all of it run.
-    await waitFor(() => !el.querySelector('.confirm-sheet'));
+    await waitFor(() => !el.querySelector('.gv-confirm'));
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(deleteCalls).toHaveLength(0);
     unmount();
@@ -198,8 +199,8 @@ describe('PairingTokensSettings revoke: confirm gate', () => {
     await waitFor(() => (el.textContent ?? '').includes('Phone'));
     const row = [...el.querySelectorAll('.pairing-token-row')].find((r) => r.textContent?.includes('Phone'));
     click(row?.querySelector('.pairing-token-row__revoke'));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => deleteCalls.length > 0);
     expect(deleteCalls).toEqual(['tok-1']);
     unmount();
@@ -211,8 +212,8 @@ describe('PairingTokensSettings migrate + revoke-shared', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Give this browser its own token'));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Give this browser its own token')));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
-    click(el.querySelector('.confirm-sheet__confirm'));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => migrateCalls.length > 0);
     expect(migrateCalls[0]).toBe('This browser');
     await waitFor(() => setExplicitAuthTokenCalls.length > 0);
@@ -224,10 +225,10 @@ describe('PairingTokensSettings migrate + revoke-shared', () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Revoke the shared token'));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Revoke the shared token')));
-    await waitFor(() => Boolean(el.querySelector('.confirm-sheet')));
+    await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
     // A destructive action reads as danger-toned in the sheet.
-    expect(el.querySelector('.confirm-sheet')?.className).toContain('danger');
-    click(el.querySelector('.confirm-sheet__confirm'));
+    expect(el.querySelector('.gv-confirm')?.className).toContain('danger');
+    click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => revokeSharedCalls.length > 0);
     unmount();
   });

@@ -362,6 +362,7 @@ export function KnowledgeView({ query = '' }: KnowledgeViewProps) {
 
         {section === 'browse' && (
           <ListDetail
+            mode="peek"
             list={listPane}
             detail={detail}
             detailOpen={detail !== null}

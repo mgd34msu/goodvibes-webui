@@ -211,6 +211,8 @@ export function MemoryView({ query = '', onAddMemory }: MemoryViewProps) {
         )}
 
         <ListDetail
+
+          mode="peek"
           list={listPane}
           detail={selected && (
             <MemoryRecordPane

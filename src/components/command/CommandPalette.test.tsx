@@ -69,13 +69,12 @@ describe('CommandPalette: rendering', () => {
     expect(document.querySelector('[aria-label="Command palette"]')).toBeNull();
   });
 
-  test('is a labelled modal glass dialog over the scrim, focus in the search field', () => {
+  test('is a labelled modal dialog over the scrim, focus in the search field', () => {
     registerCommand(cmd('a'));
     renderPalette(true);
     const dialog = document.querySelector('[aria-label="Command palette"]')!;
     expect(dialog.getAttribute('role')).toBe('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(dialog.classList.contains('glass')).toBe(true);
     expect(document.querySelector('.cmd-overlay > .scrim')).not.toBeNull();
     const input = document.querySelector('input[aria-label="Search commands"]')!;
     expect(document.activeElement).toBe(input);

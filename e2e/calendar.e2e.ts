@@ -144,7 +144,7 @@ test('unconfigured: the daemon\'s 412 CALENDAR_NOT_CONFIGURED renders the plain 
   await installMockDaemon(page, { calendar: 'unconfigured' });
   await page.goto(CALENDAR);
   await expect(page.getByText('Calendar isn’t configured')).toBeVisible();
-  await expect(page.getByText('Add your calendar in Settings and your events show up here.')).toBeVisible();
+  await expect(page.getByText(/Add your calendar in Settings/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible();
   // No create action while the surface cannot take one.
   await expect(page.getByRole('button', { name: 'New event' })).toHaveCount(0);

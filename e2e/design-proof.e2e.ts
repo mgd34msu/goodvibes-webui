@@ -217,7 +217,7 @@ test.describe('overlays', () => {
     await installMockDaemon(page);
     await page.goto('/?view=work');
     await openNavigation(page);
-    await page.locator('.shell-sidebar__foot button').first().click();
+    await page.getByRole('button', { name: /^Account: / }).click();
     const menu = page.getByRole('menu', { name: 'Account' });
     await expect(menu).toBeVisible();
     await proveScreen(page, testInfo, 'account-menu');
@@ -313,7 +313,7 @@ test.describe('tools, pages and gates', () => {
     }));
     await page.goto('/?view=work');
     await openRow(page, 'Build the widget');
-    await page.getByRole('button', { name: /compare/i }).first().click();
+    await page.getByRole('button', { name: 'Compare and pick' }).click();
     await expect(page.getByRole('dialog', { name: /Compare attempts/ })).toBeVisible();
     await proveScreen(page, testInfo, 'attempt-comparison');
   });

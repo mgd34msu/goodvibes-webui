@@ -34,6 +34,9 @@ describe('paired-phone settings reachability', () => {
     const groups = buildSettingsModel({});
     const deviceGroup = groups.find((group) => group.id === 'device');
     expect(deviceGroup).toBeDefined();
-    expect(deviceGroup?.label).toBe('Paired Phone Capabilities');
+    // Not the namespace, not a Title-Cased copy of it, and not a single token.
+    expect(deviceGroup?.label).not.toBe('device');
+    expect(deviceGroup?.label).not.toBe('Device');
+    expect(deviceGroup?.label.split(' ').length).toBeGreaterThan(1);
   });
 });

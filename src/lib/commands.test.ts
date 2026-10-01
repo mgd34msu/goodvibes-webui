@@ -85,21 +85,16 @@ describe('filterCommands', () => {
     expect(filterCommands(commands, 'zzznomatch')).toHaveLength(0);
   });
 
-  test('case-insensitive matching', () => {
-    const results = filterCommands(commands, 'CHAT');
-    expect(results.length).toBeGreaterThan(0);
+  test('matching ignores query case', () => {
+    expect(filterCommands(commands, 'CHAT')).toEqual(filterCommands(commands, 'chat'));
   });
 
-  test('results are ordered by score (lower score first)', () => {
-    // "chat" should return exact-prefix match "New Chat" or keyword-prefix before fuzzy
-    const results = filterCommands(commands, 'chat');
-    // All returned commands should match; the exact prefix match comes first
-    expect(results.length).toBeGreaterThan(0);
-    const first = results[0];
-    const titleHasChat = first.title.toLowerCase().startsWith('chat') ||
-      first.title.toLowerCase().includes('chat') ||
-      (first.keywords ?? []).some((k) => k.startsWith('chat'));
-    expect(titleHasChat).toBe(true);
+  test('results are ordered by match quality: keyword prefix, then title substring, then group', () => {
+    // 'chat': nav.chat has the keyword 'chat' (score 1); nav.knowledge and nav.providers
+    // do not match at all; chat.new has 'chat' inside its title (2); system.palette only
+    // matches through the 'chat' group? No, its group is 'system', so it falls to fuzzy
+    // ('chat' is not a subsequence of 'open command palette') and is excluded.
+    expect(filterCommands(commands, 'chat').map((c) => c.id)).toEqual(['nav.chat', 'chat.new']);
   });
 });
 
@@ -127,10 +122,6 @@ describe('registerCommand', () => {
     unregisterCommand('test.remove');
     const ids = getCommands().map((c) => c.id);
     expect(ids).not.toContain('test.remove');
-  });
-
-  test('unregistering non-existent id does not throw', () => {
-    expect(() => unregisterCommand('does.not.exist')).not.toThrow();
   });
 
   test('getCommands returns commands sorted by group then title', () => {

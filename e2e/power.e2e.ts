@@ -1,9 +1,10 @@
 /**
  * Power, the host sleep-ownership surface (power.status.get/keepAwake.set,
- * SDK 1.8.0). Proves the always-visible "sleep disabled" chip (StatusStrip),
- * the admin Power panel's toggle (ruled shape: one toggle, no timers, no
- * AC-only sub-options), and the "held because X" line, all against the mock
- * daemon. Runs on both phone and desktop (default project set).
+ * SDK 1.8.0). Proves the "sleep disabled" chip in the shell header's
+ * indicators (PowerChip; it renders only while a hold is real), the Power
+ * panel's toggle in Settings (ruled shape: one toggle, no timers, no AC-only
+ * sub-options), and the "held because X" line, all against the mock daemon.
+ * Runs on both phone and desktop (default project set).
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
@@ -15,7 +16,7 @@ test('the sleep-disabled chip is absent when keep-awake is off (honest baseline)
   await expect(page.locator('.status-strip__segment--power')).toHaveCount(0);
 });
 
-test('toggling keep-awake on in the settings Power panel shows the danger-idiom chip in the status strip', async ({ page }) => {
+test('toggling keep-awake on in the settings Power panel shows the sleep-disabled chip in the header', async ({ page }) => {
   await installMockDaemon(page);
   await openSettings(page, 'devices');
 
@@ -27,8 +28,8 @@ test('toggling keep-awake on in the settings Power panel shows the danger-idiom 
   await toggle.click();
   await expect(toggle).toBeChecked();
 
-  // The always-visible chip appears in the footer status strip, same event/refetch
-  // the real OPS_POWER_STATE_CHANGED wiring drives.
+  // The chip appears among the header's indicators, driven by the same
+  // event/refetch the real OPS_POWER_STATE_CHANGED wiring drives.
   const chip = page.locator('.status-strip__segment--power');
   await expect(chip).toBeVisible();
   await expect(chip).toContainText('Sleep disabled');

@@ -51,13 +51,11 @@ describe('ListDetail peek mode', () => {
     expect(document.querySelector('.dv-peek')).toBeNull();
   });
 
-  test('open: the detail is a labelled right glass drawer outside the list, the list stays', () => {
+  test('open: the detail is a labelled drawer outside the list, the list stays', () => {
     render(true);
     const drawer = document.querySelector('.dv-peek')!;
     expect(drawer.getAttribute('role')).toBe('dialog');
     expect(drawer.getAttribute('aria-label')).toBe('Event detail');
-    expect(drawer.classList.contains('glass')).toBe(true);
-    expect(drawer.classList.contains('gv-drawer--right')).toBe(true);
     expect(container.contains(drawer)).toBe(false);
     expect(drawer.textContent).toContain('Design review');
     expect(container.querySelector('.dv-list')?.textContent).toContain('Row one');

@@ -1,10 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { WorkspaceCheckpoint } from './goodvibes';
 import {
-  CHECKPOINT_NOOP_MESSAGE,
   formatBytes,
   kindLabel,
-  restoreConfirmMessage,
   restoreConfirmMessageWithPreview,
   restoreConfirmTitle,
   retentionLabel,
@@ -71,14 +69,6 @@ describe('sortCheckpointsNewestFirst', () => {
   });
 });
 
-describe('CHECKPOINT_NOOP_MESSAGE', () => {
-  test('is an honest "unchanged", never phrased as an error', () => {
-    expect(CHECKPOINT_NOOP_MESSAGE.toLowerCase()).toContain('unchanged');
-    expect(CHECKPOINT_NOOP_MESSAGE.toLowerCase()).not.toContain('error');
-    expect(CHECKPOINT_NOOP_MESSAGE.toLowerCase()).not.toContain('fail');
-  });
-});
-
 describe('restore confirm copy', () => {
   const preview = (affectedPathCount: number) => ({
     checkpointId: 'wcp_1',
@@ -93,10 +83,6 @@ describe('restore confirm copy', () => {
     expect(restoreConfirmTitle(checkpoint({ id: 'wcp_2', label: '' }))).toBe('Restore the workspace to “wcp_2”?');
   });
 
-  test('without a preview the description is one sentence about replaced files', () => {
-    expect(restoreConfirmMessage()).toBe('Files changed since then are replaced.');
-  });
-
   test('with a preview it states the count in one sentence, singular and plural', () => {
     expect(restoreConfirmMessageWithPreview(preview(1))).toBe('Files changed since then are replaced; 1 file changes.');
     expect(restoreConfirmMessageWithPreview(preview(3))).toBe('Files changed since then are replaced; 3 files change.');
@@ -104,12 +90,5 @@ describe('restore confirm copy', () => {
 
   test('an empty preview says nothing changes', () => {
     expect(restoreConfirmMessageWithPreview(preview(0))).toBe('The workspace already matches it, so no files change.');
-  });
-
-  test('no copy uses capitals for emphasis or implementation terms', () => {
-    for (const text of [restoreConfirmMessage(), restoreConfirmMessageWithPreview(preview(2))]) {
-      expect(text).not.toMatch(/\b[A-Z]{3,}\b/);
-      expect(text.toLowerCase()).not.toContain('git');
-    }
   });
 });

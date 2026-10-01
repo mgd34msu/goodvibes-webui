@@ -87,17 +87,6 @@ describe('MemoryProvenanceChip', () => {
     expect(toggle?.textContent).toContain('Memory: 2');
   });
 
-  test('the toggle button clears the 44px phone-width tap target', () => {
-    const { el, unmount } = render(['mem-1']);
-    cleanup = unmount;
-    const toggle = el.querySelector('.memory-provenance-chip__toggle') as HTMLElement;
-    expect(toggle).not.toBeNull();
-    // jsdom/happy-dom does not compute layout, so assert the CSS declares the
-    // floor rather than measuring a rendered box (the e2e touch-targets suite
-    // measures real rendered boxes elsewhere in this repo).
-    expect(toggle.className).toContain('memory-provenance-chip__toggle');
-  });
-
   test('does not fetch record details until expanded', () => {
     render(['mem-1', 'mem-2']);
     expect(memoryGetCalls).toEqual([]);

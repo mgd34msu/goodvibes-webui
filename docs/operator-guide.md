@@ -4,24 +4,32 @@ This guide describes the WebUI from an operator point of view.
 
 ## Navigation
 
-The sidebar is the primary navigation surface. In order:
+GoodVibes has four places: Chat, Work, Library and Personal. The sidebar lists
+them in order:
 
 - New chat, a fresh conversation
 - Search (Ctrl K), the command palette
-- Work, what is running for you: Sessions, Hosted, Processes (the fleet),
-  Needs you (approvals and tasks), Workstream, CI and Checkpoints. Its count
-  chip is the number of processes blocked on you.
-- Library, what GoodVibes knows: Knowledge and Memory
-- Personal, the life-admin surfaces: Calendar, Mail and Occasions
+- Work, what is running for you and what needs you. Its dot or count is the
+  number of items waiting on you.
+- Library, what GoodVibes remembers and knows
+- Personal, your calendar, mail and occasions
 - Recent, your chats, newest first, each with a permanent delete
 
 Work, Library and Personal open with a section switch across the top, so every
-view inside them is one click away. Settings, Models and usage, Devices and
-pairing, People and channels (principals) and Check-ins are in the account
-menu at the foot of the sidebar, together with the theme (Light, Dark, Auto and
-the opt-in GoodVibes Neon), the connection to your daemon in plain words with
-its latency, and Sign out. The dot on your avatar is the connection at a
-glance; when the connection drops, a toast and a thin banner say so.
+section inside them is one click away. Settings, Devices and pairing, People
+and channels, and Check-ins are in the account menu at the foot of the
+sidebar, together with the theme (Light, Dark, Auto and the opt-in GoodVibes
+Neon), the connection to your daemon in plain words with its latency, and Sign
+out. The dot on your avatar is the connection at a glance; when the connection
+drops, a toast and a thin banner say so. Settings also opens with Ctrl comma.
+
+Links from earlier versions still work. `?view=fleet`, `?view=sessions`,
+`?view=approvals-tasks`, `?view=workstream`, `?view=ci-watches` and
+`?view=checkpoints` open Work; `?view=memory` and `?view=knowledge` open the
+Library; `?view=calendar`, `?view=mail` and `?view=dates` open Personal;
+`?view=admin`, `?view=providers`, `?view=principals` and `?view=checkin` open
+the settings dialog on the matching section. The address is rewritten in place
+to the new form, and a notification's `#...` fragment is kept.
 
 The sidebar collapses to a 56-wide icon rail with its panel button or Ctrl B,
 and folds to that rail on its own while something large is open on the right
@@ -33,6 +41,29 @@ see the full sidebar over the page. Drag its edge to resize it (220 to 360).
 At phone width there is no rail: the sidebar is a drawer behind the header's
 menu button (or a swipe from the left edge). Tapping the dimmed area beside it,
 or picking anything in it, closes it. The drawer never traps.
+
+## Settings
+
+Settings is a dialog, not a page, so it opens over whatever you were doing.
+Open it from the account menu, with Ctrl comma, or from a `?settings=<section>`
+link. It has seven pages, each holding one or more sections; a search box at
+the top finds a section by name or by the setting inside it.
+
+| Page | Sections | What it covers |
+| --- | --- | --- |
+| General | Appearance and behavior, Network, About, Advanced | Theme (including GoodVibes Neon), density, how devices reach the daemon (Tailscale, relay, listeners), the daemon and connection status, and every remaining daemon setting |
+| Account | Sign-in, Devices and pairing, People and channels | How this browser signs in, passkey step-up, owner profile and mail/calendar accounts, paired devices and their tokens, power keep-awake, this browser as a phone node, and the named identities behind each channel |
+| Models and providers | Current model and providers, Credentials, Usage | The model new chats use, provider status and sign-in routes, what the credential store holds, and per-provider usage and budgets |
+| Voice | Voice | Dictation, spoken replies and the wake word |
+| Notifications | Notifications, Check-ins | Push notifications and install, occasion reminders, and the proactive check-in schedule and receipts |
+| Memory | Memory | Provenance chips, consolidation and the daemon's memory use |
+| Permissions | Permissions | Approval rules, the sandbox and tool policy |
+
+Settings read and write the daemon's own configuration through typed editors:
+secrets are masked and write-only, a refusal for lack of admin scope is
+reported as that, and a change that needs a restart is marked as pending. Every
+setting the daemon reports is reachable somewhere in the dialog, so a key this
+build has never heard of lands in Advanced instead of disappearing.
 
 ## Signing in and pairing
 
@@ -113,7 +144,7 @@ visible near the composer. Large outputs open in the artifacts slide-over.
 Assistant and Knowledge responses support Markdown rendering. Code blocks are
 syntax highlighted when a supported language is detected.
 
-Code block line numbers are optional and controlled from Admin. They are
+Code block line numbers are optional and controlled from Settings, General. They are
 decorative and are not copied.
 
 ## Voice
@@ -148,34 +179,54 @@ a chip in the header depending on the configured indicator style. Settings a
 tab cannot honor (retaining audio clips, playing a local activation-sound
 file) are reported verbatim as limitations rather than silently ignored.
 
-## Sessions
+## Work
 
-Sessions is the cross-surface session union, every session the daemon knows
-about, whether it was started from the terminal, the agent, or this browser.
-The daemon caps the list at the 50 most recent sessions and the view says so
-rather than implying completeness.
+Work is one list of everything running for you, in three groups: Needs you
+(pending approvals, questions the agent is waiting on, pick-a-winner and merge
+conflicts), Running, and Finished. A segmented control filters the list to All,
+Sessions, Agents or Processes, and a search box and a status filter narrow it.
+The header line counts what is running and what needs you. Select a row to open
+its detail beside the list (over the page on a phone). New starts a task, a
+hosted session or a CI watch.
 
-Use it to:
+What the list brings together:
 
-- find a session by filtering kind and project; closed sessions are included
-  by an explicit toggle, and the view says so
-- read a session's transcript
+- sessions from the terminal, the agent and this browser, with daemon-hosted
+  sessions
+- the live process tree: agents, workstreams, watchers, background processes
+  and observed external agents, with per-agent state
+- approvals, tasks and pick-a-winner decisions
+- standing CI watches
+
+Cost shows on a row only when the daemon priced it; an unpriced item shows no
+cost rather than a fabricated zero. Changes arrive over a live subscription,
+and a background poll keeps the list fresh while it is down.
+
+### Sessions
+
+The daemon caps the session list at the 50 most recent and the page says so
+rather than implying completeness. In a session's detail you can:
+
+- read its transcript
 - steer a live session (on a phone, plain Enter sends); a steer sent while the
   live stream is paused says so
 - follow up on a closed session, which is offered honestly as a follow-up (a
   new linked session), never disguised as steering
-- distinguish reaped sessions by their badge: an idle-reaped session reopens
+- tell reaped sessions apart by their badge: an idle-reaped session reopens
   automatically on the next activity, so it is labeled differently from a
   deliberate close
-- read and set the session's permission mode from the toolbar chip. The mode
-  is session-scoped, and a session the daemon cannot answer for shows an
-  honest unavailable state; the read-only `custom` mode is shown but never
-  offered as a choice
-- read the context-usage chip, an estimator figure marked with `~`, and the
-  per-session cost chip for the last 24 hours; a session with no recorded cost
-  says so instead of showing a fabricated zero
-- review a session's file changes hunk by hunk, with comment and revert
+- read and set the session's permission mode. The mode is session-scoped, and
+  a session the daemon cannot answer for shows an honest unavailable state; the
+  read-only `custom` mode is shown but never offered as a choice
+- read the context-usage figure, an estimate marked with `~`, and the
+  per-session cost for the last 24 hours; a session with no recorded cost says
+  so instead of showing a fabricated zero
+- review the session's file changes hunk by hunk, with comment and revert
   sheets, and rewind the session where the wire supports it
+- browse, create, restore and compare checkpoints on its Checkpoints tab.
+  Selecting one shows its diff against the live working tree, restore is
+  destructive and always confirmed with exactly what gets overwritten, and a
+  create that finds the tree unchanged says so instead of making a checkpoint
 - close, reopen, or delete a session. Close and reopen are reversible,
   history-preserving actions; delete is permanent, requires the session to be
   closed first, and is verified against a fresh list before it is reported
@@ -185,90 +236,100 @@ Compaction receipts render as distinct cards appended to the transcript as
 they arrive live. There is no history endpoint for past receipts, so only
 receipts observed while the session detail is open appear.
 
-## Hosted sessions
+### Hosted sessions
 
 A hosted session's conversation loop runs inside the daemon, so it does not
-end when the tab that started it goes away.
+end when the tab that started it goes away. They appear in the Sessions list.
+From New you can create one from a workspace path, an optional title, and what
+happens when the last client leaves (end the session, keep it running, or the
+daemon default). You can attach to one (stored history first, then the live
+stream), steer it, leave it (a confirm sheet states what leaving does, read
+from the session's own detach policy), or end it, which terminates it for every
+attached client and is confirmed first. Terminated sessions are hidden unless
+you ask for them, and show the daemon's own termination reason.
 
-Use the Hosted view to:
+### Agents and processes
 
-- list hosted sessions, with a toggle to include terminated ones; terminated
-  rows show the daemon's own termination reason
-- create one from a workspace path, an optional title, and a detach policy
-  that defaults to the daemon's configured default
-- attach to one: the stored history renders first, then the live stream
-- steer it with the ordinary steer composer
-- leave it: a confirm sheet states what leaving does, read from the session's
-  own effective detach policy (kill ends it, survive leaves it idle and
-  reattachable)
-- end it explicitly: End session terminates it for every attached client and
-  is confirmed first
+The process tree refreshes on live events. A node the daemon flagged as blocked
+on a human is listed under Needs you, and the Work item in the sidebar carries
+the count. You can steer or detach a node where a live session backs it and
+stop watcher nodes; a capability the wire cannot address gets an honest note
+instead of a fabricated button. Observed foreign-agent nodes carry a liveness
+tell that states what `quiet` does and does not mean. Orchestration runs
+(workstreams) show their phases and work items; phases are grouping rows and
+carry no fabricated usage or cost. On a phone the tree stays fully browsable;
+the mutation actions are desktop-only and an honest note says so.
 
-## Fleet
+### Approvals and tasks
 
-Fleet is the live process tree: sessions and their agents with per-node state.
-It refreshes on live fleet events, with a background poll as the honest
-fallback while the stream is down.
+An approval in Needs you shows what was asked and enough context to decide:
 
-Use it to:
+- an edit approval renders its hunks individually; Approve selected sends only
+  the chosen hunk indexes, and Approve all keeps whole-request behavior
+- Remember lets a decision apply just once or be remembered
+- Claim locks a pending approval; an approval claimed by another surface
+  renders as claimed and is not actionable here
+- Withdraw cancels a pending approval without deciding it
+- resolved approvals render as history, never with action buttons
 
-- watch what is running right now, with per-agent detail; a node the daemon
-  flagged as blocked on a human gets a distinct badge, and the nav icon
-  carries an attention count
-- steer or detach a node where a live session backs it, and stop watcher
-  nodes; a capability the wire cannot address gets an honest note instead of
-  a fabricated button
-- act on pending approvals inline; wide screens offer per-hunk decisions
-- inspect observed foreign-agent nodes, whose liveness tell states what
-  `quiet` does and does not mean
+Tasks show the daemon task queue with create, cancel and retry; cancel appears
+only when a task reports itself cancellable, and retry only for failed or
+cancelled tasks. A pick-a-winner decision compares the attempts side by side.
 
-On a phone the tree stays fully browsable; the mutation actions are
-desktop-only and an honest note says so.
+### CI watches
 
-## Checkpoints
+A watch for a repo, ref or pull request is created from New, and deleting one
+(which stops its notifications) is confirmed first. Select one to poll it
+immediately and read the per-job report. An ad hoc check looks up any
+repo/ref/PR without creating a watch. The detail always lists every job with
+its own conclusion, marks continue-on-error jobs distinctly, and lists the
+daemon's own reasons a verdict is not a clean pass.
 
-Checkpoints lists daemon checkpoints for browsing, creating, and restoring.
-Selecting one shows its diff against the live working tree. Restore is
-destructive and always confirmed with exactly what gets overwritten. A create
-that finds the tree unchanged reports that plainly instead of fabricating a
-checkpoint.
+## Library
 
-## Knowledge/Wiki
+Library holds what GoodVibes remembers and knows, in three sections: Memory,
+Knowledge and Review. Review shows a count when something is waiting.
 
-Knowledge/Wiki is the regular GoodVibes Knowledge surface.
-
-The page is for:
-
-- asking the regular knowledge base
-- searching regular knowledge
-- viewing sources, nodes, issues, and maps
-- rendering/materializing regular projections when exposed by the SDK/daemon
-- ingesting regular URLs/artifacts where supported
-
-Home Assistant Home Graph is not part of this page. If Home Graph data appears
-in regular Knowledge results by default, that is an upstream scoping issue and
-should be fixed in SDK/daemon, not filtered in WebUI.
-
-## Memory
+### Memory
 
 Memory is the shared cross-surface memory store (terminal, agent, and browser
-see the same records).
-
-Use it to:
+see the same records). Use it to:
 
 - browse and search records; the recall-honesty details (which search mode
   actually ran, why the semantic index could not be consulted, exclusion
   counts) render verbatim from the daemon. A literal-match fallback says it
   is one
-- add records and work the review queue
-- delete records: deletion is real and verified (the view proves the record
+- add records
+- delete records: deletion is real and verified (the page proves the record
   is gone rather than just dropping it from the list)
-- read the read-only personas surface for constraint records
+- read the read-only personas for constraint records
 
 A daemon that does not serve memory at all gets an honest "this daemon does
 not serve memory" state, never a blank panel that reads as empty.
 
-## Calendar
+### Knowledge
+
+Knowledge is the regular GoodVibes Knowledge/Wiki surface. It is for asking
+the knowledge base, searching it, viewing sources, nodes, issues and maps,
+rendering projections when the SDK/daemon exposes them, and ingesting URLs or
+artifacts where supported.
+
+Home Assistant Home Graph is not part of this page. If Home Graph data appears
+in regular Knowledge results by default, that is an upstream scoping issue and
+should be fixed in SDK/daemon, not filtered in the WebUI.
+
+### Review
+
+Review is everything that waits for a human call, in one list: consolidation
+proposals (contradictions, cross-scope duplicates, stale deletes) first, then
+the memory review queue, then knowledge candidates. Selecting a proposal also
+highlights the queue rows it points at.
+
+## Personal
+
+Personal has three sections: Calendar, Mail and Occasions.
+
+### Calendar
 
 Calendar renders events from the daemon's CalDAV-backed calendar module, with
 ICS import and export. Three refusal shapes render distinctly: an unconfigured
@@ -276,7 +337,7 @@ daemon points at the bring-your-own-CalDAV config keys, a daemon build with no
 calendar handler says the capability is missing, and a genuine error offers a
 retry. None of the three is ever shown as a fake-empty calendar.
 
-## Mail
+### Mail
 
 Mail is the inbox, message reader, and composer over the daemon's `email.*`
 verbs. The browser never holds a mail credential; every call goes through the
@@ -285,91 +346,53 @@ state, a handler with no account yet points at settings, and a genuinely empty
 inbox says it is empty. When the surface is refusing, Send and Save draft are
 disabled with the reason named beside them rather than left live to fail.
 
-## Dates
+### Occasions
 
-Dates shows occasions and plans over the daemon's `occasions.*` verbs:
+Occasions shows occasions and plans over the daemon's `occasions.*` verbs:
 upcoming dates with real dates and day counts, pending questions to answer,
 conflicts to resolve, interviews to continue, and gift history. Every
 proximity word, lead time, and nudge rule is computed by the daemon; this
 page only renders answers and calls the write verbs. It is a pull surface:
 it never originates a nudge.
 
-## Providers
+## Models and providers
 
-Providers shows daemon provider and model state. Use it when:
+Open Settings, Models and providers when the current model is wrong, the
+composer's model list looks incomplete, a provider appears unavailable, or
+account posture needs inspection. The page shows the current model (Change
+opens the model browser), then the providers with their sign-in state, then
+Credentials and Usage.
 
-- the current model is wrong
-- the chat composer model list looks incomplete
-- a provider appears unavailable
-- account/provider posture needs inspection
+Provider status derives from the daemon's own per-route freshness rather than a
+generic status guess. Open a provider for its models and sign-in routes.
+Model selection is provider-first, so the model list is scoped to the selected
+provider.
 
-Provider status pills derive from the daemon's own per-route freshness rather
-than a generic status guess. Model selection is provider-first, so the model
-dropdown is scoped to the selected provider.
+## Sign-in, devices and people
 
-## Admin
+Settings, Account holds the supporting workflows:
 
-Admin is for supporting workflows:
+- sign in with daemon-owned username/password auth, or paste and validate an
+  operator token; inspect the current sign-in and passkey step-up
+- the owner profile, mail and calendar accounts
+- paired devices with their tokens (revoking one is a deliberate action), power
+  keep-awake, and this browser as a phone node
+- People and channels: principals list every identity with its channel
+  identities, and create, update and delete each go through a confirm sheet
+  (delete is permanent); channel profiles list every surface/channel binding
+  and the model, provider and permission defaults a channel's sessions inherit,
+  with upsert and confirmed delete
 
-- login with daemon-owned username/password auth
-- paste/validate explicit operator tokens
-- inspect local auth status
-- inspect daemon/control-plane snapshots
-- open the schema-driven settings surface: typed editors per config key,
-  secrets masked and write-only, admin-scope refusals reported distinctly,
-  and restart-gated changes marked as pending
-- change display preferences
-- manage notifications and install (Web Push subscribe lives here)
-- manage pairing tokens, passkey step-up, Tailscale posture, power
-  keep-awake, owner profile, model prices, mail account settings, and memory
-  diagnostics
-- view errors and diagnostics
+Devices and pairing, People and channels and Check-ins also have their own
+entries in the account menu.
 
-Admin is also where clutter that does not belong in Chat should live.
+## Check-ins
 
-## Approvals and Tasks
-
-Approvals lists pending, claimed, and historical approvals with enough context
-to decide:
-
-- a pending edit approval renders its hunks individually; Approve selected
-  sends only the chosen hunk indexes, and Approve all keeps whole-request
-  behavior
-- Claim locks a pending approval; an approval claimed by another surface
-  renders as claimed and is not actionable here
-- Cancel withdraws a pending approval without deciding it
-- resolved approvals render as history, never with action buttons
-- a category-by-risk matrix summarizes the loaded set at a glance
-
-Approval changes arrive over a live subscription; while it is down, a poll
-keeps the list fresh and the toolbar states which mode it is in. Tasks shows
-the daemon task queue with create, cancel, and retry; cancel appears only when
-a task reports itself cancellable, and retry only for failed or cancelled
-tasks.
-
-## Workstream
-
-Workstream shows orchestration runs: workstreams, their phases, and their
-work items, rendered from the same fleet snapshot the Fleet view uses. Phases
-are grouping rows and carry no fabricated usage or cost. Capabilities the
-browser has no control verb for are noted honestly rather than offered as
-buttons.
-
-## CI
-
-CI lists standing watches: create one for a repo, ref, or PR, delete one
-(which stops its notifications, so it is confirmed first), or select one to
-poll it immediately and read the per-job report. An ad hoc lookup checks any
-repo/ref/PR without creating a watch. The detail always lists every job with
-its own conclusion, marks continue-on-error jobs distinctly, and lists the
-daemon's own reasons a verdict is not a clean pass.
-
-## Check-in
-
-Check-in shows the proactive check-in configuration with an edit control,
-a run-now trigger with its receipt inline, and the receipts list. Every save
-is confirmed, because the configuration can enable proactive contact. Each
-receipt states its outcome plainly, never collapsed to a bare status dot.
+Check-ins live in Settings, Notifications. They show the proactive check-in
+configuration with an edit control, a run-now trigger with its receipt inline,
+and the receipts list. Every save is confirmed, because the configuration can
+enable proactive contact. Each receipt states its outcome plainly, never
+collapsed to a bare status dot.
 
 | Outcome | Meaning |
 | --- | --- |
@@ -380,20 +403,10 @@ receipt states its outcome plainly, never collapsed to a bare status dot.
 | Skipped | A run-now was skipped for a reason the daemon states generically |
 | Error | The run failed; the error is shown |
 
-## Principals
+## Phone node
 
-Principals is read-first admin over the named-identity registry and
-per-channel profile bindings:
-
-- principals list every identity with its channel identities; create, update,
-  and delete each go through a confirm sheet, and delete is permanent
-- channel profiles list every surface/channel binding, the model, provider,
-  and permission defaults a channel's originated sessions inherit, with
-  upsert and confirmed delete
-
-## Phone
-
-Phone turns this browser into a paired device node. Open it on a phone, pair
+The phone node page (reached from Settings, Account, Devices and pairing, or
+the account menu) turns this browser into a paired device node. Open it on a phone, pair
 once, and the device's capabilities become things the agent can ask for.
 Nothing is served silently. Every capture and effect is confirmed with the
 person first, and the page keeps an honest log of everything it served. A
@@ -422,7 +435,7 @@ The WebUI installs from the browser as a standalone app (add to home screen on
 iOS/Android, install prompt on desktop). The installed app caches only the app
 shell, never daemon data, so opening it offline shows the honest "can't
 reach the daemon" state. Web Push subscription for approvals/completions lives
-in Admin under Notifications & install. Install and push require HTTPS; see
+in Settings, Notifications. Install and push require HTTPS; see
 [deployment.md](deployment.md).
 
 ## Expected failure handling

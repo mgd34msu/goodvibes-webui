@@ -75,13 +75,6 @@ function render() {
   };
 }
 
-function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
-  const proto = element instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
-  const setter = Object.getOwnPropertyDescriptor(proto, 'value')!.set!;
-  setter.call(element, value);
-  element.dispatchEvent(new window.Event('input', { bubbles: true }));
-}
-
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -186,14 +179,13 @@ describe('MailView: populated / empty ("no fourth reading")', () => {
     unmount();
   });
 
-  test('Compose opens a glass panel that Escape closes', async () => {
+  test('Compose opens a panel that Escape closes', async () => {
     inboxList = () => Promise.resolve({ messages: [], total: 0 });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Nothing in the inbox'));
     flushSync(() => buttonNamed(el, 'Compose')?.click());
     const compose = el.querySelector('[data-testid="mail-compose"]') as HTMLElement;
     expect(compose).not.toBeNull();
-    expect(compose.classList.contains('glass')).toBe(true);
     flushSync(() => {
       compose.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     });

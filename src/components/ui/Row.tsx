@@ -44,7 +44,7 @@ export function Row({ title, meta, leading, trailing, selected = false, onSelect
           {body}
         </button>
       ) : (
-        <div className="gv-row__main">{body}</div>
+        <div className="gv-row__main" aria-current={selected || undefined}>{body}</div>
       )}
       {trailing && <div className="gv-row__trailing">{trailing}</div>}
     </li>

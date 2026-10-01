@@ -3,12 +3,15 @@
  * dialog sections"). Pure data and search logic, no React.
  *
  * Seven pages in the nav (owner review 2026-09-30: the long nav felt cramped),
- * each holding one or more sections that render one under another with their
- * own heading: General (appearance and behavior, network, about, advanced),
- * Account (sign-in, devices and pairing, people and channels), Models and
- * providers (models, credentials, usage), Voice, Notifications (with
- * check-ins), Memory and Permissions. A `?settings=<section>` link opens the
- * section's page and scrolls to it, so every older section link still works.
+ * each holding one or more sections that render one under another: General
+ * (appearance and behavior, network, about, advanced), Account (sign-in,
+ * devices and pairing, people and channels), Models and providers (models,
+ * credentials, usage), Voice, Notifications (with check-ins), Memory and
+ * Permissions. A page's namesake section (the one sharing its id, always
+ * first) renders under the page title with no heading of its own, since that
+ * heading would only restate the page; every further section carries its own
+ * heading. A `?settings=<section>` link opens the section's page and scrolls
+ * to it, so every older section link still works.
  *
  * Every SDK config namespace belongs to exactly one section: the section that
  * lists it in `namespaces`, else "All settings", which also holds namespaces

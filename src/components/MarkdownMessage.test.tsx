@@ -1,24 +1,47 @@
-import { describe, expect, test } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
+/**
+ * MarkdownMessage code blocks: syntax highlighting, a labelled copy action, and
+ * decorative (hidden from assistive tech) line numbers when asked for.
+ */
+import { afterEach, describe, expect, test } from 'bun:test';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { MarkdownMessage } from './MarkdownMessage';
 
+let container: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
+
+function render(element: React.ReactElement): HTMLElement {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  flushSync(() => root.render(element));
+  return container;
+}
+
+afterEach(() => {
+  flushSync(() => root.unmount());
+  container.remove();
+});
+
 describe('MarkdownMessage', () => {
-  test('renders a copy action for fenced code blocks', () => {
-    const html = renderToStaticMarkup(<MarkdownMessage content={'```ts\nconst answer = 42;\n```'} />);
-    expect(html).toContain('markdown-code-copy');
-    expect(html).toContain('Copy');
-    expect(html).toContain('hljs-keyword');
-    expect(html).toContain('answer =');
-    expect(html).toContain('hljs-number');
+  test('a fenced code block is highlighted and offers a labelled copy action', () => {
+    const el = render(<MarkdownMessage content={'```ts\nconst answer = 42;\n```'} />);
+    expect(el.querySelector('button[aria-label="Copy code"]')).not.toBeNull();
+    expect(el.querySelector('pre')?.textContent).toContain('const answer = 42;');
+    // highlight.js token classes are the observable output of highlighting.
+    expect(el.querySelector('pre .hljs-keyword')?.textContent).toBe('const');
+    expect(el.querySelector('pre .hljs-number')?.textContent).toBe('42');
   });
 
-  test('renders decorative line numbers when enabled', () => {
-    const html = renderToStaticMarkup(<MarkdownMessage content={'```bash\nbun test\nbun run build\n```'} lineNumbers />);
-    expect(html).toContain('markdown-code-block numbered');
-    expect(html).toContain('markdown-code-line-number');
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('bun ');
-    expect(html).toContain('hljs-built_in');
-    expect(html).toContain('bun run build');
+  test('line numbers are rendered per line and hidden from assistive tech', () => {
+    const el = render(<MarkdownMessage content={'```bash\nbun test\nbun run build\n```'} lineNumbers />);
+    const numbers = [...el.querySelectorAll('pre [aria-hidden="true"]')].map((n) => n.textContent);
+    expect(numbers).toEqual(['1', '2']);
+    expect(el.querySelector('pre')?.textContent).toContain('bun run build');
+  });
+
+  test('without line numbers no hidden numbering spans exist', () => {
+    const el = render(<MarkdownMessage content={'```bash\nbun test\n```'} lineNumbers={false} />);
+    expect(el.querySelectorAll('pre [aria-hidden="true"]')).toHaveLength(0);
   });
 });

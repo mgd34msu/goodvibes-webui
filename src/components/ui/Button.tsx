@@ -1,7 +1,12 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import '../../styles/components/ui.css';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+/**
+ * `quiet-danger` is the row action for a destructive step that a confirm dialog
+ * already warns about (revoke a device, delete a grant): ghost at rest, the
+ * danger color only on hover and focus, so a list of rows is not a wall of red.
+ */
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'quiet-danger';
 export type ButtonSize = 'sm' | 'md';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,7 +17,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
 }
 
-/** The kit button: primary (solid light), secondary, outline, ghost, danger; sm 28 or md 34 tall. */
+/** The kit button: primary (solid light), secondary, outline, ghost, danger, quiet-danger; sm 28 or md 34 tall. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'secondary', size = 'md', icon, className, children, type = 'button', ...rest },
   ref,

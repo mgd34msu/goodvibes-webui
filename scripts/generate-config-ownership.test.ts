@@ -1,31 +1,46 @@
 /**
- * generate-config-ownership.test.ts: the generator carries the SDK's ownership
- * lists into the emitted module, renders the same data the same way every time,
- * and writes the artifact only when its content changes. The artifact itself is
- * regenerated at the version bump (scripts/release-prepare.ts), so nothing here
- * compares it with the checked-in file.
+ * generate-config-ownership.test.ts: the generator renders a module whose exports
+ * are the snapshot it was given (proven by importing what it rendered), reads a
+ * non-empty snapshot from the installed SDK, and writes the artifact only when its
+ * content changes. The checked-in artifact is compared with the SDK in
+ * src/lib/config-ownership.test.ts, not here.
  */
 import { describe, expect, test } from 'bun:test';
-import { readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeProjectTempDir } from './helpers/project-temp';
 import { loadOwnershipSnapshot, renderTs, writeIfChanged } from './generate-config-ownership';
 
 describe('generate-config-ownership', () => {
-  test('every prefix and non-schema path in the snapshot lands in the emitted module', () => {
+  test('the emitted module is valid TypeScript whose exports equal the snapshot it was rendered from', async () => {
     const snapshot = {
-      ...loadOwnershipSnapshot(),
       prefixes: ['alpha.', 'beta.'],
-      nonSchemaPaths: ['gamma.secretRef'],
+      keys: ['gamma.timezone'],
+      nonSchemaPaths: ['delta.secretRef'],
     };
-    const out = renderTs(snapshot);
-    expect(out).toContain('"alpha."');
-    expect(out).toContain('"beta."');
-    expect(out).toContain('"gamma.secretRef"');
+    const dir = makeProjectTempDir('webui-gen-ownership-roundtrip-');
+    try {
+      mkdirSync(dir, { recursive: true });
+      const path = join(dir, 'config-ownership.ts');
+      writeFileSync(path, renderTs(snapshot), 'utf8');
+      const emitted = await import(path) as {
+        DAEMON_OWNED_CONFIG_PREFIXES: readonly string[];
+        DAEMON_OWNED_CONFIG_KEYS: readonly string[];
+        DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS: readonly string[];
+      };
+      expect([...emitted.DAEMON_OWNED_CONFIG_PREFIXES]).toEqual(snapshot.prefixes);
+      expect([...emitted.DAEMON_OWNED_CONFIG_KEYS]).toEqual(snapshot.keys);
+      expect([...emitted.DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS]).toEqual(snapshot.nonSchemaPaths);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  test('two independent loads of the installed SDK render byte-identical output', () => {
-    expect(renderTs(loadOwnershipSnapshot())).toBe(renderTs(loadOwnershipSnapshot()));
+  test('the snapshot read from the installed SDK carries every table, none empty', () => {
+    const snapshot = loadOwnershipSnapshot();
+    expect(snapshot.prefixes.length).toBeGreaterThan(0);
+    expect(snapshot.keys.length).toBeGreaterThan(0);
+    expect(snapshot.nonSchemaPaths.length).toBeGreaterThan(0);
   });
 
   test('writeIfChanged writes new content and leaves identical content untouched', () => {

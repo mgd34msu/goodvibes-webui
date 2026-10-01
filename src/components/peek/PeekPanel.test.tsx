@@ -68,15 +68,13 @@ describe('Peek drawer', () => {
     expect(api!.isOpen).toBe(false);
   });
 
-  test('opens as a labelled right glass drawer with the title and content', () => {
+  test('opens as a labelled drawer with the title and content', () => {
     render();
     openPeek('Design review');
     const panel = drawer()!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute('role')).toBe('dialog');
     expect(panel.getAttribute('aria-label')).toBe('Design review');
-    expect(panel.classList.contains('glass')).toBe(true);
-    expect(panel.classList.contains('gv-drawer--right')).toBe(true);
     expect(panel.querySelector('.gv-drawer__title')?.textContent).toBe('Design review');
     expect(panel.textContent).toContain('Body text');
     expect(api!.isOpen).toBe(true);

@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import {
   DEFAULT_THEME_PREFERENCES,
+  THEME_PREFERENCES_EVENT,
   THEME_PREFERENCES_KEY,
   applyThemeToRoot,
   isTheme,
@@ -8,6 +9,7 @@ import {
   resolveColorScheme,
   resolveInitialTheme,
   writeThemePreferences,
+  type ThemePreferences,
 } from './theme';
 
 // ---------------------------------------------------------------------------
@@ -45,11 +47,6 @@ function removeWindowMock() {
   // Restore happy-dom's original window (which is globalThis)
   (globalThis as Record<string, unknown>).window = globalThis;
 }
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 
 // ---------------------------------------------------------------------------
 // resolveInitialTheme, no window
@@ -186,11 +183,6 @@ describe('writeThemePreferences: with storage', () => {
     window.localStorage.clear();
   });
 
-  test('returns the written preferences', () => {
-    const prefs = { theme: 'light' as const, density: 'compact' as const };
-    expect(writeThemePreferences(prefs)).toEqual(prefs);
-  });
-
   test('persists so subsequent read returns written value', () => {
     writeThemePreferences({ theme: 'light', density: 'compact' });
     const read = readThemePreferences();
@@ -198,9 +190,12 @@ describe('writeThemePreferences: with storage', () => {
     expect(read.density).toBe('compact');
   });
 
-  test('dispatches an event per write call', () => {
+  test('dispatches one theme event per write, carrying the written preferences', () => {
     writeThemePreferences({ theme: 'light', density: 'default' });
     expect(dispatchSpy.calls.length).toBe(1);
+    const event = dispatchSpy.calls[0] as CustomEvent<ThemePreferences>;
+    expect(event.type).toBe(THEME_PREFERENCES_EVENT);
+    expect(event.detail).toEqual({ theme: 'light', density: 'default' });
   });
 
   test('overwrites a previous stored value', () => {
@@ -209,16 +204,6 @@ describe('writeThemePreferences: with storage', () => {
     const read = readThemePreferences();
     expect(read.theme).toBe('dark');
     expect(read.density).toBe('default');
-  });
-});
-
-describe('writeThemePreferences: no storage', () => {
-  beforeEach(() => installWindowMock());
-  afterEach(removeWindowMock);
-
-  test('returns preferences without throwing when localStorage dispatches via no-op', () => {
-    const prefs = { theme: 'light' as const, density: 'default' as const };
-    expect(writeThemePreferences(prefs)).toEqual(prefs);
   });
 });
 

@@ -24,7 +24,6 @@ import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
 import { PaymentCardEntry } from './PaymentCardEntry';
-import { CARD_INPUT_GUARDS } from '../../lib/payments-cards';
 
 /** The four inputs that hold card material, the ones every condition is about. */
 const CARD_INPUT_IDS = ['gv-card-number', 'gv-card-expiry', 'gv-card-cvv', 'gv-card-holder'] as const;
@@ -91,10 +90,6 @@ describe('condition 4: autocomplete="off" on every card field', () => {
       expect(value).not.toContain('name');
     }
     unmount();
-  });
-
-  test('the guard set itself declares autocomplete off, the single place a new field inherits it from', () => {
-    expect(CARD_INPUT_GUARDS.autoComplete).toBe('off');
   });
 
   test('EVERY input in the panel carries it, not only the four card ones', () => {

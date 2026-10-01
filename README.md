@@ -5,10 +5,10 @@
 ![SDK 2.1.0](https://img.shields.io/badge/SDK-2.1.0-8b5cf6)
 ![Bun 1.3.14](https://img.shields.io/badge/Bun-1.3.14-f7a8ff)
 
-GoodVibes WebUI is the browser surface for a GoodVibes daemon, a full chat
-application and operator console with feature parity across most of the
-terminal UI's surface. One app serves desktop and phone. The phone gets a
-drawer-based layout of the same views, never a different mental model, and it
+GoodVibes WebUI is the browser app for a GoodVibes daemon: a chat application
+for talking to your models, and a place to see and steer everything your
+daemon is doing. One app serves desktop and phone. The phone gets a drawer
+layout of the same four places, never a different mental model, and it
 installs from the browser as a standalone app (add to home screen, offline
 shell, push notifications).
 
@@ -64,63 +64,97 @@ another machine, see [docs/deployment.md](docs/deployment.md) and
 
 ---
 
-## A tour of the surfaces
+## A tour
 
-Screenshots are captured from the dev server against the end-to-end suite's
-seeded mock daemon at 1440×1000, dark theme. They prove layout, not live
-daemon data, auth state, or provider inventory. The full walkthrough, one
-surface at a time (including a collapsed-sidebar layout), is
+GoodVibes has four places, listed in the sidebar: Chat, Work, Library and
+Personal. Everything else (settings, devices, sign-in, models) lives in a
+settings dialog and an account menu. Screenshots are captured against the
+end-to-end suite's seeded mock daemon, so they prove layout, not live daemon
+data, auth state, or provider inventory. The full walkthrough is
 [docs/screenshot-tour.md](docs/screenshot-tour.md).
 
-| Chat | Sessions |
-| --- | --- |
-| ![Chat view: a streaming assistant reply with syntax-highlighted markdown, a searchable session sidebar, and a rich composer.](docs/assets/screenshots/chat.png) | ![Sessions view: the cross-surface session list with search, and a transcript open for one session.](docs/assets/screenshots/sessions.png) |
+### Chat
 
-| Fleet | Memory |
-| --- | --- |
-| ![Fleet view: the live process tree showing per-agent state and inline approvals.](docs/assets/screenshots/fleet.png) | ![Memory view: the shared memory store with recall-honesty details rendered next to each record.](docs/assets/screenshots/memory.png) |
+A new chat opens on a greeting, one composer, and a few starting points. Your
+chats are listed under Recent in the sidebar, newest first. Replies stream with
+syntax-highlighted Markdown, tool activity folds into one quiet line, and the
+composer holds attachments, the model picker and voice.
 
-| Knowledge | Calendar |
+| New chat | A conversation |
 | --- | --- |
-| ![Knowledge view: the regular Knowledge/Wiki surface with sources, nodes, and search.](docs/assets/screenshots/knowledge.png) | ![Calendar view: an agenda rendered from the daemon's calendar module.](docs/assets/screenshots/calendar.png) |
+| ![New chat: a greeting, one composer with the model picker, and suggestion chips for calendar, mail, what is running and memory.](docs/assets/screenshots/new-chat.png) | ![A conversation: the sidebar with Recent chats, a user message, a collapsed tool-activity line, and a streamed reply with a highlighted code block.](docs/assets/screenshots/conversation.png) |
 
-| Providers | Admin |
+### Work
+
+Everything running for you in one list: sessions from the terminal, agent and
+browser, agents and processes, approvals, tasks and CI watches. What needs you
+comes first, with the item open beside the list so you can decide in place.
+When a detail is open the sidebar folds to an icon rail to give it room.
+
+![Work: a Needs you group with an approval open in the detail pane, showing the command, who asked, the risk, a Remember choice, and Approve and Deny buttons.](docs/assets/screenshots/work-needs-you.png)
+
+### Library
+
+What GoodVibes remembers and knows: Memory, Knowledge, and a Review list of
+everything waiting on a human call. Memory shows how confident each record is
+and, for search, which mode actually ran.
+
+![Library: the Memory section with search, scope and type filters, and records with a confidence value on each.](docs/assets/screenshots/library-memory.png)
+
+### Personal
+
+Your calendar, mail and the occasions GoodVibes keeps track of. A daemon
+without a calendar or mail account says so instead of showing an empty page.
+
+![Personal: the Calendar section showing an agenda from the daemon's calendar module.](docs/assets/screenshots/personal-calendar.png)
+
+### Settings and the account menu
+
+Settings is a dialog with seven pages: General, Account, Models and providers,
+Voice, Notifications, Memory and Permissions, with search across them. Open it
+from the account menu at the foot of the sidebar, or with Ctrl comma. The
+account menu also holds devices and pairing, people and channels, check-ins,
+the theme, your connection to the daemon in plain words, and Sign out.
+
+| Settings, Models and providers | The account menu |
 | --- | --- |
-| ![Providers view: provider status pills and a model workspace scoped to the selected provider.](docs/assets/screenshots/providers.png) | ![Admin view: auth, daemon diagnostics, config with secret redaction, and display preferences.](docs/assets/screenshots/admin.png) |
+| ![Settings dialog on Models and providers: the current model with a Change button, and providers listed with their sign-in state.](docs/assets/screenshots/settings-models.png) | ![The account menu open over Work: Settings, Devices and pairing, People and channels, Check-ins, a theme switch, the GoodVibes Neon toggle, the connection status and Sign out.](docs/assets/screenshots/account-menu.png) |
 
-Chat is the primary workspace; the rest are operator surfaces over the same
-daemon state the terminal UI uses.
+### On a phone
+
+The same four places, with the sidebar as a drawer behind the header's menu
+button or a swipe from the left edge.
+
+| A conversation | The drawer |
+| --- | --- |
+| <img src="docs/assets/screenshots/phone-conversation.png" alt="Phone layout: a conversation filling the screen with the composer at the bottom." width="260"> | <img src="docs/assets/screenshots/phone-drawer.png" alt="Phone layout: the drawer open with New chat, Search, Work with a count of three, Library, Personal, Recent chats and the account button." width="260"> |
+
+### Themes
+
+GoodVibes follows your system light or dark setting, or you can pick one. For
+a louder look there is GoodVibes Neon, an opt-in theme under Settings, General
+or in the account menu. It never replaces a theme you chose.
+
+![GoodVibes Neon: the new-chat screen on a near-black background with a cyan and magenta glow along the header and sidebar.](docs/assets/screenshots/theme-neon.png)
 
 ---
 
 ## What's in the box
 
-Each row links to the page that documents it in depth. `?`-style in-app help
-does not exist here yet. These docs and the Admin diagnostics view are the
-current authority.
+Each row links to the page that documents it in depth. These docs and Settings,
+General, About are the current authority; there is no separate in-app help.
 
-| Surface | What you get | Docs |
+| Area | What you get | Docs |
 | --- | --- | --- |
 | Chat | Daemon-owned companion chat: streaming markdown, searchable history, attachments, regenerate and edit-with-branching (superseded turns stay viewable), automatic titles, stop-generation with a server-side cancel, mid-turn steering, an artifacts slide-over | [operator-guide.md](docs/operator-guide.md) |
-| Sessions | The cross-surface session union: find, read, steer, or follow up on any session started from the terminal, agent, or browser, with per-session permission mode, context usage, cost, rewind, and per-hunk change review | [operator-guide.md](docs/operator-guide.md) |
-| Hosted sessions | Daemon-hosted sessions whose loop runs inside the daemon, so they survive the tab: list, create, attach, steer, leave, or end them | [operator-guide.md](docs/operator-guide.md) |
-| Fleet | The live process tree with per-agent state, steer/detach/stop where the wire supports them, and inline approvals (per-hunk on wide screens) | [operator-guide.md](docs/operator-guide.md) |
-| Checkpoints | Browse, create, restore, and diff checkpoint-to-checkpoint | [operator-guide.md](docs/operator-guide.md) |
-| Knowledge/Wiki | The regular Knowledge surface: ask, search, sources/nodes/issues/maps, projections and ingest where the SDK exposes them. Home Assistant Home Graph is deliberately not part of this page | [operator-guide.md](docs/operator-guide.md) |
-| Memory | Browse and search the shared cross-surface memory store, recall-honesty details rendered verbatim, review-state edits, and true (verified) deletion | [operator-guide.md](docs/operator-guide.md) |
-| Calendar | Agenda from the daemon's calendar module with ICS import/export; an unconfigured daemon shows a bring-your-own-CalDAV note, never a fake-empty calendar | [operator-guide.md](docs/operator-guide.md), [known-limitations.md](docs/known-limitations.md) |
+| Work | One list of sessions (including daemon-hosted ones), agents and processes, approvals, tasks and CI watches, with Needs you first. Steer, approve per hunk, rewind, review changes, and browse and restore checkpoints | [operator-guide.md](docs/operator-guide.md), [push-approval-actions.md](docs/push-approval-actions.md) |
+| Library | Memory (browse, search, verified deletion, recall details shown verbatim), Knowledge/Wiki (ask, search, sources, nodes, issues, maps; Home Assistant Home Graph is deliberately not part of it) and a Review list of consolidation proposals, the memory review queue and knowledge candidates | [operator-guide.md](docs/operator-guide.md) |
+| Personal | Calendar with ICS import/export, Mail over the daemon's `email.*` verbs, and Occasions over its `occasions.*` verbs. A daemon without a handler gets an honest not-available state, never a fake-empty page | [operator-guide.md](docs/operator-guide.md), [known-limitations.md](docs/known-limitations.md) |
+| Settings | Seven pages: General (theme, network, about), Account (sign-in, devices and pairing, people and channels), Models and providers (current model, credentials, usage), Voice, Notifications (push, install, check-ins), Memory and Permissions. Typed editors with secrets masked | [operator-guide.md](docs/operator-guide.md) |
 | Voice | Batched spoken replies, microphone dictation over the daemon's speech-to-text with review-before-send, and opt-in wake-word listening that runs its detector inside the tab; one voice configuration shared across terminal, desktop, and agent | [operator-guide.md](docs/operator-guide.md) |
-| Mail | Inbox, message reader, and composer over the daemon's `email.*` verbs; a daemon without a mail handler gets an honest not-available state, never a fake-empty inbox | [operator-guide.md](docs/operator-guide.md) |
-| Dates | Occasions and plans over the daemon's `occasions.*` verbs: upcoming dates, pending questions, and gift history, with every rule computed server-side | [operator-guide.md](docs/operator-guide.md) |
-| CI | Standing CI watches plus ad hoc repo/ref/PR status checks, with every job's own conclusion listed, never a bare rollup badge | [operator-guide.md](docs/operator-guide.md) |
-| Check-in | The proactive check-in configuration, a run-now trigger, and per-run receipts that state each outcome plainly | [operator-guide.md](docs/operator-guide.md) |
-| Principals | The named-identity registry and per-channel profile bindings that decide who a channel message resolves to | [operator-guide.md](docs/operator-guide.md) |
-| Phone | This browser acting as a paired device node: camera, screen, location, clipboard, and device commands served to the agent, every capture confirmed with the person first | [operator-guide.md](docs/operator-guide.md) |
-| Providers / Models | Provider status pills driven by the daemon's own route freshness, and a provider-first model workspace | [operator-guide.md](docs/operator-guide.md) |
-| Approvals / Tasks / Workstream | Decision queues and orchestration state, plus push-notification action buttons that hand off to an authenticated in-app decision | [operator-guide.md](docs/operator-guide.md), [push-approval-actions.md](docs/push-approval-actions.md) |
-| Admin | Auth, daemon diagnostics, the schema-driven settings surface with secret redaction, display preferences, notifications-and-install (Web Push subscribe lives here), pairing tokens, passkey step-up, and power/memory posture | [operator-guide.md](docs/operator-guide.md) |
+| Phone node | This browser acting as a paired device node: camera, screen, location, clipboard, and device commands served to the agent, every capture confirmed with the person first | [operator-guide.md](docs/operator-guide.md) |
 | Sign-in and pairing | Scan the QR from `goodvibes pair` (or open its link) to sign in without copy/paste; hand-off bundles can also offer push, relay, and passkey setup in one step | [operator-guide.md](docs/operator-guide.md), [security.md](docs/security.md) |
-| Console UX | ⌘K command palette with global hotkeys, a persistent daemon pulse strip, URL deep-linking, honest degraded states, dark-first theming with density modes, and full keyboard/`aria-live`/focus-trap accessibility | [architecture.md](docs/architecture.md) |
+| Shell | Ctrl K command palette, a sidebar that folds to a rail, an account menu showing connection state in plain words, URL deep-linking (older `?view=` links redirect), honest degraded states, light, dark and opt-in GoodVibes Neon themes, density modes, and keyboard, `aria-live` and focus-trap accessibility | [architecture.md](docs/architecture.md) |
 | Install and push | Add-to-home-screen install, a cached app shell with honest offline (no API response is ever cached), and Web Push for approvals/completions | [deployment.md](docs/deployment.md) |
 | Architecture | Runtime topology, the SDK boundary, state ownership, and route ownership | [architecture.md](docs/architecture.md) |
 | Auth and network | The daemon-owned trust boundary, token storage, and network binding rules | [security.md](docs/security.md) |
@@ -143,8 +177,8 @@ never as a durable source of truth. What you can set:
 | `VITE_GOODVIBES_WEBUI_HOST` / `VITE_GOODVIBES_WEBUI_PORT` | One-off dev override | Vite bind host/port for a single run |
 | `VITE_GOODVIBES_BACKEND_URL` | One-off dev override | Development proxy target |
 | `VITE_GOODVIBES_BASE_URL` | One-off dev override | Bypass same-origin proxying entirely |
-| Theme, density | Admin → display preferences, browser `localStorage` | Dark-first token system, compact/default/comfortable density |
-| Operator token | Scanned or pasted at the sign-in screen (or in Admin), `localStorage` key `goodvibes.webui.token` | Browser-held auth token, validated against the daemon |
+| Theme, density | Settings → General (or the account menu), browser `localStorage` | Light, dark or auto, the opt-in GoodVibes Neon theme, and compact/default/comfortable density |
+| Operator token | Scanned or pasted at the sign-in screen (or in Settings → Account), `localStorage` key `goodvibes.webui.token` | Browser-held auth token, validated against the daemon |
 
 The full binding precedence order and remaining one-off variables are in
 [docs/development.md](docs/development.md). Auth, token custody, and the files
@@ -209,8 +243,8 @@ Source layout, in brief:
 src/
 ├── App.tsx, main.tsx        app shell, routing, top-level composition
 ├── lib/                      SDK facade, chat/session helpers, theme, push, pairing, generated tokens
-├── views/                    one directory per operator surface (chat, sessions, fleet, memory, calendar, ...)
-├── components/                command palette, modals, toasts, diff, fleet widgets, motion, settings
+├── views/                    chat, work, library, personal and the phone-node page, plus the section code they share
+├── components/                shell (sidebar, header, account menu), settings dialog, command palette, toasts, diff, motion
 ├── hooks/                     shared React hooks
 └── styles/                    token CSS and per-component stylesheets
 ```

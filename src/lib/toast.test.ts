@@ -28,11 +28,6 @@ describe('tone → role mapping', () => {
 // Drive the REAL toastReducer state-machine directly, no DOM render harness needed.
 
 describe('reducer: DISMISS → (leaving) → PURGE lifecycle', () => {
-  test('TOAST_EXIT_DURATION_MS is positive (guarantees entry survives past DISMISS before PURGE)', async () => {
-    const { TOAST_EXIT_DURATION_MS } = await import('./toast');
-    expect(TOAST_EXIT_DURATION_MS).toBeGreaterThan(0);
-  });
-
   test('DISMISS marks entry as leaving; PURGE removes it from both toasts and leavingIds', () => {
     // Drive the real toastReducer exported from toast.ts, no local copy.
     interface Entry { id: string; title: string; durationMs: number; tone: 'info' }

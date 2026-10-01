@@ -17,7 +17,8 @@ test('default options (email not-available): one empty state with one action, an
   const note = page.getByTestId('mail-note-not-available');
   await expect(note).toBeVisible();
   await expect(note.getByText('Mail isn’t connected yet')).toBeVisible();
-  await expect(note.getByText('This daemon doesn’t serve mail. Updating the daemon adds it, and your inbox shows up here with nothing else to set up.')).toBeVisible();
+  // The reason is the daemon, not the person's setup; the exact sentence is free to change.
+  await expect(note.getByText(/doesn’t serve mail/)).toBeVisible();
   await expect(note.getByRole('button')).toHaveCount(1);
   await expect(note.getByRole('button', { name: 'Update daemon' })).toBeVisible();
   await expect(page.getByTestId('mail-list')).toHaveCount(0);

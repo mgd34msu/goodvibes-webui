@@ -1,13 +1,14 @@
 /**
  * generate-presentation-tokens.test.ts: a change in the SDK presentation
- * contract (a glyph, a tone color) reaches both emitted artifacts, the same
- * contract renders the same way every time, and the artifacts are written only
- * when their content changes. The artifacts themselves are regenerated at the
- * version bump (scripts/release-prepare.ts), so nothing here compares them with
- * the checked-in files.
+ * contract (a glyph, a tone color) reaches both emitted artifacts, the TS artifact
+ * is a valid module whose exports are the snapshot (proven by importing what was
+ * rendered), and the artifacts are written only when their content changes. The
+ * artifacts themselves are regenerated at the version bump
+ * (scripts/release-prepare.ts), so nothing here compares them with the checked-in
+ * files.
  */
 import { describe, expect, test } from 'bun:test';
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeProjectTempDir } from './helpers/project-temp';
 import {
@@ -46,11 +47,23 @@ describe('generate-presentation-tokens', () => {
     expect(renderCss(changed)).toContain('#123456');
   });
 
-  test('two independent loads of the installed SDK render byte-identical output', () => {
-    const a = loadContractSnapshot();
-    const b = loadContractSnapshot();
-    expect(renderCss(a)).toBe(renderCss(b));
-    expect(renderTs(a)).toBe(renderTs(b));
+  test('the emitted TS module is valid and its exports equal the snapshot it was rendered from', async () => {
+    const snapshot = withGoodTone(withSuccessGlyph(loadContractSnapshot(), '☺'), '#123456');
+    const dir = makeProjectTempDir('webui-gen-presentation-roundtrip-');
+    try {
+      mkdirSync(dir, { recursive: true });
+      const path = join(dir, 'presentation-tokens.ts');
+      writeFileSync(path, renderTs(snapshot), 'utf8');
+      const emitted = await import(path) as Record<string, unknown>;
+      expect(emitted.CONTRACT_GLYPHS).toEqual(snapshot.glyphs);
+      expect(emitted.CONTRACT_STATE_GLYPHS).toEqual(snapshot.stateGlyphs);
+      expect(emitted.CONTRACT_TONE_DARK).toEqual(snapshot.toneDark);
+      expect(emitted.CONTRACT_TONE_LIGHT).toEqual(snapshot.toneLight);
+      expect(emitted.CONTRACT_SPINNER_FRAMES).toEqual(snapshot.spinnerFrames);
+      expect(emitted.CONTRACT_THINKING_PHRASES).toEqual(snapshot.thinkingPhrases);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('writeIfChanged writes new content and reports identical content as unchanged', () => {

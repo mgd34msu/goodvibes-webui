@@ -139,11 +139,11 @@ describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
       });
     const { el, unmount } = render('anthropic');
     await waitFor(() => (el.textContent ?? '').includes('ANTHROPIC_API_KEY'));
-    const rows = [...el.querySelectorAll('.gv-row')];
+    const rows = [...el.querySelectorAll('li')];
     const anthropicRow = rows.find((r) => r.textContent?.includes('ANTHROPIC_API_KEY'));
     const openaiRow = rows.find((r) => r.textContent?.includes('OPENAI_API_KEY'));
-    expect(anthropicRow?.className).toContain('gv-row--selected');
-    expect(openaiRow?.className).not.toContain('gv-row--selected');
+    expect(anthropicRow?.querySelector('[aria-current]')).not.toBeNull();
+    expect(openaiRow?.querySelector('[aria-current]')).toBeNull();
     unmount();
   });
 });

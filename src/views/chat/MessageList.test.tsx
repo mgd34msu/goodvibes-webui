@@ -464,18 +464,6 @@ describe('MessageList: running tool calls + cancel (SDK 1.8.0 interaction-wins r
     expect(container.querySelectorAll('.active-tool-call').length).toBe(2);
     unmount();
   });
-
-  test('the Cancel button clears the 44px phone-width tap-target floor via its CSS class', () => {
-    const { container, unmount } = renderMessageList({
-      isStreaming: true,
-      liveText: 'typing...',
-      activeToolCalls: [{ turnId: 't1', toolCallId: 'call-1', toolName: 'bash', cancelled: false }],
-      onCancelToolCall: noop as (callId: string) => void,
-    });
-    const cancelBtn = container.querySelector('.active-tool-call__cancel');
-    expect(cancelBtn?.className).toContain('active-tool-call__cancel');
-    unmount();
-  });
 });
 
 // ---------------------------------------------------------------------------

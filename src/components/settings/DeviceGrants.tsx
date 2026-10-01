@@ -23,6 +23,7 @@ import { EmptyState } from '../feedback/EmptyState';
 import { ErrorState } from '../feedback/ErrorState';
 import { SkeletonBlock } from '../feedback/SkeletonBlock';
 import { Button } from '../ui/Button';
+import { useConfirm } from '../ui/ConfirmDialog';
 import { Disclosure } from '../data-view/DataView';
 import { Row, RowList } from '../ui/Row';
 import { SettingsBlock } from './dialog/parts';
@@ -45,6 +46,7 @@ const TITLE = 'Phone capability grants';
 
 export function DeviceGrants() {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [sweep, setSweep] = useState<HousekeepingResult | null>(null);
 
   const grants = useQuery<GrantsResult>({
@@ -62,6 +64,19 @@ export function DeviceGrants() {
       void queryClient.invalidateQueries({ queryKey: deviceGrantsQueryKey });
     },
   });
+
+  /** Revoking is one-way: the confirm carries the warning, the row button stays quiet. */
+  async function handleRevoke(grant: { grantId: string; capabilityTitle: string }): Promise<void> {
+    const ok = await confirm.ask({
+      title: 'Revoke this grant?',
+      target: grant.capabilityTitle,
+      description: 'The phone asks again the next time it needs this.',
+      confirmLabel: 'Revoke',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    revoke.mutate(grant.grantId);
+  }
 
   const housekeeping = useMutation({
     mutationFn: () => invokeMethod('devices.housekeeping.run', {}),
@@ -129,6 +144,7 @@ export function DeviceGrants() {
         </div>
       )}
     >
+      {confirm.element}
       {housekeeping.isError ? (
         <div className="banner warning" role="alert">{formatError(housekeeping.error)}</div>
       ) : null}
@@ -157,10 +173,10 @@ export function DeviceGrants() {
               ].join(' · ')}
               trailing={(
                 <Button
-                  variant="danger"
+                  variant="quiet-danger"
                   size="sm"
                   icon={<Trash2 aria-hidden="true" />}
-                  onClick={() => revoke.mutate(grant.grantId)}
+                  onClick={() => void handleRevoke(grant)}
                   disabled={revoke.isPending}
                   aria-label={`Revoke ${grant.capabilityTitle}`}
                 >

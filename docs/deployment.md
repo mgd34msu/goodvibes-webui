@@ -88,7 +88,7 @@ Get the pairing onto the device by scanning it from the pairing QR, opening a
 screen. Relay use is opt-in and probe-driven, so while the daemon is reachable
 directly, requests stay direct. State-changing calls over the relay require a
 passkey step-up (a WebAuthn assertion) before the daemon accepts them, so
-register a passkey from Admin before relying on the relay away from home.
+register a passkey from Settings, Account before relying on the relay away from home.
 
 ## Signing in from a phone
 
@@ -133,18 +133,20 @@ degraded state, not a stale snapshot pretending to be current.
 The app can receive approvals and completions as notifications on your device,
 even when it isn't open.
 
-- Turn them on from **Admin → Notifications & install → Turn on notifications**.
+- Turn them on from **Settings → Notifications → Turn on notifications** (account menu, Settings).
   The browser asks for permission. If you block it, the app tells you how to
   re-enable it instead of leaving a dead toggle.
 - Notifications are sent by your daemon. It must be running to deliver them,
   and it holds the subscription. Nothing is stored with a third party beyond the
   browser's own push service, and your device's push address is never handed back
   out over the wire.
-- Tapping an approval notification deep-links straight to the Approvals view,
-  and its Allow/Deny buttons hand the decision to the signed-in app (see
+- Tapping an approval notification deep-links straight to that approval in
+  Work, and its Allow/Deny buttons hand the decision to the signed-in app (see
   [push-approval-actions.md](push-approval-actions.md)). A needs-input
-  notification, a fleet node blocked on you, deep-links to the Fleet view
-  focused on that node.
+  notification, a fleet node blocked on you, deep-links to Work focused on
+  that node. Notification links from earlier versions (`?view=approvals-tasks`,
+  `?view=fleet`) still work; the address is rewritten to the Work form and the
+  `#` fragment is kept.
 
 ### The one-machine Tailscale-node note
 

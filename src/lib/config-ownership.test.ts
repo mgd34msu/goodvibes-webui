@@ -1,85 +1,94 @@
+/**
+ * config-ownership.test.ts: the daemon-owned badge reads from a generated snapshot
+ * of the SDK's ownership tables (src/lib/generated/config-ownership.ts). The failure
+ * this file exists to catch is the one the old hand-maintained mirror had: the
+ * snapshot or the predicate on top of it drifting from what the installed SDK says.
+ *
+ * So the load-bearing checks compare against the SDK directly, under bun where the
+ * node-only config barrel is importable:
+ *   - the three snapshot tables equal the SDK's tables (a hand edit to the generated
+ *     file, or a pin bump without `bun run release:prepare`, fails here);
+ *   - the local predicate agrees with the SDK's own isDaemonOwnedConfigKey for every
+ *     schema key plus every non-schema path, so the derivation cannot drift either.
+ *
+ * The few literal cases below are the rulings a user sees in the badge; they are kept
+ * as readable statements of intent, not as the drift check.
+ */
 import { describe, expect, test } from 'bun:test';
-import { isDaemonOwnedConfigKey } from './config-ownership';
+import {
+  DAEMON_OWNED_CONFIG_KEYS as SDK_KEYS,
+  DAEMON_OWNED_CONFIG_PREFIXES as SDK_PREFIXES,
+  DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS as SDK_NON_SCHEMA_PATHS,
+  isDaemonOwnedConfigKey as sdkIsDaemonOwnedConfigKey,
+} from '@pellux/goodvibes-sdk/platform/config';
+import {
+  DAEMON_OWNED_CONFIG_KEYS,
+  DAEMON_OWNED_CONFIG_PREFIXES,
+  DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS,
+  isDaemonOwnedConfigKey,
+} from './config-ownership';
+import { CONFIG_SCHEMA_ENTRIES } from './generated/config-schema';
 
-describe('isDaemonOwnedConfigKey', () => {
-  test('recognizes a key under every daemon-owned prefix', () => {
-    // One representative key per DAEMON_OWNED_CONFIG_PREFIXES entry, mirroring the
-    // SDK's config-ownership.ts prefix list exactly (see the module header for why
-    // this is a generated mirror rather than a live import).
+const sorted = (values: readonly string[]): string[] => [...values].sort();
+
+describe('the generated snapshot matches the installed SDK', () => {
+  test('prefixes, keys and non-schema paths are the SDK tables, entry for entry', () => {
+    expect(sorted(DAEMON_OWNED_CONFIG_PREFIXES)).toEqual(sorted(SDK_PREFIXES));
+    expect(sorted(DAEMON_OWNED_CONFIG_KEYS)).toEqual(sorted(SDK_KEYS));
+    expect(sorted(DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS)).toEqual(sorted(SDK_NON_SCHEMA_PATHS));
+  });
+
+  test('the tables are not empty, so equality above is not vacuous', () => {
+    expect(SDK_PREFIXES.length).toBeGreaterThan(0);
+    expect(SDK_NON_SCHEMA_PATHS.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the local predicate agrees with the SDK predicate', () => {
+  const corpus = [
+    ...CONFIG_SCHEMA_ENTRIES.map((entry) => entry.key),
+    ...SDK_NON_SCHEMA_PATHS,
+    ...SDK_KEYS,
+    // Keys that share a prefix WORD but not the dotted prefix, and keys under no namespace.
+    'webhookRetryLimit',
+    'relayed.enabled',
+    'surfacesX.y',
+    'daemon',
+    '',
+  ];
+
+  test('for every schema key, every non-schema path, and the prefix-collision shapes', () => {
+    const disagreements = corpus.filter((key) => isDaemonOwnedConfigKey(key) !== sdkIsDaemonOwnedConfigKey(key));
+    expect(disagreements).toEqual([]);
+    // Both answers occur in the corpus, so agreement is not "everything is false".
+    expect(corpus.some((key) => isDaemonOwnedConfigKey(key))).toBe(true);
+    expect(corpus.some((key) => !isDaemonOwnedConfigKey(key))).toBe(true);
+  });
+});
+
+describe('the rulings the badge shows', () => {
+  test('surfaces, control plane, payments and the mail/calendar credential paths are daemon-owned', () => {
     expect(isDaemonOwnedConfigKey('surfaces.telegram.botToken')).toBe(true);
     expect(isDaemonOwnedConfigKey('controlPlane.bindHost')).toBe(true);
-    expect(isDaemonOwnedConfigKey('httpListener.port')).toBe(true);
-    expect(isDaemonOwnedConfigKey('web.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('relay.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('watchers.triggers.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('device.capabilities.mode')).toBe(true);
-    expect(isDaemonOwnedConfigKey('automation.schedulerEnabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('checkin.cadence')).toBe(true);
-    expect(isDaemonOwnedConfigKey('integrations.someProvider.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('atRest.retentionDays')).toBe(true);
-    expect(isDaemonOwnedConfigKey('payments.enabled')).toBe(true);
     expect(isDaemonOwnedConfigKey('payments.budget.dailyItem')).toBe(true);
-    expect(isDaemonOwnedConfigKey('voice.local.ttsVoicePath')).toBe(true);
-    // Previously missing from the hand-maintained mirror (the drift this round fixes).
-    expect(isDaemonOwnedConfigKey('conversationGate.mode')).toBe(true);
-    expect(isDaemonOwnedConfigKey('cluster.enabled')).toBe(true);
-  });
-
-  test('recognizes the individual daemon-owned keys that sit outside every prefix', () => {
-    expect(isDaemonOwnedConfigKey('danger.httpListener')).toBe(true);
-    // The one daemon.* key that is NOT a per-installation switch, the daemon's
-    // own location, which the payment capability's daily budgets roll over
-    // against. Ruled and fixed upstream (SDK config-ownership.ts) after this
-    // round's engineering report flagged it as an open question.
-    expect(isDaemonOwnedConfigKey('daemon.timezone')).toBe(true);
-  });
-
-  test('recognizes every non-schema daemon-owned path: array-valued settings and the mail/calendar credential paths', () => {
-    // Previously missing entirely: the hand-maintained mirror carried no
-    // DAEMON_OWNED_NON_SCHEMA_CONFIG_PATHS list, so these read as client-owned
-    // even though the daemon is the only process that can resolve and use them.
-    expect(isDaemonOwnedConfigKey('conversationGate.gatedSurfaces')).toBe(true);
-    expect(isDaemonOwnedConfigKey('cluster.peers')).toBe(true);
-    expect(isDaemonOwnedConfigKey('cluster.groupMaterial')).toBe(true);
     expect(isDaemonOwnedConfigKey('email.passwordRef')).toBe(true);
-    expect(isDaemonOwnedConfigKey('calendar.google.clientSecretRef')).toBe(true);
-    expect(isDaemonOwnedConfigKey('calendar.microsoft.clientSecretRef')).toBe(true);
-    expect(isDaemonOwnedConfigKey('google.oauth.refreshToken')).toBe(true);
     expect(isDaemonOwnedConfigKey('calendar.google.icsUrl')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.enabled')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.imapHost')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.imapPort')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.smtpHost')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.smtpPort')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.smtpSecurity')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.username')).toBe(true);
-    expect(isDaemonOwnedConfigKey('email.fromAddress')).toBe(true);
-    expect(isDaemonOwnedConfigKey('calendar.google.clientId')).toBe(true);
-    expect(isDaemonOwnedConfigKey('google.oauth.projectId')).toBe(true);
-    expect(isDaemonOwnedConfigKey('google.oauth.publishingStatus')).toBe(true);
-    expect(isDaemonOwnedConfigKey('google.credentials.migratedFrom')).toBe(true);
   });
 
-  test('an ordinary client-owned key is not flagged', () => {
-    expect(isDaemonOwnedConfigKey('display.theme')).toBe(false);
-    expect(isDaemonOwnedConfigKey('provider.model')).toBe(false);
-    expect(isDaemonOwnedConfigKey('behavior.hitlMode')).toBe(false);
-  });
-
-  test('daemon.* (other than daemon.timezone) and service.* are deliberately NOT daemon-owned, per-installation lifecycle', () => {
-    // "does THIS installation run/embed a daemon" is not the daemon's call to make;
-    // making it daemon-owned would make one surface's daemon choice bind every other.
+  test('daemon.timezone is the one daemon.* key the daemon owns; daemon.enabled and service.* are per-installation', () => {
+    expect(isDaemonOwnedConfigKey('daemon.timezone')).toBe(true);
     expect(isDaemonOwnedConfigKey('daemon.enabled')).toBe(false);
     expect(isDaemonOwnedConfigKey('service.autostart')).toBe(false);
   });
 
-  test('voice.wake.* is deliberately NOT daemon-owned, the wake word listens inside each client', () => {
+  test('client-side settings are not daemon-owned: display, provider, behavior, and the wake word that listens in each client', () => {
+    expect(isDaemonOwnedConfigKey('display.theme')).toBe(false);
+    expect(isDaemonOwnedConfigKey('provider.model')).toBe(false);
+    expect(isDaemonOwnedConfigKey('behavior.hitlMode')).toBe(false);
     expect(isDaemonOwnedConfigKey('voice.wake.enabled')).toBe(false);
   });
 
-  test('a key that only shares a prefix word, not the dotted prefix itself, is not flagged', () => {
-    // "webhookRetryLimit" starts with "web" but not with the dotted prefix "web.".
+  test('a key that only shares a prefix word, not the dotted prefix, is not flagged', () => {
     expect(isDaemonOwnedConfigKey('webhookRetryLimit')).toBe(false);
   });
 });
-

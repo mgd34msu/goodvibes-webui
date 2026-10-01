@@ -6,7 +6,8 @@
  * Left column (220): a search field, then seven pages in the sidebar's
  * nav-item style with no group headings (owner review 2026-09-30). Right
  * column: the page title, a row of jump links when the page holds more than
- * one section, then each section under its own heading, scrolling on its own.
+ * one section, then the page's own blocks, then each further section under
+ * its own heading, scrolling on its own.
  * The close button sits top right; Escape closes; focus is trapped and
  * returned (the kit Dialog). On a phone the two columns become two screens:
  * the list, and a page with a back button.
@@ -273,7 +274,8 @@ function SettingsDialogBody({ section, onSectionChange, onClose, onOpenView, rea
       onClose={onClose}
       initialFocusRef={phone ? closeRef : titleRef}
     >
-      <div className={showList ? 'settings-layout settings-layout--list' : 'settings-layout'} onKeyDown={onKeyDown}>
+      {/* Not a control itself: it only catches keys bubbling up from the nav and the page, to route typing into search. */}
+      <div className={showList ? 'settings-layout settings-layout--list' : 'settings-layout'} role="presentation" onKeyDown={onKeyDown}>
         {(!phone || showList) && (
           <aside className="settings-sidebar">
             {phone && (
@@ -340,6 +342,14 @@ function SettingsDialogBody({ section, onSectionChange, onClose, onOpenView, rea
                   );
                   if (!multi) {
                     return <div key={def.id} id={sectionDomId(def.id)} className="settings-section settings-section--only">{body}</div>;
+                  }
+                  // The page's namesake section (same id, always first) is the page
+                  // itself: its heading would only restate the page title and
+                  // description just above it, so its blocks sit directly under
+                  // them. The wrapper keeps its id, so the jump link and a
+                  // `?settings=` deep link still land on it.
+                  if (def.id === activePage.id) {
+                    return <div key={def.id} id={sectionDomId(def.id)} className="settings-section settings-section--lead">{body}</div>;
                   }
                   return (
                     <section key={def.id} id={sectionDomId(def.id)} className="settings-section" aria-labelledby={`${sectionDomId(def.id)}-title`}>

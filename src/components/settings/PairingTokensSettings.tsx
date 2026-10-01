@@ -225,7 +225,7 @@ export function PairingTokensSettings() {
                       onClick={() => startRename(token)}
                     />
                     <Button
-                      variant="danger"
+                      variant="quiet-danger"
                       size="sm"
                       className="pairing-token-row__revoke"
                       icon={<Trash2 aria-hidden="true" />}

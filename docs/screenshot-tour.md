@@ -1,76 +1,92 @@
 # Screenshot tour
 
-These screenshots are captured from the WebUI dev server against the
-end-to-end suite's seeded mock daemon at `1440x1000`, dark theme. Live auth,
-chat history, providers, and daemon state vary by operator environment, so
-treat these as layout references rather than fixed data fixtures.
+These screenshots are captured from the end-to-end suite's seeded mock daemon,
+dark theme, at desktop and phone sizes. Live auth, chat history, providers, and
+daemon state vary by operator environment, so treat these as layout references
+rather than fixed data fixtures.
 
-## Chat
+GoodVibes has four places in the sidebar (Chat, Work, Library, Personal), a
+settings dialog, and an account menu. Links from earlier versions (`?view=fleet`,
+`?view=memory`, `?view=admin` and the rest) redirect to the matching place; see
+[operator-guide.md](operator-guide.md#navigation).
 
-Chat is the primary workspace. The composer owns message input, attachment
-upload, voice-mode affordances, provider selection, model selection, and send.
-The sidebar owns navigation and chat session selection.
+## New chat
 
-![Chat view](assets/screenshots/chat.png)
+A new chat opens on a greeting, one composer with the model picker, voice and
+attachments, and starting points for the other places. Recent chats are listed
+in the sidebar, newest first.
 
-## Knowledge/Wiki
+![New chat with a greeting, the composer and suggestion chips](assets/screenshots/new-chat.png)
 
-Knowledge/Wiki uses the regular GoodVibes Knowledge routes through the scoped
-browser Knowledge SDK. Home Assistant Home Graph is intentionally not part of
-this general surface.
+## A conversation
 
-![Knowledge view](assets/screenshots/knowledge.png)
+Replies stream with syntax-highlighted Markdown and per-block copy. Tool
+activity folds into a single quiet line ("Read 2 files, searched the web") that
+expands on demand.
 
-## Sessions
+![A conversation with a collapsed tool-activity line and a highlighted code block](assets/screenshots/conversation.png)
 
-Sessions is the cross-surface session union: find, read, steer, or follow up
-on any session started from the terminal, agent, or browser.
+## Work
 
-![Sessions view](assets/screenshots/sessions.png)
+Work lists everything running for you in one place, with what needs you first.
+The segmented control filters to Sessions, Agents or Processes. An item opens in
+a detail pane beside the list (an approval here, with its command, risk, a
+Remember choice, and Approve and Deny). While the detail is open the sidebar
+folds to an icon rail.
 
-## Fleet
+![Work with an approval open in the detail pane and the sidebar folded to a rail](assets/screenshots/work-needs-you.png)
 
-Fleet is the live process tree with per-node steer/detach/stop where the wire
-supports them and inline approvals.
+## Library
 
-![Fleet view](assets/screenshots/fleet.png)
+Library holds Memory, Knowledge and Review. Memory shows each record's type,
+scope and confidence, and says which search mode actually ran. Knowledge is the
+regular Knowledge/Wiki surface; Review is everything waiting on a human call.
 
-## Memory
+![Library on the Memory section with filters and confidence on each record](assets/screenshots/library-memory.png)
 
-Memory browses and searches the shared cross-surface memory store with the
-recall-honesty details rendered verbatim.
+## Personal
 
-![Memory view](assets/screenshots/memory.png)
+Personal holds Calendar, Mail and Occasions. A daemon without a calendar or mail
+account says so rather than showing an empty page.
 
-## Calendar
+![Personal on the Calendar section showing an agenda](assets/screenshots/personal-calendar.png)
 
-Calendar renders the daemon calendar module's agenda with ICS import/export.
+## Settings
 
-![Calendar view](assets/screenshots/calendar.png)
+Settings is a dialog with seven pages (General, Account, Models and providers,
+Voice, Notifications, Memory, Permissions) and a search box. Models and
+providers shows the current model new chats use and each provider's sign-in
+state.
 
-## Providers
+![Settings dialog open on Models and providers](assets/screenshots/settings-models.png)
 
-Providers is the supporting surface for daemon provider/model state. Provider
-selection is provider-first, with model options scoped to the selected provider.
+## Account menu
 
-![Providers view](assets/screenshots/providers.png)
+The account button at the foot of the sidebar opens a menu with Settings,
+Devices and pairing, People and channels, Check-ins, the theme switch, the
+GoodVibes Neon toggle, your connection to the daemon in plain words, and Sign
+out.
 
-## Admin
+![The account menu open over the Work page](assets/screenshots/account-menu.png)
 
-Admin contains auth, daemon diagnostics, local auth status, display preferences,
-and operational controls that should not clutter Chat.
+## On a phone
 
-![Admin view](assets/screenshots/admin.png)
+At phone width the sidebar becomes a drawer behind the header's menu button or a
+swipe from the left edge. The same four places are in it, with the count of
+items that need you beside Work.
 
-## Collapsed sidebar
+<img src="assets/screenshots/phone-conversation.png" alt="Phone layout with a conversation and the composer" width="260">
+<img src="assets/screenshots/phone-drawer.png" alt="Phone layout with the navigation drawer open" width="260">
 
-The collapsed sidebar keeps primary navigation available while giving Chat most
-of the horizontal space.
+## GoodVibes Neon
 
-![Collapsed sidebar](assets/screenshots/collapsed-sidebar.png)
+GoodVibes Neon is an opt-in theme, turned on under Settings, General or from the
+account menu. It never replaces a theme you chose.
 
-## Surfaces without screenshots yet
+![The new-chat screen in the GoodVibes Neon theme](assets/screenshots/theme-neon.png)
 
-The newer surfaces (Hosted sessions, Mail, Dates, CI, Check-in, Principals,
-Phone, and the Approvals/Workstream pair) do not have captures here yet. Their
-behavior is documented in [operator-guide.md](operator-guide.md).
+## Not shown
+
+Mail, Occasions, the Review list, check-ins, the phone node page and the
+pairing hand-off do not have captures here. Their behavior is documented in
+[operator-guide.md](operator-guide.md).

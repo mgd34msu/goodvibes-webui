@@ -103,7 +103,7 @@ export function AccountSection() {
 
       <SettingsBlock
         title="Sign in"
-        description="Signs in with a direct daemon login request (no Authorization header or cookies), then stores only the returned browser session."
+        description="Sign in with your daemon username and password. This browser keeps only its own session."
       >
         <form className="settings-form" onSubmit={submitLogin}>
           <Field label="Username">

@@ -86,12 +86,6 @@ describe('CommandProvider: children', () => {
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe('Hello');
     unmount();
   });
-
-  test('renders without children without crashing', () => {
-    const { container, unmount } = renderProvider({});
-    expect(container).not.toBeNull();
-    unmount();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -169,13 +163,13 @@ describe('CommandProvider: command registration', () => {
 
 describe('CommandProvider: palette open/close', () => {
   test('palette is closed on initial render', () => {
-    const { container, unmount } = renderProvider({});
+    const { unmount } = renderProvider({});
     expect(document.querySelector('[aria-label="Command palette"]')).toBeNull();
     unmount();
   });
 
   test('mod+k opens the command palette', () => {
-    const { container, unmount } = renderProvider({});
+    const { unmount } = renderProvider({});
     // 'mod' normalises to Control in test env (no navigator.platform).
     fireDocKeyDown('k', { ctrlKey: true });
     expect(document.querySelector('[aria-label="Command palette"]')).not.toBeNull();
@@ -183,7 +177,7 @@ describe('CommandProvider: palette open/close', () => {
   });
 
   test('mod+k toggles palette closed when already open', () => {
-    const { container, unmount } = renderProvider({});
+    const { unmount } = renderProvider({});
     fireDocKeyDown('k', { ctrlKey: true });
     expect(document.querySelector('[aria-label="Command palette"]')).not.toBeNull();
 
@@ -194,7 +188,7 @@ describe('CommandProvider: palette open/close', () => {
   });
 
   test('Escape closes the palette via dialog keydown', () => {
-    const { container, unmount } = renderProvider({});
+    const { unmount } = renderProvider({});
     // Open first.
     fireDocKeyDown('k', { ctrlKey: true });
     const dialog = document.querySelector('[aria-label="Command palette"]') as HTMLElement | null;

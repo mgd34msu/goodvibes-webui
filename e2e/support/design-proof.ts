@@ -169,9 +169,16 @@ export async function proveScreen(
 ): Promise<void> {
   const themes: ProofTheme[] = SHOTS_DIR ? ['dark', 'light', ...(options.neon ? ['neon' as const] : [])] : ['dark'];
   // Loading is over (skeleton rows and in-flight reads carry aria-busy), then
-  // entrances (140-240 ms) finish before anything is measured.
+  // every entrance and transition has finished before anything is measured.
+  // Polled from the page's own animation list, not a fixed sleep: a slow runner
+  // waits as long as it needs, a fast one does not wait at all. Looping
+  // animations (a live dot, a caret) never finish and are left out.
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-  await page.waitForTimeout(300);
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => {
+    if (animation.playState !== 'running') return false;
+    const iterations = animation.effect?.getComputedTiming().iterations ?? 1;
+    return Number.isFinite(iterations);
+  }).length)).toBe(0);
   for (const theme of themes) {
     await applyTheme(page, theme);
     await expectNoHorizontalScroll(page);

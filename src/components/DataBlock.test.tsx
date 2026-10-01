@@ -1,95 +1,78 @@
-import { describe, expect, test } from 'bun:test';
-import { renderToStaticMarkup } from 'react-dom/server';
+/**
+ * DataBlock: a titled section that renders a string as markdown, anything else
+ * as a copyable JSON block, and an empty value as the empty sentence.
+ */
+import { afterEach, describe, expect, test } from 'bun:test';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { DataBlock } from './DataBlock';
 
+let container: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
+
+function render(element: React.ReactElement): HTMLElement {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  flushSync(() => root.render(element));
+  return container;
+}
+
+afterEach(() => {
+  flushSync(() => root.unmount());
+  container.remove();
+});
+
 describe('DataBlock', () => {
-  // ── title rendering ──────────────────────────────────────────────────────
-
-  test('renders title as a section heading', () => {
-    const html = renderToStaticMarkup(<DataBlock title="My Section" value="some content" />);
-    expect(html).toContain('>My Section</h4>');
+  test('the title is the heading of a labelled section', () => {
+    const el = render(<DataBlock title="My Section" value="some content" />);
+    const section = el.querySelector('section')!;
+    const heading = el.querySelector('h4')!;
+    expect(heading.textContent).toBe('My Section');
+    expect(section.getAttribute('aria-labelledby')).toBe(heading.id);
   });
 
-  // ── empty state ──────────────────────────────────────────────────────────
-
-  test('renders default empty-state when value is undefined', () => {
-    const html = renderToStaticMarkup(<DataBlock title="T" value={undefined} />);
-    expect(html).toContain('feedback-data-block__empty');
-    expect(html).toContain('No data');
+  test('undefined, null and an empty array all read as the empty sentence', () => {
+    for (const value of [undefined, null, []]) {
+      const el = render(<DataBlock title="T" value={value} />);
+      expect(el.textContent).toContain('No data');
+      expect(el.querySelector('pre')).toBeNull();
+      flushSync(() => root.unmount());
+      container.remove();
+    }
+    // afterEach unmounts once more; leave a mounted root for it.
+    render(<DataBlock title="T" value={undefined} />);
   });
 
-  test('renders default empty-state when value is null', () => {
-    const html = renderToStaticMarkup(<DataBlock title="T" value={null} />);
-    expect(html).toContain('feedback-data-block__empty');
-    expect(html).toContain('No data');
+  test('a custom empty sentence replaces the default', () => {
+    const el = render(<DataBlock title="T" value={undefined} empty="Nothing to show" />);
+    expect(el.textContent).toContain('Nothing to show');
+    expect(el.textContent).not.toContain('No data');
   });
 
-  test('renders default empty-state when value is an empty array', () => {
-    const html = renderToStaticMarkup(<DataBlock title="T" value={[]} />);
-    expect(html).toContain('feedback-data-block__empty');
+  test('a string renders as markdown, not as a code block', () => {
+    const el = render(<DataBlock title="Notes" value="Hello **world**" />);
+    expect(el.querySelector('strong')?.textContent).toBe('world');
+    expect(el.querySelector('pre')).toBeNull();
+    expect(el.querySelector('button[aria-label="Copy value"]')).toBeNull();
   });
 
-  test('renders custom empty prop when value is absent', () => {
-    const html = renderToStaticMarkup(
-      <DataBlock title="T" value={undefined} empty="Nothing to show" />,
-    );
-    expect(html).toContain('Nothing to show');
-    expect(html).not.toContain('No data');
+  test('an object renders as pretty JSON in a code block with a copy action', () => {
+    const el = render(<DataBlock title="Data" value={{ user: { name: 'Alice', roles: ['admin'] }, count: 42 }} />);
+    const pre = el.querySelector('pre')!;
+    expect(pre).not.toBeNull();
+    expect(JSON.parse(pre.textContent ?? '')).toEqual({ user: { name: 'Alice', roles: ['admin'] }, count: 42 });
+    expect(el.querySelector('strong')).toBeNull();
+    expect(el.querySelector('button[aria-label="Copy value"]')?.textContent).toContain('Copy');
   });
 
-  // ── string value, MarkdownMessage path ─────────────────────────────────
+  test('a number and a non-empty array also take the code-block path', () => {
+    const number = render(<DataBlock title="Count" value={99} />);
+    expect(number.querySelector('pre')?.textContent).toBe('99');
+    flushSync(() => root.unmount());
+    container.remove();
 
-  test('renders string value inside feedback-data-block__markdown div', () => {
-    const html = renderToStaticMarkup(
-      <DataBlock title="Notes" value="Hello **world**" />,
-    );
-    expect(html).toContain('feedback-data-block__markdown');
-    // Markdown rendered: **world** → <strong>world</strong>
-    expect(html).toContain('<strong>');
-    // Should NOT render a <pre> for string values
-    expect(html).not.toContain('<pre');
-  });
-
-  // ── non-string value, compactJson / pre path ────────────────────────────
-
-  test('renders object value as JSON inside a pre element', () => {
-    const value = { key: 'value', count: 42 };
-    const html = renderToStaticMarkup(<DataBlock title="Data" value={value} />);
-    expect(html).toContain('<pre');
-    expect(html).toContain('&quot;key&quot;');
-    expect(html).toContain('&quot;value&quot;');
-    expect(html).toContain('42');
-    // Should not render a markdown div for non-string values
-    expect(html).not.toContain('feedback-data-block__markdown');
-  });
-
-  test('renders nested object as pretty-printed JSON in pre', () => {
-    const value = { user: { name: 'Alice', roles: ['admin', 'user'] } };
-    const html = renderToStaticMarkup(<DataBlock title="Nested" value={value} />);
-    expect(html).toContain('<pre');
-    expect(html).toContain('&quot;user&quot;');
-    expect(html).toContain('Alice');
-    expect(html).toContain('admin');
-  });
-
-  test('renders number value as pre (non-string)', () => {
-    const html = renderToStaticMarkup(<DataBlock title="Count" value={99} />);
-    expect(html).toContain('<pre');
-    expect(html).toContain('99');
-  });
-
-  test('renders non-empty array as pre (non-string)', () => {
-    const html = renderToStaticMarkup(<DataBlock title="List" value={['a', 'b']} />);
-    expect(html).toContain('<pre');
-    expect(html).toContain('&quot;a&quot;');
-    expect(html).toContain('&quot;b&quot;');
-  });
-
-  // ── container structure ──────────────────────────────────────────────────
-
-  test('wraps content in a titled detail section, never a legacy data-block card', () => {
-    const html = renderToStaticMarkup(<DataBlock title="Wrap" value="text" />);
-    expect(html).toContain('dv-section');
-    expect(html).not.toContain('class="data-block');
+    const list = render(<DataBlock title="List" value={['a', 'b']} />);
+    expect(JSON.parse(list.querySelector('pre')?.textContent ?? '')).toEqual(['a', 'b']);
   });
 });

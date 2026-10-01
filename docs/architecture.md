@@ -9,13 +9,14 @@ GoodVibes WebUI is a full chat application and operator console over the
 GoodVibes daemon. It should:
 
 - make chat the primary surface, at parity with a modern chat application
-- expose the operator surfaces (sessions union, hosted sessions, fleet,
-  checkpoints, memory, calendar, mail, dates, approvals/tasks/workstream,
-  CI watches, check-in, principals, providers/models, admin) over the same
-  typed wire the terminal UI uses
+- expose the operator surfaces over the same typed wire the terminal UI uses,
+  as four places: Chat, Work (sessions, hosted sessions, the fleet,
+  checkpoints, approvals, tasks, workstreams, CI watches), Library (memory,
+  knowledge, review) and Personal (calendar, mail, occasions), with models,
+  providers, sign-in, devices, check-ins and diagnostics in a settings dialog
 - expose regular Knowledge/Wiki without leaking extension-specific Home Graph UI
 - serve desktop and phone from one app: the phone gets a drawer layout of the
-  same views, never a different mental model
+  same places, never a different mental model
 - install from the browser (app shell offline, Web Push), with daemon data
   never cached
 - stay on public SDK/browser seams with contract-typed method I/O
@@ -132,7 +133,7 @@ Daemon session/message data is canonical. Browser local storage is a cache for:
 - recent companion chat sessions
 - active companion chat session id
 
-The cache exists so refreshes preserve a usable sidebar while the daemon list is
+The cache exists so refreshes preserve a usable Recent list in the sidebar while the daemon list is
 loading. Once `sdk.chat.sessions.list` succeeds, the daemon list is authoritative,
 except for sessions created in the current browser run while the daemon list is
 catching up.
@@ -176,7 +177,7 @@ Line numbers are UI-only and must not be copied with code content.
 
 ## Session union and steering
 
-The Sessions view is the cross-surface session union, sessions started from the
+The Sessions kind of the Work view is the cross-surface session union, sessions started from the
 terminal, agent, or browser, listed over `sessions.list`. The daemon caps that
 list at the 50 most recent and the view states the cap instead of implying
 completeness. Closed sessions are included by an explicit `includeClosed`
@@ -189,12 +190,12 @@ is distinct from companion chat and does not share its send path.
 companion-chat sessions. It matches session id/title/project across full
 history, while message-body search stays client-side over the sessions already
 fetched. Its `includeClosed` defaults off there, deliberately the opposite of
-the Sessions view's toggle, since a search surface hides dead sessions by
+the Work view's closed-session toggle, since a search surface hides dead sessions by
 default while a full list shows them.
 
 ### Permission mode, context usage, cost, and compaction
 
-The Sessions view surfaces per-session runtime state built directly against
+A session's detail in Work surfaces per-session runtime state built directly against
 the daemon wire:
 
 - Permission mode (`src/lib/permission-mode.ts`) is session-scoped:
@@ -235,7 +236,7 @@ the daemon wire:
 
 ## Memory model
 
-The Memory view reads and mutates the shared cross-surface memory store over
+The Library's Memory section reads and mutates the shared cross-surface memory store over
 the daemon memory wire. Recall-honesty metadata from the daemon (search mode,
 vector-index availability or its `platformLimitReason`, exclusion counts,
 recall floor) renders verbatim. A literal-match fallback is labeled as one.
@@ -314,15 +315,39 @@ Provider and model selection must follow daemon/provider registry semantics.
 
 Provider/model helper logic lives in `src/lib/provider-models.ts`.
 
-## Admin surface
+## Navigation and the settings dialog
 
-Admin owns diagnostics and operational settings that are not part of the main
-chat flow:
+`src/lib/router.ts` owns the URL schema: `?view=chat|work|library|personal|phone`,
+`&tab=<section>` for the section inside Work, Library or Personal,
+`&session=<id>`, and `&settings=<section>` while the settings dialog is open.
+The shell (`src/components/shell/`) is the sidebar, header and account menu;
+`nav.ts` is the map of destinations and their sections. There is no status
+strip: the connection shows as the dot on the account avatar and in the
+account menu's plain-words line, and a dropped connection raises a toast and a
+thin banner.
 
-- auth login and token management
-- local auth status
-- runtime/config snapshots
-- display preferences such as code block line numbers
+Old `?view=` ids still resolve. The data views map to a destination and tab
+(`LEGACY_VIEW_REDIRECTS`: sessions, fleet, approvals-tasks, workstream,
+ci-watches and checkpoints to Work; memory and knowledge to Library; calendar,
+mail and dates to Personal) and `useUrlState` rewrites such a link in place,
+keeping its `#` fragment so a push notification's `#approval-action=` or
+`#fleet-node=` survives. Admin, Providers, Principals and Check-ins are no
+longer pages: `LEGACY_SETTINGS_VIEWS` opens the settings dialog on Account,
+Models and providers, People and channels and Check-ins.
+
+The settings dialog (`src/components/settings/dialog/sections.ts`) has seven
+pages: General, Account, Models and providers, Voice, Notifications, Memory
+and Permissions. Each page holds one or more sections (for example Account
+holds Sign-in, Devices and pairing, and People and channels). Every SDK config
+namespace belongs to exactly one section, and a namespace the daemon reports
+that this build does not list lands in Advanced, so no setting is unreachable.
+The settings cover:
+
+- auth login and token management, passkey step-up
+- local auth status and daemon diagnostics
+- runtime/config snapshots through the schema-driven editors
+- appearance: theme, density, code block line numbers, and the opt-in GoodVibes
+  Neon theme
 - service/network posture where exposed by daemon APIs
 
 ## Realtime and invalidation
@@ -347,10 +372,10 @@ revalidates:
 | `providers` | Provider inventory and status |
 | `knowledge` | Knowledge status, sources, and refinement |
 | `control-plane` | Control status/snapshot |
-| `fleet` | The live fleet snapshot and the archive, so the tree and the attention badge update on the event instead of the next poll |
+| `fleet` | The live fleet snapshot and the archive, so the Work list and the needs-you count update on the event instead of the next poll |
 | `ops` | The power (keep-awake) state and the memory-pressure tier chip | The narrow exceptions that open their own scoped streams are
 the open session detail's compaction-receipt stream (closed on unmount) and
-the Approvals view's `approval-update` subscription, which is a fixed-name
+the Work view's approvals `approval-update` subscription, which is a fixed-name
 wire event rather than a domain frame; both stay within the connection
 budget.
 

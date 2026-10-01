@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
   classifyBadgeTone,
-  contractGlyph,
   contractGlyphForBadgeTone,
   contractGlyphForConnection,
   contractGlyphForMemoryTier,
@@ -12,7 +11,7 @@ import {
   contractStateForSse,
   contractStateForWorking,
 } from './presentation-bridge';
-import { CONTRACT_GLYPHS, CONTRACT_STATE_GLYPHS } from './generated/presentation-tokens';
+import { CONTRACT_STATE_GLYPHS } from './generated/presentation-tokens';
 
 describe('classifyBadgeTone', () => {
   test('maps healthy/ok/ready/active vocabulary to ok', () => {
@@ -39,25 +38,12 @@ describe('classifyBadgeTone', () => {
   });
 });
 
-describe('contract tone/glyph mapping: every bucket resolves to a real contract glyph', () => {
-  test('contractGlyphForBadgeTone resolves each BadgeTone to a CONTRACT_STATE_GLYPHS value', () => {
-    expect(contractGlyphForBadgeTone('ok')).toBe(CONTRACT_STATE_GLYPHS.good);
-    expect(contractGlyphForBadgeTone('warning')).toBe(CONTRACT_STATE_GLYPHS.warn);
-    expect(contractGlyphForBadgeTone('bad')).toBe(CONTRACT_STATE_GLYPHS.bad);
-    expect(contractGlyphForBadgeTone('neutral')).toBe(CONTRACT_STATE_GLYPHS.info);
-  });
-
+describe('badge tone to contract severity bucket', () => {
   test('contractStateForBadgeTone resolves each BadgeTone to its contract bucket', () => {
     expect(contractStateForBadgeTone('ok')).toBe('good');
     expect(contractStateForBadgeTone('warning')).toBe('warn');
     expect(contractStateForBadgeTone('bad')).toBe('bad');
     expect(contractStateForBadgeTone('neutral')).toBe('info');
-  });
-
-  test('contractGlyph looks up the full 16-key GLYPHS.status vocabulary', () => {
-    expect(contractGlyph('blocked')).toBe(CONTRACT_GLYPHS.status.blocked);
-    expect(contractGlyph('pending')).toBe(CONTRACT_GLYPHS.status.pending);
-    expect(contractGlyph('review')).toBe(CONTRACT_GLYPHS.status.review);
   });
 });
 
@@ -68,11 +54,6 @@ describe('daemon-health axis mappings (StatusStrip): genuine severity correspond
     expect(contractStateForConnection('down')).toBe('bad');
   });
 
-  test('contractGlyphForConnection resolves to the matching STATE_GLYPHS value', () => {
-    expect(contractGlyphForConnection('connected')).toBe(CONTRACT_STATE_GLYPHS.good);
-    expect(contractGlyphForConnection('reconnecting')).toBe(CONTRACT_STATE_GLYPHS.warn);
-    expect(contractGlyphForConnection('down')).toBe(CONTRACT_STATE_GLYPHS.bad);
-  });
 
   test('AuthState: signed-in=good, signed-out=info (absence is not a fault), unknown=info', () => {
     expect(contractStateForAuth('signed-in')).toBe('good');
@@ -86,11 +67,12 @@ describe('daemon-health axis mappings (StatusStrip): genuine severity correspond
     expect(contractStateForWorking('unknown')).toBe('info');
   });
 
-  test('SseState: active=good, connecting=info, error=bad, disabled=info (deliberately off)', () => {
+  test('SseState: active=good, connecting=info, error=bad, disabled and relay-unsupported=info (not faults)', () => {
     expect(contractStateForSse('active')).toBe('good');
     expect(contractStateForSse('connecting')).toBe('info');
     expect(contractStateForSse('error')).toBe('bad');
     expect(contractStateForSse('disabled')).toBe('info');
+    expect(contractStateForSse('relay-unsupported')).toBe('info');
   });
 
   test('MemoryTier: normal=good, elevated=info (notice, not yet a fault), high=warn, critical=bad', () => {
@@ -100,10 +82,33 @@ describe('daemon-health axis mappings (StatusStrip): genuine severity correspond
     expect(contractStateForMemoryTier('critical')).toBe('bad');
   });
 
-  test('contractGlyphForMemoryTier resolves to the matching STATE_GLYPHS value', () => {
-    expect(contractGlyphForMemoryTier('normal')).toBe(CONTRACT_STATE_GLYPHS.good);
-    expect(contractGlyphForMemoryTier('elevated')).toBe(CONTRACT_STATE_GLYPHS.info);
-    expect(contractGlyphForMemoryTier('high')).toBe(CONTRACT_STATE_GLYPHS.warn);
-    expect(contractGlyphForMemoryTier('critical')).toBe(CONTRACT_STATE_GLYPHS.bad);
+});
+
+describe('the glyph helpers paint the glyph of the bucket the state helpers chose', () => {
+  // Each glyph helper must agree with its state helper for every input, so a badge
+  // never shows the glyph of one severity beside the wording of another. Checked
+  // against the four-bucket STATE_GLYPHS table, never the 16-key status vocabulary.
+  test('badge tones', () => {
+    for (const tone of ['ok', 'warning', 'bad', 'neutral'] as const) {
+      expect(contractGlyphForBadgeTone(tone)).toBe(CONTRACT_STATE_GLYPHS[contractStateForBadgeTone(tone)]);
+    }
+  });
+
+  test('connection states', () => {
+    for (const state of ['connected', 'reconnecting', 'down'] as const) {
+      expect(contractGlyphForConnection(state)).toBe(CONTRACT_STATE_GLYPHS[contractStateForConnection(state)]);
+    }
+  });
+
+  test('memory tiers', () => {
+    for (const tier of ['normal', 'elevated', 'high', 'critical'] as const) {
+      expect(contractGlyphForMemoryTier(tier)).toBe(CONTRACT_STATE_GLYPHS[contractStateForMemoryTier(tier)]);
+    }
+  });
+
+  test('the four buckets paint four distinct glyphs, so the mapping is visible at all', () => {
+    const glyphs = new Set(Object.values(CONTRACT_STATE_GLYPHS));
+    expect(glyphs.size).toBe(4);
+    for (const glyph of glyphs) expect(glyph.length).toBeGreaterThan(0);
   });
 });

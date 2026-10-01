@@ -81,6 +81,17 @@
   background: var(--bad-soft);
 }
 
+/* A destructive row action behind a confirm: quiet until pointed at. */
+.gv-button--quiet-danger {
+  color: var(--text-2);
+}
+
+.gv-button--quiet-danger:hover:not(:disabled),
+.gv-button--quiet-danger:focus-visible {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
 /* Disabled: 40% opacity, same shape, never a different color family. */
 .gv-button:disabled,
 .gv-icon-button:disabled {

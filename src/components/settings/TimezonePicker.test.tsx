@@ -52,8 +52,7 @@ describe('TimezonePicker', () => {
   test('renders a select with the explicit "UTC (unset)" option always present', () => {
     const { container, select, unmount } = render({ value: '', onCommit: () => {} });
     expect(container.querySelector('select')).toBeNull();
-    // The unset value ('') reads as its explicit label on the trigger.
-    expect(UNSET_TIMEZONE_VALUE).toBe('');
+    // The unset value reads as its explicit label on the trigger.
     expect(select.textContent).toContain(UNSET_TIMEZONE_LABEL);
     expect(optionLabels(select)).toContain(UNSET_TIMEZONE_LABEL);
     unmount();
@@ -79,11 +78,11 @@ describe('TimezonePicker', () => {
     unmount();
   });
 
-  test('selecting the unset option commits the empty string', () => {
+  test('selecting the unset option commits the unset value', () => {
     const commits: string[] = [];
     const { select, unmount } = render({ value: 'Asia/Tokyo', onCommit: (v) => commits.push(v) });
     selectLabel(select, UNSET_TIMEZONE_LABEL);
-    expect(commits).toEqual(['']);
+    expect(commits).toEqual([UNSET_TIMEZONE_VALUE]);
     unmount();
   });
 

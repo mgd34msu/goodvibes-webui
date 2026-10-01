@@ -62,7 +62,6 @@ describe('useConfirm', () => {
     const el = dialog()!;
     expect(el.getAttribute('role')).toBe('alertdialog');
     expect(el.getAttribute('aria-modal')).toBe('true');
-    expect(el.classList.contains('gv-dialog--confirm')).toBe(true);
     expect(document.getElementById(el.getAttribute('aria-labelledby')!)?.textContent).toBe('Restore this checkpoint?');
     expect(document.getElementById(el.getAttribute('aria-describedby')!)?.textContent).toBe('The working tree goes back to it.');
     expect(el.textContent).toContain('nightly-42');
@@ -95,11 +94,10 @@ describe('useConfirm', () => {
     expect(dialog()).toBeNull();
   });
 
-  test('a destructive confirm uses the danger button and starts focus on Cancel', () => {
+  test('a destructive confirm starts focus on Cancel, so Enter never destroys by default', () => {
     void ask({ title: 'Delete this chat?', tone: 'danger', confirmLabel: 'Delete chat' });
-    expect(dialog()!.classList.contains('gv-confirm--danger')).toBe(true);
-    expect(document.querySelector('.gv-confirm__confirm')!.classList.contains('gv-button--danger')).toBe(true);
     expect(document.activeElement?.textContent).toBe('Cancel');
+    expect(dialog()!.textContent).toContain('Delete chat');
   });
 
   test('a second ask() resolves the first as false and shows only the second', async () => {

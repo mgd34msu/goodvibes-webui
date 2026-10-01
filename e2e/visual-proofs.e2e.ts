@@ -1,9 +1,10 @@
 /**
- * Visual proofs, retro-covers screenshots deferred earlier for
- * this harness: provider pills, the knowledge map, chat degraded states (mocked stream
- * drop), the delete affordance, and both themes for the white-band surfaces. Runs on
- * BOTH the phone and desktop projects; filenames carry the project name. Artifacts land
- * in e2e/.artifacts/screenshots/.
+ * Degraded and rarely-seen states, each asserted and then captured: the provider
+ * status ladder in words, chat and steer with a dropped stream, the delete
+ * affordance, and the session title's legibility against its real background in
+ * both themes. Layout and theme coverage of every ordinary screen lives in
+ * design-proof.e2e.ts. Runs on BOTH the phone and desktop projects; filenames
+ * carry the project name. Captures land in e2e/.artifacts/screenshots/.
  */
 import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
@@ -45,13 +46,6 @@ test('provider status in plain words', async ({ page }, testInfo) => {
   await page.screenshot({ path: shot(testInfo, 'provider-pills') });
 });
 
-test('knowledge map', async ({ page }, testInfo) => {
-  await installMockDaemon(page);
-  await page.goto('/?view=library&tab=knowledge');
-  await expect(page.locator('.dv-page')).toBeVisible();
-  await page.screenshot({ path: shot(testInfo, 'knowledge-map'), fullPage: true });
-});
-
 test('chat degraded states (mocked stream drop)', async ({ page }, testInfo) => {
   await installMockDaemon(page, { dropStreams: true });
   await page.goto('/?view=chat');
@@ -78,22 +72,6 @@ test('delete-means-delete affordance', async ({ page }, testInfo) => {
   await expect(page.getByRole('menuitem', { name: 'Delete permanently' })).toBeVisible();
   await page.screenshot({ path: shot(testInfo, 'delete-affordance'), fullPage: true });
 });
-
-for (const theme of ['dark', 'light'] as const) {
-  test(`white-band surfaces: ${theme} theme`, async ({ page }, testInfo) => {
-    await seedTheme(page, theme);
-    await installMockDaemon(page);
-    await page.goto('/?view=work');
-    await expect(page.locator('.shell-header')).toBeVisible();
-    // Prove the header surface is token-driven (no white band in dark theme).
-    const topbarBg = await page.locator('.shell-main').evaluate((el) => getComputedStyle(el.closest('.app-shell')!).backgroundColor);
-    if (theme === 'dark') {
-      // A near-white band would be rgb(255,255,255)-ish; the dark token must NOT be that.
-      expect(topbarBg).not.toBe('rgb(255, 255, 255)');
-    }
-    await page.screenshot({ path: shot(testInfo, `white-band-${theme}`), fullPage: true });
-  });
-}
 
 /** Perceived luminance (0 dark … 255 light) of an `rgb(...)`/`rgba(...)` string. */
 function luminanceOf(rgb: string): number {

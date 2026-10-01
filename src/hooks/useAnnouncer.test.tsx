@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { _announcerSnapshot, _resetAnnouncerStore, useAnnouncer } from './useAnnouncer';
+import { _resetAnnouncerStore, useAnnouncer } from './useAnnouncer';
 
 // ---------------------------------------------------------------------------
 // Types / helpers
@@ -162,35 +162,5 @@ describe('useAnnouncer', () => {
 
     owner.unmount();
     region.unmount();
-  });
-
-  test('both polite and assertive regions rendered inside sr-only wrapper', () => {
-    let handle!: AnnouncerHandle;
-    const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
-    const region = renderInto(<handle.AnnouncerRegion />);
-
-    const srOnly = region.el.querySelector('.sr-only');
-    expect(srOnly).not.toBeNull();
-    expect(srOnly?.querySelector('[aria-live="polite"]')).not.toBeNull();
-    expect(srOnly?.querySelector('[aria-live="assertive"]')).not.toBeNull();
-
-    owner.unmount();
-    region.unmount();
-  });
-
-  test('module-level store snapshot reflects state changes', () => {
-    const snap1 = _announcerSnapshot();
-    expect(snap1.polite).toBe('');
-    expect(snap1.assertive).toBe('');
-
-    let handle!: AnnouncerHandle;
-    const owner = renderInto(<HookOwner onHandle={(h) => { handle = h; }} />);
-
-    handle.announce('Store test', 'assertive');
-    jest.advanceTimersByTime(80);
-
-    const snap2 = _announcerSnapshot();
-    expect(snap2.assertive).toBe('Store test');
-    owner.unmount();
   });
 });

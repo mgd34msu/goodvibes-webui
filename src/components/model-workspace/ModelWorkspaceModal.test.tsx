@@ -109,17 +109,19 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
     unmount();
   });
 
-  test('model rows are kit rows with context and price on the right and one secondary action', async () => {
+  test('the current model row is marked current, shows its price, and only other rows offer Use', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
     const opusRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('Claude Opus 4'));
-    expect(opusRow?.classList.contains('gv-row')).toBe(true);
-    expect(opusRow?.classList.contains('gv-row--selected')).toBe(true);
-    expect(opusRow?.querySelector('.model-workspace-figures')?.textContent).toContain('$15 in / $75 out');
-    expect(opusRow?.querySelector('button')?.textContent).toBe('Current');
+    expect(opusRow?.querySelector('[aria-current]')).not.toBeNull();
+    expect(opusRow?.textContent).toContain('$15 in / $75 out');
+    const opusAction = opusRow?.querySelector('button');
+    expect(opusAction?.textContent).toBe('Current');
+    expect(opusAction?.hasAttribute('disabled')).toBe(true);
     const gptRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('GPT-5'));
-    expect(gptRow?.querySelector('button')?.className).toContain('gv-button--secondary');
-    expect(el.querySelector('.primary-button, .secondary-button, select')).toBeNull();
+    expect(gptRow?.querySelector('[aria-current]')).toBeNull();
+    expect(gptRow?.querySelector('button')?.textContent).toBe('Use');
+    expect(el.querySelector('select')).toBeNull();
     unmount();
   });
 

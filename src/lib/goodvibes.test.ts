@@ -875,92 +875,30 @@ describe('principals.* / channels.profiles.* (SDK 1.6.1 initiative family) wire 
   });
 });
 
-describe('typed client: wrong-typed input is a COMPILE error, not a runtime cast', () => {
-  // These functions are defined but deliberately never invoked: the assertion under
-  // test is that `tsc --noEmit` rejects the line (the `@ts-expect-error` directive
-  // itself fails the build if the line does NOT actually error, "Unused '@ts-expect-
-  // error' directive", so this is a real, gate-enforced compile check, not a comment).
+// Wrong-typed input is a COMPILE error, not a runtime cast. These functions are never
+// invoked: each `@ts-expect-error` line fails `tsc --noEmit` the moment the call stops
+// erroring ("Unused '@ts-expect-error' directive"), so the typecheck job is the test.
+// There is nothing to assert at runtime, so there is deliberately no test() around them.
+function typeOnlySessionsSteerRejectsNumericBody(): void {
+  // @ts-expect-error -- OperatorMethodInput<'sessions.steer'> requires body: string; this used to silently pass through a removed `as never` cast.
+  void sdk.operator.sessions.steer('session-1', { body: 123 });
+}
+function typeOnlyCheckpointsCreateRejectsUnknownKind(): void {
+  // @ts-expect-error -- CheckpointsCreateInput.kind is 'turn' | 'agent-run' | 'manual', not an arbitrary string.
+  void sdk.operator.checkpoints.create({ kind: 'not-a-real-kind' });
+}
+function typeOnlyTasksCreateRejectsNumericTitle(): void {
+  // @ts-expect-error -- title is typed string on the generated contract; tasks.create's input flows straight from OperatorMethodInput<'tasks.create'>.
+  void sdk.operator.tasks.create({ task: 'x', title: 123 });
+}
+void typeOnlySessionsSteerRejectsNumericBody;
+void typeOnlyCheckpointsCreateRejectsUnknownKind;
+void typeOnlyTasksCreateRejectsNumericTitle;
 
-  test('sessions.steer: a numeric body is rejected now that `as never` is gone', () => {
-    function typeOnly(): void {
-      // @ts-expect-error -- OperatorMethodInput<'sessions.steer'> requires body: string; this used to silently pass through the removed `as never` cast at goodvibes.ts:605-606.
-      void sdk.operator.sessions.steer('session-1', { body: 123 });
-    }
-    void typeOnly;
-    expect(true).toBe(true);
-  });
-
-  test('checkpoints.create: an unknown `kind` literal is rejected by the bridge type', () => {
-    function typeOnly(): void {
-      // @ts-expect-error -- CheckpointsCreateInput.kind is 'turn' | 'agent-run' | 'manual', not an arbitrary string.
-      void sdk.operator.checkpoints.create({ kind: 'not-a-real-kind' });
-    }
-    void typeOnly;
-    expect(true).toBe(true);
-  });
-
-  test('tasks.create: a numeric title is rejected via OperatorMethodInput<\'tasks.create\'>', () => {
-    function typeOnly(): void {
-      // @ts-expect-error -- title is typed string on the generated contract; tasks.create's input now flows straight from OperatorMethodInput<'tasks.create'>, no local hand type in between.
-      void sdk.operator.tasks.create({ task: 'x', title: 123 });
-    }
-    void typeOnly;
-    expect(true).toBe(true);
-  });
-});
-
-describe('sdk facade shape: byte-compatible surface', () => {
-  // Guards the ~15 view/hook files that import `sdk` structurally (never by destructuring
-  // its own type) against an accidental rename/removal in this refactor. `search` is the
-  // one intentional addition this scaffolds for the session-search feature; everything
-  // else must be the exact pre-existing surface. `memory` is WEBUI-MEMORY-VIEW's own
-  // intentional addition (memory.records.* / memory.review-queue).
-  test('sdk top-level keys are unchanged', () => {
-    expect(Object.keys(sdk).sort()).toEqual(['artifacts', 'auth', 'chat', 'knowledge', 'operator', 'realtime', 'streams'].sort());
-  });
-
-  test('sdk.operator keys gain memory, watchers, calendar, push, pairing, ci, checkin, channels, principals, cost, stepup, power, and the voice + config reads', () => {
-    // 'calendar' added here: calendar.* has real HTTP routes but no
-    // SHARED/KNOWLEDGE_BROWSER_ROUTES coverage (see the EXTRA_METHOD_ROUTES header
-    // comment in goodvibes.ts), so it gets its own namespace like tasks/approvals.
-    // 'push' added for Web Push (ws-only generic-invoke verbs, like fleet).
-    // 'pairing' added for SDK 1.8.0's per-device pairing tokens + hand-off bundle
-    // (pairing.tokens.*, pairing.handoff.*), same ws-only generic-invoke family.
-    // 'ci'/'checkin'/'channels'/'principals' added for the SDK 1.6.1 initiative-family
-    // repack. 'cost' added for cost.attribution.get (same 1.6.1 repack).
-    // 'stepup' added for the WebAuthn relay step-up ceremony's mint/register verbs.
-    // 'permissions' added for the durable approval rules (permissions.rules.*).
-    // 'power' added for SDK 1.8.0's host sleep-ownership work (power.status.get,
-    // power.keepAwake.set, both real REST routes, resolving through
-    // EXTRA_METHOD_ROUTES like config.* above).
-    // 'tailscale' added for SDK 1.8.0's one-action https affordance (tailscale.get,
-    // tailscale.serve.run, both ws-only, resolving through invokeGatewayMethod like
-    // fleet.*/permissions.rules.* above).
-    // 'ops' added for SDK 1.9.0-dev's memory-relay-voice-hardening work (ops.memory.get
-    //, a real REST route, resolving through EXTRA_METHOD_ROUTES like power.* above).
-    // 'email' added for the Mail surface (email.inbox.list/read, email.send,
-    // email.draft.create), its own namespace for the same reason calendar has one:
-    // real HTTP routes with no OperatorMethodInput/OutputMap entry of their own.
-    // 'profile' added for the owner profile (docs/owner-profile.md §11.1), the nine
-    // profile.* verbs over the one hand-editable Markdown document at daemon scope.
-    // 'payments' added for card entry on this surface (payments.cards.list/create/
-    // delete, real REST routes already carried by the pinned contracts facade, so
-    // they resolve through EXTRA_METHOD_ROUTES like config.* and power.* above).
-    // 'occasions' added for the dates panel (docs/occasions.md), sixteen occasions.*
-    // verbs, real generated I/O maps throughout, same no-bridge-override shape as
-    // checkin/principals above (see the operator.occasions section comment in
-    // goodvibes.ts).
-    expect(Object.keys(sdk.operator).sort()).toEqual(
-      ['accounts', 'approvals', 'calendar', 'channels', 'checkin', 'checkpoints', 'ci', 'config', 'control', 'cost', 'credentials', 'email', 'fleet', 'invoke', 'memory', 'models', 'occasions', 'ops', 'pairing', 'payments', 'permissions', 'power', 'principals', 'profile', 'providers', 'push', 'rewind', 'sessions', 'stepup', 'tailscale', 'tasks', 'voice', 'watchers'].sort(),
-    );
-  });
-
-  test('sdk.operator.profile exposes exactly the nine owner-profile verbs', () => {
-    expect(Object.keys(sdk.operator.profile).sort()).toEqual(
-      ['append', 'forget', 'get', 'person', 'provenance', 'read', 'set', 'status', 'undo'].sort(),
-    );
-  });
-
+describe('sdk facade rules', () => {
+  // The facade's key lists are not pinned here: a namespace a view uses cannot be
+  // removed without a compile error in that view, and a snapshot of every key only
+  // fails on additions. What IS pinned is the two facts a snapshot cannot express.
   test('sdk.operator.payments exposes cards only, and no method that reads card material back', () => {
     expect(Object.keys(sdk.operator.payments).sort()).toEqual(['cards']);
     expect(Object.keys(sdk.operator.payments.cards).sort()).toEqual(['create', 'delete', 'list'].sort());
@@ -972,79 +910,7 @@ describe('sdk facade shape: byte-compatible surface', () => {
     }
   });
 
-  test('sdk.operator.ops exposes exactly the memory-governance verb', () => {
-    expect(Object.keys(sdk.operator.ops).sort()).toEqual(['memory'].sort());
-    expect(Object.keys(sdk.operator.ops.memory).sort()).toEqual(['get'].sort());
-  });
-
-  test('sdk.operator.tailscale exposes the one-action https verbs', () => {
-    expect(Object.keys(sdk.operator.tailscale).sort()).toEqual(['get', 'serveRun'].sort());
-  });
-
-  test('sdk.operator.power exposes status and setKeepAwake', () => {
-    expect(Object.keys(sdk.operator.power).sort()).toEqual(['status', 'setKeepAwake'].sort());
-  });
-
-  test('sdk.operator.stepup exposes the step-up ceremony verbs', () => {
-    expect(Object.keys(sdk.operator.stepup).sort()).toEqual(['mintChallenge', 'registerCredential'].sort());
-  });
-
-  test('sdk.operator.cost exposes the cost.attribution.get verb', () => {
-    expect(Object.keys(sdk.operator.cost).sort()).toEqual(['attribution'].sort());
-    expect(Object.keys(sdk.operator.cost.attribution).sort()).toEqual(['get'].sort());
-  });
-
-  test('sdk.operator.push exposes the Web Push lifecycle verbs', () => {
-    expect(Object.keys(sdk.operator.push).sort()).toEqual(
-      ['list', 'reconcile', 'subscribe', 'unsubscribe', 'vapidKey', 'verify'].sort(),
-    );
-  });
-
-  test('sdk.operator.pairing exposes the per-device token + hand-off + posture verbs', () => {
-    expect(Object.keys(sdk.operator.pairing).sort()).toEqual(['tokens', 'handoff', 'posture'].sort());
-    expect(Object.keys(sdk.operator.pairing.tokens).sort()).toEqual(
-      ['list', 'create', 'migrate', 'rename', 'delete', 'revokeShared'].sort(),
-    );
-    expect(Object.keys(sdk.operator.pairing.handoff).sort()).toEqual(['create', 'complete'].sort());
-    expect(Object.keys(sdk.operator.pairing.posture).sort()).toEqual(['get'].sort());
-  });
-
-  test('sdk.operator.memory keys are exactly the six memory.records.*/review-queue verbs plus consolidation', () => {
-    // 'consolidation' added for SDK 1.8.0's memory.consolidation.receipts (retained
-    // consolidation run receipts + pending judgment proposals), surfaced in
-    // ConsolidationReceipts.
-    expect(Object.keys(sdk.operator.memory).sort()).toEqual(
-      ['add', 'consolidation', 'delete', 'get', 'reviewQueue', 'search', 'updateReview'].sort(),
-    );
-  });
-
-  test('sdk.operator.memory.consolidation exposes exactly the receipts verb', () => {
-    expect(Object.keys(sdk.operator.memory.consolidation).sort()).toEqual(['receipts'].sort());
-  });
-
-  test('sdk.operator.voice exposes the wire voice verbs', () => {
-    // 'local' added for SDK 1.9.0-dev's managed local-voice provisioning
-    // (voice.local.status/install, both real REST routes, resolving through
-    // EXTRA_METHOD_ROUTES like the rest of this namespace).
-    // 'wake' added for browser wake-word detection (voice.wake.status /
-    // voice.wake.provision / voice.wake.model, same generated-REST story).
-    expect(Object.keys(sdk.operator.voice).sort()).toEqual(
-      ['local', 'providers', 'status', 'stt', 'tts', 'ttsStream', 'voices', 'wake'].sort(),
-    );
-  });
-
-  test('sdk.operator.voice.local exposes exactly the status and install verbs', () => {
-    expect(Object.keys(sdk.operator.voice.local).sort()).toEqual(['status', 'install'].sort());
-  });
-
-  test('sdk.operator.voice.wake exposes exactly status, provision and model.get', () => {
-    expect(Object.keys(sdk.operator.voice.wake).sort()).toEqual(['status', 'provision', 'model'].sort());
-    expect(Object.keys(sdk.operator.voice.wake.model).sort()).toEqual(['get']);
-  });
-
   test('every voice.wake verb resolves through a generated REST route, not a hand-written row', () => {
-    // The three wake verbs must be routed by WEBUI_METHOD_ROUTES (the generated
-    // artifact), which is what isExtraRoutedMethod reports for a derived row.
     for (const methodId of ['voice.wake.status', 'voice.wake.provision', 'voice.wake.model.get'] as const) {
       expect(isExtraRoutedMethod(methodId)).toBe(true);
     }
@@ -1053,100 +919,8 @@ describe('sdk facade shape: byte-compatible surface', () => {
     expect(webuiRouteFor('voice.wake.model.get')).toEqual({ method: 'GET', path: '/api/voice/wake/model' });
   });
 
-  test('sdk.operator.calendar keys are events and ics', () => {
-    expect(Object.keys(sdk.operator.calendar).sort()).toEqual(['events', 'ics'].sort());
-    expect(Object.keys(sdk.operator.calendar.events).sort()).toEqual(['create', 'get', 'list'].sort());
-    expect(Object.keys(sdk.operator.calendar.ics).sort()).toEqual(['export', 'import'].sort());
-  });
-
-  // occasions.* (docs/occasions.md, the dates panel), sixteen verbs across the flat
-  // group plus three sub-namespaces (conflict, interview, plans), same
-  // dotted-verb-becomes-sub-namespace convention pairing.tokens/channels.profiles use.
-  test('sdk.operator.occasions exposes the full sixteen-verb surface', () => {
-    expect(Object.keys(sdk.operator.occasions).sort()).toEqual(
-      ['list', 'pending', 'propose', 'confirm', 'remove', 'answer', 'gifts', 'sweep', 'state', 'conflict', 'interview', 'plans'].sort(),
-    );
-    expect(Object.keys(sdk.operator.occasions.conflict).sort()).toEqual(['resolve']);
-    expect(Object.keys(sdk.operator.occasions.interview).sort()).toEqual(['get', 'answer', 'record'].sort());
-    expect(Object.keys(sdk.operator.occasions.plans).sort()).toEqual(['list', 'propose', 'confirm'].sort());
-  });
-
-  test('sdk.operator.sessions keys gain search, delete (delete-means-delete), detach (WEBUI-FLEET-DEPTH), permissionMode/contextUsage (SDK 1.6.1), changes (SDK 1.6.1), toolCalls/queuedMessages (SDK 1.8.0), and hosted (daemon-hosted sessions)', () => {
-    expect(Object.keys(sdk.operator.sessions).sort()).toEqual(
-      ['changes', 'close', 'contextUsage', 'create', 'delete', 'detach', 'followUp', 'get', 'hosted', 'inputs', 'list', 'messages', 'permissionMode', 'queuedMessages', 'reopen', 'search', 'steer', 'toolCalls'].sort(),
-    );
-  });
-
-  test('sdk.operator.sessions.hosted exposes exactly list/create/attach/detach/kill, no hosted-specific steer/cancel (steered via the ordinary sessions.steer/followUp/toolCalls.cancel)', () => {
-    expect(Object.keys(sdk.operator.sessions.hosted).sort()).toEqual(['attach', 'create', 'detach', 'kill', 'list'].sort());
-  });
-
-  test('sdk.operator.sessions.permissionMode/contextUsage expose exactly the session-scoped verbs', () => {
-    expect(Object.keys(sdk.operator.sessions.permissionMode).sort()).toEqual(['get', 'set'].sort());
-    expect(Object.keys(sdk.operator.sessions.contextUsage).sort()).toEqual(['get']);
-  });
-
-  test('sdk.operator.sessions.toolCalls exposes exactly cancel', () => {
-    expect(Object.keys(sdk.operator.sessions.toolCalls).sort()).toEqual(['cancel']);
-  });
-
-  test('sdk.operator.sessions.queuedMessages exposes list/edit/delete', () => {
-    expect(Object.keys(sdk.operator.sessions.queuedMessages).sort()).toEqual(['delete', 'edit', 'list'].sort());
-  });
-
-  test('sdk.operator.watchers exposes exactly stop (WEBUI-FLEET-DEPTH, fleet is a reader, not a watcher-authoring surface)', () => {
-    expect(Object.keys(sdk.operator.watchers).sort()).toEqual(['stop']);
-  });
-
-  // ci.* (SDK 1.6.1's initiative-family repack): status + the watches CRUD/run group.
-  test('sdk.operator.ci exposes status and watches', () => {
-    expect(Object.keys(sdk.operator.ci).sort()).toEqual(['status', 'watches'].sort());
-    expect(Object.keys(sdk.operator.ci.watches).sort()).toEqual(['create', 'delete', 'list', 'run'].sort());
-  });
-
-  // checkin.* (SDK 1.6.1's initiative-family repack): config get/set, receipts, run.
-  test('sdk.operator.checkin exposes config, receipts, and run', () => {
-    expect(Object.keys(sdk.operator.checkin).sort()).toEqual(['config', 'receipts', 'run'].sort());
-    expect(Object.keys(sdk.operator.checkin.config).sort()).toEqual(['get', 'set'].sort());
-    expect(Object.keys(sdk.operator.checkin.receipts).sort()).toEqual(['list']);
-  });
-
-  // principals.* / channels.profiles.* (SDK 1.6.1's initiative-family repack).
-  test('sdk.operator.principals exposes the full identity-registry verb set', () => {
-    expect(Object.keys(sdk.operator.principals).sort()).toEqual(
-      ['create', 'delete', 'get', 'list', 'resolve', 'update'].sort(),
-    );
-  });
-
-  test('sdk.operator.channels.profiles exposes list/get/set/delete', () => {
-    expect(Object.keys(sdk.operator.channels).sort()).toEqual(['profiles']);
-    expect(Object.keys(sdk.operator.channels.profiles).sort()).toEqual(['delete', 'get', 'list', 'set'].sort());
-  });
-
-  test('sdk.operator.fleet / checkpoints / approvals / tasks keys are unchanged', () => {
-    // fleet gains the archive verbs with SDK 1.6.x (session archive of finished subtrees),
-    // the best-of-N attempts sub-group (list/pick/judge) with the 1.6.1 review cockpit, the
-    // task-graph read (graph.get) with the 1.8.0 fix-phase workstream rework, and the
-    // observed-foreign-agent steer (observed.steer) with the same 1.8.0 round.
-    expect(Object.keys(sdk.operator.fleet).sort()).toEqual(
-      ['list', 'snapshot', 'archive', 'unarchive', 'archiveFinished', 'archivedList', 'attempts', 'graph', 'observed'].sort(),
-    );
-    expect(Object.keys(sdk.operator.fleet.attempts).sort()).toEqual(['list', 'pick', 'judge'].sort());
-    expect(Object.keys(sdk.operator.fleet.graph).sort()).toEqual(['get']);
-    expect(Object.keys(sdk.operator.fleet.observed).sort()).toEqual(['steer']);
-    // checkpoints gains the per-hunk revert preview/apply pair with the 1.6.1 review cockpit.
-    expect(Object.keys(sdk.operator.checkpoints).sort()).toEqual(
-      ['create', 'diff', 'list', 'restore', 'restorePreview', 'revertHunkPreview', 'revertHunk'].sort(),
-    );
-    // rewind (plan/apply) is a new top-level operator group with the 1.6.1 rewind surface.
-    expect(Object.keys(sdk.operator.rewind).sort()).toEqual(['plan', 'apply'].sort());
-    expect(Object.keys(sdk.operator.approvals).sort()).toEqual(['approve', 'cancel', 'claim', 'deny', 'list'].sort());
-    expect(Object.keys(sdk.operator.tasks).sort()).toEqual(['cancel', 'create', 'list', 'retry'].sort());
-  });
-
   test('sdk.chat.sessions.delete still points at the companion delete verb (the honest hard-delete behind the same id)', () => {
     expect(isExtraRoutedMethod('companion.chat.sessions.delete')).toBe(true);
-    expect(typeof sdk.chat.sessions.delete).toBe('function');
   });
 });
 

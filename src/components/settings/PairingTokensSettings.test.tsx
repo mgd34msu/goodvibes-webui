@@ -109,6 +109,15 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void
   }
 }
 
+/** The Revoke action on the paired-device row named `device`, found by its name, not its styling. */
+function revokeActionFor(el: HTMLElement, device: string): HTMLButtonElement | undefined {
+  const row = [...el.querySelectorAll('ul[aria-label="Paired devices"] li')].find((r) => r.textContent?.includes(device));
+  return [...(row?.querySelectorAll('button') ?? [])].find((b) => {
+    const name = `${b.getAttribute('aria-label') ?? ''} ${b.textContent ?? ''}`;
+    return /revoke/i.test(name);
+  });
+}
+
 afterEach(() => {
   listCalls.length = 0;
   renameCalls.length = 0;
@@ -181,9 +190,12 @@ describe('PairingTokensSettings revoke: confirm gate', () => {
   test('cancelling the confirm sheet does not revoke', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Phone'));
-    const row = [...el.querySelectorAll('.pairing-token-row')].find((r) => r.textContent?.includes('Phone'));
-    click(row?.querySelector('.pairing-token-row__revoke'));
+    click(revokeActionFor(el, 'Phone'));
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
+    // The dialog names the device and says what revoking does, before anything happens.
+    expect(el.querySelector('.gv-confirm')?.textContent).toContain('Revoke this device?');
+    expect(el.querySelector('.gv-confirm')?.textContent).toContain('Phone');
+    expect(el.querySelector('.gv-confirm')?.textContent).toContain('signed out');
     click(el.querySelector('.gv-confirm__cancel'));
     // The sheet closes as ask() resolves false. The handler resumes after that
     // await on a microtask, and a revoke mutation would reach the SDK on further
@@ -197,8 +209,7 @@ describe('PairingTokensSettings revoke: confirm gate', () => {
   test('confirming revokes exactly the clicked device', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Phone'));
-    const row = [...el.querySelectorAll('.pairing-token-row')].find((r) => r.textContent?.includes('Phone'));
-    click(row?.querySelector('.pairing-token-row__revoke'));
+    click(revokeActionFor(el, 'Phone'));
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
     click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => deleteCalls.length > 0);
@@ -221,13 +232,16 @@ describe('PairingTokensSettings migrate + revoke-shared', () => {
     unmount();
   });
 
-  test('revoke-shared requires confirming a danger dialog', async () => {
+  test('revoke-shared asks first, warning what it does, and only then calls revokeShared', async () => {
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('Revoke the shared token'));
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Revoke the shared token')));
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
-    // A destructive action reads as danger-toned in the sheet.
-    expect(el.querySelector('.gv-confirm')?.className).toContain('danger');
+    expect(el.querySelector('.gv-confirm')?.textContent).toContain('Revoke the shared token?');
+    expect(el.querySelector('.gv-confirm')?.textContent).toContain('signed out');
+    expect(revokeSharedCalls).toHaveLength(0);
+    // Destructive: focus starts on Cancel, so a stray Enter cannot revoke.
+    expect(document.activeElement?.textContent).toBe('Cancel');
     click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => revokeSharedCalls.length > 0);
     unmount();

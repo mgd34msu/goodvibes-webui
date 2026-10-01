@@ -47,12 +47,10 @@ test('the chat delete is touch-reachable (not hover-only) in the Recent list', a
   // Open the drawer so the Recent chat list (with its per-row delete) is visible.
   await openNavigation(page);
 
+  // The mock seeds two chats (mock-daemon.ts companionChatSessions), so a missing
+  // delete control is a failure here, never a reason to skip.
   const del = page.locator('.shell-drawer .shell-recent__delete').first();
-  const count = await del.count();
-  if (count === 0) {
-    test.skip(true, 'no companion chat sessions seeded to carry a delete control');
-    return;
-  }
+  await expect(del).toBeVisible();
   // Reachable means: rendered, non-zero opacity (not the hover-only opacity:0), 44px.
   const opacity = await del.evaluate((el) => getComputedStyle(el).opacity);
   expect(Number(opacity)).toBeGreaterThan(0.5);

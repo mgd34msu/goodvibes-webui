@@ -1,7 +1,7 @@
 # GoodVibes WebUI
 
 [![CI](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml/badge.svg)](https://github.com/mgd34msu/goodvibes-webui/actions/workflows/ci.yml)
-![WebUI 1.13.20](https://img.shields.io/badge/WebUI-1.13.20-00d7ff)
+![WebUI 2.0.0](https://img.shields.io/badge/WebUI-2.0.0-00d7ff)
 ![SDK 2.1.0](https://img.shields.io/badge/SDK-2.1.0-8b5cf6)
 ![Bun 1.3.14](https://img.shields.io/badge/Bun-1.3.14-f7a8ff)
 

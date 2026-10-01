@@ -4,6 +4,48 @@ All notable changes to GoodVibes WebUI will be documented in this file.
 
 This project uses semantic versioning with `vMAJOR.MINOR.PATCH` git tags.
 
+## [2.0.0] - 2026-10-01
+
+### Changes
+
+The web UI is redesigned from top to bottom. It talks to the same daemon
+and SDK as 1.13.20; old links and bookmarks still work.
+
+- **Four places instead of thirteen.** The sidebar holds New chat, Search,
+  Work, Library and Personal, with your Recent chats underneath. Work brings
+  sessions, agents, processes and everything waiting on you into one list
+  with Needs you first. Library holds memory, knowledge and the review queue.
+  Personal holds the calendar, mail and occasions. Old `?view=` links open
+  their new home.
+- **One settings dialog.** The Admin view, the Providers view and the config
+  modal become one searchable dialog with seven pages: General, Account,
+  Models and providers, Voice, Notifications, Memory and Permissions. Pages
+  that used to stand alone, such as Devices and pairing or Usage, are
+  sections inside the page they belong to, and old settings links land on
+  them.
+- **A calm, slate look.** One accent color, Geist type at a comfortable
+  size, rounded surfaces, glass dialogs over a blurred backdrop, and light,
+  dark or automatic themes. GoodVibes Neon stays as a theme you can switch
+  on from the account menu.
+- **Chat reads like a conversation.** A greeting and real starting points on
+  a new chat, one composer that shows the model and effort in words, tool
+  activity folded into one line you can open, and calm code blocks that
+  scroll inside their frame.
+- **The status strip is gone.** Connection, theme, devices, people,
+  check-ins and sign out live in the account menu; the avatar's dot shows
+  whether the daemon is reachable.
+- **Room for detail.** When a detail, a message or an event opens on the
+  right, the sidebar folds to an icon rail and comes back when it closes.
+  Pinning the sidebar keeps it open.
+- **Built for phones.** The sidebar becomes a drawer, sheets rise from the
+  bottom, and no screen scrolls sideways.
+- **Plain words.** Every confirmation asks one question in one sentence, and
+  empty states say what to do next.
+- **Tests guard behavior.** A layout check runs every major screen on phone
+  and desktop for sideways scroll and clipped text, a contrast test checks
+  every text color in each theme, and older tests that pinned markup or
+  wording now check what a person sees and does.
+
 ## [1.13.20] - 2026-09-30
 
 ### Changes

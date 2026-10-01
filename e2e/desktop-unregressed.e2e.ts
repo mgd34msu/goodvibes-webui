@@ -42,8 +42,9 @@ test('steer still sends on desktop', async ({ page }) => {
   const input = detail.getByRole('textbox', { name: 'Steer message' });
   await input.fill('Desktop steer path still works');
   await input.press('Enter');
-  await expect.poll(() => daemon.steerRequests.length, { timeout: 10_000 }).toBeGreaterThan(0);
-  await expect(page.locator('.steer-dispatch').first()).toContainText(/steer · delivered/i);
+  await expect.poll(() => daemon.steerRequests
+    .filter((r) => r.sessionId === STEERABLE_SESSION.id)
+    .some((r) => JSON.stringify(r.body).includes('Desktop steer path still works')), { timeout: 10_000 }).toBe(true);
 });
 
 test('Work filters by kind with its own segmented control, and the tab rides the URL', async ({ page }) => {

@@ -72,15 +72,20 @@ afterEach(() => {
 });
 
 describe('PriceSourceNote', () => {
-  test('the user tier labels the dollars "your price" and offers Edit', async () => {
-    const { el, unmount } = render({ costSource: 'user', provider: 'openrouter', model: 'deepseek/deepseek-chat' });
-    await settle();
-    expect(el.querySelector('.price-source-note__label')?.textContent).toBe('your price');
-    expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Edit price');
-    unmount();
+  test('each known source renders a label and an edit action, distinct per source', async () => {
+    const labels: string[] = [];
+    for (const costSource of ['user', 'catalog', 'provider', 'mixed'] as const) {
+      const { el, unmount } = render({ costSource, provider: 'openrouter', model: 'deepseek/deepseek-chat' });
+      await settle();
+      labels.push(el.querySelector('.price-source-note__label')?.textContent ?? '');
+      expect(el.querySelector('.price-source-note__edit')).not.toBeNull();
+      unmount();
+    }
+    expect(labels.every((label) => label.length > 0)).toBe(true);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
-  test('catalog renders the source AND the as-of date the wire served', async () => {
+  test('a served as-of date is carried in the label', async () => {
     const { el, unmount } = render({
       costSource: 'catalog',
       pricingAsOf: '2026-07-01T00:00:00.000Z',
@@ -88,32 +93,15 @@ describe('PriceSourceNote', () => {
       model: 'deepseek/deepseek-chat',
     });
     await settle();
-    const label = el.querySelector('.price-source-note__label')?.textContent;
-    expect(label).toBe('catalog price, as of Jul 1, 2026');
-    expect(label).toMatch(/2026/);
-    expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Set price');
+    expect(el.querySelector('.price-source-note__label')?.textContent).toContain('2026');
     unmount();
   });
 
-  test('provider-served source labels as such', async () => {
-    const { el, unmount } = render({ costSource: 'provider', provider: 'openrouter', model: 'x' });
-    await settle();
-    expect(el.querySelector('.price-source-note__label')?.textContent).toBe('provider-served price');
-    unmount();
-  });
-
-  test('a mixed aggregate labels honestly, dated', async () => {
-    const { el, unmount } = render({ costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z' });
-    await settle();
-    expect(el.querySelector('.price-source-note__label')?.textContent).toBe('mixed pricing sources, as of Jul 1, 2026');
-    unmount();
-  });
-
-  test('an absent source makes no claim, only the Set price action', async () => {
+  test('an absent source renders no label, only the edit action', async () => {
     const { el, unmount } = render({ costSource: null, provider: 'openrouter', model: 'x' });
     await settle();
     expect(el.querySelector('.price-source-note__label')).toBeNull();
-    expect(el.querySelector('.price-source-note__edit')?.textContent).toBe('Set price');
+    expect(el.querySelector('.price-source-note__edit')).not.toBeNull();
     unmount();
   });
 

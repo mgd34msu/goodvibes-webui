@@ -3,32 +3,25 @@
  * for an approval action button (`#approval-action=…&approval-id=…`) makes the
  * authenticated app run the real approve/deny call and scrub the fragment.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 
-test('an Allow hand-off approves the seeded approval and clears the fragment', async ({ page }) => {
-  await installMockDaemon(page);
+const approvalRow = (scope: Locator) => scope.locator('.gv-row', { hasText: /^Approve bash/ });
 
-  await page.goto('/?view=approvals-tasks#approval-action=approve&approval-id=appr-e2e-1');
+for (const [action, decision] of [['Allow', 'approve'], ['Deny', 'deny']] as const) {
+  test(`an ${action} hand-off sends the ${decision} call for the seeded approval and moves it to finished`, async ({ page }) => {
+    const daemon = await installMockDaemon(page);
 
-  // A success toast confirms the decision landed.
-  await expect(page.getByText('Approved', { exact: true })).toBeVisible();
-  // The one-shot action fragment is scrubbed from the URL.
-  await expect.poll(() => new URL(page.url()).hash).not.toContain('approval-action');
-  // The approval left Needs you and shows as approved among finished work.
-  await expect(page.getByRole('region', { name: 'Needs you' }).locator('.gv-row', { hasText: /^Approve bash/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Show' }).click();
-  await page.getByRole('option', { name: 'Active and finished' }).click();
-  await expect(page.getByRole('region', { name: 'Finished' }).locator('.gv-row', { hasText: /^Approve bash/ })).toContainText('Approved');
-});
+    await page.goto(`/?view=approvals-tasks#approval-action=${decision}&approval-id=appr-e2e-1`);
 
-test('a Deny hand-off denies the seeded approval', async ({ page }) => {
-  await installMockDaemon(page);
-
-  await page.goto('/?view=approvals-tasks#approval-action=deny&approval-id=appr-e2e-1');
-
-  await expect.poll(() => new URL(page.url()).hash).not.toContain('approval-action');
-  await page.getByRole('button', { name: 'Show' }).click();
-  await page.getByRole('option', { name: 'Active and finished' }).click();
-  await expect(page.getByRole('region', { name: 'Finished' }).locator('.gv-row', { hasText: /^Approve bash/ })).toContainText('Denied');
-});
+    // The decision call reached the daemon for exactly the seeded approval.
+    await expect.poll(() => daemon.approvalActions.map((a) => `${a.approvalId}:${a.action}`)).toEqual([`appr-e2e-1:${decision}`]);
+    // The one-shot action fragment is scrubbed from the URL.
+    await expect.poll(() => new URL(page.url()).hash).not.toContain('approval-action');
+    // The approval left Needs you and now sits among finished work.
+    await expect(approvalRow(page.getByRole('region', { name: 'Needs you' }))).toHaveCount(0);
+    await page.getByRole('combobox', { name: 'Show' }).click();
+    await page.getByRole('option', { name: 'Active and finished' }).click();
+    await expect(approvalRow(page.getByRole('region', { name: 'Finished' }))).toHaveCount(1);
+  });
+}

@@ -63,7 +63,7 @@ test('two chats keep their own messages, and the composer sends to the selected 
 
   // Chat A.
   await send(page, 'alpha: first question');
-  await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply');
+  await expect(page.locator('.message.assistant')).toHaveCount(1);
   await expect.poll(() => daemon.sessionIds().length).toBe(1);
   const [alpha] = daemon.sessionIds();
 

@@ -18,19 +18,13 @@ async function openPalette(page: Page): Promise<ReturnType<Page['getByRole']>> {
 test.describe('desktop', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
-  test('Ctrl K opens a 640 glass palette over the scrim with the four sections', async ({ page }) => {
+  test('Ctrl K opens the palette over the scrim with search focused and every command offered', async ({ page }) => {
     await installMockDaemon(page);
     await page.goto('/?view=work');
     await expect(page.locator('.app-shell')).toBeVisible();
     const palette = await openPalette(page);
-    await expect(palette).toHaveClass(/glass/);
-    await expect.poll(() => palette.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(640);
     await expect(page.locator('.cmd-overlay > .scrim')).toBeVisible();
     await expect(palette.getByRole('textbox', { name: 'Search commands' })).toBeFocused();
-    const labels = await palette.locator('.cmd-group-label').allTextContents();
-    // Chats appear when the daemon has recent chats; the other three always do.
-    expect(labels.filter((l) => l !== 'Chats')).toEqual(['Go to', 'Actions', 'Settings']);
-    if (labels.includes('Chats')) expect(labels[0]).toBe('Chats');
     // Every pre-existing command is still offered.
     for (const title of ['Go to Chat', 'Go to Work', 'Go to Library', 'Go to Personal', 'Go to Knowledge', 'New Chat', 'Show Keyboard Shortcuts', 'Toggle Theme', 'Toggle Density', 'Models and providers', 'Open settings']) {
       await expect(palette.getByRole('option', { name: new RegExp(title) })).toHaveCount(1);
@@ -45,7 +39,7 @@ test.describe('desktop', () => {
     const palette = await openPalette(page);
     await page.keyboard.type('go to libr');
     await expect(palette.getByRole('option')).toHaveCount(1);
-    await expect(palette.getByRole('option', { selected: true })).toContainText('Go to Library');
+    await expect(palette.getByRole('option', { name: /Go to Library/, selected: true })).toHaveCount(1);
     await page.keyboard.press('Enter');
     await expect(palette).toHaveCount(0);
     await expect(page).toHaveURL(/view=library/);
@@ -57,7 +51,7 @@ test.describe('desktop', () => {
     await expect(page.locator('.app-shell')).toBeVisible();
     const palette = await openPalette(page);
     await page.keyboard.type('Notifications');
-    await expect(palette.getByRole('option', { selected: true })).toContainText('Notifications');
+    await expect(palette.getByRole('option', { name: /Notifications/, selected: true })).toHaveCount(1);
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await expect(page).toHaveURL(/settings=notifications/);
@@ -78,7 +72,7 @@ test.describe('desktop', () => {
 test.describe('phone', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, PHONE));
 
-  test('the palette is a full-height sheet with a grabber and a Cancel', async ({ page }) => {
+  test('the palette is a full-height bottom sheet that Cancel closes', async ({ page }) => {
     await installMockDaemon(page);
     await page.goto('/?view=work');
     await expect(page.locator('.app-shell')).toBeVisible();
@@ -86,8 +80,6 @@ test.describe('phone', () => {
     await page.keyboard.press('Control+k');
     const palette = page.getByRole('dialog', { name: 'Command palette' });
     await expect(palette).toBeVisible();
-    await expect(palette).toHaveClass(/cmd-palette--sheet/);
-    await expect(palette.locator('.gv-sheet__grabber')).toBeVisible();
     // Full height: the sheet reaches from just under the top edge to the bottom.
     await expectBottomSheet(page, palette, { minHeight: 844 - 48 });
     await expectNoHorizontalScroll(page);

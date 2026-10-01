@@ -93,22 +93,22 @@ describe('MicButton capability label', () => {
     unmount();
   });
 
-  test('insecure-context: the revealed reason falls back to the honest generic HTTPS pointer while posture is loading', () => {
+  test('insecure-context: no daemon reason is shown while posture is loading', () => {
     posturePending = true;
     const { el, unmount } = render();
     clickMic(el);
-    expect(el.textContent).toContain('secure (HTTPS) connection');
+    expect(el.querySelector('button')?.getAttribute('aria-expanded')).toBe('true');
     expect(el.textContent).not.toContain('needs https, available via tailscale');
     unmount();
   });
 
-  test('unsupported: tapping shows the honest unsupported note, never the HTTPS pointer', () => {
+  test('unsupported: tapping reveals a note, never the posture reason', () => {
     supportValue = 'unsupported';
     const { el, unmount } = render();
     expect(el.querySelector('.voice-mic-note')).toBeNull();
     clickMic(el);
-    expect(el.textContent).toContain('cannot capture the microphone');
-    expect(el.textContent).not.toContain('HTTPS');
+    expect(el.querySelector('.voice-mic-note')).not.toBeNull();
+    expect(el.textContent).not.toContain('needs https, available via tailscale');
     unmount();
   });
 
@@ -116,7 +116,7 @@ describe('MicButton capability label', () => {
     supportValue = 'ok';
     phaseValue = 'transcribing';
     const { el, unmount } = render();
-    expect(el.querySelector('.voice-mic-note')?.textContent).toContain('Transcribing');
+    expect(el.querySelector('.voice-mic-note')).not.toBeNull();
     unmount();
   });
 

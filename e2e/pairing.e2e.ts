@@ -22,15 +22,15 @@ test('a pairing link signs in and strips the token from the URL', async ({ page 
     .not.toContain('pair=');
 });
 
-test('the signed-out gate leads with the QR pairing path', async ({ page }) => {
+test('signed out, the gate offers pairing and the manual token field instead of the shell', async ({ page }) => {
   await installMockDaemon(page, { signedIn: false });
 
   await page.goto('/');
 
   const gate = page.locator('.signed-out-gate');
   await expect(gate).toBeVisible();
-  // The primary affordance names the terminal pairing command.
-  await expect(page.locator('.signed-out-pair')).toContainText('goodvibes pair');
+  await expect(page.locator('.app-shell')).toHaveCount(0);
+  await expect(page.locator('.signed-out-pair')).toBeVisible();
   // The manual token field is still present as the fallback.
   await expect(page.locator('.signed-out-card input[type="password"]').first()).toBeVisible();
 });

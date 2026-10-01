@@ -11,7 +11,7 @@ import { nextFrames } from './support/app';
 
 const COMPOSER = 'textarea[aria-label="Message GoodVibes"]';
 
-test('Stop requests the server-side cancel; the honest stopped partial lands in the transcript', async ({ page }) => {
+test('Stop requests the server-side cancel; the stopped partial is kept and marked cancelled', async ({ page }) => {
   const daemon = await installChatMockDaemon(page, { holdReplies: true });
   await page.goto('/?view=chat');
   const composer = page.locator(COMPOSER);
@@ -25,12 +25,14 @@ test('Stop requests the server-side cancel; the honest stopped partial lands in 
 
   // The wire cancel was issued (not just a local render stop)…
   await expect.poll(() => daemon.cancelCalls.length).toBe(1);
-  // …and the persisted partial renders with its honest stopped badge.
-  await expect(page.getByText('This partial reply was being generated when')).toBeVisible();
-  await expect(page.locator('.delivery-indicator.cancelled').first()).toBeVisible();
+  // …the daemon persisted the partial as cancelled, and it renders with its stopped marker.
+  const [sessionId] = daemon.sessionIds();
+  expect(daemon.messagesOf(sessionId ?? '').filter((m) => m.role === 'assistant').map((m) => m.deliveryState)).toEqual(['cancelled']);
+  await expect(page.locator('.message.assistant')).toHaveCount(1);
+  await expect(page.locator('.delivery-indicator.cancelled')).toHaveCount(1);
 });
 
-test('a send during an active turn shows the honest queued marker', async ({ page }) => {
+test('a send during an active turn is added to the transcript with the queued marker', async ({ page }) => {
   await installChatMockDaemon(page, { holdReplies: true });
   await page.goto('/?view=chat');
   const composer = page.locator(COMPOSER);
@@ -41,8 +43,8 @@ test('a send during an active turn shows the honest queued marker', async ({ pag
   await composer.fill('second question');
   await composer.press('Enter');
 
-  await expect(page.getByText('second question')).toBeVisible();
-  await expect(page.locator('.delivery-indicator.queued').first()).toBeVisible();
+  await expect(page.locator('.message.user')).toHaveCount(2);
+  await expect(page.locator('.delivery-indicator.queued')).toHaveCount(1);
 });
 
 test('Ctrl+Enter steers: the wire steer lands, the interrupted partial is kept, the steered reply answers', async ({ page }) => {
@@ -59,8 +61,11 @@ test('Ctrl+Enter steers: the wire steer lands, the interrupted partial is kept, 
   await expect.poll(() => daemon.steerCalls.length).toBe(1);
   expect(daemon.steerCalls[0]!.body).toBe('urgent correction');
   // The interrupted turn's partial is retained and badged; the steer is answered.
-  await expect(page.getByText('Steered reply')).toBeVisible();
-  await expect(page.locator('.delivery-indicator.cancelled').first()).toBeVisible();
+  const [sessionId] = daemon.sessionIds();
+  await expect.poll(() => daemon.messagesOf(sessionId ?? '').filter((m) => m.role === 'assistant').map((m) => m.deliveryState ?? 'answered'))
+    .toEqual(['cancelled', 'answered']);
+  await expect(page.locator('.message.assistant')).toHaveCount(2);
+  await expect(page.locator('.delivery-indicator.cancelled')).toHaveCount(1);
 });
 
 test('press-and-hold on the send button steers (the touch counterpart of Ctrl+Enter)', async ({ page }) => {

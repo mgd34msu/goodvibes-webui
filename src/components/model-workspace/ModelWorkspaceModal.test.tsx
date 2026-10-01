@@ -100,28 +100,24 @@ afterEach(() => {
 });
 
 describe('ModelWorkspaceModal: multi-target routing', () => {
-  test('renders all five targets with TUI-parity labels', async () => {
+  test('offers all five targets', async () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[role="radiogroup"]')));
-    for (const label of ['Main Chat', 'Helper Model', 'Tool LLM', 'TTS LLM', 'Embeddings']) {
-      expect(el.textContent).toContain(label);
-    }
+    expect(el.querySelectorAll('[role="radiogroup"] [role="radio"]')).toHaveLength(5);
     unmount();
   });
 
-  test('the current model row is marked current, shows its price, and only other rows offer Use', async () => {
+  test('the current model row is marked current, shows its price, and only other rows can be chosen', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
     const opusRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('Claude Opus 4'));
     expect(opusRow?.querySelector('[aria-current]')).not.toBeNull();
-    expect(opusRow?.textContent).toContain('$15 in / $75 out');
-    const opusAction = opusRow?.querySelector('button');
-    expect(opusAction?.textContent).toBe('Current');
-    expect(opusAction?.hasAttribute('disabled')).toBe(true);
+    expect(opusRow?.textContent).toContain('$15');
+    expect(opusRow?.textContent).toContain('$75');
+    expect(opusRow?.querySelector('button')?.hasAttribute('disabled')).toBe(true);
     const gptRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('GPT-5'));
     expect(gptRow?.querySelector('[aria-current]')).toBeNull();
-    expect(gptRow?.querySelector('button')?.textContent).toBe('Use');
-    expect(el.querySelector('select')).toBeNull();
+    expect(gptRow?.querySelector('button')?.hasAttribute('disabled')).toBe(false);
     unmount();
   });
 
@@ -134,10 +130,9 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
     unmount();
   });
 
-  test('the capability filter is honestly disabled, no wire data exists for it', async () => {
+  test('the capability filter is disabled, no wire data exists for it', async () => {
     const { el, unmount } = render();
     await waitFor(() => el.textContent?.includes('claude-opus-4') ?? false);
-    expect(el.textContent).toContain('Not reported by this daemon');
     const capabilitySelect = el.querySelector('.model-workspace-filter button[aria-label="Capability"]');
     expect(capabilitySelect).not.toBeNull();
     expect(capabilitySelect?.hasAttribute('disabled')).toBe(true);
@@ -178,7 +173,6 @@ describe('ModelWorkspaceModal: multi-target routing', () => {
     await waitFor(() => Boolean(el.querySelector('[role="radiogroup"]')));
     const embeddingsTab = [...el.querySelectorAll('[role="radio"]')].find((t) => t.textContent === 'Embeddings');
     click(embeddingsTab);
-    await waitFor(() => el.textContent?.includes('no model selection') ?? false);
     await waitFor(() => Boolean([...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('openai'))));
     expect(el.textContent).not.toContain('claude-opus-4');
     const openaiRow = [...el.querySelectorAll('.model-workspace-row')].find((r) => r.textContent?.includes('openai'));

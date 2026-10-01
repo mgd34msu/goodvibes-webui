@@ -13,12 +13,12 @@
  * rendered as an honest error line, never a dead open button.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { installMockDaemon } from './support/mock-daemon';
+import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import { detailPane, gotoView, openRow } from './support/app';
 import { CI_FIX_OFFER_APPROVAL } from './support/seed';
 
 /** New, CI watch: a watch on acme/example that starts a fix session on failure. It opens once created. */
-async function createFixingWatch(page: Page) {
+async function createFixingWatch(page: Page, daemon: MockDaemon) {
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await page.getByRole('menuitem', { name: 'CI watch' }).click();
   const dialog = page.getByRole('dialog', { name: 'Watch CI' });
@@ -27,25 +27,32 @@ async function createFixingWatch(page: Page) {
   await dialog.getByLabel('Start a fix session on failure').check();
   await dialog.getByRole('button', { name: /Create watch/ }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(detailPane(page)).toContainText('Starts a fix session');
+  expect(daemon.requests.filter((r) => r.method === 'POST' && r.path === '/api/ci/watches').map((r) => r.body))
+    .toEqual([expect.objectContaining({ repo: 'acme/example', deliveryChannel: 'slack:#ci', triggerFixSession: true })]);
+  await expect(detailPane(page)).toBeVisible();
+}
+
+/** Runs the open watch now and waits for the run's answer. */
+async function checkNow(page: Page, daemon: MockDaemon) {
+  await detailPane(page).getByRole('button', { name: /Check now/ }).click();
+  await expect.poll(() => daemon.requests.filter((r) => r.method === 'POST' && /^\/api\/ci\/watches\/[^/]+\/run$/.test(r.path)).length).toBe(1);
+  await expect(detailPane(page).getByLabel('CI report')).toBeVisible();
 }
 
 test('a failed watch that starts a fix session offers to open it, and opening lands on the live session', async ({ page }) => {
-  await installMockDaemon(page);
+  const daemon = await installMockDaemon(page);
   // The old CI link lands on Work, Processes.
   await gotoView(page, 'ci-watches');
-  await createFixingWatch(page);
-  await detailPane(page).getByRole('button', { name: /Check now/ }).click();
+  await createFixingWatch(page, daemon);
+  await checkNow(page, daemon);
 
-  await expect(page.getByText('A fix session was started.')).toBeVisible();
   const openButton = detailPane(page).getByRole('button', { name: 'Open fix session' });
   await expect(openButton).toBeVisible();
 
   await openButton.click();
-  // Live-session proof: the chat shows the spawned session (title in the header) and
-  // the URL keeps its id; the app strips unknown session ids, so both mean it exists.
+  // Live-session proof: the URL keeps the spawned session's id; the app strips unknown
+  // session ids, so it surviving means the session exists.
   await expect(page).toHaveURL(/view=chat/);
-  await expect(page.locator('.chat-title-button')).toContainText('CI fix session: acme/example');
   await expect(page).toHaveURL(/session=sess-ci-fix-1/);
 });
 
@@ -64,39 +71,40 @@ test('accepting a "fix this?" offer stamps the spawned session id, and opening l
   await expect(openButton).toBeVisible();
   await openButton.click();
   await expect(page).toHaveURL(/view=chat/);
-  await expect(page.locator('.chat-title-button')).toContainText('CI fix session: acme/example');
   await expect(page).toHaveURL(/session=sess-ci-fix-1/);
 });
 
-test('a failed spawn renders the honest error on the accepted record, never a dead open button', async ({ page }) => {
-  await installMockDaemon(page, {
+test('a failed spawn on an accepted offer never grows an open button', async ({ page }) => {
+  const daemon = await installMockDaemon(page, {
     approvals: [CI_FIX_OFFER_APPROVAL],
     ciFixSessionError: 'background automation is disabled on this daemon',
   });
   await gotoView(page, 'work');
   const detail = await openRow(page, 'start a fix session for lint?');
   await detail.getByRole('button', { name: 'Approve', exact: true }).click();
-  await expect(detailPane(page)).toContainText('The fix session could not start; background automation is disabled on this daemon');
+  await expect.poll(() => daemon.approvalActions.map((a) => a.action)).toEqual(['approve']);
+  // The record resolved (no decision left to make)…
+  await expect(detailPane(page).getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+  // …and with no session spawned there is nothing to open.
   await expect(detailPane(page).getByRole('button', { name: /Open fix session/ })).toHaveCount(0);
 });
 
-test('a failed spawn on the auto-start path renders the honest error, never a dead open button', async ({ page }) => {
-  await installMockDaemon(page, { ciFixSessionError: 'background automation is disabled on this daemon' });
+test('a failed spawn on the auto-start path never grows an open button', async ({ page }) => {
+  const daemon = await installMockDaemon(page, { ciFixSessionError: 'background automation is disabled on this daemon' });
   await gotoView(page, 'ci-watches');
-  await createFixingWatch(page);
-  await detailPane(page).getByRole('button', { name: /Check now/ }).click();
+  await createFixingWatch(page, daemon);
+  await checkNow(page, daemon);
 
-  await expect(page.getByText('The fix session could not start; background automation is disabled on this daemon')).toBeVisible();
-  await expect(page.getByText('A fix session was started.')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open fix session' })).toHaveCount(0);
 });
 
 test('denying a "fix this?" offer never grows an open-session affordance', async ({ page }) => {
-  await installMockDaemon(page, { approvals: [CI_FIX_OFFER_APPROVAL] });
+  const daemon = await installMockDaemon(page, { approvals: [CI_FIX_OFFER_APPROVAL] });
   await gotoView(page, 'work');
   const detail = await openRow(page, 'start a fix session for lint?');
   await detail.getByRole('button', { name: 'Deny', exact: true }).click();
-  await expect(detailPane(page)).toContainText('Denied');
+  await expect.poll(() => daemon.approvalActions.map((a) => a.action)).toEqual(['deny']);
+  await expect(detailPane(page).getByRole('button', { name: 'Deny', exact: true })).toHaveCount(0);
   await expect(detailPane(page).getByRole('button', { name: /Open fix session/ })).toHaveCount(0);
 });
 

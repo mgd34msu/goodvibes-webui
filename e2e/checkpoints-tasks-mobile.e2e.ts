@@ -17,12 +17,19 @@
  * file only re-checks they stay actionable alongside the tasks changes.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { installMockDaemon } from './support/mock-daemon';
+import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import { only, PHONE, DESKTOP, detailPane, expectNoHorizontalScroll, expectTappable, listRow, openRow } from './support/app';
 
+let daemon: MockDaemon;
+
 test.beforeEach(async ({ page }) => {
-  await installMockDaemon(page);
+  daemon = await installMockDaemon(page);
 });
+
+/** POSTs to /api/tasks/{id}/{verb}, in order. */
+function taskVerbs(verb: 'cancel' | 'retry'): number {
+  return daemon.requests.filter((r) => r.method === 'POST' && new RegExp(`^/api/tasks/[^/]+/${verb}$`).test(r.path)).length;
+}
 
 /** The old Checkpoints link: a session's Checkpoints tab in Work. */
 async function openCheckpoints(page: Page) {
@@ -32,7 +39,7 @@ async function openCheckpoints(page: Page) {
 }
 
 async function showFinished(page: Page) {
-  await page.getByRole('button', { name: 'Show' }).click();
+  await page.getByRole('combobox', { name: 'Show' }).click();
   await page.getByRole('option', { name: 'Active and finished' }).click();
 }
 
@@ -48,9 +55,10 @@ test.describe('Checkpoints: desktop', () => {
     // Restore opens a confirm sheet (destructive: confirms on desktop too).
     await restore.click();
     await expect(page.locator('.gv-confirm')).toBeVisible();
-    await expect(page.locator('.gv-confirm')).toContainText('Before the mobile pass');
     await page.locator('.gv-confirm__cancel').click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
+    // Cancelling the sheet restores nothing.
+    expect(daemon.invocations('checkpoints.restore')).toHaveLength(0);
   });
 });
 
@@ -66,14 +74,15 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
     await expectTappable(page, '.gv-confirm__confirm', 'confirm sheet primary');
     await expectTappable(page, '.gv-confirm__cancel', 'confirm sheet cancel');
     await page.locator('.gv-confirm__cancel').click();
+    expect(daemon.invocations('checkpoints.create')).toHaveLength(0);
     await expectNoHorizontalScroll(page);
   });
 
-  test('selecting a checkpoint shows its diff; restore opens a danger confirm sheet', async ({ page }) => {
+  test('selecting a checkpoint loads its diff; restore opens a danger confirm sheet', async ({ page }) => {
     const pane = await openCheckpoints(page);
     await pane.locator('.gv-row__main', { hasText: 'Before the mobile pass' }).click();
     await expect(pane.getByRole('button', { name: 'All checkpoints' })).toBeVisible();
-    await expect(pane.getByText(/Diff against/)).toBeVisible();
+    await expect.poll(() => daemon.invocations('checkpoints.diff').length).toBeGreaterThan(0);
     await expectTappable(page, '.work-checkpoints__head button', 'checkpoint restore');
     await pane.getByRole('button', { name: 'Restore this checkpoint' }).click();
     await expect(page.locator('.gv-confirm--danger')).toBeVisible();
@@ -91,9 +100,9 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
     await expect(page.locator('.gv-confirm')).toBeVisible();
     await page.locator('.gv-confirm__confirm').click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
-    // The mock accepted the create: a toast lands and the new checkpoint is the one shown.
-    await expect(page.getByText('Checkpoint created')).toBeVisible();
-    await expect(pane.locator('.work-checkpoints__title')).toContainText('Phone-created checkpoint');
+    // The create carried the typed label, and the new checkpoint opens as the one shown.
+    expect(daemon.invocations('checkpoints.create')).toEqual([expect.objectContaining({ label: 'Phone-created checkpoint' })]);
+    await expect(pane.getByRole('button', { name: 'All checkpoints' })).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 
@@ -104,8 +113,9 @@ test.describe('Checkpoints: phone: browsable AND actionable via confirm sheets',
     await expect(page.locator('.gv-confirm--danger')).toBeVisible();
     await page.locator('.gv-confirm__confirm').click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
-    // The restorePreview token satisfied the daemon's confirmation gate.
-    await expect(page.getByText('Workspace restored')).toBeVisible();
+    // The restorePreview token is what the restore call presents to the daemon's confirmation gate.
+    expect(daemon.invocations('checkpoints.restorePreview').length).toBeGreaterThan(0);
+    await expect.poll(() => daemon.invocations('checkpoints.restore')).toEqual([expect.objectContaining({ confirmToken: expect.stringMatching(/^tok_/) })]);
     await expectNoHorizontalScroll(page);
   });
 });
@@ -118,7 +128,7 @@ test.describe('Tasks: desktop', () => {
     const detail = await openRow(page, 'Run the release checklist');
     await detail.getByRole('button', { name: 'Cancel task' }).click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
-    await expect(page.getByText('Task cancelled')).toBeVisible();
+    await expect.poll(() => taskVerbs('cancel')).toBe(1);
     await showFinished(page);
     const failed = await openRow(page, 'Rebuild the search index');
     await expect(failed.getByRole('button', { name: 'Retry' })).toBeVisible();
@@ -135,8 +145,8 @@ test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
     await expectTappable(page, '.dv-detail .dv-pane__actions button', 'task cancel');
     await detail.getByRole('button', { name: 'Cancel task' }).click();
     await expect(page.locator('.gv-confirm--danger')).toBeVisible();
-    await expect(page.locator('.gv-confirm')).toContainText('Run the release checklist');
     await page.locator('.gv-confirm__cancel').click();
+    expect(taskVerbs('cancel')).toBe(0);
     await expectNoHorizontalScroll(page);
   });
 
@@ -157,7 +167,7 @@ test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
     await expectTappable(page, '.gv-confirm__confirm', 'confirm sheet primary');
     await page.locator('.gv-confirm__confirm').click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
-    await expect(page.getByText('Task cancelled')).toBeVisible();
+    await expect.poll(() => taskVerbs('cancel')).toBe(1);
     // The mock flipped the task to cancelled: no cancel left, and retry is offered.
     await expect(detail.getByRole('button', { name: 'Cancel task' })).toHaveCount(0);
     await expect(detail.getByRole('button', { name: 'Retry' })).toBeVisible();
@@ -168,12 +178,11 @@ test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
     await page.goto('/?view=work&tab=processes');
     await showFinished(page);
     const detail = await openRow(page, 'Rebuild the search index');
-    await expect(detail).toContainText('index build timed out');
     await detail.getByRole('button', { name: 'Retry' }).click();
     await expect(page.locator('.gv-confirm')).toBeVisible();
     await page.locator('.gv-confirm__confirm').click();
     await expect(page.locator('.gv-confirm')).toHaveCount(0);
-    await expect(page.getByText('Task retried')).toBeVisible();
+    await expect.poll(() => taskVerbs('retry')).toBe(1);
     // The mock requeued the task: retry (failed or cancelled only) is gone.
     await expect(detail.getByRole('button', { name: 'Retry' })).toHaveCount(0);
     await expectNoHorizontalScroll(page);
@@ -188,7 +197,8 @@ test.describe('Tasks: phone: fully actionable via confirm sheets', () => {
     await expectTappable(page, '.work-form__actions button', 'task submit');
     await dialog.getByRole('button', { name: 'Submit' }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByText('Task submitted')).toBeVisible();
+    expect(daemon.requests.filter((r) => r.method === 'POST' && r.path === '/task').map((r) => JSON.stringify(r.body)))
+      .toEqual([expect.stringContaining('Ship the phone parity fix')]);
     await expect(listRow(page, 'Ship the phone parity fix')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });

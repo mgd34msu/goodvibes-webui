@@ -9,6 +9,7 @@ import { click, fakeRecord, renderInto, searchResult, waitFor } from './test-har
 
 const adds: unknown[] = [];
 const searches: unknown[] = [];
+let memoryServed = true;
 
 mock.module('../../lib/goodvibes', () => ({
   VIBE_PERSONA_TAG: 'vibe',
@@ -22,7 +23,11 @@ mock.module('../../lib/goodvibes', () => ({
     knowledge: { status: () => Promise.resolve({}), map: () => Promise.resolve({}) },
     operator: {
       memory: {
-        search: (input: unknown) => { searches.push(input); return Promise.resolve(searchResult([fakeRecord()])); },
+        search: (input: unknown) => {
+          searches.push(input);
+          if (!memoryServed) return Promise.reject(Object.assign(new Error('Method not found'), { status: 404, code: 'METHOD_NOT_FOUND' }));
+          return Promise.resolve(searchResult([fakeRecord()]));
+        },
         reviewQueue: () => Promise.resolve({ records: [fakeRecord({ id: 'r2', summary: 'Queued' })] }),
         consolidation: {
           receipts: () => Promise.resolve({
@@ -41,6 +46,7 @@ const { LibraryView } = await import('./LibraryView');
 afterEach(() => {
   adds.length = 0;
   searches.length = 0;
+  memoryServed = true;
 });
 
 function setValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
@@ -50,15 +56,12 @@ function setValue(input: HTMLInputElement | HTMLTextAreaElement, value: string):
 }
 
 describe('LibraryView', () => {
-  test('header, one search field and a Review tab that counts every row waiting there', async () => {
+  test('the Review tab counts every row waiting there', async () => {
     const tabs: string[] = [];
     const { el, unmount } = renderInto(React.createElement(LibraryView, { tab: 'memory', onTabChange: (t: string) => { tabs.push(t); } }));
     await waitFor(() => (el.textContent ?? '').includes('The daemon is the single writer'));
-    expect(el.querySelector('h2')?.textContent).toBe('Library');
-    expect(el.querySelectorAll('input[type="search"]')).toHaveLength(1);
     // One queued record, one pending proposal, one undecided candidate.
-    await waitFor(() => [...el.querySelectorAll('[role="radio"]')].some((r) => r.textContent === 'Review · 3'));
-    expect(el.textContent).not.toContain('Chat provenance');
+    await waitFor(() => [...el.querySelectorAll('[role="radio"]')].some((r) => r.textContent?.includes('3')));
     unmount();
   });
 
@@ -78,6 +81,15 @@ describe('LibraryView', () => {
     click([...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent === 'Add memory'));
     await waitFor(() => adds.length === 1);
     expect(adds[0]).toEqual({ cls: 'fact', scope: 'project', summary: 'A brand new fact' });
+    unmount();
+  });
+
+  test('a daemon that does not serve memory gets no Add memory action, since adding could only fail', async () => {
+    memoryServed = false;
+    const { el, unmount } = renderInto(React.createElement(LibraryView, { tab: 'memory', onTabChange: () => {} }));
+    const addButton = () => [...el.querySelectorAll('button')].find((b) => b.textContent === 'Add memory');
+    await waitFor(() => searches.length > 0 && addButton() === undefined);
+    expect(addButton()).toBeUndefined();
     unmount();
   });
 });

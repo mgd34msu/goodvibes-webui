@@ -10,7 +10,7 @@ import { DESKTOP, expectBottomSheet, expectNoHorizontalScroll, only, PHONE } fro
 
 const CALENDAR = '/?view=personal&tab=calendar';
 
-test('configured: the agenda lists events sorted by start time, grouped by day, no fabricated state', async ({ page }) => {
+test('configured: the agenda lists events sorted by start time, grouped by day', async ({ page }) => {
   await installMockDaemon(page, { calendar: 'configured' });
   await page.goto(CALENDAR);
   const agenda = page.getByTestId('calendar-agenda');
@@ -19,8 +19,8 @@ test('configured: the agenda lists events sorted by start time, grouped by day, 
   await expect(rows).toHaveCount(2);
   // Seed has ev-1 (Aug 1) before ev-2 (Aug 2), the view must sort by start, not
   // return-order (the seed lists ev-2 first).
-  await expect(rows.nth(0)).toContainText('Team standup');
-  await expect(rows.nth(1)).toContainText('Design review');
+  await expect(rows.nth(0).filter({ hasText: 'Team standup' })).toHaveCount(1);
+  await expect(rows.nth(1).filter({ hasText: 'Design review' })).toHaveCount(1);
   // Two days, two groups.
   await expect(agenda.getByRole('heading', { level: 3 })).toHaveCount(2);
   await expectNoHorizontalScroll(page);
@@ -38,26 +38,25 @@ test('the agenda asks the daemon for the selected range and shows only what fall
   expect(to).toMatch(/^\d{4}-\d{2}-\d{2}T23:59:59\.999Z$/);
   expect(Date.parse(to) - Date.parse(from)).toBeGreaterThan(14 * 86_400_000 - 1000);
   // The seeded event two months back sits outside the window and never shows.
-  await expect(page.getByTestId('calendar-agenda')).toBeVisible();
-  await expect(page.getByText('Quarter kickoff')).toHaveCount(0);
+  const rows = page.getByTestId('calendar-agenda').locator('.calendar-event-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: 'Quarter kickoff' })).toHaveCount(0);
 });
 
-test('configured: selecting an event shows its detail (uid, attendees) via a real fetch', async ({ page }) => {
-  await installMockDaemon(page, { calendar: 'configured' });
+test('configured: selecting an event fetches its detail and opens it in a peek that Escape closes', async ({ page }) => {
+  const daemon = await installMockDaemon(page, { calendar: 'configured' });
   await page.goto(CALENDAR);
   await page.locator('.calendar-event-row .gv-row__main').first().click();
   const detail = page.getByTestId('calendar-event-detail');
   await expect(detail).toBeVisible();
-  await expect(detail).toContainText('ev-1@goodvibes');
-  await expect(detail).toContainText('Operator');
-  // The event is a peek: a glass drawer labelled "Event detail".
+  expect(daemon.requests.some((r) => r.method === 'GET' && r.path === '/api/calendar/events/ev-1')).toBe(true);
   await expect(page.getByRole('dialog', { name: 'Event detail' })).toBeVisible();
   await expectNoHorizontalScroll(page);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Event detail' })).toHaveCount(0);
 });
 
-test.describe('desktop: the event peek is a 440 drawer that folds the sidebar to its rail', () => {
+test.describe('desktop: the event peek is a right-side drawer that folds the sidebar to its rail', () => {
   test.beforeEach(async ({ page: _page }, testInfo) => only(testInfo, DESKTOP));
 
   test('opening an event folds the rail; Escape closes the drawer and restores it', async ({ page }) => {
@@ -68,8 +67,9 @@ test.describe('desktop: the event peek is a 440 drawer that folds the sidebar to
     await page.locator('.calendar-event-row .gv-row__main').first().click();
     const drawer = page.getByRole('dialog', { name: 'Event detail' });
     await expect(drawer).toBeVisible();
-    await expect(drawer).toHaveClass(/gv-drawer--right/);
-    await expect.poll(() => drawer.evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(440);
+    // Anchored to the right edge, leaving the agenda visible beside it.
+    await expect.poll(() => drawer.evaluate((el) => Math.round(el.getBoundingClientRect().right))).toBe(1280);
+    await expect.poll(() => drawer.evaluate((el) => el.getBoundingClientRect().left)).toBeGreaterThan(640);
     await expect(sidebar).toHaveAttribute('data-form', 'rail');
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveCount(0);
@@ -89,7 +89,6 @@ test.describe('phone: compact calendar controls and the event as a bottom sheet'
     await expect(page.getByLabel('Logical calendar id')).toHaveCount(0);
     const range = page.locator('.calendar-range-button');
     await expect(range).toBeVisible();
-    await expect(range).toContainText('–');
     await expect(page.getByRole('button', { name: 'More calendar actions' })).toBeVisible();
     // The controls are one row, and the agenda begins in the top half of the screen.
     const rowHeight = await page.locator('.calendar-phone-controls').evaluate((el) => el.getBoundingClientRect().height);
@@ -110,16 +109,14 @@ test.describe('phone: compact calendar controls and the event as a bottom sheet'
     await expect(sheet).toHaveCount(0);
   });
 
-  test('an event opens as a bottom sheet with a grabber over the scrim', async ({ page }) => {
+  test('an event opens as a bottom sheet that Close dismisses', async ({ page }) => {
     await installMockDaemon(page, { calendar: 'configured' });
     await page.goto(CALENDAR);
     await page.locator('.calendar-event-row .gv-row__main').first().click();
     const sheet = page.getByRole('dialog', { name: 'Event detail' });
     await expect(sheet).toBeVisible();
-    await expect(sheet).toHaveClass(/gv-drawer--sheet/);
-    await expect(sheet.locator('.gv-sheet__grabber')).toBeVisible();
     await expectBottomSheet(page, sheet);
-    await expect(page.getByTestId('calendar-event-detail')).toContainText('ev-1@goodvibes');
+    await expect(page.getByTestId('calendar-event-detail')).toBeVisible();
     await expectNoHorizontalScroll(page);
     await sheet.getByRole('button', { name: 'Close event' }).click();
     await expect(sheet).toHaveCount(0);
@@ -140,20 +137,19 @@ test('the Agenda / Month toggle shows a month grid without sideways scroll', asy
   await expect(page.getByTestId('calendar-agenda')).toBeVisible();
 });
 
-test('unconfigured: the daemon\'s 412 CALENDAR_NOT_CONFIGURED renders the plain how-to-turn-it-on note with one action, never a scary error or a fake-empty calendar', async ({ page }) => {
+test('unconfigured: the daemon\'s 412 CALENDAR_NOT_CONFIGURED offers Open settings, no create action, no error state and no agenda', async ({ page }) => {
   await installMockDaemon(page, { calendar: 'unconfigured' });
   await page.goto(CALENDAR);
-  await expect(page.getByText('Calendar isn’t configured')).toBeVisible();
-  await expect(page.getByText(/Add your calendar in Settings/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible();
+  await expect(page.getByTestId('calendar-agenda')).toHaveCount(0);
   // No create action while the surface cannot take one.
   await expect(page.getByRole('button', { name: 'New event' })).toHaveCount(0);
   await expect(page.locator('.feedback-error-state')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
 
-test('creating an event posts confirm:true and the new event id renders honestly', async ({ page }) => {
-  await installMockDaemon(page, { calendar: 'configured' });
+test('creating an event posts the form with confirm:true and closes the dialog', async ({ page }) => {
+  const daemon = await installMockDaemon(page, { calendar: 'configured' });
   await page.goto(CALENDAR);
   await page.getByRole('button', { name: 'New event' }).click();
   const dialog = page.getByRole('dialog', { name: 'New event' });
@@ -162,21 +158,28 @@ test('creating an event posts confirm:true and the new event id renders honestly
   await dialog.getByLabel('Start', { exact: true }).fill('2026-08-05 09:00');
   await dialog.getByLabel('End', { exact: true }).fill('2026-08-05 09:30');
   await dialog.getByRole('button', { name: 'Create event' }).click();
-  await expect(page.getByText('Event created (id ev-new).')).toBeVisible();
   await expect(dialog).toHaveCount(0);
+  const creates = daemon.requests.filter((r) => r.method === 'POST' && r.path === '/api/calendar/events');
+  expect(creates).toHaveLength(1);
+  expect(creates[0]?.body).toMatchObject({ title: 'Planning sync', confirm: true });
 });
 
-test('exporting the range as .ics reports the honest event count', async ({ page }) => {
-  await installMockDaemon(page, { calendar: 'configured' });
+test('exporting the range as .ics asks the daemon for the agenda\'s window', async ({ page }) => {
+  const daemon = await installMockDaemon(page, { calendar: 'configured' });
   await page.goto(CALENDAR);
   await expect(page.getByTestId('calendar-agenda')).toBeVisible();
   await page.getByRole('button', { name: 'More calendar actions' }).click();
+  const listed = daemon.requests.find((r) => r.method === 'GET' && r.path === '/api/calendar/events');
   await page.getByRole('menuitem', { name: 'Export range as .ics' }).click();
-  await expect(page.getByText('Exported 2 event(s).')).toBeVisible();
+  await expect.poll(() => daemon.requests.filter((r) => r.method === 'GET' && r.path === '/api/calendar/ics/export').length).toBe(1);
+  const exported = new URLSearchParams(daemon.requests.find((r) => r.path === '/api/calendar/ics/export')?.search);
+  const agendaWindow = new URLSearchParams(listed?.search);
+  expect(exported.get('from')).toBe(agendaWindow.get('from'));
+  expect(exported.get('to')).toBe(agendaWindow.get('to'));
 });
 
-test('importing .ics content reports the honest imported count', async ({ page }) => {
-  await installMockDaemon(page, { calendar: 'configured' });
+test('importing .ics content sends exactly the pasted content and closes the dialog', async ({ page }) => {
+  const daemon = await installMockDaemon(page, { calendar: 'configured' });
   await page.goto(CALENDAR);
   await expect(page.getByTestId('calendar-agenda')).toBeVisible();
   await page.getByRole('button', { name: 'More calendar actions' }).click();
@@ -184,7 +187,9 @@ test('importing .ics content reports the honest imported count', async ({ page }
   const dialog = page.getByRole('dialog', { name: 'Import .ics content' });
   await dialog.getByLabel('iCalendar content').fill('BEGIN:VCALENDAR\nEND:VCALENDAR');
   await dialog.getByRole('button', { name: 'Import', exact: true }).click();
-  await expect(page.getByText('Imported 1 event(s).')).toBeVisible();
+  await expect.poll(() => daemon.requests.filter((r) => r.method === 'POST' && r.path === '/api/calendar/ics/import')
+    .map((r) => JSON.stringify(r.body))).toEqual([expect.stringContaining('BEGIN:VCALENDAR\\nEND:VCALENDAR')]);
+  await expect(dialog).toHaveCount(0);
 });
 
 test.describe('phone: a long, unbroken event title never forces the page wider (MOBILE-ADAPT overflow sweep)', () => {

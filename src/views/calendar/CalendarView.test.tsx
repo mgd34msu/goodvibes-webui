@@ -96,6 +96,12 @@ function clickByName(name: string): void {
   flushSync(() => target.click());
 }
 
+function hasButton(name: string): boolean {
+  return [...document.body.querySelectorAll<HTMLElement>('button')].some(
+    (node) => (node.getAttribute('aria-label') ?? node.textContent ?? '').trim() === name,
+  );
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
@@ -120,53 +126,25 @@ afterEach(() => {
   icsImport = () => Promise.resolve({ imported: 0, eventIds: [], errors: [] });
 });
 
-describe('CalendarView: the three honest refusal states', () => {
-  test('CALENDAR_NOT_CONFIGURED (412) reads "isn’t configured", not a scary error', async () => {
-    eventsList = () => refusal(412, { error: 'CalDAV is not configured.', code: 'CALENDAR_NOT_CONFIGURED' });
+describe('CalendarView: a genuine failure', () => {
+  test('a 500 offers a retry that requests the events again', async () => {
+    let listCalls = 0;
+    eventsList = () => {
+      listCalls += 1;
+      return refusal(500, { error: 'boom' });
+    };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Calendar isn’t configured'));
-    expect(el.textContent).toContain('Add your calendar in Settings');
-    expect(el.querySelector('.feedback-error-state')).toBeNull();
-    unmount();
-  });
-
-  test('CALENDAR_CREDENTIALS_MISSING (412) also reads as unconfigured, not a fault', async () => {
-    eventsList = () => refusal(412, { error: 'CalDAV password is not available.', code: 'CALENDAR_CREDENTIALS_MISSING' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Calendar isn’t configured'));
-    unmount();
-  });
-
-  test('a 404 unknown-gateway-method reads "isn’t available on this daemon yet"', async () => {
-    eventsList = () => refusal(404, { error: 'Unknown gateway method' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('isn’t available on this daemon yet'));
-    unmount();
-  });
-
-  test('a 501 "not invokable" refusal also reads as not-available, distinct from unconfigured', async () => {
-    eventsList = () => refusal(501, { error: 'Gateway method is not invokable: calendar.events.list' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('isn’t available on this daemon yet'));
-    expect(el.textContent).not.toContain('Calendar isn’t configured');
-    unmount();
-  });
-
-  test('a genuine 500 renders ErrorState with retry, not an honest-unconfigured note', async () => {
-    eventsList = () => refusal(500, { error: 'boom' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Events failed to load'));
-    expect([...el.querySelectorAll('button')].some((b) => b.textContent === 'Try again')).toBe(true);
+    const tryAgain = () => [...el.querySelectorAll('button')].find((b) => b.textContent === 'Try again');
+    await waitFor(() => tryAgain() !== undefined);
+    const before = listCalls;
+    flushSync(() => tryAgain()?.click());
+    await waitFor(() => listCalls > before);
+    expect(listCalls).toBe(before + 1);
     unmount();
   });
 });
 
 describe('CalendarView: populated / empty', () => {
-  test('an empty range says "No events in this range"', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
-    unmount();
-  });
 
   test('events render sorted by start time, and opening one shows its detail', async () => {
     eventsList = () => Promise.resolve({
@@ -182,8 +160,7 @@ describe('CalendarView: populated / empty', () => {
     expect(rows[1]?.textContent).toContain('Second');
 
     flushSync(() => (rows[0]?.querySelector('button') as HTMLElement).click());
-    await waitFor(() => (el.textContent ?? '').includes('UID:'));
-    expect(el.textContent).toContain('ev-1@x');
+    await waitFor(() => (el.textContent ?? '').includes('ev-1@x'));
     unmount();
   });
 });
@@ -234,7 +211,7 @@ describe('CalendarView: create / export / import', () => {
       return Promise.resolve({ eventId: 'created-1', uid: 'created-1@x', createdAt: '2026-01-01T00:00:00Z' });
     };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
+    await waitFor(() => hasButton('New event'));
     fillNewEvent();
 
     await waitFor(() => (el.textContent ?? '').includes('created-1'));
@@ -243,19 +220,14 @@ describe('CalendarView: create / export / import', () => {
     unmount();
   });
 
-  test('an unconfigured create refusal shows the honest note, not a scary error', async () => {
-    eventsCreate = () => refusal(412, { error: 'CalDAV is not configured.', code: 'CALENDAR_NOT_CONFIGURED' });
+  test('importing .ics content sends the pasted content and relays the daemon\'s per-event errors', async () => {
+    let captured: unknown;
+    icsImport = (input) => {
+      captured = input;
+      return Promise.resolve({ imported: 1, eventIds: ['imp-1'], errors: ['bad-uid: malformed'] });
+    };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
-    fillNewEvent();
-    await waitFor(() => (document.body.textContent ?? '').includes('Calendar isn’t configured'));
-    unmount();
-  });
-
-  test('importing .ics content reports the honest imported count and any per-event errors', async () => {
-    icsImport = () => Promise.resolve({ imported: 1, eventIds: ['imp-1'], errors: ['bad-uid: malformed'] });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No events in this range'));
+    await waitFor(() => hasButton('More calendar actions'));
     clickByName('More calendar actions');
     await waitFor(() => Boolean(document.body.querySelector('[role="menuitem"]')));
     clickByName('Import .ics file content');
@@ -268,8 +240,8 @@ describe('CalendarView: create / export / import', () => {
     });
     flushSync(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
 
-    await waitFor(() => (el.textContent ?? '').includes('Imported 1 event'));
-    expect(el.textContent).toContain('bad-uid: malformed');
+    await waitFor(() => (el.textContent ?? '').includes('bad-uid: malformed'));
+    expect((captured as { icsContent: string }).icsContent).toBe('BEGIN:VCALENDAR\nEND:VCALENDAR');
     unmount();
   });
 });

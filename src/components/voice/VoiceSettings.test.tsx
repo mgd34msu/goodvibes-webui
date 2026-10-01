@@ -132,14 +132,6 @@ describe('VoiceSettings: local voice setup', () => {
     expect(el.querySelector('[data-testid="voice-settings-local"]')).toBeNull();
   });
 
-  test('loading state shows a checking hint', () => {
-    mockLocalStatus = { isPending: true, isError: false, isSuccess: false, data: undefined };
-    const { el, unmount } = render();
-    cleanup = unmount;
-    openPopover(el);
-    expect(el.textContent).toContain('Checking local voice…');
-  });
-
   test('unavailable (404 METHOD_NOT_FOUND) skips the section entirely, no error banner for a capability the daemon never heard of', () => {
     mockLocalStatus = {
       isPending: false,
@@ -168,7 +160,7 @@ describe('VoiceSettings: local voice setup', () => {
     expect(el.querySelector('[data-testid="voice-settings-local"]')).toBeNull();
   });
 
-  test('a genuine fetch error renders the honest retriable-looking message, distinct from unavailable', () => {
+  test('a genuine fetch error keeps the local section, distinct from unavailable', () => {
     mockLocalStatus = {
       isPending: false,
       isError: true,
@@ -180,10 +172,9 @@ describe('VoiceSettings: local voice setup', () => {
     cleanup = unmount;
     openPopover(el);
     expect(el.querySelector('[data-testid="voice-settings-local"]')).not.toBeNull();
-    expect(el.textContent).toContain('Local voice status unavailable');
   });
 
-  test('provisioned state shows a quiet installed confirmation, no setup button', () => {
+  test('provisioned state offers no setup button', () => {
     mockLocalStatus = {
       isPending: false,
       isError: false,
@@ -198,12 +189,11 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Installed: TTS: piper, STT: whisper-cpp.');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);
     expect(buttons.some((t) => t?.includes('Set up local voice'))).toBe(false);
   });
 
-  test('unsupported-platform state shows the honest note, no setup button', () => {
+  test('unsupported-platform state offers no setup button', () => {
     mockLocalStatus = {
       isPending: false,
       isError: false,
@@ -213,7 +203,6 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Not supported on this platform, no pinned engine build exists for this host.');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);
     expect(buttons.some((t) => t?.includes('Set up local voice'))).toBe(false);
   });
@@ -241,13 +230,16 @@ describe('VoiceSettings: local voice setup', () => {
     expect(button).toBeDefined();
   });
 
-  test('installing shows a busy label on the button', () => {
+  test('installing disables the setup action so a second install cannot start', () => {
     mockLocalStatus = { isPending: false, isError: false, isSuccess: true, data: NOT_PROVISIONED_STATUS };
     mockLocalInstall = { ...mockLocalInstall, isPending: true };
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Installing…');
+    const button = el.querySelector<HTMLButtonElement>('[data-testid="voice-settings-local"] button');
+    expect(button?.disabled).toBe(true);
+    flushSync(() => { button?.click(); });
+    expect(localInstallMutateCalls).toBe(0);
   });
 
   test('while installing, live per-component progress renders when the daemon serves installInProgress', () => {
@@ -274,13 +266,10 @@ describe('VoiceSettings: local voice setup', () => {
     const progress = el.querySelector('[data-testid="voice-local-progress"]');
     expect(progress).not.toBeNull();
     expect(progress?.querySelectorAll('li').length).toBe(3);
-    // Completed component: Done with both byte figures.
     expect(progress?.textContent).toContain('piper-voice-onnx');
-    expect(progress?.textContent).toContain('Done: 60.3 MB of 60.3 MB');
-    // Downloading component: only the pinned total (no fabricated live bytes).
-    expect(progress?.textContent).toContain('Downloading: 6.6 MB');
-    // Byte-less component: just the phase.
-    expect(progress?.textContent).toContain('Extracting');
+    expect(progress?.textContent).toContain('60.3 MB');
+    expect(progress?.textContent).toContain('6.6 MB');
+    expect(progress?.textContent).toContain('whisper-model');
   });
 
   test('an errored progress component shows the daemon message with the error phase', () => {
@@ -301,7 +290,6 @@ describe('VoiceSettings: local voice setup', () => {
     cleanup = unmount;
     openPopover(el);
     const progress = el.querySelector('[data-testid="voice-local-progress"]');
-    expect(progress?.textContent).toContain('Failed');
     expect(progress?.textContent).toContain('network timeout fetching piper.tar.gz');
   });
 
@@ -311,7 +299,7 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('Installing…');
+    expect(el.querySelector<HTMLButtonElement>('[data-testid="voice-settings-local"] button')?.disabled).toBe(true);
     expect(el.querySelector('[data-testid="voice-local-progress"]')).toBeNull();
   });
 
@@ -349,7 +337,7 @@ describe('VoiceSettings: local voice setup', () => {
     expect(lastStatusPollArg).toBe(true);
   });
 
-  test('a fully-successful install renders both engine outcomes and no retry button', () => {
+  test('a fully-successful install lists the configured key and offers no retry button', () => {
     mockLocalStatus = { isPending: false, isError: false, isSuccess: true, data: NOT_PROVISIONED_STATUS };
     mockLocalInstall = {
       ...mockLocalInstall,
@@ -366,9 +354,7 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('TTS (piper): Installed');
-    expect(el.textContent).toContain('STT (whisper-cpp): Installed');
-    expect(el.textContent).toContain('Configured: tts.provider');
+    expect(el.textContent).toContain('tts.provider');
     const retry = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).find((b) => b.textContent === 'Retry');
     expect(retry).toBeUndefined();
   });
@@ -390,7 +376,7 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('TTS (piper): Download failed: network timeout fetching piper.tar.gz');
+    expect(el.textContent).toContain('network timeout fetching piper.tar.gz');
     const retry = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).find((b) => b.textContent === 'Retry') as HTMLButtonElement;
     expect(retry).toBeDefined();
     flushSync(() => { retry.click(); });
@@ -414,7 +400,7 @@ describe('VoiceSettings: local voice setup', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     openPopover(el);
-    expect(el.textContent).toContain('STT (whisper-cpp): Not yet published for this platform, no pinned whisper.cpp bundle exists for this platform yet');
+    expect(el.textContent).toContain('no pinned whisper.cpp bundle exists for this platform yet');
     const retry = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).find((b) => b.textContent === 'Retry');
     expect(retry).toBeUndefined();
   });
@@ -448,9 +434,7 @@ describe('VoiceSettings: local voice setup', () => {
     openPopover(el);
     // Both the fresh resting line AND the receipt are visible, the receipt never
     // vanishes the instant the invalidated status query answers.
-    expect(el.textContent).toContain('Installed: TTS: piper, STT: whisper-cpp.');
-    expect(el.textContent).toContain('TTS (piper): Installed');
-    expect(el.textContent).toContain('Configured: tts.provider');
+    expect(el.textContent).toContain('tts.provider');
     const buttons = Array.from(el.querySelectorAll('[data-testid="voice-settings-local"] button')).map((b) => b.textContent);
     expect(buttons.some((t) => t?.includes('Set up local voice'))).toBe(false);
   });

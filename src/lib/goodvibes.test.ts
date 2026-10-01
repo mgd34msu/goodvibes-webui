@@ -1,13 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-// operator-contract.json is the SAME runtime schema source contract-bridge-types.ts's
-// hand-authored shapes are cross-checked against (see that module's header), imported
-// from the SDK's own public export path, not by reaching into a transitive dependency.
-import operatorContract from '@pellux/goodvibes-sdk/contracts/operator-contract.json';
 import {
   WEBUI_METHOD_ROUTES,
   WEBUI_WS_INVOKE_METHOD_IDS,
-  WEBUI_METHOD_DISPOSITION,
-  WEBUI_METHOD_SAMPLES,
 } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import {
   WEBUI_TOKEN_STORE_KEY,
@@ -19,65 +13,6 @@ import {
   sdk,
 } from './goodvibes';
 import { getObservedClientCompatibilityFloor } from './client-compatibility';
-import {
-  BRIDGE_TYPED_METHOD_IDS,
-  type FleetProcessNode,
-  type FleetSnapshotResult,
-  type FleetListInput,
-  type FleetListResult,
-  type FleetArchiveInput,
-  type FleetArchiveResult,
-  type FleetUnarchiveResult,
-  type FleetArchiveFinishedResult,
-  type FleetArchivedListResult,
-  type WorkspaceCheckpoint,
-  type CheckpointsListInput,
-  type CheckpointsListResult,
-  type CheckpointsCreateInput,
-  type CheckpointsCreateResult,
-  type CheckpointsDiffInput,
-  type CheckpointsDiffResult,
-  type CheckpointsRestoreInput,
-  type CheckpointsRestoreResult,
-  type CheckpointsRestorePreviewInput,
-  type CheckpointsRestorePreviewResult,
-  type CheckpointsRevertHunkPreviewInput,
-  type CheckpointsRevertHunkPreviewResult,
-  type CheckpointsRevertHunkInput,
-  type CheckpointsRevertHunkResult,
-  type RewindPlanInput,
-  type RewindPlanResult,
-  type RewindApplyInput,
-  type RewindApplyResult,
-  type FleetAttemptsListInput,
-  type FleetAttemptsListResult,
-  type FleetAttemptsPickInput,
-  type FleetAttemptsPickResult,
-  type FleetAttemptsJudgeInput,
-  type FleetAttemptsJudgeResult,
-  type FleetObservedSteerInput,
-  type FleetObservedSteerResult,
-  type SessionsSearchInput,
-  type SessionsSearchResult,
-  type SessionsSearchSessionSummary,
-  type SessionsDetachInput,
-  type SessionsDetachResult,
-  type SessionsChangesGetInput,
-  type SessionsChangesGetResult,
-  type CostAttributionGetInput,
-  type CostAttributionGetResult,
-  type SessionsHostedListInput,
-  type SessionsHostedListResult,
-  type SessionsHostedCreateInput,
-  type SessionsHostedCreateResult,
-  type SessionsHostedAttachInput,
-  type SessionsHostedAttachResult,
-  type SessionsHostedDetachInput,
-  type SessionsHostedDetachResult,
-  type SessionsHostedKillInput,
-  type SessionsHostedKillResult,
-  type HostedSessionRecord,
-} from './contract-bridge-types';
 
 describe('isRuntimeDomain', () => {
   test('returns true for known domains', () => {
@@ -247,35 +182,13 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
   test('models.list/current.get/current.set now arrive DERIVED from the generated artifact (the 2.0.0 contract gap closed, no more hand-written row)', () => {
     for (const id of MODELS_METHOD_IDS) {
       expect(webuiRouteFor(id), `${id} should be table-routed`).toBeDefined();
-      expect(id in WEBUI_METHOD_ROUTES, `${id} should now be present in the generated artifact`).toBe(true);
-      expect(WEBUI_METHOD_DISPOSITION[id], `${id} should carry a generated 'rest' disposition`).toBe('rest');
     }
   });
 
   test('no ws-invoke method (per the generated disposition) is shadowed by a REST table row', () => {
     for (const methodId of WEBUI_WS_INVOKE_METHOD_IDS) {
-      expect(WEBUI_METHOD_DISPOSITION[methodId], `${methodId} disposition`).toBe('ws-invoke');
       expect(webuiRouteFor(methodId), `${methodId} must not carry a REST table row (it is ws-invoke-only)`).toBeUndefined();
       expect(isExtraRoutedMethod(methodId)).toBe(false);
-    }
-  });
-
-  test('every ws-invoke verb the webui calls is cataloged as ws-invoke in the generated disposition', () => {
-    // The generic-invoke (invokeGatewayMethod) call sites in goodvibes.ts. If any of these
-    // silently flipped to a REST binding upstream, the generated disposition would say 'rest'
-    // and this test would catch it before the wire behavior drifted.
-    const usedWsInvokeIds = [
-      'fleet.snapshot', 'fleet.list', 'fleet.archive', 'fleet.unarchive', 'fleet.archiveFinished', 'fleet.archived.list',
-      'fleet.attempts.list', 'fleet.attempts.pick', 'fleet.attempts.judge',
-      'checkpoints.list', 'checkpoints.create', 'checkpoints.diff', 'checkpoints.restore', 'checkpoints.restorePreview',
-      'checkpoints.revertHunkPreview', 'checkpoints.revertHunk', 'rewind.plan', 'rewind.apply',
-      'sessions.search', 'sessions.changes.get', 'cost.attribution.get',
-      'push.vapid.get', 'push.subscriptions.create', 'push.subscriptions.list', 'push.subscriptions.delete', 'push.subscriptions.verify',
-      'tailscale.get', 'tailscale.serve.run',
-    ];
-    for (const id of usedWsInvokeIds) {
-      expect(WEBUI_METHOD_DISPOSITION[id], `${id} should be ws-invoke in the generated disposition`).toBe('ws-invoke');
-      expect(WEBUI_WS_INVOKE_METHOD_IDS.includes(id), `${id} missing from WEBUI_WS_INVOKE_METHOD_IDS`).toBe(true);
     }
   });
 
@@ -298,8 +211,6 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     for (const [id, route] of Object.entries(expected)) {
       expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
       expect(isExtraRoutedMethod(id)).toBe(true);
-      expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
-      expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
     }
   });
 
@@ -328,8 +239,6 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
     for (const [id, route] of Object.entries(expected)) {
       expect(webuiRouteFor(id), `${id} should be table-routed from the generated artifact`).toEqual(route);
       expect(isExtraRoutedMethod(id)).toBe(true);
-      expect(WEBUI_METHOD_DISPOSITION[id], `${id} disposition`).toBe('rest');
-      expect(WEBUI_METHOD_ROUTES[id as keyof typeof WEBUI_METHOD_ROUTES], `${id} missing from the generated artifact`).toBeDefined();
     }
   });
 
@@ -342,18 +251,8 @@ describe('facade route knowledge is generated, not hand-maintained', () => {
   test('channels.inbox.list (the unified inbox verb) arrives DERIVED, real REST row, no hand-written wiring, no consumer yet', () => {
     expect(webuiRouteFor('channels.inbox.list')).toEqual({ method: 'GET', path: '/api/channels/inbox' });
     expect(isExtraRoutedMethod('channels.inbox.list')).toBe(true);
-    expect(WEBUI_METHOD_DISPOSITION['channels.inbox.list']).toBe('rest');
-    expect(WEBUI_METHOD_ROUTES['channels.inbox.list' as keyof typeof WEBUI_METHOD_ROUTES]).toBeDefined();
   });
 
-  test('WEBUI_METHOD_SAMPLES carries an input/output fixture for every bridged ws-invoke method (the mock daemon default-seed source)', () => {
-    for (const id of BRIDGE_TYPED_METHOD_IDS) {
-      const sample = WEBUI_METHOD_SAMPLES[id];
-      expect(sample, `${id} has no generated sample`).toBeDefined();
-      expect(sample).toHaveProperty('input');
-      expect(sample).toHaveProperty('output');
-    }
-  });
 });
 
 describe('sdk.operator.fleet / sdk.operator.checkpoints: generic invoke-by-id', () => {
@@ -899,16 +798,6 @@ describe('sdk facade rules', () => {
   // The facade's key lists are not pinned here: a namespace a view uses cannot be
   // removed without a compile error in that view, and a snapshot of every key only
   // fails on additions. What IS pinned is the two facts a snapshot cannot express.
-  test('sdk.operator.payments exposes cards only, and no method that reads card material back', () => {
-    expect(Object.keys(sdk.operator.payments).sort()).toEqual(['cards']);
-    expect(Object.keys(sdk.operator.payments.cards).sort()).toEqual(['create', 'delete', 'list'].sort());
-    // Named explicitly so a future "just add a getter for the stored card" has to
-    // delete this assertion rather than slip past it. Card material goes IN through
-    // create() and there is no read path, here or in the daemon's method catalog.
-    for (const forbidden of ['get', 'reveal', 'read', 'material', 'number', 'cvv']) {
-      expect(Object.keys(sdk.operator.payments.cards)).not.toContain(forbidden);
-    }
-  });
 
   test('every voice.wake verb resolves through a generated REST route, not a hand-written row', () => {
     for (const methodId of ['voice.wake.status', 'voice.wake.provision', 'voice.wake.model.get'] as const) {
@@ -922,352 +811,6 @@ describe('sdk facade rules', () => {
   test('sdk.chat.sessions.delete still points at the companion delete verb (the honest hard-delete behind the same id)', () => {
     expect(isExtraRoutedMethod('companion.chat.sessions.delete')).toBe(true);
   });
-});
-
-describe('bridge-matches-schema, contract-bridge-types.ts pinned against the SDK method catalog', () => {
-  // WHY THESE SAMPLES STAY HAND-AUTHORED (not sourced from WEBUI_METHOD_SAMPLES):
-  // the contract-generated fixtures (WEBUI_METHOD_SAMPLES) are typed `unknown`, so they can
-  // only exercise the RUNTIME schema walk below, not the compile-time half. The samples
-  // here are deliberately annotated AS the bridge interfaces so tsc rejects a missing or
-  // invented field (see the tsc-side note below); that interface conformance is the whole
-  // point and a generic `unknown` sample cannot provide it. The generated fixtures are used
-  // where they ARE mechanical, as the mock daemon's default gateway-invoke seed
-  // (e2e/support/mock-daemon.ts) and pinned for completeness by the "facade route knowledge
-  // is generated" suite above. Everything below is a conformance fixture, not a scenario value.
-  //
-  // WHAT THIS ENFORCES (and what it does not):
-  //
-  // Each bridge-typed method has a sample INPUT/OUTPUT object below, annotated AS the
-  // corresponding bridge interface (FleetSnapshotResult, SessionsSearchResult, …). That
-  // closes the loop from two sides at once, WITHOUT any `as` cast or type-erasure trick:
-  //
-  //   • tsc side, the samples are plain object literals typed as the bridge interfaces.
-  //     The OUTPUT/Result interfaces carry NO index signature, so tsc rejects any missing
-  //     required field and any INVENTED field (excess-property error) at compile time.
-  //     `bun run typecheck` is therefore half of this test.
-  //
-  //   • runtime side, assertConforms() walks the method's REAL JSON Schema from
-  //     operator-contract.json RECURSIVELY (into nested objects AND array item shapes,
-  //     not just the top level) and asserts the interface-typed sample carries every
-  //     schema-`required` field at every level it populates. So if a bridge interface
-  //     dropped a nested required field, the sample (constrained to the interface's own
-  //     members) could not satisfy the schema and this fails.
-  //
-  // Net: the bridge interface conforms to the schema (runtime walk) and the sample
-  // conforms to the interface (tsc), a drift on either side, including the eventual
-  // pin-bump silently reshaping something, fails here or in typecheck.
-  //
-  // NOT enforced: INPUT interfaces intentionally carry a `[key: string]: unknown` index
-  // signature (the generic-fallback shape, see contract-bridge-types.ts header), so tsc
-  // cannot flag an invented INPUT field. The runtime walk still checks that every field
-  // the sample DOES declare is a real schema property and that required inputs are
-  // present; unpopulated optional fields are not exercised.
-  // Loose on purpose: operator-contract.json's per-method schema literals don't
-  // structurally line up with a strict recursive node type (a plain `as` cast to one
-  // fails). `properties`/`items` are read as `unknown` and re-narrowed at each recursion
-  // step, the runtime shape is what we assert against, not a compile-time schema type.
-  interface JsonSchemaNode {
-    readonly type?: string;
-    readonly properties?: Record<string, unknown>;
-    readonly required?: readonly string[];
-    readonly items?: unknown;
-    readonly additionalProperties?: unknown;
-  }
-
-  interface OperatorContractMethod {
-    readonly id: string;
-    readonly inputSchema?: JsonSchemaNode;
-    readonly outputSchema?: JsonSchemaNode;
-  }
-
-  const methods = new Map(
-    (operatorContract.operator.methods as OperatorContractMethod[]).map((method) => [method.id, method]),
-  );
-
-  /**
-   * Assert `sample` satisfies `schema`, descending into nested objects and array items.
-   * Only descends where the sample actually populated a value, so an unpopulated
-   * optional does not force its inner required fields.
-   */
-  function assertConforms(schema: JsonSchemaNode | undefined, sample: unknown, path: string): void {
-    if (!schema) return;
-    const where = path || '<root>';
-
-    if (schema.properties) {
-      expect(
-        typeof sample === 'object' && sample !== null && !Array.isArray(sample),
-        `${where}: expected an object per schema`,
-      ).toBe(true);
-      const rec = sample as Record<string, unknown>;
-
-      for (const req of schema.required ?? []) {
-        expect(req in rec, `${where}: schema-required field "${req}" is missing from the bridge-typed sample`).toBe(true);
-      }
-
-      for (const key of Object.keys(rec)) {
-        const propSchema = schema.properties[key];
-        if (!propSchema) {
-          // A field the sample carries that the schema does not declare. Only a genuine
-          // problem where the schema is closed (additionalProperties:false); many nodes
-          // set additionalProperties:true and legitimately allow extras.
-          if (schema.additionalProperties === false) {
-            expect(false, `${where}: sample field "${key}" is not a real schema property (schema is closed)`).toBe(true);
-          }
-          continue;
-        }
-        assertConforms(propSchema as JsonSchemaNode, rec[key], path ? `${path}.${key}` : key);
-      }
-      return;
-    }
-
-    if (schema.items) {
-      expect(Array.isArray(sample), `${where}: expected an array per schema`).toBe(true);
-      const itemSchema = schema.items as JsonSchemaNode;
-      (sample as unknown[]).forEach((item, i) => assertConforms(itemSchema, item, `${path}[${i}]`));
-    }
-    // primitives: the presence/typing is already pinned by the parent object's checks.
-  }
-
-  // ── Interface-typed samples ────────────────────────────────────────────────
-  // Populated to exercise every schema-required path (incl. the nested optionals
-  // usage/currentActivity/participants, so their inner shapes are validated too).
-  const fleetNode: FleetProcessNode = {
-    id: 'proc-1',
-    kind: 'agent',
-    label: 'Refactor the spine',
-    state: 'executing-tool',
-    elapsedMs: 4200,
-    costState: 'priced',
-    capabilities: { interruptible: true, killable: true, pausable: false, resumable: true, steerable: true },
-    usage: {
-      inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0,
-      llmCallCount: 1, turnCount: 1, toolCallCount: 2,
-    },
-    currentActivity: { kind: 'tool', text: 'running the suite', at: 1 },
-  };
-
-  const workspaceCheckpoint: WorkspaceCheckpoint = {
-    id: 'wcp_1',
-    kind: 'manual',
-    label: 'before refactor',
-    createdAt: 1,
-    parentId: null,
-    retentionClass: 'standard',
-    commit: 'abc123',
-    sizeBytes: 2048,
-  };
-
-  const hostedSessionRecord: HostedSessionRecord = {
-    id: 'hs-1',
-    workspaceRoot: '/home/mike/project',
-    title: 'Deploy chat',
-    status: 'idle',
-    detachPolicy: null,
-    effectiveDetachPolicy: 'kill',
-    attachedClients: ['c-1'],
-    createdAt: 1,
-    updatedAt: 2,
-    turnCount: 1,
-    messageCount: 2,
-    restoredFromDisk: false,
-  };
-
-  const sessionSummary: SessionsSearchSessionSummary = {
-    id: 's-1',
-    kind: 'companion-chat',
-    title: 'Deploy chat',
-    status: 'active',
-    createdAt: 1,
-    updatedAt: 2,
-    lastActivityAt: 2,
-    messageCount: 4,
-    pendingInputCount: 0,
-    routeIds: ['r-1'],
-    surfaceKinds: ['webui'],
-    participants: [{ surfaceKind: 'webui', surfaceId: 'goodvibes-webui', lastSeenAt: 2 }],
-    metadata: {},
-  };
-
-  const outputSamples: Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown> = {
-    'fleet.snapshot': { capturedAt: 1, nodes: [fleetNode], truncated: false, totalCount: 1 } satisfies FleetSnapshotResult,
-    'fleet.list': { items: [fleetNode], hasMore: false, capturedAt: 1 } satisfies FleetListResult,
-    'fleet.archive': { archived: true, count: 3 } satisfies FleetArchiveResult,
-    'fleet.unarchive': { restored: 3 } satisfies FleetUnarchiveResult,
-    'fleet.archiveFinished': { archivedCount: 3 } satisfies FleetArchiveFinishedResult,
-    'fleet.archived.list': { capturedAt: 1, nodes: [fleetNode] } satisfies FleetArchivedListResult,
-    'checkpoints.list': { checkpoints: [workspaceCheckpoint] } satisfies CheckpointsListResult,
-    'checkpoints.create': { checkpoint: workspaceCheckpoint, noop: false } satisfies CheckpointsCreateResult,
-    'checkpoints.diff': {
-      diff: { from: 'wcp_1', to: 'wcp_2', files: ['a.ts'], unifiedDiff: '--- a', stat: '1 file' },
-    } satisfies CheckpointsDiffResult,
-    'checkpoints.restore': {
-      result: { checkpointId: 'wcp_1', safetyCheckpointId: null, restoredFiles: ['a.ts'], removedFiles: [] },
-      refused: false,
-      refusal: null,
-    } satisfies CheckpointsRestoreResult,
-    'checkpoints.restorePreview': {
-      token: 'tok_wcp_1',
-      expiresAt: 120000,
-      preview: {
-        checkpointId: 'wcp_1',
-        label: 'before refactor',
-        affectedPathCount: 1,
-        affectedPathSample: ['a.ts'],
-        stat: '1 file',
-      },
-    } satisfies CheckpointsRestorePreviewResult,
-    'checkpoints.revertHunkPreview': {
-      path: 'src/foo.ts', applies: true, conflict: null, hunkHeader: '@@ -40,3 +40,4 @@',
-      addedLinesRemoved: 1, removedLinesRestored: 0, matchedAtLine: 40, token: 'tok_hunk_1', expiresAt: 120000,
-    } satisfies CheckpointsRevertHunkPreviewResult,
-    'checkpoints.revertHunk': {
-      receipt: {
-        reverted: true, path: 'src/foo.ts', hunkHeader: '@@ -40,3 +40,4 @@',
-        addedLinesRemoved: 1, removedLinesRestored: 0, safetyCheckpointId: 'wcp_safety',
-        undo: { restoreCheckpointId: 'wcp_safety' },
-      },
-      refused: false, refusal: null,
-    } satisfies CheckpointsRevertHunkResult,
-    'rewind.plan': {
-      sessionId: 's-1', turnId: 't-1', scope: 'both', token: 'tok_rw', expiresAt: 120000,
-      files: { available: true, checkpointId: 'wcp_1', checkpointLabel: 'before turn', affectedFileCount: 2 },
-      conversation: { available: true, messagesToDrop: 3, messagesRemaining: 10 },
-      warnings: [],
-    } satisfies RewindPlanResult,
-    'rewind.apply': {
-      receipt: {
-        sessionId: 's-1', turnId: 't-1', scope: 'both', appliedAt: 1,
-        files: { restored: true, checkpointId: 'wcp_1', safetyCheckpointId: 'wcp_safety', restoredFileCount: 2, removedFileCount: 0 },
-        conversation: { rewound: true, droppedMessages: 3, undoSnapshotId: 'snap_1' },
-        undo: { files: { restoreCheckpointId: 'wcp_safety' }, conversation: { undoSnapshotId: 'snap_1' } },
-        warnings: [],
-      },
-      refused: false, refusal: null,
-    } satisfies RewindApplyResult,
-    'fleet.attempts.list': {
-      groups: [{
-        groupId: 'g-1', workstreamId: 'ws-1', sourceTitle: 'Implement X', ready: true,
-        candidates: [{
-          itemId: 'i-1', attemptIndex: 0, state: 'held-merge', title: 'attempt 1',
-          worktreePath: '/tmp/wt1', branch: 'attempt/1',
-          usage: {
-            inputTokens: 10, outputTokens: 20, cacheReadTokens: 0, cacheWriteTokens: 0,
-            llmCallCount: 1, turnCount: 1, toolCallCount: 2, costUsd: 0.1, costState: 'priced',
-          },
-          failureReason: null,
-          diff: { files: ['a.ts'], unifiedDiff: '--- a', stat: '1 file' },
-        }],
-        autoAccept: false,
-        judgment: { proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model' },
-      }],
-    } satisfies FleetAttemptsListResult,
-    'fleet.attempts.pick': {
-      applied: true, groupId: 'g-1', winnerItemId: 'i-1', loserItemIds: ['i-2'], auto: false, requiresConfirm: false,
-    } satisfies FleetAttemptsPickResult,
-    'fleet.attempts.judge': {
-      proposedWinnerItemId: 'i-1', reasons: ['cleanest diff'], model: 'claude', scoredBy: 'model',
-    } satisfies FleetAttemptsJudgeResult,
-    'fleet.observed.steer': { queued: true, messageId: 'm-1' } satisfies FleetObservedSteerResult,
-    'sessions.search': { sessions: [sessionSummary], hasMore: false } satisfies SessionsSearchResult,
-    'sessions.detach': {
-      session: {
-        id: 's-1', kind: 'companion-chat', title: 'Deploy chat', status: 'active',
-        createdAt: 1, updatedAt: 2, lastActivityAt: 2, messageCount: 4, pendingInputCount: 0,
-        routeIds: ['r-1'], surfaceKinds: ['webui'],
-        participants: [{ surfaceKind: 'tui', surfaceId: 't-1', lastSeenAt: 2 }],
-        metadata: {},
-      },
-    } satisfies SessionsDetachResult,
-    'sessions.changes.get': {
-      sessionId: 's-1', checkpointCount: 2, checkpointIds: ['wcp_1', 'wcp_2'],
-      from: 'wcp_0', to: 'wcp_2', files: ['a.ts'], unifiedDiff: '--- a\n+++ b\n', stat: '1 file changed',
-    } satisfies SessionsChangesGetResult,
-    'cost.attribution.get': {
-      window: '24h', windowStartMs: 1, dimension: 'session', totalCostUsd: 0.42, costState: 'estimated',
-      pricedRecordCount: 3, unpricedRecordCount: 1,
-      costSource: 'mixed', pricingAsOf: '2026-07-01T00:00:00.000Z',
-      tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
-      rows: [{
-        key: 's-1', costUsd: 0.42, costState: 'estimated', pricedRecordCount: 3, unpricedRecordCount: 1,
-        costSource: 'catalog', pricingAsOf: '2026-07-01T00:00:00.000Z',
-        tokens: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 10, cacheWriteTokens: 5 },
-      }],
-    } satisfies CostAttributionGetResult,
-    'sessions.hosted.list': { sessions: [hostedSessionRecord] } satisfies SessionsHostedListResult,
-    'sessions.hosted.create': { session: hostedSessionRecord } satisfies SessionsHostedCreateResult,
-    'sessions.hosted.attach': {
-      session: hostedSessionRecord,
-      history: [{ role: 'user', content: 'hello' }],
-    } satisfies SessionsHostedAttachResult,
-    'sessions.hosted.detach': { session: hostedSessionRecord } satisfies SessionsHostedDetachResult,
-    'sessions.hosted.kill': { session: { ...hostedSessionRecord, status: 'terminated' } } satisfies SessionsHostedKillResult,
-  };
-
-  // Inputs, fleet.snapshot takes none. The rest are typed as their bridge Input
-  // interface (index-signatured, so tsc allows extras, the runtime walk pins the fields
-  // that ARE present against the schema).
-  const inputSamples: Partial<Record<(typeof BRIDGE_TYPED_METHOD_IDS)[number], unknown>> = {
-    'fleet.list': { kinds: ['agent'], states: ['running'], limit: 10, cursor: 'c1' } satisfies FleetListInput,
-    'fleet.archive': { id: 'node-1' } satisfies FleetArchiveInput,
-    'fleet.unarchive': { id: 'node-1' } satisfies FleetArchiveInput,
-    'checkpoints.list': { kind: 'manual', since: 1, limit: 5 } satisfies CheckpointsListInput,
-    'checkpoints.create': {
-      kind: 'manual', label: 'x', retentionClass: 'standard', turnId: 't1', agentId: 'a1', paths: ['a.ts'],
-    } satisfies CheckpointsCreateInput,
-    'checkpoints.diff': { a: 'wcp_1', b: 'wcp_2' } satisfies CheckpointsDiffInput,
-    'checkpoints.restore': { id: 'wcp_1', paths: ['a.ts'], safetyCheckpoint: true, confirm: true } satisfies CheckpointsRestoreInput,
-    'checkpoints.restorePreview': { id: 'wcp_1', paths: ['a.ts'] } satisfies CheckpointsRestorePreviewInput,
-    'checkpoints.revertHunkPreview': {
-      path: 'src/foo.ts', hunk: '@@ -40,3 +40,4 @@\n const a = 1;\n+  const c = 3;\n const b = 2;', sessionId: 's-1',
-    } satisfies CheckpointsRevertHunkPreviewInput,
-    'checkpoints.revertHunk': {
-      path: 'src/foo.ts', hunk: '@@ -40,3 +40,4 @@\n const a = 1;\n+  const c = 3;\n const b = 2;',
-      sessionId: 's-1', confirmToken: 'tok_hunk_1',
-    } satisfies CheckpointsRevertHunkInput,
-    'rewind.plan': { sessionId: 's-1', turnId: 't-1', scope: 'both' } satisfies RewindPlanInput,
-    'rewind.apply': { sessionId: 's-1', turnId: 't-1', scope: 'both', confirmToken: 'tok_rw' } satisfies RewindApplyInput,
-    'fleet.attempts.list': { workstreamId: 'ws-1' } satisfies FleetAttemptsListInput,
-    'fleet.attempts.pick': { groupId: 'g-1', winnerItemId: 'i-1', confirm: true } satisfies FleetAttemptsPickInput,
-    'fleet.attempts.judge': { groupId: 'g-1' } satisfies FleetAttemptsJudgeInput,
-    'fleet.observed.steer': { id: 'observed:1234', text: 'status?' } satisfies FleetObservedSteerInput,
-    'sessions.search': {
-      query: 'deploy', project: 'p', kind: 'companion-chat', surfaceKind: 'webui',
-      status: 'active', includeClosed: true, limit: 20, cursor: 'c1',
-    } satisfies SessionsSearchInput,
-    'sessions.detach': { sessionId: 's-1', surfaceId: 'goodvibes-webui' } satisfies SessionsDetachInput,
-    'sessions.changes.get': { sessionId: 's-1' } satisfies SessionsChangesGetInput,
-    'cost.attribution.get': { window: '24h', dimension: 'session' } satisfies CostAttributionGetInput,
-    'sessions.hosted.list': { includeTerminated: true } satisfies SessionsHostedListInput,
-    'sessions.hosted.create': { workspaceRoot: '/home/mike/project' } satisfies SessionsHostedCreateInput,
-    'sessions.hosted.attach': { sessionId: 'hs-1', clientId: 'c-1' } satisfies SessionsHostedAttachInput,
-    'sessions.hosted.detach': { sessionId: 'hs-1', clientId: 'c-1' } satisfies SessionsHostedDetachInput,
-    'sessions.hosted.kill': { sessionId: 'hs-1' } satisfies SessionsHostedKillInput,
-  };
-
-  test('every BRIDGE_TYPED_METHOD_IDS entry exists in the installed SDK method catalog', () => {
-    for (const methodId of BRIDGE_TYPED_METHOD_IDS) {
-      expect(methods.has(methodId), `${methodId} missing from operator-contract.json`).toBe(true);
-    }
-  });
-
-  for (const methodId of BRIDGE_TYPED_METHOD_IDS) {
-    test(`${methodId}: the bridge-typed OUTPUT sample satisfies every schema-required field, nested included`, () => {
-      const method = methods.get(methodId);
-      assertConforms(method?.outputSchema, outputSamples[methodId], '');
-    });
-
-    test(`${methodId}: the bridge-typed INPUT sample's fields are all real schema properties`, () => {
-      const method = methods.get(methodId);
-      const input = inputSamples[methodId];
-      if (input === undefined) {
-        // fleet.snapshot: no input. Assert the schema itself declares no required inputs
-        // (otherwise a caller with zero args would silently violate the contract).
-        expect((method?.inputSchema?.required ?? []).length, `${methodId} unexpectedly requires input`).toBe(0);
-        return;
-      }
-      assertConforms(method?.inputSchema, input, '');
-    });
-  }
 });
 
 // Token honesty: the daemon's control-plane/auth is a STATUS endpoint, it

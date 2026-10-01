@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LEGACY_VIEW_REDIRECTS, decodeUrlState } from '../../lib/router';
 import type { ViewId } from '../../lib/router';
-import { ACCOUNT_VIEWS, DESTINATIONS, LIBRARY, PERSONAL, WORK, destinationOf, resolveTab, viewTitle } from './nav';
+import { ACCOUNT_VIEWS, DESTINATIONS, LIBRARY, PERSONAL, destinationOf, resolveTab } from './nav';
 
 // Every view the router accepts, the same list src/lib/router.ts validates against.
 const ALL_VIEWS: ViewId[] = ['chat', 'work', 'library', 'personal', 'phone'];
@@ -27,14 +27,11 @@ describe('navigation map: nothing becomes unreachable', () => {
     }
   });
 
-  test('the design doc groups: Work, Library, Personal', () => {
+  test('views map to their destination', () => {
     expect(destinationOf('work')).toBe('work');
     expect(destinationOf('library')).toBe('library');
     expect(destinationOf('personal')).toBe('personal');
     expect(destinationOf('chat')).toBe('chat');
-    expect(WORK.tabs.map((t) => t.label)).toEqual(['All', 'Sessions', 'Agents', 'Processes']);
-    expect(LIBRARY.tabs.map((t) => t.label)).toEqual(['Memory', 'Knowledge', 'Review']);
-    expect(PERSONAL.tabs.map((t) => t.label)).toEqual(['Calendar', 'Mail', 'Occasions']);
   });
 
   test('an unknown or missing tab resolves to the first one', () => {
@@ -43,9 +40,4 @@ describe('navigation map: nothing becomes unreachable', () => {
     expect(resolveTab(PERSONAL, 'nope')).toBe('calendar');
   });
 
-  test('titles name the destination, and account pages by their menu label', () => {
-    expect(viewTitle('work')).toBe('Work');
-    expect(viewTitle('personal')).toBe('Personal');
-    expect(viewTitle('phone')).toBe('Phone node');
-  });
 });

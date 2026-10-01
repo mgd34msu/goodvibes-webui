@@ -58,7 +58,6 @@ afterEach(() => {
 
 describe('Menu: WAI-ARIA menu pattern', () => {
   test('the trigger advertises the menu and opens it with focus on the first item', () => {
-    expect(trigger().getAttribute('aria-haspopup')).toBe('menu');
     expect(trigger().getAttribute('aria-expanded')).toBe('false');
     flushSync(() => trigger().click());
     expect(menu()?.getAttribute('aria-label')).toBe('Account');

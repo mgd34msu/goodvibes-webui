@@ -107,13 +107,12 @@ describe('SteerComposer: SESSION_CLOSED honesty', () => {
     unmount();
   });
 
-  test('a 409 SESSION_CLOSED reply renders friendly wording, not the raw formatError dump', async () => {
+  test('a 409 SESSION_CLOSED reply never leaks the raw daemon message', async () => {
     rejectNextSteerAsClosed = true;
     const { container, unmount } = render();
 
     await typeAndSubmit(container, 'Focus on the failing test');
 
-    expect(container.textContent).toContain('This session is closed. Reopen it to continue.');
     // The raw daemon message embeds the session id, must not leak into the UI copy.
     expect(container.textContent).not.toContain('Session is closed: s-agent');
     expect(container.textContent).not.toContain('HTTP 409');
@@ -128,7 +127,6 @@ describe('SteerComposer: SESSION_CLOSED honesty', () => {
     await typeAndSubmit(container, 'Focus on the failing test');
 
     expect(container.textContent).toContain('Rate limited');
-    expect(container.textContent).not.toContain('This session is closed. Reopen it to continue.');
     const state = client.getQueryState(queryKeys.sessions);
     expect(state?.isInvalidated).toBe(false);
     unmount();

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildGroups, buildPaletteSections, PALETTE_SECTION_LABELS, paletteSectionFor } from './command-groups';
+import { buildGroups, buildPaletteSections, paletteSectionFor } from './command-groups';
 import type { CommandDef } from './commands';
 
 // Minimal stubs, only the shape that buildGroups reads (group field)
@@ -82,6 +82,5 @@ describe('palette sections', () => {
     expect(result.map((r) => r.section)).toEqual(['chats', 'goto', 'actions', 'settings']);
     expect(result[2]!.commands.map((c) => c.id)).toEqual(['a1', 'a2']);
     expect(buildPaletteSections([cmd('g', 'navigation')]).map((r) => r.section)).toEqual(['goto']);
-    expect(PALETTE_SECTION_LABELS.goto).toBe('Go to');
   });
 });

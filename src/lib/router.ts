@@ -21,6 +21,8 @@
  * No react-router. Uses window.history + URLSearchParams directly.
  */
 
+import { nonEmpty } from './non-empty';
+
 export type ViewId =
   | 'chat'
   | 'work'
@@ -99,8 +101,8 @@ export function decodeUrlState(search: string = window.location.search): AppUrlS
   const rawView = params.get('view') ?? '';
   const resolved = resolveViewId(rawView);
   const view: ViewId = resolved?.view ?? DEFAULT_STATE.view;
-  const settings = params.get('settings') || LEGACY_SETTINGS_VIEWS[rawView] || '';
-  const tab = params.get('tab') || resolved?.tab || '';
+  const settings = nonEmpty(params.get('settings')) ?? nonEmpty(LEGACY_SETTINGS_VIEWS[rawView]) ?? '';
+  const tab = nonEmpty(params.get('tab')) ?? nonEmpty(resolved?.tab) ?? '';
 
   const session = params.get('session') ?? '';
 

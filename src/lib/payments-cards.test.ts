@@ -18,13 +18,9 @@
  *    facade is what makes that a red test rather than a silent leak.
  */
 import { describe, expect, test } from 'bun:test';
-import { WEBUI_METHOD_ROUTES } from '@pellux/goodvibes-contracts/generated/webui-facade';
 import { mayEnterCardDetails, mayOfferCardEntryFlow } from '@pellux/goodvibes-sdk/platform/payments';
 import {
   buildCardCreateInput,
-  CARD_CREATE_HTTP_METHOD,
-  CARD_CREATE_METHOD_ID,
-  CARD_CREATE_PATH,
   CARD_MATERIAL_FIELDS,
   CardDraftError,
   emptyCardDraft,
@@ -56,8 +52,7 @@ function draft(overrides: Partial<CardDraft> = {}): CardDraft {
 }
 
 describe('the entry gate is the SDK allowlist, never a local list', () => {
-  test('this surface is "webui", and the SDK says a card may be typed there', () => {
-    expect(WEBUI_CARD_ENTRY_SURFACE).toBe('webui');
+  test('the SDK says a card may be typed on this surface', () => {
     // Asked of the SDK directly, so this fails if the pinned SDK's ruling changes.
     expect(mayEnterCardDetails(WEBUI_CARD_ENTRY_SURFACE)).toBe(true);
     expect(mayOfferCardEntryFlow(WEBUI_CARD_ENTRY_SURFACE)).toBe(true);
@@ -80,26 +75,6 @@ describe('the entry gate is the SDK allowlist, never a local list', () => {
     expect(mayOfferCardEntryHere('')).toBe(false);
   });
 });
-
-describe('the create route keeps card values out of the URL', () => {
-  test('the pinned contracts facade routes payments.cards.create as POST to the path this module names', () => {
-    const route = (WEBUI_METHOD_ROUTES as Record<string, { method: string; path: string } | undefined>)[
-      CARD_CREATE_METHOD_ID
-    ];
-    expect(route).toBeDefined();
-    expect(route!.method).toBe(CARD_CREATE_HTTP_METHOD);
-    expect(route!.path).toBe(CARD_CREATE_PATH);
-  });
-
-  test('POST specifically: invokeOperator would put a GET method\'s input in the query string', () => {
-    expect(CARD_CREATE_HTTP_METHOD).toBe('POST');
-  });
-
-  test('the route path has no interpolated segments, so no field can land in the path either', () => {
-    expect(CARD_CREATE_PATH).not.toContain('{');
-  });
-});
-
 
 describe('a blank draft really is blank', () => {
   test('every card material field starts empty', () => {

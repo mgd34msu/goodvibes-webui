@@ -49,6 +49,7 @@ import { MailCompose } from './MailCompose';
 import { MailMessageBody, useMailMessage } from './MailMessagePeek';
 import '../../styles/components/mail.css';
 import { whenLabel } from '../../lib/when-label';
+import { nonEmpty } from '../../lib/non-empty';
 
 const LIMIT_OPTIONS = [
   { value: '25', label: '25 messages' },
@@ -241,7 +242,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
 
   const filters = inboxNote ? undefined : (
     <>
-      <Select<string>
+      <Select
         value={limit}
         onChange={setLimit}
         options={LIMIT_OPTIONS}
@@ -351,7 +352,7 @@ export function MailView({ tabs }: MailViewProps = {}) {
         backLabel="Inbox"
         detail={(
           <DetailPane
-            title={detail.data?.subject || (detail.isPending ? 'Message' : '(no subject)')}
+            title={nonEmpty(detail.data?.subject) ?? (detail.isPending ? 'Message' : '(no subject)')}
             meta={detail.data ? `${detail.data.from} · ${formatWhen(detail.data.date)}` : undefined}
             actions={detail.data ? (
               <Button

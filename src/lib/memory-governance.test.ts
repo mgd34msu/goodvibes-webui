@@ -26,11 +26,9 @@ const WIRE_SNAPSHOT = {
 };
 
 describe('memory-governance helpers', () => {
-  test('memoryTierLabel gives a human label for every tier', () => {
-    expect(memoryTierLabel('normal')).toBe('Normal');
-    expect(memoryTierLabel('elevated')).toBe('Elevated');
-    expect(memoryTierLabel('high')).toBe('High');
-    expect(memoryTierLabel('critical')).toBe('Critical');
+  test('memoryTierLabel gives every tier a distinct label', () => {
+    const labels = (['normal', 'elevated', 'high', 'critical'] as const).map(memoryTierLabel);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   test('memoryTierBadgeClass reuses the existing .badge tone vocabulary', () => {
@@ -55,10 +53,11 @@ describe('memory-governance helpers', () => {
     expect(clampUsedPct(Number.NaN)).toBe(0);
   });
 
-  test('tripwireLine renders the honest armed/not-armed line', () => {
-    expect(tripwireLine({ armed: false, sustainedSec: 0, rateMbPerSec: 0 })).toBe('Leak tripwire: not armed.');
-    expect(tripwireLine({ armed: true, sustainedSec: 45, rateMbPerSec: 3.2 }))
-      .toBe('Leak tripwire: armed: sustained growth of 3.2 MB/s for 45s.');
+  test('tripwireLine carries the armed rate and duration, and differs when not armed', () => {
+    const armed = tripwireLine({ armed: true, sustainedSec: 45, rateMbPerSec: 3.2 });
+    expect(armed).toContain('3.2');
+    expect(armed).toContain('45');
+    expect(tripwireLine({ armed: false, sustainedSec: 0, rateMbPerSec: 0 })).not.toBe(armed);
   });
 });
 

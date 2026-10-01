@@ -80,7 +80,7 @@ export function useModalFocus(
     return () => {
       container.removeEventListener('keydown', onKeyDown);
       if (recoverFocus) document.removeEventListener('focusin', onFocusIn, true);
-      if (previous && previous.isConnected) previous.focus({ preventScroll: true });
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
     // initialFocusRef is a ref object; its identity is stable.
   }, [active, containerRef, initialFocusRef, recoverFocus]);

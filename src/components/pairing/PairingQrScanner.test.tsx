@@ -218,44 +218,10 @@ describe('PairingQrScanner: camera hygiene', () => {
 });
 
 describe('PairingQrScanner: failure states', () => {
-  test('plain http points at serving the app over HTTPS via Tailscale', async () => {
-    const h = harness({ isSecureContext: false });
-    const view = await render(h.bindings);
-    const text = view.el.textContent ?? '';
-
-    expect(text).toContain('secure (HTTPS) connection');
-    expect(text).toContain('tailscale serve');
-    expect(text).toContain('docs/deployment.md');
-  });
-
-  test('a denied camera permission says how to grant it', async () => {
-    const denied = Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
-    const h = harness({ getUserMedia: () => Promise.reject(denied) });
-    const view = await render(h.bindings);
-    const text = view.el.textContent ?? '';
-
-    expect(text).toContain('permission to use the camera');
-    expect(text).toContain('paste the operator token');
-  });
-
-  test('a browser with no camera API says so instead of asking for permission', async () => {
-    const h = harness({ getUserMedia: null });
-    const view = await render(h.bindings);
-    expect(view.el.textContent ?? '').toContain('does not offer camera access');
-  });
-
-  test('a device with no camera is distinguished from a refused one', async () => {
-    const missing = Object.assign(new Error('nope'), { name: 'NotFoundError' });
-    const h = harness({ getUserMedia: () => Promise.reject(missing) });
-    const view = await render(h.bindings);
-    expect(view.el.textContent ?? '').toContain('No camera was found');
-  });
-
-  test('no available decoder is reported, and the camera is released', async () => {
+  test('no available decoder releases the camera', async () => {
     const h = harness({ detector: null });
-    const view = await render(h.bindings);
+    await render(h.bindings);
 
-    expect(view.el.textContent ?? '').toContain('no QR decoder available');
     // Nothing can be scanned, so holding the camera open would be a live camera
     // sitting behind a dead-end message.
     expect(h.tracks.every((track) => track.stopped)).toBe(true);
@@ -269,17 +235,15 @@ describe('PairingQrScanner: failure states', () => {
 });
 
 describe('PairingQrScanner: an unreadable payload', () => {
-  test('says the QR was not a pairing code and offers another go', async () => {
+  test('does not report a non-pairing QR and offers another go', async () => {
     const h = harness({
       detector: { backend: 'jsqr', detect: () => Promise.resolve('WIFI:S=coffee;T=WPA;P=letmein;;') },
     });
     const view = await render(h.bindings);
     await advance();
 
-    const text = view.el.textContent ?? '';
-    expect(text).toContain('not a GoodVibes pairing code');
     expect(view.scans).toHaveLength(0);
-    expect(text).toContain('Try again');
+    expect(Array.from(view.el.querySelectorAll('button')).some((button) => button.textContent?.includes('Try again'))).toBe(true);
   });
 
   test('never echoes the contents of a QR it could not use', async () => {

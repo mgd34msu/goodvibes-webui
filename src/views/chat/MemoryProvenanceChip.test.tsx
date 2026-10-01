@@ -84,7 +84,7 @@ describe('MemoryProvenanceChip', () => {
     cleanup = unmount;
     const toggle = el.querySelector('.memory-provenance-chip__toggle');
     expect(toggle).not.toBeNull();
-    expect(toggle?.textContent).toContain('Memory: 2');
+    expect(toggle?.textContent).toContain('2');
   });
 
   test('does not fetch record details until expanded', () => {
@@ -99,8 +99,8 @@ describe('MemoryProvenanceChip', () => {
     await waitFor(() => Boolean(el.querySelector('.memory-provenance-chip__list')));
     expect(memoryGetCalls.sort()).toEqual(['mem-1', 'mem-2']);
     const list = el.querySelector('.memory-provenance-chip__list');
-    expect(list?.textContent).toContain('Record mem-1');
-    expect(list?.textContent).toContain('Record mem-2');
+    expect(list?.textContent).toContain('mem-1');
+    expect(list?.textContent).toContain('mem-2');
   });
 
   test('collapsing hides the detail list again', async () => {

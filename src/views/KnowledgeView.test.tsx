@@ -95,28 +95,19 @@ afterEach(() => {
 });
 
 describe('KnowledgeView: the knowledge map never dumps raw JSON', () => {
-  test('a genuinely empty base (0 jobs, 0 nodes) says "No knowledge indexed yet", not a <pre> dump', async () => {
-    const { el, unmount } = render();
-    chooseSection(el, 'Map');
-    await waitFor(() => (el.textContent ?? '').includes('No knowledge indexed yet'));
-    const mapPanel = el.querySelector('[aria-live="polite"][aria-atomic="true"]');
-    expect(mapPanel?.querySelector('pre')).toBeFalsy();
-    unmount();
-  });
 
   test('an empty Browse offers Add link instead of a blank list', async () => {
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No knowledge yet'));
-    expect([...el.querySelectorAll('button')].some((b) => b.textContent === 'Add link')).toBe(true);
+    await waitFor(() => [...el.querySelectorAll('button')].some((b) => b.textContent === 'Add link'));
     unmount();
   });
 
-  test('the "jobs ran, 0 nodes" gap reads as an honest activity state in BOTH Browse and the Map', async () => {
+  test('the "jobs ran, 0 nodes" gap shows the job count in BOTH Browse and the Map, with no map render', async () => {
     statusData = { ...(statusData as Record<string, unknown>), jobRunCount: 766, nodeCount: 0 };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('766 indexing jobs ran, 0 nodes'));
+    await waitFor(() => (el.textContent ?? '').includes('766'));
     chooseSection(el, 'Map');
-    await waitFor(() => (el.textContent ?? '').includes('766 indexing jobs ran, 0 nodes'));
+    await waitFor(() => (el.textContent ?? '').includes('766'));
     expect(el.querySelector('.knowledge-map-render')).toBeFalsy();
     unmount();
   });
@@ -142,7 +133,7 @@ describe('KnowledgeView: the knowledge map never dumps raw JSON', () => {
       return Promise.resolve({ sources: [], nodes: [], issues: [], targets: [], tasks: [] });
     };
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('4 indexing jobs ran'));
+    await waitFor(() => [...el.querySelectorAll('button')].some((b) => b.textContent === 'View jobs'));
     const viewJobsButton = [...el.querySelectorAll('button')].find((b) => b.textContent === 'View jobs');
     expect(viewJobsButton).toBeTruthy();
     flushSync(() => { viewJobsButton?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });

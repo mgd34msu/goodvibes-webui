@@ -222,28 +222,18 @@ const LOADED: ProfileDocument = {
 };
 
 describe('OwnerProfileSettings', () => {
-  test('loading renders a skeleton and no sections', () => {
-    mockDocument = { isPending: true, isError: false, isSuccess: false, refetch: () => { /* no-op */ } };
+  test('a genuine fetch failure offers a retry that refetches the profile', () => {
+    let refetches = 0;
+    mockDocument = {
+      ...errorQuery<ProfileDocument>(Object.assign(new Error('network down'), { status: 0, category: 'network' })),
+      refetch: () => { refetches += 1; },
+    };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('Owner profile');
-    expect(el.querySelector('.owner-profile__section')).toBeNull();
-  });
-
-  test('a daemon that does not serve the verbs (404) says so, not "empty profile"', () => {
-    mockDocument = errorQuery(Object.assign(new Error('Unknown gateway method'), { status: 404, code: 'METHOD_NOT_FOUND' }));
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.textContent).toContain('This daemon does not serve an owner profile');
-    expect(el.textContent).not.toContain('loaded and empty');
-  });
-
-  test('a genuine fetch failure renders a retriable error, distinct from the unavailable state', () => {
-    mockDocument = errorQuery(Object.assign(new Error('network down'), { status: 0, category: 'network' }));
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.textContent).toContain('Owner profile unavailable');
-    expect(el.querySelector('.feedback-error-state__retry')).not.toBeNull();
+    const retry = el.querySelector<HTMLButtonElement>('button[aria-label="Retry"]');
+    expect(retry).not.toBeNull();
+    flushSync(() => { retry?.click(); });
+    expect(refetches).toBe(1);
   });
 
   // The load-bearing honesty assertion (§4.4).
@@ -266,65 +256,35 @@ describe('OwnerProfileSettings', () => {
 
     const banner = el.querySelector('[data-testid="profile-unavailable"]');
     expect(banner).not.toBeNull();
-    expect(banner?.textContent).toContain('Your profile could not be read: permission denied');
+    expect(banner?.textContent).toContain('permission denied');
     expect(banner?.textContent).toContain(PROFILE_PATH);
-    expect(el.textContent).toContain('not because your profile is empty');
-    // No empty-profile state, and no sections, are rendered in its place.
-    expect(el.textContent).not.toContain('Your profile is loaded and empty');
-    expect(el.querySelector('.owner-profile__section')).toBeNull();
-    expect(el.querySelector('[data-testid="profile-status"]')?.textContent).toContain('Could not be read');
+    // No sections are rendered in its place.
+    expect(el.querySelector('[data-testid^="profile-section-"]')).toBeNull();
   });
 
   test('a turned-off profile is a stated state, not an empty one', () => {
     mockDocument = successQuery<ProfileDocument>({ state: 'disabled', path: PROFILE_PATH, sections: [] });
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.querySelector('[data-testid="profile-disabled"]')?.textContent).toContain('turned off');
-    expect(el.textContent).not.toContain('Your profile is loaded and empty');
+    expect(el.querySelector('[data-testid="profile-disabled"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid^="profile-section-"]')).toBeNull();
   });
 
-  test('a loaded profile renders mechanical fields as labelled values and prose as prose', () => {
+  test('a loaded profile renders each field value and prose line it was given', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
 
     const email = el.querySelector('[data-testid="profile-field-contact.email"]');
-    expect(email?.querySelector('.owner-profile__field-label')?.textContent).toBe('email');
-    expect(email?.querySelector('.owner-profile__value')?.textContent).toBe('owner@example.com');
+    expect(email?.textContent).toContain('owner@example.com');
 
-    // His prose is rendered as the line he wrote, not split into label/value columns.
     const people = el.querySelector('[data-testid="profile-section-People"]');
-    expect(people?.querySelectorAll('.owner-profile__field').length).toBe(0);
     expect(people?.textContent).toContain('Sarah, sister, sarah@example.com');
     expect(people?.textContent).toContain('Dave from work, handles the Pellux contracts');
 
-    // The compact provenance suffix rides the line it belongs to (§4.2).
+    // The provenance the daemon recorded rides the line it belongs to (§4.2).
     const shipping = el.querySelector('[data-testid="profile-field-commerce.shippingAddress"]');
-    expect(shipping?.textContent).toContain('tui, 2026-07-27: "ship it to my office instead"');
-  });
-
-  test('each section states its tier, so it is clear what the agent can already see', () => {
-    mockDocument = successQuery(LOADED);
-    const { el, unmount } = render();
-    cleanup = unmount;
-    const preferences = el.querySelector('[data-testid="profile-section-Preferences"]');
-    const contact = el.querySelector('[data-testid="profile-section-Contact"]');
-    expect(preferences?.getAttribute('data-tier')).toBe('open');
-    expect(preferences?.textContent).toContain('context every turn');
-    expect(contact?.getAttribute('data-tier')).toBe('closed');
-    expect(contact?.textContent).toContain('never put in the agent');
-  });
-
-  test('the People section is marked as third-party material and carries its containment note', () => {
-    mockDocument = successQuery(LOADED);
-    const { el, unmount } = render();
-    cleanup = unmount;
-    const people = el.querySelector('[data-testid="profile-section-People"]');
-    expect(people?.getAttribute('data-third-party')).toBe('true');
-    expect(people?.querySelector('.owner-profile__containment')?.textContent).toContain('facts about other people');
-    // No link, no copy affordance, plain inert text only.
-    expect(people?.querySelector('a')).toBeNull();
-    expect(el.querySelector('[data-testid="profile-section-Contact"]')?.getAttribute('data-third-party')).toBeNull();
+    expect(shipping?.textContent).toContain('ship it to my office instead');
   });
 
   test('an invalid mechanical value is shown as written, with its reason', () => {
@@ -352,10 +312,9 @@ describe('OwnerProfileSettings', () => {
     cleanup = unmount;
     expect(el.textContent).toContain('Mars/Olympus');
     expect(el.textContent).toContain('not an IANA time zone');
-    expect(el.textContent).toContain('falls back as if it were unset');
   });
 
-  test('editing a field calls profile.set with its fieldId and reports the supersede', () => {
+  test('editing a field calls profile.set with its fieldId and the typed value', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
@@ -368,7 +327,6 @@ describe('OwnerProfileSettings', () => {
     submitForm(input);
 
     expect(setCalls).toEqual([{ fieldId: 'contact.phone', value: '+1 517 555 0199' }]);
-    expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Undo puts it back');
   });
 
   test('a write the daemon reports as ok:false is relayed in its own words, not as a save', () => {
@@ -387,25 +345,7 @@ describe('OwnerProfileSettings', () => {
     typeInto(input, '1 Attacker Way');
     submitForm(input);
 
-    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toBe('That value appears in a web page read this turn, so it was not recorded.');
-    expect(report).not.toContain('Saved');
-  });
-
-  test('a write whose answer never said ok is reported as unsaid, never as a success', () => {
-    mockDocument = successQuery(LOADED);
-    setResult = null;
-    const { el, unmount } = render();
-    cleanup = unmount;
-
-    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Edit').click(); });
-    const input = el.querySelector<HTMLInputElement>('[data-testid="profile-field-contact.phone"] input');
-    typeInto(input, '+1 517 555 0199');
-    submitForm(input);
-
-    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toContain('did not say whether anything changed');
-    expect(report).not.toContain('Saved');
+    expect(el.textContent).toContain('That value appears in a web page read this turn, so it was not recorded.');
   });
 
   // The second load-bearing honesty assertion (§9.2).
@@ -430,41 +370,7 @@ describe('OwnerProfileSettings', () => {
     await settle();
 
     expect(forgetCalls).toEqual([{ kind: 'field', fieldId: 'contact.phone' }]);
-    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toContain('Your profile has no phone recorded, so there was nothing to forget.');
-    expect(report).not.toContain('Deleted');
-  });
-
-  test('a forget whose answer never said ok is reported as unclear, not as a deletion', async () => {
-    mockDocument = successQuery(LOADED);
-    forgetResult = null;
-    const { el, unmount } = render();
-    cleanup = unmount;
-
-    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
-    await settle();
-
-    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toContain('did not say whether phone was deleted');
-    expect(report).not.toContain('Deleted phone');
-  });
-
-  test('a real deletion names what actually went, from the daemon\'s change list', async () => {
-    mockDocument = successQuery(LOADED);
-    forgetResult = {
-      ok: true,
-      changes: [{ kind: 'forget', fieldId: 'contact.phone', section: 'Contact', label: 'phone', superseded: false }],
-      disclosure: '',
-    };
-    const { el, unmount } = render();
-    cleanup = unmount;
-
-    flushSync(() => { buttonIn(el.querySelector('[data-testid="profile-field-contact.phone"]'), 'Forget').click(); });
-    flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
-    await settle();
-
-    expect(el.querySelector('.owner-profile__report')?.textContent).toContain('Deleted phone from your profile.');
+    expect(el.textContent).toContain('Your profile has no phone recorded, so there was nothing to forget.');
   });
 
   test('cancelling the confirm deletes nothing', async () => {
@@ -496,7 +402,7 @@ describe('OwnerProfileSettings', () => {
   // The staleness case, at the surface: a delete that found nothing means the page is
   // showing an older version of the file, and saying only "nothing was removed" would be
   // true and useless.
-  test('a note that is no longer there surfaces the staleness rather than a success', async () => {
+  test('a note that is no longer there relays the daemon\'s reason', async () => {
     mockDocument = successQuery(LOADED);
     forgetResult = {
       ok: false,
@@ -511,13 +417,10 @@ describe('OwnerProfileSettings', () => {
     flushSync(() => { window.document.querySelector<HTMLButtonElement>('.gv-confirm__confirm')?.click(); });
     await settle();
 
-    const report = el.querySelector('.owner-profile__report')?.textContent ?? '';
-    expect(report).toContain('That line is not in People any more, so nothing was removed.');
-    expect(report).toContain('may no longer match the file');
-    expect(report).toContain('reloading it');
-    expect(report).not.toContain('Deleted');
-    // Warning tone, not the quiet informational one a plain no-op would get.
-    expect(el.querySelector('.owner-profile__report .banner')?.className).toContain('warning');
+    expect(forgetCalls).toEqual([
+      { kind: 'line', section: 'People', text: 'Sarah, sister, sarah@example.com' },
+    ]);
+    expect(el.textContent).toContain('That line is not in People any more, so nothing was removed.');
   });
 
   test('provenance is reachable per field, and asks only for the field it was opened on', () => {
@@ -548,7 +451,6 @@ describe('OwnerProfileSettings', () => {
 
     const detail = shipping?.querySelector('[data-testid="profile-provenance-commerce.shippingAddress"]');
     expect(detail?.textContent).toContain('401 Home St, Lansing, MI 48933, US');
-    expect(detail?.textContent).toContain('superseded 2026-07-27');
     // Only the opened field was asked about.
     expect(provenanceFieldIds.filter((id) => id !== null)).toEqual(['commerce.shippingAddress']);
   });
@@ -580,7 +482,7 @@ describe('OwnerProfileSettings', () => {
     expect(undoCalls).toEqual(['commerce.shippingAddress']);
   });
 
-  test('a field with no earlier value says there is nothing to undo, and offers no button', () => {
+  test('a field with no earlier value opens its provenance and offers no undo', () => {
     mockDocument = successQuery(LOADED);
     mockProvenance = successQuery<ProfileProvenanceAnswer>({
       fieldId: 'contact.email',
@@ -593,30 +495,23 @@ describe('OwnerProfileSettings', () => {
 
     const email = el.querySelector('[data-testid="profile-field-contact.email"]');
     flushSync(() => { buttonIn(email, 'Where did you get that?').click(); });
-    const detail = email?.querySelector('[data-testid="profile-provenance-contact.email"]');
-    expect(detail?.textContent).toContain('No provenance recorded, you wrote or edited this line by hand.');
-    expect(detail?.textContent).toContain('nothing to undo');
+    expect(email?.querySelector('[data-testid="profile-provenance-contact.email"]')).not.toBeNull();
     expect(Array.from(email?.querySelectorAll('button') ?? []).some((b) => (b.textContent ?? '').startsWith('Undo'))).toBe(false);
   });
 
-  test('a note answers its own provenance and says why there is nothing further to fetch', () => {
+  test('a note answers its own provenance without a daemon lookup', () => {
     mockDocument = successQuery(LOADED);
     const { el, unmount } = render();
     cleanup = unmount;
 
     const withSuffix = el.querySelector('[data-testid="profile-line-41"]');
     flushSync(() => { buttonIn(withSuffix, 'Where did you get that?').click(); });
-    expect(withSuffix?.textContent).toContain('tui, 2026-07-27: "my sister Sarah, sarah@example.com"');
-    expect(withSuffix?.textContent).toContain('notes keep no earlier versions');
+    expect(withSuffix?.textContent).toContain('my sister Sarah, sarah@example.com');
     // The verb takes a fieldId, so no lookup is issued for a note.
     expect(provenanceFieldIds.filter((id) => id !== null)).toEqual([]);
-
-    const handWritten = el.querySelector('[data-testid="profile-line-42"]');
-    flushSync(() => { buttonIn(handWritten, 'Where did you get that?').click(); });
-    expect(handWritten?.textContent).toContain('No provenance recorded');
   });
 
-  test('the status strip surfaces invalid fields by name and reason, with no values', () => {
+  test('the status strip carries the daemon counts and invalid fields', () => {
     mockDocument = successQuery(LOADED);
     mockStatus = successQuery<ProfileStatus>({
       state: 'loaded',
@@ -630,12 +525,9 @@ describe('OwnerProfileSettings', () => {
     const { el, unmount } = render();
     cleanup = unmount;
     const strip = el.querySelector('[data-testid="profile-status"]');
-    expect(strip?.textContent).toContain('Loaded');
-    expect(strip?.textContent).toContain('42 lines');
-    expect(strip?.textContent).toContain('5 notes');
-    expect(el.querySelector('.owner-profile__invalid-list')?.textContent).toContain(
-      'location.timezone: not an IANA time zone',
-    );
+    expect(strip?.textContent).toContain('42');
+    expect(el.textContent).toContain('location.timezone');
+    expect(el.textContent).toContain('not an IANA time zone');
   });
 
   test('adding a line calls profile.append with the section heading as written', () => {

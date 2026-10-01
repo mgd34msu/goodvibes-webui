@@ -74,6 +74,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const sections = useMemo(() => buildPaletteSections(filterCommands(allCommands, query)), [allCommands, query]);
   // The keyboard order is the on-screen order: section by section.
   const ordered = useMemo(() => sections.flatMap((group) => group.commands), [sections]);
+  // Each command's keyboard position, so a row knows whether it is the active one.
+  const orderIndex = useMemo(() => new Map(ordered.map((cmd, index) => [cmd, index])), [ordered]);
 
   useEffect(() => {
     if (activeIndex >= ordered.length) setActiveIndex(Math.max(0, ordered.length - 1));
@@ -141,7 +143,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   if (!open || typeof document === 'undefined') return null;
 
   const activeCommand = ordered[activeIndex];
-  let flatIndex = -1;
 
   return createPortal(
     <div className="gv-overlay cmd-overlay" data-gv-layer="">
@@ -192,8 +193,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   {PALETTE_SECTION_LABELS[section]}
                 </div>
                 {commands.map((cmd) => {
-                  flatIndex += 1;
-                  const index = flatIndex;
+                  const index = orderIndex.get(cmd) ?? -1;
                   const isActive = index === activeIndex;
                   return (
                     <div

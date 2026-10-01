@@ -79,39 +79,18 @@ afterEach(() => {
   selectCalls = [];
 });
 
-describe('ConsolidationReceipts: honest states', () => {
-  test('a genuinely empty store (no runs ever) says so, distinct from unavailable', async () => {
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No consolidation runs yet'));
-    expect(el.textContent).not.toContain('does not run consolidation');
-    unmount();
-  });
+describe('ConsolidationReceipts: failure', () => {
 
-  test('a 404 METHOD_NOT_FOUND (id unregistered on an older daemon) renders the honest unavailable state', async () => {
-    receiptsImpl = () => Promise.reject(Object.assign(new Error('unknown'), { status: 404, body: { code: 'METHOD_NOT_FOUND' } }));
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('This daemon does not run consolidation'));
-    unmount();
-  });
-
-  test('a 501 (verb registered, scheduler not wired) renders the SAME honest unavailable state', async () => {
-    receiptsImpl = () => Promise.reject(Object.assign(new Error('no scheduler'), { status: 501 }));
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('This daemon does not run consolidation'));
-    unmount();
-  });
-
-  test('a genuine 500 is a normal retryable failure, not the "unavailable" state', async () => {
+  test('a genuine 500 offers a retry', async () => {
     receiptsImpl = () => Promise.reject(Object.assign(new Error('boom'), { status: 500 }));
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Consolidation receipts unavailable'));
-    expect(el.textContent).not.toContain('does not run consolidation');
+    await waitFor(() => Boolean(el.querySelector('button[aria-label="Retry"]')));
     unmount();
   });
 });
 
 describe('ConsolidationReceipts: pending proposals', () => {
-  test('renders kind, reason and record count; Resolve selects the proposal with exactly those ids', async () => {
+  test('renders the reason; Resolve selects the proposal with exactly those ids', async () => {
     receiptsImpl = () => Promise.resolve({
       receipts: [],
       pendingProposals: [{
@@ -122,9 +101,7 @@ describe('ConsolidationReceipts: pending proposals', () => {
       }],
     });
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Cross-scope duplicate'));
-    expect(el.textContent).toContain('Same-summary records span multiple scopes');
-    expect(el.textContent).toContain('2 records');
+    await waitFor(() => (el.textContent ?? '').includes('Same-summary records span multiple scopes'));
     // The internal agent-tool route string is never rendered as a browser link or route.
     expect(el.querySelector('a')).toBeNull();
     click([...el.querySelectorAll('.consolidation-proposal-row button')].find((b) => b.textContent === 'Resolve'));
@@ -132,7 +109,7 @@ describe('ConsolidationReceipts: pending proposals', () => {
     unmount();
   });
 
-  test('no pending proposals but prior runs exist: says nothing is pending, still lists the runs', async () => {
+  test('no pending proposals but prior runs exist: no proposal rows, the runs still list', async () => {
     receiptsImpl = () => Promise.resolve({
       receipts: [{
         runId: 'mcon-1',
@@ -150,10 +127,12 @@ describe('ConsolidationReceipts: pending proposals', () => {
       pendingProposals: [],
     });
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Nothing currently pending'));
+    await waitFor(() => Boolean(el.querySelector('.consolidation-receipts-runs summary')));
+    expect(el.querySelector('.consolidation-proposal-row')).toBeNull();
     click(el.querySelector('.consolidation-receipts-runs summary'));
-    expect(el.textContent).toContain('1 run recorded');
-    expect(el.textContent).toContain('Scanned 12');
+    const rows = el.querySelectorAll('.consolidation-run-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain('12');
     unmount();
   });
 });

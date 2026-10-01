@@ -394,8 +394,7 @@ export function visibleFleetNodes(
 export function buildWorkItems(sources: WorkSources): WorkItem[] {
   const pendingApprovalSessions = new Set(
     sources.approvals
-      .filter((a) => !isTerminalApprovalStatus(a.status) && a.sessionId)
-      .map((a) => a.sessionId as string),
+      .flatMap((a) => (!isTerminalApprovalStatus(a.status) && a.sessionId ? [a.sessionId] : [])),
   );
   const nodes = sources.archived ? [...sources.nodes] : visibleFleetNodes(sources.nodes, sources.attemptGroups);
   const fleetRows = buildFleetRows(nodes).map(({ node, depth }) => fleetItem(node, depth, pendingApprovalSessions));

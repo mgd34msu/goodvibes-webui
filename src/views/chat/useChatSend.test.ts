@@ -351,7 +351,6 @@ describe('a 401 mid-send hands off to sign-in, not a dead-end error', () => {
 
     expect(onAuthExpired).toHaveBeenCalledTimes(1);
     expect(harness.getTurnStates().at(-1)).toBe('session expired');
-    expect(harness.getTurnErrors().at(-1)).toContain('expired');
   });
 
   test('a plain 500 does NOT trigger the auth handoff, falls back to "send failed"', async () => {

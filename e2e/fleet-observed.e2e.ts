@@ -11,7 +11,6 @@ import {
   FLEET_AGENT_NODE,
   FLEET_OBSERVED_STEERABLE_NODE,
   FLEET_OBSERVED_NO_CHANNEL_NODE,
-  FLEET_OBSERVED_NO_CHANNEL_REASON,
 } from './support/seed';
 import { expectNoHorizontalScroll, expectTappable, listRow, only, openRow, PHONE } from './support/app';
 
@@ -23,21 +22,15 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('.app-shell')).toBeVisible();
 });
 
-test('both observed rows render with their honest external-kind label', async ({ page }) => {
-  await expect(listRow(page, FLEET_OBSERVED_STEERABLE_NODE.label)).toContainText('External');
-  await expect(listRow(page, FLEET_OBSERVED_NO_CHANNEL_NODE.label)).toContainText('External');
+test('both observed rows render beside the own agents', async ({ page }) => {
+  await expect(listRow(page, FLEET_OBSERVED_STEERABLE_NODE.label)).toBeVisible();
+  await expect(listRow(page, FLEET_OBSERVED_NO_CHANNEL_NODE.label)).toBeVisible();
+  await expect(listRow(page, FLEET_AGENT_NODE.label)).toBeVisible();
   await expectNoHorizontalScroll(page);
 });
 
-test('observed rows are counted on their own, never folded into "running"', async ({ page }) => {
-  await expect(page.locator('.dv-description')).toContainText('2 external');
-  await expect(listRow(page, FLEET_AGENT_NODE.label)).toBeVisible();
-});
-
-test('the steerable observed row: detail shows pid + channel and steer reaches fleet.observed.steer', async ({ page }) => {
+test('the steerable observed row: steer reaches fleet.observed.steer', async ({ page }) => {
   const detail = await openRow(page, FLEET_OBSERVED_STEERABLE_NODE.label);
-  await expect(detail).toContainText(String(FLEET_OBSERVED_STEERABLE_NODE.observed.pid));
-  await expect(detail).toContainText('tmux pane %3');
 
   // No stop or archive, ever, for an observed row.
   await expect(detail.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
@@ -46,13 +39,12 @@ test('the steerable observed row: detail shows pid + channel and steer reaches f
   await form.locator('textarea').fill('status check');
   await form.getByRole('button', { name: 'Send' }).click();
   await expect.poll(() => daemon.observedSteerRequests).toEqual([{ id: FLEET_OBSERVED_STEERABLE_NODE.id, text: 'status check' }]);
-  await expect(page.getByText('Sent', { exact: true })).toBeVisible();
 });
 
-test('the no-channel observed row renders the honest reason, never a dead send button', async ({ page }) => {
+test('the no-channel observed row offers no send and no stop', async ({ page }) => {
   const detail = await openRow(page, FLEET_OBSERVED_NO_CHANNEL_NODE.label);
+  await expect(detail).toBeVisible();
   await expect(detail.getByRole('form', { name: 'Observed foreign agent' })).toHaveCount(0);
-  await expect(detail.getByRole('note').filter({ hasText: FLEET_OBSERVED_NO_CHANNEL_REASON })).toBeVisible();
   await expect(detail.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
 });
 

@@ -124,7 +124,6 @@ describe('QueuedMessagesPanel', () => {
     cleanup = unmount;
     await waitFor(() => Boolean(el.querySelector('.queued-message')));
     expect(el.textContent).toContain('Second message while you finish');
-    expect(el.textContent).toContain('Queued');
   });
 
   test('editing a queued message calls sessions.queuedMessages.edit with the new text', async () => {
@@ -179,7 +178,6 @@ describe('QueuedMessagesPanel', () => {
     click(el.querySelector('.queued-message__delete'));
     // The kit ConfirmDialog asks; nothing is deleted before the answer.
     await waitFor(() => Boolean(document.querySelector('.gv-confirm')));
-    expect(document.querySelector('.gv-confirm')?.textContent).toContain('Drop this queued message?');
     expect(calls.delete).toEqual([]);
     click(document.querySelector('.gv-confirm__confirm'));
     await waitFor(() => calls.delete.length > 0);

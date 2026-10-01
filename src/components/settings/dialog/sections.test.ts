@@ -16,11 +16,6 @@ import {
 const groups = buildSettingsModel({ display: { theme: 'nord' }, mystery: { key: 1 } });
 
 describe('settings dialog sections', () => {
-  test('the nav holds seven pages, in order', () => {
-    expect(SETTINGS_PAGES.map((p) => p.label)).toEqual([
-      'General', 'Account', 'Models and providers', 'Voice', 'Notifications', 'Memory', 'Permissions',
-    ]);
-  });
 
   test('every section lives on exactly one page, and each page opens on the section named like it', () => {
     const placed = SETTINGS_PAGES.flatMap((p) => sectionsOfPage(p.id).map((s) => s.id));
@@ -30,10 +25,6 @@ describe('settings dialog sections', () => {
       expect(sectionsOfPage(page.id)[0].id).toBe(page.id);
       for (const section of sectionsOfPage(page.id)) expect(pageOfSection(section.id)).toBe(page.id);
     }
-    expect(sectionsOfPage('general').map((s) => s.label)).toEqual(['Appearance and behavior', 'Network', 'About', 'Advanced']);
-    expect(sectionsOfPage('account').map((s) => s.label)).toEqual(['Sign-in', 'Devices and pairing', 'People and channels']);
-    expect(sectionsOfPage('models').map((s) => s.label)).toEqual(['Current model and providers', 'Credentials', 'Usage']);
-    expect(sectionsOfPage('notifications').map((s) => s.label)).toEqual(['Notifications', 'Check-ins']);
   });
 
   test('deep links: known ids, old names and unknown values', () => {

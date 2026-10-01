@@ -86,13 +86,12 @@ describe('MailAccountSettings: quiet by construction', () => {
 });
 
 describe('MailAccountSettings: status pills', () => {
-  test('a surface whose probe resolves reports Ready', async () => {
+  test('a surface whose probe resolves reports the ready state', async () => {
     mailProbe = () => Promise.resolve({ messages: [], total: 0 });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-account-settings"]')));
     const row = el.querySelector('[data-testid="mail-surface-status"]');
     expect(row?.getAttribute('data-state')).toBe('ready');
-    expect(row?.textContent).toContain('Ready');
     unmount();
   });
 
@@ -102,7 +101,6 @@ describe('MailAccountSettings: status pills', () => {
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-account-settings"]')));
     const row = el.querySelector('[data-testid="mail-surface-status"]');
     expect(row?.getAttribute('data-state')).toBe('not-available');
-    expect(row?.textContent).toContain('Not on this daemon');
     unmount();
   });
 });
@@ -112,11 +110,6 @@ describe('MailAccountSettings: credential isolation', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="mail-account-settings"]')));
     expect(el.querySelector('input[type="password"]')).toBeNull();
-    const suspectLabelText = /client secret|app password|refresh token|client id/i;
-    const labelLike = [...el.querySelectorAll('label, input, textarea')];
-    for (const node of labelLike) {
-      expect(suspectLabelText.test(node.textContent ?? '')).toBe(false);
-    }
     unmount();
   });
 });

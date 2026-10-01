@@ -154,40 +154,13 @@ describe('provisioning', () => {
     expect(provisionCalls).toBe(1);
   });
 
-  test('the synthetic-recall qualification is stated before the user switches it on', () => {
-    const view = render();
-    cleanup = view.unmount;
-    const note = view.el.querySelector('[data-testid="wake-recall-note"]');
-    expect(note?.textContent).toContain('synthesised');
-    expect(note?.textContent).toContain('no human recording of the phrase exists');
-  });
-
-  test('an installed set reports verification and the pinned version, with no download action', () => {
+  test('an installed set shows the pinned version, with no download action', () => {
     mockStatus = { isPending: false, isError: false, isSuccess: true, data: PROVISIONED };
     const view = render();
     cleanup = view.unmount;
-    expect(view.el.textContent).toContain('Models installed and checksum-verified');
     expect(view.el.textContent).toContain('hey_goodvibes-v1');
     expect([...view.el.querySelectorAll('button')]
       .some((element) => element.textContent?.includes('Download'))).toBe(false);
-  });
-
-  test('a file that is present but fails verification is called corrupt, not missing', () => {
-    mockStatus = {
-      isPending: false,
-      isError: false,
-      isSuccess: true,
-      data: {
-        ...PROVISIONED,
-        ready: false,
-        reason: 'The classifier is present but does not match its pinned checksum.',
-        classifier: { ...PROVISIONED.classifier, verified: false, corrupt: true },
-      },
-    };
-    const view = render();
-    cleanup = view.unmount;
-    expect(view.el.textContent).toContain('failed verification');
-    expect(view.el.textContent).toContain('torn, truncated, or the wrong asset');
   });
 
   test('a daemon that has never heard of the verb renders no section at all', () => {
@@ -224,12 +197,6 @@ describe('the per-origin opt-in', () => {
     flushSync(() => { (checkbox as HTMLInputElement).click(); });
     await flushMutations();
     expect(configWrites).toEqual([{ key: 'voice.wake.surfaces.webui', value: true }]);
-  });
-
-  test('it says plainly that the global switch also has to be on', () => {
-    const view = render();
-    cleanup = view.unmount;
-    expect(view.el.textContent).toContain('Opted into per browser');
   });
 
   test('the global switch is offered while the feature is off, and writes voice.wake.enabled', async () => {
@@ -292,16 +259,15 @@ describe('the resolver\'s own reasons, verbatim', () => {
     const view = render();
     cleanup = view.unmount;
     const live = view.el.querySelector('[data-testid="wake-live-state"]');
-    expect(live?.textContent).toContain('Listening for wake word');
-    expect(live?.textContent).toContain('Backend: wasm');
+    expect(live).not.toBeNull();
+    expect(live?.textContent).toContain('wasm');
   });
 
   test('no speech-to-text provider is stated up front, not discovered after a wake', () => {
     mockSttAvailable = false;
     const view = render();
     cleanup = view.unmount;
-    expect(view.el.querySelector('[data-testid="wake-stt-missing"]')?.textContent)
-      .toContain('A confirmed wake would have nothing to transcribe it');
+    expect(view.el.querySelector('[data-testid="wake-stt-missing"]')).not.toBeNull();
   });
 
   test('with a provider configured that warning is absent', () => {

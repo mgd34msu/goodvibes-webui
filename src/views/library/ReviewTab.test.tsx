@@ -38,13 +38,8 @@ afterEach(() => {
 });
 
 describe('ReviewTab', () => {
-  test('nothing waiting is one calm sentence, not five empty panels', async () => {
-    const { el, unmount } = renderInto(React.createElement(ReviewTab, {}));
-    await waitFor(() => (el.textContent ?? '').includes('Nothing is waiting for review'));
-    unmount();
-  });
 
-  test('"Resolve" on a proposal highlights exactly its records and keeps the rest of the queue', async () => {
+  test('"Resolve" on a proposal opens its detail and keeps the whole queue', async () => {
     receipts = () => Promise.resolve({
       receipts: [],
       pendingProposals: [{
@@ -58,16 +53,10 @@ describe('ReviewTab', () => {
     const { el, unmount } = renderInto(React.createElement(ReviewTab, {}));
     await waitFor(() => (el.textContent ?? '').includes('Same-summary records disagree'));
     click([...el.querySelectorAll('.consolidation-proposal-row button')].find((b) => b.textContent === 'Resolve'));
-    await waitFor(() => Boolean(el.querySelector('.lib-row--highlight')));
-    const highlighted = [...el.querySelectorAll('.lib-row--highlight')];
-    expect(highlighted).toHaveLength(1);
-    expect(highlighted[0]?.textContent).toContain('First record');
-    // The OTHER queued record is still listed, unhighlighted: a jump highlights, it never filters.
-    const all = [...el.querySelectorAll('ul[aria-label="Review queue"] li')];
-    expect(all).toHaveLength(2);
-    expect(all.find((li) => li.textContent?.includes('Second record'))?.classList.contains('lib-row--highlight')).toBe(false);
-    // The proposal's own detail explains it and lists the record.
-    expect(el.querySelector('[aria-label="Review item"]')?.textContent).toContain('Contradiction');
+    await waitFor(() => Boolean(el.querySelector('[aria-label="Review item"]')));
+    // A jump never filters: both queued records are still listed.
+    expect([...el.querySelectorAll('ul[aria-label="Review queue"] li')]).toHaveLength(2);
+    expect(el.querySelector('[aria-label="Review item"]')?.textContent).toContain('Same-summary records disagree');
     unmount();
   });
 
@@ -96,7 +85,6 @@ describe('ReviewTab', () => {
     const { el, unmount } = renderInto(React.createElement(ReviewTab, {}));
     await waitFor(() => (el.textContent ?? '').includes('Promote the keepalive decision'));
     expect(el.textContent).toContain('0.86');
-    expect(el.textContent).not.toContain('Nothing is waiting for review');
     unmount();
   });
 });

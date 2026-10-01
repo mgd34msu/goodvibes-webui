@@ -140,7 +140,6 @@ describe('pairing', () => {
     await client.requestPairing();
     await client.verifyPairing();
     expect(client.getState().status).toBe('awaiting-approval');
-    expect(client.getState().message).toContain('Approve this device');
   });
 
   test('a verified pairing persists the device token', async () => {
@@ -231,7 +230,7 @@ describe('serving work', () => {
     await client.pumpOnce();
     const completion = calls.find((call) => call.url.includes('/complete'));
     expect(completion?.body.status).toBe('failed');
-    expect(completion?.body.error).toContain('dismissed');
+    expect(completion?.body.error).toBe('the person dismissed the browser prompt');
     expect(client.getState().activity[0]?.ok).toBe(false);
   });
 
@@ -244,7 +243,6 @@ describe('serving work', () => {
     await client.pumpOnce();
     expect(client.getState().status).toBe('unpaired');
     expect(storage.current).toBeNull();
-    expect(client.getState().message).toContain('revoked or rotated');
   });
 
   test('the activity log is bounded rather than growing without limit', async () => {

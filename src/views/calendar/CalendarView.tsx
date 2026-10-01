@@ -152,11 +152,11 @@ export function formatRangeLabel(from: string, to: string, now: Date = new Date(
   const end = parseIsoDate(to);
   if (!start && !end) return 'Any date';
   const year = now.getFullYear();
-  const withYear = (start && start.getFullYear() !== year) || (end && end.getFullYear() !== year);
+  const withYear = (start !== null && start.getFullYear() !== year) || (end !== null && end.getFullYear() !== year);
   const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) => date.toLocaleDateString('en-US', opts);
   const monthDay: Intl.DateTimeFormatOptions = withYear ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' };
-  if (!start) return `Until ${fmt(end as Date, monthDay)}`;
-  if (!end) return `From ${fmt(start, monthDay)}`;
+  if (!end) return start ? `From ${fmt(start, monthDay)}` : 'Any date';
+  if (!start) return `Until ${fmt(end, monthDay)}`;
   if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
     if (start.getDate() === end.getDate()) return fmt(start, monthDay);
     const head = fmt(start, { month: 'short', day: 'numeric' });

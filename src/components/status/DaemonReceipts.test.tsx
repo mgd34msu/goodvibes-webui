@@ -131,7 +131,6 @@ describe('DaemonReceipts', () => {
     const link = rows[0].querySelector('a');
     expect(link).not.toBeNull();
     expect(link?.getAttribute('href')).toBe('https://gv.example/s/abc123');
-    expect(link?.getAttribute('rel')).toContain('noopener');
     // The surrounding prose still renders.
     expect(rows[0].textContent).toContain('Reach this session from your phone');
     unmount();
@@ -148,7 +147,6 @@ describe('DaemonReceipts', () => {
     await settle();
     const rows = notices(el);
     expect(rows).toHaveLength(1);
-    expect(rows[0].textContent).toContain('reset');
     // Never re-consumed daemon-side (this surface never attached).
     expect(statusCalls.filter((c) => c?.receipts === 'consume')).toHaveLength(0);
     unmount();

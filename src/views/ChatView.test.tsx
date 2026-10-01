@@ -85,6 +85,7 @@ const { ToastProvider } = await import('../lib/toast');
 
 const SESSION_A = { id: 'session-a', title: 'Session A' };
 const SESSION_B = { id: 'session-b', title: 'Session B' };
+const DAEMON_ERROR = 'the daemon lost the connection';
 
 function noop(): void {}
 
@@ -120,12 +121,19 @@ function renderChatView(props: ChatViewProps): void {
   });
 }
 
-function badgeText(): string | null {
-  return container.querySelector('.badge')?.textContent ?? null;
+/** The composer's alert carrying the turn's error, or null when there is none. */
+function turnErrorAlert(): Element | null {
+  return [...container.querySelectorAll('[role="alert"]')].find((el) => el.textContent === DAEMON_ERROR) ?? null;
 }
 
-function composerErrorText(): string | null {
-  return container.querySelector('.composer-error')?.textContent ?? null;
+/** The settled-turn notice above the composer (role=status in the chat dock). */
+function turnNotice(): Element | null {
+  return container.querySelector('.chat-dock [role="status"]');
+}
+
+/** The Stop control, present for the whole in-flight turn. */
+function stopButton(): Element | null {
+  return container.querySelector('button[aria-label="Stop generating"]');
 }
 
 /**
@@ -171,12 +179,12 @@ describe('ChatView: turn lifecycle resets atomically on session switch', () => {
       callForA?.options.onEvent('companion-chat.turn.error', {
         sessionId: SESSION_A.id,
         type: 'turn.error',
-        error: 'the daemon lost the connection',
+        error: DAEMON_ERROR,
       });
     });
 
-    expect(badgeText()).toBe('error');
-    expect(composerErrorText()).toBe('the daemon lost the connection');
+    // The daemon's error reaches the composer as an alert in session A.
+    expect(turnErrorAlert()).not.toBeNull();
 
     // Session switch: a PROP change on the same mounted instance, exactly how
     // App.tsx drives ChatView (no key={activeSessionId}, so component state is
@@ -188,13 +196,14 @@ describe('ChatView: turn lifecycle resets atomically on session switch', () => {
     // effects, but the re-render this setTurn call schedules lands on a later
     // tick, so wait on the actual outcome rather than on the effect having merely
     // started.
-    await waitFor(() => badgeText() === null);
+    await waitFor(() => turnErrorAlert() === null && turnNotice() === null);
 
-    // The stale 'error' badge and its message must not survive into session B,
+    // Neither the error alert nor a settled-turn notice survives into session B,
     // which has done nothing. Before the fix, turnState stayed 'error' here
-    // (only turnError was cleared by useChatStream's per-session effect).
-    expect(badgeText()).toBeNull();
-    expect(composerErrorText()).toBeNull();
+    // (only turnError was cleared by useChatStream's per-session effect), so the
+    // 'error' notice showed in B once the error text was gone.
+    expect(turnErrorAlert()).toBeNull();
+    expect(turnNotice()).toBeNull();
   });
 });
 
@@ -228,9 +237,7 @@ describe('ChatView: a send that creates its session keeps the in-flight turn', (
     // The send has created the session and reported the switch upward; the turn
     // is rendered in flight BEFORE the parent applies the prop change.
     await waitFor(() => switchedTo === 'session-new');
-    await waitFor(() => badgeText() !== null);
-    const inFlight = badgeText() ?? '';
-    expect(['sending', 'submitted']).toContain(inFlight);
+    await waitFor(() => stopButton() !== null);
 
     // The parent applies the switch, the same prop change as any real session
     // switch. The reset effect must recognize this id as send-created and keep
@@ -241,6 +248,6 @@ describe('ChatView: a send that creates its session keeps the in-flight turn', (
       await new Promise((resolve) => setTimeout(resolve, 0));
       flushSync(() => {});
     }
-    expect(badgeText()).not.toBeNull();
+    expect(stopButton()).not.toBeNull();
   });
 });

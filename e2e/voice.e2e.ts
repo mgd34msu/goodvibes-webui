@@ -26,7 +26,7 @@ async function seedAssistantReply(page: import('@playwright/test').Page): Promis
   await expect(composer).toBeVisible();
   await composer.fill('Say hello');
   await page.locator('.send-button').click();
-  await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply', { timeout: 15_000 });
+  await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 15_000 });
 }
 
 test('reads a reply aloud with the shared voice, then stops on demand', async ({ page }) => {
@@ -98,7 +98,7 @@ test('dictation transcribes into the composer for review before sending', async 
   await expectNoHorizontalScroll(page);
 });
 
-test('mic points at the missing speech-to-text provider honestly', async ({ page }) => {
+test('with no speech-to-text provider, tapping the mic toggles its explanation instead of recording', async ({ page }) => {
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, {
     // A TTS-only provider, dictation genuinely unavailable.
@@ -111,18 +111,18 @@ test('mic points at the missing speech-to-text provider honestly', async ({ page
   const mic = page.locator('button[aria-label*="no speech-to-text provider"]');
   await expect(mic).toBeVisible();
   // A permanent unavailability keeps the composer clear: no bubble until the
-  // crossed mic is tapped, then the honest reason shows, and a second tap
-  // hides it again.
+  // crossed mic is tapped, then the reason shows, and a second tap hides it again.
   await expect(page.locator('.voice-mic-note')).toHaveCount(0);
   await mic.click();
-  await expect(page.locator('.voice-mic-note')).toContainText('speech-to-text');
+  await expect(page.locator('.voice-mic-note')).toBeVisible();
+  await expect(page.locator('button[aria-label="Stop and transcribe"]')).toHaveCount(0);
   await mic.click();
   await expect(page.locator('.voice-mic-note')).toHaveCount(0);
 });
 
-test('a blocked microphone shows an honest try-again pointer, not a dead button', async ({ page }) => {
+test('a blocked microphone surfaces a note and never starts a transcription', async ({ page }) => {
   await installChatMockDaemon(page);
-  await installVoiceRoutes(page);
+  const voice = await installVoiceRoutes(page);
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
@@ -139,12 +139,14 @@ test('a blocked microphone shows an honest try-again pointer, not a dead button'
   await expect(mic).toBeVisible();
   await mic.click();
 
-  await expect(page.locator('.voice-mic-note')).toContainText('Microphone access was blocked', { timeout: 15_000 });
+  await expect(page.locator('.voice-mic-note')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('button[aria-label="Stop and transcribe"]')).toHaveCount(0);
+  expect(voice.sttRequests).toHaveLength(0);
 });
 
-test('the provider selection shows local beside elevenlabs (SDK 1.8.0 voice.local.* adoption)', async ({ page }) => {
+test('the provider selection offers every reported provider, and picking local writes tts.provider', async ({ page }) => {
   await installChatMockDaemon(page);
-  await installVoiceRoutes(page, {
+  const voice = await installVoiceRoutes(page, {
     providers: [
       { id: 'elevenlabs', label: 'ElevenLabs', configured: true, capabilities: ['tts', 'tts-stream', 'stt', 'voice-list'] },
       { id: 'local', label: 'Local engines (free, offline)', configured: true, capabilities: ['tts', 'tts-stream', 'stt'] },
@@ -155,17 +157,15 @@ test('the provider selection shows local beside elevenlabs (SDK 1.8.0 voice.loca
   await expect(page.locator('.app-shell')).toBeVisible();
 
   await page.locator('.voice-settings-btn').click();
-  const providerSelect = page.locator('.voice-settings-popover').getByRole('button', { name: 'Provider' });
+  const providerSelect = page.locator('.voice-settings-popover').getByRole('combobox', { name: 'Provider' });
   await expect(providerSelect).toBeVisible();
   await providerSelect.click();
   const list = page.getByRole('listbox', { name: 'Provider' });
-  const optionLabels = await list.getByRole('option').allTextContents();
-  expect(optionLabels).toEqual(['ElevenLabs', 'Local engines (free, offline)']);
+  await expect(list.getByRole('option')).toHaveCount(2);
 
   // Selecting local writes tts.provider through the same shared-config path.
-  const configWrite = page.waitForRequest((req) => req.method() === 'POST' && req.url().includes('/config'));
   await list.getByRole('option', { name: 'Local engines (free, offline)' }).click();
-  await configWrite;
+  await expect.poll(() => voice.configWrites).toContainEqual({ key: 'tts.provider', value: 'local' });
   // Picking from the list leaves the voice dialog open.
   await expect(page.locator('.voice-settings-popover')).toBeVisible();
 });

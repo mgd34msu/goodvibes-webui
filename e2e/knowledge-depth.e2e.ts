@@ -9,19 +9,22 @@ import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 import { expectNoHorizontalScroll } from './support/app';
 
-test('candidates render with score, and accepting one updates it honestly', async ({ page }) => {
-  await installMockDaemon(page);
+test('accepting a candidate sends the decision and moves it out of the undecided list', async ({ page }) => {
+  const daemon = await installMockDaemon(page);
   await page.goto('/?view=library&tab=review');
   const row = page.locator('.knowledge-candidate-row', { hasText: 'Promote the session-spine keepalive decision' });
   await expect(row).toBeVisible();
-  await expect(row).toContainText('0.86');
   await row.getByRole('button', { name: /Promote the session-spine keepalive decision/ }).click();
 
   const pane = page.getByRole('region', { name: 'Review item' });
+  expect(daemon.requests.filter((r) => r.path.endsWith('/decide'))).toHaveLength(0);
   await pane.getByRole('button', { name: 'Accept' }).click();
-  // The seed's decide response marks the candidate accepted, the list refetches and the pane
-  // loses its decisions (an already-decided candidate offers none).
+  await expect.poll(() => daemon.requests
+    .filter((r) => r.method === 'POST' && r.path === '/api/knowledge/candidates/cand-1/decide')
+    .map((r) => (r.body as { decision?: string }).decision)).toEqual(['accept']);
+  // The list refetches and the pane loses its decisions (an already-decided candidate offers none).
   await expect(pane.getByRole('button', { name: 'Accept' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Knowledge candidates' }).locator('.knowledge-candidate-row', { hasText: 'Promote the session-spine keepalive decision' })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
 
@@ -34,21 +37,22 @@ test('an already-decided candidate (accepted) offers no decisions', async ({ pag
   await expect(decided).toBeVisible();
   await decided.getByRole('button', { name: /Refresh the daemon architecture source/ }).click();
   const pane = page.getByRole('region', { name: 'Review item' });
-  await expect(pane).toContainText('Already accepted in an earlier session.');
+  await expect(pane).toBeVisible();
   await expect(pane.getByRole('button', { name: 'Accept' })).toHaveCount(0);
 });
 
-test('building a prompt packet renders the honest item count and each item\'s reason and score', async ({ page }) => {
-  await installMockDaemon(page);
+test('building a prompt packet sends the task and renders the returned items, untruncated', async ({ page }) => {
+  const daemon = await installMockDaemon(page);
   await page.goto('/?view=library&tab=knowledge');
   await page.getByRole('radio', { name: 'Packet' }).click();
   await page.getByLabel('Task description').fill('Refactor the session spine');
   await page.getByRole('button', { name: 'Build packet' }).click();
   const packetPanel = page.locator('.knowledge-packet__result');
   await expect(packetPanel).toBeVisible();
-  await expect(packetPanel).toContainText('1 item');
-  await expect(packetPanel).toContainText('Session spine decision record');
-  await expect(packetPanel).toContainText('directly relevant to the task');
+  expect(daemon.requests.filter((r) => r.method === 'POST' && r.path === '/api/knowledge/packet').map((r) => (r.body as { task?: string }).task))
+    .toEqual(['Refactor the session spine']);
+  await expect(packetPanel.getByRole('list', { name: 'Packet items' }).getByRole('listitem')).toHaveCount(1);
+  await expect(packetPanel.getByRole('note')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
 
@@ -64,8 +68,6 @@ test('a real post-1.2.0 truncated packet (the final SDK\'s full field shape) ren
   await page.getByRole('button', { name: 'Build packet' }).click();
   const packetPanel = page.locator('.knowledge-packet__result');
   await expect(packetPanel).toBeVisible();
-  const note = page.locator('.knowledge-packet__truncation-note');
-  await expect(note).toBeVisible();
-  await expect(note).toContainText('Showing 1 of 20 candidates (19 dropped)');
+  await expect(packetPanel.getByRole('note')).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

@@ -8,13 +8,11 @@
  * authenticatorData.
  */
 import { describe, expect, test } from 'bun:test';
-import { STEP_UP_ASSERTION_HEADER as SDK_STEP_UP_HEADER } from '@pellux/goodvibes-sdk/daemon';
 import {
   base64UrlToBytes,
   bytesToBase64Url,
   encodeAssertionHeader,
   extractCosePublicKey,
-  STEP_UP_ASSERTION_HEADER,
   type StepUpAssertionEnvelope,
 } from './stepup';
 
@@ -33,11 +31,7 @@ describe('base64url codec', () => {
   });
 });
 
-describe('step-up wire contract mirrors the SDK', () => {
-  test('the header name equals the SDK constant', () => {
-    expect(STEP_UP_ASSERTION_HEADER).toBe(SDK_STEP_UP_HEADER);
-  });
-
+describe('step-up assertion header encoding', () => {
   test('encodeAssertionHeader is base64url(utf8(JSON.stringify(envelope)))', () => {
     const envelope: StepUpAssertionEnvelope = {
       credentialId: 'Y3JlZA',

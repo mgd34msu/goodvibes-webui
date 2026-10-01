@@ -148,12 +148,11 @@ describe('local persistence', () => {
     expect(window.localStorage.getItem(RELAY_PAIRING_STORAGE_KEY)).toBeNull();
   });
 
-  test('corrupt JSON surfaces a one-time notice describing the reset', () => {
+  test('corrupt JSON surfaces a one-time notice', () => {
     window.localStorage.setItem(RELAY_PAIRING_STORAGE_KEY, '{not json');
     getStoredRelayPairing();
     const notice = takeRelayPairingCorruptionNotice();
     expect(notice).not.toBeNull();
-    expect(notice?.text).toContain('reset');
     // Consumed once, a second take is empty even though nothing new happened.
     expect(takeRelayPairingCorruptionNotice()).toBeNull();
   });

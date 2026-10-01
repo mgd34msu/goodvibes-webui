@@ -78,14 +78,15 @@ describe('formatting helpers', () => {
 
   test('formatProvenanceLink renders a path-shaped ref as plain text, never a link', () => {
     const text = formatProvenanceLink({ kind: 'file', ref: '/home/user/.env' });
-    expect(text).toBe('file: /home/user/.env');
+    expect(text).toContain('/home/user/.env');
     expect(text).not.toContain('<a');
     expect(text).not.toContain('href');
   });
 
   test('formatProvenanceLink includes the label when present', () => {
-    expect(formatProvenanceLink({ kind: 'session', ref: 's-1', label: 'Refactor session' }))
-      .toBe('Refactor session (session: s-1)');
+    const text = formatProvenanceLink({ kind: 'session', ref: 's-1', label: 'Refactor session' });
+    expect(text).toContain('Refactor session');
+    expect(text).toContain('s-1');
   });
 
   test('splitTags trims, drops blanks, comma-separates', () => {

@@ -15,6 +15,7 @@
  */
 
 import type { Page, Route } from '@playwright/test';
+import { recordRequests, type RecordedRequest } from './requests';
 import {
   wakeClassifierFixture,
   wakeEmbeddingFixture,
@@ -879,6 +880,10 @@ export interface MockDaemon {
    * detach/kill genuinely reached the daemon without depending on a UI refetch.
    */
   hostedSessions: readonly Record<string, unknown>[];
+  /** Every daemon-bound request the page sent, in order (support/requests.ts). */
+  requests: RecordedRequest[];
+  /** The input of every control-plane invoke of a method id, in order. */
+  invocations: (methodId: string) => unknown[];
 }
 
 const TOKEN_KEY = 'goodvibes.webui.token';
@@ -991,7 +996,10 @@ export async function installMockDaemon(page: Page, options: MockDaemonOptions =
   // snapshot to its enriched form so the event-driven refetch surfaces a new node.
   let fleetEventsEmitted = false;
   let fleetEnriched = false;
+  const requestLog = recordRequests(page);
   const daemon: MockDaemon = {
+    requests: requestLog.requests,
+    invocations: requestLog.invocations,
     steerRequests: [],
     followUpRequests: [],
     detachRequests: [],

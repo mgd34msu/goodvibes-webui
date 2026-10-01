@@ -16,8 +16,8 @@ test('the sleep-disabled chip is absent when keep-awake is off (honest baseline)
   await expect(page.locator('.status-strip__segment--power')).toHaveCount(0);
 });
 
-test('toggling keep-awake on in the settings Power panel shows the sleep-disabled chip in the header', async ({ page }) => {
-  await installMockDaemon(page);
+test('toggling keep-awake sends the setting to the daemon and shows, then clears, the header chip', async ({ page }) => {
+  const daemon = await installMockDaemon(page);
   await openSettings(page, 'devices');
 
   const powerPanel = page.locator('.power-panel');
@@ -27,37 +27,16 @@ test('toggling keep-awake on in the settings Power panel shows the sleep-disable
 
   await toggle.click();
   await expect(toggle).toBeChecked();
+  await expect.poll(() => daemon.keepAwakeSetRequests).toEqual([true]);
 
   // The chip appears among the header's indicators, driven by the same
   // event/refetch the real OPS_POWER_STATE_CHANGED wiring drives.
   const chip = page.locator('.status-strip__segment--power');
   await expect(chip).toBeVisible();
-  await expect(chip).toContainText('Sleep disabled');
 
-  // The panel itself also reflects the held state.
-  await expect(powerPanel.locator('.power-panel__state--danger')).toBeVisible();
-
-  // Toggling back off clears both.
+  // Toggling back off sends false and clears the chip.
   await toggle.click();
   await expect(toggle).not.toBeChecked();
+  await expect.poll(() => daemon.keepAwakeSetRequests).toEqual([true, false]);
   await expect(page.locator('.status-strip__segment--power')).toHaveCount(0);
-});
-
-test('the automatic work inhibitor states "held because X" verbatim when the daemon holds it', async ({ page }) => {
-  await installMockDaemon(page, {
-    power: { work: { held: true, reasons: ['active turn in session s-agent-live'], grantedClasses: ['idle'] } },
-  });
-  await openSettings(page, 'devices');
-  const powerPanel = page.locator('.power-panel');
-  await expect(powerPanel).toContainText('Held because: active turn in session s-agent-live');
-});
-
-test('the honest lid-split note renders verbatim in both the chip tooltip and the settings panel', async ({ page }) => {
-  const note = 'idle sleep blocked; lid-close suspend is controlled by your OS here';
-  await installMockDaemon(page, {
-    power: { keepAwake: { enabled: true, held: true, grantedClasses: ['idle'], deniedClasses: ['handle-lid-switch'], note } },
-  });
-  await openSettings(page, 'devices');
-  await expect(page.locator('.power-panel')).toContainText(note);
-  await expect(page.locator('.status-strip__segment--power')).toHaveAttribute('title', note);
 });

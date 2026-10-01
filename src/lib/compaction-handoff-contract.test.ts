@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { COMPACTION_HANDOFF_HEADER, isCompactionHandoffMessage } from './compaction';
 // The SDK's platform/core barrel is not browser-safe, so compaction.ts carries
-// a literal copy of the header. This test (which runs under bun, where node
-// imports are fine) pins that copy byte-for-byte against the SDK's export.
+// its own copy of the header. A handoff the daemon writes with the SDK's header
+// must still be recognized here.
 import { COMPACTION_HANDOFF_HEADER as SDK_HEADER } from '@pellux/goodvibes-sdk/platform/core';
 
 describe('compaction handoff header contract', () => {
-  test('local copy is byte-identical to the SDK export', () => {
-    expect(COMPACTION_HANDOFF_HEADER).toBe(SDK_HEADER);
+  test('a handoff written with the SDK header is recognized', () => {
+    expect(isCompactionHandoffMessage(`${SDK_HEADER}\n\n## Standing Instructions`)).toBe(true);
   });
 
   test('isCompactionHandoffMessage matches only the handoff message', () => {

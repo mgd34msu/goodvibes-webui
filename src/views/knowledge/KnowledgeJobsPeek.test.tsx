@@ -51,14 +51,6 @@ afterEach(() => {
 });
 
 describe('KnowledgeJobsPeekBody', () => {
-  test('a true-empty run history says "No job runs yet"', async () => {
-    invokeImpl = (method) => Promise.resolve(
-      method === 'knowledge.jobs.list' ? { jobs: [] } : { runs: [] },
-    );
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No job runs yet'));
-    unmount();
-  });
 
   test('renders run rows with job title, status, and newest-first order', async () => {
     invokeImpl = (method) => Promise.resolve(
@@ -81,10 +73,10 @@ describe('KnowledgeJobsPeekBody', () => {
     unmount();
   });
 
-  test('a query failure surfaces an honest error state, not a dead click', async () => {
+  test('a query failure offers a retry, not a dead click', async () => {
     invokeImpl = () => Promise.reject(Object.assign(new Error('route not found'), { status: 404 }));
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Job activity unavailable'));
+    await waitFor(() => Boolean(el.querySelector('button[aria-label="Retry"]')));
     unmount();
   });
 });

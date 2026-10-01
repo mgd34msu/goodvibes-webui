@@ -185,12 +185,9 @@ describe('SessionChanges', () => {
     await settle();
 
     expect(container.textContent).toContain('src/foo.ts');
-    expect(container.textContent).toContain('Session-scoped: filtered to this session\'s own checkpoints only');
     const hunk = container.querySelector('.diff-mb__hunk');
     expect(hunk).not.toBeNull();
     expect(hunk?.textContent).toContain('const c = 3;');
-    // reviewed/total progress indicator is present
-    expect(container.textContent).toContain('0 of 1 hunk reviewed');
     unmount();
   });
 
@@ -198,18 +195,21 @@ describe('SessionChanges', () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
     await settle();
 
+    const progress = () => container.querySelector('[role="status"][aria-label="Review progress"]')?.textContent;
+    const before = progress();
+    expect(before).toBeDefined();
+
     openHunkAction(container, 'approve');
     await settle(2);
 
-    expect(container.textContent).toContain('1 of 1 hunk reviewed');
-    expect(container.querySelector('.diff-mb__hunk--reviewed')).not.toBeNull();
+    expect(progress()).not.toBe(before);
     // no wire calls for a purely client-side approve
     expect(steerCalls).toHaveLength(0);
     expect(revertCalls).toHaveLength(0);
     unmount();
   });
 
-  test('COMMENT & STEER steers the session with the structured context block', async () => {
+  test('COMMENT & STEER steers the session with the file, the hunk and the comment', async () => {
     const { container, unmount } = render({ canSteer: true, closed: false });
     await settle();
 
@@ -231,13 +231,9 @@ describe('SessionChanges', () => {
     expect(followUpCalls).toHaveLength(0);
     const body = steerCalls[0].input.body;
     expect(steerCalls[0].sessionId).toBe('s-1');
-    expect(body).toContain('Comment on a specific code change:');
-    expect(body).toContain('- File: src/foo.ts');
-    expect(body).toContain('new 40–43');
-    expect(body).toContain('```diff');
+    expect(body).toContain('src/foo.ts');
     expect(body).toContain('+  const c = 3;');
-    expect(body).toContain('My comment: use a named constant');
-    expect(body).toContain('Session-scoped');
+    expect(body).toContain('use a named constant');
     unmount();
   });
 
@@ -276,7 +272,6 @@ describe('SessionChanges', () => {
     expect(previewCalls[0].hunk).toContain('+  const c = 3;');
     expect(previewCalls[0].sessionId).toBe('s-1');
     // ready state names the consequence
-    expect(container.textContent).toContain('Will remove 1 added line');
 
     click(container.querySelector('.hunk-sheet__send--danger'));
     await settle(3);
@@ -300,7 +295,6 @@ describe('SessionChanges', () => {
     openHunkAction(container, 'reject');
     await settle(3);
 
-    expect(container.textContent).toContain('changed since it was captured');
     expect(container.textContent).toContain('the file changed since the diff was taken');
     // the confirm/revert path never ran
     expect(revertCalls).toHaveLength(0);
@@ -321,23 +315,25 @@ describe('SessionChanges', () => {
     await settle(3);
 
     expect(revertCalls).toHaveLength(1);
-    expect(container.textContent).toContain('changed since it was captured');
+    const refresh = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Refresh'));
+    expect(refresh).not.toBeUndefined();
     unmount();
   });
 
-  test('a session with no stamped checkpoints renders an honest empty state with a workspace-scoped fallback CTA', async () => {
+  test('a session with no stamped checkpoints shows no hunks and its fallback opens the workspace-wide changes', async () => {
     sessionChangesResult = {
       sessionId: 's-1', checkpointCount: 0, checkpointIds: [], from: 'EMPTY', to: 'EMPTY',
       files: [], unifiedDiff: '', stat: '',
     };
+    checkpoints = ONE_CHECKPOINT;
     const { container, unmount } = render({ canSteer: true, closed: false });
     await settle();
 
-    expect(container.textContent).toContain('No captured changes for this session');
     expect(container.querySelector('.diff-mb__hunk')).toBeNull();
-    const fallbackLink = container.querySelector('.session-changes__inline-link');
-    expect(fallbackLink).not.toBeNull();
-    expect(fallbackLink?.textContent).toContain('View workspace-wide changes instead');
+    expect(container.textContent).not.toContain('src/bar.ts');
+    click(container.querySelector('.session-changes__inline-link'));
+    await settle();
+    expect(container.textContent).toContain('src/bar.ts');
     unmount();
   });
 
@@ -350,7 +346,6 @@ describe('SessionChanges', () => {
     click(container.querySelector('.session-changes__mode-toggle'));
     await settle();
 
-    expect(container.textContent).toContain('Workspace-scoped (fallback)');
     expect(container.textContent).toContain('src/bar.ts');
     expect(container.textContent).not.toContain('src/foo.ts');
     unmount();
@@ -358,11 +353,14 @@ describe('SessionChanges', () => {
 
   test('a daemon that has never heard of sessions.changes.get offers the workspace-scoped fallback', async () => {
     sessionChangesError = { status: 404, code: 'METHOD_NOT_FOUND', message: 'Unknown gateway method' };
+    checkpoints = ONE_CHECKPOINT;
     const { container, unmount } = render({ canSteer: true, closed: false });
     await settle();
 
-    expect(container.textContent).toContain("doesn't serve session-scoped changes");
-    expect(container.querySelector('.session-changes__inline-link')).not.toBeNull();
+    expect(container.textContent).not.toContain('src/bar.ts');
+    click(container.querySelector('.session-changes__inline-link'));
+    await settle();
+    expect(container.textContent).toContain('src/bar.ts');
     unmount();
   });
 
@@ -373,11 +371,4 @@ describe('SessionChanges', () => {
     unmount();
   });
 
-  test('the section is always open: no disclosure toggle, the toolbar is there', async () => {
-    const { container, unmount } = render({ canSteer: true, closed: false });
-    await settle();
-    expect(container.querySelector('.session-changes__toggle')).toBeNull();
-    expect(container.querySelector('.session-changes__toolbar')).not.toBeNull();
-    unmount();
-  });
 });

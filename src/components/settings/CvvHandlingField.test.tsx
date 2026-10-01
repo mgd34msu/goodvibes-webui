@@ -3,7 +3,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { CvvHandlingField } from './CvvHandlingField';
-import { CVV_PROMPT_TRADEOFF_WARNING } from '@pellux/goodvibes-sdk/platform/payments';
 
 const ENUM_VALUES = ['stored', 'prompt'] as const;
 
@@ -48,9 +47,8 @@ function selectLabel(trigger: HTMLButtonElement, label: string): void {
 }
 
 describe('CvvHandlingField', () => {
-  test('is a kit select, never a native one, offering both modes', () => {
-    const { container, select, unmount } = render({ value: 'stored', onCommit: () => {} });
-    expect(container.querySelector('select')).toBeNull();
+  test('shows the current mode and offers both modes', () => {
+    const { select, unmount } = render({ value: 'stored', onCommit: () => {} });
     expect(select.textContent).toContain('stored');
     expect(optionLabels(select)).toEqual(['stored', 'prompt']);
     unmount();
@@ -64,16 +62,16 @@ describe('CvvHandlingField', () => {
 
   test('starting on "prompt" shows the warning immediately (a saved config already set to prompt)', () => {
     const { container, unmount } = render({ value: 'prompt', onCommit: () => {} });
-    expect(container.textContent).toContain(CVV_PROMPT_TRADEOFF_WARNING);
+    expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).not.toBeNull();
     unmount();
   });
 
-  test('selecting "prompt" surfaces the exact trade-off warning at the moment of selection', () => {
+  test('selecting "prompt" surfaces the trade-off warning at the moment of selection', () => {
     const commits: string[] = [];
     const { container, select, unmount } = render({ value: 'stored', onCommit: (v) => commits.push(v) });
     selectLabel(select, 'prompt');
     expect(commits).toEqual(['prompt']);
-    expect(container.textContent).toContain(CVV_PROMPT_TRADEOFF_WARNING);
+    expect(container.querySelector('[data-testid="cvv-prompt-warning"]')).not.toBeNull();
     unmount();
   });
 

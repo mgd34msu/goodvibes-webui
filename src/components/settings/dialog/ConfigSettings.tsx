@@ -61,7 +61,7 @@ export function isAdminRequiredError(error: unknown): boolean {
 }
 
 interface ConfigSettingsValue {
-  config: UseQueryResult<unknown>;
+  config: UseQueryResult;
   groups: SettingsGroupModel[];
   currency: string;
   refused: boolean;

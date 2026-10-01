@@ -17,7 +17,7 @@ export interface PersonalViewProps {
 }
 
 export function PersonalView({ tab, onTabChange }: PersonalViewProps) {
-  const current = resolveTab<PersonalTab>(PERSONAL, tab);
+  const current = resolveTab(PERSONAL, tab);
   const tabs = (
     <Segmented<PersonalTab>
       label="Personal sections"

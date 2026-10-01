@@ -21,26 +21,17 @@ import { mockPushApis } from './support/push-mocks';
 
 // ── Manifest + installability ─────────────────────────────────────────────
 
-test('the web app manifest is served and declares an installable standalone app', async ({ page }) => {
-  const response = await page.request.get('/manifest.webmanifest');
-  expect(response.ok()).toBeTruthy();
-  const manifest = (await response.json()) as {
-    display: string;
-    scope: string;
-    icons: { sizes: string; purpose?: string }[];
-  };
-  expect(manifest.display).toBe('standalone');
-  expect(manifest.scope).toBe('/');
-  const sizes = manifest.icons.map((i) => i.sizes);
-  expect(sizes).toContain('192x192');
-  expect(sizes).toContain('512x512');
-  expect(manifest.icons.some((i) => i.purpose === 'maskable')).toBeTruthy();
-});
-
-test('index.html links the manifest and a theme-color', async ({ page }) => {
+test('the browser judges the app installable', async ({ page }) => {
+  await installMockDaemon(page);
   await page.goto('/');
-  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#15161b');
+  await expect(page.locator('.app-shell')).toBeVisible();
+  // Chromium's own installability verdict (manifest, icons, service worker), not a
+  // reading of the manifest's fields.
+  const cdp = await page.context().newCDPSession(page);
+  await expect.poll(async () => {
+    const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+    return installabilityErrors.map((e) => e.errorId);
+  }).toEqual([]);
 });
 
 // ── Service worker registers (offline behavior: pwa-offline.e2e.ts) ─────────
@@ -61,7 +52,7 @@ test('the service worker registers in the browser', async ({ page }) => {
 
 async function openNotificationSettings(page: Page): Promise<void> {
   await openSettings(page, 'notifications');
-  await expect(page.getByRole('heading', { name: 'Notifications & install' })).toBeVisible();
+  await expect(page.locator('.notifications-panel')).toBeVisible();
 }
 
 test('subscribe → the client fetches the VAPID key and registers the subscription with the daemon', async ({ page }) => {
@@ -127,23 +118,20 @@ test('reconcile-on-open heals a drifted push record when the app opens already-s
   await expect.poll(() => invokeCalls).toContain('push.subscriptions.reconcile');
 });
 
-test('blocked notifications render an honest state, not a dead toggle', async ({ page }) => {
+test('blocked notifications disable the turn-on control', async ({ page }) => {
   await mockPushApis(page, 'denied');
   await installMockDaemon(page);
   await openNotificationSettings(page);
-  await expect(page.getByText('Notifications are blocked for this site.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Turn on notifications/ })).toBeDisabled();
 });
 
-test('an insecure (plain-HTTP) context points at HTTPS / Tailscale, not a broken control', async ({ page }) => {
+test('an insecure (plain-HTTP) context offers no turn-on control', async ({ page }) => {
   // Force the insecure-context branch even though 127.0.0.1 is really secure.
   await page.addInitScript(() => {
     Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
   });
   await installMockDaemon(page);
   await openNotificationSettings(page);
-  await expect(page.getByText(/needs a secure \(HTTPS\) connection/)).toBeVisible();
-  await expect(page.getByText(/tailscale serve/)).toBeVisible();
   await expect(page.getByRole('button', { name: /Turn on notifications/ })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });

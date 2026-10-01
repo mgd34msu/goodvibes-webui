@@ -291,6 +291,9 @@ function ResizeHandle() {
       aria-valuemin={SIDEBAR_MIN_WIDTH}
       aria-valuemax={SIDEBAR_MAX_WIDTH}
       aria-valuenow={shell.width}
+      // A focusable separator with a value is the WAI-ARIA window splitter, an
+      // interactive widget; jsx-a11y classes every separator as static.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- APG window-splitter pattern
       tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

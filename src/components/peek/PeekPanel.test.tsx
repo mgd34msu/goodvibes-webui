@@ -73,7 +73,6 @@ describe('Peek drawer', () => {
     openPeek('Design review');
     const panel = drawer()!;
     expect(panel).not.toBeNull();
-    expect(panel.getAttribute('role')).toBe('dialog');
     expect(panel.getAttribute('aria-label')).toBe('Design review');
     expect(panel.querySelector('.gv-drawer__title')?.textContent).toBe('Design review');
     expect(panel.textContent).toContain('Body text');

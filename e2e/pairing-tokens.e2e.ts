@@ -21,7 +21,7 @@ test.beforeEach(({}, testInfo) => {
 
 async function openPairingSettings(page: import('@playwright/test').Page): Promise<void> {
   await openSettings(page, 'devices');
-  await expect(page.getByRole('heading', { name: 'Devices & pairing' })).toBeVisible();
+  await expect(pairingPanel(page)).toBeVisible();
 }
 
 /**
@@ -35,7 +35,7 @@ function pairingPanel(page: import('@playwright/test').Page) {
   return page.getByTestId('pairing-tokens');
 }
 
-test('lists paired devices with created/last-seen, never a secret, and renames inline', async ({ page }) => {
+test('lists one row per paired device, never a secret, and renames inline', async ({ page }) => {
   const pairingStore = createMockPairingStore([
     { id: 'tok-phone', name: 'Phone', token: 'e2e-phone-token', createdAt: 1_700_000_000_000, lastSeenAt: 1_700_100_000_000 },
     { id: 'tok-laptop', name: 'Laptop', token: 'e2e-laptop-token', createdAt: 1_700_000_500_000 },
@@ -43,10 +43,7 @@ test('lists paired devices with created/last-seen, never a secret, and renames i
   await installMockDaemon(page, { pairingStore });
   await openPairingSettings(page);
 
-  await expect(pairingPanel(page).getByText('Phone', { exact: true })).toBeVisible();
-  await expect(pairingPanel(page).getByText('Laptop', { exact: true })).toBeVisible();
-  await expect(pairingPanel(page).getByText(/last seen/)).toBeVisible();
-  await expect(pairingPanel(page).getByText('never seen')).toBeVisible(); // Laptop has no lastSeenAt
+  await expect(pairingPanel(page).locator('.pairing-token-row')).toHaveCount(2);
   // Never a secret in this list.
   await expect(pairingPanel(page).getByText('e2e-phone-token')).toHaveCount(0);
 
@@ -54,7 +51,9 @@ test('lists paired devices with created/last-seen, never a secret, and renames i
   const input = page.locator('#pairing-token-rename-tok-phone');
   await input.fill('My Phone');
   await input.press('Enter');
-  await expect(pairingPanel(page).getByText('My Phone', { exact: true })).toBeVisible();
+  await expect.poll(() => pairingStore.tokens.find((t) => t.id === 'tok-phone')?.name).toBe('My Phone');
+  await expect(input).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Rename My Phone' })).toBeVisible();
 });
 
 test('touch targets on the pairing tokens panel clear 44px at phone width', async ({ page }) => {
@@ -91,9 +90,10 @@ test('revoking one device 401s it while the current session (a different token) 
   const phoneRow = page.locator('.pairing-token-row', { hasText: 'Phone' });
   await phoneRow.getByRole('button', { name: /Revoke/ }).click();
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('signed out now');
+  expect(pairingStore.tokens).toHaveLength(1);
   await page.locator('.gv-confirm__confirm').click();
-  await expect(pairingPanel(page).getByText('Phone', { exact: true })).toHaveCount(0);
+  await expect(pairingPanel(page).locator('.pairing-token-row')).toHaveCount(0);
+  expect(pairingStore.revokedTokenValues.has('e2e-phone-token')).toBe(true);
 
   // The phone's own token is now revoked, its next authenticated call 401s.
   const status = await phonePage.evaluate(async () => {
@@ -107,26 +107,31 @@ test('revoking one device 401s it while the current session (a different token) 
   // from its link, its data still loading.
   await page.reload();
   await expect(page.locator('.app-shell')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Devices & pairing' })).toBeVisible();
+  await expect(pairingPanel(page)).toBeVisible();
 
   await phoneContext.close();
 });
 
-test('migrate mints this browser its own token; revoke-shared is gated by a danger confirm naming the consequence', async ({ page }) => {
+test('migrate mints this browser its own token; revoke-shared runs only after its confirm', async ({ page }) => {
   const pairingStore = createMockPairingStore();
-  await installMockDaemon(page, { pairingStore });
+  const daemon = await installMockDaemon(page, { pairingStore });
   await openPairingSettings(page);
+  const storedToken = () => page.evaluate(() => window.localStorage.getItem('goodvibes.webui.token'));
+  const sharedToken = await storedToken();
 
   await page.getByRole('button', { name: 'Give this browser its own token' }).click();
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('stays signed in');
+  expect(daemon.invocations('pairing.tokens.migrate')).toHaveLength(0);
   await page.locator('.gv-confirm__confirm').click();
-  await expect(page.getByText('This browser now has its own token')).toBeVisible();
+  await expect.poll(() => daemon.invocations('pairing.tokens.migrate').length).toBe(1);
+  // This browser now holds the newly minted token, not the shared one.
+  await expect.poll(storedToken).not.toBe(sharedToken);
+  expect(pairingStore.tokens.map((t) => t.token)).toContain(await storedToken());
 
   await page.getByRole('button', { name: 'Revoke the shared token' }).click();
-  await expect(page.locator('.gv-confirm')).toContainText('signed out now');
-  const sheetClass = await page.locator('.gv-confirm').getAttribute('class');
-  expect(sheetClass).toContain('danger');
+  await expect(page.locator('.gv-confirm')).toBeVisible();
+  expect(pairingStore.legacySharedRevoked).toBe(false);
   await page.locator('.gv-confirm__confirm').click();
-  await expect(page.getByText('has been revoked')).toBeVisible();
+  await expect.poll(() => pairingStore.legacySharedRevoked).toBe(true);
+  await expect(page.getByRole('button', { name: 'Revoke the shared token' })).toHaveCount(0);
 });

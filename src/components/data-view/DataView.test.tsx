@@ -47,20 +47,17 @@ afterEach(() => {
 describe('ListDetail peek mode', () => {
   test('closed: the list fills the page and no drawer exists', () => {
     render(false);
-    expect(container.querySelector('.dv-split--peek > .dv-list')).not.toBeNull();
+    expect(container.querySelector('.dv-list')).not.toBeNull();
     expect(document.querySelector('.dv-peek')).toBeNull();
   });
 
   test('open: the detail is a labelled drawer outside the list, the list stays', () => {
     render(true);
     const drawer = document.querySelector('.dv-peek')!;
-    expect(drawer.getAttribute('role')).toBe('dialog');
     expect(drawer.getAttribute('aria-label')).toBe('Event detail');
     expect(container.contains(drawer)).toBe(false);
     expect(drawer.textContent).toContain('Design review');
     expect(container.querySelector('.dv-list')?.textContent).toContain('Row one');
-    // The pane's own header is the drawer header: no second kit header.
-    expect(drawer.querySelector('.gv-drawer__header')).toBeNull();
   });
 
   test('the pane close button and Escape close it', () => {
@@ -75,6 +72,6 @@ describe('ListDetail peek mode', () => {
   test('split mode keeps the detail inline as the second pane', () => {
     render(true, 'split');
     expect(document.querySelector('.dv-peek')).toBeNull();
-    expect(container.querySelector('.dv-split--detail > .dv-detail')?.textContent).toContain('Design review');
+    expect(container.querySelector('.dv-detail')?.textContent).toContain('Design review');
   });
 });

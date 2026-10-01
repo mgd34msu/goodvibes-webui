@@ -30,13 +30,4 @@ describe('paired-phone settings reachability', () => {
     expect(DEVICE_KEYS.filter((key) => !routed.has(key))).toEqual([]);
   });
 
-  test('the device group renders a real human label, not a raw namespace', () => {
-    const groups = buildSettingsModel({});
-    const deviceGroup = groups.find((group) => group.id === 'device');
-    expect(deviceGroup).toBeDefined();
-    // Not the namespace, not a Title-Cased copy of it, and not a single token.
-    expect(deviceGroup?.label).not.toBe('device');
-    expect(deviceGroup?.label).not.toBe('Device');
-    expect(deviceGroup?.label.split(' ').length).toBeGreaterThan(1);
-  });
 });

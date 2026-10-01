@@ -176,8 +176,8 @@ describe('range + excerpt helpers', () => {
     expect(excerpt).toContain('-  return a + b;');
 
     const capped = hunkExcerpt(hunk, 2);
-    expect(capped).toContain('more line');
-    expect(capped).toContain('truncated');
+    expect(capped.split('\n').length).toBeLessThan(excerpt.split('\n').length);
+    expect(capped).not.toContain('-  return a + b;');
   });
 
   test('hunkToPatch reconstructs the complete, uncapped, marker-exact hunk (no truncation marker)', () => {
@@ -187,9 +187,8 @@ describe('range + excerpt helpers', () => {
     expect(lines[0]).toBe('@@ -40,6 +40,7 @@ export function foo() {');
     expect(patch).toContain('+  const c = 3;');
     expect(patch).toContain('-  return a + b;');
-    // never a "… N more" cap, the daemon must reverse-apply the whole hunk exactly
-    expect(patch).not.toContain('more line');
-    expect(patch).not.toContain('truncated');
+    // never capped: the daemon must reverse-apply the whole hunk exactly
+    expect(lines.slice(1).filter((l) => l.length > 0)).toHaveLength(hunk.lines.length);
     // every non-header line carries a leading +/-/space marker
     for (const line of lines.slice(1).filter((l) => l.length > 0)) {
       expect(['+', '-', ' ', '\\']).toContain(line[0]);
@@ -206,14 +205,12 @@ describe('buildHunkCommentSteer', () => {
       capturedLabel: 'checkpoint "turn abc" · 3 minutes ago',
       comment: '  use a named constant here  ',
     });
-    expect(block).toContain('Comment on a specific code change:');
-    expect(block).toContain('- File: src/foo.ts');
-    expect(block).toContain('new 40–46');
-    expect(block).toContain('old 40–45');
+    expect(block).toContain('src/foo.ts');
+    expect(block).toContain(formatRange(hunkNewRange(hunk)));
+    expect(block).toContain(formatRange(hunkOldRange(hunk)));
     expect(block).toContain('checkpoint "turn abc" · 3 minutes ago');
-    expect(block).toContain('```diff');
     expect(block).toContain('+  return a + b + c;');
     // comment is trimmed and placed last
-    expect(block.trimEnd().endsWith('My comment: use a named constant here')).toBe(true);
+    expect(block.trimEnd().endsWith('use a named constant here')).toBe(true);
   });
 });

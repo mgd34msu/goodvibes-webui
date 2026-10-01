@@ -9,26 +9,26 @@
  * page and Check-ins are pages reached from the settings dialog and the
  * account menu.
  */
-import type { ViewId } from '../../lib/router';
+import type { LibraryTab, PersonalTab, ViewId, WorkTab } from '../../lib/router';
 
 export type DestinationId = 'chat' | 'work' | 'library' | 'personal' | 'account';
 
-export interface DestinationTab {
-  tab: string;
+export interface DestinationTab<T extends string = string> {
+  tab: T;
   label: string;
 }
 
-export interface Destination {
+export interface Destination<T extends string = string> {
   id: 'work' | 'library' | 'personal';
   label: string;
   /** The view a click on the destination opens. */
   view: ViewId;
   /** One line under the page title. */
   description: string;
-  tabs: readonly DestinationTab[];
+  tabs: readonly DestinationTab<T>[];
 }
 
-export const WORK: Destination = {
+export const WORK: Destination<WorkTab> = {
   id: 'work',
   label: 'Work',
   view: 'work',
@@ -41,7 +41,7 @@ export const WORK: Destination = {
   ],
 };
 
-export const LIBRARY: Destination = {
+export const LIBRARY: Destination<LibraryTab> = {
   id: 'library',
   label: 'Library',
   view: 'library',
@@ -53,7 +53,7 @@ export const LIBRARY: Destination = {
   ],
 };
 
-export const PERSONAL: Destination = {
+export const PERSONAL: Destination<PersonalTab> = {
   id: 'personal',
   label: 'Personal',
   view: 'personal',
@@ -83,9 +83,9 @@ export function destinationById(id: DestinationId): Destination | undefined {
 }
 
 /** The destination's tab for a URL tab value: the value when it names one, else the first tab. */
-export function resolveTab<T extends string>(destination: Destination, tab: string | undefined): T {
+export function resolveTab<T extends string>(destination: Destination<T>, tab: string | undefined): T {
   const match = destination.tabs.find((t) => t.tab === tab);
-  return (match ?? destination.tabs[0]).tab as T;
+  return (match ?? destination.tabs[0]).tab;
 }
 
 /** The page title the header shows for a view. */

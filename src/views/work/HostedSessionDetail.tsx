@@ -47,6 +47,7 @@ import { Button } from '../../components/ui/Button';
 import { StatusDot } from '../../components/ui/StatusDot';
 import { SteerComposer } from '../sessions/SteerComposer';
 import { sentenceCase } from './work-items';
+import { nonEmpty } from '../../lib/non-empty';
 
 export interface HostedAttachment {
   /** The hosted-session stream is live (the list can poll slowly). */
@@ -300,7 +301,7 @@ export function HostedSessionDetail({
 
   return (
     <DetailPane
-      title={session?.title || session?.id || fallbackTitle}
+      title={nonEmpty(session?.title) ?? nonEmpty(session?.id) ?? fallbackTitle}
       status={session ? (
         <span className="work-status">
           <StatusDot tone={closed ? 'idle' : session.status === 'running' ? 'live' : 'ok'} />
@@ -314,7 +315,7 @@ export function HostedSessionDetail({
     >
       {attachment.confirmElement}
       {attachment.attaching && <SkeletonRows count={4} label="Attaching" />}
-      {!attachment.attaching && (attachment.attachError || !session) && (
+      {!attachment.attaching && (Boolean(attachment.attachError) || !session) && (
         <p className="dv-notice dv-notice--bad" role="alert">
           Could not attach: {attachment.attachError ?? 'Could not attach to this session.'}
         </p>

@@ -108,9 +108,8 @@ describe('outcomeTone / outcomeLabel', () => {
     expect(outcomeTone({ outcome: 'failed', lowQuality: false })).toBe('bad');
   });
 
-  test('labels read as plain language', () => {
-    expect(outcomeLabel('applied')).toBe('applied');
-    expect(outcomeLabel('kept-original')).toBe('kept original');
-    expect(outcomeLabel('failed')).toBe('failed');
+  test('each outcome gets a distinct label', () => {
+    const labels = (['applied', 'kept-original', 'failed'] as const).map(outcomeLabel);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

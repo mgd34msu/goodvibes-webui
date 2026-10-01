@@ -147,6 +147,10 @@ export function Select<V extends string = string>({
         ref={triggerRef}
         id={id}
         type="button"
+        // The APG select-only combobox: role="combobox" (allowed on <button>)
+        // carries aria-expanded/aria-controls and, unlike role button,
+        // aria-invalid, which Field injects when the value is refused.
+        role="combobox"
         className={['gv-select__trigger', className ?? ''].filter(Boolean).join(' ')}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -183,7 +187,7 @@ export function Select<V extends string = string>({
               data-index={index}
               role="option"
               aria-selected={option.value === value}
-              aria-disabled={option.disabled || undefined}
+              aria-disabled={option.disabled ? true : undefined}
               data-active={index === active}
               className="gv-option"
               onMouseEnter={() => !option.disabled && setActive(index)}

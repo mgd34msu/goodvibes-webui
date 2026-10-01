@@ -95,7 +95,7 @@ describe('useApprovalUpdates', () => {
     unmount();
   });
 
-  test('onReady flips connected true; onTerminate flips it back false with an honest note', () => {
+  test('onReady flips connected true; onTerminate flips it back false with an error note', () => {
     const { state, unmount } = renderHook();
     expect(state().connected).toBe(false);
 
@@ -105,7 +105,7 @@ describe('useApprovalUpdates', () => {
 
     flushSync(() => capturedHandlers?.onTerminate?.({ error: null, reconnectAttempts: 0 }));
     expect(state().connected).toBe(false);
-    expect(state().error).toContain('periodic refresh');
+    expect(state().error).not.toBeNull();
     unmount();
   });
 

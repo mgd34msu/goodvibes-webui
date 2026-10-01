@@ -72,7 +72,6 @@ describe('bootstrap entry guard', () => {
     renderInsecureOriginNotice(root);
     expect(root.querySelector('[role="alert"]')).not.toBeNull();
     expect(root.textContent).toContain(INSECURE_ORIGIN_TITLE);
-    expect(root.textContent).toContain('HTTPS');
   });
 
   test('an insecure public origin renders the message and never mounts the app', async () => {

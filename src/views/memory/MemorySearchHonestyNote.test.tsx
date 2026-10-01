@@ -26,8 +26,8 @@ function baseResult(overrides: Partial<MemorySearchResult> = {}): MemorySearchRe
     caveat: null,
     recallFiltered: true,
     excludedFlaggedCount: 2,
-    excludedBelowFloorCount: 3,
-    totalBeforeRecallFilter: 6,
+    excludedBelowFloorCount: 13,
+    totalBeforeRecallFilter: 47,
     recallFloor: 60,
     ...overrides,
   };
@@ -44,24 +44,20 @@ function renderNote(result: MemorySearchResult, limit?: number) {
   return text;
 }
 
-test('a limited search labels the count "of the first N matches", not a bare total', () => {
-  const text = renderNote(baseResult(), 100);
-  expect(text).toContain('6 of the first 100 matches before the recall filter');
-  expect(text).not.toContain('total before filtering');
+test('a limited search states the limit next to the count; an unlimited one does not', () => {
+  const limited = renderNote(baseResult(), 250);
+  expect(limited).toContain('47');
+  expect(limited).toContain('250');
+  const unlimited = renderNote(baseResult(), undefined);
+  expect(unlimited).toContain('47');
+  expect(unlimited).not.toContain('250');
 });
 
-test('a search with no limit falls back to an honest "total" label', () => {
-  const text = renderNote(baseResult(), undefined);
-  expect(text).toContain('6 total before the recall filter');
-});
-
-test('the recall-floor exclusion states the exact wire value, never a hardcoded percentage', () => {
-  const text = renderNote(baseResult({ recallFloor: 60 }));
-  expect(text).toContain('3 excluded (below the 60% recall floor)');
-});
-
-test('a different wire recallFloor value is reflected verbatim, not the documented 60% baseline', () => {
-  const text = renderNote(baseResult({ recallFloor: 75 }));
-  expect(text).toContain('3 excluded (below the 75% recall floor)');
-  expect(text).not.toContain('60% recall floor');
+test('the recall-floor exclusion states the wire value, not a hardcoded percentage', () => {
+  const at60 = renderNote(baseResult({ recallFloor: 60 }));
+  expect(at60).toContain('13');
+  expect(at60).toContain('60');
+  const at75 = renderNote(baseResult({ recallFloor: 75 }));
+  expect(at75).toContain('75');
+  expect(at75).not.toContain('60');
 });

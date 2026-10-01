@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type FocusEvent,
@@ -49,6 +50,32 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
 }
 
 /**
+ * Open state with a delayed show: show(false) opens after `delayMs`, show(true)
+ * at once, hide() closes and drops a pending show. The pending timer is cleared
+ * on unmount. A hook of its own so the event handlers Tooltip hands to
+ * cloneElement hold plain callbacks, not the timer ref.
+ */
+function useDelayedOpen(delayMs: number) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clear = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  }, []);
+  const show = useCallback((immediate: boolean) => {
+    clear();
+    if (immediate) setOpen(true);
+    else timer.current = setTimeout(() => setOpen(true), delayMs);
+  }, [clear, delayMs]);
+  const hide = useCallback(() => {
+    clear();
+    setOpen(false);
+  }, [clear]);
+  useEffect(() => clear, [clear]);
+  return { open, setOpen, show, hide };
+}
+
+/**
  * Tooltip on hover (after `delayMs`) and on keyboard focus; Escape hides it.
  * Rendered in a portal so no ancestor overflow clips it.
  */
@@ -62,27 +89,14 @@ export function Tooltip({
   children,
 }: TooltipProps) {
   const id = useId();
-  const [open, setOpen] = useState(false);
-  const anchorRef = useRef<HTMLElement | null>(null);
+  const { open, setOpen, show, hide } = useDelayedOpen(delayMs);
+  // The anchor lives in state, set by a stable callback ref, so render never
+  // touches a ref; positioning reads it through a memoized ref-shaped object.
+  const [anchor, setAnchorNode] = useState<HTMLElement | null>(null);
+  const anchorRef = useMemo(() => ({ current: anchor }), [anchor]);
   const tipRef = useRef<HTMLDivElement | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const position = useFloatingPosition(open, anchorRef, tipRef, placement);
 
-  const clear = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  };
-  const show = useCallback((immediate: boolean) => {
-    clear();
-    if (immediate) setOpen(true);
-    else timer.current = setTimeout(() => setOpen(true), delayMs);
-  }, [delayMs]);
-  const hide = useCallback(() => {
-    clear();
-    setOpen(false);
-  }, []);
-
-  useEffect(() => clear, []);
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent) => {
@@ -92,15 +106,20 @@ export function Tooltip({
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
+  const childRef = isValidElement(children)
+    ? (children as unknown as { props: { ref?: Ref<HTMLElement> } }).props.ref
+    : undefined;
+  // Records the anchor for positioning and still hands the node to the child's own ref.
+  const setAnchor = useCallback((node: HTMLElement | null) => {
+    setAnchorNode(node);
+    assignRef(childRef, node);
+  }, [childRef]);
+
   if (!isValidElement(children)) return children;
   const childProps = children.props;
-  const childRef = (children as unknown as { props: { ref?: Ref<HTMLElement> } }).props.ref;
 
   const trigger = cloneElement(children, {
-    ref: (node: HTMLElement | null) => {
-      anchorRef.current = node;
-      assignRef(childRef, node);
-    },
+    ref: setAnchor,
     onMouseEnter: (event: MouseEvent<HTMLElement>) => {
       childProps.onMouseEnter?.(event);
       if (!disabled) show(false);

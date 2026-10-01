@@ -39,6 +39,7 @@ import { Input } from '../../components/ui/Field';
 import { Row, RowList } from '../../components/ui/Row';
 import { Select } from '../../components/ui/Select';
 import { whenLabel } from './work-items';
+import { nonEmpty } from '../../lib/non-empty';
 
 function isNotFound(error: unknown): boolean {
   return errorCode(error) === 'NOT_FOUND';
@@ -166,7 +167,7 @@ export function CheckpointsPanel() {
 
   if (selected) {
     const compareTarget = compareToId ? compareOptions.find((c) => c.id === compareToId) ?? null : null;
-    const compareLabel = compareToId ? (compareTarget?.label || compareToId) : 'the working tree';
+    const compareLabel = compareToId ? (nonEmpty(compareTarget?.label) ?? compareToId) : 'the working tree';
     return (
       <div className="work-checkpoints" aria-label="Checkpoint detail">
         {confirm.element}

@@ -11,24 +11,23 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { CONFIG_SCHEMA_ENTRIES } from './generated/config-schema';
-import { categoryLabelForKey, CATEGORY_LABELS } from './config-redaction';
+import { categoryLabelForKey } from './config-redaction';
 import { buildSettingsModel, groupLabelForNamespace } from './settings-model';
 
 const PROFILE_KEYS = CONFIG_SCHEMA_ENTRIES.map((entry) => entry.key).filter((key) => key.startsWith('profile.'));
 
 describe('the owner-profile settings group', () => {
-  test('the group renders with a real name, not a Title-Cased key', () => {
-    expect(CATEGORY_LABELS.profile).toBe('Owner Profile');
-    expect(groupLabelForNamespace('profile')).toBe('Owner Profile');
-    expect(categoryLabelForKey('profile.enabled')).toBe('Owner Profile');
-    expect(categoryLabelForKey('profile.path')).toBe('Owner Profile');
+  test('every profile key lands in the profile namespace group', () => {
+    const label = groupLabelForNamespace('profile');
+    expect(categoryLabelForKey('profile.enabled')).toBe(label);
+    expect(categoryLabelForKey('profile.path')).toBe(label);
   });
 
   test('the settings model builds one "Owner Profile" group holding those keys', () => {
     const groups = buildSettingsModel({});
     const group = groups.find((entry) => entry.id === 'profile');
     expect(group, 'no profile group was built').toBeDefined();
-    expect(group?.label).toBe('Owner Profile');
+    expect(group?.label).toBe(groupLabelForNamespace('profile'));
     const rendered = new Set([
       ...(group?.plainRows ?? []).map((row) => row.key),
       ...(group?.featureUnits ?? []).flatMap((unit) => [

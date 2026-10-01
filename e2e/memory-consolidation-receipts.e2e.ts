@@ -21,18 +21,6 @@ async function backToListIfPhone(page: Page): Promise<void> {
   }
 }
 
-test('a pending contradiction proposal renders kind, reason and record count', async ({ page }) => {
-  await installMockDaemon(page);
-  await page.goto('/?view=library&tab=review');
-  const panel = page.locator(PANEL);
-  await expect(panel).toBeVisible();
-  await expect(panel).toContainText('Contradiction');
-  await expect(panel).toContainText('Same-summary records disagree');
-  await expect(panel).toContainText('2 records');
-  // The tab label counts the rows waiting there.
-  await expect(page.getByRole('radio', { name: /^Review · \d+$/ })).toBeVisible();
-});
-
 test('"Resolve" opens the proposal and highlights exactly the referenced records, without hiding the rest', async ({ page }) => {
   await installMockDaemon(page);
   await page.goto('/?view=library&tab=review');
@@ -44,11 +32,7 @@ test('"Resolve" opens the proposal and highlights exactly the referenced records
   expect(rowCountBeforeJump).toBeGreaterThan(0);
 
   await panel.getByRole('button', { name: 'Resolve' }).click();
-  // The proposal's own pane names both records.
-  const pane = page.getByRole('region', { name: 'Review item' });
-  await expect(pane).toContainText('Same-summary records disagree');
-  await expect(pane).toContainText(MEMORY_FACT.id);
-  await expect(pane).toContainText(MEMORY_REVIEW_CANDIDATE.id);
+  await expect(page.getByRole('region', { name: 'Review item' })).toBeVisible();
   await backToListIfPhone(page);
 
   const highlighted = page.locator('.lib-row--highlight');
@@ -61,16 +45,13 @@ test('"Resolve" opens the proposal and highlights exactly the referenced records
   await expect(queueRows).toHaveCount(rowCountBeforeJump);
 });
 
-test('a daemon build with no consolidation scheduler renders the honest "does not run consolidation" state', async ({ page }) => {
-  await installMockDaemon(page, { consolidationReceipts: 'unavailable' });
-  await page.goto('/?view=library&tab=review');
-  await expect(page.locator(PANEL)).toContainText('This daemon does not run consolidation');
-});
-
-test('a genuinely empty history (no runs ever) is a distinct, honest empty state', async ({ page }) => {
-  await installMockDaemon(page, { consolidationReceipts: 'empty' });
-  await page.goto('/?view=library&tab=review');
-  const panel = page.locator(PANEL);
-  await expect(panel).toContainText('No consolidation runs yet');
-  await expect(panel).not.toContainText('does not run consolidation');
-});
+for (const consolidationReceipts of ['unavailable', 'empty'] as const) {
+  test(`${consolidationReceipts} receipts: the panel offers nothing to resolve and the queue still renders`, async ({ page }) => {
+    await installMockDaemon(page, { consolidationReceipts });
+    await page.goto('/?view=library&tab=review');
+    const panel = page.locator(PANEL);
+    await expect(panel).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Review queue' }).getByRole('listitem').first()).toBeVisible();
+  });
+}

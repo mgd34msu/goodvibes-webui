@@ -46,6 +46,15 @@ function defaultLabel(): string {
   return platform ? `Phone (${platform})` : 'Phone';
 }
 
+type PhoneNodeActionKind = 'pair' | 'verify' | 'unpair';
+
+/** The one header action for each pairing state that has one. */
+const PHONE_NODE_ACTIONS: Readonly<Record<PhoneNodeActionKind, { label: string; primary: boolean }>> = {
+  pair: { label: 'Pair this phone', primary: true },
+  verify: { label: 'Finish pairing', primary: true },
+  unpair: { label: 'Unpair this phone', primary: false },
+};
+
 export function PhoneNodeView() {
   const label = useMemo(() => defaultLabel(), []);
   const clientRef = useRef<PhoneNodeClient | null>(null);
@@ -75,13 +84,23 @@ export function PhoneNodeView() {
 
   const secureContextOk = typeof window !== 'undefined' && window.isSecureContext;
 
-  const action = state.status === 'unpaired' || state.status === 'error'
-    ? { label: 'Pair this phone', primary: true, run: () => void clientRef.current?.requestPairing() }
+  const actionKind: PhoneNodeActionKind | null = state.status === 'unpaired' || state.status === 'error'
+    ? 'pair'
     : state.status === 'awaiting-approval'
-      ? { label: 'Finish pairing', primary: true, run: () => void clientRef.current?.verifyPairing() }
+      ? 'verify'
       : state.status === 'connected'
-        ? { label: 'Unpair this phone', primary: false, run: () => clientRef.current?.unpair() }
+        ? 'unpair'
         : null;
+  const action = actionKind ? PHONE_NODE_ACTIONS[actionKind] : null;
+
+  // The client is read only here, when the button is pressed, never during render.
+  function runAction(): void {
+    const client = clientRef.current;
+    if (!client) return;
+    if (actionKind === 'pair') void client.requestPairing();
+    else if (actionKind === 'verify') void client.verifyPairing();
+    else if (actionKind === 'unpair') client.unpair();
+  }
 
   return (
     <div className="view phone-node-view">
@@ -92,7 +111,7 @@ export function PhoneNodeView() {
             <p className="device-page__description">{state.message}</p>
           </div>
           {action ? (
-            <Button variant={action.primary ? 'primary' : 'secondary'} onClick={action.run}>
+            <Button variant={action.primary ? 'primary' : 'secondary'} onClick={runAction}>
               {action.label}
             </Button>
           ) : null}

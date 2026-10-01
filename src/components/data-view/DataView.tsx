@@ -111,7 +111,7 @@ export function ListDetail({
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       if (document.querySelector('[data-gv-layer]:not(.gv-tooltip), [role="alertdialog"]')) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
-      if (target && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       event.preventDefault();
       closeRef.current();
     }
@@ -192,14 +192,14 @@ export function DetailPane({ title, meta, status, actions, tabs, onClose, closeL
       <div className="dv-pane__header">
         <div className="dv-pane__titles">
           <h3 className="dv-pane__title">{title}</h3>
-          {(meta || status) && (
+          {(Boolean(meta) || Boolean(status)) && (
             <div className="dv-pane__meta">
               {status}
               {meta && <span>{meta}</span>}
             </div>
           )}
         </div>
-        {(actions || (onClose && !phone)) && (
+        {(Boolean(actions) || (Boolean(onClose) && !phone)) && (
           <div className="dv-pane__actions">
             {actions}
             {onClose && !phone && <IconButton label={closeLabel} icon={<X />} onClick={onClose} />}

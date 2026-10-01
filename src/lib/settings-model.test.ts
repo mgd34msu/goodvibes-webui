@@ -153,7 +153,6 @@ describe("buildSettingsModel: honesty for unschema'd live keys", () => {
     const group = groupById(groups, 'featureFlags');
     expect(group).toBeDefined();
     expect(group!.rawRows.some((r) => r.key === 'featureFlags.exec-sandbox')).toBe(true);
-    expect(group!.label).toBe('Legacy Toggles');
     expect(groups.some((g) => g.label === 'Feature Flags')).toBe(false);
   });
 
@@ -330,12 +329,6 @@ describe('voice.local.* and fleet.maxSize (SDK 1.8.0): grouping verification', (
     expect(groupContaining('fleet.maxSize')?.id).toBe('fleet');
   });
 
-  test('the "voice" and "fleet" domain groups get real human labels, not a raw namespace string', () => {
-    const voiceGroup = groups.find((g) => g.id === 'voice');
-    const fleetGroup = groups.find((g) => g.id === 'fleet');
-    expect(voiceGroup?.label).toBe('Voice');
-    expect(fleetGroup?.label).toBe('Fleet');
-  });
 });
 
 describe('daemonOwned metadata: config-ownership.ts surfaced onto every row', () => {

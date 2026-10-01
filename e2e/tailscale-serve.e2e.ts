@@ -15,7 +15,7 @@ test('tailscale absent: the panel renders nothing, no nag, no dead button', asyn
   await installMockDaemon(page);
   await openSettings(page, 'network');
   await expect(page.locator('[data-testid="tailscale-settings"]')).toHaveCount(0);
-  await expect(page.getByText('Serve over tailscale')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Serve over tailscale' })).toHaveCount(0);
 });
 
 test('tailscale installed but not logged in: still quiet, no action offered', async ({ page }) => {
@@ -27,13 +27,12 @@ test('tailscale installed but not logged in: still quiet, no action offered', as
 });
 
 test('a usable tailscale environment offers the one action, gated by confirm', async ({ page }) => {
-  await installMockDaemon(page, {
+  const daemon = await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'tailscale is connected as my-host.tailnet.ts.net' },
   });
   await openSettings(page, 'network');
   const panel = page.locator('[data-testid="tailscale-settings"]');
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText('my-host.tailnet.ts.net');
 
   const serveButton = panel.getByRole('button', { name: 'Serve over tailscale' });
   await expect(serveButton).toBeVisible();
@@ -41,8 +40,9 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
 
   // Gated by the shared confirm-sheet idiom, not applied on the raw click.
   await expect(page.locator('.gv-confirm')).toBeVisible();
-  await expect(page.locator('.gv-confirm')).toContainText('HTTPS address on your tailnet');
+  expect(daemon.invocations('tailscale.serve.run')).toHaveLength(0);
   await page.locator('.gv-confirm__confirm').click();
+  await expect.poll(() => daemon.invocations('tailscale.serve.run').length).toBe(1);
 
   // The resulting receipt renders the real https MagicDNS URL, as a link.
   await expect(panel.locator('.tailscale-panel__receipt--ok')).toBeVisible();
@@ -50,7 +50,7 @@ test('a usable tailscale environment offers the one action, gated by confirm', a
 });
 
 test('cancelling the confirm sheet never runs serve', async ({ page }) => {
-  await installMockDaemon(page, {
+  const daemon = await installMockDaemon(page, {
     tailscale: { available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net', detail: 'connected' },
   });
   await openSettings(page, 'network');
@@ -60,6 +60,7 @@ test('cancelling the confirm sheet never runs serve', async ({ page }) => {
   await page.locator('.gv-confirm__cancel').click();
   await expect(page.locator('.gv-confirm')).toHaveCount(0);
   await expect(panel.locator('.tailscale-panel__receipt--ok')).toHaveCount(0);
+  expect(daemon.invocations('tailscale.serve.run')).toHaveLength(0);
 });
 
 test('no MagicDNS name resolved: still quiet, the same honest gating as full absence', async ({ page }) => {
@@ -73,7 +74,7 @@ test('no MagicDNS name resolved: still quiet, the same honest gating as full abs
   await expect(page.locator('[data-testid="tailscale-settings"]')).toHaveCount(0);
 });
 
-test('a failed serve (e.g. a permission error) renders the daemon\'s own receipt detail, honestly', async ({ page }) => {
+test('a failed serve (e.g. a permission error) renders a failure receipt, never a success link', async ({ page }) => {
   await installMockDaemon(page, {
     tailscale: {
       available: true, loggedIn: true, magicDnsName: 'my-host.tailnet.ts.net', httpsUrl: 'https://my-host.tailnet.ts.net',
@@ -86,7 +87,7 @@ test('a failed serve (e.g. a permission error) renders the daemon\'s own receipt
   await page.locator('.gv-confirm__confirm').click();
   const failed = panel.locator('.tailscale-panel__receipt--danger');
   await expect(failed).toBeVisible();
-  await expect(failed).toContainText('permission denied');
+  await expect(panel.locator('.tailscale-panel__receipt--ok')).toHaveCount(0);
 });
 
 test('phone: the Serve over tailscale button clears the 44px touch-target floor', async ({ page }, testInfo) => {

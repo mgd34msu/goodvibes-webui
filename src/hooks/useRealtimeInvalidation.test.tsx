@@ -193,7 +193,7 @@ describe('useRealtimeInvalidation', () => {
   test('a transport error body (raw 401 JSON) NEVER reaches the returned banner string', () => {
     const handle = renderHook(true);
     // The SSE transport sets err.message to the daemon's RAW response body on a pre-auth
-    // open. Feed exactly that blob and assert the hook surfaces the friendly copy, not it.
+    // open. Feed exactly that blob and assert the hook does not surface it.
     const rawBody =
       '{"error":"Authentication required","hint":"Authenticate first.","code":"AUTH_REQUIRED",'
       + '"category":"authentication","source":"runtime","recoverable":false,"status":401}';
@@ -204,7 +204,6 @@ describe('useRealtimeInvalidation', () => {
     expect(banner).not.toBeNull();
     expect(banner).not.toContain('AUTH_REQUIRED');
     expect(banner).not.toContain('{');
-    expect(banner).toContain('Live updates paused');
     handle.unmount();
   });
 });

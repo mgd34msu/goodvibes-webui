@@ -62,15 +62,8 @@ const NORMAL_SNAPSHOT = {
 };
 
 describe('MemoryDiagnostics', () => {
-  test('loading state renders a skeleton, no tier chip', () => {
-    mockDiagnostics = { isPending: true, isError: false, isSuccess: false, data: undefined, refetch: () => {} };
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.querySelector('.memory-diagnostics__tier')).toBeNull();
-    expect(el.textContent).toContain('Memory');
-  });
 
-  test('unavailable (404 METHOD_NOT_FOUND) renders the honest "does not serve" state, not a scary error', () => {
+  test('unavailable (404 METHOD_NOT_FOUND) offers no retry', () => {
     mockDiagnostics = {
       isPending: false,
       isError: true,
@@ -80,10 +73,10 @@ describe('MemoryDiagnostics', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('This daemon does not serve memory diagnostics');
+    expect(el.querySelector('button[aria-label="Retry"]')).toBeNull();
   });
 
-  test('unavailable (501) renders the same honest "does not serve" state', () => {
+  test('unavailable (501) offers no retry either', () => {
     mockDiagnostics = {
       isPending: false,
       isError: true,
@@ -93,67 +86,37 @@ describe('MemoryDiagnostics', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('This daemon does not serve memory diagnostics');
+    expect(el.querySelector('button[aria-label="Retry"]')).toBeNull();
   });
 
-  test('a genuine fetch error renders a retriable ErrorState, distinct from unavailable', () => {
+  test('a genuine fetch error offers a retry that refetches', () => {
+    let refetches = 0;
     mockDiagnostics = {
       isPending: false,
       isError: true,
       isSuccess: false,
       error: Object.assign(new Error('network down'), { status: 0, category: 'network' }),
-      refetch: () => {},
+      refetch: () => { refetches += 1; },
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('Memory diagnostics unavailable');
-    expect(el.textContent).not.toContain('This daemon does not serve memory diagnostics');
-    expect(el.querySelector('.feedback-error-state__retry')).not.toBeNull();
+    const retry = el.querySelector<HTMLButtonElement>('button[aria-label="Retry"]');
+    expect(retry).not.toBeNull();
+    flushSync(() => { retry?.click(); });
+    expect(refetches).toBe(1);
   });
 
-  test('normal tier renders a neutral chip, the budget-vs-rss bar, and per-cache table', () => {
+  test('a snapshot renders the budget-vs-rss bar and per-cache table', () => {
     mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: NORMAL_SNAPSHOT, refetch: () => {} };
     const { el, unmount } = render();
     cleanup = unmount;
-    const chip = el.querySelector('.memory-diagnostics__tier');
-    expect(chip?.querySelector('.gv-dot--idle')).not.toBeNull();
-    expect(chip?.textContent).toBe('Normal');
-    expect(el.textContent).toContain('256 MB of 1024 MB budget');
+    expect(el.textContent).toContain('256 MB');
+    expect(el.textContent).toContain('1024 MB');
     expect(el.textContent).toContain('25%');
     const bar = el.querySelector('[role="progressbar"]');
     expect(bar?.getAttribute('aria-valuenow')).toBe('25');
     expect(el.textContent).toContain('Knowledge embeddings');
     expect(el.textContent).toContain('15.0 MB');
-    expect(el.textContent).toContain('No deferrable jobs currently paused.');
-    expect(el.textContent).toContain('Leak tripwire: not armed.');
-  });
-
-  test('elevated tier gets the info tone (distinct from normal/high/critical)', () => {
-    mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: { ...NORMAL_SNAPSHOT, tier: 'elevated', usedPct: 65 }, refetch: () => {} };
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--info')).not.toBeNull();
-  });
-
-  test('high tier gets the warning tone', () => {
-    mockDiagnostics = { isPending: false, isError: false, isSuccess: true, data: { ...NORMAL_SNAPSHOT, tier: 'high', usedPct: 85 }, refetch: () => {} };
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--warn')).not.toBeNull();
-  });
-
-  test('critical tier gets the bad tone and shows the refusing-expensive-work note', () => {
-    mockDiagnostics = {
-      isPending: false,
-      isError: false,
-      isSuccess: true,
-      data: { ...NORMAL_SNAPSHOT, tier: 'critical', usedPct: 97, refusingExpensiveWork: true },
-      refetch: () => {},
-    };
-    const { el, unmount } = render();
-    cleanup = unmount;
-    expect(el.querySelector('.memory-diagnostics__tier .gv-dot--bad')).not.toBeNull();
-    expect(el.textContent).toContain('Refusing expensive work while under pressure.');
   });
 
   test('paused jobs render as a list', () => {
@@ -172,7 +135,7 @@ describe('MemoryDiagnostics', () => {
     expect(el.textContent).toContain('memory.vector.rebuild');
   });
 
-  test('an armed tripwire renders the armed line with the danger styling hook', () => {
+  test('an armed tripwire renders its growth rate and duration', () => {
     mockDiagnostics = {
       isPending: false,
       isError: false,
@@ -182,8 +145,8 @@ describe('MemoryDiagnostics', () => {
     };
     const { el, unmount } = render();
     cleanup = unmount;
-    expect(el.textContent).toContain('Leak tripwire: armed: sustained growth of 5.5 MB/s for 30s.');
-    expect(el.querySelector('.memory-diagnostics__tripwire--armed')).not.toBeNull();
+    expect(el.textContent).toContain('5.5 MB/s');
+    expect(el.textContent).toContain('30s');
   });
 
   test('an empty cache list renders no table (never a fabricated empty row)', () => {

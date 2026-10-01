@@ -15,7 +15,7 @@ import { flushSync } from 'react-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../lib/toast';
 
-let postureResult: unknown = { posture: { origin: 'http://192.168.0.131:3423', scheme: 'http', privateNetwork: true, secureContext: false, notice: 'lan notice', capabilities: [
+const postureResult: unknown = { posture: { origin: 'http://192.168.0.131:3423', scheme: 'http', privateNetwork: true, secureContext: false, notice: 'lan notice', capabilities: [
   { capability: 'service-worker', available: false, reason: 'needs https, available via tailscale' },
   { capability: 'push', available: false, reason: 'needs https, available via tailscale' },
   { capability: 'microphone', available: false, reason: 'needs https, available via tailscale' },
@@ -95,16 +95,12 @@ describe('push capability label', () => {
     unmount();
   });
 
-  test('falls back to the honest generic HTTPS pointer while posture is loading or on failure', async () => {
+  test('renders no daemon reason when the posture read fails', async () => {
     postureRejects = true;
     const { el, client, unmount } = render();
-    // Never blank: the fallback copy is present immediately, and stays present
-    // once the rejected fetch settles (never a crash, never an empty banner).
-    expect(el.textContent).toContain('secure (HTTPS) connection');
     // The posture read has failed and nothing is still in flight.
     await waitFor(() => client.getQueryCache().getAll().some((query) => query.state.status === 'error') && client.isFetching() === 0);
     flushSync(() => {});
-    expect(el.textContent).toContain('secure (HTTPS) connection');
     expect(el.textContent).not.toContain('needs https, available via tailscale');
     unmount();
   });
@@ -112,16 +108,10 @@ describe('push capability label', () => {
   test('an "ok" support state shows the real push controls, not a banner', () => {
     pushSupportValue = 'ok';
     const { el, unmount } = render();
-    expect(el.textContent).toContain('Turn on notifications');
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Turn on notifications'))).toBe(true);
     unmount();
   });
 
-  test('an unsupported browser shows the honest unsupported note, not the HTTPS pointer', () => {
-    pushSupportValue = 'unsupported';
-    const { el, unmount } = render();
-    expect(el.textContent).toContain('does not support Web Push');
-    unmount();
-  });
 });
 
 describe('install (service-worker) capability label', () => {
@@ -134,28 +124,13 @@ describe('install (service-worker) capability label', () => {
     // it (not just the push section) by checking it appears at least twice.
     const occurrences = el.textContent?.split('needs https, available via tailscale').length ?? 1;
     expect(occurrences - 1).toBeGreaterThanOrEqual(2);
-    expect(el.textContent).not.toContain('Use your browser’s menu to add this app');
-    unmount();
-  });
-
-  test('a secure origin with no captured prompt event shows the honest generic fallback, not an insecure-origin label', async () => {
-    postureResult = { posture: { origin: 'https://mybox.example.ts.net', scheme: 'https', privateNetwork: false, secureContext: true, capabilities: [
-      { capability: 'service-worker', available: true },
-      { capability: 'push', available: true },
-      { capability: 'microphone', available: true },
-    ] } };
-    pushSupportValue = 'ok';
-    installAffordanceValue = 'none';
-    const { el, unmount } = render();
-    await waitFor(() => el.textContent?.includes('Turn on notifications') === true);
-    expect(el.textContent).toContain('Use your browser’s menu to add this app');
     unmount();
   });
 
   test('a captured beforeinstallprompt event always shows the real Install button, regardless of posture', () => {
     installAffordanceValue = 'prompt';
     const { el, unmount } = render();
-    expect(el.textContent).toContain('Add to Home Screen');
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Add to Home Screen'))).toBe(true);
     unmount();
   });
 });

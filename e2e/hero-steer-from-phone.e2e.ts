@@ -45,8 +45,7 @@ test('find → read → STEER via plain Enter → the steer lands over the wire'
 
   // ── READ: open the transcript. Master-detail flips list → detail. ──
   await row.click();
-  await expect(detailPane(page).getByRole('list', { name: 'Transcript' })).toBeVisible();
-  await expect(page.locator('.work-transcript__body').first()).toBeVisible();
+  await expect(detailPane(page).getByRole('list', { name: 'Transcript' }).getByRole('listitem').first()).toBeVisible();
   // The wrapped transcript does not push the page sideways.
   await expectNoHorizontalScroll(page);
   // A back affordance exists (not a dead-end stack).
@@ -66,11 +65,6 @@ test('find → read → STEER via plain Enter → the steer lands over the wire'
   expect(sent.sessionId).toBe(STEERABLE_SESSION.id);
   expect(sent.body).toMatchObject({ body: steerText });
 
-  // The dispatch row shows the steer as delivered.
-  const dispatch = page.locator('.steer-composer__dispatches .steer-dispatch').first();
-  await expect(dispatch).toContainText(steerText);
-  await expect(dispatch).toContainText(/steer · delivered/i);
-
   // The textarea cleared after send.
   await expect(input).toHaveValue('');
 });
@@ -88,14 +82,11 @@ test('back affordance returns from a session detail to the list', async ({ page 
   await expect(page.getByRole('button', { name: new RegExp(STEERABLE_SESSION.title) })).toBeVisible();
 });
 
-test('a non-steerable session offers a follow-up, labeled honestly', async ({ page }) => {
+test('a non-steerable session sends a follow-up, never a steer', async ({ page }) => {
   await page.goto('/?view=work&tab=sessions');
   const row = page.getByRole('button', { name: new RegExp(FOLLOWUP_SESSION.title) });
   await row.click();
   await expect(detailPane(page).getByRole('list', { name: 'Transcript' })).toBeVisible();
-
-  // No agent bound → the composer is a follow-up, not a steer.
-  await expect(page.locator('.steer-composer__mode')).toContainText(/Follow-up/i);
 
   const input = page.locator('.steer-composer__input');
   await input.fill('Queue a cleanup pass for later');
@@ -103,5 +94,5 @@ test('a non-steerable session offers a follow-up, labeled honestly', async ({ pa
 
   await expect.poll(() => daemon.followUpRequests.length, { timeout: 10_000 }).toBeGreaterThan(0);
   expect(daemon.followUpRequests[0].sessionId).toBe(FOLLOWUP_SESSION.id);
-  await expect(page.locator('.steer-dispatch').first()).toContainText(/follow-up · delivered/i);
+  expect(daemon.steerRequests).toHaveLength(0);
 });

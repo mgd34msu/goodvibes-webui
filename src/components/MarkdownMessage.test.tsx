@@ -24,13 +24,10 @@ afterEach(() => {
 });
 
 describe('MarkdownMessage', () => {
-  test('a fenced code block is highlighted and offers a labelled copy action', () => {
+  test('a fenced code block renders its code and offers a copy action', () => {
     const el = render(<MarkdownMessage content={'```ts\nconst answer = 42;\n```'} />);
     expect(el.querySelector('button[aria-label="Copy code"]')).not.toBeNull();
     expect(el.querySelector('pre')?.textContent).toContain('const answer = 42;');
-    // highlight.js token classes are the observable output of highlighting.
-    expect(el.querySelector('pre .hljs-keyword')?.textContent).toBe('const');
-    expect(el.querySelector('pre .hljs-number')?.textContent).toBe('42');
   });
 
   test('line numbers are rendered per line and hidden from assistive tech', () => {

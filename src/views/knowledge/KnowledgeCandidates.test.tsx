@@ -82,10 +82,10 @@ test('an empty candidate list renders no rows', async () => {
   unmount();
 });
 
-test('a query failure renders ErrorState with retry', async () => {
+test('a query failure offers a retry', async () => {
   listImpl = () => Promise.reject(new Error('boom'));
   const { el, unmount } = render();
-  await waitFor(() => (el.textContent ?? '').includes('Candidates failed to load'));
+  await waitFor(() => Boolean(el.querySelector('button[aria-label="Retry"]')));
   unmount();
 });
 
@@ -141,7 +141,7 @@ test('an already-decided candidate (status !== pending) offers no decision butto
     candidates: [{ id: 'cand-2', status: 'accepted', title: 'Already decided', score: 0.9 }],
   });
   const { el, unmount } = render();
-  await waitFor(() => (el.textContent ?? '').includes('1 decided'));
+  await waitFor(() => (el.textContent ?? '').includes('Already decided'));
   // Decided candidates sit behind a disclosure, still selectable.
   clickRow(el, 'Already decided');
   const labels = [...el.querySelectorAll('button')].map((b) => b.textContent);

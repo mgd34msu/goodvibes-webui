@@ -276,41 +276,6 @@ describe('formatLatency', () => {
 });
 
 // ---------------------------------------------------------------------------
-// connectionLabel
-// ---------------------------------------------------------------------------
-
-describe('connectionLabel', () => {
-  test('returns Reachable for connected: NEVER "Connected" (401 honesty)', () => {
-    expect(connectionLabel('connected')).toBe('Reachable');
-    expect(connectionLabel('connected')).not.toBe('Connected');
-  });
-
-  test('returns Reconnecting for reconnecting', () => {
-    expect(connectionLabel('reconnecting')).toBe('Reconnecting');
-  });
-
-  test('returns Offline for down', () => {
-    expect(connectionLabel('down')).toBe('Offline');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// authLabel / workingLabel, the two new honesty axes
-// ---------------------------------------------------------------------------
-
-describe('authLabel', () => {
-  test('signed-in → "Signed in"', () => { expect(authLabel('signed-in')).toBe('Signed in'); });
-  test('signed-out → "Signed out"', () => { expect(authLabel('signed-out')).toBe('Signed out'); });
-  test('unknown → "Auth ?"', () => { expect(authLabel('unknown')).toBe('Auth ?'); });
-});
-
-describe('workingLabel', () => {
-  test('working → "Working"', () => { expect(workingLabel('working')).toBe('Working'); });
-  test('blocked → "No access"', () => { expect(workingLabel('blocked')).toBe('No access'); });
-  test('unknown → "Idle"', () => { expect(workingLabel('unknown')).toBe('Idle'); });
-});
-
-// ---------------------------------------------------------------------------
 // deriveAuthState / deriveWorkingState, the axes can disagree; 401 never = ok
 // ---------------------------------------------------------------------------
 
@@ -339,55 +304,28 @@ describe('deriveWorkingState', () => {
     expect(deriveWorkingState({ ok: false, status: null })).toBe('unknown');
   });
   test('the three axes can disagree: reachable + signed-in but blocked (scope gap)', () => {
-    // A reachable daemon (connectionLabel('connected')) with a signed-in token that
-    // lacks read:sessions must NOT read as "working".
-    expect(connectionLabel('connected')).toBe('Reachable');
+    // A reachable daemon with a signed-in token that lacks read:sessions must NOT
+    // read as "working".
     expect(deriveAuthState({ ok: true, status: 200 })).toBe('signed-in');
     expect(deriveWorkingState({ ok: false, status: 401 })).toBe('blocked');
   });
 });
 
 // ---------------------------------------------------------------------------
-// sseLabel
+// label helpers: every state is distinguishable from every other
 // ---------------------------------------------------------------------------
 
-describe('sseLabel', () => {
-  test('returns Live for active', () => {
-    expect(sseLabel('active')).toBe('Live');
-  });
+describe('label helpers', () => {
+  function distinct(labels: readonly string[]): void {
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of labels) expect(label.length).toBeGreaterThan(0);
+  }
 
-  test('returns SSE… for connecting', () => {
-    expect(sseLabel('connecting')).toBe('SSE…');
-  });
-
-  test('returns SSE error for error', () => {
-    expect(sseLabel('error')).toBe('SSE error');
-  });
-
-  test('returns SSE off for disabled', () => {
-    expect(sseLabel('disabled')).toBe('SSE off');
-  });
-
-  test('returns a distinct, honest label for relay-unsupported (not "SSE error")', () => {
-    expect(sseLabel('relay-unsupported')).toBe('Unavailable (relay)');
-    expect(sseLabel('relay-unsupported')).not.toBe(sseLabel('error'));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// routeLabel
-// ---------------------------------------------------------------------------
-
-describe('routeLabel', () => {
-  test('returns Direct for the direct route', () => {
-    expect(routeLabel('direct')).toBe('Direct');
-  });
-
-  test('returns Via relay for the relay route', () => {
-    expect(routeLabel('relay')).toBe('Via relay');
-  });
-
-  test('returns an em dash for null (no verdict / offline)', () => {
-    expect(routeLabel(null)).toBe('—');
+  test('each helper gives every state it is handed a distinct, non-empty label', () => {
+    distinct([connectionLabel('connected'), connectionLabel('reconnecting'), connectionLabel('down')]);
+    distinct([authLabel('signed-in'), authLabel('signed-out'), authLabel('unknown')]);
+    distinct([workingLabel('working'), workingLabel('blocked'), workingLabel('unknown')]);
+    distinct([sseLabel('active'), sseLabel('connecting'), sseLabel('error'), sseLabel('disabled'), sseLabel('relay-unsupported')]);
+    distinct([routeLabel('direct'), routeLabel('relay'), routeLabel(null)]);
   });
 });

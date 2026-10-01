@@ -53,7 +53,9 @@ describe('hostedLiveMessageFromTurnFrame', () => {
 
   test('TURN_CANCEL renders a system note', () => {
     const frame = readHostedStreamFrame({ type: 'TURN_CANCEL', sessionId: 's-1', payload: {} })!;
-    expect(hostedLiveMessageFromTurnFrame(frame, () => 1)?.content).toBe('Turn cancelled.');
+    const message = hostedLiveMessageFromTurnFrame(frame, () => 1);
+    expect(message?.role).toBe('system');
+    expect(message?.content.length).toBeGreaterThan(0);
   });
 
   test('null for a non-terminal frame (e.g. STREAM_DELTA)', () => {

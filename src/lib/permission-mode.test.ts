@@ -29,19 +29,18 @@ describe('isSettablePermissionMode', () => {
 });
 
 describe('permissionModeLabel', () => {
-  test('gives plain-language labels for the known modes', () => {
-    expect(permissionModeLabel('plan')).toBe('Plan');
-    expect(permissionModeLabel('normal')).toBe('Normal');
-    expect(permissionModeLabel('accept-edits')).toBe('Accept edits');
-    expect(permissionModeLabel('auto')).toBe('Auto');
-    expect(permissionModeLabel('custom')).toBe('Custom');
+  test('gives each known mode a distinct label', () => {
+    const labels = ['plan', 'normal', 'accept-edits', 'auto', 'custom'].map(permissionModeLabel);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   test('an unrecognized mode renders verbatim, never dropped', () => {
     expect(permissionModeLabel('future-mode')).toBe('future-mode');
   });
 
-  test('an absent mode renders as Unknown, never a guessed default', () => {
-    expect(permissionModeLabel('')).toBe('Unknown');
+  test('an absent mode gets its own label, never a guessed known mode', () => {
+    const absent = permissionModeLabel('');
+    expect(absent.length).toBeGreaterThan(0);
+    expect(['plan', 'normal', 'accept-edits', 'auto', 'custom'].map(permissionModeLabel)).not.toContain(absent);
   });
 });

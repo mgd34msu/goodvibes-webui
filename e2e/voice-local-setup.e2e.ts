@@ -22,7 +22,7 @@ async function openVoiceSettings(page: import('@playwright/test').Page) {
   return popover;
 }
 
-test('an unprovisioned runtime offers the size-labeled one-act setup, and installing renders the receipt', async ({ page }) => {
+test('an unprovisioned runtime offers the one-act setup, and one tap installs exactly once', async ({ page }) => {
   await installChatMockDaemon(page);
   const voice = await installVoiceRoutes(page); // default: not-provisioned, install succeeds
 
@@ -30,22 +30,19 @@ test('an unprovisioned runtime offers the size-labeled one-act setup, and instal
   const local = popover.locator('.voice-settings-local');
   await expect(local).toBeVisible();
 
-  // The action is size-labeled from the daemon's own offerBytes, never an unlabeled download.
   const setup = local.getByRole('button', { name: /Set up local voice/ });
   await expect(setup).toBeVisible();
-  await expect(setup).toContainText('209.0 MB');
+  expect(voice.localInstallRequests).toBe(0);
 
   await setup.click();
 
-  // The final receipt: per-engine outcomes, configured keys, and the skipped-as-user-set key.
-  await expect(local).toContainText('TTS (piper): Installed');
-  await expect(local).toContainText('STT (whisper-cpp): Installed');
-  await expect(local).toContainText('Configured: voice.local.ttsEngine, voice.local.ttsBinary, voice.local.ttsModelPath');
-  await expect(local).toContainText('Left as you set them: voice.local.sttBinary');
-  expect(voice.localInstallRequests).toBe(1);
+  // One install, and once it lands there is nothing left to set up.
+  await expect.poll(() => voice.localInstallRequests).toBe(1);
+  await expect(setup).toHaveCount(0);
+  await expect(local.getByRole('button', { name: 'Retry' })).toHaveCount(0);
 });
 
-test('a slow install renders live per-component progress from the polled status, then the receipt', async ({ page }) => {
+test('a slow install shows live progress from the polled status, which clears when the install lands', async ({ page }) => {
   await installChatMockDaemon(page);
   // 2.5s window ≈ three of the surface's 750ms polls, the installInProgress
   // section is only served while the install POST is genuinely in flight.
@@ -55,23 +52,16 @@ test('a slow install renders live per-component progress from the polled status,
   const local = popover.locator('.voice-settings-local');
   await local.getByRole('button', { name: /Set up local voice/ }).click();
 
-  // Live progress: the completed component byte-labeled, the in-flight download
-  // showing only its pinned total (bytes land at completion boundaries, never a
-  // fabricated live percentage), the extract phase byte-less.
+  // Live progress while the install POST is in flight…
   const progress = local.locator('[data-testid="voice-local-progress"]');
   await expect(progress).toBeVisible();
-  await expect(progress).toContainText('piper-voice-onnx');
-  await expect(progress).toContainText('Done: 60.3 MB of 60.3 MB');
-  await expect(progress).toContainText('Downloading: 6.6 MB');
-  await expect(progress).toContainText('Extracting');
 
-  // The run completes: progress yields to the receipt and the flipped resting state.
-  await expect(local).toContainText('TTS (piper): Installed');
+  // …then the run completes: progress clears and the setup action is gone.
   await expect(progress).toHaveCount(0);
-  await expect(local).toContainText('Installed: TTS: piper, STT: whisper-cpp.');
+  await expect(local.getByRole('button', { name: /Set up local voice/ })).toHaveCount(0);
 });
 
-test('a retriable download failure renders the honest reason and a Retry action that re-invokes install', async ({ page }) => {
+test('a retriable download failure offers Retry, which re-invokes install', async ({ page }) => {
   await installChatMockDaemon(page);
   const voice = await installVoiceRoutes(page, { localInstallOutcome: 'download-failed' });
 
@@ -79,30 +69,30 @@ test('a retriable download failure renders the honest reason and a Retry action 
   const local = popover.locator('.voice-settings-local');
   await local.getByRole('button', { name: /Set up local voice/ }).click();
 
-  await expect(local).toContainText('TTS (piper): Download failed: network timeout fetching piper.tar.gz');
+  await expect.poll(() => voice.localInstallRequests).toBe(1);
   const retry = local.getByRole('button', { name: 'Retry' });
   await expect(retry).toBeVisible();
   await retry.click();
   await expect.poll(() => voice.localInstallRequests).toBe(2);
 });
 
-test('a provisioned runtime shows the quiet installed line, no setup button', async ({ page }) => {
+test('a provisioned runtime offers no setup button', async ({ page }) => {
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, { localRuntime: 'provisioned' });
 
   const popover = await openVoiceSettings(page);
   const local = popover.locator('.voice-settings-local');
-  await expect(local).toContainText('Installed: TTS: piper, STT: whisper-cpp.');
+  await expect(local).toBeVisible();
   await expect(local.getByRole('button', { name: /Set up local voice/ })).toHaveCount(0);
 });
 
-test('an unsupported platform reports honestly instead of offering an install that cannot succeed', async ({ page }) => {
+test('an unsupported platform never offers an install that cannot succeed', async ({ page }) => {
   await installChatMockDaemon(page);
   await installVoiceRoutes(page, { localRuntime: 'unsupported-platform' });
 
   const popover = await openVoiceSettings(page);
   const local = popover.locator('.voice-settings-local');
-  await expect(local).toContainText('Not supported on this platform, no pinned engine build exists for this host.');
+  await expect(local).toBeVisible();
   await expect(local.getByRole('button', { name: /Set up local voice/ })).toHaveCount(0);
 });
 
@@ -112,6 +102,6 @@ test('an older daemon build (voice.local.status 404s) renders no local section a
 
   const popover = await openVoiceSettings(page);
   // The rest of the popover works untouched.
-  await expect(popover).toContainText('Spoken voice');
+  await expect(popover.getByRole('combobox', { name: 'Provider' })).toBeVisible();
   await expect(popover.locator('.voice-settings-local')).toHaveCount(0);
 });

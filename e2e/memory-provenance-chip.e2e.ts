@@ -31,11 +31,14 @@ test('a turn carrying metadata.memory.recordIds lights up the chip when the sett
   await composer.fill(MESSAGE);
   await page.locator('.send-button').click();
 
-  await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply', { timeout: 15_000 });
+  await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 15_000 });
 
   const chip = page.locator('.memory-provenance-chip__toggle');
-  await expect(chip).toBeVisible();
-  await expect(chip).toContainText('Memory: 2');
+  await expect(chip).toHaveAttribute('aria-expanded', 'false');
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-expanded', 'true');
+  // One entry per record id the turn carried.
+  await expect(page.locator('.memory-provenance-chip__list > li')).toHaveCount(2);
 });
 
 test('the same metadata.memory.recordIds stays absent with the setting off (default)', async ({ page }) => {
@@ -50,7 +53,7 @@ test('the same metadata.memory.recordIds stays absent with the setting off (defa
   await composer.fill(MESSAGE);
   await page.locator('.send-button').click();
 
-  await expect(page.locator('.message.assistant').first()).toContainText('Assistant reply', { timeout: 15_000 });
+  await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 15_000 });
 
   // The reply's metadata carries the same real recordIds, the setting is the only
   // reason the chip is absent, never a lack of data.

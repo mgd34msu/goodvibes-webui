@@ -6,7 +6,7 @@
  * either width, per the honest-bar (no horizontal scroll, no broken control).
  */
 import { test, expect } from '@playwright/test';
-import { installMockDaemon } from './support/mock-daemon';
+import { installMockDaemon, type MockDaemon } from './support/mock-daemon';
 import type { Locator, Page } from '@playwright/test';
 import { expectNoHorizontalScroll, only, openSettings, PHONE, expectBottomSheet } from './support/app';
 
@@ -20,12 +20,14 @@ async function pickTarget(page: Page, dialog: Locator, label: string): Promise<v
     await radio.click();
     return;
   }
-  await dialog.getByRole('button', { name: 'Model routing target' }).click();
+  await dialog.getByRole('combobox', { name: 'Model routing target' }).click();
   await page.getByRole('option', { name: label }).click();
 }
 
+let daemon: MockDaemon;
+
 test.beforeEach(async ({ page }) => {
-  await installMockDaemon(page);
+  daemon = await installMockDaemon(page);
   const settings = await openSettings(page, 'models');
   await expect(settings.getByTestId('current-model')).toBeVisible();
 });
@@ -52,7 +54,7 @@ test('opens from the "Change model" launcher and shows all five TUI-parity targe
   if (await dialog.getByRole('radio').count()) {
     for (const label of labels) await expect(dialog.getByRole('radio', { name: label })).toBeVisible();
   } else {
-    await dialog.getByRole('button', { name: 'Model routing target' }).click();
+    await dialog.getByRole('combobox', { name: 'Model routing target' }).click();
     for (const label of labels) await expect(page.getByRole('option', { name: label })).toBeVisible();
     await page.getByRole('option', { name: 'Main Chat' }).click();
   }
@@ -68,52 +70,59 @@ test('Escape closes the workspace and leaves the settings dialog open underneath
   await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
 });
 
-test('the price filter is honestly enabled, real tier data exists in the fixture', async ({ page }) => {
+test('the price filter is enabled because the catalog carries tier data', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
-  await expect(dialog.getByText('gpt-5', { exact: true })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Price' })).toBeEnabled();
+  await expect(dialog.locator('.model-workspace-row', { hasText: 'gpt-5' }).first()).toBeVisible();
+  await expect(dialog.getByRole('combobox', { name: 'Price' })).toBeEnabled();
 });
 
-test('the capability filter is honestly disabled, no daemon serves that data today', async ({ page }) => {
+test('the capability filter is disabled because the catalog carries no capability data', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
-  await expect(dialog.getByText('Not reported by this daemon').first()).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Capability' })).toBeDisabled();
+  await expect(dialog.locator('.model-workspace-row').first()).toBeVisible();
+  await expect(dialog.getByRole('combobox', { name: 'Capability' })).toBeDisabled();
 });
 
-test('main target: selecting GPT-5 calls models.select and the current-model panel updates honestly', async ({ page }) => {
+const configWrites = (daemon: MockDaemon) => daemon.requests
+  .filter((r) => r.method === 'POST' && r.path === '/config')
+  .map((r) => r.body as { key: string; value: unknown });
+const modelSelects = (daemon: MockDaemon) => daemon.requests
+  .filter((r) => r.method === 'PATCH' && r.path === '/api/models/current')
+  .map((r) => (r.body as { registryKey?: string }).registryKey);
+
+test('main target: Use on GPT-5 sets the current model and marks that row current', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
   const gptRow = dialog.locator('.model-workspace-row', { hasText: 'gpt-5' });
   await gptRow.getByRole('button', { name: 'Use' }).click();
+  await expect.poll(() => modelSelects(daemon)).toEqual([expect.stringMatching(/:gpt-5$/)]);
+  expect(configWrites(daemon)).toHaveLength(0);
   await expect(gptRow.getByRole('button', { name: 'Current' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  // The settings section's own "Current model" block reflects the same mutated state.
-  await expect(page.getByTestId('current-model')).toContainText('gpt-5');
 });
 
 test('helper target: selecting a model routes through config.set, not models.select; the main selection is untouched', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
   await pickTarget(page, dialog, 'Helper Model');
-  await expect(dialog.getByText('not configured')).toBeVisible();
   const gptRow = dialog.locator('.model-workspace-row', { hasText: 'gpt-5' });
   await gptRow.getByRole('button', { name: 'Use' }).click();
-  await expect(dialog.getByText(/Helper Model:/)).toContainText('openai:gpt-5');
-  // Switching back to Main Chat shows the ORIGINAL current model, unaffected by the
-  // helper write, proves the two targets are genuinely independent config keys.
-  await pickTarget(page, dialog, 'Main Chat');
-  await expect(dialog.getByText(/Main Chat:/)).toContainText('claude-opus-4-8');
+  await expect.poll(() => configWrites(daemon)).toEqual([
+    { key: 'helper.globalProvider', value: 'openai' },
+    { key: 'helper.globalModel', value: 'gpt-5' },
+    { key: 'helper.enabled', value: true },
+  ]);
+  // The main selection is untouched: no models.select went out.
+  expect(modelSelects(daemon)).toHaveLength(0);
 });
 
 test('embeddings target has no model concept; lists providers only, "Use" writes the provider id alone', async ({ page }) => {
   await page.getByRole('button', { name: 'Change model' }).click();
   const dialog = page.getByRole('dialog', { name: 'Model Workspace' });
   await pickTarget(page, dialog, 'Embeddings');
-  await expect(dialog.getByText('no model selection')).toBeVisible();
-  await expect(dialog.getByText('claude-opus-4-8')).toHaveCount(0);
   const openaiRow = dialog.locator('.model-workspace-row', { hasText: 'openai' });
   await openaiRow.getByRole('button', { name: 'Use' }).click();
+  await expect.poll(() => configWrites(daemon)).toEqual([{ key: 'provider.embeddingProvider', value: 'openai' }]);
+  expect(modelSelects(daemon)).toHaveLength(0);
   await expect(openaiRow.getByRole('button', { name: 'Current' })).toBeVisible();
 });

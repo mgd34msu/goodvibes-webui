@@ -61,18 +61,18 @@ test.describe('process actions', () => {
     expect(daemon.watcherStopRequests[0]).toBe(FLEET_WATCHER_NODE.id);
   });
 
-  test('an agent with no wire verb for stopping gets the honest note, never a fabricated Stop', async ({ page }) => {
+  test('an agent with no wire verb for stopping offers no Stop', async ({ page }) => {
     const detail = await openRow(page, FLEET_AGENT_NODE.label);
-    await expect(detail.getByRole('note').filter({ hasText: "no control verb for 'agent' processes yet" })).toBeVisible();
+    await expect(detail.getByRole('textbox', { name: 'Steer message' })).toBeVisible();
     await expect(detail.getByRole('button', { name: /^Stop$/ })).toHaveCount(0);
   });
 
   test('the correlated pending approval is one row away and Approve reaches approvals.approve', async ({ page }) => {
     const detail = await openRow(page, FLEET_AGENT_NODE.label);
     const waiting = detail.getByRole('list', { name: 'Approvals for this process' });
-    await expect(waiting).toContainText('Run the full test suite before merging');
+    await expect(waiting.getByRole('listitem')).toHaveCount(1);
     await waiting.locator('.gv-row__main').first().click();
-    await expect(detailPane(page)).toContainText('Waiting for approval');
+    expect(daemon.approvalActions).toHaveLength(0);
     await detailPane(page).getByRole('button', { name: /^Approve$/ }).click();
     await expect.poll(() => daemon.approvalActions.length, { timeout: 10_000 }).toBeGreaterThan(0);
     expect(daemon.approvalActions[0]).toMatchObject({ approvalId: 'appr-e2e-1', action: 'approve' });

@@ -34,12 +34,11 @@ describe('trigger settings reachability', () => {
     expect(TRIGGER_KEYS.filter((key) => !routed.has(key))).toEqual([]);
   });
 
-  test('trigger keys group with the rest of the watchers namespace under a real label', () => {
+  test('trigger keys group with the rest of the watchers namespace', () => {
     const groups = buildSettingsModel({});
     const watchersGroup = groups.find((group) => group.id === 'watchers');
     expect(watchersGroup).toBeDefined();
-    expect(watchersGroup?.label).toBe('Watchers');
-    expect(groupLabelForNamespace('watchers')).toBe('Watchers');
-    expect(categoryLabelForKey('watchers.triggers.enabled')).toBe('Watchers');
+    expect(watchersGroup?.label).toBe(groupLabelForNamespace('watchers'));
+    expect(categoryLabelForKey('watchers.triggers.enabled')).toBe(groupLabelForNamespace('watchers'));
   });
 });

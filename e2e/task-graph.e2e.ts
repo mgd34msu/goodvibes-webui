@@ -7,12 +7,12 @@
  * and desktop.
  */
 import { test, expect } from '@playwright/test';
-import { installMockDaemon } from './support/mock-daemon';
+import { FLEET_GRAPH_WORKSTREAM_ID, installMockDaemon } from './support/mock-daemon';
 import { FLEET_GRAPH_WORKSTREAM_NODE } from './support/seed';
 import { expectNoHorizontalScroll, openRow } from './support/app';
 
-test('the task graph renders every state tell for the selected workstream', async ({ page }) => {
-  await installMockDaemon(page);
+test('the old Workstream link lands on Work, and opening the workstream fetches and renders its graph', async ({ page }) => {
+  const daemon = await installMockDaemon(page);
   // The old Workstream link lands on Work, Processes.
   await page.goto('/?view=workstream');
   await expect(page.locator('.app-shell')).toBeVisible();
@@ -21,26 +21,9 @@ test('the task graph renders every state tell for the selected workstream', asyn
   const panel = page.locator('.task-graph-panel');
   await expect(panel).toBeVisible();
 
-  // Pool summary, the brief's own vocabulary verbatim, plus the daemon's own
-  // more specific spawn-refusal detail appended honestly.
-  await expect(panel.locator('[data-testid="task-graph-pool"]')).toHaveText(
-    '1 ready, 2 running, at the limit of 2 running at once: new spawns wait for a running agent to free a slot',
-  );
-
-  // Every state tell from the representative fixture. Filter by the row's
-  // TITLE element specifically (not the whole row's text), "waiting on: Fix
-  // null-check in session close" (the blocked row's reason) would otherwise
-  // ambiguously match the ready row's own title text too.
-  const rows = panel.locator('[data-testid="task-graph-node"]');
-  await expect(rows).toHaveCount(5);
-  const rowByTitle = (title: string) => rows.filter({ has: page.locator('.task-graph-node__title', { hasText: title }) });
-  await expect(rowByTitle('Fix null-check in session close')).toContainText('Ready');
-  await expect(rowByTitle('Add regression test for the race')).toContainText('Running');
-  const blockedRow = rowByTitle('Update the changelog entry');
-  await expect(blockedRow).toContainText('Blocked');
-  await expect(blockedRow).toContainText('waiting on: Fix null-check in session close');
-  await expect(rowByTitle('Refactor the retry loop')).toContainText('Stalled');
-  await expect(rowByTitle('Tighten the timeout constant')).toContainText('Done');
+  // The graph read names the selected workstream, and every node it returned is a row.
+  expect(daemon.requests.some((r) => r.method === 'GET' && r.path === `/api/fleet/workstreams/${FLEET_GRAPH_WORKSTREAM_ID}/graph`)).toBe(true);
+  await expect(panel.locator('[data-testid="task-graph-node"]')).toHaveCount(5);
 
   await expectNoHorizontalScroll(page);
 });

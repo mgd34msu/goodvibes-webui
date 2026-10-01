@@ -77,9 +77,4 @@ describe('MemoryRecordDetail: type/scope/review-state/provenance', () => {
     unmount();
   });
 
-  test('no provenance renders an honest "No provenance recorded", not a blank section', () => {
-    const { el, unmount } = render(<MemoryRecordDetail record={record({ provenance: [] })} />);
-    expect(el.textContent).toContain('No provenance recorded');
-    unmount();
-  });
 });

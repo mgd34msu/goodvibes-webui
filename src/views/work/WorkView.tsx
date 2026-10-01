@@ -59,6 +59,7 @@ import { useApprovalActions } from './useApprovalActions';
 import { useWorkData } from './useWorkData';
 import { buildWorkItems, groupWorkItems, workSummary, type WorkItem, type WorkKind } from './work-items';
 import '../../styles/components/work.css';
+import { nonEmpty } from '../../lib/non-empty';
 
 /** The workspace checkpoints detail, for when no session exists. */
 const WORKSPACE_CHECKPOINTS_KEY = 'workspace:checkpoints';
@@ -262,7 +263,7 @@ export function WorkView({ tab, onTabChange, subscriptionActive = true, streamPa
       }
       case 'hosted': {
         const row = data.hostedRecords.find((h) => h.id === id);
-        return <HostedSessionDetail attachment={hostedAttachment} fallbackTitle={row?.title || id} onClose={closeDetail} />;
+        return <HostedSessionDetail attachment={hostedAttachment} fallbackTitle={nonEmpty(row?.title) ?? id} onClose={closeDetail} />;
       }
       case 'task': {
         const task = data.taskRecords.find((t) => t.id === id);

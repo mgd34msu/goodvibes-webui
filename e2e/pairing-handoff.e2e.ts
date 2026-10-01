@@ -30,10 +30,8 @@ test('accepting notifications + relay completes both honestly', async ({ page })
   await page.goto('/?view=chat#pair=e2e-handoff-token&offers=notifications,relay');
 
   // The offer-decision modal appears once the token has signed this device in.
-  await expect(page.getByRole('heading', { name: 'Finish pairing this device' })).toBeVisible();
-  await expect(page.getByText('Push notifications')).toBeVisible();
-  await expect(page.getByText('Remote connectivity')).toBeVisible();
-  // Both default to accepted.
+  await expect(page.locator('.pairing-handoff')).toBeVisible();
+  // One checkbox per offer, both default to accepted.
   const checkboxes = page.locator('.pairing-handoff-offer input[type="checkbox"]');
   await expect(checkboxes).toHaveCount(2);
   for (let i = 0; i < 2; i += 1) await expect(checkboxes.nth(i)).toBeChecked();
@@ -41,7 +39,6 @@ test('accepting notifications + relay completes both honestly', async ({ page })
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page.locator('.pairing-handoff-result--completed')).toHaveCount(2);
-  await expect(page.getByText('Push notifications')).toBeVisible();
 
   // The fragment never lingers.
   await expect.poll(() => new URL(page.url()).hash).not.toContain('pair=');
@@ -62,7 +59,7 @@ test('declining every offer never contacts the ceremony or sends anything to the
   });
 
   await page.goto('/?view=chat#pair=e2e-handoff-token-2&offers=notifications,relay');
-  await expect(page.getByRole('heading', { name: 'Finish pairing this device' })).toBeVisible();
+  await expect(page.locator('.pairing-handoff')).toBeVisible();
 
   const checkboxes = page.locator('.pairing-handoff-offer input[type="checkbox"]');
   await expect(checkboxes).toHaveCount(2);

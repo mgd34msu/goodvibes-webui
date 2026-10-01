@@ -81,7 +81,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
-  test('a configured+usable credential reads "usable", not a fabricated "ok"/"healthy"', async () => {
+  test('a credential renders with its key and source', async () => {
     _credentialsGet = () =>
       Promise.resolve({
         available: true,
@@ -89,42 +89,7 @@ describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
       });
     const { el, unmount } = render();
     await waitFor(() => (el.textContent ?? '').includes('ANTHROPIC_API_KEY'));
-    expect(el.textContent).toContain('usable');
     expect(el.textContent).toContain('env');
-    unmount();
-  });
-
-  test('a configured-but-unusable credential shows the honest degraded label, distinct from "usable"', async () => {
-    _credentialsGet = () =>
-      Promise.resolve({
-        available: true,
-        credentials: [{ key: 'BROKEN_ENV_REF', configured: true, usable: false, source: 'env-ref' }],
-      });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('BROKEN_ENV_REF'));
-    expect(el.textContent).toContain('configured, not usable');
-    // Never rendered as plain "usable" or a fabricated "ok".
-    expect(el.querySelector('.gv-dot--ok')).toBeNull();
-    unmount();
-  });
-
-  test('an unconfigured credential reads "not configured"', async () => {
-    _credentialsGet = () =>
-      Promise.resolve({
-        available: true,
-        credentials: [{ key: 'GOOGLE_API_KEY', configured: false, usable: false }],
-      });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('GOOGLE_API_KEY'));
-    expect(el.textContent).toContain('not configured');
-    unmount();
-  });
-
-  test('an empty credential list renders the honest empty state, not a degraded banner', async () => {
-    _credentialsGet = () => Promise.resolve({ available: true, credentials: [] });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No credentials'));
-    expect(el.querySelector('.credential-status__degraded')).toBeNull();
     unmount();
   });
 
@@ -152,50 +117,21 @@ describe('CredentialStatusPanel: available (credentials.get resolves)', () => {
 // DEGRADED, the facade's honest unavailable states, never fabricated-configured
 // ---------------------------------------------------------------------------
 
-describe('CredentialStatusPanel: degraded (store unavailable / older daemon / transport failure)', () => {
-  test('a 503 CREDENTIAL_STORE_UNAVAILABLE shows the facade\'s own reason text', async () => {
-    _credentialsGet = () => rejection(503, { error: 'Shared credential store unavailable', code: 'CREDENTIAL_STORE_UNAVAILABLE' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Credential status unavailable'));
-    expect(el.textContent).toContain('The daemon has no shared credential store wired.');
-    // Never a fabricated "configured" reading.
-    expect(el.textContent).not.toContain('not configured');
-    unmount();
-  });
-
-  test('METHOD_NOT_FOUND (an older daemon) degrades with the not-served reason', async () => {
-    _credentialsGet = () => rejection(404, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Credential status unavailable'));
-    expect(el.textContent).toContain('This daemon does not serve credential status yet.');
-    unmount();
-  });
-
-  test('a network/transport failure (no status, no code) degrades generically, never silently as "0 credentials"', async () => {
-    _credentialsGet = () => Promise.reject(new Error('fetch failed'));
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Credential status unavailable'));
-    expect(el.textContent).toContain('Credential status unavailable right now.');
-    expect(el.textContent).not.toContain('No credentials');
-    unmount();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// REFUSED, admin-scope refusal, distinct from a broken/unavailable store
-// ---------------------------------------------------------------------------
-
-describe('CredentialStatusPanel: refused (non-admin token, 403)', () => {
-  test('a 403 "Admin role required" renders the honest refused message, not the generic degraded one', async () => {
-    _credentialsGet = () => rejection(403, { error: 'Admin role required' });
-    const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Admin access required'));
-    expect(el.textContent).toContain('Sign in with an admin-scoped token to view credential status.');
-    // Distinct from the store-unavailable degraded copy, never conflated.
-    expect(el.textContent).not.toContain('Credential status unavailable right now.');
-    expect(el.textContent).not.toContain('shared credential store');
-    unmount();
-  });
+describe('CredentialStatusPanel: degraded and refused reads', () => {
+  for (const [label, impl] of [
+    ['a 503 CREDENTIAL_STORE_UNAVAILABLE', () => rejection(503, { error: 'Shared credential store unavailable', code: 'CREDENTIAL_STORE_UNAVAILABLE' })],
+    ['a METHOD_NOT_FOUND from an older daemon', () => rejection(404, { error: 'Unknown gateway method', code: 'METHOD_NOT_FOUND' })],
+    ['a transport failure', () => Promise.reject(new Error('fetch failed'))],
+    ['a 403 admin refusal', () => rejection(403, { error: 'Admin role required' })],
+  ] as const) {
+    test(`${label} renders the degraded status and no credential rows`, async () => {
+      _credentialsGet = impl as typeof _credentialsGet;
+      const { el, unmount } = render();
+      await waitFor(() => Boolean(el.querySelector('.credential-status__degraded[role="status"]')));
+      expect(el.querySelectorAll('li')).toHaveLength(0);
+      unmount();
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

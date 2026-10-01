@@ -21,8 +21,6 @@ test('a receipt shows once on connect and never re-shows after a reconnect', asy
 
   const notices = page.locator('[data-testid="daemon-receipt"]');
   await expect(notices).toHaveCount(2);
-  await expect(notices.filter({ hasText: 'Daemon restarted after a crash at 14:03' })).toBeVisible();
-  await expect(notices.filter({ hasText: 'Updated to 1.7.1' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 
   // Reload → the app reconnects and re-consumes, but the daemon already

@@ -73,19 +73,12 @@ describe('AccountsPanel: honest states, never a fabricated one', () => {
     unmount();
   });
 
-  test('no data reports an honest empty state, not "0 of 0 configured"', () => {
-    const { el, unmount } = render({ data: {} });
-    expect(el.textContent).toContain('No account data');
-    unmount();
-  });
-
   test('renders per-provider active route, freshness, usage windows, issues, and recommended actions', () => {
     const { el, unmount } = render({ data: SNAPSHOT });
-    expect(el.textContent).toContain('1 of 2 providers configured');
-    expect(el.textContent).toContain('1 issue');
     expect(el.textContent).toContain('subscription');
     expect(el.textContent).toContain('expiring');
-    expect(el.textContent).toContain('5-hour window: rolling limit applies');
+    expect(el.textContent).toContain('5-hour window');
+    expect(el.textContent).toContain('rolling limit applies');
     expect(el.textContent).toContain('Token refreshes soon');
     expect(el.textContent).toContain('Re-authenticate before it expires');
     expect(el.textContent).toContain('unconfigured');

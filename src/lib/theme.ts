@@ -22,7 +22,8 @@ function osPrefersLight(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- matchMedia can be absent at runtime (tests, legacy engines)
-    return Boolean(window.matchMedia?.('(prefers-color-scheme: light)').matches);
+    if (typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-color-scheme: light)').matches;
   } catch {
     return false;
   }

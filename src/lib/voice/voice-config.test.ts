@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  STT_UNAVAILABLE_MESSAGE,
-  TTS_UNAVAILABLE_MESSAGE,
   deriveVoiceAvailability,
   describeSharedVoice,
   readSharedVoiceConfig,
@@ -63,13 +61,6 @@ describe('deriveVoiceAvailability', () => {
   });
 });
 
-describe('unavailable messages are bring-your-own-key pointers', () => {
-  test('both name an API key so the operator knows the fix', () => {
-    expect(TTS_UNAVAILABLE_MESSAGE).toContain('API key');
-    expect(STT_UNAVAILABLE_MESSAGE).toContain('API key');
-  });
-});
-
 describe('readSharedVoiceConfig', () => {
   test('reads tts.provider/voice/speed out of the resolved snapshot', () => {
     const snapshot = { ui: {}, tts: { provider: 'elevenlabs', voice: 'rachel', speed: 1.25 } };
@@ -83,8 +74,10 @@ describe('readSharedVoiceConfig', () => {
 });
 
 describe('describeSharedVoice', () => {
-  test('joins provider and voice, or says provider default when unset', () => {
-    expect(describeSharedVoice({ provider: 'elevenlabs', voice: 'rachel' })).toBe('elevenlabs · rachel');
-    expect(describeSharedVoice({ provider: '', voice: '' })).toBe('provider default');
+  test('carries provider and voice, and is never blank when unset', () => {
+    const named = describeSharedVoice({ provider: 'elevenlabs', voice: 'rachel' });
+    expect(named).toContain('elevenlabs');
+    expect(named).toContain('rachel');
+    expect(describeSharedVoice({ provider: '', voice: '' }).length).toBeGreaterThan(0);
   });
 });

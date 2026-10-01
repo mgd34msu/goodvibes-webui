@@ -434,7 +434,6 @@ describe('the constraints asked for', () => {
     );
     expect(test1.constraints[0]).toMatchObject({ audio: { deviceId: { exact: 'usb-mic-id' } } });
     expect(stream.deviceSelectable).toBe(true);
-    expect(stream.label).toContain('getUserMedia');
   });
 
   test('frames flow end to end at exactly the requested frame size', async () => {

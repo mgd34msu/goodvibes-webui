@@ -50,8 +50,7 @@ function selectLabel(trigger: HTMLButtonElement, label: string): void {
 
 describe('TimezonePicker', () => {
   test('renders a select with the explicit "UTC (unset)" option always present', () => {
-    const { container, select, unmount } = render({ value: '', onCommit: () => {} });
-    expect(container.querySelector('select')).toBeNull();
+    const { select, unmount } = render({ value: '', onCommit: () => {} });
     // The unset value reads as its explicit label on the trigger.
     expect(select.textContent).toContain(UNSET_TIMEZONE_LABEL);
     expect(optionLabels(select)).toContain(UNSET_TIMEZONE_LABEL);

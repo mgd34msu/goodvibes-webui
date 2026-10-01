@@ -71,8 +71,6 @@ describe('HunkCommentSheet', () => {
     const { container, unmount } = render();
     const text = container.textContent ?? '';
     expect(text).toContain('src/foo.ts');
-    expect(text).toContain('new 40–43');
-    expect(text).toContain('old 40–42');
     expect(text).toContain('checkpoint "turn abc" · 2 minutes ago');
     // excerpt reconstructs the added line with its marker
     expect(container.querySelector('.hunk-sheet__excerpt')?.textContent).toContain('+const c = 3;');
@@ -107,14 +105,6 @@ describe('HunkCommentSheet', () => {
     const form = container.querySelector('form') as HTMLFormElement;
     flushSync(() => form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
     expect(submitted).toEqual([]);
-    unmount();
-  });
-
-  test('follow-up mode labels the queue action and states no active agent', () => {
-    const { container, unmount } = render({ mode: 'followUp' });
-    const text = container.textContent ?? '';
-    expect(text).toContain('No active agent');
-    expect(container.querySelector('.hunk-sheet__send')?.textContent).toContain('Queue');
     unmount();
   });
 

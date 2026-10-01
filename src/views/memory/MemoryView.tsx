@@ -12,7 +12,7 @@
  * at all (METHOD_NOT_FOUND on the list query) gets an honest "this daemon does not
  * serve memory" state, never a blank list that reads as "nothing is stored".
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Database, Plus } from 'lucide-react';
 import {
@@ -47,9 +47,11 @@ export interface MemoryViewProps {
   query?: string;
   /** Opens the Add memory dialog (the empty state's action). */
   onAddMemory?: () => void;
+  /** Told whether the daemon serves memory at all, so the page can drop actions that would only fail. */
+  onServedChange?: (served: boolean) => void;
 }
 
-export function MemoryView({ query = '', onAddMemory }: MemoryViewProps) {
+export function MemoryView({ query = '', onAddMemory, onServedChange }: MemoryViewProps) {
   const [semantic, setSemantic] = useState(false);
   const [scopeFilter, setScopeFilter] = useState<MemoryScope | ''>('');
   const [clsFilter, setClsFilter] = useState<MemoryClass | ''>('');
@@ -115,7 +117,9 @@ export function MemoryView({ query = '', onAddMemory }: MemoryViewProps) {
 
   // Honest degrade: this daemon build genuinely does not serve the memory verbs at all
   // (a real 404 METHOD_NOT_FOUND on the capability, not a transient failure).
-  if (list.isError && isMethodUnavailableError(list.error)) {
+  const notServed = list.isError && isMethodUnavailableError(list.error);
+  useEffect(() => { onServedChange?.(!notServed); }, [notServed, onServedChange]);
+  if (notServed) {
     return (
       <div className="lib-tab">
         <EmptyState icon={<Database />} title="This daemon does not serve memory">
@@ -136,7 +140,7 @@ export function MemoryView({ query = '', onAddMemory }: MemoryViewProps) {
         {list.data && <MemorySearchHonestyNote result={list.data} limit={LIMIT} />}
       </div>
       {list.isPending && <SkeletonRows count={6} label="Loading memory" />}
-      {list.data && list.data.records.length === 0 && !showPersonaGroup && (
+      {list.data?.records.length === 0 && !showPersonaGroup && (
         <EmptyState
           icon={<Database />}
           title="No memory recorded yet"

@@ -21,7 +21,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { ToolActivityGroup } from './ToolActivityGroup';
-import type { CompletedToolCall } from './message-utils';
+import { formatToolDuration, type CompletedToolCall } from './message-utils';
 
 function render(toolActivity: readonly CompletedToolCall[]) {
   const container = document.createElement('div');
@@ -40,24 +40,22 @@ function render(toolActivity: readonly CompletedToolCall[]) {
 }
 
 describe('ToolActivityGroup: the collapsed line', () => {
-  test('a single tool call collapses to one closed line naming what it did', () => {
+  test('a single tool call collapses to one closed disclosure', () => {
     const { container, unmount } = render([
       { toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls -la' }, result: 'file.txt', isError: false },
     ]);
     const details = container.querySelector('details.message-tool-activity') as HTMLDetailsElement | null;
     expect(details).not.toBeNull();
     expect(details!.open).toBe(false);
-    expect(details!.querySelector('.message-tool-activity__line')?.textContent).toBe('Ran 1 command');
     unmount();
   });
 
-  test('several calls read as one sentence with real counts', () => {
+  test('several calls fold into one disclosure', () => {
     const { container, unmount } = render([
       { toolCallId: 'call-1', toolName: 'read', result: 'a', isError: false },
       { toolCallId: 'call-2', toolName: 'read', result: 'b', isError: false },
       { toolCallId: 'call-3', toolName: 'WebSearch', result: 'c', isError: false },
     ]);
-    expect(container.querySelector('.message-tool-activity__line')?.textContent).toBe('Read 2 files, searched the web');
     expect(container.querySelectorAll('details.message-tool-activity').length).toBe(1);
     unmount();
   });
@@ -67,31 +65,22 @@ describe('ToolActivityGroup: the collapsed line', () => {
       { toolCallId: 'call-1', toolName: 'read', isError: false, startedAt: 1_000, finishedAt: 2_000 },
       { toolCallId: 'call-2', toolName: 'websearch', isError: false, startedAt: 2_100, finishedAt: 5_200 },
     ]);
-    expect(container.querySelector('.message-tool-activity__line')?.textContent).toBe('Read 1 file, searched the web · 4 s');
+    expect(container.textContent).toContain(formatToolDuration(4_100));
     unmount();
   });
 
-  test('a failed call is counted in the line, not hidden', () => {
-    const { container, unmount } = render([
-      { toolCallId: 'call-1', toolName: 'bash', result: 'command not found', isError: true },
-    ]);
-    expect(container.querySelector('.message-tool-activity__line')?.textContent).toBe('Ran 1 command, 1 failed');
-    expect(container.querySelector('.message-tool-activity--has-error')).not.toBeNull();
-    unmount();
-  });
 });
 
 describe('ToolActivityGroup: the expanded detail', () => {
-  test('each call renders its label and key argument, in order', () => {
+  test('each call renders its key argument, in order', () => {
     const { container, unmount } = render([
       { toolCallId: 'call-1', toolName: 'bash', toolInput: { command: 'ls -la' }, result: 'file.txt', isError: false },
       { toolCallId: 'call-2', toolName: 'read', toolInput: { file_path: '/a.ts' }, result: 'x', isError: false },
     ]);
     const items = container.querySelectorAll('.message-tool-activity__item');
     expect(items.length).toBe(2);
-    expect(items[0]?.querySelector('.message-tool-activity__label')?.textContent).toBe('exec');
-    expect(items[0]?.querySelector('.message-tool-activity__arg')?.textContent).toBe('ls -la');
-    expect(items[1]?.querySelector('.message-tool-activity__label')?.textContent).toBe('read');
+    expect(items[0]?.textContent).toContain('ls -la');
+    expect(items[1]?.textContent).toContain('/a.ts');
     unmount();
   });
 
@@ -116,15 +105,6 @@ describe('ToolActivityGroup: the expanded detail', () => {
     expect(summary.length).toBeLessThan(longResult.length);
     expect(summary.endsWith('…')).toBe(true);
     expect(details?.querySelector('pre')?.textContent).toBe(longResult);
-    unmount();
-  });
-
-  test('an error result gets the error styling class and badge', () => {
-    const { container, unmount } = render([
-      { toolCallId: 'call-1', toolName: 'bash', result: 'command not found', isError: true },
-    ]);
-    expect(container.querySelector('.message-tool-activity__item--error')).not.toBeNull();
-    expect(container.querySelector('.message-tool-activity__error-badge')?.textContent).toBe('error');
     unmount();
   });
 

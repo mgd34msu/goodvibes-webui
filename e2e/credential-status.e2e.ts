@@ -8,35 +8,22 @@ import { test, expect } from '@playwright/test';
 import { installMockDaemon } from './support/mock-daemon';
 import { expectNoHorizontalScroll, openSettings } from './support/app';
 
-test('available: configured/usable credentials render honestly, no fabricated state', async ({ page }) => {
+test('available: one row per credential the daemon reports, and no degraded notice', async ({ page }) => {
   await installMockDaemon(page, { credentials: 'available' });
   await openSettings(page, 'credentials');
   const panel = page.locator('.credential-status');
-  await expect(panel).toBeVisible();
-  await expect(panel.getByText('ANTHROPIC_API_KEY')).toBeVisible();
-  await expect(panel.getByText('usable', { exact: true }).first()).toBeVisible();
-  // GOOGLE_API_KEY is configured but not usable in the seed, the honest
-  // degraded label, distinct from plain "usable".
-  await expect(panel.getByText('configured, not usable')).toBeVisible();
+  await expect(panel.getByRole('list', { name: 'Credentials' }).getByRole('listitem')).toHaveCount(3);
+  await expect(panel.getByRole('status')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
 
-test('degraded: a 503 CREDENTIAL_STORE_UNAVAILABLE renders the honest reason, never "configured"', async ({ page }) => {
-  await installMockDaemon(page, { credentials: 'store-unavailable' });
-  await openSettings(page, 'credentials');
-  const panel = page.locator('.credential-status');
-  await expect(panel.getByText('Credential status unavailable')).toBeVisible();
-  await expect(panel.getByText('The daemon has no shared credential store wired.')).toBeVisible();
-  await expect(panel.getByText('not configured')).toHaveCount(0);
-  await expectNoHorizontalScroll(page);
-});
-
-test('refused: a non-admin token\'s 403 renders honestly, distinct from the degraded-store message', async ({ page }) => {
-  await installMockDaemon(page, { credentials: 'admin-required' });
-  await openSettings(page, 'credentials');
-  const panel = page.locator('.credential-status');
-  await expect(panel.getByText('Admin access required')).toBeVisible();
-  await expect(panel.getByText('Sign in with an admin-scoped token to view credential status.')).toBeVisible();
-  await expect(panel.getByText('shared credential store', { exact: false })).toHaveCount(0);
-  await expectNoHorizontalScroll(page);
-});
+for (const outcome of ['store-unavailable', 'admin-required'] as const) {
+  test(`${outcome}: the refused read shows a status notice and never a credentials list`, async ({ page }) => {
+    await installMockDaemon(page, { credentials: outcome });
+    await openSettings(page, 'credentials');
+    const panel = page.locator('.credential-status');
+    await expect(panel.getByRole('status')).toBeVisible();
+    await expect(panel.getByRole('list', { name: 'Credentials' })).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+}

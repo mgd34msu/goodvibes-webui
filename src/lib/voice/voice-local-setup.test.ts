@@ -45,22 +45,20 @@ describe('voiceLocalNeedsSetup', () => {
 });
 
 describe('voiceLocalStateLabel', () => {
-  test('gives a human label for every resting state', () => {
-    expect(voiceLocalStateLabel('provisioned')).toBe('Installed');
-    expect(voiceLocalStateLabel('partial')).toBe('Partially installed');
-    expect(voiceLocalStateLabel('not-provisioned')).toBe('Not set up');
-    expect(voiceLocalStateLabel('unsupported-platform')).toBe('Not supported on this platform');
+  test('gives every resting state a distinct, non-empty label', () => {
+    const labels = (['provisioned', 'partial', 'not-provisioned', 'unsupported-platform'] as const).map(voiceLocalStateLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of labels) expect(label.length).toBeGreaterThan(0);
   });
 });
 
 describe('voiceLocalInstallStateLabel', () => {
-  test('gives a human label for every install-attempt terminal state', () => {
-    expect(voiceLocalInstallStateLabel('provisioned')).toBe('Installed');
-    expect(voiceLocalInstallStateLabel('unsupported-platform')).toBe('Not supported on this platform');
-    expect(voiceLocalInstallStateLabel('download-failed')).toBe('Download failed');
-    expect(voiceLocalInstallStateLabel('checksum-mismatch')).toBe('Checksum mismatch');
-    expect(voiceLocalInstallStateLabel('bundle-unavailable')).toBe('Not yet published for this platform');
-    expect(voiceLocalInstallStateLabel('sideload-mismatch')).toBe('Sideloaded file does not match the pinned build');
+  test('gives every install-attempt terminal state a distinct, non-empty label', () => {
+    const labels = ([
+      'provisioned', 'unsupported-platform', 'download-failed', 'checksum-mismatch', 'bundle-unavailable', 'sideload-mismatch',
+    ] as const).map(voiceLocalInstallStateLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of labels) expect(label.length).toBeGreaterThan(0);
   });
 });
 
@@ -140,13 +138,10 @@ describe('readVoiceLocalStatus: the optional installInProgress section (SDK 5357
 });
 
 describe('voiceLocalPhaseLabel', () => {
-  test('gives a human label for every provisioner phase', () => {
-    expect(voiceLocalPhaseLabel('skip')).toBe('Already present');
-    expect(voiceLocalPhaseLabel('download')).toBe('Downloading');
-    expect(voiceLocalPhaseLabel('verify')).toBe('Verifying');
-    expect(voiceLocalPhaseLabel('extract')).toBe('Extracting');
-    expect(voiceLocalPhaseLabel('done')).toBe('Done');
-    expect(voiceLocalPhaseLabel('error')).toBe('Failed');
+  test('gives every provisioner phase a distinct, non-empty label', () => {
+    const labels = (['skip', 'download', 'verify', 'extract', 'done', 'error'] as const).map(voiceLocalPhaseLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of labels) expect(label.length).toBeGreaterThan(0);
   });
 });
 

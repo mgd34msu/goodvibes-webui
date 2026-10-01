@@ -123,7 +123,6 @@ describe('TailscaleSettings: quiet when absent', () => {
     await waitFor(() => statusAnswered(client));
     flushSync(() => {});
     expect(el.querySelector('[data-testid="tailscale-settings"]')).toBeNull();
-    expect(el.textContent).not.toContain('tailscale');
     unmount();
   });
 
@@ -155,8 +154,7 @@ describe('TailscaleSettings: usable environment', () => {
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
     click(el.querySelector('.gv-confirm__confirm'));
     await waitFor(() => serveRunCalls.length > 0);
-    await waitFor(() => Boolean(el.querySelector('.tailscale-panel__receipt--ok')));
-    expect(el.textContent).toContain('https://my-host.ts.net');
+    await waitFor(() => (el.textContent ?? '').includes('https://my-host.ts.net'));
     unmount();
   });
 
@@ -188,23 +186,22 @@ describe('TailscaleSettings: usable environment', () => {
     click([...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Serve over tailscale')));
     await waitFor(() => Boolean(el.querySelector('.gv-confirm')));
     click(el.querySelector('.gv-confirm__confirm'));
-    await waitFor(() => Boolean(el.querySelector('.tailscale-panel__receipt--danger')));
-    expect(el.textContent).toContain('permission denied');
+    await waitFor(() => (el.textContent ?? '').includes('permission denied'));
     unmount();
   });
 
-  test('a prior receipt (lastServe) renders on load, and the action label offers to re-run', async () => {
+  test('a prior receipt (lastServe) renders on load, and the action stays offered', async () => {
     getData = {
       available: true,
       loggedIn: true,
       magicDnsName: 'my-host.tailnet.ts.net',
       httpsUrl: 'https://my-host.tailnet.ts.net',
       detail: 'connected',
-      lastServe: { at: 1_700_000_000_000, command: 'tailscale serve --bg 3421', ok: true, url: 'https://my-host.tailnet.ts.net', detail: 'serving' },
+      lastServe: { at: 1_700_000_000_000, command: 'tailscale serve --bg 3421', ok: true, url: 'https://served.example.ts.net', detail: 'serving' },
     };
     const { el, unmount } = render();
-    await waitFor(() => Boolean(el.querySelector('.tailscale-panel__receipt--ok')));
-    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Serve over tailscale again'))).toBe(true);
+    await waitFor(() => Boolean(el.querySelector('a[href="https://served.example.ts.net"]')));
+    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Serve over tailscale'))).toBe(true);
     unmount();
   });
 });

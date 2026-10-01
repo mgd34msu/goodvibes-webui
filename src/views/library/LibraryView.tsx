@@ -29,12 +29,13 @@ export interface LibraryViewProps {
 
 export function LibraryView({ tab, onTabChange }: LibraryViewProps) {
   const queryClient = useQueryClient();
-  const current = resolveTab<LibraryTab>(LIBRARY, tab);
+  const current = resolveTab(LIBRARY, tab);
   const [text, setText] = useState('');
   const settled = useDebouncedValue(text);
   // Enter applies the search at once instead of waiting out the pause.
   const [forced, setForced] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [memoryServed, setMemoryServed] = useState(true);
   const reviewCount = useReviewCount();
 
   useEffect(() => setForced(null), [text]);
@@ -60,7 +61,7 @@ export function LibraryView({ tab, onTabChange }: LibraryViewProps) {
       <DataPage
         title={LIBRARY.label}
         description={LIBRARY.description}
-        action={(
+        action={memoryServed ? (
           <Button
             variant="primary"
             icon={<Plus aria-hidden="true" />}
@@ -68,7 +69,7 @@ export function LibraryView({ tab, onTabChange }: LibraryViewProps) {
           >
             Add memory
           </Button>
-        )}
+        ) : undefined}
         filters={(
           <>
             <form className="dv-filters__search lib-search" role="search" onSubmit={submitSearch}>
@@ -95,7 +96,7 @@ export function LibraryView({ tab, onTabChange }: LibraryViewProps) {
         )}
         className="lib-page"
       >
-        {current === 'memory' && <MemoryView query={query} onAddMemory={() => setAdding(true)} />}
+        {current === 'memory' && <MemoryView query={query} onAddMemory={() => setAdding(true)} onServedChange={setMemoryServed} />}
         {current === 'knowledge' && <KnowledgeView query={query} />}
         {current === 'review' && <ReviewTab query={query} />}
       </DataPage>

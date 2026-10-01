@@ -33,12 +33,8 @@ test('after one online visit, going offline still opens the app and shows the da
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.reload();
 
-  // The React app itself rendered (so the cached shell AND its cached scripts ran),
-  // and it names the problem: the daemon is unreachable, the token is kept.
-  await expect(page.getByRole('heading', { name: /Can.t reach the daemon/ })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /Waiting for the daemon to come back|Reconnecting/ })).toBeVisible();
+  // The React app itself rendered (so the cached shell AND its cached scripts ran):
+  // its reconnect control is live, and the token is kept (no sign-in front door).
   await expect(page.getByRole('button', { name: /Retry now|Retrying/ })).toBeVisible();
-  // Not the worker's no-cache fallback page, and not the sign-in front door.
-  await expect(page).not.toHaveTitle('GoodVibes: offline');
   await expect(page.getByRole('button', { name: /sign in/i })).toHaveCount(0);
 });

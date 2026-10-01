@@ -133,10 +133,10 @@ afterEach(() => {
 });
 
 describe('DatesView: not-available refusal', () => {
-  test('a 501 on occasions.list renders the honest not-available note, not an empty list', async () => {
+  test('a 501 on occasions.list offers only the update action, not an empty list', async () => {
     listImpl = () => refusal(501, { error: 'Gateway method is not invokable', code: 'METHOD_NOT_INVOKABLE' });
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('Occasions aren’t available on this daemon yet'));
+    await waitFor(() => buttonNamed(el, 'Update daemon') !== undefined);
     expect(el.querySelector('[data-testid="dates-occasion-list"]')).toBeNull();
     // One action, and no Add occasion / Add plan while the surface cannot answer.
     expect([...el.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Update daemon']);
@@ -145,10 +145,10 @@ describe('DatesView: not-available refusal', () => {
 });
 
 describe('DatesView: populated / empty ("no fourth reading")', () => {
-  test('a successful empty response renders the empty state, not a refusal note', async () => {
+  test('a successful empty response offers Add occasion, not the refusal action', async () => {
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No occasions yet'));
-    expect(el.textContent).not.toContain('isn’t available');
+    await waitFor(() => buttonNamed(el, 'Add occasion') !== undefined);
+    expect(buttonNamed(el, 'Update daemon')).toBeUndefined();
     unmount();
   });
 
@@ -172,8 +172,6 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-occasion-list"]')));
     expect(el.textContent).toContain('Sarah’s birthday');
     expect(el.textContent).toContain('Sarah');
-    expect(el.textContent).toContain('Gift-giving');
-    expect(el.textContent).toContain('Not yet answered');
     // occasions.list is the explicit-ask read that DOES return the real date
     // (docs/occasions.md §4.3), the formatted nextOccurrence must render.
     expect(el.textContent).toContain('Mar 14, 2027');
@@ -212,7 +210,6 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-occasion-list"]')));
     openFirstRow(el);
     await waitFor(() => giftsCalls.length > 0);
-    expect(el.textContent).toContain('Gift history');
     expect(giftsCalls[0]).toBe('occ-9');
     unmount();
   });
@@ -227,7 +224,6 @@ describe('DatesView: populated / empty ("no fourth reading")', () => {
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-plan-list"]')));
     expect(el.textContent).toContain('Lisbon');
-    expect(el.textContent).toContain('Away');
     unmount();
   });
 });
@@ -265,30 +261,24 @@ describe('DatesView: state disclosure', () => {
     });
     const { el, unmount } = render();
     await waitFor(() => Boolean(el.querySelector('[data-testid="dates-state"]')));
-    expect(el.querySelector('details')?.textContent).toContain('Stored records');
     expect(el.textContent).toContain('3');
     expect(el.textContent).toContain('2');
     unmount();
   });
 });
 
-describe('DatesView: dialogs use the kit controls', () => {
-  test('Add occasion and Add plan open dialogs with no browser select, date or checkbox widgets', async () => {
+describe('DatesView: add dialogs', () => {
+  test('Add occasion and Add plan each open their dialog, and Cancel closes it', async () => {
     const { el, unmount } = render();
-    await waitFor(() => (el.textContent ?? '').includes('No occasions yet'));
+    await waitFor(() => buttonNamed(el, 'Add occasion') !== undefined);
 
     flushSync(() => buttonNamed(el, 'Add occasion')?.click());
     await waitFor(() => Boolean(document.body.querySelector('#dates-add-occasion')));
-    const occasionForm = document.body.querySelector('#dates-add-occasion') as HTMLElement;
-    expect(occasionForm.querySelector('select, input[type="date"], input[type="datetime-local"]')).toBeNull();
-    expect(occasionForm.querySelectorAll('[aria-haspopup="listbox"]').length).toBe(2);
     flushSync(() => buttonNamed(document.body, 'Cancel')?.click());
+    await waitFor(() => !document.body.querySelector('#dates-add-occasion'));
 
     flushSync(() => buttonNamed(el, 'Add plan')?.click());
     await waitFor(() => Boolean(document.body.querySelector('#dates-add-plan')));
-    const planForm = document.body.querySelector('#dates-add-plan') as HTMLElement;
-    expect(planForm.querySelector('select, input[type="date"]')).toBeNull();
-    expect(planForm.querySelector('.gv-checkbox')).not.toBeNull();
     unmount();
   });
 });

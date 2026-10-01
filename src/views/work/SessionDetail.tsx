@@ -145,7 +145,7 @@ function useKnownCost(sessionId: string) {
     retry: false,
   });
   const row = attribution.data?.rows.find((r) => r.key === sessionId);
-  if (!row || row.costUsd === null) return null;
+  if (row?.costUsd == null) return null;
   return (
     <span className="work-cost" title={`${row.pricedRecordCount} priced and ${row.unpricedRecordCount} unpriced record(s) in the last 24 hours`}>
       ${row.costUsd.toFixed(row.costUsd < 0.01 ? 4 : 2)}{row.costState === 'estimated' ? ' (estimated)' : ''}

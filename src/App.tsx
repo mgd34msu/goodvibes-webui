@@ -36,6 +36,7 @@ import { SettingsDialog } from './components/settings/dialog/SettingsDialog';
 import type { SettingsSectionId } from './components/settings/dialog/sections';
 import { attentionCount } from './lib/fleet';
 import { asRecord, bestId, bestTitle, firstString } from './lib/object';
+import { nonEmpty } from './lib/non-empty';
 import {
   companionSessionsFromListResponse,
   readStoredActiveCompanionSessionId,
@@ -288,7 +289,7 @@ export default function App() {
   // The settings dialog lives in the URL (?settings=<section>): opening pushes a
   // history entry, so Back closes it; switching sections replaces the entry.
   const openSettings = useCallback(
-    (section?: string) => setUrlState({ settings: section || 'general' }),
+    (section?: string) => setUrlState({ settings: nonEmpty(section) ?? 'general' }),
     [setUrlState],
   );
   const closeSettings = useCallback(() => setUrlState({ settings: '' }), [setUrlState]);

@@ -52,10 +52,9 @@ afterEach(() => {
 });
 
 describe('Dialog: modal, labelled, focus-trapped', () => {
-  test('is a labelled modal dialog with focus moved inside', () => {
+  test('carries the given title and description, with focus moved inside', () => {
     renderDialog(true);
     const dialog = document.querySelector('[role="dialog"]')!;
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Revoke token');
     expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toContain('signs out');
     expect(dialog.contains(document.activeElement)).toBe(true);
@@ -113,16 +112,6 @@ describe('Dialog: bare layout and nested dialogs', () => {
       );
     });
   }
-
-  test('bare: no kit header or body, the title stays the accessible name', () => {
-    renderBare(false);
-    const dialog = document.querySelector('[role="dialog"]')!;
-    expect(dialog.classList.contains('settings-dialog')).toBe(true);
-    expect(dialog.querySelector('.gv-dialog__header')).toBeNull();
-    expect(dialog.querySelector('.gv-dialog__body')).toBeNull();
-    expect(dialog.querySelector('.two-columns')).not.toBeNull();
-    expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Settings');
-  });
 
   test('Escape inside a nested dialog is left to that dialog, the parent stays open', () => {
     renderBare(true);

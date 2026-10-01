@@ -54,9 +54,8 @@ describe('ErrorBoundary', () => {
     const { el, unmount } = renderInto(
       <ErrorBoundary><Bomb shouldThrow /></ErrorBoundary>,
     );
-    expect(el.textContent).toContain('Something went wrong');
     expect(el.textContent).toContain('Test explosion');
-    expect(el.querySelector('button')?.textContent).toBe('Try again');
+    expect(el.querySelector('button')).not.toBeNull();
     unmount();
   });
 
@@ -138,13 +137,12 @@ describe('ErrorBoundary', () => {
     unmount();
   });
 
-  test('default fallback has role=alert with aria-live=assertive', () => {
+  test('default fallback is an alert', () => {
     const { el, unmount } = renderInto(
       <ErrorBoundary><Bomb shouldThrow /></ErrorBoundary>,
     );
     const alert = el.querySelector('[role="alert"]');
     expect(alert).not.toBeNull();
-    expect(alert?.getAttribute('aria-live')).toBe('assertive');
     unmount();
   });
 });

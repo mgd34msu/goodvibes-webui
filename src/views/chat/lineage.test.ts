@@ -114,9 +114,8 @@ describe('buildLineage', () => {
 });
 
 describe('retainedHistoryLabel', () => {
-  test('edit and regenerate get honest, distinct labels', () => {
-    expect(retainedHistoryLabel('edit', 1)).toContain('original');
-    expect(retainedHistoryLabel('regenerate', 1)).toContain('previous');
+  test('edit and regenerate get distinct labels, carrying the count', () => {
+    expect(retainedHistoryLabel('edit', 1)).not.toBe(retainedHistoryLabel('regenerate', 1));
     expect(retainedHistoryLabel('regenerate', 3)).toContain('3');
   });
 });

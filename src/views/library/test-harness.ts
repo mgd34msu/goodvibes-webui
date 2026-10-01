@@ -78,6 +78,6 @@ export async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promi
   while (!predicate()) {
     if (Date.now() - start > timeoutMs) throw new Error('waitFor timed out');
     await new Promise((resolve) => setTimeout(resolve, 10));
-    flushSync(() => {});
+    flushSync(() => { /* flush the renders the tick scheduled */ });
   }
 }
